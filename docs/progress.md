@@ -231,3 +231,40 @@ errors: only an actually queued pre-CONNECT rejection CONNACK may flush; inferri
 flush from UnsupportedVersion alone could drain a slow business queue. That
 regression failed before the explicit flag and passed after. All commands above
 were rerun on this final functional implementation.
+
+## Module layout refactor accepted — 2026-10-28
+
+All five crate lib.rs entry points now contain only crate docs, module declarations
+and re-exports (protocol14/router11/session20/storage15/transport10 lines). Business
+types/functions/impl blocks and test bodies live in responsibility-specific modules.
+The convention is recorded in AGENTS.md; architecture.md lists the resulting layout.
+Public root import paths, configuration, protocol behavior and durable schema1 are
+preserved. No new business feature or dependency was added.
+
+Five specialists used isolated worktrees. Integrated commits:
+
+| Crate | Specialist commit | Integrated commit |
+| --- | --- | --- |
+| protocol | cf1c560 | 737a7d4 |
+| session | ed38825 | b8e9a31 |
+| router | e92ac44 | f7a5d37 |
+| storage | 22ad82f | ad18805 |
+| transport | 48083b0 | c8efdf2 |
+
+Review confirmed SQLite durable.rs is unchanged, session durable.rs changes only
+its private state import, and transport durable.rs changes only its deadline helper
+path. Internal sibling access uses parent-scoped visibility; external APIs are not
+expanded. Existing tests were moved, not replaced with weaker checks.
+
+Actual final checks: fmt, strict workspace Clippy, build, all77 existing Rust tests,
+and RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --offline passed.
+A source audit confirmed no business definitions remain in any lib.rs. Existing
+TCP checks passed in both modes (legacy14+9, SQLite14+9), persistent/crash tests14
+passed, and both Paho3x3 matrices plus persistent Paho reconnect checks passed.
+
+An additional real compatibility test created a synthetic SQLite DB using the
+pre-refactor 5dc60c4 binary and killed it with persistent subscriptions, an outgoing
+AwaitComp, a queued QoS1 and an incoming pending QoS2 record. The refactored binary
+restored session-present, the exact PUBREL ID and both queued/pending payloads
+without schema migration. This is a one-off cross-version validation, not a new
+committed test fixture. Runtime capabilities and remaining feature tasks are unchanged.

@@ -72,3 +72,8 @@ WebSocket, containers and admin APIs follow single-node correctness/security.
 Cluster architecture remains deferred pending stronger single-node verification.
 
 Full MQTT conformance and application-side exactly-once processing are not claimed.
+
+Module-layout maintenance completed: every lib.rs is a declaration/re-export-only
+entry point. Implementations/tests are grouped by responsibility, preserving the
+existing public API and durable format. This refactor does not complete or alter
+any of the unfinished feature/hardening requirements listed above.

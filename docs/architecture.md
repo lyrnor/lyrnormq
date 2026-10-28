@@ -133,3 +133,15 @@ lib.rs is the crate entry point: documentation, module declarations and re-expor
 only. Implementation and tests live in modules grouped by responsibility. This
 structural refactor preserves public API paths, packet behavior and schema1 durable
 records; internal visibility may be crate-scoped where sibling modules cooperate.
+
+| Crate | Implementation modules |
+| --- | --- |
+| mqtt-protocol | packet, error, codec; existing wire tests in tests.rs |
+| mqtt-router | filter and trie, with their own test modules |
+| mqtt-session | error, identifiers, incoming, outgoing and durable |
+| mqtt-storage | model, error, store trait, memory backend and durable SQLite |
+| mqtt-transport | config, server, connection, state, packet_io and durable worker |
+
+These are internal module boundaries. Public crate-root imports remain stable;
+private state needed by sibling modules is scoped to the parent crate. Tests stay
+outside lib.rs. The durable record format is unchanged by this layout refactor.
