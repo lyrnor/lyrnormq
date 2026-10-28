@@ -34,7 +34,8 @@ Public root reexports from dedicated modules:
   (only PUBLISH); SUBSCRIBE subscription ID singleton. Unknown IDs, invalid context,
   duplicate forbidden properties/zero ReceiveMaximum/zero MaxPacketSize/zero TopicAlias,
   bool>1, MaximumQos>1, invalid/noncanonical variable integers and UTF8 rejected.
-  ResponseTopic must nonempty valid Topic Name. No unbounded allocations/recursion.
+  ResponseTopic must nonempty valid Topic Name. Invalid UTF8/NUL/noncharacters are
+Malformed81; well-formed UTF8 with an empty/wildcard ResponseTopic is Protocol82. No unbounded allocations/recursion.
 - ReasonCode opaque typed byte, TryFrom<u8> validates standard code set, value()->u8,
   associated named constants SUCCESS,NO_SUBSCRIPTION_EXISTED,DISCONNECT_WITH_WILL_MESSAGE,
   MALFORMED_PACKET,PROTOCOL_ERROR,IMPLEMENTATION_SPECIFIC_ERROR,
@@ -97,11 +98,13 @@ PUBLISH/Will forwardable metadata: UserProperty (duplicates/order),ContentType,
 PayloadFormatIndicator,ResponseTopic,CorrelationData. Preserve through retained
 replace/replay, inbound QoS2, outgoing retries, offline queues, restart and version
 bridging (strip only when writing V311). TopicAlias input rejected0x94. Subscription
-Identifier client->server PUBLISH rejected0x82; on SUBSCRIBE return0xA1 per filter.
+Identifier client->server PUBLISH rejected0x82; SUBSCRIBE with an Identifier causes
+DISCONNECT0xA1 because SubscriptionIdentifierAvailable=0 was advertised.
 MessageExpiryInterval is not implemented: reject its presence with0x83, do not ignore.
 Nonzero WillDelayInterval rejectedCONNACK0x83; zero accepted/removed before publication.
 Nondefault subscription NoLocal/RAP/RH unsupported ->SUBACK0x83 per filter (no silent
-acceptance); shared filters ->0x9E. Reserved option bits6/7 are MalformedPacket0x81 perMQTT-3.8.3-5;
+acceptance); shared filters cause DISCONNECT0x9E because SharedSubscriptionAvailable=0
+was advertised. Reject these fatal unsupported SUBSCRIBEs before any filter install. Reserved option bits6/7 are MalformedPacket0x81 perMQTT-3.8.3-5;
 QoS3,RetainHandling3 and NoLocal-on-shared are ProtocolError0x82.
 All exclusions documented/tested; these are not claims of full MQTT5 compliance.
 
