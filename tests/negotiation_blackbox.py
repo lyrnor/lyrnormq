@@ -178,6 +178,24 @@ class NegotiationBlackbox(unittest.TestCase):
         self.publish(pub, 'retained/large', b'', retain=True)
         self.message(sub, 'retained/large', b'');self.message(replay, 'retained/large', b'')
 
+    def test_oversized_retained_matches_do_not_consume_small_peer_queue(self):
+        self.start('--outbound-capacity', '1')
+        pub = self.client('capacity-retained-source')
+        for topic in ('capacity/a', 'capacity/b'):
+            self.publish(pub, topic, b'x' * 256, retain=True)
+        self.publish(pub, 'capacity/z', b'fits', retain=True)
+        small, _ = self.connect('capacity-small', 64)
+        # Retained replay is one atomic SUBSCRIBE proposal: no network-poll race
+        # can rescue an implementation that charges oversized copies to this queue.
+        self.subscribe(small, [('capacity/#', 1)])
+        self.message(small, 'capacity/z', b'fits', retain=True)
+        self.quiet(small)
+        uncapped = self.client('capacity-uncapped')
+        for index, topic in enumerate(('capacity/a', 'capacity/b')):
+            self.subscribe(uncapped, [(topic, 1)], packet_id=index + 1)
+            self.message(uncapped, topic, b'x' * 256, retain=True)
+            self.barrier(uncapped)
+
     def test_peer_limit_is_connection_only_offline_and_reconnect(self):
         self.start();sub, _ = self.connect('offline', 64);self.subscribe(sub, [('offline/#', 2)])
         self.disconnect(sub);pub = self.client('offline-source')
