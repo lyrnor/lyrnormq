@@ -17,6 +17,8 @@ struct Node {
     children: BTreeMap<String, usize>,
     clients: BTreeMap<u64, u8>,
     descendants: BTreeMap<u64, u8>,
+    filter: Option<String>,
+    descendant_filter: Option<String>,
 }
 impl Node {
     fn is_empty(&self) -> bool {
@@ -58,6 +60,7 @@ impl Router {
         for level in filter.split('/') {
             if level == "#" {
                 self.nodes[node].descendants.insert(client, qos);
+                self.nodes[node].descendant_filter = Some(filter.clone());
                 self.subscriptions.entry(client).or_default().insert(filter);
                 return true;
             }
@@ -77,6 +80,7 @@ impl Router {
             };
         }
         self.nodes[node].clients.insert(client, qos);
+        self.nodes[node].filter = Some(filter.clone());
         self.subscriptions.entry(client).or_default().insert(filter);
         true
     }
@@ -108,8 +112,14 @@ impl Router {
         }
         if hash {
             self.nodes[node].descendants.remove(&client);
+            if self.nodes[node].descendants.is_empty() {
+                self.nodes[node].descendant_filter = None;
+            }
         } else {
             self.nodes[node].clients.remove(&client);
+            if self.nodes[node].clients.is_empty() {
+                self.nodes[node].filter = None;
+            }
         }
         for (parent, level, child) in path.into_iter().rev() {
             if !self.nodes[child].is_empty() {
@@ -142,20 +152,46 @@ impl Router {
     /// any matching subscription. The caller caps this by the published QoS.
     /// Matching visits only applicable trie branches, never the reverse index.
     pub fn matching_qos(&self, topic: &str) -> Vec<(u64, u8)> {
+        let mut found = BTreeMap::new();
+        self.visit_matching(topic, |clients, _| merge_qos(&mut found, clients));
+        found.into_iter().collect()
+    }
+
+    /// Return every matching `(client, exact_filter, granted_qos)` subscription.
+    /// Distinct overlapping filters for one client remain distinct; replacing an
+    /// exact filter updates its grant without adding another result. Results are
+    /// sorted by client and filter. Matching visits applicable trie branches only.
+    pub fn matching_subscriptions(&self, topic: &str) -> Vec<(u64, String, u8)> {
+        let mut found = Vec::new();
+        self.visit_matching(topic, |clients, filter| {
+            if let Some(filter) = filter {
+                found.extend(
+                    clients
+                        .iter()
+                        .map(|(&client, &qos)| (client, filter.to_owned(), qos)),
+                );
+            }
+        });
+        found.sort_unstable_by(|left, right| {
+            left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1))
+        });
+        found
+    }
+
+    fn visit_matching(&self, topic: &str, mut visit: impl FnMut(&BTreeMap<u64, u8>, Option<&str>)) {
         if !valid_topic(topic) {
-            return Vec::new();
+            return;
         }
         let levels: Vec<_> = topic.split('/').collect();
         let system = topic.starts_with('$');
         let mut pending = vec![(0, 0)];
-        let mut found = BTreeMap::new();
         while let Some((node, depth)) = pending.pop() {
             let current = &self.nodes[node];
             if depth != 0 || !system {
-                merge_qos(&mut found, &current.descendants);
+                visit(&current.descendants, current.descendant_filter.as_deref());
             }
             if depth == levels.len() {
-                merge_qos(&mut found, &current.clients);
+                visit(&current.clients, current.filter.as_deref());
                 continue;
             }
             if let Some(&child) = current.children.get(levels[depth]) {
@@ -167,7 +203,6 @@ impl Router {
                 pending.push((child, depth + 1));
             }
         }
-        found.into_iter().collect()
     }
 
     /// Number of distinct filters held by a connection generation.

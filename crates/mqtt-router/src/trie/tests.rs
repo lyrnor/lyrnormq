@@ -165,3 +165,107 @@ fn qos_trie_matches_reference_across_replacements_and_removals() {
         );
     }
 }
+
+#[test]
+fn subscription_matches_keep_overlapping_filters_and_replacement_grants() {
+    let mut router = Router::default();
+    for (client, filter, qos) in [(2, "a/#", 1), (1, "a/b", 0), (1, "a/+", 2), (1, "a/#", 1)] {
+        assert!(router.subscribe_qos(client, filter.into(), qos));
+    }
+    assert_eq!(
+        router.matching_subscriptions("a/b"),
+        vec![
+            (1, "a/#".into(), 1),
+            (1, "a/+".into(), 2),
+            (1, "a/b".into(), 0),
+            (2, "a/#".into(), 1),
+        ]
+    );
+    assert!(router.subscribe_qos(1, "a/+".into(), 0));
+    router.unsubscribe(1, "a/#");
+    assert_eq!(
+        router.matching_subscriptions("a/b"),
+        vec![
+            (1, "a/+".into(), 0),
+            (1, "a/b".into(), 0),
+            (2, "a/#".into(), 1),
+        ]
+    );
+    assert_eq!(router.matching_qos("a/b"), vec![(1, 0), (2, 1)]);
+}
+
+#[test]
+fn subscription_matches_isolate_system_topics_and_empty_levels() {
+    let mut router = Router::default();
+    for filter in ["#", "+/#", "$SYS/#", "$SYS/+", "a/#", "a/+", "a/"] {
+        assert!(router.subscribe_qos(1, filter.into(), 1));
+    }
+    assert_eq!(
+        router.matching_subscriptions("$SYS/a"),
+        vec![(1, "$SYS/#".into(), 1), (1, "$SYS/+".into(), 1),]
+    );
+    assert_eq!(
+        router.matching_subscriptions("a/"),
+        vec![
+            (1, "#".into(), 1),
+            (1, "+/#".into(), 1),
+            (1, "a/".into(), 1),
+            (1, "a/#".into(), 1),
+            (1, "a/+".into(), 1),
+        ]
+    );
+    assert!(router.matching_subscriptions("").is_empty());
+    assert!(router.matching_subscriptions("a/+").is_empty());
+}
+
+#[test]
+fn subscription_matches_remain_exact_across_deep_cleanup_and_reuse() {
+    let mut router = Router::default();
+    let topic = "/".repeat(65533);
+    let hash = format!("{topic}/#");
+    assert!(router.subscribe_qos(1, topic.clone(), 2));
+    assert!(router.subscribe_qos(1, hash.clone(), 1));
+    assert_eq!(
+        router.matching_subscriptions(&topic),
+        vec![(1, topic.clone(), 2), (1, hash, 1),]
+    );
+    router.remove_client(1);
+    let allocated = router.nodes.len();
+    assert!(router.subscribe_qos(2, "different/path".into(), 0));
+    assert_eq!(
+        router.matching_subscriptions("different/path"),
+        vec![(2, "different/path".into(), 0)]
+    );
+    assert!(router.matching_subscriptions(&topic).is_empty());
+    assert_eq!(router.nodes.len(), allocated);
+    router.remove_client(2);
+    assert!(router.nodes.iter().all(Node::is_empty));
+}
+
+#[test]
+fn subscription_matches_agree_with_reference_and_do_not_scan_reverse_index() {
+    let filters = ["#", "+", "a/#", "a/+", "a/b", "/#", "$SYS/#", "a//+"];
+    let topics = ["a", "a/", "a/b", "a//b", "/", "$SYS", "$SYS/a"];
+    let mut router = Router::default();
+    let mut reference = BTreeMap::new();
+    for revision in 0..3 {
+        for client in 0..3u64 {
+            for (position, filter) in filters.iter().enumerate() {
+                let qos = ((position + revision + client as usize) % 3) as u8;
+                assert!(router.subscribe_qos(client, (*filter).into(), qos));
+                reference.insert((client, *filter), qos);
+            }
+        }
+        for topic in topics {
+            let expected = reference
+                .iter()
+                .filter(|((_, filter), _)| matches(filter, topic))
+                .map(|(&(client, filter), &qos)| (client, filter.to_owned(), qos))
+                .collect::<Vec<_>>();
+            assert_eq!(router.matching_subscriptions(topic), expected);
+        }
+    }
+    // This reverse index is only for cleanup. Matching must use the live trie.
+    router.subscriptions.clear();
+    assert!(!router.matching_subscriptions("a/b").is_empty());
+}
