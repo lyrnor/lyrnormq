@@ -261,7 +261,7 @@ fn string(out: &mut Vec<u8>, s: &str) -> Result<(), ProtocolError> {
     out.extend(s.as_bytes());
     Ok(())
 }
-fn validate_string(value: &str) -> Result<(), ProtocolError> {
+pub(super) fn validate_string(value: &str) -> Result<(), ProtocolError> {
     if value.len() > u16::MAX as usize {
         return Err(malformed("string too long"));
     }
@@ -270,14 +270,14 @@ fn validate_string(value: &str) -> Result<(), ProtocolError> {
     }
     Ok(())
 }
-fn validate_topic(topic: &str) -> Result<(), ProtocolError> {
+pub(super) fn validate_topic(topic: &str) -> Result<(), ProtocolError> {
     validate_string(topic)?;
     if topic.is_empty() || topic.contains(['+', '#']) {
         return Err(malformed("invalid topic name"));
     }
     Ok(())
 }
-fn validate_id(id: u16) -> Result<(), ProtocolError> {
+pub(super) fn validate_id(id: u16) -> Result<(), ProtocolError> {
     if id == 0 {
         return Err(malformed("zero packet identifier"));
     }
@@ -387,6 +387,7 @@ fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
             }
         }
         Packet::PingReq | Packet::PingResp | Packet::Disconnect => {}
+        Packet::Auth => return Err(unsupported("AUTH requires MQTT5")),
     }
     Ok(())
 }
@@ -501,6 +502,7 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
         Packet::PingReq => 0xc0,
         Packet::PingResp => 0xd0,
         Packet::Disconnect => 0xe0,
+        Packet::Auth => return Err(unsupported("AUTH requires MQTT5")),
     };
     if body.len() > 268_435_455 {
         return Err(ProtocolError::PacketTooLarge);

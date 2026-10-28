@@ -64,4 +64,5 @@ pub enum Packet {
     PingReq,
     PingResp,
     Disconnect,
+    Auth,
 }
