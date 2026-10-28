@@ -78,6 +78,7 @@ version = "0.1.0"
 dependencies = [
  "mqtt-protocol",
  "mqtt-router",
+ "mqtt-session",
  "tokio",
 ]
 

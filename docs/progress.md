@@ -41,7 +41,7 @@ local network permission. No CI-host execution is claimed.
 | Quality | 53fa65a + 78b1272 | ed3e131 + 3656316 |
 | Network | a5116f4 | fea9586 |
 
-## Known limitations and review
+## Phase 1 limitations (historical; superseded below)
 - Runtime does not support MQTT5, QoS1/2, retained messages, Will, credentials,
   persistent sessions or offline queues. Unsupported input is rejected; this is
   not a complete MQTT conformance claim. Empty client identifiers are rejected.
@@ -59,10 +59,68 @@ local network permission. No CI-host execution is claimed.
   and storage remain independent with no accidental coupling into Phase1.
 
 
-## Next phase
+## Original next phase plan (historical)
 1. Freeze QoS packet/property and durable session contracts.
 2. QoS 1 ACK/retry and QoS 2 explicit state machines with crash recovery tests.
 3. Retained delivery, Will conditions, persistent sessions and offline queues.
 4. MQTT 5 Clean Start/session expiry/reason codes/properties/receive maximum.
 5. Authentication/ACL extension interfaces and telemetry.
 6. Reproducible stress/fuzz/slow-consumer and crash tests before production claims.
+
+## Phase 2a accepted — 2026-10-28
+
+Six real specialist agents worked in independent branches/worktrees in two waves,
+with at most three active children. The coordinator froze phase2a contracts first,
+integrated commits on `integration/phase2a`, and did not reimplement completed
+codec/router/incoming-QoS state. Remaining dependencies are tracked in tasks.md.
+
+Delivered: clean-session MQTT3.1.1 bidirectional live QoS1/2, maximum matching
+subscription grants, bounded incoming/outgoing windows and ACK ID lifetimes.
+MemoryStorage gained atomic bounded batches with rollback; this remains unconnected
+to runtime persistence. The executable exposes all BrokerConfig resource limits
+through CLI, rejects invalid inputs and provides --help.
+
+| Specialist | Isolated original commit | Integrated commit |
+| --- | --- | --- |
+| Router | 15b8eb4 | c369660 |
+| Session/QoS | d2cdffc + fa5a818 (docs) | d122aca + 28017e7 (docs) |
+| Protocol | e45b567 | 4ffaac5 |
+| Quality | a68ac8c + 0df7570 | b94cadc + 443e20f |
+| Storage | 791ddf1 | 02c2741 |
+| Transport | 929dc96 | 299b329 |
+
+Actual acceptance environment remains Darwin27.0.0 arm64, Rust/Cargo1.98.1,
+Tokio1.54.1 and Paho2.1.0. Loopback tests run with local-network permission.
+No remote CI-host execution, persistence validation or performance claims.
+
+| Check | Actual result |
+| --- | --- |
+| cargo fmt --all -- --check | passed |
+| cargo clippy --workspace --all-targets --offline -- -D warnings | passed |
+| cargo test --workspace --offline | 55 passed: protocol13/router9/session7/storage10/transport14/CLI2 |
+| cargo build --workspace --offline | passed |
+| python3 tests/blackbox.py | 14 passed, 3.463 seconds |
+| python3 tests/qos_blackbox.py | 9 passed, 2.186 seconds (includes wire3x3 matrix) |
+| Paho tests/paho_interop.py | full3x3 publication/subscription QoS matrix passed |
+| CLI --help and --max-inflight65536 | help successful; invalid bound exits1 |
+
+### Review and defects
+- Coordinator found continuous ready delivery queues could starve socket reads
+  because of biased selection. A real TCP regression failed before the fix
+  (PING not handled within the test deadline), then passed with fair selection.
+  This timing is a correctness assertion, not a latency benchmark.
+- Independent protocol-agent review found no material session/router defects.
+  Temporary public-API model checks also passed, but are not committed CI tests
+  and are not presented as a performance baseline.
+- Independent quality-agent review checked ACK ordering, inflight rejection, ID
+  namespaces and generation safety. No further blocker found. Existing active
+  write cancellation/Keep Alive responsiveness remains a known test/architecture
+  limitation bounded by write_timeout; do not claim complete protocol conformance.
+
+### Current incomplete requirements
+MQTT5, persistent sessions and reconnect retry, offline queues, durable storage and
+crash recovery, Retained, Will, credentials/auth/ACL, TLS/WebSocket, telemetry,
+fuzz/stress/performance baselines and production extensions remain unfinished.
+Session is now integrated for live clean-session QoS; storage is still independent.
+Durable exactly-once/application processing is not guaranteed. See tasks.md for
+full dependency groups and explicit next acceptance gates.

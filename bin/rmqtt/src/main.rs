@@ -1,26 +1,16 @@
-use mqtt_transport::{BrokerConfig, serve};
-use std::{error::Error, io};
+mod cli;
+
+use mqtt_transport::serve;
+use std::error::Error;
 use tokio::{net::TcpListener, sync::watch};
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut args = std::env::args().skip(1);
-    let address = match args.next().as_deref() {
-        None => "127.0.0.1:1883".to_owned(),
-        Some("--listen") => args
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing listen address"))?,
-        _ => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "usage: rmqtt [--listen ADDRESS]",
-            )
-            .into());
-        }
+    let Some(options) = cli::parse(std::env::args().skip(1))? else {
+        println!("{}", cli::USAGE);
+        return Ok(());
     };
-    if args.next().is_some() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "unexpected argument").into());
-    }
-    let listener = TcpListener::bind(&address).await?;
+    let listener = TcpListener::bind(&options.address).await?;
     eprintln!("rmqtt listening on {}", listener.local_addr()?);
     let (tx, rx) = watch::channel(false);
     tokio::spawn(async move {
@@ -28,6 +18,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let _ = tx.send(true);
         }
     });
-    serve(listener, BrokerConfig::default(), rx).await?;
+    serve(listener, options.config, rx).await?;
     Ok(())
 }

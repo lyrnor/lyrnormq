@@ -20,3 +20,10 @@ Do not implement SQLite or integrate runtime disk IO this round. Extend existing
 
 ## Quality
 Update blackbox/Paho tests and old QoS rejection/grant0 expectations to new behavior; retain all unrelated checks. Add independent wire QoS1/2 handshakes both directions, duplicate PUBLISH/PUBREL, no QoS2 delivery before PUBREL, packet-ID reuse after completion, max matching subscription QoS and downgrade. Paho matrix publish0/1/2 and subscribe0/1/2 with exact min QoS. Add tests/qos_blackbox.py and CI invocation if split suite. No performance or persistence claims.
+
+## Executable configuration
+Coordinator-owned binary accepts optional --max-packet-size, --max-connections,
+--outbound-capacity, --max-subscriptions, --max-inflight, --handshake-timeout-ms,
+--write-timeout-ms in addition to --listen; --help prints usage. Defaults mirror
+BrokerConfig. Reject nonnumeric/zero values, full packet limits below2 and inflight
+above65535. This does not change embedding API or blackbox executable discovery.

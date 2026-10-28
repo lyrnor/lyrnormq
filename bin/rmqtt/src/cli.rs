@@ -1,0 +1,134 @@
+use mqtt_transport::BrokerConfig;
+use std::{io, time::Duration};
+
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N]";
+
+pub struct Options {
+    pub address: String,
+    pub config: BrokerConfig,
+}
+
+fn invalid(message: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, message.into())
+}
+
+fn positive(value: &str, option: &str) -> io::Result<usize> {
+    let number = value
+        .parse::<usize>()
+        .map_err(|_| invalid(format!("{option} requires a positive integer")))?;
+    if number == 0 {
+        return Err(invalid(format!("{option} must be positive")));
+    }
+    Ok(number)
+}
+
+pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Options>> {
+    let mut args = args.into_iter();
+    let mut options = Options {
+        address: "127.0.0.1:1883".into(),
+        config: BrokerConfig::default(),
+    };
+    while let Some(option) = args.next() {
+        if option == "--help" || option == "-h" {
+            return Ok(None);
+        }
+        if !matches!(
+            option.as_str(),
+            "--listen"
+                | "--max-packet-size"
+                | "--max-connections"
+                | "--outbound-capacity"
+                | "--max-subscriptions"
+                | "--max-inflight"
+                | "--handshake-timeout-ms"
+                | "--write-timeout-ms"
+        ) {
+            return Err(invalid(format!("unknown option {option}; {USAGE}")));
+        }
+        let value = args
+            .next()
+            .ok_or_else(|| invalid(format!("missing value for {option}")))?;
+        if option == "--listen" {
+            options.address = value;
+            continue;
+        }
+        let number = positive(&value, &option)?;
+        match option.as_str() {
+            "--max-packet-size" => {
+                if number < 2 {
+                    return Err(invalid("--max-packet-size must be at least 2"));
+                }
+                options.config.max_packet_size = number;
+            }
+            "--max-connections" => options.config.max_connections = number,
+            "--outbound-capacity" => options.config.outbound_capacity = number,
+            "--max-subscriptions" => options.config.max_subscriptions = number,
+            "--max-inflight" => {
+                if number > u16::MAX as usize {
+                    return Err(invalid("--max-inflight must be in 1..65535"));
+                }
+                options.config.max_inflight = number;
+            }
+            "--handshake-timeout-ms" | "--write-timeout-ms" => {
+                let millis = u64::try_from(number).map_err(|_| invalid("timeout exceeds u64"))?;
+                let duration = Duration::from_millis(millis);
+                if option == "--handshake-timeout-ms" {
+                    options.config.handshake_timeout = duration;
+                } else {
+                    options.config.write_timeout = duration;
+                }
+            }
+            _ => return Err(invalid("unrecognized numeric option")),
+        }
+    }
+    Ok(Some(options))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).into()).collect()
+    }
+
+    #[test]
+    fn rejects_invalid_resource_boundaries_and_missing_values() {
+        for values in [
+            vec!["--max-inflight", "0"],
+            vec!["--max-inflight", "65536"],
+            vec!["--max-packet-size", "1"],
+            vec!["--write-timeout-ms", "-1"],
+            vec!["--max-connections", "184467440737095516160"],
+            vec!["--outbound-capacity"],
+            vec!["--unknown", "1"],
+        ] {
+            assert!(parse(args(&values)).is_err(), "{values:?}");
+        }
+    }
+
+    #[test]
+    fn supports_limits_without_changing_unset_defaults() {
+        let options = parse(args(&[
+            "--listen",
+            "127.0.0.1:0",
+            "--max-inflight",
+            "65535",
+            "--outbound-capacity",
+            "2",
+            "--handshake-timeout-ms",
+            "250",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert_eq!(options.address, "127.0.0.1:0");
+        assert_eq!(options.config.max_inflight, 65535);
+        assert_eq!(options.config.outbound_capacity, 2);
+        assert_eq!(options.config.handshake_timeout, Duration::from_millis(250));
+        assert_eq!(
+            options.config.max_packet_size,
+            BrokerConfig::default().max_packet_size
+        );
+        assert!(parse(args(&["--help"])).unwrap().is_none());
+    }
+}
