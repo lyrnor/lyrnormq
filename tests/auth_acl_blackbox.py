@@ -273,6 +273,43 @@ class AuthAclBlackbox(unittest.TestCase):
         self.barrier(replacement)
         self.quiet(observer)
 
+    def test_security_refusal_precedes_unsupported_persistent_mode(self):
+        self.start()
+        observer = self.client('precedence-observer', 'admin')
+        self.subscribe(observer, [('allowed/#', 0), ('other/#', 0)])
+        owner = self.client('precedence-shared-id',
+                            will=('allowed/precedence-status', b'original active Will', 1, True))
+        with self.subTest(rejection='cross-owner nonclean CONNECT'):
+            try:
+                self.refused('precedence-shared-id', 5, user='bob', clean=False,
+                             pipeline=publication('other/precedence-pipeline', b'not processed',
+                                                  0, retain=True))
+            finally:
+                self.barrier(owner)
+                self.quiet(observer)
+        with self.subTest(rejection='forbidden-Will nonclean CONNECT'):
+            try:
+                self.refused('precedence-forbidden-will', 5, clean=False,
+                             will=('other/precedence-forbidden', b'not registered', 1, True),
+                             pipeline=publication('allowed/precedence-pipeline', b'not processed',
+                                                  0, retain=True))
+            finally:
+                self.barrier(owner)
+                self.quiet(observer)
+        replay = self.client('precedence-replay', 'admin')
+        self.subscribe(replay, [('other/#', 0), ('allowed/#', 0)])
+        self.quiet(replay)
+        # An otherwise authorized persistent CONNECT retains existing mode policy.
+        if self.sqlite:
+            valid = self.client('precedence-authorized-persistent', clean=False)
+            self.disconnect(valid)
+        else:
+            unsupported = self.raw()
+            unsupported.sendall(connect_packet('precedence-authorized-persistent', clean=False))
+            self.closed(unsupported)
+        self.disconnect(owner)
+        self.quiet(observer)
+
     def test_denied_publish_all_qos_cannot_delete_retained_or_route(self):
         self.start()
         admin = self.client('denial-admin', 'admin')
