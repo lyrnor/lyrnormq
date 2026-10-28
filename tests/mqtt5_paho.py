@@ -137,9 +137,22 @@ class Client:
             assert self.version == 5
             properties = Properties(PacketTypes.DISCONNECT)
             properties.SessionExpiryInterval = expiry
-        self.value.disconnect(properties=properties)
-        self.value.loop_stop()
-        self.closed = True
+        # Paho2.1 closes its local descriptor after sending DISCONNECT; that
+        # callback/loop_stop does not prove the broker committed session removal.
+        # Its _sock_close uses close(), not shutdown(), so retain an independent
+        # descriptor and wait for the remote FIN after the Paho reader stops.
+        stream = self.value.socket()
+        remote = stream.dup() if stream is not None else None
+        try:
+            self.value.disconnect(properties=properties)
+            self.value.loop_stop()
+            self.closed = True
+            if remote is not None:
+                remote.settimeout(5)
+                assert remote.recv(1) == b'', 'unread server output before graceful remote EOF'
+        finally:
+            if remote is not None:
+                remote.close()
 
     def abort(self):
         if self.closed:
