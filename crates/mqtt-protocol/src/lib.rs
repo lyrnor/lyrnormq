@@ -1,5 +1,6 @@
-//! Incremental MQTT 3.1.1 codec for clean-session QoS 0/1/2 messaging.
-//! MQTT 5, retained publications, Will, credentials and persistent sessions remain unsupported.
+//! Incremental MQTT 3.1.1 codec for QoS 0/1/2 messaging and session flags.
+//! MQTT 5, retained publications, Will and credentials remain unsupported.
+//! Session persistence policy belongs to the runtime, not the packet codec.
 use std::{error::Error, fmt};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -205,9 +206,6 @@ pub fn decode(
             if flags & 0xfc != 0 {
                 return Err(unsupported("Will or credentials"));
             }
-            if flags & 2 == 0 {
-                return Err(unsupported("persistent session"));
-            }
             let keep_alive = r.u16()?;
             let client_id = r.string()?;
             if client_id.is_empty() {
@@ -215,7 +213,7 @@ pub fn decode(
             }
             Packet::Connect {
                 client_id,
-                clean_session: true,
+                clean_session: flags & 2 != 0,
                 keep_alive,
             }
         }
@@ -337,14 +335,7 @@ fn validate_id(id: u16) -> Result<(), ProtocolError> {
 /// bytes are opaque; checking metadata must never clone an application payload.
 fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
     match packet {
-        Packet::Connect {
-            client_id,
-            clean_session,
-            ..
-        } => {
-            if !clean_session {
-                return Err(unsupported("persistent session"));
-            }
+        Packet::Connect { client_id, .. } => {
             validate_string(client_id)?;
             if client_id.is_empty() {
                 return Err(unsupported("server-assigned client identifier"));
@@ -665,6 +656,47 @@ mod tests {
         }
     }
     #[test]
+    fn connect_clean_and_persistent_flags_roundtrip_and_fragment() {
+        for clean_session in [false, true] {
+            let packet = Packet::Connect {
+                client_id: "persistent-client".into(),
+                clean_session,
+                keep_alive: 45,
+            };
+            let bytes = encode(&packet).unwrap();
+            assert_eq!(bytes[9], if clean_session { 2 } else { 0 });
+            for cut in 0..bytes.len() {
+                assert_eq!(decode(&bytes[..cut], 1024).unwrap(), None);
+            }
+            assert_eq!(decode(&bytes, 1024).unwrap(), Some((packet, bytes.len())));
+            assert!(
+                encode(&Packet::Connect {
+                    client_id: String::new(),
+                    clean_session,
+                    keep_alive: 45,
+                })
+                .is_err()
+            );
+            let empty_id = [
+                0x10,
+                12,
+                0,
+                4,
+                b'M',
+                b'Q',
+                b'T',
+                b'T',
+                4,
+                if clean_session { 2 } else { 0 },
+                0,
+                45,
+                0,
+                0,
+            ];
+            assert!(decode(&empty_id, 1024).is_err());
+        }
+    }
+    #[test]
     fn connect_rejections_and_version() {
         let p = Packet::Connect {
             client_id: "c".into(),
@@ -680,7 +712,7 @@ mod tests {
             b[9] = flags;
             assert!(matches!(decode(&b, 1024), Err(ProtocolError::Malformed(_))));
         }
-        for flags in [0, 6, 0x82, 0xc2] {
+        for flags in [6, 0x82, 0xc2] {
             let mut b = base.clone();
             b[9] = flags;
             assert!(matches!(
@@ -858,11 +890,6 @@ mod tests {
     #[test]
     fn encoder_metadata_validation_without_decoding() {
         let invalid = [
-            Packet::Connect {
-                client_id: "a".into(),
-                clean_session: false,
-                keep_alive: 0,
-            },
             Packet::Connect {
                 client_id: "".into(),
                 clean_session: true,
