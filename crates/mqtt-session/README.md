@@ -59,3 +59,27 @@ connection, durable state/outbox transaction or reconnect retransmission API.
 Persistent-session reconnect behavior (MQTT3.1.1 section 4.4) requires a future
 versioned durable schema and transport integration; this crate makes no crash
 recovery or application exactly-once guarantee.
+
+## Phase 2b durable model
+
+`durable::SessionEngine` reuses the same incoming/outgoing QoS primitives and
+allocator. It models persistent subscriptions, offline QoS1/2 queues, restored
+inflight IDs, ordered DUP PUBLISH replay and PUBREL-only replay after PUBREC.
+The schema1 JSON envelope contains only persistent records; online flags and
+replay cursors are runtime-only and all restored sessions start offline.
+
+Every mutation is a proposal: clone the engine, apply an event, validate and
+serialize with snapshot, commit through the storage worker, then install and
+send the resulting packets. Discard the complete proposal on **any** error.
+This is required because a failure can follow partial mutation inside a proposal.
+In particular, PUBREL source removal and all recipient outboxes must share one
+external SQLite transaction. The model performs no IO and cannot itself promise
+durable application processing. Clean sessions are never part of durable state.
+
+Max sessions/subscriptions/queued/inflight/full packet bytes constrain records.
+A bounded JSON writer enforces max_state_bytes against the full live registry
+(including clean sessions), then emits its persistent subset. Metadata allocation
+is additionally bounded by record counts; the packet allocator has fixed 65,536
+bytes per session. Snapshot staging and engine cloning retain additional bounded
+copies. Whole-record JSON and rebuilding the existing trie for each routed
+proposal are intentionally simple and expensive; no performance claim is made.

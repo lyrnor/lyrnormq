@@ -1,8 +1,11 @@
 //! Bounded MQTT 3.1.1 QoS primitives integrated by the Phase 2a clean-session transport.
 //! Incoming QoS2 delivers on PUBREL; outgoing QoS1/QoS2 releases identifiers only
 //! after PUBACK/PUBCOMP. The transport drives packet IO and acknowledgement order.
-//! State is volatile: persistence, reconnect retransmission and crash recovery
-//! require a future durable transaction/outbox implementation.
+//! The durable module wraps these primitives with versioned session records and
+//! reconnect replay. Its proposed transitions require a successful external
+//! transaction commit before network acknowledgements; this crate performs no IO.
+pub mod durable;
+
 use std::{
     collections::{BTreeMap, VecDeque},
     error::Error,
@@ -33,6 +36,7 @@ impl Error for SessionError {}
 /// Allocates identifiers from 1..=65535, never allocating an in-use identifier.
 /// The caller releases only after the matching protocol exchange completes:
 /// PUBACK for outgoing QoS1, PUBCOMP for outgoing QoS2.
+#[derive(Clone)]
 pub struct PacketIdentifiers {
     used: Box<[bool; 65536]>,
     next: u16,
@@ -102,6 +106,7 @@ pub enum AckAction {
     Ignore,
 }
 
+#[derive(Clone)]
 enum OutgoingState {
     AwaitingAck { _message: Vec<u8> },
     AwaitingReceipt { _message: Vec<u8> },
@@ -119,11 +124,13 @@ enum OutgoingState {
 /// serializes packet IO and must not claim durable delivery from these mutations.
 /// Messages are opaque encoded PUBLISH data, retained only for the current stage;
 /// no retransmission inspection API or durable schema is provided in this phase.
+#[derive(Clone)]
 pub struct OutgoingQos {
     identifiers: PacketIdentifiers,
     pending: BTreeMap<NonZeroU16, OutgoingState>,
     max_message_size: usize,
     max_inflight: usize,
+    order: VecDeque<NonZeroU16>,
 }
 impl OutgoingQos {
     /// A zero window allows no exchange; values above 65535 are capped to the
@@ -134,6 +141,7 @@ impl OutgoingQos {
             pending: BTreeMap::new(),
             max_message_size,
             max_inflight: max_inflight.min(65535),
+            order: VecDeque::new(),
         }
     }
 
@@ -154,6 +162,7 @@ impl OutgoingQos {
             OutgoingState::AwaitingReceipt { _message: message }
         };
         self.pending.insert(id, state);
+        self.order.push_back(id);
         Ok(id)
     }
 
@@ -167,6 +176,7 @@ impl OutgoingQos {
             (Some(OutgoingState::AwaitingAck { .. }), AckKind::PubAck)
             | (Some(OutgoingState::Released), AckKind::PubComp) => {
                 self.pending.remove(&id);
+                self.order.retain(|pending| *pending != id);
                 self.identifiers.release(id);
                 Ok(AckAction::Complete)
             }
@@ -210,6 +220,7 @@ pub struct ReleaseResult {
 /// Maximum retained bytes are `max_inflight * max_message_size` (plus metadata).
 /// Completed IDs form only a bounded diagnostic history, not a deduplication
 /// requirement: an unknown PUBREL also returns PUBCOMP without delivery.
+#[derive(Clone)]
 pub struct IncomingQos2 {
     pending: BTreeMap<NonZeroU16, Vec<u8>>,
     completed: VecDeque<NonZeroU16>,
