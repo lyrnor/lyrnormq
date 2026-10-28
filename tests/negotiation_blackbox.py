@@ -100,6 +100,32 @@ class NegotiationBlackbox(unittest.TestCase):
         self.assertEqual(header, 0xe0);self.assertIn(body[0], (0x81, 0x82))
         self.closed(sub)
 
+    def test_valid_tiny_maximum_then_malformed_later_connect_payload(self):
+        self.start()
+        suffixes = [
+            (2, b'\x00'),  # truncated client identifier length
+            (2, string('bad\x00id')),  # invalid MQTT UTF8 after valid properties
+            (6, string('id') + wire.props() + string('bad/+') + b'\x00\x00'),
+            (6, string('id') + wire.props() + b'\x00\x05a'),
+            (6, string('id') + wire.props() + string('will') + b'\x00\x05x'),
+        ]
+        for maximum in (1, 2, 3, 4, 5, 64):
+            for flags, suffix in suffixes:
+                with self.subTest(maximum=maximum, suffix=suffix):
+                    sock = self.raw()
+                    body = (string('MQTT') + bytes([5, flags]) + b'\x00\x1e'
+                            + wire.props([(0x27, maximum)]) + suffix)
+                    sock.sendall(frame(0x10, body))
+                    try:
+                        first = sock.recv(1, socket.MSG_PEEK)
+                    except ConnectionResetError:
+                        continue
+                    if first:
+                        header, data = self.limited(sock, maximum)
+                        self.assertEqual(header, 0x20)
+                        self.assertNotEqual(data[1], 0)
+                        self.closed(sock)
+
     def test_complete_publish_boundaries_qos_matrix_and_other_recipient(self):
         self.start()
         pub = self.client('source')
@@ -218,8 +244,14 @@ class NegotiationBlackbox(unittest.TestCase):
         self.start();observer = self.client('will-observer');self.subscribe(observer, [('will', 1)])
         old, _ = self.connect('old', will=('will', b'intact', 1, False))
         self.subscribe(old, [('old', 1)])
+        before = self.snapshot() if self.sqlite else None
         failed = self.raw();failed.sendall(wire.connect5('old', True, [(0x27, 5)]))
-        self.connack(failed, 0x95);self.closed(failed);self.barrier(old);self.quiet(observer)
+        self.connack(failed, 0x95);self.closed(failed)
+        if self.sqlite:
+            after = self.snapshot()
+            self.assertEqual(after['sessions'], before['sessions'])
+            self.assertEqual(after['wills'], before['wills'])
+        self.barrier(old);self.quiet(observer)
         pub = self.client('still-source');self.publish(pub, 'old', b'alive');self.message(old, 'old', b'alive')
         old.shutdown(socket.SHUT_RDWR);old.close();self.message(observer, 'will', b'intact')
 
@@ -234,6 +266,30 @@ class NegotiationBlackbox(unittest.TestCase):
             self.publish(pub, assigned + '/message', b'offline', qos=2)
             resumed, name = self.connect(assigned, 128, clean=False, present=True)
             self.assertEqual(name, assigned);self.message(resumed, assigned + '/message', b'offline', qos=2)
+
+    def test_assigned_id_does_not_enlarge_original_wire_connect_will_validation(self):
+        self.start('--max-packet-size', '64')
+        observer = self.raw();observer.sendall(wire.connect5('observer'))
+        values = self.connack(observer)
+        self.assertEqual(dict(values)[0x27], 64)
+        self.subscribe(observer, [('w', 1)])
+        payload = next(b'x' * length for length in range(64)
+                       if len(wire.connect5('', properties=[(0x11, 60), (0x27, 64)],
+                                            will=('w', b'x' * length, 1, False))) == 64)
+        packet = wire.connect5('', properties=[(0x11, 60), (0x27, 64)],
+                               will=('w', payload, 1, False))
+        self.assertEqual(len(packet), 64)
+        owner = self.raw();owner.sendall(packet)
+        header, body = self.limited(owner, 64)
+        self.assertEqual((header, body[:2]), (0x20, b'\x00\x00'))
+        properties, end = wire.readprops(body, 2);self.assertEqual(end, len(body))
+        identifiers = [value for key, value in properties if key == 0x12]
+        self.assertEqual(len(identifiers), 1);self.assertTrue(identifiers[0])
+        self.assertGreater(len(wire.connect5(identifiers[0],
+                                            properties=[(0x11, 60), (0x27, 64)],
+                                            will=('w', payload, 1, False))), 64)
+        self.barrier(owner);owner.shutdown(socket.SHUT_RDWR);owner.close()
+        self.message(observer, 'w', payload)
 
     def test_concurrent_assigned_identifiers_are_unique(self):
         self.start()
