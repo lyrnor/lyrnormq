@@ -153,3 +153,16 @@ validate_topic_filter/matches_topic_filter and covers_filter validates pure synt
 This does NOT grant group membership via a $share policy prefix: Session unwraps
 only the actual subscription once; grants stay literal and wildcard/$ isolation
 is preserved. Session/Router owner adds helper, Auth owner uses the real dependency.
+
+## In-progress QoS0 group lease API clarification
+Add public Delivery.shared_subscription:Option<(String,u64)> carrying full group
+key and runtime incarnation epoch, not durable data. Transport Lease MUST carry it
+through begin_output reconstruction (ordinary literals None). Session Poll captures
+current group epoch; Begin QoS0 rejects if group vanished OR was destroyed/recreated
+under the same key. Keep bounded current-group epoch map plus monotonic checked u64
+counter in proposal state, runtime-only/reset on restore; discarded proposal epochs
+cannot escape a failed transaction. Last-member removal drops group epoch/cursor;
+first new membership allocates a new epoch, so a recreated group cannot revive an
+old unsent lease. QoS1/2 still use authoritative per-ID sidecars/tickets; stale lease
+checks remain. Never serialize Delivery tokens or alias/auth state. Add deterministic
+PollQoS0 -> lastUNSUB -> recreate samegroup -> Begin regression, not only absentgroup.
