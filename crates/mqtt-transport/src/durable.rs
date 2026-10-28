@@ -149,6 +149,10 @@ enum Reply {
     FramePolled(Option<Box<Frame>>),
     DeliveryPolled(Option<Box<Delivery>>),
     Connected(bool),
+    Assigned {
+        present: bool,
+        client: String,
+    },
     Rejected(ConnectRefusal),
     #[cfg(test)]
     Packets(Vec<Packet>),
@@ -268,6 +272,7 @@ fn run_worker(
 
 struct ConnectRequest {
     client: String,
+    assigned: bool,
     clean: bool,
     will: Option<Will>,
     username: Option<String>,
@@ -324,6 +329,7 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             wake,
             cancel,
         } => Request::Connect(ConnectRequest {
+            assigned: false,
             client,
             clean,
             will,
@@ -339,6 +345,7 @@ fn normalize(operation: Operation) -> io::Result<Request> {
                 clean_start: clean,
                 session_expiry_interval: if clean { 0 } else { u32::MAX },
                 receive_maximum: u16::MAX,
+                maximum_packet_size: u32::MAX,
                 will_properties: Vec::new(),
             },
         }),
@@ -366,14 +373,17 @@ fn normalize(operation: Operation) -> io::Result<Request> {
                 0
             };
             let mut receive_maximum = u16::MAX;
+            let mut maximum_packet_size = u32::MAX;
             for property in &frame.properties {
                 match property {
                     Property::SessionExpiryInterval(value) => expiry = *value,
                     Property::ReceiveMaximum(value) => receive_maximum = *value,
+                    Property::MaximumPacketSize(value) => maximum_packet_size = *value,
                     _ => {}
                 }
             }
             Request::Connect(ConnectRequest {
+                assigned: false,
                 client: client_id,
                 clean: clean_session,
                 will,
@@ -389,6 +399,7 @@ fn normalize(operation: Operation) -> io::Result<Request> {
                     clean_start: clean_session,
                     session_expiry_interval: expiry,
                     receive_maximum,
+                    maximum_packet_size,
                     will_properties: frame.will_properties,
                 },
             })
@@ -459,29 +470,55 @@ fn normalize(operation: Operation) -> io::Result<Request> {
         Operation::Tick => Request::Tick,
     })
 }
+/// Bounded allocation runs on the blocking state owner; check all surviving
+/// sessions and pending Will intents before the candidate is used for auth.
+fn assigned_identifier(
+    engine: &SessionEngine,
+    mut entropy: impl FnMut(&mut [u8]) -> io::Result<()>,
+) -> io::Result<String> {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    for _ in 0..16 {
+        let mut bytes = [0u8; 11];
+        entropy(&mut bytes)?;
+        let mut candidate = String::with_capacity(23);
+        candidate.push('r');
+        for byte in bytes {
+            candidate.push(char::from(HEX[usize::from(byte >> 4)]));
+            candidate.push(char::from(HEX[usize::from(byte & 15)]));
+        }
+        if !engine.client_id_in_use(&candidate) {
+            return Ok(candidate);
+        }
+    }
+    Err(failure(
+        ReasonCode::SERVER_UNAVAILABLE,
+        "identifier allocation exhausted",
+    ))
+}
 fn connect_policy(request: &ConnectRequest, config: &BrokerConfig) -> Option<ReasonCode> {
     if request.options.version == ProtocolVersion::V311 {
         return None;
-    }
-    if request.client.is_empty() {
-        return Some(ReasonCode::CLIENT_IDENTIFIER_NOT_VALID);
     }
     for property in &request.properties {
         match property {
             Property::AuthenticationMethod(_) | Property::AuthenticationData(_) => {
                 return Some(ReasonCode::BAD_AUTHENTICATION_METHOD);
             }
-            Property::MaximumPacketSize(_) => {
-                return Some(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR);
-            }
             _ => {}
         }
     }
     // Refuse before installing a session when the configured resource cap cannot
     // carry our mandatory capability CONNACK. Never accept then fail its write.
-    match mqtt_protocol::encode_frame(&network::connack(ProtocolVersion::V5, false, 0, config)) {
-        Ok(bytes) if bytes.len() <= config.max_packet_size => {}
-        _ => return Some(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR),
+    match mqtt_protocol::encode_frame(&network::accepted_connack(
+        ProtocolVersion::V5,
+        false,
+        config,
+        request.assigned.then_some(request.client.as_str()),
+    )) {
+        Ok(bytes)
+            if bytes.len() <= config.max_packet_size
+                && bytes.len() <= request.options.maximum_packet_size as usize => {}
+        _ => return Some(ReasonCode::PACKET_TOO_LARGE),
     }
     None
 }
@@ -521,7 +558,7 @@ fn run_commands(
     mut online: HashMap<String, Online>,
 ) -> io::Result<()> {
     while let Some(command) = commands.blocking_recv() {
-        let request = match normalize(command.operation) {
+        let mut request = match normalize(command.operation) {
             Ok(request) => request,
             Err(error) => {
                 let _ = command.reply.send(Err(error));
@@ -535,6 +572,23 @@ fn run_commands(
         {
             let _ = command.reply.send(Ok(Reply::Done));
             continue;
+        }
+        if let Request::Connect(request) = &mut request
+            && request.options.version == ProtocolVersion::V5
+            && request.client.is_empty()
+        {
+            match assigned_identifier(&engine, |bytes| {
+                getrandom::getrandom(bytes).map_err(|error| io::Error::other(error.to_string()))
+            }) {
+                Ok(client) => {
+                    request.client = client;
+                    request.assigned = true;
+                }
+                Err(error) => {
+                    let _ = command.reply.send(Err(error));
+                    continue;
+                }
+            }
         }
         let mut principal = if let Request::Connect(request) = &request {
             if let Some(reason) = connect_policy(request, &config) {
@@ -599,6 +653,7 @@ fn run_commands(
                             "persistent sessions require --storage-path",
                         ));
                     }
+                    let assigned = request.assigned.then(|| request.client.clone());
                     registration = Some((
                         request.client,
                         Online {
@@ -609,7 +664,13 @@ fn run_commands(
                         },
                     ));
                     notify_required = true;
-                    Ok(Reply::Connected(result.session_present))
+                    Ok(match assigned {
+                        Some(client) => Reply::Assigned {
+                            present: result.session_present,
+                            client,
+                        },
+                        None => Reply::Connected(result.session_present),
+                    })
                 }
                 Request::Handle {
                     client,
@@ -1409,6 +1470,75 @@ mod tests {
         assert!(after.contains("\"topic\":\"fresh\""));
         assert!(after.contains("\"wills\":[]"));
     }
+    #[test]
+    fn phase2g_allocator_bounds_collisions_and_never_uses_pending_will_identifier() {
+        let config = BrokerConfig {
+            outbound_capacity: 1,
+            ..BrokerConfig::default()
+        };
+        let mut engine = SessionEngine::new(session_config(&config)).unwrap();
+        let reserved = "r0000000000000000000000";
+        engine.connect("target", true).unwrap();
+        engine
+            .handle(
+                "target",
+                Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("will".into(), 1)],
+                },
+            )
+            .unwrap();
+        engine
+            .connect_with_will(
+                reserved,
+                true,
+                Some(Will {
+                    topic: "will".into(),
+                    payload: vec![1],
+                    qos: 1,
+                    retain: false,
+                }),
+            )
+            .unwrap();
+        engine
+            .handle(
+                "target",
+                Packet::Publish {
+                    topic: "will".into(),
+                    payload: vec![0],
+                    qos: 0,
+                    packet_id: None,
+                    dup: false,
+                    retain: false,
+                },
+            )
+            .unwrap();
+        engine.disconnect_with_reason(reserved, false).unwrap();
+        assert!(engine.client_id_in_use(reserved));
+        let before = engine.snapshot().unwrap();
+        let mut attempts = 0;
+        let result = assigned_identifier(&engine, |bytes| {
+            attempts += 1;
+            bytes.fill(0);
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert_eq!(attempts, 16);
+        assert_eq!(engine.snapshot().unwrap(), before);
+        attempts = 0;
+        let result = assigned_identifier(&engine, |bytes| {
+            bytes.fill(0);
+            bytes[10] = attempts;
+            attempts += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(result, "r0000000000000000000001");
+        assert_eq!(attempts, 2);
+        let error = assigned_identifier(&engine, |_| Err(io::Error::other("entropy unavailable")));
+        assert!(error.is_err());
+        assert_eq!(engine.snapshot().unwrap(), before);
+    }
     #[derive(Debug)]
     struct ManualClock(AtomicU64);
     impl Clock for ManualClock {
@@ -1440,6 +1570,7 @@ mod tests {
                     clean_start: true,
                     session_expiry_interval: 1,
                     receive_maximum: 1,
+                    maximum_packet_size: u32::MAX,
                     will_properties: Vec::new(),
                 },
             )
@@ -1512,6 +1643,7 @@ mod tests {
                     clean_start: true,
                     session_expiry_interval: 1,
                     receive_maximum: 1,
+                    maximum_packet_size: u32::MAX,
                     will_properties: Vec::new(),
                 },
             )

@@ -3,7 +3,7 @@ use super::{Operation, Reply, Worker, WorkerFailure, failure};
 use crate::BrokerConfig;
 use mqtt_protocol::{
     Frame, Packet, Property, ProtocolError, ProtocolVersion, ReasonCode, decode_frame,
-    encode_frame, peek_connect_version,
+    encode_frame, peek_connect_maximum_packet_size, peek_connect_version,
 };
 use mqtt_session::durable::{Clock, Delivery, SystemClock};
 use std::{
@@ -11,7 +11,7 @@ use std::{
     io,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -211,9 +211,10 @@ async fn write_frame(
     writer: &mut OwnedWriteHalf,
     frame: &Frame,
     config: &BrokerConfig,
+    peer_maximum: usize,
 ) -> io::Result<()> {
     let bytes = encode_frame(frame).map_err(io::Error::other)?;
-    if bytes.len() > config.max_packet_size {
+    if bytes.len() > config.max_packet_size.min(peer_maximum) {
         return Err(failure(
             ReasonCode::PACKET_TOO_LARGE,
             "outgoing packet exceeds limit",
@@ -223,21 +224,29 @@ async fn write_frame(
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "socket write timed out"))?
 }
+struct WriterLimits {
+    config: BrokerConfig,
+    peer_maximum: Arc<AtomicUsize>,
+}
 fn spawn_writer(
     mut writer: OwnedWriteHalf,
     mut output: mpsc::Receiver<Output>,
     mut terminal: watch::Receiver<Option<Frame>>,
     credits: SharedCredits,
-    config: BrokerConfig,
+    limits: WriterLimits,
     cancel: watch::Sender<bool>,
     failed: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<io::Result<()>> {
+    let WriterLimits {
+        config,
+        peer_maximum,
+    } = limits;
     tokio::spawn(async move {
         let result = async {
             loop {
                 let final_frame = terminal.borrow_and_update().clone();
                 if let Some(frame) = final_frame {
-                    write_frame(&mut writer, &frame, &config).await?;
+                    write_frame(&mut writer, &frame, &config, peer_maximum.load(Ordering::Acquire)).await?;
                     return Ok(());
                 }
                 tokio::select! {
@@ -249,11 +258,11 @@ fn spawn_writer(
                         // A terminal signal arriving during the blocking worker roundtrip
                         // still wins before any new frame bytes are started.
                         let final_frame=terminal.borrow_and_update().clone();
-                        if let Some(frame)=final_frame {write_frame(&mut writer,&frame,&config).await?;return Ok(());}
+                        if let Some(frame)=final_frame {write_frame(&mut writer,&frame,&config,peer_maximum.load(Ordering::Acquire)).await?;return Ok(());}
                         let Some(message)=prepared? else{continue;};
                         // No select/cancellation inside a frame: terminal output may only
                         // follow a completed frame, never bytes from a partial PUBLISH.
-                        write_frame(&mut writer,&message.frame,&config).await?;
+                        write_frame(&mut writer,&message.frame,&config,peer_maximum.load(Ordering::Acquire)).await?;
                         if let Some(ticket)=message.completion {locked(&credits)?.complete(ticket);}
                         if let Some(written)=message.written {let _=written.send(());}
                     }
@@ -285,10 +294,25 @@ pub(super) fn connack(
         frame.properties = vec![
             Property::ReceiveMaximum(config.max_inflight.min(u16::MAX as usize) as u16),
             Property::MaximumPacketSize(config.max_packet_size.min(u32::MAX as usize) as u32),
-            Property::TopicAliasMaximum(0),
             Property::SharedSubscriptionAvailable(0),
             Property::SubscriptionIdentifierAvailable(0),
         ];
+    }
+    frame
+}
+pub(super) fn accepted_connack(
+    version: ProtocolVersion,
+    present: bool,
+    config: &BrokerConfig,
+    assigned: Option<&str>,
+) -> Frame {
+    let mut frame = connack(version, present, 0, config);
+    if version == ProtocolVersion::V5
+        && let Some(client) = assigned
+    {
+        frame
+            .properties
+            .push(Property::AssignedClientIdentifier(client.into()));
     }
     frame
 }
@@ -302,6 +326,7 @@ struct Context<'a> {
     output: &'a mpsc::Sender<Output>,
     terminal: &'a watch::Sender<Option<Frame>>,
     credits: &'a SharedCredits,
+    peer_maximum: &'a Arc<AtomicUsize>,
     wake_tx: watch::Sender<u64>,
     wake: watch::Receiver<u64>,
     cancel_tx: watch::Sender<bool>,
@@ -331,12 +356,16 @@ pub(super) async fn connection_loop(
     let (close_tx, close) = watch::channel(None);
     let credits = Arc::new(Mutex::new(Credits::new(config.max_inflight)));
     let failed = Arc::new(AtomicBool::new(false));
+    let peer_maximum = Arc::new(AtomicUsize::new(usize::MAX));
     let writer = spawn_writer(
         writer,
         receiver,
         terminal_rx,
         credits.clone(),
-        config.clone(),
+        WriterLimits {
+            config: config.clone(),
+            peer_maximum: peer_maximum.clone(),
+        },
         cancel_tx.clone(),
         failed.clone(),
     );
@@ -355,6 +384,7 @@ pub(super) async fn connection_loop(
             output: &output,
             terminal: &terminal,
             credits: &credits,
+            peer_maximum: &peer_maximum,
             wake_tx,
             wake,
             cancel_tx,
@@ -431,7 +461,10 @@ pub(super) fn test_writer(
             output,
             receiver,
             credits,
-            config,
+            WriterLimits {
+                config,
+                peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+            },
             cancel,
             Arc::new(AtomicBool::new(false)),
         ),
@@ -502,6 +535,14 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                     if let Some(version) = peek_connect_version(&buffer) {
                         *context.version = Some(version);
                         if version == ProtocolVersion::V5 {
+                            // A valid CONNECT property prefix can establish a peer
+                            // ceiling even when decoding its later payload failed.
+                            // Invalid/incomplete property blocks remain untrusted.
+                            if let Some(maximum) = peek_connect_maximum_packet_size(&buffer) {
+                                context
+                                    .peer_maximum
+                                    .store(maximum as usize, Ordering::Release);
+                            }
                             terminal_frame(
                                 &context,
                                 connack(
@@ -541,7 +582,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                         "CONNECT required first",
                     ));
                 };
-                let client = client_id.clone();
+                let mut client = client_id.clone();
                 let keep_alive = *keep_alive;
                 let version = frame.version;
                 let peer_limit = frame.properties.iter().find_map(|property| {
@@ -551,6 +592,9 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                         None
                     }
                 });
+                context
+                    .peer_maximum
+                    .store(peer_limit.unwrap_or(u32::MAX) as usize, Ordering::Release);
                 *context.version = Some(version);
                 let response = context
                     .worker
@@ -562,8 +606,17 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                         close_reason: context.close_tx.clone(),
                     })
                     .await?;
+                let mut assigned = false;
                 let present = match response {
                     Reply::Connected(present) => present,
+                    Reply::Assigned {
+                        present,
+                        client: resolved,
+                    } => {
+                        client = resolved;
+                        assigned = true;
+                        present
+                    }
                     Reply::Rejected(reason) => {
                         terminal_frame(
                             &context,
@@ -584,11 +637,16 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                     }
                     _ => return Err(io::Error::other("invalid CONNECT response")),
                 };
-                *context.identity = Some(client);
+                *context.identity = Some(client.clone());
                 *context.connected = true;
                 let (written_tx, written_rx) = oneshot::channel();
                 let mut message = outgoing(
-                    connack(version, present, 0, context.config),
+                    accepted_connack(
+                        version,
+                        present,
+                        context.config,
+                        assigned.then_some(client.as_str()),
+                    ),
                     context.credits,
                 )?;
                 message.written = Some(written_tx);
@@ -807,7 +865,10 @@ mod tests {
             receiver,
             terminal_rx,
             credits.clone(),
-            config,
+            WriterLimits {
+                config,
+                peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+            },
             cancel,
             Arc::new(AtomicBool::new(false)),
         );
@@ -854,7 +915,10 @@ mod tests {
             receiver,
             terminal_rx,
             credits.clone(),
-            config,
+            WriterLimits {
+                config,
+                peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+            },
             cancel,
             Arc::new(AtomicBool::new(false)),
         );
@@ -938,6 +1002,297 @@ mod tests {
             Packet::ConnAck { code: 0, .. }
         ));
         (client, stop, task)
+    }
+    #[tokio::test]
+    async fn phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key() {
+        let (address, stop, task) = super::super::live_tests::broker(BrokerConfig::default()).await;
+        let mut client = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut connect = connect_frame();
+        if let Packet::Connect { client_id, .. } = &mut connect.packet {
+            client_id.clear();
+        }
+        client
+            .write_all(&encode_frame(&connect).unwrap())
+            .await
+            .unwrap();
+        let reply = received(&mut client).await;
+        assert!(matches!(
+            reply.packet,
+            Packet::ConnAck {
+                code: 0,
+                session_present: false
+            }
+        ));
+        let assigned: Vec<_> = reply
+            .properties
+            .iter()
+            .filter_map(|p| {
+                if let Property::AssignedClientIdentifier(id) = p {
+                    Some(id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(assigned.len(), 1);
+        assert_eq!(assigned[0].len(), 23);
+        assert!(assigned[0].bytes().all(|b| b.is_ascii_alphanumeric()));
+        client
+            .write_all(&encode_frame(&Frame::v5(Packet::PingReq)).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(received(&mut client).await.packet, Packet::PingResp);
+        super::super::live_tests::stop(stop, task).await;
+    }
+    #[tokio::test]
+    async fn phase2g_positive_peer_maximum_is_accepted_at_exact_connack_boundary() {
+        let config = BrokerConfig::default();
+        let expected = encode_frame(&connack(ProtocolVersion::V5, false, 0, &config))
+            .unwrap()
+            .len();
+        let (address, stop, task) = super::super::live_tests::broker(config).await;
+        let mut client = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut connect = connect_frame();
+        connect
+            .properties
+            .push(Property::MaximumPacketSize(expected as u32));
+        client
+            .write_all(&encode_frame(&connect).unwrap())
+            .await
+            .unwrap();
+        let reply = received(&mut client).await;
+        assert!(matches!(reply.packet, Packet::ConnAck { code: 0, .. }));
+        assert_eq!(encode_frame(&reply).unwrap().len(), expected);
+        super::super::live_tests::stop(stop, task).await;
+    }
+    #[tokio::test]
+    async fn phase2g_connack_too_small_refuses_without_taking_over_old_connection() {
+        let (mut old, stop, task) = server(BrokerConfig::default()).await;
+        // The old connection remains alive when a new proposal cannot receive
+        // the mandatory capability response. Exercise the actual worker path.
+        let address = old.peer_addr().unwrap();
+        for maximum in [1, 4, 5, 16] {
+            let mut contender = tokio::net::TcpStream::connect(address).await.unwrap();
+            let mut connect = connect_frame();
+            connect
+                .properties
+                .push(Property::MaximumPacketSize(maximum));
+            contender
+                .write_all(&encode_frame(&connect).unwrap())
+                .await
+                .unwrap();
+            if maximum >= 5 {
+                let reply = received(&mut contender).await;
+                assert_eq!(
+                    reply.packet,
+                    Packet::ConnAck {
+                        session_present: false,
+                        code: 0x95
+                    }
+                );
+                assert!(encode_frame(&reply).unwrap().len() <= maximum as usize);
+            }
+            assert_eq!(
+                contender.read_u8().await.unwrap_err().kind(),
+                io::ErrorKind::UnexpectedEof
+            );
+            old.write_all(&encode_frame(&Frame::v5(Packet::PingReq)).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(received(&mut old).await.packet, Packet::PingResp);
+        }
+        super::super::live_tests::stop(stop, task).await;
+    }
+    #[tokio::test]
+    async fn phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes() {
+        let frames = [
+            Frame::v5(Packet::Publish {
+                topic: "guard".into(),
+                payload: vec![7; 128],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: false,
+            }),
+            Frame::v5(Packet::SubAck {
+                packet_id: 1,
+                codes: vec![0; 128],
+            }),
+            connack(ProtocolVersion::V5, false, 0x95, &BrokerConfig::default()),
+            {
+                let mut f = Frame::v5(Packet::Disconnect);
+                f.reason_code = ReasonCode::SESSION_TAKEN_OVER;
+                f
+            },
+        ];
+        for frame in frames {
+            let size = encode_frame(&frame).unwrap().len();
+            for (maximum, fits) in [(size, true), (size - 1, false)] {
+                let (mut peer, mut writer) = sockets().await;
+                let outcome =
+                    write_frame(&mut writer, &frame, &BrokerConfig::default(), maximum).await;
+                if fits {
+                    assert!(outcome.is_ok());
+                    assert_eq!(received(&mut peer).await, frame);
+                } else {
+                    assert!(outcome.is_err());
+                    drop(writer);
+                    assert_eq!(
+                        peer.read_u8().await.unwrap_err().kind(),
+                        io::ErrorKind::UnexpectedEof
+                    );
+                }
+            }
+        }
+    }
+    #[tokio::test]
+    async fn phase2g_assigned_connack_must_fit_and_explicit_identifier_has_no_assignment() {
+        let config = BrokerConfig::default();
+        let assigned_size = encode_frame(&accepted_connack(
+            ProtocolVersion::V5,
+            false,
+            &config,
+            Some("r0000000000000000000000"),
+        ))
+        .unwrap()
+        .len();
+        let (address, stop, task) = super::super::live_tests::broker(config).await;
+        for (empty, maximum) in [
+            (true, assigned_size - 1),
+            (true, assigned_size),
+            (false, assigned_size),
+        ] {
+            let mut peer = tokio::net::TcpStream::connect(address).await.unwrap();
+            let mut connect = connect_frame();
+            if empty
+                && let Packet::Connect {
+                    client_id,
+                    clean_session,
+                    ..
+                } = &mut connect.packet
+            {
+                client_id.clear();
+                *clean_session = false;
+            }
+            connect
+                .properties
+                .push(Property::MaximumPacketSize(maximum as u32));
+            peer.write_all(&encode_frame(&connect).unwrap())
+                .await
+                .unwrap();
+            let reply = received(&mut peer).await;
+            assert!(encode_frame(&reply).unwrap().len() <= maximum);
+            if empty && maximum < assigned_size {
+                assert_eq!(
+                    reply.packet,
+                    Packet::ConnAck {
+                        session_present: false,
+                        code: 0x95
+                    }
+                );
+            } else {
+                assert!(matches!(reply.packet, Packet::ConnAck { code: 0, .. }));
+                assert_eq!(
+                    reply
+                        .properties
+                        .iter()
+                        .filter(|p| matches!(p, Property::AssignedClientIdentifier(_)))
+                        .count(),
+                    usize::from(empty)
+                );
+            }
+        }
+        super::super::live_tests::stop(stop, task).await;
+    }
+    #[derive(Debug)]
+    struct AssignedPolicy {
+        seen: Arc<Mutex<Vec<String>>>,
+    }
+    impl mqtt_auth::AccessControl for AssignedPolicy {
+        fn authenticate(
+            &self,
+            info: mqtt_auth::ConnectInfo<'_>,
+        ) -> Result<mqtt_auth::Principal, mqtt_auth::AuthError> {
+            self.seen.lock().unwrap().push(info.client_id.into());
+            if info.client_id.starts_with('r') && info.client_id.len() == 23 {
+                Ok(mqtt_auth::Principal {
+                    name: "assigned-owner".into(),
+                })
+            } else {
+                Err(mqtt_auth::AuthError::NotAuthorized)
+            }
+        }
+        fn authorize(
+            &self,
+            _principal: &mqtt_auth::Principal,
+            action: mqtt_auth::Action,
+            resource: &str,
+        ) -> bool {
+            action != mqtt_auth::Action::Connect
+                || (resource.starts_with('r') && resource.len() == 23)
+        }
+    }
+    #[tokio::test]
+    async fn phase2g_generated_key_is_used_for_authentication_and_authorization() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let config = BrokerConfig {
+            access_control: Arc::new(AssignedPolicy { seen: seen.clone() }),
+            ..BrokerConfig::default()
+        };
+        let (address, stop, task) = super::super::live_tests::broker(config).await;
+        let mut peer = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut connect = connect_frame();
+        if let Packet::Connect { client_id, .. } = &mut connect.packet {
+            client_id.clear();
+        }
+        peer.write_all(&encode_frame(&connect).unwrap())
+            .await
+            .unwrap();
+        let reply = received(&mut peer).await;
+        assert!(matches!(reply.packet, Packet::ConnAck { code: 0, .. }));
+        let id = reply
+            .properties
+            .iter()
+            .find_map(|p| {
+                if let Property::AssignedClientIdentifier(id) = p {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+        assert_eq!(*seen.lock().unwrap(), vec![id]);
+        peer.write_all(&encode_frame(&Frame::v5(Packet::PingReq)).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(received(&mut peer).await.packet, Packet::PingResp);
+        super::super::live_tests::stop(stop, task).await;
+    }
+    #[tokio::test]
+    async fn phase2g_malformed_payload_obeys_already_valid_connect_maximum() {
+        let (address, stop, task) = super::super::live_tests::broker(BrokerConfig::default()).await;
+        for maximum in [1, 4, 5] {
+            let mut peer = tokio::net::TcpStream::connect(address).await.unwrap();
+            let mut connect = connect_frame();
+            connect
+                .properties
+                .push(Property::MaximumPacketSize(maximum));
+            let mut bytes = encode_frame(&connect).unwrap();
+            assert!(bytes[1] < 127);
+            bytes[1] += 1;
+            bytes.push(0); // Valid properties followed by invalid trailing payload.
+            peer.write_all(&bytes).await.unwrap();
+            if maximum >= 5 {
+                let reply = received(&mut peer).await;
+                assert!(matches!(reply.packet, Packet::ConnAck { code: 0x81, .. }));
+                assert!(encode_frame(&reply).unwrap().len() <= maximum as usize);
+            }
+            assert_eq!(
+                peer.read_u8().await.unwrap_err().kind(),
+                io::ErrorKind::UnexpectedEof
+            );
+        }
+        super::super::live_tests::stop(stop, task).await;
     }
     #[tokio::test]
     async fn accepted_connack_precedes_priority_disconnect_for_invalid_pipeline() {
@@ -1065,6 +1420,7 @@ mod tests {
                         clean_start: true,
                         session_expiry_interval: 60,
                         receive_maximum: 2,
+                        maximum_packet_size: u32::MAX,
                         will_properties: vec![],
                     },
                 )
@@ -1153,7 +1509,10 @@ mod tests {
             receiver,
             terminal_rx,
             credits,
-            config.clone(),
+            WriterLimits {
+                config: config.clone(),
+                peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+            },
             cancel,
             Arc::new(AtomicBool::new(false)),
         );
@@ -1204,6 +1563,7 @@ mod tests {
                     clean_start: false,
                     session_expiry_interval: 60,
                     receive_maximum: 2,
+                    maximum_packet_size: u32::MAX,
                     will_properties: vec![],
                 },
             )
@@ -1327,6 +1687,7 @@ mod tests {
                         clean_start: true,
                         session_expiry_interval: 60,
                         receive_maximum: 1,
+                        maximum_packet_size: u32::MAX,
                         will_properties: vec![],
                     },
                 )
