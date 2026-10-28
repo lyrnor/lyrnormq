@@ -517,7 +517,7 @@ fn schema3_migration_and_schema4_property_expiry_corruption_are_strict() {
             .all(|session| session.expiry == u32::MAX)
     );
     let json: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
-    assert_eq!(json["schema_version"], 6);
+    assert_eq!(json["schema_version"], 7);
     for variant in 0..4 {
         let mut corrupt = json.clone();
         match variant {
@@ -775,10 +775,10 @@ fn advertised_unsupported_subscription_features_close_before_any_filter_install(
     let before = s.snapshot().unwrap();
     let request = frame(Packet::Subscribe {
         packet_id: 1,
-        filters: vec![("data".into(), 1), ("$share/g/data".into(), 1)],
+        filters: vec![("data".into(), 1), ("$share/g/data".into(), 5)],
     });
     assert!(
-        matches!(s.handle_frame("a",request),Err(EngineError::Mqtt5(code)) if code.value()==0x9e)
+        matches!(s.handle_frame("a",request),Err(EngineError::Mqtt5(code)) if code.value()==0x82)
     );
     assert_eq!(s.snapshot().unwrap(), before);
     assert!(s.sessions["a"].subscriptions.is_empty());

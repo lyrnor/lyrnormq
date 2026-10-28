@@ -9,7 +9,7 @@ use mqtt_protocol::{
     Frame, Packet, Properties, Property, ProtocolVersion, ReasonCode, decode, encode, encode_frame,
 };
 use mqtt_router::retained::{RetainedError, RetainedStore};
-use mqtt_router::{Router, validate_filter};
+use mqtt_router::{Router, split_shared_filter, validate_subscription_filter};
 use records::{
     Envelope, Message, OutgoingRecord, RetainedRecord, SessionRecord, Stage, SubscriptionRecord,
     WillData, WillRecord,
@@ -21,6 +21,7 @@ mod lifecycle;
 mod mqtt5;
 mod records;
 mod retention;
+mod shared;
 mod subscriptions;
 mod temporal;
 pub use expiry::{Clock, SystemClock};
@@ -127,6 +128,7 @@ struct Session {
     outgoing_expiry: BTreeMap<NonZeroU16, u64>,
     outgoing_started: BTreeSet<NonZeroU16>,
     outgoing_retained_replay: BTreeSet<NonZeroU16>,
+    outgoing_shared: BTreeMap<NonZeroU16, String>,
     outgoing_properties: BTreeMap<NonZeroU16, Properties>,
     delivery_sequence: u64,
     delivery_tickets: BTreeMap<NonZeroU16, u64>,
@@ -150,6 +152,7 @@ impl Session {
         self.outgoing_expiry.remove(&id);
         self.outgoing_started.remove(&id);
         self.outgoing_retained_replay.remove(&id);
+        self.outgoing_shared.remove(&id);
         self.delivery_tickets.remove(&id);
         self.sent.remove(&id);
     }
@@ -175,6 +178,7 @@ impl Session {
             outgoing_expiry: BTreeMap::new(),
             outgoing_started: BTreeSet::new(),
             outgoing_retained_replay: BTreeSet::new(),
+            outgoing_shared: BTreeMap::new(),
             outgoing_properties: BTreeMap::new(),
             delivery_sequence: 0,
             delivery_tickets: BTreeMap::new(),
@@ -192,6 +196,9 @@ pub struct SessionEngine {
     sessions: BTreeMap<String, Session>,
     retained: RetainedStore,
     wills: BTreeMap<String, WillRecord>,
+    shared_cursors: BTreeMap<String, String>,
+    shared_epochs: BTreeMap<String, u64>,
+    shared_epoch_sequence: u64,
 }
 
 struct LimitedWriter {
@@ -269,6 +276,9 @@ impl SessionEngine {
             retained: RetainedStore::new(config.max_retained, config.max_state_bytes)
                 .map_err(EngineError::Retained)?,
             wills: BTreeMap::new(),
+            shared_cursors: BTreeMap::new(),
+            shared_epochs: BTreeMap::new(),
+            shared_epoch_sequence: 0,
         };
         engine.ensure_bounds()?;
         Ok(engine)
@@ -374,6 +384,10 @@ impl SessionEngine {
                 }
             }
             for record in record.outgoing {
+                records::validate_shared_marker(record.shared_subscription.as_deref())?;
+                if record.shared_subscription.is_some() && record.retained_replay {
+                    return Err(invalid_record("shared delivery cannot be retained replay"));
+                }
                 let id = identifier(record.packet_id)?;
                 if session.outgoing.pending.contains_key(&id) {
                     return Err(invalid_record("duplicate outgoing identifier"));
@@ -391,7 +405,8 @@ impl SessionEngine {
                     && (!record.properties.is_empty()
                         || record.expires_at.is_some()
                         || !record.started
-                        || record.retained_replay)
+                        || record.retained_replay
+                        || record.shared_subscription.is_some())
                 {
                     return Err(invalid_record("properties on released exchange"));
                 }
@@ -406,6 +421,9 @@ impl SessionEngine {
                 }
                 if record.retained_replay {
                     session.outgoing_retained_replay.insert(id);
+                }
+                if let Some(group) = record.shared_subscription {
+                    session.outgoing_shared.insert(id, group);
                 }
                 let state = match record.stage {
                     Stage::Ack(message) => {
@@ -481,6 +499,7 @@ impl SessionEngine {
                 &retained.properties,
             )?;
             engine.validate_message(&Message {
+                shared_subscription: None,
                 retained_replay: false,
                 expires_at: retained.expires_at,
                 topic: retained.topic.clone(),
@@ -512,6 +531,7 @@ impl SessionEngine {
             engine.validate_will(&record.client_id, &record.will.to_protocol())?;
             engine.validate_properties(
                 &Message {
+                    shared_subscription: None,
                     retained_replay: false,
                     expires_at: None,
                     topic: record.will.topic.clone(),
@@ -531,6 +551,10 @@ impl SessionEngine {
                 return Err(invalid_record("duplicate Will client identifier"));
             }
         }
+        for group in engine.active_shared_groups() {
+            engine.ensure_shared_epoch(&group)?;
+        }
+        engine.prune_shared_state();
         engine.ensure_bounds()?;
         Ok(engine)
     }
@@ -565,6 +589,10 @@ impl SessionEngine {
         Ok(())
     }
     fn validate_message(&self, message: &Message) -> Result<(), EngineError> {
+        records::validate_shared_marker(message.shared_subscription.as_deref())?;
+        if message.shared_subscription.is_some() && message.retained_replay {
+            return Err(invalid_record("shared delivery cannot be retained replay"));
+        }
         temporal::validate_deadline(&message.properties, message.expires_at)?;
         let id = if message.qos == 0 { None } else { Some(1) };
         if message.retained_replay && !message.retain {
@@ -600,6 +628,7 @@ impl SessionEngine {
                     packet_id: id.get(),
                     expires_at: session.outgoing_expiry.get(id).copied(),
                     started: session.outgoing_started.contains(id),
+                    shared_subscription: session.outgoing_shared.get(id).cloned(),
                     retained_replay: session.outgoing_retained_replay.contains(id),
                     stage,
                     properties: session
@@ -637,7 +666,7 @@ impl SessionEngine {
             });
         }
         Ok(Envelope {
-            schema_version: 6,
+            schema_version: 7,
             clock_floor: self.clock_floor.get(),
             sessions: records,
             retained: self
@@ -684,6 +713,7 @@ impl SessionEngine {
                     .keys()
                     .chain(session.outgoing_started.iter())
                     .chain(session.outgoing_retained_replay.iter())
+                    .chain(session.outgoing_shared.keys())
                     .chain(session.delivery_tickets.keys())
                     .any(|id| !session.outgoing.pending.contains_key(id))
             {
@@ -725,6 +755,9 @@ impl SessionEngine {
                     continue;
                 }
                 for (filter, subscription) in &session.subscriptions {
+                    if split_shared_filter(filter).is_some() {
+                        continue;
+                    }
                     if self
                         .access
                         .authorize(&session.owner, Action::Subscribe, filter)
@@ -782,6 +815,7 @@ impl SessionEngine {
                 payload: message.payload.clone(),
                 qos,
                 retain: message.retain && rap,
+                shared_subscription: None,
                 retained_replay: false,
                 expires_at: message.expires_at,
                 properties: message.properties.clone(),
@@ -802,11 +836,13 @@ impl SessionEngine {
             if target.queued.len() >= self.config.max_queued {
                 return Err(EngineError::Capacity);
             }
-            admitted.push((index, copy));
+            admitted.push((index as usize, copy));
         }
+        let (shared, cursors) = self.plan_shared_copies(&message, &clients, &admitted, now)?;
+        admitted.extend(shared);
         for (index, copy) in admitted {
             let client = clients
-                .get(index as usize)
+                .get(index)
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
             self.sessions
                 .get_mut(client)
@@ -814,6 +850,7 @@ impl SessionEngine {
                 .queued
                 .push_back(copy);
         }
+        self.shared_cursors.extend(cursors);
         Ok(())
     }
     pub fn handle(&mut self, client_id: &str, packet: Packet) -> Result<Vec<Packet>, EngineError> {
@@ -872,8 +909,11 @@ impl SessionEngine {
             Packet::Subscribe { packet_id, filters } => {
                 let mut codes = Vec::new();
                 for (filter, qos) in filters {
-                    let subscription = SubscriptionRecord::legacy(filter, qos);
-                    let code = self.subscribe_entry(client_id, subscription)?;
+                    let code = if filter.starts_with("$share/") {
+                        0x80
+                    } else {
+                        self.subscribe_entry(client_id, SubscriptionRecord::legacy(filter, qos))?
+                    };
                     codes.push(if code <= 2 { code } else { 128 });
                 }
                 replies.push(Packet::SubAck { packet_id, codes });
@@ -884,13 +924,14 @@ impl SessionEngine {
                     .get_mut(client_id)
                     .ok_or(EngineError::UnknownSession)?;
                 for filter in filters {
-                    if !validate_filter(&filter) {
+                    if !validate_subscription_filter(&filter) {
                         return Err(EngineError::InvalidPacket(
                             "invalid unsubscribe filter".into(),
                         ));
                     }
                     session.subscriptions.remove(&filter);
                 }
+                self.prune_shared_state();
                 replies.push(Packet::UnsubAck { packet_id });
             }
             Packet::Publish {
@@ -925,6 +966,7 @@ impl SessionEngine {
                 } else {
                     self.publish_from(
                         Message {
+                            shared_subscription: None,
                             retained_replay: false,
                             expires_at: temporal::expiry_deadline(&properties, received_at_millis),
                             topic,
@@ -977,6 +1019,7 @@ impl SessionEngine {
                     };
                     self.publish_from(
                         Message {
+                            shared_subscription: None,
                             retained_replay: false,
                             expires_at,
                             topic,
@@ -1007,6 +1050,7 @@ impl SessionEngine {
                         session.replay.retain(|pending| pending.get() != id);
                         session.outgoing_properties.remove(&identifier(id)?);
                         session.outgoing_retained_replay.remove(&identifier(id)?);
+                        session.outgoing_shared.remove(&identifier(id)?);
                         session.outgoing_expiry.remove(&identifier(id)?);
                         replies.push(Packet::PubRel { packet_id: id });
                     }
@@ -1018,6 +1062,7 @@ impl SessionEngine {
                         session.outgoing_expiry.remove(&id);
                         session.outgoing_started.remove(&id);
                         session.outgoing_retained_replay.remove(&id);
+                        session.outgoing_shared.remove(&id);
                         session.delivery_tickets.remove(&id);
                     }
                     AckAction::Ignore => {}
@@ -1443,3 +1488,6 @@ mod phase2g_tests;
 
 #[cfg(test)]
 mod phase2h_tests;
+
+#[cfg(test)]
+mod phase2j_tests;

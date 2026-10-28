@@ -242,6 +242,7 @@ fn capacity_block_marker_is_a_change_and_retries_on_progress_without_due_reset()
     let queue = &mut e.sessions.get_mut("observer").unwrap().queued;
     for _ in 0..2 {
         queue.push_back(Message {
+            shared_subscription: None,
             retained_replay: false,
             topic: "will/fill".into(),
             payload: b"fill".to_vec(),
@@ -424,6 +425,7 @@ fn capacity_defer_does_not_start_will_message_ttl() {
             .unwrap()
             .queued
             .push_back(Message {
+                shared_subscription: None,
                 retained_replay: false,
                 topic: "will/fill".into(),
                 payload: b"fill".to_vec(),

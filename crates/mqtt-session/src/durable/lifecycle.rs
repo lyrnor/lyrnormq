@@ -23,6 +23,7 @@ impl SessionEngine {
         // an assigned key. The original inbound CONNECT was independently bounded.
         self.validate_client(client)?;
         self.validate_message(&Message {
+            shared_subscription: None,
             retained_replay: false,
             expires_at: None,
             topic: will.topic.clone(),
@@ -104,6 +105,7 @@ impl SessionEngine {
             let id = if will.qos == 0 { None } else { Some(1) };
             self.validate_properties(
                 &Message {
+                    shared_subscription: None,
                     retained_replay: false,
                     expires_at: None,
                     topic: will.topic.clone(),
@@ -330,6 +332,7 @@ impl SessionEngine {
             record.due_at = Some(session_end.map_or(delayed, |deadline| delayed.min(deadline)));
             record.timer_blocked = false;
         }
+        self.prune_shared_state();
         self.retry_wills()?;
         self.ensure_bounds()
     }
@@ -376,6 +379,7 @@ impl SessionEngine {
                 .remove(&id)
                 .ok_or_else(|| invalid_record("pending Will disappeared"))?;
             let publication = Message {
+                shared_subscription: None,
                 retained_replay: false,
                 expires_at: super::temporal::expiry_deadline(
                     &record.will.properties,

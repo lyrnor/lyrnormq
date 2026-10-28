@@ -1,10 +1,11 @@
-//! Strict schema6 message deadlines and delayed Will scheduling.
+//! Strict schema7 message deadlines and delayed Will scheduling.
 use super::{EngineError, invalid_record};
 use mqtt_protocol::{Properties, Will};
 use serde::{Deserialize, Serialize};
 mod legacy;
 mod v4;
 mod v5;
+mod v6;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Message {
@@ -13,6 +14,8 @@ pub(super) struct Message {
     pub(super) qos: u8,
     pub(super) retain: bool,
     pub(super) retained_replay: bool,
+    #[serde(deserialize_with = "required_shared")]
+    pub(super) shared_subscription: Option<String>,
     #[serde(deserialize_with = "required_deadline")]
     pub(super) expires_at: Option<u64>,
     pub(super) properties: Properties,
@@ -55,6 +58,8 @@ pub(super) struct OutgoingRecord {
     pub(super) expires_at: Option<u64>,
     pub(super) started: bool,
     pub(super) retained_replay: bool,
+    #[serde(deserialize_with = "required_shared")]
+    pub(super) shared_subscription: Option<String>,
     pub(super) properties: Properties,
 }
 #[derive(Serialize, Deserialize)]
@@ -142,7 +147,8 @@ impl SubscriptionRecord {
         }
     }
     pub(super) fn validate(&self) -> Result<(), EngineError> {
-        if !mqtt_router::validate_filter(&self.filter)
+        if !mqtt_router::validate_subscription_filter(&self.filter)
+            || (self.no_local && self.filter.starts_with("$share/"))
             || self.qos > 2
             || self.retain_handling > 2
             || self.identifier.is_some_and(|n| n == 0 || n > 268435455)
@@ -152,12 +158,12 @@ impl SubscriptionRecord {
         Ok(())
     }
 }
-fn old_properties(properties: &Properties) -> Result<(), EngineError> {
-    if properties
-        .iter()
-        .any(|p| matches!(p, mqtt_protocol::Property::SubscriptionIdentifier(_)))
-    {
-        return Err(invalid_record("Subscription Identifier in old schema"));
+fn required_shared<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    Option::<String>::deserialize(d)
+}
+pub(super) fn validate_shared_marker(value: Option<&str>) -> Result<(), EngineError> {
+    if value.is_some_and(|key| mqtt_router::split_shared_filter(key).is_none()) {
+        return Err(invalid_record("invalid shared delivery marker"));
     }
     Ok(())
 }
@@ -167,46 +173,25 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
         schema_version: u32,
     }
     let version: Version = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-    if version.schema_version == 6 {
+    if version.schema_version == 7 {
         return Ok((
             serde_json::from_slice(bytes).map_err(EngineError::Json)?,
             false,
         ));
     }
-    let (old, legacy) = v5::decode(bytes)?;
+    let (old, legacy) = v6::decode(bytes)?;
     let mut sessions = Vec::new();
     for s in old.sessions {
-        let mut outgoing = Vec::new();
-        for o in s.outgoing {
-            old_properties(&o.properties)?;
-            let retained_replay = match &o.stage {
-                v5::Stage::Ack(b) | v5::Stage::Receipt(b) => b.first().is_some_and(|b| b & 1 != 0),
-                v5::Stage::Comp => false,
-            };
-            outgoing.push(OutgoingRecord {
-                packet_id: o.packet_id,
-                expires_at: o.expires_at,
-                started: o.started,
-                retained_replay,
-                properties: o.properties,
-                stage: match o.stage {
-                    v5::Stage::Ack(b) => Stage::Ack(b),
-                    v5::Stage::Receipt(b) => Stage::Receipt(b),
-                    v5::Stage::Comp => Stage::Comp,
-                },
-            });
-        }
-        let mut queued = Vec::new();
-        for m in s.queued {
-            old_properties(&m.properties)?;
-            queued.push(Message {
-                topic: m.topic,
-                payload: m.payload,
-                qos: m.qos,
-                retain: m.retain,
-                retained_replay: m.retain,
-                expires_at: m.expires_at,
-                properties: m.properties,
+        let mut subscriptions = Vec::new();
+        for sub in s.subscriptions {
+            sub.validate()?;
+            subscriptions.push(SubscriptionRecord {
+                filter: sub.filter,
+                qos: sub.qos,
+                no_local: sub.no_local,
+                retain_as_published: sub.retain_as_published,
+                retain_handling: sub.retain_handling,
+                identifier: sub.identifier,
             });
         }
         sessions.push(SessionRecord {
@@ -214,19 +199,44 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
             client_id: s.client_id,
             session_expiry_interval: s.session_expiry_interval,
             expires_at: s.expires_at,
-            subscriptions: s
-                .subscriptions
-                .into_iter()
-                .map(|(f, q)| SubscriptionRecord::legacy(f, q))
-                .collect(),
+            subscriptions,
             incoming: s.incoming,
-            outgoing,
-            queued,
+            outgoing: s
+                .outgoing
+                .into_iter()
+                .map(|o| OutgoingRecord {
+                    packet_id: o.packet_id,
+                    expires_at: o.expires_at,
+                    started: o.started,
+                    retained_replay: o.retained_replay,
+                    shared_subscription: None,
+                    properties: o.properties,
+                    stage: match o.stage {
+                        v6::Stage::Ack(b) => Stage::Ack(b),
+                        v6::Stage::Receipt(b) => Stage::Receipt(b),
+                        v6::Stage::Comp => Stage::Comp,
+                    },
+                })
+                .collect(),
+            queued: s
+                .queued
+                .into_iter()
+                .map(|m| Message {
+                    topic: m.topic,
+                    payload: m.payload,
+                    qos: m.qos,
+                    retain: m.retain,
+                    retained_replay: m.retained_replay,
+                    shared_subscription: None,
+                    expires_at: m.expires_at,
+                    properties: m.properties,
+                })
+                .collect(),
         });
     }
     Ok((
         Envelope {
-            schema_version: 6,
+            schema_version: 7,
             clock_floor: old.clock_floor,
             sessions,
             retained: old

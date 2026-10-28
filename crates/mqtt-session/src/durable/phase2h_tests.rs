@@ -83,7 +83,24 @@ fn retain_handling_two_suppresses_replay() {
 
 /// Construct only genuine legacy-representable fixtures, never drop new semantics.
 pub(super) fn schema5(mut v: serde_json::Value) -> serde_json::Value {
-    assert_eq!(v["schema_version"], 6);
+    assert_eq!(v["schema_version"], 7);
+    for session in v["sessions"].as_array_mut().unwrap() {
+        for sub in session["subscriptions"].as_array().unwrap() {
+            assert!(mqtt_router::split_shared_filter(sub["filter"].as_str().unwrap()).is_none());
+        }
+        for field in ["queued", "outgoing"] {
+            for message in session[field].as_array_mut().unwrap() {
+                assert!(
+                    message
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("shared_subscription")
+                        .unwrap()
+                        .is_null()
+                );
+            }
+        }
+    }
     v["schema_version"] = 5.into();
     for session in v["sessions"].as_array_mut().unwrap() {
         for sub in session["subscriptions"].as_array_mut().unwrap() {
@@ -349,7 +366,7 @@ fn strict_schema6_options_markers_and_old5_metadata() {
     subscribe(&mut e, "b", "a/#", 1, None);
     publish(&mut e, "a", false);
     let original: serde_json::Value = serde_json::from_slice(&e.snapshot().unwrap()).unwrap();
-    assert_eq!(original["schema_version"], 6);
+    assert_eq!(original["schema_version"], 7);
     for key in [
         "no_local",
         "retain_as_published",

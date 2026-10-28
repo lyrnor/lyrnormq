@@ -16,6 +16,8 @@ pub struct Delivery {
     pub frame: Frame,
     pub expires_at: Option<u64>,
     pub ticket: Option<u64>,
+    /// Runtime-only shared group incarnation; never persisted.
+    pub shared_subscription: Option<(String, u64)>,
 }
 impl Delivery {
     /// Recompute seconds immediately before writing, including time spent
@@ -290,12 +292,6 @@ impl SessionEngine {
         }
         match frame.packet {
             Packet::Subscribe { packet_id, filters } => {
-                if filters
-                    .iter()
-                    .any(|(filter, _)| filter.starts_with("$share/"))
-                {
-                    return Err(mqtt5_error(0x9e));
-                }
                 let subscription_identifier = frame.properties.iter().find_map(|p| {
                     if let Property::SubscriptionIdentifier(n) = p {
                         Some(*n)
@@ -379,6 +375,7 @@ impl SessionEngine {
                 session.outgoing_expiry.remove(&id);
                 session.outgoing_started.remove(&id);
                 session.outgoing_retained_replay.remove(&id);
+                session.outgoing_shared.remove(&id);
                 session.delivery_tickets.remove(&id);
                 session.sent.remove(&id);
                 self.ensure_bounds()?;
@@ -529,6 +526,7 @@ impl SessionEngine {
                     ),
                     expires_at,
                     ticket,
+                    shared_subscription: None,
                 }),
                 changed: true,
             });
@@ -578,6 +576,9 @@ impl SessionEngine {
             if message.retained_replay {
                 session.outgoing_retained_replay.insert(id);
             }
+            if let Some(group) = &message.shared_subscription {
+                session.outgoing_shared.insert(id, group.clone());
+            }
             if let Some(deadline) = message.expires_at {
                 session.outgoing_expiry.insert(id, deadline);
             }
@@ -594,6 +595,11 @@ impl SessionEngine {
             ),
             expires_at: message.expires_at,
             ticket,
+            shared_subscription: message.shared_subscription.as_ref().and_then(|key| {
+                self.shared_epochs
+                    .get(key)
+                    .map(|epoch| (key.clone(), *epoch))
+            }),
         };
         self.ensure_bounds()?;
         Ok(DeliveryPollOutcome {
@@ -636,7 +642,13 @@ impl SessionEngine {
             });
         };
         let mut frame = if *qos == 0 {
-            if delivery.ticket.is_some() || temporal::is_expired(delivery.expires_at, now) {
+            if delivery.ticket.is_some()
+                || temporal::is_expired(delivery.expires_at, now)
+                || delivery
+                    .shared_subscription
+                    .as_ref()
+                    .is_some_and(|(key, epoch)| self.shared_epochs.get(key) != Some(epoch))
+            {
                 return Ok(FramePollOutcome {
                     frame: None,
                     changed,

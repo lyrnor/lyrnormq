@@ -96,6 +96,7 @@ impl SessionEngine {
             session.online || !super::temporal::is_expired(session.expires_at, now)
         });
         let mut changed = before != self.sessions.len();
+        changed |= self.prune_shared_state();
         changed |= self.expire_messages()?;
         if changed {
             self.ensure_bounds()?;

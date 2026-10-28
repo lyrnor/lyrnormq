@@ -49,7 +49,12 @@ impl SessionEngine {
             let connected = access.authorize(&session.owner, Action::Connect, client_id);
             let subscriptions_before = session.subscriptions.len();
             session.subscriptions.retain(|filter, _| {
-                connected && access.authorize(&session.owner, Action::Subscribe, filter)
+                connected
+                    && access.authorize(
+                        &session.owner,
+                        Action::Subscribe,
+                        super::shared::acl_filter(filter),
+                    )
             });
             let queued_before = session.queued.len();
             session.queued.retain(|message| {
@@ -82,11 +87,13 @@ impl SessionEngine {
                 session.outgoing_expiry.remove(&id);
                 session.outgoing_started.remove(&id);
                 session.outgoing_retained_replay.remove(&id);
+                session.outgoing_shared.remove(&id);
                 session.delivery_tickets.remove(&id);
                 session.sent.remove(&id);
                 changed = true;
             }
         }
+        changed |= self.prune_shared_state();
         self.ensure_bounds()?;
         Ok(changed)
     }

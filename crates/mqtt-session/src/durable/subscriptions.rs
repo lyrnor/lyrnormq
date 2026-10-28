@@ -10,13 +10,14 @@ impl SessionEngine {
             .sessions
             .get(client)
             .ok_or(EngineError::UnknownSession)?;
-        if !validate_filter(&subscription.filter) {
+        if !validate_subscription_filter(&subscription.filter) {
             return Ok(0x8f);
         }
-        if !self
-            .access
-            .authorize(&session.owner, Action::Subscribe, &subscription.filter)
-        {
+        if !self.access.authorize(
+            &session.owner,
+            Action::Subscribe,
+            super::shared::acl_filter(&subscription.filter),
+        ) {
             return Ok(0x87);
         }
         let existed = session.subscriptions.contains_key(&subscription.filter);
@@ -27,8 +28,9 @@ impl SessionEngine {
         let owner = session.owner.clone();
         let version = session.version;
         let qos = subscription.qos;
-        let replay =
-            subscription.retain_handling == 0 || (subscription.retain_handling == 1 && !existed);
+        let replay = split_shared_filter(&subscription.filter).is_none()
+            && (subscription.retain_handling == 0
+                || (subscription.retain_handling == 1 && !existed));
         let mut copies = Vec::new();
         if replay {
             for retained in self.retained.matching(&subscription.filter, qos) {
@@ -52,6 +54,7 @@ impl SessionEngine {
                     payload: retained.payload,
                     qos: retained.qos,
                     retain: true,
+                    shared_subscription: None,
                     retained_replay: true,
                     expires_at: self.retained_expiry.get(&retained.topic).copied(),
                     properties,
@@ -64,6 +67,9 @@ impl SessionEngine {
                 )?;
                 copies.push(message);
             }
+        }
+        if split_shared_filter(&subscription.filter).is_some() {
+            self.ensure_shared_epoch(&subscription.filter)?;
         }
         let now = self.effective_now();
         let session = self
