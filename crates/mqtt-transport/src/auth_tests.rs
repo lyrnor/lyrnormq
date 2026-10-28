@@ -435,3 +435,151 @@ async fn rejected_owner_and_password_leave_persistent_snapshot_unchanged() {
             .any(|window| window == b"transport-test")
     );
 }
+
+#[tokio::test]
+async fn security_refusal_precedes_volatile_persistence_capability_without_effects() {
+    let (policy, _) = policy();
+    let config = BrokerConfig {
+        access_control: policy,
+        ..BrokerConfig::default()
+    };
+    let (worker, task) = super::tests::worker(config).await;
+    let (wake, _) = watch::channel(0);
+    let (cancel, original_cancelled) = watch::channel(false);
+    assert!(matches!(
+        worker
+            .request(Operation::Connect {
+                client: "shared".into(),
+                clean: true,
+                will: Some(Will {
+                    topic: "allowed/will".into(),
+                    payload: b"original".to_vec(),
+                    qos: 1,
+                    retain: true
+                }),
+                username: Some("alice".into()),
+                password: Some(Password::new(SECRET.to_vec())),
+                generation: 1,
+                wake,
+                cancel,
+            })
+            .await
+            .unwrap(),
+        Reply::Connected(false)
+    ));
+    let (wake, _) = watch::channel(0);
+    let (cancel, _) = watch::channel(false);
+    assert!(matches!(
+        worker
+            .request(Operation::Connect {
+                client: "observer".into(),
+                clean: true,
+                will: None,
+                username: Some("alice".into()),
+                password: Some(Password::new(SECRET.to_vec())),
+                generation: 2,
+                wake,
+                cancel,
+            })
+            .await
+            .unwrap(),
+        Reply::Connected(false)
+    ));
+    worker
+        .request(Operation::Handle {
+            client: "observer".into(),
+            generation: 2,
+            packet: Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("allowed/#".into(), 1)],
+            },
+        })
+        .await
+        .unwrap();
+    for clean in [false, true] {
+        for (user, will) in [
+            ("bob", None),
+            (
+                "alice",
+                Some(Will {
+                    topic: "forbidden/will".into(),
+                    payload: b"denied".to_vec(),
+                    qos: 1,
+                    retain: true,
+                }),
+            ),
+        ] {
+            let (wake, _) = watch::channel(0);
+            let (cancel, _) = watch::channel(false);
+            assert!(matches!(
+                worker
+                    .request(Operation::Connect {
+                        client: "shared".into(),
+                        clean,
+                        will,
+                        username: Some(user.into()),
+                        password: Some(Password::new(SECRET.to_vec())),
+                        generation: 3,
+                        wake,
+                        cancel,
+                    })
+                    .await
+                    .unwrap(),
+                Reply::Rejected(ConnectRefusal::NotAuthorized)
+            ));
+        }
+    }
+    let (wake, _) = watch::channel(0);
+    let (cancel, _) = watch::channel(false);
+    assert!(
+        worker
+            .request(Operation::Connect {
+                client: "shared".into(),
+                clean: false,
+                will: None,
+                username: Some("alice".into()),
+                password: Some(Password::new(SECRET.to_vec())),
+                generation: 4,
+                wake,
+                cancel,
+            })
+            .await
+            .is_err()
+    );
+    assert!(!*original_cancelled.borrow());
+    assert!(matches!(
+        worker
+            .request(Operation::Poll {
+                client: "observer".into(),
+                generation: 2
+            })
+            .await
+            .unwrap(),
+        Reply::Polled(None)
+    ));
+    assert!(
+        matches!(worker.request(Operation::Handle { client: "shared".into(), generation: 1, packet: Packet::PingReq }).await.unwrap(), Reply::Packets(packets) if packets == vec![Packet::PingResp])
+    );
+    worker
+        .request(Operation::Disconnect {
+            client: "shared".into(),
+            generation: 1,
+            graceful: false,
+        })
+        .await
+        .unwrap();
+    assert!(
+        matches!(worker.request(Operation::Poll { client: "observer".into(), generation: 2 }).await.unwrap(), Reply::Polled(Some(Packet::Publish { topic, payload, .. })) if topic == "allowed/will" && payload == b"original")
+    );
+    assert!(matches!(
+        worker
+            .request(Operation::Poll {
+                client: "observer".into(),
+                generation: 2
+            })
+            .await
+            .unwrap(),
+        Reply::Polled(None)
+    ));
+    super::tests::stop(worker, task).await;
+}

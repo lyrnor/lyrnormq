@@ -232,12 +232,6 @@ fn run_commands(
                     wake,
                     cancel,
                 } => {
-                    if !clean && config.storage_path.is_none() {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Unsupported,
-                            "persistent sessions require --storage-path",
-                        ));
-                    }
                     let principal = principal
                         .take()
                         .ok_or_else(|| io::Error::other("missing authenticated identity"))?;
@@ -253,6 +247,15 @@ fn run_commands(
                             }
                             Err(error) => return Err(io::Error::other(error)),
                         };
+                    // Security refusal takes precedence over backend capability.
+                    // Any old-Will/reset effects above are only on the proposal;
+                    // rejecting persistence here discards that proposal entirely.
+                    if !clean && config.storage_path.is_none() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::Unsupported,
+                            "persistent sessions require --storage-path",
+                        ));
+                    }
                     registration = Some((
                         client,
                         Online {
