@@ -122,7 +122,7 @@ class MQTTBlackbox(unittest.TestCase):
         sub = self.client('routing-sub')
         pub = self.client('routing-pub')
         self.assertEqual(self.subscribe(sub, [('sensor/+', 2), ('sensor/#', 1)]),
-                         (0x90, b'\x00\x01\x00\x00'))
+                         (0x90, b'\x00\x01\x02\x01'))
         pub.sendall(frame(0x30, string('sensor/room') + b'payload\x00bytes'))
         self.assertEqual(receive(sub), (0x30, string('sensor/room') + b'payload\x00bytes'))
         # PINGRESP must be next: detects overlapping-subscription duplicate deliveries.
@@ -193,7 +193,7 @@ class MQTTBlackbox(unittest.TestCase):
                 self.closed(sock)
 
     def test_unsupported_publish_features_disconnect(self):
-        for header in (0x31, 0x32, 0x34):
+        for header in (0x31, 0x33, 0x35):
             with self.subTest(header=header):
                 sock = self.client(f'unsupported-{header}')
                 sock.sendall(frame(header, string('a') + b'\x00\x01payload'))
