@@ -510,3 +510,82 @@ fn schema1_rejects_retained_wire_that_old_codec_could_not_store() {
         assert!(SessionEngine::restore(config(), &serde_json::to_vec(&json).unwrap()).is_err());
     }
 }
+
+#[test]
+fn pending_self_will_allows_no_will_resume_to_drain_full_outbox_once() {
+    for graceful in [false, true] {
+        let limits = SessionConfig {
+            max_queued: 1,
+            max_inflight: 1,
+            ..config()
+        };
+        let mut state = SessionEngine::new(limits).unwrap();
+        state
+            .connect_with_will("self", false, Some(will(b"old-will", 1, true)))
+            .unwrap();
+        subscribe(&mut state, "self", "status/#", 1);
+        state.connect("pub", true).unwrap();
+        event(
+            &mut state,
+            "pub",
+            publication("status/client", b"inflight", 1, false, 1),
+        );
+        let inflight = state.poll("self").unwrap().unwrap();
+        event(
+            &mut state,
+            "pub",
+            publication("status/client", b"queued", 1, false, 2),
+        );
+        state.disconnect_with_reason("self", false).unwrap();
+        assert!(state.wills["self"].pending);
+        assert!(!state.retry_wills().unwrap());
+        assert!(
+            state
+                .connect_with_will("self", false, None)
+                .unwrap()
+                .session_present
+        );
+        assert!(state.wills["self"].pending);
+        // This connection has no Will of its own. Either close path preserves
+        // the older intent while both its inflight window and outbox are full.
+        state.disconnect_with_reason("self", graceful).unwrap();
+        assert_eq!(state.wills.len(), 1);
+        assert!(state.wills["self"].pending);
+        assert!(state.connect("self", false).unwrap().session_present);
+        let replay = state.poll("self").unwrap().unwrap();
+        check(&replay, b"inflight", 1, false);
+        assert_eq!(outgoing_id(&replay), outgoing_id(&inflight));
+        assert!(matches!(replay, Packet::Publish { dup: true, .. }));
+        assert!(state.poll("self").unwrap().is_none());
+        complete(&mut state, "self", &replay);
+        assert!(!state.retry_wills().unwrap());
+        let queued = state.poll("self").unwrap().unwrap();
+        check(&queued, b"queued", 1, false);
+        assert!(state.retry_wills().unwrap());
+        assert!(state.wills.is_empty());
+        assert_eq!(state.retained.entries()[0].payload, b"old-will");
+        complete(&mut state, "self", &queued);
+        let old_will = state.poll("self").unwrap().unwrap();
+        check(&old_will, b"old-will", 1, false);
+        complete(&mut state, "self", &old_will);
+        assert!(!state.retry_wills().unwrap());
+        assert!(state.poll("self").unwrap().is_none());
+        state.disconnect_with_reason("self", false).unwrap();
+        state.connect("self", false).unwrap();
+        assert!(state.poll("self").unwrap().is_none());
+    }
+}
+
+#[test]
+fn no_will_resume_does_not_bypass_unrecovered_active_will() {
+    let mut state = state();
+    state
+        .connect_with_will("self", false, Some(will(b"active", 1, false)))
+        .unwrap();
+    let mut state = restored(&state);
+    assert!(!state.wills["self"].pending);
+    assert!(matches!(
+        state.connect("self", false),
+        Err(EngineError::Capacity)
+    ));
+}

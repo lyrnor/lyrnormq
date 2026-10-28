@@ -51,7 +51,14 @@ impl SessionEngine {
         } else {
             self.retry_wills()?;
         }
-        if self.wills.contains_key(client_id) {
+        // An older pending intent must survive a connection without a new Will:
+        // the source may need to resume and drain its own full outbox first.
+        // Never overwrite it, or bypass startup recovery of an active record.
+        if self
+            .wills
+            .get(client_id)
+            .is_some_and(|record| !record.pending || will.is_some())
+        {
             return Err(EngineError::Capacity);
         }
         let present = !clean_session
