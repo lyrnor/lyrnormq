@@ -358,6 +358,7 @@ async fn connection_loop(
     let (cancel_tx, cancel) = watch::channel(false);
     let (output, outgoing) = mpsc::channel::<Packet>(config.outbound_capacity);
     let writer_task = spawn_writer(writer, outgoing, config.clone(), cancel_tx.clone());
+    let mut flush_rejection = false;
     let result = drive_connection(
         &mut reader,
         &output,
@@ -367,6 +368,7 @@ async fn connection_loop(
             config,
             shutdown,
             identity,
+            flush_rejection: &mut flush_rejection,
             wake_tx,
             wake,
             cancel_tx,
@@ -375,7 +377,7 @@ async fn connection_loop(
     )
     .await;
     drop(output);
-    finish_writer(writer_task, result).await
+    finish_writer(writer_task, result, flush_rejection).await
 }
 
 fn spawn_writer(
@@ -398,20 +400,13 @@ fn spawn_writer(
 async fn finish_writer(
     writer_task: tokio::task::JoinHandle<io::Result<()>>,
     result: io::Result<()>,
+    flush_rejection: bool,
 ) -> io::Result<()> {
     // A closing connection must not drain an arbitrarily slow queue after
     // takeover or shutdown. Cancelling a frame is safe because this socket is
     // closing and that frame will never be restarted on this stream. Durable
     // unacknowledged exchanges remain in the worker for reconnect replay.
-    let version_rejection = result.as_ref().err().is_some_and(|error| {
-        matches!(
-            error
-                .get_ref()
-                .and_then(|source| source.downcast_ref::<ProtocolError>()),
-            Some(ProtocolError::UnsupportedVersion)
-        )
-    });
-    if version_rejection {
+    if flush_rejection {
         // Exactly one CONNACK was queued before CONNECT completed.
         let written = writer_task.await.map_err(io::Error::other)?;
         result.and(written)
@@ -428,6 +423,7 @@ struct ConnectionContext<'a> {
     config: &'a BrokerConfig,
     shutdown: watch::Receiver<bool>,
     identity: &'a mut Option<String>,
+    flush_rejection: &'a mut bool,
     wake_tx: watch::Sender<u64>,
     wake: watch::Receiver<u64>,
     cancel_tx: watch::Sender<bool>,
@@ -445,6 +441,7 @@ async fn drive_connection(
         config,
         mut shutdown,
         identity,
+        flush_rejection,
         wake_tx,
         mut wake,
         cancel_tx,
@@ -482,6 +479,7 @@ async fn drive_connection(
                         })
                         .await
                         .map_err(io::Error::other)?;
+                    *flush_rejection = true;
                 }
                 return Err(io::Error::other(error));
             }
@@ -887,8 +885,8 @@ mod tests {
         );
         stop(worker, task).await;
     }
-    #[tokio::test]
-    async fn closing_connection_aborts_a_blocked_writer_instead_of_draining_queue() {
+    async fn assert_close_aborts_a_blocked_writer(result: io::Result<()>) {
+        let expected_success = result.is_ok();
         // Tiny real TCP buffers keep a large frame blocked without arbitrary
         // sleeps; the bounded queue also contains a second frame. Closing must
         // interrupt this writer, not wait its 30-second per-frame deadline.
@@ -916,10 +914,27 @@ mod tests {
         output.send(publication(&payload, 1)).await.unwrap();
         output.send(publication(&payload, 2)).await.unwrap();
         drop(output);
-        timeout(Duration::from_millis(300), finish_writer(writer, Ok(())))
-            .await
-            .expect("closing a socket must cancel queued writes promptly")
-            .unwrap();
+        let closed = timeout(
+            Duration::from_millis(300),
+            finish_writer(writer, result, false),
+        )
+        .await
+        .expect("closing a socket must cancel queued writes promptly");
+        assert_eq!(closed.is_ok(), expected_success);
         drop(client);
+    }
+    #[tokio::test]
+    async fn closing_connection_aborts_a_blocked_writer_instead_of_draining_queue() {
+        assert_close_aborts_a_blocked_writer(Ok(())).await;
+    }
+
+    #[tokio::test]
+    async fn established_version_error_does_not_flush_business_queue() {
+        // A second CONNECT with protocol version5 produces this codec error
+        // after the session is established. No rejection CONNACK was queued.
+        assert_close_aborts_a_blocked_writer(Err(io::Error::other(
+            ProtocolError::UnsupportedVersion,
+        )))
+        .await;
     }
 }
