@@ -396,3 +396,72 @@ fn clean_start_last_member_ends_old_group_incarnation() {
     subscribe(&mut e, "a", "$share/g/work/#", 0, 10);
     assert!(e.begin_delivery("a", old).unwrap().frame.is_none());
 }
+#[test]
+fn shared_qos1_restart_keeps_recipient_and_negative_ack_never_reassigns() {
+    let mut e = engine(config());
+    for id in ["source", "a", "b"] {
+        connect(&mut e, id);
+    }
+    for id in ["a", "b"] {
+        subscribe(&mut e, id, "$share/g/work/#", 1, 10);
+    }
+    publish(&mut e, 1, false);
+    let frame = e.poll_frame_with_changes("a").unwrap().frame.unwrap();
+    let Packet::Publish {
+        packet_id: Some(id),
+        ..
+    } = frame.packet
+    else {
+        panic!()
+    };
+    let mut e = SessionEngine::restore(config(), &e.snapshot().unwrap()).unwrap();
+    connect(&mut e, "a");
+    connect(&mut e, "b");
+    let retry = e.poll_frame_with_changes("a").unwrap().frame.unwrap();
+    assert!(matches!(retry.packet,Packet::Publish{packet_id:Some(n),dup:true,..} if n==id));
+    assert!(drain(&mut e, "b").is_empty());
+    let mut ack = Frame::v5(Packet::PubAck { packet_id: id });
+    ack.reason_code = ReasonCode::try_from(0x80).unwrap();
+    e.handle_frame("a", ack).unwrap();
+    assert!(e.sessions["a"].outgoing_shared.is_empty());
+    assert!(drain(&mut e, "b").is_empty());
+}
+#[test]
+fn expired_last_member_prunes_group_and_unstarted_backlog() {
+    let mut e = engine(config());
+    for id in ["source", "a"] {
+        connect(&mut e, id);
+    }
+    subscribe(&mut e, "a", "$share/g/work/#", 1, 10);
+    publish(&mut e, 1, false);
+    e.disconnect("a").unwrap();
+    e.sessions.get_mut("a").unwrap().expiry = 1;
+    e.sessions.get_mut("a").unwrap().expires_at = Some(0);
+    e.expire_sessions().unwrap();
+    assert!(!e.sessions.contains_key("a"));
+    assert!(e.shared_epochs.is_empty());
+    assert!(e.shared_cursors.is_empty());
+}
+#[test]
+fn shared_literal_dollar_topic_is_not_recursively_unwrapped_or_matched_by_hash() {
+    let mut e = engine(config());
+    for id in ["source", "a", "b"] {
+        connect(&mut e, id);
+    }
+    subscribe(&mut e, "a", "$share/g/$share/inner/#", 1, 10);
+    subscribe(&mut e, "b", "$share/g/#", 1, 11);
+    e.handle_frame(
+        "source",
+        Frame::v5(Packet::Publish {
+            topic: "$share/inner/x".into(),
+            payload: vec![],
+            qos: 1,
+            packet_id: Some(9),
+            dup: false,
+            retain: false,
+        }),
+    )
+    .unwrap();
+    assert_eq!(drain(&mut e, "a").len(), 1);
+    assert!(drain(&mut e, "b").is_empty());
+}
