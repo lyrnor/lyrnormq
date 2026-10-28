@@ -41,3 +41,33 @@ fn wildcard_edges() {
         assert_eq!(matches(filter, topic), expected, "{filter} {topic}");
     }
 }
+
+#[test]
+fn shared_filter_grammar_and_literal_inner_patterns() {
+    for (input, name, inner) in [
+        ("$share/g/a/+", "g", "a/+"),
+        ("$share/g//finance", "g", "/finance"),
+        ("$share/组/$SYS/#", "组", "$SYS/#"),
+        ("$share/g/$share/h/#", "g", "$share/h/#"),
+    ] {
+        assert_eq!(split_shared_filter(input), Some((name, inner)));
+        assert!(validate_subscription_filter(input));
+        assert!(!validate_filter(input));
+        assert!(validate_topic_filter(inner));
+    }
+    for input in [
+        "$share//a",
+        "$share/g/",
+        "$share/g",
+        "$share/+/a",
+        "$share/#/a",
+        "$share/g/a/#/b",
+        "$share/g/a\0",
+    ] {
+        assert_eq!(split_shared_filter(input), None, "{input}");
+        assert!(!validate_subscription_filter(input));
+    }
+    assert_eq!(split_shared_filter("a/+"), None);
+    assert!(validate_subscription_filter("a/+"));
+    assert!(validate_subscription_filter("$share"));
+}

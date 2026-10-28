@@ -1,7 +1,7 @@
 //! Indexed subscriptions and maximum matching QoS.
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use crate::filter::{valid_topic, validate_filter};
+use crate::filter::{valid_topic, validate_filter, validate_topic_filter};
 
 fn merge_qos(target: &mut BTreeMap<u64, u8>, source: &BTreeMap<u64, u8>) {
     for (&client, &qos) in source {
@@ -54,6 +54,15 @@ impl Router {
     /// Replacement changes QoS but does not consume another subscription slot.
     pub fn subscribe_qos(&mut self, client: u64, filter: String, qos: u8) -> bool {
         if qos > 2 || !validate_filter(&filter) {
+            return false;
+        }
+        self.subscribe_topic_filter_qos(client, filter, qos)
+    }
+
+    /// Index a normal pattern literally, including a `$share/`-looking prefix.
+    /// Callers extracting shared groups use this for the underlying pattern only.
+    pub fn subscribe_topic_filter_qos(&mut self, client: u64, filter: String, qos: u8) -> bool {
+        if qos > 2 || !validate_topic_filter(&filter) {
             return false;
         }
         let mut node = 0;

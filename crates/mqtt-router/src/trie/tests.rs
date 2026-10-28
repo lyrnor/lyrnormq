@@ -269,3 +269,14 @@ fn subscription_matches_agree_with_reference_and_do_not_scan_reverse_index() {
     router.subscriptions.clear();
     assert!(!router.matching_subscriptions("a/b").is_empty());
 }
+
+#[test]
+fn explicit_plain_pattern_entry_keeps_shared_looking_inner_literal() {
+    let mut router = Router::default();
+    assert!(!router.subscribe_qos(1, "$share/h/#".into(), 2));
+    assert!(router.subscribe_topic_filter_qos(1, "$share/h/#".into(), 2));
+    assert_eq!(router.matching_qos("$share/h/item"), vec![(1, 2)]);
+    assert!(router.matching_qos("item").is_empty());
+    router.unsubscribe(1, "$share/h/#");
+    assert!(router.matching_qos("$share/h/item").is_empty());
+}

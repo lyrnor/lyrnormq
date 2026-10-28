@@ -10,7 +10,15 @@ fn valid_string(value: &str) -> bool {
 /// Validate a Topic Filter. Empty levels are valid; `+` occupies one entire
 /// level and `#` occupies the final entire level. `$share/` is unsupported.
 pub fn validate_filter(filter: &str) -> bool {
-    if !valid_string(filter) || filter.starts_with("$share/") {
+    if filter.starts_with("$share/") {
+        return false;
+    }
+    validate_topic_filter(filter)
+}
+
+/// Validate ordinary Topic Filter syntax, without interpreting a shared prefix.
+pub fn validate_topic_filter(filter: &str) -> bool {
+    if !valid_string(filter) {
         return false;
     }
     let mut levels = filter.split('/').peekable();
@@ -23,6 +31,28 @@ pub fn validate_filter(filter: &str) -> bool {
         }
     }
     true
+}
+
+/// Split one valid shared subscription into its group name and literal pattern.
+/// The underlying pattern is never recursively interpreted as another group.
+pub fn split_shared_filter(filter: &str) -> Option<(&str, &str)> {
+    if !valid_string(filter) {
+        return None;
+    }
+    let (name, inner) = filter.strip_prefix("$share/")?.split_once('/')?;
+    if name.is_empty() || name.contains(['+', '#']) || !validate_topic_filter(inner) {
+        return None;
+    }
+    Some((name, inner))
+}
+
+/// Validate either an ordinary filter or the full shared-subscription syntax.
+pub fn validate_subscription_filter(filter: &str) -> bool {
+    if filter.starts_with("$share/") {
+        split_shared_filter(filter).is_some()
+    } else {
+        validate_filter(filter)
+    }
 }
 
 pub(super) fn valid_topic(topic: &str) -> bool {
