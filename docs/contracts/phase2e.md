@@ -12,6 +12,8 @@ for syntactically framed but semantically invalid protocol input (duplicate sing
 property, zero ReceiveMaximum etc). PerMQTT5 section2.2.2.2, an unknown property
 identifier or identifier invalid for this packet type is MalformedPacket0x81, as
 are framing/UTF8/truncation errors; do NOT classify wrong property context as0x82.
+Add ProtocolError::Mqtt5(ReasonCode) when a semantic error has a specified reason,
+notably zero TopicAlias ->0x94, so transport never parses error strings.
 
 Public root reexports from dedicated modules:
 - ProtocolVersion enum V311,V5 (Copy/Clone/Debug/Eq).
@@ -26,7 +28,7 @@ Public root reexports from dedicated modules:
   RetainAvailable(u8),UserProperty(String,String),MaximumPacketSize(u32),
   WildcardSubscriptionAvailable(u8),SubscriptionIdentifierAvailable(u8),
   SharedSubscriptionAvailable(u8).
-- Properties = Vec<Property>; Property derives Clone/Debug/PartialEq/Eq and serde
+- Properties = Vec<Property>; Property implements Clone/Debug/PartialEq/Eq (AuthenticationData Debug redacted) and serde
   Serialize/Deserialize for versioned durable records. Order and repeated UserProperty
   preserved. All scalar singletons except permitted repeat SubscriptionIdentifier
   (only PUBLISH); SUBSCRIBE subscription ID singleton. Unknown IDs, invalid context,
@@ -36,7 +38,7 @@ Public root reexports from dedicated modules:
 - ReasonCode opaque typed byte, TryFrom<u8> validates standard code set, value()->u8,
   associated named constants SUCCESS,NO_SUBSCRIPTION_EXISTED,DISCONNECT_WITH_WILL_MESSAGE,
   MALFORMED_PACKET,PROTOCOL_ERROR,IMPLEMENTATION_SPECIFIC_ERROR,
-  UNSUPPORTED_PROTOCOL_VERSION,BAD_USER_NAME_OR_PASSWORD,NOT_AUTHORIZED,
+  UNSUPPORTED_PROTOCOL_VERSION,CLIENT_IDENTIFIER_NOT_VALID,BAD_USER_NAME_OR_PASSWORD,NOT_AUTHORIZED,
   SERVER_UNAVAILABLE,SESSION_TAKEN_OVER,KEEP_ALIVE_TIMEOUT,BAD_AUTHENTICATION_METHOD,
   PACKET_IDENTIFIER_NOT_FOUND,RECEIVE_MAXIMUM_EXCEEDED,TOPIC_ALIAS_INVALID,
   PACKET_TOO_LARGE,QUOTA_EXCEEDED,SHARED_SUBSCRIPTIONS_NOT_SUPPORTED,
@@ -72,6 +74,9 @@ can frame a V5 failure CONNACK when later properties fail before Frame exists. I
 is not acceptance/validation of the full packet; no transport-side MQTT parsing.
 Test official boundary/context matrices, fragments/concatenation, malicious lengths,
 all property types/reasons, v311 regression and password redaction.
+
+V5 codec accepts empty ClientId syntax; runtime explicitly refuses with CONNACK0x85
+before authentication (assigned Client IDs not implemented). V311 behavior unchanged.
 
 ## Supported runtime Properties / explicit exclusions
 Implemented CONNECT SessionExpiryInterval,ReceiveMaximum; informational UserProperty,
