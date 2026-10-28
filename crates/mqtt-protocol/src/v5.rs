@@ -564,3 +564,6 @@ mod topic_alias_tests;
 
 #[cfg(test)]
 mod conformance_tests;
+
+#[cfg(test)]
+mod property_conformance_tests;
