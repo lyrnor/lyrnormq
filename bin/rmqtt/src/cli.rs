@@ -1,11 +1,12 @@
 use mqtt_transport::BrokerConfig;
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH]";
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
 
 pub struct Options {
     pub address: String,
     pub auth_policy: Option<PathBuf>,
+    pub enhanced_auth_plain: bool,
     pub config: BrokerConfig,
 }
 
@@ -28,11 +29,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut options = Options {
         address: "127.0.0.1:1883".into(),
         auth_policy: None,
+        enhanced_auth_plain: false,
         config: BrokerConfig::default(),
     };
     while let Some(option) = args.next() {
         if option == "--help" || option == "-h" {
             return Ok(None);
+        }
+        if option == "--enhanced-auth-plain" {
+            options.enhanced_auth_plain = true;
+            continue;
         }
         if !matches!(
             option.as_str(),
@@ -207,6 +213,24 @@ mod tests {
             options.auth_policy,
             Some(PathBuf::from("/does/not/exist.json"))
         );
+    }
+
+    #[test]
+    fn enhanced_plain_is_explicit_and_combines_with_existing_policy() {
+        assert!(!parse(args(&[])).unwrap().unwrap().enhanced_auth_plain);
+        let options = parse(args(&[
+            "--enhanced-auth-plain",
+            "--auth-policy",
+            "/does/not/exist.json",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert!(options.enhanced_auth_plain);
+        assert_eq!(
+            options.auth_policy,
+            Some(PathBuf::from("/does/not/exist.json"))
+        );
+        assert!(parse(args(&["--enhanced-auth-plain", "unexpected"])).is_err());
     }
 
     #[test]

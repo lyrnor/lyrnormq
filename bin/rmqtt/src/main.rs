@@ -15,6 +15,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let policy = tokio::task::spawn_blocking(move || auth_policy::load(&path)).await??;
         options.config.access_control = std::sync::Arc::new(policy);
     }
+    if options.enhanced_auth_plain {
+        options.config.enhanced_auth = Some(std::sync::Arc::new(
+            mqtt_auth::PlainAuthenticator::new(options.config.access_control.clone()),
+        ));
+    }
     let listener = TcpListener::bind(&options.address).await?;
     eprintln!("rmqtt listening on {}", listener.local_addr()?);
     let (tx, rx) = watch::channel(false);
