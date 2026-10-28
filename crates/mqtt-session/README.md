@@ -1,7 +1,8 @@
-# Session primitives (Phase 2 groundwork)
+# Clean-session QoS primitives (Phase 2a)
 
-This crate is not connected to the Phase 1 broker. It supplies a bounded outgoing
-packet identifier allocator and the MQTT 3.1.1 incoming QoS 2 method A exchange:
+The Phase 2a transport uses this crate for live clean-session QoS1/QoS2 exchanges.
+It preserves the existing bounded packet identifier allocator and MQTT 3.1.1
+incoming QoS 2 method A exchange:
 
 | Input | State | Result |
 |---|---|---|
@@ -21,6 +22,38 @@ must atomically commit the PUBREL state transition together with onward-delivery
 intent before PUBCOMP. Returning a Vec here is an in-memory action, not a durable
 outbox or application exactly-once guarantee. Caller must process the action
 before accepting another PUBLISH for the same ID. No session expiry, offline
-queue, reconnect, outgoing QoS exchange, storage recovery or Will is implemented.
+queue, reconnect, storage recovery or Will is implemented.
 
 Reference: [OASIS MQTT 3.1.1 section 4.3.3](https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html).
+
+
+## Outgoing exchange API
+
+`OutgoingQos::start(qos, encoded_message)` accepts only QoS1/2, checks encoded
+message size and allocates an unused outgoing Packet ID from a bounded window.
+The caller puts that ID into the outgoing PUBLISH and writes it before allowing
+its acknowledgement to advance the state. Incoming and outgoing identifiers are
+independent namespaces.
+
+| State | ACK | Action / next state |
+| --- | --- | --- |
+| Await PUBACK (QoS1) | PUBACK | Complete, release message and ID |
+| Await PUBREC (QoS2) | PUBREC | Drop encoded message, send PUBREL, await PUBCOMP |
+| Await PUBCOMP (QoS2) | repeated PUBREC | Send PUBREL again, retain ID |
+| Await PUBCOMP (QoS2) | PUBCOMP | Complete, release ID |
+| Unknown ID | any ACK | Ignore |
+| Existing ID, any other ACK kind | mismatched ACK | UnexpectedAck, preserve state |
+
+No acknowledgement mutation performs IO. `is_full()` lets transport stop taking
+new deliveries while continuing to read ACKs. Invalid QoS, oversize messages and
+full-window failures leave accepted exchanges and ID allocation unchanged. The
+window caps at 65,535 entries; a zero window accepts no exchanges. Memory for
+stored encoded messages is bounded by window times maximum encoded size, plus
+bounded metadata and the fixed identifier bitmap. QoS2 discards stored PUBLISH
+bytes upon PUBREC, so repeated PUBREC cannot trigger PUBLISH redelivery.
+
+This is volatile clean-session state. There is no retry timer within the current
+connection, durable state/outbox transaction or reconnect retransmission API.
+Persistent-session reconnect behavior (MQTT3.1.1 section 4.4) requires a future
+versioned durable schema and transport integration; this crate makes no crash
+recovery or application exactly-once guarantee.
