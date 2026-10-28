@@ -14,5 +14,7 @@ jobs:
       - run: cargo build --workspace
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
+      - run: python3 tests/persistence_blackbox.py
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/paho_interop.py
+      - run: python3 tests/persistence_paho.py
