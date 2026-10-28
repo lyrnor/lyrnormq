@@ -93,13 +93,18 @@ impl SessionEngine {
         if will.is_none() && !will_properties.is_empty() {
             return Err(super::mqtt5::mqtt5_error(0x82));
         }
-        if will_properties
-            .iter()
-            .any(|p| matches!(p,Property::WillDelayInterval(v) if *v!=0))
-        {
-            return Err(super::mqtt5::mqtt5_error(0x83));
+        let mut delay_interval = 0;
+        let mut delay_seen = false;
+        for property in &will_properties {
+            if let Property::WillDelayInterval(value) = property {
+                if delay_seen {
+                    return Err(super::mqtt5::mqtt5_error(0x82));
+                }
+                delay_seen = true;
+                delay_interval = *value;
+            }
         }
-        will_properties.retain(|p| !matches!(p, Property::WillDelayInterval(0)));
+        will_properties.retain(|p| !matches!(p, Property::WillDelayInterval(_)));
         if let Some(will) = &will {
             let id = if will.qos == 0 { None } else { Some(1) };
             self.validate_properties(
@@ -143,11 +148,41 @@ impl SessionEngine {
                 result => result?,
             }
         }
-        if self
+        let now = self.clock.now_millis();
+        let survives = !options.clean_start
+            && self
+                .sessions
+                .get(client_id)
+                .is_some_and(|session| session.persistent);
+        let was_online = self
             .sessions
             .get(client_id)
-            .is_some_and(|session| session.online)
+            .is_some_and(|session| session.online);
+        let cancellable = survives
+            && self.wills.get(client_id).is_some_and(|record| {
+                record.delay_interval > 0
+                    && !record.timer_blocked
+                    && if record.pending {
+                        record.due_at.is_some_and(|deadline| deadline > now)
+                    } else {
+                        was_online
+                    }
+            });
+        if cancellable {
+            // Continuing the SAME session before the delay ends cancels the old
+            // connection's Will, whether or not the replacement supplies a Will.
+            self.wills.remove(client_id);
+        } else if !survives
+            && let Some(record) = self.wills.get_mut(client_id)
+            && (record.pending || was_online)
         {
+            // Clean Start or an expiry-zero takeover ends the original session.
+            // A prior already-due intent keeps its earlier absolute deadline.
+            record.pending = true;
+            record.due_at = Some(record.due_at.map_or(now, |deadline| deadline.min(now)));
+            record.timer_blocked = false;
+        }
+        if was_online {
             self.disconnect_with_reason(client_id, false)?;
         } else {
             self.retry_wills()?;
@@ -193,7 +228,7 @@ impl SessionEngine {
                     owner: principal.name.clone(),
                     pending: false,
                     timer_blocked: false,
-                    delay_interval: 0,
+                    delay_interval,
                     due_at: None,
                     will: WillData {
                         properties: will_properties,
@@ -279,18 +314,38 @@ impl SessionEngine {
             if self.wills.get(client_id).is_some_and(|will| !will.pending) {
                 self.wills.remove(client_id);
             }
-        } else if let Some(record) = self.wills.get_mut(client_id) {
+        } else if let Some(record) = self.wills.get_mut(client_id)
+            && !record.pending
+        {
+            let now = self.clock.now_millis();
+            let session_end = self
+                .sessions
+                .get(client_id)
+                .map_or(Some(now), |session| session.expires_at);
+            let delayed = now.saturating_add(u64::from(record.delay_interval) * 1000);
             record.pending = true;
-            record.due_at = Some(self.clock.now_millis());
+            record.due_at = Some(session_end.map_or(delayed, |deadline| delayed.min(deadline)));
+            record.timer_blocked = false;
         }
         self.retry_wills()?;
         self.ensure_bounds()
     }
     /// Called once on startup after restore, before the startup commit and ready.
     pub fn recover_wills(&mut self) -> Result<(), EngineError> {
-        for record in self.wills.values_mut() {
-            record.pending = true;
-            record.due_at = Some(self.clock.now_millis());
+        let now = self.clock.now_millis();
+        for (client_id, record) in &mut self.wills {
+            if !record.pending {
+                // The crash instant is unknown. Only active-at-crash records get
+                // a new conservative anchor; known schedules never slide.
+                let session_end = self
+                    .sessions
+                    .get(client_id)
+                    .map_or(Some(now), |session| session.expires_at);
+                let delayed = now.saturating_add(u64::from(record.delay_interval) * 1000);
+                record.pending = true;
+                record.due_at = Some(session_end.map_or(delayed, |deadline| delayed.min(deadline)));
+                record.timer_blocked = false;
+            }
         }
         self.retry_wills()?;
         self.ensure_bounds()
@@ -303,7 +358,13 @@ impl SessionEngine {
         let pending: Vec<String> = self
             .wills
             .iter()
-            .filter_map(|(id, record)| record.pending.then_some(id.clone()))
+            .filter_map(|(id, record)| {
+                (record.pending
+                    && record
+                        .due_at
+                        .is_some_and(|deadline| deadline <= self.clock.now_millis()))
+                .then_some(id.clone())
+            })
             .collect();
         for id in pending {
             let mut proposal = self.clone();
@@ -312,7 +373,10 @@ impl SessionEngine {
                 .remove(&id)
                 .ok_or_else(|| invalid_record("pending Will disappeared"))?;
             let publication = Message {
-                expires_at: None,
+                expires_at: super::temporal::expiry_deadline(
+                    &record.will.properties,
+                    self.clock.now_millis(),
+                ),
                 topic: record.will.topic,
                 payload: record.will.payload,
                 qos: record.will.qos,
@@ -332,6 +396,7 @@ impl SessionEngine {
                         && !will.timer_blocked
                     {
                         will.timer_blocked = true;
+                        progressed = true;
                     }
                 }
                 Err(EngineError::Retained(error)) if super::is_retained_capacity(&error) => {
@@ -339,6 +404,7 @@ impl SessionEngine {
                         && !will.timer_blocked
                     {
                         will.timer_blocked = true;
+                        progressed = true;
                     }
                 }
                 Err(error) => return Err(error),
@@ -347,3 +413,7 @@ impl SessionEngine {
         Ok(progressed)
     }
 }
+
+#[cfg(test)]
+#[path = "will_delay_tests.rs"]
+mod will_delay_tests;
