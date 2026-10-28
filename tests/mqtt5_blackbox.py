@@ -20,7 +20,7 @@ from blackbox import frame, receive, string
 from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import FeatureBroker
 from auth_acl_blackbox import AuthBroker, PASSWORD, connect_packet as auth311
-from schema_compat import schema3_fixture, schema4_fixture
+from schema_compat import schema3_fixture, schema4_fixture, default_subscription
 
 
 def varint(value):
@@ -353,7 +353,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.assertEqual(capabilities[0x27], 65536)
         self.assertEqual(capabilities.get(0x22, 0), 0)
         self.assertEqual(capabilities[0x2a], 0)
-        self.assertEqual(capabilities[0x29], 0)
+        self.assertEqual(capabilities[0x29], 1)
         self.assertNotIn(0x1f, capabilities)
         self.disconnect(sock)
         self.client('fragmented', clean=False, present=False)
@@ -631,15 +631,17 @@ class Mqtt5Blackbox(unittest.TestCase):
         source.sendall(frame(0xf0, b'\x19'))
         self.terminal(source, 0x82)
 
-    def test_unsupported_subscribe_features_are_per_filter_reason_codes(self):
+    def test_supported_subscribe_options_and_per_filter_unsubscribe_codes(self):
         self.start()
         sub = self.client('subscription-options')
         self.subscribe(sub, [('options/good', 1), ('options/no-local', 5),
                              ('options/rap', 9), ('options/retain-handling', 17)],
-                       codes=[1, 0x83, 0x83, 0x83])
+                       codes=[1, 1, 1, 1])
         source = self.client('subscription-options-source')
-        for topic in ('options/no-local', 'options/rap', 'options/retain-handling', 'options/identifier'):
-            self.publish(source, topic, b'not subscribed')
+        for topic in ('options/no-local', 'options/rap', 'options/retain-handling'):
+            self.publish(source, topic, b'subscribed')
+            self.message(sub, topic, b'subscribed')
+        self.publish(source, 'options/identifier', b'not subscribed')
         self.quiet(sub)
         self.publish(source, 'options/good', b'yes')
         self.message(sub, 'options/good', b'yes')
@@ -650,11 +652,10 @@ class Mqtt5Blackbox(unittest.TestCase):
         _, offset = readprops(body, 2)
         self.assertEqual(body[offset:], b'\0\x11')
 
-    def test_unavailable_shared_and_subscription_identifier_disconnect_without_partial_grants(self):
+    def test_unavailable_shared_disconnect_without_partial_grants(self):
         self.start()
         source = self.client('unavailable-source')
         for name, properties, filters, reason in [
-            ('sub-id', [(0x0b, 1)], [('feature/unaccepted', 1)], 0xa1),
             ('shared', [], [('feature/unaccepted', 1), ('$share/group/feature/#', 1)], 0x9e),
         ]:
             with self.subTest(feature=name):
@@ -671,7 +672,7 @@ class Mqtt5Blackbox(unittest.TestCase):
                 self.message(resumed, topic, b'prior grant remains')
                 if self.sqlite:
                     record = next(s for s in self.snapshot()['sessions'] if s['client_id'] == 'feature-' + name)
-                    self.assertEqual(record['subscriptions'], [[topic, 1]])
+                    self.assertEqual(record['subscriptions'], [default_subscription(topic, 1)])
 
     def test_duplicate_zero_wrong_context_and_unknown_properties_fail(self):
         self.start()
@@ -798,7 +799,7 @@ class Mqtt5Blackbox(unittest.TestCase):
             record = next(s for s in self.snapshot()['sessions'] if s['client_id'] == 'offline-v5-size')
             self.assertEqual(record['queued'], [])
             self.assertEqual(record['outgoing'], [])
-            self.assertEqual(record['subscriptions'], [['a', 1]])
+            self.assertEqual(record['subscriptions'], [default_subscription('a', 1)])
         resumed = self.client('offline-v5-size', clean=False, expiry=60, present=True)
         self.barrier(resumed)
         self.quiet(resumed)
@@ -1116,7 +1117,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         source.sendall(ack(0x62, 72))
         parse_ack5(receive(source), 0x70, 72)
         self.message(target, 'legacy/pending', b'old pending', 2)
-        self.assertEqual(self.snapshot()['schema_version'], 5)
+        self.assertEqual(self.snapshot()['schema_version'], 6)
         self.assertTrue(all(s['owner'] == 'anonymous' for s in self.snapshot()['sessions']))
 
     def test_schema4_missing_required_expiry_deadline_rejects_startup_without_reset(self):

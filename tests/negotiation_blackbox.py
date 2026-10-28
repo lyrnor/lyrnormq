@@ -42,7 +42,7 @@ class NegotiationBlackbox(unittest.TestCase):
         self.assertEqual(caps[0x21], 32)
         self.assertEqual(caps[0x27], 1048576)
         self.assertEqual(caps[0x2a], 0)
-        self.assertEqual(caps[0x29], 0)
+        self.assertEqual(caps[0x29], 1)
         return sock, identifier
 
     def limited(self, sock, maximum):
@@ -82,7 +82,7 @@ class NegotiationBlackbox(unittest.TestCase):
         if body[1] == 0:
             caps, _ = wire.readprops(body, 2)
             self.assertEqual({k: v for k, v in caps if k in (0x21, 0x27, 0x2a, 0x29)},
-                             {0x21: 32, 0x27: 1048576, 0x2a: 0, 0x29: 0})
+                             {0x21: 32, 0x27: 1048576, 0x2a: 0, 0x29: 1})
         else:
             self.closed(other)
 
@@ -382,7 +382,7 @@ class NegotiationBlackbox(unittest.TestCase):
         sub, _ = self.connect(assigned, clean=False, present=True)
         replay = self.message(sub, 'recover/first', b'one', dup=True)
         self.assertEqual(replay[3], old[3]);self.message(sub, 'recover/big', b'x' * 256, qos=2)
-        data = self.snapshot();self.assertEqual(data['schema_version'], 5)
+        data = self.snapshot();self.assertEqual(data['schema_version'], 6)
         self.assertNotIn('maximum_packet_size', json.dumps(data))
         later, fresh = self.connect('');self.assertNotEqual(assigned, fresh);self.barrier(later)
 

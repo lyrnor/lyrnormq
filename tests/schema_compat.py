@@ -6,8 +6,47 @@ fixture. Production migrations are owned by mqtt-session, not this test helper.
 import copy
 
 
-def schema4_fixture(value):
+def default_subscription(topic, qos):
+    return {'filter': topic, 'qos': qos, 'no_local': False,
+            'retain_as_published': False, 'retain_handling': 0, 'identifier': None}
+
+
+def schema5_fixture(value):
+    """Drop only proven legacy-default subscription/replay state, preserving time/QoS."""
     result = copy.deepcopy(value)
+    if result['schema_version'] == 5:
+        return result
+    assert result['schema_version'] == 6
+    result['schema_version'] = 5
+
+    def source_properties(properties):
+        assert all('SubscriptionIdentifier' not in prop for prop in properties)
+
+    for session in result['sessions']:
+        old = []
+        for subscription in session['subscriptions']:
+            assert type(subscription['no_local']) is bool
+            assert type(subscription['retain_as_published']) is bool
+            assert type(subscription['retain_handling']) is int
+            assert type(subscription['qos']) is int
+            assert subscription == default_subscription(subscription['filter'], subscription['qos'])
+            old.append([subscription['filter'], subscription['qos']])
+        session['subscriptions'] = old
+        for message in session['queued']:
+            replay = message.pop('retained_replay')
+            assert type(replay) is bool and replay == message['retain']
+            source_properties(message['properties'])
+        for outgoing in session['outgoing']:
+            stage = outgoing['stage']
+            retained = False if stage == 'Comp' else bool(next(iter(stage.values()))[0] & 1)
+            replay = outgoing.pop('retained_replay')
+            assert type(replay) is bool and replay == retained
+            source_properties(outgoing['properties'])
+    return result
+
+
+def schema4_fixture(value):
+    result = schema5_fixture(value) if value['schema_version'] != 4 else copy.deepcopy(value)
     if result['schema_version'] == 4:
         return result
     assert result['schema_version'] == 5

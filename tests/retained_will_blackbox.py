@@ -500,7 +500,7 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.delivery(target, 'migration', b'legacy queue', 1)
         with sqlite3.connect(self.broker.db) as db:
             migrated = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
-            self.assertEqual(migrated['schema_version'], 5)
+            self.assertEqual(migrated['schema_version'], 6)
             self.assertTrue(all(s['owner'] == 'anonymous' for s in migrated['sessions']))
 
 

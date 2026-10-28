@@ -18,7 +18,7 @@ import mqtt5_blackbox as wire
 from blackbox import frame, receive
 from qos_blackbox import ack
 from auth_acl_blackbox import AuthBroker, PASSWORD
-from schema_compat import schema4_fixture
+from schema_compat import schema4_fixture, default_subscription
 
 
 class ExpiryWillBlackbox(unittest.TestCase):
@@ -456,7 +456,7 @@ class ExpiryWillBlackbox(unittest.TestCase):
                                    not next(x for x in s['sessions']
                                             if x['client_id'] == 'idle-timer-target')['queued'])
         session = next(x for x in value['sessions'] if x['client_id'] == 'idle-timer-target')
-        self.assertEqual(session['subscriptions'], [['idle-timer', 1]])
+        self.assertEqual(session['subscriptions'], [default_subscription('idle-timer', 1)])
 
     def test_retained_and_offline_deadlines_survive_downtime(self):
         self.require_sqlite()
@@ -550,7 +550,7 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.broker.start()
         target = self.client('legacy4-target', clean=False, expiry=60, present=True)
         self.message(target, 'legacy4', b'unlimited')
-        self.assertEqual(self.snapshot()['schema_version'], 5)
+        self.assertEqual(self.snapshot()['schema_version'], 6)
 
     def test_legacy_schema4_cannot_smuggle_previously_unsupported_ttl(self):
         self.require_sqlite()
@@ -592,7 +592,7 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.broker.stop()
         with sqlite3.connect(self.broker.db) as db:
             value = json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0])
-        self.assertEqual(value['schema_version'], 5)
+        self.assertEqual(value['schema_version'], 6)
         self.assertIn('clock_floor', value)
         value.pop('clock_floor')
         damaged = json.dumps(value).encode()
