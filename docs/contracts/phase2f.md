@@ -97,7 +97,11 @@ ID/order/replay/properties/expiry/ticket/quota together and return changed=true.
 Otherwise compute remaining properties at this instant, validate size/ACL, persist
 started=true before returning first QoS1/2 frame. Started retries are not TTL-pruned.
 QoS0 drops if expired before write, no durable handshake state. All mutations remain
-proposal/snapshot/commit/install before transmission. The unavoidable crash gap
+proposal/snapshot/commit/install before transmission. Delivery::refresh_remaining(&self,frame:&mut Frame,now_millis:u64) reuses temporal
+helpers to cap/decrease the returned frame TTL again immediately before write_all;
+SQL commit time must not inflate the advertised remaining interval. Once begin has
+accepted the first attempt before expiry, start-intent/commit is part of that attempt;
+it may finish with interval0 if commit consumes the remaining lifetime. The unavoidable crash gap
 between committed start-intent and socket write is conservatively treated as possibly
 sent, preservingQoS; document this boundary rather than claiming atomic SQL+TCP.
 
