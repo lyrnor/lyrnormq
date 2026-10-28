@@ -209,6 +209,38 @@ class PersistenceBlackbox(unittest.TestCase):
                 self.complete(resumed, replayed)
                 self.disconnect(resumed)
 
+    def test_plain_tcp_disconnect_replays_each_outgoing_ack_stage(self):
+        self.broker.start()
+        for stage, qos in [('awaitack', 1), ('awaitrec', 2), ('awaitcomp', 2)]:
+            with self.subTest(stage=stage):
+                name, topic = f'tcp-{stage}', f'tcp/{stage}'
+                sub = self.client(name)
+                self.subscribe(sub, topic)
+                publisher = self.client(f'tcp-source-{stage}', clean=True)
+                self.incoming(publisher, topic, b'normal TCP disconnect', qos)
+                initial = parse_publish(receive(sub))
+                self.assertEqual(initial[:3], (topic, b'normal TCP disconnect', qos))
+                if stage == 'awaitcomp':
+                    sub.sendall(ack(0x50, initial[3]))
+                    self.assertEqual(receive(sub), (0x62, struct.pack('!H', initial[3])))
+                # Receiving PUBLISH/PUBREL is the commit barrier. Reconnect
+                # immediately, covering late disconnect cleanup from the old
+                # generation without restarting the broker or waiting on sleeps.
+                sub.shutdown(socket.SHUT_RDWR)
+                sub.close()
+                resumed = self.client(name, present=True)
+                if stage == 'awaitcomp':
+                    self.assertEqual(receive(resumed), (0x62, struct.pack('!H', initial[3])))
+                    self.quiet(resumed)
+                    resumed.sendall(ack(0x70, initial[3]))
+                    self.barrier(resumed)
+                else:
+                    replay = parse_publish(receive(resumed))
+                    self.assertEqual(replay[:4], initial[:4])
+                    self.assertTrue(replay[4])
+                    self.complete(resumed, replay)
+                self.disconnect(resumed)
+
     def test_qos2_awaiting_pubcomp_replays_pubrel_only(self):
         self.broker.start()
         sub = self.client('awaitcomp')
