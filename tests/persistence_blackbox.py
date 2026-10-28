@@ -253,24 +253,73 @@ class PersistenceBlackbox(unittest.TestCase):
         self.broker.start()
         sub = self.client('commit-target')
         self.subscribe(sub, 'commit')
-        self.disconnect(sub)
         publisher = self.client('commit-source')
         publisher.sendall(publish('commit', b'atomic source and outbox', 2, 9))
         self.assertEqual(receive(publisher), (0x50, b'\x00\x09'))
-        publisher.sendall(ack(0x62, 9) + frame(0xc0))
-        # Deliberately do not process PUBCOMP as completion at the sender. The
-        # following PINGRESP proves the earlier PUBREL event finished committing.
-        self.assertEqual(receive(publisher), (0x70, b'\x00\x09'))
-        self.assertEqual(receive(publisher), (0xd0, b''))
-        self.broker.restart_after_crash()
-        sub = self.client('commit-target', present=True)
+        publisher.sendall(ack(0x62, 9))
+        # Never read PUBCOMP at the source. Successful onward delivery and its
+        # final ACK barrier prove the PUBREL+outbox transaction committed.
         message = parse_publish(receive(sub))
         self.assertEqual(message[:3], ('commit', b'atomic source and outbox', 2))
         self.complete(sub, message)
+        self.broker.restart_after_crash()
+        sub = self.client('commit-target', present=True)
+        self.quiet(sub)
         publisher = self.client('commit-source', present=True)
         publisher.sendall(ack(0x62, 9))
         self.assertEqual(receive(publisher), (0x70, b'\x00\x09'))
         self.quiet(sub)
+
+    def test_replayed_publish_order_is_original_send_order(self):
+        self.broker.start()
+        sub = self.client('ordered-target')
+        self.subscribe(sub, 'ordered', qos=1)
+        publisher = self.client('ordered-source', clean=True)
+        initial = []
+        for packet_id, payload in enumerate((b'first', b'second', b'third'), 1):
+            self.incoming(publisher, 'ordered', payload, packet_id=packet_id)
+            initial.append(parse_publish(receive(sub)))
+        self.assertEqual(len({packet[3] for packet in initial}), 3)
+        self.broker.restart_after_crash()
+        resumed = self.client('ordered-target', present=True)
+        replayed = [parse_publish(receive(resumed)) for _ in initial]
+        self.assertEqual([packet[:4] for packet in replayed], [packet[:4] for packet in initial])
+        self.assertTrue(all(packet[4] for packet in replayed))
+        for packet in replayed:
+            resumed.sendall(ack(0x40, packet[3]))
+        self.barrier(resumed)
+
+    def test_pubrel_fanout_limit_rolls_back_all_recipients_and_source_state(self):
+        self.broker.extra_args = ['--outbound-capacity', '1']
+        self.broker.start()
+        first = self.client('a-atomic-target')
+        self.subscribe(first, 'transaction/#')
+        self.disconnect(first)
+        full = self.client('z-full-target')
+        self.subscribe(full, 'transaction/#')
+        self.subscribe(full, 'fill')
+        self.disconnect(full)
+        filler = self.client('filler', clean=True)
+        self.incoming(filler, 'fill', b'occupies the queue')
+        source = self.client('atomic-source')
+        source.sendall(publish('transaction/item', b'atomic fanout', 2, 7))
+        self.assertEqual(receive(source), (0x50, b'\x00\x07'))
+        source.sendall(ack(0x62, 7))
+        self.closed(source)  # Full second target prevents successful PUBCOMP.
+        self.broker.restart_after_crash()
+        first = self.client('a-atomic-target', present=True)
+        self.quiet(first)  # The earlier fanout target must not be partially committed.
+        full = self.client('z-full-target', present=True)
+        filled = parse_publish(receive(full))
+        self.assertEqual(filled[:3], ('fill', b'occupies the queue', 1))
+        self.complete(full, filled)
+        source = self.client('atomic-source', present=True)
+        source.sendall(ack(0x62, 7))
+        self.assertEqual(receive(source), (0x70, b'\x00\x07'))
+        for target in (first, full):
+            delivered = parse_publish(receive(target))
+            self.assertEqual(delivered[:3], ('transaction/item', b'atomic fanout', 2))
+            self.complete(target, delivered)
 
     def test_offline_queue_overflow_is_not_acknowledged(self):
         self.broker.extra_args = ['--outbound-capacity', '2']
