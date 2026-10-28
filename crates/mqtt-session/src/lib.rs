@@ -1,5 +1,8 @@
-//! Bounded in-memory MQTT 3.1.1 clean-session QoS primitives.
-//! State is volatile; callers drive packet IO and preserve acknowledgement order.
+//! Bounded MQTT 3.1.1 QoS primitives integrated by the Phase 2a clean-session transport.
+//! Incoming QoS2 delivers on PUBREL; outgoing QoS1/QoS2 releases identifiers only
+//! after PUBACK/PUBCOMP. The transport drives packet IO and acknowledgement order.
+//! State is volatile: persistence, reconnect retransmission and crash recovery
+//! require a future durable transaction/outbox implementation.
 use std::{
     collections::{BTreeMap, VecDeque},
     error::Error,

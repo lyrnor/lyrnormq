@@ -1,8 +1,10 @@
 # Clean-session QoS primitives (Phase 2a)
 
 The Phase 2a transport uses this crate for live clean-session QoS1/QoS2 exchanges.
-It preserves the existing bounded packet identifier allocator and MQTT 3.1.1
-incoming QoS 2 method A exchange:
+Transport now delegates incoming QoS2 ownership and outgoing QoS1/QoS2 ACK
+transitions to these bounded state machines; it keeps each connection’s incoming
+and outgoing identifier namespaces independent. The existing packet identifier
+allocator and MQTT 3.1.1 incoming QoS 2 method A exchange remain unchanged:
 
 | Input | State | Result |
 |---|---|---|
