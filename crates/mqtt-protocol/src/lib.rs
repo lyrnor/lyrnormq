@@ -1,4 +1,5 @@
-//! Incremental, allocation-bounded MQTT 3.1.1 Phase 1 packet codec.
+//! Incremental MQTT 3.1.1 codec for clean-session QoS 0/1/2 messaging.
+//! MQTT 5, retained publications, Will, credentials and persistent sessions remain unsupported.
 use std::{error::Error, fmt};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +16,22 @@ pub enum Packet {
     Publish {
         topic: String,
         payload: Vec<u8>,
+        qos: u8,
+        packet_id: Option<u16>,
+        dup: bool,
+        retain: bool,
+    },
+    PubAck {
+        packet_id: u16,
+    },
+    PubRec {
+        packet_id: u16,
+    },
+    PubRel {
+        packet_id: u16,
+    },
+    PubComp {
+        packet_id: u16,
     },
     Subscribe {
         packet_id: u16,
@@ -91,17 +108,13 @@ impl<'a> Reader<'a> {
     }
     fn id(&mut self) -> Result<u16, ProtocolError> {
         let id = self.u16()?;
-        if id == 0 {
-            return Err(malformed("zero packet identifier"));
-        }
+        validate_id(id)?;
         Ok(id)
     }
     fn string(&mut self) -> Result<String, ProtocolError> {
         let n = self.u16()? as usize;
         let s = std::str::from_utf8(self.take(n)?).map_err(|_| malformed("invalid UTF-8"))?;
-        if !valid_utf8(s) {
-            return Err(malformed("forbidden UTF-8 code point"));
-        }
+        validate_string(s)?;
         Ok(s.to_owned())
     }
     fn done(&self) -> bool {
@@ -140,8 +153,8 @@ pub fn decode(
         if qos == 3 || (qos == 0 && flags & 8 != 0) {
             return Err(malformed("invalid PUBLISH flags"));
         }
-        if qos != 0 || flags & 1 != 0 {
-            return Err(unsupported("QoS or retained publish"));
+        if flags & 1 != 0 {
+            return Err(unsupported("retained publish"));
         }
     }
     let mut remaining = 0usize;
@@ -219,12 +232,23 @@ pub fn decode(
         }
         3 => {
             let topic = r.string()?;
-            if topic.is_empty() || topic.contains(['+', '#']) {
-                return Err(malformed("invalid topic name"));
-            }
+            validate_topic(&topic)?;
+            let qos = (flags >> 1) & 3;
+            let packet_id = if qos == 0 { None } else { Some(r.id()?) };
             let payload = r.take(r.bytes.len() - r.pos)?.to_vec();
-            Packet::Publish { topic, payload }
+            Packet::Publish {
+                topic,
+                payload,
+                qos,
+                packet_id,
+                dup: flags & 8 != 0,
+                retain: false,
+            }
         }
+        4 => Packet::PubAck { packet_id: r.id()? },
+        5 => Packet::PubRec { packet_id: r.id()? },
+        6 => Packet::PubRel { packet_id: r.id()? },
+        7 => Packet::PubComp { packet_id: r.id()? },
         8 => {
             let packet_id = r.id()?;
             let mut filters = Vec::new();
@@ -271,7 +295,7 @@ pub fn decode(
         12 => Packet::PingReq,
         13 => Packet::PingResp,
         14 => Packet::Disconnect,
-        _ => return Err(unsupported("QoS acknowledgement")),
+        _ => return Err(malformed("reserved packet type")),
     };
     if !r.done() {
         return Err(malformed("trailing bytes"));
@@ -287,8 +311,122 @@ fn string(out: &mut Vec<u8>, s: &str) -> Result<(), ProtocolError> {
     out.extend(s.as_bytes());
     Ok(())
 }
+fn validate_string(value: &str) -> Result<(), ProtocolError> {
+    if value.len() > u16::MAX as usize {
+        return Err(malformed("string too long"));
+    }
+    if !valid_utf8(value) {
+        return Err(malformed("forbidden UTF-8 code point"));
+    }
+    Ok(())
+}
+fn validate_topic(topic: &str) -> Result<(), ProtocolError> {
+    validate_string(topic)?;
+    if topic.is_empty() || topic.contains(['+', '#']) {
+        return Err(malformed("invalid topic name"));
+    }
+    Ok(())
+}
+fn validate_id(id: u16) -> Result<(), ProtocolError> {
+    if id == 0 {
+        return Err(malformed("zero packet identifier"));
+    }
+    Ok(())
+}
+/// Validate owned packet values without encoding and decoding them again. Payload
+/// bytes are opaque; checking metadata must never clone an application payload.
+fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
+    match packet {
+        Packet::Connect {
+            client_id,
+            clean_session,
+            ..
+        } => {
+            if !clean_session {
+                return Err(unsupported("persistent session"));
+            }
+            validate_string(client_id)?;
+            if client_id.is_empty() {
+                return Err(unsupported("server-assigned client identifier"));
+            }
+        }
+        Packet::ConnAck {
+            session_present,
+            code,
+        } => {
+            if *code > 5 || (*code != 0 && *session_present) {
+                return Err(malformed("invalid CONNACK"));
+            }
+        }
+        Packet::Publish {
+            topic,
+            payload,
+            qos,
+            packet_id,
+            dup,
+            retain,
+        } => {
+            if *qos > 2 || (*qos == 0 && (*dup || packet_id.is_some())) {
+                return Err(malformed("invalid PUBLISH flags or packet identifier"));
+            }
+            if *qos != 0 {
+                validate_id(packet_id.ok_or_else(|| malformed("missing packet identifier"))?)?;
+            }
+            if *retain {
+                return Err(unsupported("retained publish"));
+            }
+            validate_topic(topic)?;
+            // Reject impossible wire lengths before allocating a second payload.
+            let variable_size = 2 + topic.len() + if *qos == 0 { 0 } else { 2 };
+            if payload.len() > 268_435_455 - variable_size {
+                return Err(ProtocolError::PacketTooLarge);
+            }
+        }
+        Packet::PubAck { packet_id }
+        | Packet::PubRec { packet_id }
+        | Packet::PubRel { packet_id }
+        | Packet::PubComp { packet_id }
+        | Packet::UnsubAck { packet_id } => validate_id(*packet_id)?,
+        Packet::Subscribe { packet_id, filters } => {
+            validate_id(*packet_id)?;
+            if filters.is_empty() {
+                return Err(malformed("empty subscription"));
+            }
+            for (filter, qos) in filters {
+                validate_string(filter)?;
+                if filter.is_empty() {
+                    return Err(malformed("empty topic filter"));
+                }
+                if *qos > 2 {
+                    return Err(malformed("invalid subscription QoS"));
+                }
+            }
+        }
+        Packet::SubAck { packet_id, codes } => {
+            validate_id(*packet_id)?;
+            if codes.is_empty() || codes.iter().any(|c| !matches!(c, 0 | 1 | 2 | 128)) {
+                return Err(malformed("invalid SUBACK codes"));
+            }
+        }
+        Packet::Unsubscribe { packet_id, filters } => {
+            validate_id(*packet_id)?;
+            if filters.is_empty() {
+                return Err(malformed("empty unsubscribe"));
+            }
+            for filter in filters {
+                validate_string(filter)?;
+                if filter.is_empty() {
+                    return Err(malformed("empty unsubscribe filter"));
+                }
+            }
+        }
+        Packet::PingReq | Packet::PingResp | Packet::Disconnect => {}
+    }
+    Ok(())
+}
 /// Encode a supported packet, validating the same invariants as the decoder.
 pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
+    validate_packet(packet)?;
     let mut body = Vec::new();
     let header = match packet {
         Packet::Connect {
@@ -309,10 +447,36 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
             body.extend([u8::from(*session_present), *code]);
             0x20
         }
-        Packet::Publish { topic, payload } => {
+        Packet::Publish {
+            topic,
+            payload,
+            qos,
+            packet_id,
+            dup,
+            retain,
+        } => {
             string(&mut body, topic)?;
+            if let Some(id) = packet_id {
+                body.extend(id.to_be_bytes());
+            }
             body.extend(payload);
-            0x30
+            0x30 | (u8::from(*dup) << 3) | (*qos << 1) | u8::from(*retain)
+        }
+        Packet::PubAck { packet_id } => {
+            body.extend(packet_id.to_be_bytes());
+            0x40
+        }
+        Packet::PubRec { packet_id } => {
+            body.extend(packet_id.to_be_bytes());
+            0x50
+        }
+        Packet::PubRel { packet_id } => {
+            body.extend(packet_id.to_be_bytes());
+            0x62
+        }
+        Packet::PubComp { packet_id } => {
+            body.extend(packet_id.to_be_bytes());
+            0x70
         }
         Packet::Subscribe { packet_id, filters } => {
             body.extend(packet_id.to_be_bytes());
@@ -359,7 +523,6 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
         }
     }
     out.extend(body);
-    decode(&out, out.len())?;
     Ok(out)
 }
 
@@ -380,7 +543,31 @@ mod tests {
             Packet::Publish {
                 topic: "sensors/温度".into(),
                 payload: vec![0, 255, 1],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: false,
             },
+            Packet::Publish {
+                topic: "qos/one".into(),
+                payload: vec![4, 2],
+                qos: 1,
+                packet_id: Some(42),
+                dup: true,
+                retain: false,
+            },
+            Packet::Publish {
+                topic: "qos/two".into(),
+                payload: vec![],
+                qos: 2,
+                packet_id: Some(65535),
+                dup: false,
+                retain: false,
+            },
+            Packet::PubAck { packet_id: 1 },
+            Packet::PubRec { packet_id: 2 },
+            Packet::PubRel { packet_id: 3 },
+            Packet::PubComp { packet_id: 4 },
             Packet::Subscribe {
                 packet_id: 42,
                 filters: vec![("a/+".into(), 2), ("#".into(), 1)],
@@ -422,6 +609,10 @@ mod tests {
             let p = Packet::Publish {
                 topic: "a".into(),
                 payload: vec![42; n],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: false,
             };
             let bytes = encode(&p).unwrap();
             assert_eq!(decode(&bytes, bytes.len()).unwrap(), Some((p, bytes.len())));
@@ -500,7 +691,7 @@ mod tests {
     }
     #[test]
     fn unsupported_publish_features() {
-        for h in [0x31, 0x32, 0x34] {
+        for h in [0x31, 0x33, 0x35] {
             assert!(matches!(
                 decode(&[h, 0], 1024),
                 Err(ProtocolError::UnsupportedFeature(_))
@@ -512,14 +703,22 @@ mod tests {
         assert!(
             encode(&Packet::Publish {
                 topic: "bad/#".into(),
-                payload: vec![]
+                payload: vec![],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: false,
             })
             .is_err()
         );
         assert!(
             encode(&Packet::Publish {
                 topic: "\u{fdd0}".into(),
-                payload: vec![]
+                payload: vec![],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: false,
             })
             .is_err()
         );
@@ -534,7 +733,11 @@ mod tests {
         assert!(
             encode(&Packet::Publish {
                 topic: "a".repeat(65536),
-                payload: vec![]
+                payload: vec![],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: false,
             })
             .is_err()
         );
@@ -545,6 +748,186 @@ mod tests {
             for b in 0..=255 {
                 let _ = decode(&[a, b], 4096);
             }
+        }
+    }
+    #[test]
+    fn qos_publish_wire_fields() {
+        for (header, qos, dup) in [
+            (0x32, 1, false),
+            (0x3a, 1, true),
+            (0x34, 2, false),
+            (0x3c, 2, true),
+        ] {
+            let bytes = [header, 6, 0, 1, b'a', 0, 42, 255];
+            let packet = Packet::Publish {
+                topic: "a".into(),
+                payload: vec![255],
+                qos,
+                packet_id: Some(42),
+                dup,
+                retain: false,
+            };
+            assert_eq!(decode(&bytes, 1024), Ok(Some((packet.clone(), 8))));
+            assert_eq!(encode(&packet).unwrap(), bytes);
+        }
+        for header in [0x32, 0x34] {
+            for body in [
+                vec![0, 1, b'a'],
+                vec![0, 1, b'a', 0],
+                vec![0, 1, b'a', 0, 0],
+            ] {
+                let mut bytes = vec![header, body.len() as u8];
+                bytes.extend(body);
+                assert!(matches!(
+                    decode(&bytes, 1024),
+                    Err(ProtocolError::Malformed(_))
+                ));
+            }
+        }
+    }
+    #[test]
+    fn acknowledgement_wire_and_validation() {
+        for (header, packet) in [
+            (0x40, Packet::PubAck { packet_id: 42 }),
+            (0x50, Packet::PubRec { packet_id: 42 }),
+            (0x62, Packet::PubRel { packet_id: 42 }),
+            (0x70, Packet::PubComp { packet_id: 42 }),
+        ] {
+            assert_eq!(encode(&packet).unwrap(), [header, 2, 0, 42]);
+            assert_eq!(decode(&[header, 2, 0, 42], 1024), Ok(Some((packet, 4))));
+            for bytes in [
+                vec![header, 2, 0, 0],
+                vec![header, 1, 42],
+                vec![header, 3, 0, 42, 0],
+            ] {
+                assert!(matches!(
+                    decode(&bytes, 1024),
+                    Err(ProtocolError::Malformed(_))
+                ));
+            }
+        }
+        // Retransmitted PUBREL has the same fixed flags, not a PUBLISH-style DUP bit.
+        for header in [0x41, 0x51, 0x60, 0x6a, 0x71] {
+            assert!(matches!(
+                decode(&[header, 2, 0, 42], 1024),
+                Err(ProtocolError::Malformed(_))
+            ));
+        }
+        for packet in [
+            Packet::PubAck { packet_id: 0 },
+            Packet::PubRec { packet_id: 0 },
+            Packet::PubRel { packet_id: 0 },
+            Packet::PubComp { packet_id: 0 },
+        ] {
+            assert!(encode(&packet).is_err());
+        }
+    }
+    #[test]
+    fn encoder_qos_combinations() {
+        for (qos, packet_id, dup) in [
+            (0, Some(1), false),
+            (0, None, true),
+            (1, None, false),
+            (2, Some(0), false),
+            (3, Some(1), false),
+        ] {
+            assert!(matches!(
+                encode(&Packet::Publish {
+                    topic: "a".into(),
+                    payload: vec![],
+                    qos,
+                    packet_id,
+                    dup,
+                    retain: false
+                }),
+                Err(ProtocolError::Malformed(_))
+            ));
+        }
+        assert!(matches!(
+            encode(&Packet::Publish {
+                topic: "a".into(),
+                payload: vec![],
+                qos: 1,
+                packet_id: Some(1),
+                dup: false,
+                retain: true
+            }),
+            Err(ProtocolError::UnsupportedFeature(_))
+        ));
+    }
+    #[test]
+    fn encoder_metadata_validation_without_decoding() {
+        let invalid = [
+            Packet::Connect {
+                client_id: "a".into(),
+                clean_session: false,
+                keep_alive: 0,
+            },
+            Packet::Connect {
+                client_id: "".into(),
+                clean_session: true,
+                keep_alive: 0,
+            },
+            Packet::Connect {
+                client_id: "a\0".into(),
+                clean_session: true,
+                keep_alive: 0,
+            },
+            Packet::ConnAck {
+                session_present: true,
+                code: 1,
+            },
+            Packet::ConnAck {
+                session_present: false,
+                code: 6,
+            },
+            Packet::Subscribe {
+                packet_id: 0,
+                filters: vec![("a".into(), 0)],
+            },
+            Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("a".into(), 3)],
+            },
+            Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("".into(), 0)],
+            },
+            Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("a\0".into(), 0)],
+            },
+            Packet::SubAck {
+                packet_id: 0,
+                codes: vec![0],
+            },
+            Packet::SubAck {
+                packet_id: 1,
+                codes: vec![],
+            },
+            Packet::SubAck {
+                packet_id: 1,
+                codes: vec![3],
+            },
+            Packet::Unsubscribe {
+                packet_id: 0,
+                filters: vec!["a".into()],
+            },
+            Packet::Unsubscribe {
+                packet_id: 1,
+                filters: vec![],
+            },
+            Packet::Unsubscribe {
+                packet_id: 1,
+                filters: vec!["".into()],
+            },
+            Packet::Unsubscribe {
+                packet_id: 1,
+                filters: vec!["a\0".into()],
+            },
+        ];
+        for packet in invalid {
+            assert!(encode(&packet).is_err(), "{packet:?}");
         }
     }
 }
