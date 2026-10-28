@@ -485,11 +485,12 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.broker.stop()
         with sqlite3.connect(self.broker.db) as db:
             current = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
-            self.assertEqual(current['schema_version'], 2)
+            self.assertEqual(current['schema_version'], 3)
             self.assertEqual(current.pop('retained'), [])
             self.assertEqual(current.pop('wills'), [])
             current['schema_version'] = 1
             for session in current['sessions']:
+                self.assertEqual(session.pop('owner'), 'anonymous')
                 for message in session['queued']:
                     self.assertFalse(message.pop('retain'))
             db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (json.dumps(current).encode(),))
@@ -498,7 +499,8 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.delivery(target, 'migration', b'legacy queue', 1)
         with sqlite3.connect(self.broker.db) as db:
             migrated = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
-            self.assertEqual(migrated['schema_version'], 2)
+            self.assertEqual(migrated['schema_version'], 3)
+            self.assertTrue(all(s['owner'] == 'anonymous' for s in migrated['sessions']))
 
 
 if __name__ == '__main__':
