@@ -322,7 +322,8 @@ class RetainedWillBlackbox(unittest.TestCase):
         # Same-ID replacement cannot overwrite a Will blocked by the full queue.
         replacement = self.broker.socket()
         self.addCleanup(replacement.close)
-        replacement.sendall(connect_packet('pending-owner'))
+        replacement.sendall(connect_packet(
+            'pending-owner', will=('will/pending', b'new forbidden Will', 1, False)))
         self.closed(replacement)
         self.quiet(observer)
         observer.sendall(ack(0x40, first[3]))
@@ -331,6 +332,50 @@ class RetainedWillBlackbox(unittest.TestCase):
         observer.sendall(ack(0x40, second[3]))
         self.delivery(observer, 'will/pending', b'deferred Will', 1)
         self.quiet(observer)
+
+    def test_pending_self_will_resumes_without_new_will_and_drains_after_reconnect(self):
+        if not self.sqlite:
+            self.skipTest('SQLite persistent session only')
+        self.start('--outbound-capacity', '1', '--max-inflight', '1')
+        topic = 'will/persistent-self'
+        owner = self.client('self-owner', clean=False,
+                            will=(topic, b'original deferred Will', 1, False))
+        self.subscribe(owner, [(topic, 1)])
+        publisher = self.client('self-publisher')
+        self.publish(publisher, topic, b'inflight before disconnect', packet_id=1)
+        first = parse_publish(receive(owner))
+        self.assertEqual((first[0], first[1], first[2], first[4], first[5]),
+                         (topic, b'inflight before disconnect', 1, False, False))
+        self.publish(publisher, topic, b'queued before disconnect', packet_id=2)
+        owner.close()
+
+        # The existing persistent outbox itself blocks this client's pending
+        # Will. Resuming without a new Will must retain the old intent and let
+        # the recipient drain, including if CONNECT races EOF cleanup.
+        resumed = self.client('self-owner', clean=False, present=True)
+        replay = parse_publish(receive(resumed))
+        self.assertEqual(replay[:4], first[:4])
+        self.assertEqual((replay[4], replay[5]), (True, False))
+        resumed.sendall(ack(0x40, replay[3]))
+        queued = parse_publish(receive(resumed))
+        self.assertEqual((queued[0], queued[1], queued[2], queued[4], queued[5]),
+                         (topic, b'queued before disconnect', 1, False, False))
+        resumed.sendall(ack(0x40, queued[3]))
+        self.delivery(resumed, topic, b'original deferred Will', 1)
+        self.quiet(resumed)
+        self.disconnect(resumed)
+
+        # Normal close and restart must preserve the subscription but neither
+        # replay the acknowledged Will nor resurrect its already-cleared intent.
+        self.broker.restart_after_crash()
+        restored = self.client('self-owner', clean=False, present=True)
+        self.barrier(restored)
+        self.quiet(restored)
+        publisher = self.client('self-publisher-after-restart')
+        self.publish(publisher, topic, b'subscription survives', packet_id=3)
+        self.delivery(restored, topic, b'subscription survives', 1)
+        self.quiet(restored)
+        self.disconnect(restored)
 
     def test_retained_survives_clean_reset_and_restart_then_delete_is_durable(self):
         if not self.sqlite:
