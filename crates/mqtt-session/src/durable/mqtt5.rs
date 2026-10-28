@@ -55,6 +55,14 @@ fn wrap(version: ProtocolVersion, packet: Packet, properties: Properties) -> Fra
         frame
     }
 }
+fn wire_packet(version: ProtocolVersion, mut packet: Packet, replay: bool) -> Packet {
+    if version == ProtocolVersion::V311
+        && let Packet::Publish { retain, .. } = &mut packet
+    {
+        *retain = replay;
+    }
+    packet
+}
 /// Preflight the complete recipient envelope, including both variable integers.
 pub(super) fn check_delivery_size(
     limit: usize,
@@ -184,33 +192,59 @@ impl SessionEngine {
         }
         Ok(())
     }
-    /// Only properties whose delivery semantics are implemented may enter records.
+    /// Client application metadata must not inject broker-owned identifiers.
     pub(super) fn validate_properties(
         &self,
         packet: &Packet,
         properties: &Properties,
     ) -> Result<(), EngineError> {
-        for property in properties {
-            match property {
+        if properties
+            .iter()
+            .any(|p| matches!(p, Property::SubscriptionIdentifier(_)))
+        {
+            return Err(mqtt5_error(0x82));
+        }
+        self.validate_delivery_properties(packet, properties)?;
+        if properties.is_empty() {
+            return Ok(());
+        }
+        let bytes = encode_frame(&wrap(
+            ProtocolVersion::V5,
+            packet.clone(),
+            properties.clone(),
+        ))
+        .map_err(|e| invalid_record(e.to_string()))?;
+        if bytes.len() > self.config.max_packet_size {
+            return Err(EngineError::Capacity);
+        }
+        Ok(())
+    }
+    /// Validate trusted recipient metadata without imposing a V5 wire envelope on
+    /// a V311 delivery. Resume preflight enforces the newly chosen wire version.
+    pub(super) fn validate_delivery_properties(
+        &self,
+        packet: &Packet,
+        properties: &Properties,
+    ) -> Result<(), EngineError> {
+        for p in properties {
+            match p {
                 Property::UserProperty(..)
                 | Property::ContentType(_)
                 | Property::PayloadFormatIndicator(_)
                 | Property::ResponseTopic(_)
                 | Property::CorrelationData(_)
-                | Property::MessageExpiryInterval(_) => {}
+                | Property::MessageExpiryInterval(_)
+                | Property::SubscriptionIdentifier(_) => {}
                 Property::TopicAlias(_) => return Err(mqtt5_error(0x94)),
-                Property::SubscriptionIdentifier(_) => return Err(mqtt5_error(0x82)),
                 _ => return Err(mqtt5_error(0x83)),
             }
         }
-        if properties.is_empty() {
-            return Ok(());
-        }
-        let frame = wrap(ProtocolVersion::V5, packet.clone(), properties.clone());
-        let bytes = encode_frame(&frame).map_err(|e| invalid_record(e.to_string()))?;
-        if bytes.len() > self.config.max_packet_size {
-            return Err(EngineError::Capacity);
-        }
+        encode_frame(&wrap(
+            ProtocolVersion::V5,
+            packet.clone(),
+            properties.clone(),
+        ))
+        .map_err(|e| invalid_record(e.to_string()))?;
         Ok(())
     }
     pub fn handle_frame(
@@ -256,21 +290,19 @@ impl SessionEngine {
         }
         match frame.packet {
             Packet::Subscribe { packet_id, filters } => {
-                let identifier_unsupported = frame
-                    .properties
-                    .iter()
-                    .any(|p| matches!(p, Property::SubscriptionIdentifier(_)));
-                // CONNACK advertises both capabilities as unavailable. Their use
-                // is a connection error, never a partial subscription grant.
-                if identifier_unsupported {
-                    return Err(mqtt5_error(0xa1));
-                }
                 if filters
                     .iter()
                     .any(|(filter, _)| filter.starts_with("$share/"))
                 {
                     return Err(mqtt5_error(0x9e));
                 }
+                let subscription_identifier = frame.properties.iter().find_map(|p| {
+                    if let Property::SubscriptionIdentifier(n) = p {
+                        Some(*n)
+                    } else {
+                        None
+                    }
+                });
                 let mut codes = Vec::with_capacity(filters.len());
                 for (index, (filter, qos)) in filters.into_iter().enumerate() {
                     let option = frame
@@ -278,45 +310,15 @@ impl SessionEngine {
                         .get(index)
                         .copied()
                         .unwrap_or(qos);
-                    let session = self
-                        .sessions
-                        .get(client_id)
-                        .ok_or(EngineError::UnknownSession)?;
-                    let denied = if option & 0x3c != 0 {
-                        Some(0x83)
-                    } else if !validate_filter(&filter) {
-                        Some(0x8f)
-                    } else if !self
-                        .access
-                        .authorize(&session.owner, Action::Subscribe, &filter)
-                    {
-                        Some(0x87)
-                    } else if !session.subscriptions.contains_key(&filter)
-                        && session.subscriptions.len() >= self.config.max_subscriptions
-                    {
-                        Some(0x97)
-                    } else {
-                        None
+                    let subscription = SubscriptionRecord {
+                        filter,
+                        qos,
+                        no_local: option & 4 != 0,
+                        retain_as_published: option & 8 != 0,
+                        retain_handling: (option >> 4) & 3,
+                        identifier: subscription_identifier,
                     };
-                    if let Some(code) = denied {
-                        codes.push(code);
-                        continue;
-                    }
-                    let replies = self.handle_packet(
-                        client_id,
-                        Packet::Subscribe {
-                            packet_id,
-                            filters: vec![(filter, qos)],
-                        },
-                        Vec::new(),
-                    )?;
-                    let granted = match replies.first() {
-                        Some(Packet::SubAck { codes, .. }) => {
-                            codes.first().copied().unwrap_or(0x80)
-                        }
-                        _ => return Err(invalid_record("missing subscription grant")),
-                    };
-                    codes.push(granted);
+                    codes.push(self.subscribe_entry(client_id, subscription)?);
                 }
                 self.ensure_bounds()?;
                 Ok(vec![Frame::v5(Packet::SubAck { packet_id, codes })])
@@ -376,6 +378,7 @@ impl SessionEngine {
                 session.outgoing_properties.remove(&id);
                 session.outgoing_expiry.remove(&id);
                 session.outgoing_started.remove(&id);
+                session.outgoing_retained_replay.remove(&id);
                 session.delivery_tickets.remove(&id);
                 session.sent.remove(&id);
                 self.ensure_bounds()?;
@@ -515,7 +518,15 @@ impl SessionEngine {
             let expires_at = session.outgoing_expiry.get(&id).copied();
             return Ok(DeliveryPollOutcome {
                 delivery: Some(Delivery {
-                    frame: wrap(session.version, packet, properties),
+                    frame: wrap(
+                        session.version,
+                        wire_packet(
+                            session.version,
+                            packet,
+                            session.outgoing_retained_replay.contains(&id),
+                        ),
+                        properties,
+                    ),
                     expires_at,
                     ticket,
                 }),
@@ -564,6 +575,9 @@ impl SessionEngine {
             session
                 .outgoing_properties
                 .insert(id, message.properties.clone());
+            if message.retained_replay {
+                session.outgoing_retained_replay.insert(id);
+            }
             if let Some(deadline) = message.expires_at {
                 session.outgoing_expiry.insert(id, deadline);
             }
@@ -573,7 +587,11 @@ impl SessionEngine {
             None
         };
         let delivery = Delivery {
-            frame: wrap(session.version, packet, message.properties),
+            frame: wrap(
+                session.version,
+                wire_packet(session.version, packet, message.retained_replay),
+                message.properties,
+            ),
             expires_at: message.expires_at,
             ticket,
         };
@@ -668,7 +686,11 @@ impl SessionEngine {
             changed |= session.outgoing_started.insert(id);
             wrap(
                 session.version,
-                packet,
+                wire_packet(
+                    session.version,
+                    packet,
+                    session.outgoing_retained_replay.contains(&id),
+                ),
                 temporal::remaining_properties(&properties, deadline, now),
             )
         };

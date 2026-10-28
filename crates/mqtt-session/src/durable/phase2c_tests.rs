@@ -424,7 +424,7 @@ fn schema1_migrates_explicitly_and_schema2_globals_are_required_and_validated() 
     restored.connect("sub", false).unwrap();
     check(&restored.poll("sub").unwrap().unwrap(), b"legacy", 1, false);
     let json: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
-    assert_eq!(json["schema_version"], 5);
+    assert_eq!(json["schema_version"], 6);
     for field in ["retained", "wills"] {
         let mut bad = json.clone();
         bad.as_object_mut().unwrap().remove(field);
@@ -503,6 +503,7 @@ fn schema1_rejects_retained_wire_that_old_codec_could_not_store() {
             .iter_mut()
             .find(|session| session["client_id"] == "sub")
             .unwrap();
+        session["outgoing"][0]["retained_replay"] = true.into();
         session["outgoing"][0]["stage"] = if qos == 1 {
             serde_json::json!({"Ack":bytes})
         } else {

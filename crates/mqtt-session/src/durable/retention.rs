@@ -1,7 +1,15 @@
 //! Retained updates share the same proposed transaction as ordinary fanout.
 use super::{EngineError, Message, SessionEngine, temporal};
 impl SessionEngine {
-    pub(super) fn publish(&mut self, message: Message) -> Result<(), EngineError> {
+    pub(super) fn publish_from(
+        &mut self,
+        message: Message,
+        publisher: Option<&str>,
+    ) -> Result<(), EngineError> {
+        self.validate_properties(
+            &message.packet((message.qos != 0).then_some(1), false),
+            &message.properties,
+        )?;
         self.validate_message(&message)?;
         self.expire_messages()?;
         let expired = temporal::is_expired(message.expires_at, self.effective_now());
@@ -28,9 +36,6 @@ impl SessionEngine {
         if expired {
             return Ok(());
         }
-        self.route(Message {
-            retain: false,
-            ..message
-        })
+        self.route(message, publisher)
     }
 }

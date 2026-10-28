@@ -11,7 +11,8 @@ use mqtt_protocol::{
 use mqtt_router::retained::{RetainedError, RetainedStore};
 use mqtt_router::{Router, validate_filter};
 use records::{
-    Envelope, Message, OutgoingRecord, RetainedRecord, SessionRecord, Stage, WillData, WillRecord,
+    Envelope, Message, OutgoingRecord, RetainedRecord, SessionRecord, Stage, SubscriptionRecord,
+    WillData, WillRecord,
 };
 
 mod authorization;
@@ -20,6 +21,7 @@ mod lifecycle;
 mod mqtt5;
 mod records;
 mod retention;
+mod subscriptions;
 mod temporal;
 pub use expiry::{Clock, SystemClock};
 pub use mqtt5::{ConnectionOptions, Delivery, DeliveryPollOutcome, FramePollOutcome};
@@ -109,7 +111,7 @@ struct Session {
     owner: Principal,
     persistent: bool,
     online: bool,
-    subscriptions: BTreeMap<String, u8>,
+    subscriptions: BTreeMap<String, SubscriptionRecord>,
     incoming: IncomingQos2,
     outgoing: OutgoingQos,
     queued: VecDeque<Message>,
@@ -124,6 +126,7 @@ struct Session {
     incoming_expiry: BTreeMap<NonZeroU16, u64>,
     outgoing_expiry: BTreeMap<NonZeroU16, u64>,
     outgoing_started: BTreeSet<NonZeroU16>,
+    outgoing_retained_replay: BTreeSet<NonZeroU16>,
     outgoing_properties: BTreeMap<NonZeroU16, Properties>,
     delivery_sequence: u64,
     delivery_tickets: BTreeMap<NonZeroU16, u64>,
@@ -146,6 +149,7 @@ impl Session {
         self.outgoing_properties.remove(&id);
         self.outgoing_expiry.remove(&id);
         self.outgoing_started.remove(&id);
+        self.outgoing_retained_replay.remove(&id);
         self.delivery_tickets.remove(&id);
         self.sent.remove(&id);
     }
@@ -170,6 +174,7 @@ impl Session {
             incoming_expiry: BTreeMap::new(),
             outgoing_expiry: BTreeMap::new(),
             outgoing_started: BTreeSet::new(),
+            outgoing_retained_replay: BTreeSet::new(),
             outgoing_properties: BTreeMap::new(),
             delivery_sequence: 0,
             delivery_tickets: BTreeMap::new(),
@@ -331,20 +336,22 @@ impl SessionEngine {
                 }))
             };
             session.online = false;
-            for (filter, qos) in record.subscriptions {
+            for subscription in record.subscriptions {
+                subscription.validate()?;
                 let packet = Packet::Subscribe {
                     packet_id: 1,
-                    filters: vec![(filter.clone(), qos)],
+                    filters: vec![(subscription.filter.clone(), subscription.qos)],
                 };
                 let bytes = encode(&packet).map_err(|error| invalid_record(error.to_string()))?;
                 if bytes.len() > config.max_packet_size {
                     return Err(EngineError::Capacity);
                 }
-                if qos > 2
-                    || !validate_filter(&filter)
-                    || session.subscriptions.insert(filter, qos).is_some()
+                if session
+                    .subscriptions
+                    .insert(subscription.filter.clone(), subscription)
+                    .is_some()
                 {
-                    return Err(invalid_record("invalid or duplicate subscription"));
+                    return Err(invalid_record("duplicate subscription"));
                 }
             }
             for (id, bytes, properties, expires_at) in record.incoming {
@@ -383,7 +390,8 @@ impl SessionEngine {
                 if matches!(record.stage, Stage::Comp)
                     && (!record.properties.is_empty()
                         || record.expires_at.is_some()
-                        || !record.started)
+                        || !record.started
+                        || record.retained_replay)
                 {
                     return Err(invalid_record("properties on released exchange"));
                 }
@@ -395,6 +403,9 @@ impl SessionEngine {
                 }
                 if record.started {
                     session.outgoing_started.insert(id);
+                }
+                if record.retained_replay {
+                    session.outgoing_retained_replay.insert(id);
                 }
                 let state = match record.stage {
                     Stage::Ack(message) => {
@@ -420,10 +431,18 @@ impl SessionEngine {
                 if let OutgoingState::AwaitingAck { _message }
                 | OutgoingState::AwaitingReceipt { _message } = &state
                 {
-                    engine.validate_properties(
+                    engine.validate_delivery_properties(
                         &decode_publish(_message, config.max_packet_size)?,
                         &record.properties,
                     )?;
+                    if record.retained_replay
+                        && !matches!(
+                            decode_publish(_message, config.max_packet_size)?,
+                            Packet::Publish { retain: true, .. }
+                        )
+                    {
+                        return Err(invalid_record("replay marker without retain"));
+                    }
                     session.outgoing_properties.insert(id, record.properties);
                 }
                 // Reserve the exact identifier in the existing allocator rather
@@ -450,7 +469,19 @@ impl SessionEngine {
             if retained.payload.is_empty() || !topics.insert(retained.topic.clone()) {
                 return Err(invalid_record("empty or duplicate retained record"));
             }
+            engine.validate_properties(
+                &Packet::Publish {
+                    topic: retained.topic.clone(),
+                    payload: retained.payload.clone(),
+                    qos: retained.qos,
+                    packet_id: (retained.qos != 0).then_some(1),
+                    dup: false,
+                    retain: true,
+                },
+                &retained.properties,
+            )?;
             engine.validate_message(&Message {
+                retained_replay: false,
                 expires_at: retained.expires_at,
                 topic: retained.topic.clone(),
                 payload: retained.payload.clone(),
@@ -481,6 +512,7 @@ impl SessionEngine {
             engine.validate_will(&record.client_id, &record.will.to_protocol())?;
             engine.validate_properties(
                 &Message {
+                    retained_replay: false,
                     expires_at: None,
                     topic: record.will.topic.clone(),
                     payload: record.will.payload.clone(),
@@ -535,7 +567,10 @@ impl SessionEngine {
     fn validate_message(&self, message: &Message) -> Result<(), EngineError> {
         temporal::validate_deadline(&message.properties, message.expires_at)?;
         let id = if message.qos == 0 { None } else { Some(1) };
-        self.validate_properties(&message.packet(id, false), &message.properties)?;
+        if message.retained_replay && !message.retain {
+            return Err(invalid_record("replay marker without retain"));
+        }
+        self.validate_delivery_properties(&message.packet(id, false), &message.properties)?;
         let bytes = encode(&message.packet(id, false))
             .map_err(|error| invalid_record(error.to_string()))?;
         if bytes.len() > self.config.max_packet_size {
@@ -565,6 +600,7 @@ impl SessionEngine {
                     packet_id: id.get(),
                     expires_at: session.outgoing_expiry.get(id).copied(),
                     started: session.outgoing_started.contains(id),
+                    retained_replay: session.outgoing_retained_replay.contains(id),
                     stage,
                     properties: session
                         .outgoing_properties
@@ -578,11 +614,7 @@ impl SessionEngine {
                 owner: session.owner.name.clone(),
                 session_expiry_interval: session.expiry,
                 expires_at: session.expires_at,
-                subscriptions: session
-                    .subscriptions
-                    .iter()
-                    .map(|(f, q)| (f.clone(), *q))
-                    .collect(),
+                subscriptions: session.subscriptions.values().cloned().collect(),
                 incoming: session
                     .incoming
                     .pending
@@ -605,7 +637,7 @@ impl SessionEngine {
             });
         }
         Ok(Envelope {
-            schema_version: 5,
+            schema_version: 6,
             clock_floor: self.clock_floor.get(),
             sessions: records,
             retained: self
@@ -651,6 +683,7 @@ impl SessionEngine {
                     .outgoing_expiry
                     .keys()
                     .chain(session.outgoing_started.iter())
+                    .chain(session.outgoing_retained_replay.iter())
                     .chain(session.delivery_tickets.keys())
                     .any(|id| !session.outgoing.pending.contains_key(id))
             {
@@ -678,12 +711,9 @@ impl SessionEngine {
             Err(EngineError::OfflineSession)
         }
     }
-    fn route(&mut self, message: Message) -> Result<(), EngineError> {
+    fn route(&mut self, message: Message, publisher: Option<&str>) -> Result<(), EngineError> {
         self.expire_sessions()?;
         self.validate_message(&message)?;
-        // Build the existing iterative trie from the bounded registry. It keeps
-        // wildcard and overlap semantics in one implementation; future storage
-        // layouts may retain this index across proposal clones for efficiency.
         let mut router = Router::default();
         let clients: Vec<String> = self.sessions.keys().cloned().collect();
         for (index, client) in clients.iter().enumerate() {
@@ -694,22 +724,42 @@ impl SessionEngine {
                 {
                     continue;
                 }
-                for (filter, qos) in &session.subscriptions {
+                for (filter, subscription) in &session.subscriptions {
                     if self
                         .access
                         .authorize(&session.owner, Action::Subscribe, filter)
                     {
-                        router.subscribe_qos(index as u64, filter.clone(), *qos);
+                        router.subscribe_qos(index as u64, filter.clone(), subscription.qos);
                     }
                 }
             }
         }
-        let matches = router.matching_qos(&message.topic);
+        let mut eligible: BTreeMap<u64, (u8, bool, Vec<u32>)> = BTreeMap::new();
+        for (index, filter, grant) in router.matching_subscriptions(&message.topic) {
+            let client = clients
+                .get(index as usize)
+                .ok_or_else(|| invalid_record("router returned absent client"))?;
+            let session = self
+                .sessions
+                .get(client)
+                .ok_or(EngineError::UnknownSession)?;
+            let sub = session
+                .subscriptions
+                .get(&filter)
+                .ok_or_else(|| invalid_record("router returned absent filter"))?;
+            if sub.no_local && publisher == Some(client.as_str()) {
+                continue;
+            }
+            let entry = eligible.entry(index).or_insert((0, false, Vec::new()));
+            entry.0 = entry.0.max(grant);
+            entry.1 |= sub.retain_as_published;
+            if let Some(id) = sub.identifier {
+                entry.2.push(id);
+            }
+        }
         let now = self.effective_now();
-        let mut admitted = Vec::with_capacity(matches.len());
-        // A later recipient's version must not discover an oversized envelope
-        // after earlier recipients have already had copies appended.
-        for &(index, grant) in &matches {
+        let mut admitted = Vec::new();
+        for (index, (grant, rap, ids)) in eligible {
             let client = clients
                 .get(index as usize)
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
@@ -727,66 +777,42 @@ impl SessionEngine {
             if !target.online && qos == 0 {
                 continue;
             }
-            // An offline session retains the last runtime wire version. Reject
-            // data it cannot drain, including volatile V5 persistent sessions.
-            // Restored legacy sessions deliberately start as canonical V311.
-            let packet = Message {
+            let mut copy = Message {
+                topic: message.topic.clone(),
+                payload: message.payload.clone(),
                 qos,
-                ..message.clone()
-            }
-            .packet((qos != 0).then_some(1), false);
+                retain: message.retain && rap,
+                retained_replay: false,
+                expires_at: message.expires_at,
+                properties: message.properties.clone(),
+            };
+            copy.properties
+                .extend(ids.into_iter().map(Property::SubscriptionIdentifier));
+            let packet = copy.packet((qos != 0).then_some(1), false);
             mqtt5::check_delivery_size(
                 self.config.max_packet_size,
                 target.version,
                 &packet,
-                &message.properties,
+                &copy.properties,
             )?;
-            // A guaranteed-discard copy cannot exert queue backpressure on
-            // the source or healthy recipients while its socket is unpolled.
             mqtt5::discard_oversized(target, now, self.config.max_packet_size)?;
-            if mqtt5::exceeds_peer_limit(
-                target,
-                &packet,
-                &message.properties,
-                message.expires_at,
-                now,
-            )? {
+            if mqtt5::exceeds_peer_limit(target, &packet, &copy.properties, copy.expires_at, now)? {
                 continue;
             }
             if target.queued.len() >= self.config.max_queued {
                 return Err(EngineError::Capacity);
             }
-            admitted.push((index, grant));
+            admitted.push((index, copy));
         }
-        for (index, grant) in admitted {
+        for (index, copy) in admitted {
             let client = clients
                 .get(index as usize)
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
-            let target = self
-                .sessions
+            self.sessions
                 .get_mut(client)
-                .ok_or(EngineError::UnknownSession)?;
-            if !self
-                .access
-                .authorize(&target.owner, Action::Receive, &message.topic)
-            {
-                continue;
-            }
-            let qos = message.qos.min(grant);
-            if !target.online && qos == 0 {
-                continue;
-            }
-            if target.queued.len() >= self.config.max_queued {
-                return Err(EngineError::Capacity);
-            }
-            target.queued.push_back(Message {
-                expires_at: message.expires_at,
-                topic: message.topic.clone(),
-                payload: message.payload.clone(),
-                qos,
-                retain: false,
-                properties: message.properties.clone(),
-            });
+                .ok_or(EngineError::UnknownSession)?
+                .queued
+                .push_back(copy);
         }
         Ok(())
     }
@@ -844,87 +870,11 @@ impl SessionEngine {
         let mut replies = Vec::new();
         match packet {
             Packet::Subscribe { packet_id, filters } => {
-                let now = self.effective_now();
-                let session = self
-                    .sessions
-                    .get_mut(client_id)
-                    .ok_or(EngineError::UnknownSession)?;
-                mqtt5::discard_oversized(session, now, self.config.max_packet_size)?;
                 let mut codes = Vec::new();
                 for (filter, qos) in filters {
-                    if !validate_filter(&filter)
-                        || !self.access.authorize(&owner, Action::Subscribe, &filter)
-                        || (!session.subscriptions.contains_key(&filter)
-                            && session.subscriptions.len() >= self.config.max_subscriptions)
-                    {
-                        codes.push(128);
-                        continue;
-                    }
-                    let retained_matches = self.retained.matching(&filter, qos);
-                    for retained in &retained_matches {
-                        if !self.access.authorize(&owner, Action::Connect, client_id)
-                            || !self
-                                .access
-                                .authorize(&owner, Action::Receive, &retained.topic)
-                        {
-                            continue;
-                        }
-                        let properties = self
-                            .retained_properties
-                            .get(&retained.topic)
-                            .cloned()
-                            .unwrap_or_default();
-                        let message = Message {
-                            expires_at: self.retained_expiry.get(&retained.topic).copied(),
-                            topic: retained.topic.clone(),
-                            payload: retained.payload.clone(),
-                            qos: retained.qos,
-                            retain: true,
-                            properties,
-                        };
-                        mqtt5::check_delivery_size(
-                            self.config.max_packet_size,
-                            session.version,
-                            &message.packet((retained.qos != 0).then_some(1), false),
-                            &message.properties,
-                        )?;
-                    }
-                    session.subscriptions.insert(filter.clone(), qos);
-                    for retained in retained_matches {
-                        if !self.access.authorize(&owner, Action::Connect, client_id)
-                            || !self
-                                .access
-                                .authorize(&owner, Action::Receive, &retained.topic)
-                        {
-                            continue;
-                        }
-                        let message = Message {
-                            expires_at: self.retained_expiry.get(&retained.topic).copied(),
-                            topic: retained.topic.clone(),
-                            payload: retained.payload,
-                            qos: retained.qos,
-                            retain: true,
-                            properties: self
-                                .retained_properties
-                                .get(&retained.topic)
-                                .cloned()
-                                .unwrap_or_default(),
-                        };
-                        if mqtt5::exceeds_peer_limit(
-                            session,
-                            &message.packet((message.qos != 0).then_some(1), false),
-                            &message.properties,
-                            message.expires_at,
-                            now,
-                        )? {
-                            continue;
-                        }
-                        if session.queued.len() >= self.config.max_queued {
-                            return Err(EngineError::Capacity);
-                        }
-                        session.queued.push_back(message);
-                    }
-                    codes.push(qos);
+                    let subscription = SubscriptionRecord::legacy(filter, qos);
+                    let code = self.subscribe_entry(client_id, subscription)?;
+                    codes.push(if code <= 2 { code } else { 128 });
                 }
                 replies.push(Packet::SubAck { packet_id, codes });
             }
@@ -973,14 +923,18 @@ impl SessionEngine {
                         packet_id: id.get(),
                     });
                 } else {
-                    self.publish(Message {
-                        expires_at: temporal::expiry_deadline(&properties, received_at_millis),
-                        topic,
-                        payload,
-                        qos,
-                        retain,
-                        properties,
-                    })?;
+                    self.publish_from(
+                        Message {
+                            retained_replay: false,
+                            expires_at: temporal::expiry_deadline(&properties, received_at_millis),
+                            topic,
+                            payload,
+                            qos,
+                            retain,
+                            properties,
+                        },
+                        Some(client_id),
+                    )?;
                     if qos == 1 {
                         replies.push(Packet::PubAck {
                             packet_id: packet_id
@@ -1021,14 +975,18 @@ impl SessionEngine {
                     else {
                         return Err(invalid_record("invalid incoming message"));
                     };
-                    self.publish(Message {
-                        expires_at,
-                        topic,
-                        payload,
-                        qos,
-                        retain,
-                        properties,
-                    })?;
+                    self.publish_from(
+                        Message {
+                            retained_replay: false,
+                            expires_at,
+                            topic,
+                            payload,
+                            qos,
+                            retain,
+                            properties,
+                        },
+                        Some(client_id),
+                    )?;
                 }
                 replies.push(Packet::PubComp { packet_id });
             }
@@ -1048,6 +1006,7 @@ impl SessionEngine {
                         session.outgoing_started.insert(identifier(id)?);
                         session.replay.retain(|pending| pending.get() != id);
                         session.outgoing_properties.remove(&identifier(id)?);
+                        session.outgoing_retained_replay.remove(&identifier(id)?);
                         session.outgoing_expiry.remove(&identifier(id)?);
                         replies.push(Packet::PubRel { packet_id: id });
                     }
@@ -1058,6 +1017,7 @@ impl SessionEngine {
                         session.outgoing_properties.remove(&id);
                         session.outgoing_expiry.remove(&id);
                         session.outgoing_started.remove(&id);
+                        session.outgoing_retained_replay.remove(&id);
                         session.delivery_tickets.remove(&id);
                     }
                     AckAction::Ignore => {}
@@ -1370,7 +1330,7 @@ mod tests {
                     let duplicate = target["outgoing"][0].clone();
                     target["outgoing"].as_array_mut().unwrap().push(duplicate);
                 }
-                2 => target["subscriptions"][0][0] = "bad/#/filter".into(),
+                2 => target["subscriptions"][0]["filter"] = "bad/#/filter".into(),
                 3 => target["outgoing"][0]["stage"] = "unknown stage".into(),
                 4 => target["unknown"] = true.into(),
                 _ => unreachable!(),
@@ -1480,3 +1440,6 @@ mod message_expiry_tests;
 
 #[cfg(test)]
 mod phase2g_tests;
+
+#[cfg(test)]
+mod phase2h_tests;

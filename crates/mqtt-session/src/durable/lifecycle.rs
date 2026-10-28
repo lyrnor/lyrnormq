@@ -23,6 +23,7 @@ impl SessionEngine {
         // an assigned key. The original inbound CONNECT was independently bounded.
         self.validate_client(client)?;
         self.validate_message(&Message {
+            retained_replay: false,
             expires_at: None,
             topic: will.topic.clone(),
             payload: will.payload.clone(),
@@ -103,6 +104,7 @@ impl SessionEngine {
             let id = if will.qos == 0 { None } else { Some(1) };
             self.validate_properties(
                 &Message {
+                    retained_replay: false,
                     expires_at: None,
                     topic: will.topic.clone(),
                     payload: will.payload.clone(),
@@ -374,6 +376,7 @@ impl SessionEngine {
                 .remove(&id)
                 .ok_or_else(|| invalid_record("pending Will disappeared"))?;
             let publication = Message {
+                retained_replay: false,
                 expires_at: super::temporal::expiry_deadline(
                     &record.will.properties,
                     self.effective_now(),
@@ -385,7 +388,7 @@ impl SessionEngine {
                 properties: record.will.properties,
             };
             let result = proposal
-                .publish(publication)
+                .publish_from(publication, Some(&id))
                 .and_then(|()| proposal.ensure_bounds());
             match result {
                 Ok(()) => {

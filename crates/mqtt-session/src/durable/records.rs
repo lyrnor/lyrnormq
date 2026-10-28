@@ -1,9 +1,10 @@
-//! Strict schema5 message deadlines and delayed Will scheduling.
+//! Strict schema6 message deadlines and delayed Will scheduling.
 use super::{EngineError, invalid_record};
 use mqtt_protocol::{Properties, Will};
 use serde::{Deserialize, Serialize};
 mod legacy;
 mod v4;
+mod v5;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Message {
@@ -11,6 +12,7 @@ pub(super) struct Message {
     pub(super) payload: Vec<u8>,
     pub(super) qos: u8,
     pub(super) retain: bool,
+    pub(super) retained_replay: bool,
     #[serde(deserialize_with = "required_deadline")]
     pub(super) expires_at: Option<u64>,
     pub(super) properties: Properties,
@@ -32,7 +34,7 @@ pub(super) struct SessionRecord {
     pub(super) session_expiry_interval: u32,
     #[serde(deserialize_with = "required_deadline")]
     pub(super) expires_at: Option<u64>,
-    pub(super) subscriptions: Vec<(String, u8)>,
+    pub(super) subscriptions: Vec<SubscriptionRecord>,
     pub(super) incoming: Vec<(u16, Vec<u8>, Properties, Option<u64>)>,
     pub(super) outgoing: Vec<OutgoingRecord>,
     pub(super) queued: Vec<Message>,
@@ -52,6 +54,7 @@ pub(super) struct OutgoingRecord {
     #[serde(deserialize_with = "required_deadline")]
     pub(super) expires_at: Option<u64>,
     pub(super) started: bool,
+    pub(super) retained_replay: bool,
     pub(super) properties: Properties,
 }
 #[derive(Serialize, Deserialize)]
@@ -113,66 +116,119 @@ impl WillData {
         }
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SubscriptionRecord {
+    pub(super) filter: String,
+    pub(super) qos: u8,
+    pub(super) no_local: bool,
+    pub(super) retain_as_published: bool,
+    pub(super) retain_handling: u8,
+    #[serde(deserialize_with = "required_deadline_id")]
+    pub(super) identifier: Option<u32>,
+}
+fn required_deadline_id<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u32>, D::Error> {
+    Option::<u32>::deserialize(d)
+}
+impl SubscriptionRecord {
+    pub(super) fn legacy(filter: String, qos: u8) -> Self {
+        Self {
+            filter,
+            qos,
+            no_local: false,
+            retain_as_published: false,
+            retain_handling: 0,
+            identifier: None,
+        }
+    }
+    pub(super) fn validate(&self) -> Result<(), EngineError> {
+        if !mqtt_router::validate_filter(&self.filter)
+            || self.qos > 2
+            || self.retain_handling > 2
+            || self.identifier.is_some_and(|n| n == 0 || n > 268435455)
+        {
+            return Err(invalid_record("invalid subscription record"));
+        }
+        Ok(())
+    }
+}
+fn old_properties(properties: &Properties) -> Result<(), EngineError> {
+    if properties
+        .iter()
+        .any(|p| matches!(p, mqtt_protocol::Property::SubscriptionIdentifier(_)))
+    {
+        return Err(invalid_record("Subscription Identifier in old schema"));
+    }
+    Ok(())
+}
 pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
     #[derive(Deserialize)]
     struct Version {
         schema_version: u32,
     }
     let version: Version = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-    if version.schema_version == 5 {
+    if version.schema_version == 6 {
         return Ok((
             serde_json::from_slice(bytes).map_err(EngineError::Json)?,
             false,
         ));
     }
-    if version.schema_version == 4 {
-        return migrate_v4(bytes).map(|envelope| (envelope, false));
+    let (old, legacy) = v5::decode(bytes)?;
+    let mut sessions = Vec::new();
+    for s in old.sessions {
+        let mut outgoing = Vec::new();
+        for o in s.outgoing {
+            old_properties(&o.properties)?;
+            let retained_replay = match &o.stage {
+                v5::Stage::Ack(b) | v5::Stage::Receipt(b) => b.first().is_some_and(|b| b & 1 != 0),
+                v5::Stage::Comp => false,
+            };
+            outgoing.push(OutgoingRecord {
+                packet_id: o.packet_id,
+                expires_at: o.expires_at,
+                started: o.started,
+                retained_replay,
+                properties: o.properties,
+                stage: match o.stage {
+                    v5::Stage::Ack(b) => Stage::Ack(b),
+                    v5::Stage::Receipt(b) => Stage::Receipt(b),
+                    v5::Stage::Comp => Stage::Comp,
+                },
+            });
+        }
+        let mut queued = Vec::new();
+        for m in s.queued {
+            old_properties(&m.properties)?;
+            queued.push(Message {
+                topic: m.topic,
+                payload: m.payload,
+                qos: m.qos,
+                retain: m.retain,
+                retained_replay: m.retain,
+                expires_at: m.expires_at,
+                properties: m.properties,
+            });
+        }
+        sessions.push(SessionRecord {
+            owner: s.owner,
+            client_id: s.client_id,
+            session_expiry_interval: s.session_expiry_interval,
+            expires_at: s.expires_at,
+            subscriptions: s
+                .subscriptions
+                .into_iter()
+                .map(|(f, q)| SubscriptionRecord::legacy(f, q))
+                .collect(),
+            incoming: s.incoming,
+            outgoing,
+            queued,
+        });
     }
-    let (old, legacy) = legacy::decode(bytes)?;
-    let map_message = |m: legacy::Message| Message {
-        topic: m.topic,
-        payload: m.payload,
-        qos: m.qos,
-        retain: m.retain,
-        expires_at: None,
-        properties: Vec::new(),
-    };
     Ok((
         Envelope {
-            schema_version: 5,
-            clock_floor: 0,
-            sessions: old
-                .sessions
-                .into_iter()
-                .map(|s| SessionRecord {
-                    owner: s.owner,
-                    client_id: s.client_id,
-                    session_expiry_interval: u32::MAX,
-                    expires_at: None,
-                    subscriptions: s.subscriptions,
-                    incoming: s
-                        .incoming
-                        .into_iter()
-                        .map(|(id, bytes)| (id, bytes, Vec::new(), None))
-                        .collect(),
-                    outgoing: s
-                        .outgoing
-                        .into_iter()
-                        .map(|o| OutgoingRecord {
-                            packet_id: o.packet_id,
-                            expires_at: None,
-                            started: true,
-                            properties: Vec::new(),
-                            stage: match o.stage {
-                                legacy::Stage::Ack(b) => Stage::Ack(b),
-                                legacy::Stage::Receipt(b) => Stage::Receipt(b),
-                                legacy::Stage::Comp => Stage::Comp,
-                            },
-                        })
-                        .collect(),
-                    queued: s.queued.into_iter().map(map_message).collect(),
-                })
-                .collect(),
+            schema_version: 6,
+            clock_floor: old.clock_floor,
+            sessions,
             retained: old
                 .retained
                 .into_iter()
@@ -180,8 +236,8 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
                     topic: r.topic,
                     payload: r.payload,
                     qos: r.qos,
-                    expires_at: None,
-                    properties: Vec::new(),
+                    expires_at: r.expires_at,
+                    properties: r.properties,
                 })
                 .collect(),
             wills: old
@@ -192,14 +248,14 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
                     client_id: w.client_id,
                     pending: w.pending,
                     timer_blocked: false,
-                    delay_interval: 0,
-                    due_at: w.pending.then_some(0),
+                    delay_interval: w.delay_interval,
+                    due_at: w.due_at,
                     will: WillData {
                         topic: w.will.topic,
                         payload: w.will.payload,
                         qos: w.will.qos,
                         retain: w.will.retain,
-                        properties: Vec::new(),
+                        properties: w.will.properties,
                     },
                 })
                 .collect(),
@@ -207,105 +263,5 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
         legacy,
     ))
 }
-
-fn migrate_v4(bytes: &[u8]) -> Result<Envelope, EngineError> {
-    let old: v4::Envelope = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-    if old.schema_version != 4 {
-        return Err(invalid_record("wrong schema4 version"));
-    }
-    fn props(properties: Properties) -> Result<Properties, EngineError> {
-        if properties.iter().any(|p| {
-            matches!(
-                p,
-                mqtt_protocol::Property::MessageExpiryInterval(_)
-                    | mqtt_protocol::Property::WillDelayInterval(_)
-            )
-        }) {
-            return Err(invalid_record("unsupported expiry metadata in schema4"));
-        }
-        Ok(properties)
-    }
-    fn message(m: v4::Message) -> Result<Message, EngineError> {
-        Ok(Message {
-            topic: m.topic,
-            payload: m.payload,
-            qos: m.qos,
-            retain: m.retain,
-            properties: props(m.properties)?,
-            expires_at: None,
-        })
-    }
-    let mut sessions = Vec::new();
-    for s in old.sessions {
-        let mut incoming = Vec::new();
-        for (id, bytes, p) in s.incoming {
-            incoming.push((id, bytes, props(p)?, None));
-        }
-        let mut outgoing = Vec::new();
-        for o in s.outgoing {
-            outgoing.push(OutgoingRecord {
-                packet_id: o.packet_id,
-                expires_at: None,
-                started: true,
-                properties: props(o.properties)?,
-                stage: match o.stage {
-                    v4::Stage::Ack(b) => Stage::Ack(b),
-                    v4::Stage::Receipt(b) => Stage::Receipt(b),
-                    v4::Stage::Comp => Stage::Comp,
-                },
-            });
-        }
-        sessions.push(SessionRecord {
-            owner: s.owner,
-            client_id: s.client_id,
-            session_expiry_interval: s.session_expiry_interval,
-            expires_at: s.expires_at,
-            subscriptions: s.subscriptions,
-            incoming,
-            outgoing,
-            queued: s
-                .queued
-                .into_iter()
-                .map(message)
-                .collect::<Result<_, _>>()?,
-        });
-    }
-    let mut retained = Vec::new();
-    for r in old.retained {
-        retained.push(RetainedRecord {
-            topic: r.topic,
-            payload: r.payload,
-            qos: r.qos,
-            properties: props(r.properties)?,
-            expires_at: None,
-        });
-    }
-    let mut wills = Vec::new();
-    for w in old.wills {
-        wills.push(WillRecord {
-            owner: w.owner,
-            client_id: w.client_id,
-            pending: w.pending,
-            timer_blocked: false,
-            delay_interval: 0,
-            due_at: w.pending.then_some(0),
-            will: WillData {
-                topic: w.will.topic,
-                payload: w.will.payload,
-                qos: w.will.qos,
-                retain: w.will.retain,
-                properties: props(w.will.properties)?,
-            },
-        });
-    }
-    Ok(Envelope {
-        schema_version: 5,
-        clock_floor: 0,
-        sessions,
-        retained,
-        wills,
-    })
-}
-
 #[cfg(test)]
 mod tests;

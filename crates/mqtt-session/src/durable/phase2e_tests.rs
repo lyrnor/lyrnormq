@@ -119,6 +119,7 @@ fn metadata() -> Properties {
 
 /// Convert our current output to an actual old schema3 fixture before further v1/2 downgrade.
 pub(super) fn legacy_schema3(mut json: serde_json::Value) -> serde_json::Value {
+    json = super::phase2h_tests::schema5(json);
     json["schema_version"] = 3.into();
     json.as_object_mut().unwrap().remove("clock_floor");
     for session in json["sessions"].as_array_mut().unwrap() {
@@ -468,7 +469,7 @@ fn unsupported_properties_subscription_options_and_unknown_ack_reasons_are_expli
         s.handle_frame("a", sub).unwrap()[0].packet,
         Packet::SubAck {
             packet_id: 1,
-            codes: vec![0x83]
+            codes: vec![1]
         }
     );
     assert_eq!(
@@ -516,7 +517,7 @@ fn schema3_migration_and_schema4_property_expiry_corruption_are_strict() {
             .all(|session| session.expiry == u32::MAX)
     );
     let json: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
-    assert_eq!(json["schema_version"], 5);
+    assert_eq!(json["schema_version"], 6);
     for variant in 0..4 {
         let mut corrupt = json.clone();
         match variant {
@@ -771,34 +772,17 @@ fn advertised_unsupported_subscription_features_close_before_any_filter_install(
     s.handle("p", publication("data", b"retained", 1, 10, true))
         .unwrap();
     connect(&mut s, "a", true, u32::MAX, 8);
-    for subscription_id in [false, true] {
-        let before = s.snapshot().unwrap();
-        let mut request = frame(Packet::Subscribe {
-            packet_id: 1,
-            filters: vec![
-                ("data".into(), 1),
-                (
-                    (if subscription_id {
-                        "other"
-                    } else {
-                        "$share/g/data"
-                    })
-                    .into(),
-                    1,
-                ),
-            ],
-        });
-        if subscription_id {
-            request.properties.push(Property::SubscriptionIdentifier(1));
-        }
-        let expected = if subscription_id { 0xa1 } else { 0x9e };
-        assert!(
-            matches!(s.handle_frame("a",request),Err(EngineError::Mqtt5(code)) if code.value()==expected)
-        );
-        assert_eq!(s.snapshot().unwrap(), before);
-        assert!(s.sessions["a"].subscriptions.is_empty());
-        assert!(s.sessions["a"].queued.is_empty());
-    }
+    let before = s.snapshot().unwrap();
+    let request = frame(Packet::Subscribe {
+        packet_id: 1,
+        filters: vec![("data".into(), 1), ("$share/g/data".into(), 1)],
+    });
+    assert!(
+        matches!(s.handle_frame("a",request),Err(EngineError::Mqtt5(code)) if code.value()==0x9e)
+    );
+    assert_eq!(s.snapshot().unwrap(), before);
+    assert!(s.sessions["a"].subscriptions.is_empty());
+    assert!(s.sessions["a"].queued.is_empty());
 }
 
 #[test]
