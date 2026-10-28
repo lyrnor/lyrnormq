@@ -12,7 +12,7 @@ import mqtt5_blackbox as wire
 from blackbox import frame, receive, string
 from qos_blackbox import ack
 from auth_acl_blackbox import AuthBroker, PASSWORD
-from schema_compat import schema5_fixture
+from schema_compat import schema5_fixture, schema6_fixture
 
 
 def identifiers(properties):
@@ -161,9 +161,8 @@ class SubscriptionBlackbox(unittest.TestCase):
             sub = self.client('invalid-' + str(option) + '-' + str(properties))
             sub.sendall(frame(0x82, b'\0\1' + wire.props(properties) + string('invalid') + bytes([option])))
             self.terminal(sub, reason)
-        shared = self.client('still-unavailable');self.sub(shared, [('ordinary', 1)])
-        shared.sendall(frame(0x82, b'\0\2' + wire.props([(11, 5)]) + string('$share/g/x') + b'\1'))
-        self.terminal(shared, 0x9e)
+        shared = self.client('shared-supported');self.sub(shared, [('ordinary', 1)])
+        self.sub(shared, [('$share/g/x', 1)], 5, packet_id=2);self.barrier(shared)
 
     def test_client_publish_and_will_cannot_supply_server_identifiers(self):
         self.start();pub = self.client('bad-publish')
@@ -215,7 +214,7 @@ class SubscriptionBlackbox(unittest.TestCase):
         sub = self.client('durable', clean=False, expiry=60, present=True)
         self.msg(sub, 'durable/value', b'offline', 2, [201], True, wire.METADATA)
         self.sub(sub, [('durable/#', 26)], 202, packet_id=2);self.quiet(sub)
-        data = self.snapshot();self.assertEqual(data['schema_version'], 6)
+        data = self.snapshot();self.assertEqual(data['schema_version'], 7)
         item = next(s for s in data['sessions'] if s['client_id'] == 'durable')['subscriptions'][0]
         self.assertEqual(item, {'filter': 'durable/#', 'qos': 2, 'no_local': False, 'retain_as_published': True, 'retain_handling': 1, 'identifier': 202})
 
@@ -258,7 +257,7 @@ class SubscriptionBlackbox(unittest.TestCase):
             db.execute('UPDATE broker_snapshot SET data=?', (json.dumps(old5).encode(),));db.commit()
         self.broker.start();sub = self.client('legacy', clean=False, expiry=60, present=True)
         value = self.msg(sub, 'legacy/live', b'old', app=wire.METADATA, dup=True);self.assertEqual(old[3], value[3])
-        data = self.snapshot();self.assertEqual(data['schema_version'], 6)
+        data = self.snapshot();self.assertEqual(data['schema_version'], 7)
         record = next(s for s in data['sessions'] if s['client_id'] == 'legacy')['subscriptions'][0]
         self.assertEqual(record, {'filter': 'legacy/#', 'qos': 2, 'no_local': False, 'retain_as_published': False, 'retain_handling': 0, 'identifier': None})
 
@@ -266,7 +265,7 @@ class SubscriptionBlackbox(unittest.TestCase):
         self.require_sqlite();self.start();sub = self.client('strict', expiry=60);self.sub(sub, [('strict', 1)], 241)
         self.disconnect(sub);self.broker.stop()
         with closing(sqlite3.connect(self.broker.db)) as db:original = db.execute('SELECT data FROM broker_snapshot').fetchone()[0]
-        base = json.loads(original)
+        base = schema6_fixture(json.loads(original))
         cases = []
         for field in ('identifier', 'no_local', 'retain_as_published', 'retain_handling'):
             value = copy.deepcopy(base);del value['sessions'][0]['subscriptions'][0][field];cases.append(value)

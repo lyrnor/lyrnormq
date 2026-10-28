@@ -11,9 +11,25 @@ def default_subscription(topic, qos):
             'retain_as_published': False, 'retain_handling': 0, 'identifier': None}
 
 
+def schema6_fixture(value):
+    """Remove only proven absent recipient-group metadata from ordinary schema7."""
+    result = copy.deepcopy(value)
+    if result['schema_version'] == 6:
+        return result
+    assert result['schema_version'] == 7
+    result['schema_version'] = 6
+    for session in result['sessions']:
+        assert all(not item['filter'].startswith('$share/') for item in session['subscriptions'])
+        for message in session['queued']:
+            assert message.pop('shared_subscription') is None
+        for outgoing in session['outgoing']:
+            assert outgoing.pop('shared_subscription') is None
+    return result
+
+
 def schema5_fixture(value):
     """Drop only proven legacy-default subscription/replay state, preserving time/QoS."""
-    result = copy.deepcopy(value)
+    result = schema6_fixture(value) if value['schema_version'] == 7 else copy.deepcopy(value)
     if result['schema_version'] == 5:
         return result
     assert result['schema_version'] == 6

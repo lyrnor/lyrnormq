@@ -225,7 +225,7 @@ class AliasBlackbox(unittest.TestCase):
         self.require_sqlite();self.start();pub = self.client('durable-source', expiry=60)
         self.alias_publish(pub, 'durable/retained', b'stored', retain=True)
         pub.sendall(wire.publication5('durable/pending', b'pending', 2, 42, [(0x23, 2)]));wire.parse_ack5(receive(pub), 0x50, 42)
-        data = self.snapshot();self.assertEqual(data['schema_version'], 6);self.assertNotIn('TopicAlias', json.dumps(data))
+        data = self.snapshot();self.assertEqual(data['schema_version'], 7);self.assertNotIn('TopicAlias', json.dumps(data))
         incoming = next(s for s in data['sessions'] if s['client_id'] == 'durable-source')['incoming'];self.assertEqual(len(incoming), 1)
         self.disconnect(pub);self.broker.restart_after_crash()
         sub = self.connection('durable-reader', aliases=1);self.subscribe(sub, [('durable/#', 2)]);self.expected(sub, 'durable/retained', b'stored', retain=True)

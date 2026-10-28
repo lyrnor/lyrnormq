@@ -191,7 +191,7 @@ class Mqtt5Paho(unittest.TestCase):
                 sub.subscribe(filters)
                 if target_version == 5:
                     self.assertEqual(sub.connect_properties.ReceiveMaximum, 32)
-                    self.assertEqual(sub.connect_properties.SharedSubscriptionAvailable, 0)
+                    self.assertEqual(sub.connect_properties.SharedSubscriptionAvailable, 1)
                     self.assertEqual(sub.connect_properties.SubscriptionIdentifierAvailable, 1)
                 for source_qos in range(3):
                     for grant in range(3):

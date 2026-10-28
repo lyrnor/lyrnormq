@@ -550,7 +550,7 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.broker.start()
         target = self.client('legacy4-target', clean=False, expiry=60, present=True)
         self.message(target, 'legacy4', b'unlimited')
-        self.assertEqual(self.snapshot()['schema_version'], 6)
+        self.assertEqual(self.snapshot()['schema_version'], 7)
 
     def test_legacy_schema4_cannot_smuggle_previously_unsupported_ttl(self):
         self.require_sqlite()
@@ -592,7 +592,7 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.broker.stop()
         with sqlite3.connect(self.broker.db) as db:
             value = json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0])
-        self.assertEqual(value['schema_version'], 6)
+        self.assertEqual(value['schema_version'], 7)
         self.assertIn('clock_floor', value)
         value.pop('clock_floor')
         damaged = json.dumps(value).encode()

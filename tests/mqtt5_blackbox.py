@@ -352,7 +352,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.assertEqual(capabilities[0x21], 3)
         self.assertEqual(capabilities[0x27], 65536)
         self.assertEqual(capabilities.get(0x22, 0), 32)
-        self.assertEqual(capabilities[0x2a], 0)
+        self.assertEqual(capabilities[0x2a], 1)
         self.assertEqual(capabilities[0x29], 1)
         self.assertNotIn(0x1f, capabilities)
         self.disconnect(sock)
@@ -652,27 +652,13 @@ class Mqtt5Blackbox(unittest.TestCase):
         _, offset = readprops(body, 2)
         self.assertEqual(body[offset:], b'\0\x11')
 
-    def test_unavailable_shared_disconnect_without_partial_grants(self):
-        self.start()
-        source = self.client('unavailable-source')
-        for name, properties, filters, reason in [
-            ('shared', [], [('feature/unaccepted', 1), ('$share/group/feature/#', 1)], 0x9e),
-        ]:
-            with self.subTest(feature=name):
-                target = self.client('feature-' + name, expiry=30)
-                topic = 'feature/existing/' + name
-                self.subscribe(target, [(topic, 1)])
-                target.sendall(frame(0x82, b'\0\2' + props(properties)
-                                     + b''.join(string(f) + bytes([q]) for f, q in filters)))
-                self.terminal(target, reason)
-                resumed = self.client('feature-' + name, clean=False, expiry=30, present=True)
-                self.publish(source, 'feature/unaccepted', b'not granted')
-                self.quiet(resumed)
-                self.publish(source, topic, b'prior grant remains')
-                self.message(resumed, topic, b'prior grant remains')
-                if self.sqlite:
-                    record = next(s for s in self.snapshot()['sessions'] if s['client_id'] == 'feature-' + name)
-                    self.assertEqual(record['subscriptions'], [default_subscription(topic, 1)])
+    def test_shared_and_ordinary_filters_granted_together(self):
+        self.start();source = self.client('shared-source');target = self.client('shared-target', expiry=30)
+        self.subscribe(target, [('feature/plain', 1), ('$share/group/feature/shared', 1)])
+        for topic in ('feature/plain', 'feature/shared'):
+            self.publish(source, topic, b'granted');self.message(target, topic, b'granted')
+        self.disconnect(target);target = self.client('shared-target', clean=False, expiry=30, present=True)
+        self.publish(source, 'feature/shared', b'resumed');self.message(target, 'feature/shared', b'resumed')
 
     def test_duplicate_zero_wrong_context_and_unknown_properties_fail(self):
         self.start()
@@ -1117,7 +1103,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         source.sendall(ack(0x62, 72))
         parse_ack5(receive(source), 0x70, 72)
         self.message(target, 'legacy/pending', b'old pending', 2)
-        self.assertEqual(self.snapshot()['schema_version'], 6)
+        self.assertEqual(self.snapshot()['schema_version'], 7)
         self.assertTrue(all(s['owner'] == 'anonymous' for s in self.snapshot()['sessions']))
 
     def test_schema4_missing_required_expiry_deadline_rejects_startup_without_reset(self):
