@@ -4,6 +4,7 @@
 //! Neither method success nor serialized bytes alone establish durability.
 use crate::outgoing::OutgoingState;
 use crate::{AckAction, AckKind, IncomingQos2, OutgoingQos, SessionError};
+use mqtt_auth::{AccessControl, Action, AllowAnonymous, Principal};
 use mqtt_protocol::{Packet, decode, encode};
 use mqtt_router::retained::{RetainedError, RetainedStore};
 use mqtt_router::{Router, validate_filter};
@@ -11,6 +12,7 @@ use records::{
     Envelope, Message, OutgoingRecord, RetainedRecord, SessionRecord, Stage, WillData, WillRecord,
 };
 
+mod authorization;
 mod lifecycle;
 mod records;
 mod retention;
@@ -20,6 +22,7 @@ use std::{
     fmt,
     io::{self, Write},
     num::NonZeroU16,
+    sync::Arc,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -39,6 +42,7 @@ pub enum EngineError {
     InvalidRecord(String),
     UnknownSession,
     OfflineSession,
+    NotAuthorized,
     InvalidPacket(String),
     Qos(SessionError),
     Json(serde_json::Error),
@@ -52,6 +56,7 @@ impl fmt::Display for EngineError {
             Self::InvalidRecord(s) => write!(f, "invalid durable record: {s}"),
             Self::UnknownSession => f.write_str("unknown session"),
             Self::OfflineSession => f.write_str("session is offline"),
+            Self::NotAuthorized => f.write_str("operation is not authorized"),
             Self::InvalidPacket(s) => write!(f, "invalid session packet: {s}"),
             Self::Qos(error) => error.fmt(f),
             Self::Json(error) => error.fmt(f),
@@ -70,6 +75,14 @@ pub struct ConnectResult {
     pub session_present: bool,
 }
 
+/// A poll can prune revoked deliveries without producing a network packet.
+/// Commit whenever changed is true before installing the proposed model.
+#[derive(Debug)]
+pub struct PollOutcome {
+    pub packet: Option<Packet>,
+    pub changed: bool,
+}
+
 impl Message {
     fn packet(&self, id: Option<u16>, dup: bool) -> Packet {
         Packet::Publish {
@@ -84,6 +97,7 @@ impl Message {
 }
 #[derive(Clone)]
 struct Session {
+    owner: Principal,
     persistent: bool,
     online: bool,
     subscriptions: BTreeMap<String, u8>,
@@ -93,8 +107,9 @@ struct Session {
     replay: VecDeque<NonZeroU16>,
 }
 impl Session {
-    fn new(config: SessionConfig, persistent: bool) -> Self {
+    fn new(config: SessionConfig, persistent: bool, owner: Principal) -> Self {
         Self {
+            owner,
             persistent,
             online: true,
             subscriptions: BTreeMap::new(),
@@ -107,6 +122,7 @@ impl Session {
 }
 #[derive(Clone)]
 pub struct SessionEngine {
+    access: Arc<dyn AccessControl>,
     config: SessionConfig,
     sessions: BTreeMap<String, Session>,
     retained: RetainedStore,
@@ -148,6 +164,14 @@ fn decode_publish(bytes: &[u8], limit: usize) -> Result<Packet, EngineError> {
 
 impl SessionEngine {
     pub fn new(config: SessionConfig) -> Result<Self, EngineError> {
+        Self::new_with_access(config, Arc::new(AllowAnonymous))
+    }
+
+    /// Configure a bounded, synchronous access policy; policy data is not persisted.
+    pub fn new_with_access(
+        config: SessionConfig,
+        access: Arc<dyn AccessControl>,
+    ) -> Result<Self, EngineError> {
         if config.max_sessions == 0
             || config.max_retained == 0
             || config.max_subscriptions == 0
@@ -159,6 +183,7 @@ impl SessionEngine {
             return Err(EngineError::InvalidConfig);
         }
         let engine = Self {
+            access,
             config,
             sessions: BTreeMap::new(),
             retained: RetainedStore::new(config.max_retained, config.max_state_bytes)
@@ -172,7 +197,16 @@ impl SessionEngine {
     /// Restore only known, validated records. Every restored session starts
     /// offline; connect reconstructs its replay cursor in original send order.
     pub fn restore(config: SessionConfig, bytes: &[u8]) -> Result<Self, EngineError> {
-        let mut engine = Self::new(config)?;
+        Self::restore_with_access(config, bytes, Arc::new(AllowAnonymous))
+    }
+
+    /// Restore ownership without transferring legacy anonymous data to a new user.
+    pub fn restore_with_access(
+        config: SessionConfig,
+        bytes: &[u8],
+        access: Arc<dyn AccessControl>,
+    ) -> Result<Self, EngineError> {
+        let mut engine = Self::new_with_access(config, access)?;
         if bytes.len() > config.max_state_bytes {
             return Err(EngineError::Capacity);
         }
@@ -195,7 +229,8 @@ impl SessionEngine {
             {
                 return Err(EngineError::Capacity);
             }
-            let mut session = Session::new(config, true);
+            Self::validate_owner(&record.owner)?;
+            let mut session = Session::new(config, true, Principal { name: record.owner });
             session.online = false;
             for (filter, qos) in record.subscriptions {
                 let packet = Packet::Subscribe {
@@ -291,6 +326,14 @@ impl SessionEngine {
                 .map_err(EngineError::Retained)?;
         }
         for record in envelope.wills {
+            Self::validate_owner(&record.owner)?;
+            if engine
+                .sessions
+                .get(&record.client_id)
+                .is_some_and(|session| session.owner.name != record.owner)
+            {
+                return Err(invalid_record("session and Will ownership disagree"));
+            }
             engine.validate_will(&record.client_id, &record.will.to_protocol())?;
             if engine
                 .wills
@@ -324,6 +367,8 @@ impl SessionEngine {
             clean_session: true,
             keep_alive: 0,
             will: None,
+            username: None,
+            password: None,
         })
         .map_err(|error| invalid_record(error.to_string()))?;
         if bytes.len() > self.config.max_packet_size {
@@ -365,6 +410,7 @@ impl SessionEngine {
             }
             records.push(SessionRecord {
                 client_id: client_id.clone(),
+                owner: session.owner.name.clone(),
                 subscriptions: session
                     .subscriptions
                     .iter()
@@ -381,7 +427,7 @@ impl SessionEngine {
             });
         }
         Ok(Envelope {
-            schema_version: 2,
+            schema_version: 3,
             sessions: records,
             retained: self
                 .retained
@@ -441,8 +487,19 @@ impl SessionEngine {
         let clients: Vec<String> = self.sessions.keys().cloned().collect();
         for (index, client) in clients.iter().enumerate() {
             if let Some(session) = self.sessions.get(client) {
+                if !self
+                    .access
+                    .authorize(&session.owner, Action::Connect, client)
+                {
+                    continue;
+                }
                 for (filter, qos) in &session.subscriptions {
-                    router.subscribe_qos(index as u64, filter.clone(), *qos);
+                    if self
+                        .access
+                        .authorize(&session.owner, Action::Subscribe, filter)
+                    {
+                        router.subscribe_qos(index as u64, filter.clone(), *qos);
+                    }
                 }
             }
         }
@@ -454,6 +511,12 @@ impl SessionEngine {
                 .sessions
                 .get_mut(client)
                 .ok_or(EngineError::UnknownSession)?;
+            if !self
+                .access
+                .authorize(&target.owner, Action::Receive, &message.topic)
+            {
+                continue;
+            }
             let qos = message.qos.min(grant);
             if !target.online && qos == 0 {
                 continue;
@@ -477,6 +540,26 @@ impl SessionEngine {
         if bytes.len() > self.config.max_packet_size {
             return Err(EngineError::Capacity);
         }
+        let owner = self
+            .sessions
+            .get(client_id)
+            .ok_or(EngineError::UnknownSession)?
+            .owner
+            .clone();
+        if let Packet::Publish { topic, .. } = &packet {
+            self.require_access(&owner, Action::Publish, topic)?;
+        }
+        if let Packet::PubRel { packet_id } = &packet
+            && let Some(pending) = self
+                .sessions
+                .get(client_id)
+                .and_then(|session| session.incoming.pending.get(&identifier(*packet_id).ok()?))
+            && let Packet::Publish { topic, .. } =
+                decode_publish(pending, self.config.max_packet_size)?
+        {
+            self.require_access(&owner, Action::Publish, &topic)?;
+        }
+        self.reconcile_authorization()?;
         let mut replies = Vec::new();
         match packet {
             Packet::Subscribe { packet_id, filters } => {
@@ -487,6 +570,7 @@ impl SessionEngine {
                 let mut codes = Vec::new();
                 for (filter, qos) in filters {
                     if !validate_filter(&filter)
+                        || !self.access.authorize(&owner, Action::Subscribe, &filter)
                         || (!session.subscriptions.contains_key(&filter)
                             && session.subscriptions.len() >= self.config.max_subscriptions)
                     {
@@ -495,6 +579,13 @@ impl SessionEngine {
                     }
                     session.subscriptions.insert(filter.clone(), qos);
                     for retained in self.retained.matching(&filter, qos) {
+                        if !self.access.authorize(&owner, Action::Connect, client_id)
+                            || !self
+                                .access
+                                .authorize(&owner, Action::Receive, &retained.topic)
+                        {
+                            continue;
+                        }
                         if session.queued.len() >= self.config.max_queued {
                             return Err(EngineError::Capacity);
                         }
@@ -615,7 +706,13 @@ impl SessionEngine {
         Ok(replies)
     }
     pub fn poll(&mut self, client_id: &str) -> Result<Option<Packet>, EngineError> {
+        self.poll_with_changes(client_id)
+            .map(|outcome| outcome.packet)
+    }
+
+    pub fn poll_with_changes(&mut self, client_id: &str) -> Result<PollOutcome, EngineError> {
         self.require_online(client_id)?;
+        let changed = self.reconcile_authorization()?;
         let session = self
             .sessions
             .get_mut(client_id)
@@ -636,13 +733,22 @@ impl SessionEngine {
                 }
                 None => return Err(invalid_record("replay references absent exchange")),
             };
-            return Ok(Some(packet));
+            return Ok(PollOutcome {
+                packet: Some(packet),
+                changed: true,
+            });
         }
         if session.outgoing.is_full() {
-            return Ok(None);
+            return Ok(PollOutcome {
+                packet: None,
+                changed,
+            });
         }
         let Some(message) = session.queued.pop_front() else {
-            return Ok(None);
+            return Ok(PollOutcome {
+                packet: None,
+                changed,
+            });
         };
         let id = if message.qos == 0 {
             None
@@ -663,7 +769,10 @@ impl SessionEngine {
             }
         }
         self.ensure_bounds()?;
-        Ok(Some(packet))
+        Ok(PollOutcome {
+            packet: Some(packet),
+            changed: true,
+        })
     }
 }
 
@@ -1048,3 +1157,6 @@ mod tests {
 
 #[cfg(test)]
 mod phase2c_tests;
+
+#[cfg(test)]
+mod phase2d_tests;

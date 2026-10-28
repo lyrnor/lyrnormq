@@ -408,6 +408,7 @@ fn schema1_migrates_explicitly_and_schema2_globals_are_required_and_validated() 
     legacy.as_object_mut().unwrap().remove("retained");
     legacy.as_object_mut().unwrap().remove("wills");
     for session in legacy["sessions"].as_array_mut().unwrap() {
+        session.as_object_mut().unwrap().remove("owner");
         for message in session["queued"].as_array_mut().unwrap() {
             message.as_object_mut().unwrap().remove("retain");
         }
@@ -419,7 +420,7 @@ fn schema1_migrates_explicitly_and_schema2_globals_are_required_and_validated() 
     restored.connect("sub", false).unwrap();
     check(&restored.poll("sub").unwrap().unwrap(), b"legacy", 1, false);
     let json: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
-    assert_eq!(json["schema_version"], 2);
+    assert_eq!(json["schema_version"], 3);
     for field in ["retained", "wills"] {
         let mut bad = json.clone();
         bad.as_object_mut().unwrap().remove(field);
@@ -432,7 +433,7 @@ fn schema1_migrates_explicitly_and_schema2_globals_are_required_and_validated() 
     bad["retained"] = serde_json::json!([{"topic":"a","payload":[1],"qos":0},{"topic":"a","payload":[2],"qos":1}]);
     assert!(SessionEngine::restore(config(), &serde_json::to_vec(&bad).unwrap()).is_err());
     let mut bad = json;
-    bad["wills"] = serde_json::json!([{"client_id":"x","pending":false,"will":{"topic":"bad/+","payload":[0],"qos":0,"retain":false}}]);
+    bad["wills"] = serde_json::json!([{"owner":"anonymous","client_id":"x","pending":false,"will":{"topic":"bad/+","payload":[0],"qos":0,"retain":false}}]);
     assert!(SessionEngine::restore(config(), &serde_json::to_vec(&bad).unwrap()).is_err());
 }
 
@@ -507,6 +508,9 @@ fn schema1_rejects_retained_wire_that_old_codec_could_not_store() {
         json["schema_version"] = 1.into();
         json.as_object_mut().unwrap().remove("retained");
         json.as_object_mut().unwrap().remove("wills");
+        for session in json["sessions"].as_array_mut().unwrap() {
+            session.as_object_mut().unwrap().remove("owner");
+        }
         assert!(SessionEngine::restore(config(), &serde_json::to_vec(&json).unwrap()).is_err());
     }
 }

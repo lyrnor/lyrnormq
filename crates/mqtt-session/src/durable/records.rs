@@ -1,5 +1,6 @@
-//! Versioned durable records. Schema1 is explicitly migrated, never reinterpreted.
+//! Explicit schema1/schema2 migration; schema3 binds each session and Will owner.
 use super::{EngineError, invalid_record};
+use mqtt_auth::Principal;
 use mqtt_protocol::Will;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,7 @@ pub(super) struct Envelope {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct SessionRecord {
+    pub(super) owner: String,
     pub(super) client_id: String,
     pub(super) subscriptions: Vec<(String, u8)>,
     pub(super) incoming: Vec<(u16, Vec<u8>)>,
@@ -50,6 +52,7 @@ pub(super) struct RetainedRecord {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct WillRecord {
+    pub(super) owner: String,
     pub(super) client_id: String,
     pub(super) pending: bool,
     pub(super) will: WillData,
@@ -109,6 +112,31 @@ struct LegacyMessage {
     qos: u8,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnownedEnvelope {
+    schema_version: u32,
+    sessions: Vec<UnownedSession>,
+    retained: Vec<RetainedRecord>,
+    wills: Vec<UnownedWill>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnownedSession {
+    client_id: String,
+    subscriptions: Vec<(String, u8)>,
+    incoming: Vec<(u16, Vec<u8>)>,
+    outgoing: Vec<OutgoingRecord>,
+    queued: Vec<Message>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnownedWill {
+    client_id: String,
+    pending: bool,
+    will: WillData,
+}
+
 pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
     let version: Version = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
     match version.schema_version {
@@ -119,11 +147,12 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
             }
             Ok((
                 Envelope {
-                    schema_version: 2,
+                    schema_version: 3,
                     sessions: old
                         .sessions
                         .into_iter()
                         .map(|session| SessionRecord {
+                            owner: Principal::anonymous().name,
                             client_id: session.client_id,
                             subscriptions: session.subscriptions,
                             incoming: session.incoming,
@@ -146,7 +175,42 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
                 true,
             ))
         }
-        2 => Ok((
+        2 => {
+            let old: UnownedEnvelope = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
+            if old.schema_version != 2 {
+                return Err(invalid_record("unowned schema version"));
+            }
+            Ok((
+                Envelope {
+                    schema_version: 3,
+                    sessions: old
+                        .sessions
+                        .into_iter()
+                        .map(|session| SessionRecord {
+                            owner: Principal::anonymous().name,
+                            client_id: session.client_id,
+                            subscriptions: session.subscriptions,
+                            incoming: session.incoming,
+                            outgoing: session.outgoing,
+                            queued: session.queued,
+                        })
+                        .collect(),
+                    retained: old.retained,
+                    wills: old
+                        .wills
+                        .into_iter()
+                        .map(|will| WillRecord {
+                            owner: Principal::anonymous().name,
+                            client_id: will.client_id,
+                            pending: will.pending,
+                            will: will.will,
+                        })
+                        .collect(),
+                },
+                false,
+            ))
+        }
+        3 => Ok((
             serde_json::from_slice(bytes).map_err(EngineError::Json)?,
             false,
         )),

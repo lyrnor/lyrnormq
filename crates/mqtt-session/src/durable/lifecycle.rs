@@ -3,6 +3,7 @@ use super::{
     ConnectResult, EngineError, Message, Session, SessionEngine, WillData, WillRecord,
     invalid_record,
 };
+use mqtt_auth::{Action, Principal};
 use mqtt_protocol::{Packet, Will, encode};
 
 impl SessionEngine {
@@ -12,6 +13,8 @@ impl SessionEngine {
             clean_session: true,
             keep_alive: 0,
             will: Some(will.clone()),
+            username: None,
+            password: None,
         })
         .map_err(|error| invalid_record(error.to_string()))?;
         if bytes.len() > self.config.max_packet_size {
@@ -38,9 +41,34 @@ impl SessionEngine {
         clean_session: bool,
         will: Option<Will>,
     ) -> Result<ConnectResult, EngineError> {
+        self.connect_authenticated(client_id, clean_session, will, Principal::anonymous())
+    }
+    /// Authenticate externally first; ownership and Will authorization are checked
+    /// here before any old connection, Will, or persistent session can be changed.
+    pub fn connect_authenticated(
+        &mut self,
+        client_id: &str,
+        clean_session: bool,
+        will: Option<Will>,
+        principal: Principal,
+    ) -> Result<ConnectResult, EngineError> {
         self.validate_client(client_id)?;
+        Self::validate_owner(&principal.name).map_err(|_| EngineError::NotAuthorized)?;
+        self.require_access(&principal, Action::Connect, client_id)?;
+        if self
+            .sessions
+            .get(client_id)
+            .is_some_and(|session| session.owner != principal)
+            || self
+                .wills
+                .get(client_id)
+                .is_some_and(|record| record.owner != principal.name)
+        {
+            return Err(EngineError::NotAuthorized);
+        }
         if let Some(will) = &will {
             self.validate_will(client_id, will)?;
+            self.require_access(&principal, Action::Publish, &will.topic)?;
         }
         if self
             .sessions
@@ -72,8 +100,10 @@ impl SessionEngine {
             {
                 return Err(EngineError::Capacity);
             }
-            self.sessions
-                .insert(client_id.into(), Session::new(self.config, !clean_session));
+            self.sessions.insert(
+                client_id.into(),
+                Session::new(self.config, !clean_session, principal.clone()),
+            );
         }
         if let Some(will) = will {
             if self.wills.len() >= self.config.max_sessions {
@@ -83,6 +113,7 @@ impl SessionEngine {
                 client_id.into(),
                 WillRecord {
                     client_id: client_id.into(),
+                    owner: principal.name.clone(),
                     pending: false,
                     will: WillData::from(will),
                 },
@@ -147,12 +178,12 @@ impl SessionEngine {
     /// Tries each pending Will on a separate bounded clone. A full recipient or
     /// retained store defers it unchanged; any other error is not swallowed.
     pub fn retry_wills(&mut self) -> Result<bool, EngineError> {
+        let mut progressed = self.prune_wills();
         let pending: Vec<String> = self
             .wills
             .iter()
             .filter_map(|(id, record)| record.pending.then_some(id.clone()))
             .collect();
-        let mut progressed = false;
         for id in pending {
             let mut proposal = self.clone();
             let record = proposal
