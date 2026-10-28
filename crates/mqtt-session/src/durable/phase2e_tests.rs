@@ -452,20 +452,11 @@ fn will_metadata_and_expiry_zero_disconnection_keep_global_retained() {
     s.disconnect_with_options("source", false, None).unwrap();
     assert_eq!(next(&mut s, "a").properties, metadata());
     assert!(!s.sessions.contains_key("source"));
-    let mut opts = options(true, 0, 8);
-    opts.will_properties.push(Property::WillDelayInterval(1));
-    assert!(
-        matches!(s.connect_with_options("bad",Some(will),Principal::anonymous(),opts),Err(EngineError::Mqtt5(code)) if code.value()==0x83)
-    );
-    assert!(!s.sessions.contains_key("bad"));
 }
 #[test]
 fn unsupported_properties_subscription_options_and_unknown_ack_reasons_are_explicit() {
     let (mut s, _) = state();
     connect(&mut s, "a", true, 10, 8);
-    let mut p = frame(publication("data", b"x", 1, 10, false));
-    p.properties.push(Property::MessageExpiryInterval(1));
-    assert!(matches!(s.handle_frame("a",p),Err(EngineError::Mqtt5(code)) if code.value()==0x83));
     let mut sub = frame(Packet::Subscribe {
         packet_id: 1,
         filters: vec![("data".into(), 1)],

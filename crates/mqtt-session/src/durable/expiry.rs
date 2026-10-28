@@ -19,23 +19,76 @@ impl Clock for SystemClock {
     }
 }
 impl SessionEngine {
-    /// Earliest known offline deadline; active sessions never have one.
+    /// Earliest actionable deadline, excluding already-started protocol state.
     pub fn next_expiry_deadline(&self) -> Option<u64> {
         self.sessions
             .values()
             .filter(|s| !s.online)
             .filter_map(|s| s.expires_at)
+            .chain(
+                self.sessions
+                    .values()
+                    .flat_map(|s| s.queued.iter().filter_map(|m| m.expires_at)),
+            )
+            .chain(self.retained_expiry.values().copied())
+            .chain(self.sessions.values().flat_map(|s| {
+                s.outgoing_expiry
+                    .iter()
+                    .filter(|(id, _)| !s.outgoing_started.contains(id))
+                    .map(|(_, deadline)| *deadline)
+            }))
             .chain(self.next_will_deadline())
             .min()
     }
-    /// Retained values and pending Will intents are independent of session expiry.
+    pub fn expire_messages(&mut self) -> Result<bool, EngineError> {
+        let now = self.clock.now_millis();
+        let mut changed = false;
+        for session in self.sessions.values_mut() {
+            let before = session.queued.len();
+            session
+                .queued
+                .retain(|m| !super::temporal::is_expired(m.expires_at, now));
+            changed |= before != session.queued.len();
+            let expired: Vec<_> = session
+                .outgoing_expiry
+                .iter()
+                .filter(|(id, deadline)| {
+                    **deadline <= now && !session.outgoing_started.contains(id)
+                })
+                .map(|(id, _)| *id)
+                .collect();
+            for id in expired {
+                session.retire_outgoing(id);
+                changed = true;
+            }
+        }
+        let expired: Vec<_> = self
+            .retained_expiry
+            .iter()
+            .filter(|(_, deadline)| **deadline <= now)
+            .map(|(topic, _)| topic.clone())
+            .collect();
+        for topic in expired {
+            self.retained
+                .apply(topic.clone(), Vec::new(), 0)
+                .map_err(EngineError::Retained)?;
+            self.retained_expiry.remove(&topic);
+            self.retained_properties.remove(&topic);
+            changed = true;
+        }
+        if changed {
+            self.ensure_bounds()?;
+        }
+        Ok(changed)
+    }
     pub fn expire_sessions(&mut self) -> Result<bool, EngineError> {
         let now = self.clock.now_millis();
         let before = self.sessions.len();
         self.sessions.retain(|_, session| {
             session.online || !super::temporal::is_expired(session.expires_at, now)
         });
-        let changed = before != self.sessions.len();
+        let mut changed = before != self.sessions.len();
+        changed |= self.expire_messages()?;
         if changed {
             self.ensure_bounds()?;
         }

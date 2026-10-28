@@ -22,7 +22,7 @@ mod records;
 mod retention;
 mod temporal;
 pub use expiry::{Clock, SystemClock};
-pub use mqtt5::{ConnectionOptions, FramePollOutcome};
+pub use mqtt5::{ConnectionOptions, Delivery, DeliveryPollOutcome, FramePollOutcome};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     error::Error,
@@ -124,8 +124,31 @@ struct Session {
     outgoing_expiry: BTreeMap<NonZeroU16, u64>,
     outgoing_started: BTreeSet<NonZeroU16>,
     outgoing_properties: BTreeMap<NonZeroU16, Properties>,
+    delivery_sequence: u64,
+    delivery_tickets: BTreeMap<NonZeroU16, u64>,
 }
 impl Session {
+    fn reserve_delivery(&mut self, id: NonZeroU16) -> Result<u64, EngineError> {
+        self.delivery_sequence = self
+            .delivery_sequence
+            .checked_add(1)
+            .ok_or(EngineError::Capacity)?;
+        self.delivery_tickets.insert(id, self.delivery_sequence);
+        Ok(self.delivery_sequence)
+    }
+
+    fn retire_outgoing(&mut self, id: NonZeroU16) {
+        self.outgoing.pending.remove(&id);
+        self.outgoing.order.retain(|v| *v != id);
+        self.outgoing.identifiers.release(id);
+        self.replay.retain(|v| *v != id);
+        self.outgoing_properties.remove(&id);
+        self.outgoing_expiry.remove(&id);
+        self.outgoing_started.remove(&id);
+        self.delivery_tickets.remove(&id);
+        self.sent.remove(&id);
+    }
+
     fn new(config: SessionConfig, persistent: bool, owner: Principal) -> Self {
         Self {
             owner,
@@ -146,6 +169,8 @@ impl Session {
             outgoing_expiry: BTreeMap::new(),
             outgoing_started: BTreeSet::new(),
             outgoing_properties: BTreeMap::new(),
+            delivery_sequence: 0,
+            delivery_tickets: BTreeMap::new(),
         }
     }
 }
@@ -418,7 +443,7 @@ impl SessionEngine {
                 return Err(invalid_record("empty or duplicate retained record"));
             }
             engine.validate_message(&Message {
-                expires_at: None,
+                expires_at: retained.expires_at,
                 topic: retained.topic.clone(),
                 payload: retained.payload.clone(),
                 qos: retained.qos,
@@ -608,6 +633,21 @@ impl SessionEngine {
         Ok(writer.bytes)
     }
     fn ensure_bounds(&self) -> Result<(), EngineError> {
+        for session in self.sessions.values() {
+            if session
+                .incoming_expiry
+                .keys()
+                .any(|id| !session.incoming.pending.contains_key(id))
+                || session
+                    .outgoing_expiry
+                    .keys()
+                    .chain(session.outgoing_started.iter())
+                    .chain(session.delivery_tickets.keys())
+                    .any(|id| !session.outgoing.pending.contains_key(id))
+            {
+                return Err(invalid_record("orphan delivery deadline or reservation"));
+            }
+        }
         self.serialize(false).map(|_| ())
     }
 
@@ -716,7 +756,7 @@ impl SessionEngine {
                 return Err(EngineError::Capacity);
             }
             target.queued.push_back(Message {
-                expires_at: None,
+                expires_at: message.expires_at,
                 topic: message.topic.clone(),
                 payload: message.payload.clone(),
                 qos,
@@ -761,6 +801,7 @@ impl SessionEngine {
         {
             self.require_access(&owner, Action::Publish, &topic)?;
         }
+        self.expire_sessions()?;
         self.reconcile_authorization()?;
         let mut replies = Vec::new();
         match packet {
@@ -794,7 +835,7 @@ impl SessionEngine {
                             .cloned()
                             .unwrap_or_default();
                         let message = Message {
-                            expires_at: None,
+                            expires_at: self.retained_expiry.get(&retained.topic).copied(),
                             topic: retained.topic.clone(),
                             payload: retained.payload.clone(),
                             qos: retained.qos,
@@ -821,7 +862,7 @@ impl SessionEngine {
                             return Err(EngineError::Capacity);
                         }
                         session.queued.push_back(Message {
-                            expires_at: None,
+                            expires_at: self.retained_expiry.get(&retained.topic).copied(),
                             topic: retained.topic.clone(),
                             payload: retained.payload,
                             qos: retained.qos,
@@ -871,6 +912,11 @@ impl SessionEngine {
                     let fresh = !session.incoming.pending.contains_key(&id);
                     session.incoming.publish(id, &bytes, dup)?;
                     if fresh {
+                        if let Some(deadline) =
+                            temporal::expiry_deadline(&properties, self.clock.now_millis())
+                        {
+                            session.incoming_expiry.insert(id, deadline);
+                        }
                         session.incoming_properties.insert(id, properties);
                     }
                     replies.push(Packet::PubRec {
@@ -878,7 +924,7 @@ impl SessionEngine {
                     });
                 } else {
                     self.publish(Message {
-                        expires_at: None,
+                        expires_at: temporal::expiry_deadline(&properties, self.clock.now_millis()),
                         topic,
                         payload,
                         qos,
@@ -894,6 +940,12 @@ impl SessionEngine {
                 }
             }
             Packet::PubRel { packet_id } => {
+                let expires_at = self
+                    .sessions
+                    .get_mut(client_id)
+                    .ok_or(EngineError::UnknownSession)?
+                    .incoming_expiry
+                    .remove(&identifier(packet_id)?);
                 let properties = self
                     .sessions
                     .get_mut(client_id)
@@ -920,7 +972,7 @@ impl SessionEngine {
                         return Err(invalid_record("invalid incoming message"));
                     };
                     self.publish(Message {
-                        expires_at: None,
+                        expires_at,
                         topic,
                         payload,
                         qos,
@@ -943,6 +995,7 @@ impl SessionEngine {
                     .ok_or(EngineError::UnknownSession)?;
                 match session.outgoing.ack(identifier(id)?, kind)? {
                     AckAction::SendPubRel => {
+                        session.outgoing_started.insert(identifier(id)?);
                         session.replay.retain(|pending| pending.get() != id);
                         session.outgoing_properties.remove(&identifier(id)?);
                         session.outgoing_expiry.remove(&identifier(id)?);
@@ -955,6 +1008,7 @@ impl SessionEngine {
                         session.outgoing_properties.remove(&id);
                         session.outgoing_expiry.remove(&id);
                         session.outgoing_started.remove(&id);
+                        session.delivery_tickets.remove(&id);
                     }
                     AckAction::Ignore => {}
                 }
@@ -1370,3 +1424,6 @@ mod phase2d_tests;
 
 #[cfg(test)]
 mod phase2e_tests;
+
+#[cfg(test)]
+mod message_expiry_tests;

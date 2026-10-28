@@ -9,6 +9,27 @@ pub struct ConnectionOptions {
     pub receive_maximum: u16,
     pub will_properties: Properties,
 }
+#[derive(Clone, Debug)]
+pub struct Delivery {
+    pub frame: Frame,
+    pub expires_at: Option<u64>,
+    pub ticket: Option<u64>,
+}
+impl Delivery {
+    /// Recompute seconds immediately before writing, including time spent
+    /// committing an already-accepted durable start intent.
+    pub fn refresh_remaining(&self, frame: &mut Frame, now_millis: u64) {
+        if frame.version == ProtocolVersion::V5 && matches!(frame.packet, Packet::Publish { .. }) {
+            frame.properties =
+                temporal::remaining_properties(&frame.properties, self.expires_at, now_millis);
+        }
+    }
+}
+#[derive(Debug)]
+pub struct DeliveryPollOutcome {
+    pub delivery: Option<Delivery>,
+    pub changed: bool,
+}
 #[derive(Debug)]
 pub struct FramePollOutcome {
     pub frame: Option<Frame>,
@@ -91,7 +112,8 @@ impl SessionEngine {
                 | Property::ContentType(_)
                 | Property::PayloadFormatIndicator(_)
                 | Property::ResponseTopic(_)
-                | Property::CorrelationData(_) => {}
+                | Property::CorrelationData(_)
+                | Property::MessageExpiryInterval(_) => {}
                 Property::TopicAlias(_) => return Err(mqtt5_error(0x94)),
                 Property::SubscriptionIdentifier(_) => return Err(mqtt5_error(0x82)),
                 _ => return Err(mqtt5_error(0x83)),
@@ -259,6 +281,7 @@ impl SessionEngine {
                 session.outgoing_properties.remove(&id);
                 session.outgoing_expiry.remove(&id);
                 session.outgoing_started.remove(&id);
+                session.delivery_tickets.remove(&id);
                 session.sent.remove(&id);
                 self.ensure_bounds()?;
                 Ok(Vec::new())
@@ -315,6 +338,22 @@ impl SessionEngine {
         &mut self,
         client_id: &str,
     ) -> Result<FramePollOutcome, EngineError> {
+        let poll = self.poll_delivery_with_changes(client_id)?;
+        if let Some(delivery) = poll.delivery {
+            let mut outcome = self.begin_delivery(client_id, delivery)?;
+            outcome.changed |= poll.changed;
+            Ok(outcome)
+        } else {
+            Ok(FramePollOutcome {
+                frame: None,
+                changed: poll.changed,
+            })
+        }
+    }
+    pub fn poll_delivery_with_changes(
+        &mut self,
+        client_id: &str,
+    ) -> Result<DeliveryPollOutcome, EngineError> {
         self.require_online(client_id)?;
         let mut changed = self.expire_sessions()?;
         changed |= self.reconcile_authorization()?;
@@ -365,24 +404,32 @@ impl SessionEngine {
                 &properties,
             )?;
             session.replay.remove(position);
-            if matches!(packet, Packet::Publish { .. }) {
+            let publish = matches!(packet, Packet::Publish { .. });
+            let ticket = if publish {
                 session.sent.insert(id);
-                session.outgoing_started.insert(id);
-            }
-            return Ok(FramePollOutcome {
-                frame: Some(wrap(session.version, packet, properties)),
+                Some(session.reserve_delivery(id)?)
+            } else {
+                None
+            };
+            let expires_at = session.outgoing_expiry.get(&id).copied();
+            return Ok(DeliveryPollOutcome {
+                delivery: Some(Delivery {
+                    frame: wrap(session.version, packet, properties),
+                    expires_at,
+                    ticket,
+                }),
                 changed: true,
             });
         }
         if !quota_available || session.outgoing.is_full() {
-            return Ok(FramePollOutcome {
-                frame: None,
+            return Ok(DeliveryPollOutcome {
+                delivery: None,
                 changed,
             });
         }
         let Some(message) = session.queued.front() else {
-            return Ok(FramePollOutcome {
-                frame: None,
+            return Ok(DeliveryPollOutcome {
+                delivery: None,
                 changed,
             });
         };
@@ -404,7 +451,7 @@ impl SessionEngine {
             Some(session.outgoing.start(message.qos, template)?)
         };
         let packet = message.packet(id.map(NonZeroU16::get), false);
-        if let Some(id) = id {
+        let ticket = if let Some(id) = id {
             let bytes = encode(&packet).map_err(|e| invalid_record(e.to_string()))?;
             if let Some(
                 OutgoingState::AwaitingAck { _message }
@@ -416,14 +463,137 @@ impl SessionEngine {
             session
                 .outgoing_properties
                 .insert(id, message.properties.clone());
+            if let Some(deadline) = message.expires_at {
+                session.outgoing_expiry.insert(id, deadline);
+            }
             session.sent.insert(id);
-            session.outgoing_started.insert(id);
+            Some(session.reserve_delivery(id)?)
+        } else {
+            None
+        };
+        let delivery = Delivery {
+            frame: wrap(session.version, packet, message.properties),
+            expires_at: message.expires_at,
+            ticket,
+        };
+        self.ensure_bounds()?;
+        Ok(DeliveryPollOutcome {
+            delivery: Some(delivery),
+            changed: true,
+        })
+    }
+    /// Commit this result before the writer begins its frame; a committed start
+    /// intent is conservatively possibly-sent across a crash at the SQL/TCP gap.
+    pub fn begin_delivery(
+        &mut self,
+        client_id: &str,
+        delivery: Delivery,
+    ) -> Result<FramePollOutcome, EngineError> {
+        self.require_online(client_id)?;
+        let mut changed = self.expire_sessions()?;
+        changed |= self.reconcile_authorization()?;
+        let now = self.clock.now_millis();
+        let session = self
+            .sessions
+            .get_mut(client_id)
+            .ok_or(EngineError::UnknownSession)?;
+        if delivery.frame.version != session.version {
+            return Ok(FramePollOutcome {
+                frame: None,
+                changed,
+            });
         }
-        let frame = wrap(session.version, packet, message.properties);
+        let Packet::Publish {
+            qos,
+            packet_id,
+            dup,
+            ..
+        } = &delivery.frame.packet
+        else {
+            return Ok(FramePollOutcome {
+                frame: Some(delivery.frame),
+                changed,
+            });
+        };
+        let mut frame = if *qos == 0 {
+            if delivery.ticket.is_some() || temporal::is_expired(delivery.expires_at, now) {
+                return Ok(FramePollOutcome {
+                    frame: None,
+                    changed,
+                });
+            }
+            let mut frame = delivery.frame;
+            frame.properties =
+                temporal::remaining_properties(&frame.properties, delivery.expires_at, now);
+            frame
+        } else {
+            let id = identifier(packet_id.ok_or_else(|| invalid_record("missing delivery ID"))?)?;
+            if delivery.ticket.is_none()
+                || session.delivery_tickets.get(&id).copied() != delivery.ticket
+            {
+                return Ok(FramePollOutcome {
+                    frame: None,
+                    changed,
+                });
+            }
+            let bytes = match session.outgoing.pending.get(&id) {
+                Some(OutgoingState::AwaitingAck { _message })
+                | Some(OutgoingState::AwaitingReceipt { _message }) => _message,
+                _ => {
+                    return Ok(FramePollOutcome {
+                        frame: None,
+                        changed,
+                    });
+                }
+            };
+            let mut packet = decode_publish(bytes, self.config.max_packet_size)?;
+            if let Packet::Publish { dup: actual, .. } = &mut packet {
+                *actual = *dup;
+            }
+            let properties = session
+                .outgoing_properties
+                .get(&id)
+                .cloned()
+                .unwrap_or_default();
+            let deadline = session.outgoing_expiry.get(&id).copied();
+            if !session.outgoing_started.contains(&id) && temporal::is_expired(deadline, now) {
+                session.retire_outgoing(id);
+                return Ok(FramePollOutcome {
+                    frame: None,
+                    changed: true,
+                });
+            }
+            changed |= session.outgoing_started.insert(id);
+            wrap(
+                session.version,
+                packet,
+                temporal::remaining_properties(&properties, deadline, now),
+            )
+        };
+        if let Packet::Publish { topic, .. } = &frame.packet
+            && (!self
+                .access
+                .authorize(&session.owner, Action::Connect, client_id)
+                || !self
+                    .access
+                    .authorize(&session.owner, Action::Receive, topic))
+        {
+            return Ok(FramePollOutcome {
+                frame: None,
+                changed,
+            });
+        }
+        if session.version == ProtocolVersion::V311 {
+            frame.properties.clear();
+        }
+        let bytes = encode_frame(&frame).map_err(|e| invalid_record(e.to_string()))?;
+        if bytes.len() > self.config.max_packet_size {
+            return Err(EngineError::Capacity);
+        }
         self.ensure_bounds()?;
         Ok(FramePollOutcome {
             frame: Some(frame),
-            changed: true,
+            changed,
         })
     }
 }

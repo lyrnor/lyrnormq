@@ -81,6 +81,7 @@ impl SessionEngine {
                 session.outgoing_properties.remove(&id);
                 session.outgoing_expiry.remove(&id);
                 session.outgoing_started.remove(&id);
+                session.delivery_tickets.remove(&id);
                 session.sent.remove(&id);
                 changed = true;
             }
