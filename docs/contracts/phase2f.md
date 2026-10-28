@@ -34,7 +34,8 @@ Current queued Message and RetainedRecord add expires_at:Option<u64> (Unix milli
 Incoming entries become(id,canonical311_bytes,Properties,Option<u64>) quadruples.
 OutgoingRecord adds expires_at:Option<u64>,started:bool. Comp requires started=true,
 empty properties and no deadline. WillRecord adds delay_interval:u32,due_at:Option<u64>;
-keep pending bool. Active is pending=false,due_at=None. Scheduled is pending=true,
+keep pending bool. Add runtime-only timer_blocked:bool with serde(skip), defaultfalse
+on creation/restore; it is not a persisted field. Active is pending=false,due_at=None. Scheduled is pending=true,
 due_at=Some; capacity-blocked due intents retain original deadline. WillData properties
 retain relative MessageExpiryInterval but strip WillDelayInterval into delay_interval.
 No absolute Message deadline in WillData before publication. Legacy4 has no supported
@@ -112,10 +113,13 @@ keeps bool changed; preserve validation-before-prune and no online Session expir
 next_expiry_deadline() returns earliest actionable session/queued/retained/unstarted
 outgoing/delayedWill deadline. Exclude started QoS and incoming pending deadlines so
 expired protocol state cannot busy-loop the timer. Keep no-deadline Tick cheap.
-For a pending Will whose due_at is already past but publication is capacity blocked,
-do not repeatedly wake only for that old due time: ordinary progress retries it;
-other future timers still wake. Will specialist exposes next_will_deadline()->Option<u64>
-for future scheduled intents; Message timer helper incorporates it. retry_wills always
+Will specialist exposes next_will_deadline()->Option<u64> including future AND
+already-due scheduled intents unless timer_blocked=true. A due fanout Capacity
+failure sets timer_blocked=true in the surviving record and returns changed=true
+on its first transition, so the runtime marker is installed even if SQL bytes
+are unchanged. The timer then avoids a tight retry loop; ordinary progress still
+retries blocked intents. New/loaded schedules start timer_blocked=false so an
+otherwise-idle overdue Will is attempted. Message timer helper incorporates it. retry_wills always
 checks due independently when invoked by progress/startup. Deterministic Clock tests.
 
 ## Will Delay lifecycle — Will specialist
