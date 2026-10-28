@@ -1,12 +1,12 @@
 //! Conservative filter-language containment without recursion or topic expansion.
-use mqtt_router::validate_filter;
+use mqtt_router::validate_topic_filter;
 
 /// Return true only if every topic matched by `requested` is matched by `grant`.
 /// Each request must fit one grant: union coverage is intentionally not inferred.
 /// Some equivalent forms (e.g. grant `+/#`, request `#`) are conservatively denied.
-/// Root wildcards never grant explicit `$` topics. Invalid/shared filters fail closed.
+/// Root wildcards never grant explicit `$` topics. Invalid patterns fail closed; `$share/` is a literal namespace here.
 pub fn covers_filter(grant: &str, requested: &str) -> bool {
-    if !validate_filter(grant) || !validate_filter(requested) {
+    if !validate_topic_filter(grant) || !validate_topic_filter(requested) {
         return false;
     }
     let mut grants = grant.split('/');

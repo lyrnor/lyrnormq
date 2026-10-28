@@ -1,7 +1,7 @@
 //! Immutable JSON policy; hashes and work factors are validated before use.
 use crate::{AccessControl, Action, AuthError, ConnectInfo, PolicyError, Principal, covers_filter};
 use argon2::{Argon2, Params, PasswordHash, PasswordVerifier};
-use mqtt_router::{matches, validate_filter};
+use mqtt_router::{matches_topic_filter, validate_topic_filter};
 use serde::Deserialize;
 use std::{collections::HashMap, fmt};
 
@@ -149,8 +149,14 @@ impl AccessControl for StaticPolicy {
                 valid_string(resource, u16::MAX as usize, false)
                     && resource.starts_with(&rules.client_id_prefix)
             }
-            Action::Publish => rules.publish.iter().any(|grant| matches(grant, resource)),
-            Action::Receive => rules.subscribe.iter().any(|grant| matches(grant, resource)),
+            Action::Publish => rules
+                .publish
+                .iter()
+                .any(|grant| matches_topic_filter(grant, resource)),
+            Action::Receive => rules
+                .subscribe
+                .iter()
+                .any(|grant| matches_topic_filter(grant, resource)),
             Action::Subscribe => rules
                 .subscribe
                 .iter()
@@ -173,7 +179,7 @@ fn validate_rules(rules: &Rules) -> Result<(), PolicyError> {
             .publish
             .iter()
             .chain(&rules.subscribe)
-            .any(|filter| !validate_filter(filter))
+            .any(|filter| !validate_topic_filter(filter))
     {
         return Err(PolicyError::InvalidRules);
     }

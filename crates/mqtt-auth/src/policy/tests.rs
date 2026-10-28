@@ -181,7 +181,7 @@ fn unknown_fields_duplicates_missing_fields_and_invalid_rules_are_rejected() {
         v["users"][0]["username"] = name.into();
         assert_eq!(policy(&v).unwrap_err(), PolicyError::InvalidUser);
     }
-    for filter in ["", "a+", "a/#/b", "$share/g/a"] {
+    for filter in ["", "a+", "a/#/b", "nul\0topic"] {
         let mut v = record();
         v["users"][0]["publish"] = json!([filter]);
         assert_eq!(policy(&v).unwrap_err(), PolicyError::InvalidRules);

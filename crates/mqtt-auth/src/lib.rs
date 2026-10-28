@@ -5,6 +5,7 @@
 
 mod api;
 mod containment;
+mod enhanced;
 mod error;
 mod policy;
 
@@ -12,3 +13,8 @@ pub use api::{AccessControl, Action, AllowAnonymous, AuthError, ConnectInfo, Pri
 pub use containment::covers_filter;
 pub use error::PolicyError;
 pub use policy::{MAX_POLICY_BYTES, StaticPolicy};
+
+pub use enhanced::{
+    EnhancedAuthError, EnhancedAuthStep, EnhancedAuthenticator, EnhancedConnectInfo,
+    EnhancedExchange, PlainAuthenticator,
+};
