@@ -6,3 +6,13 @@ Limits: packet bytes, max connections, outgoing queue capacity, subscriptions pe
 Acceptance: fmt/clippy/test pass; actual MQTT client CONNECT/SUBSCRIBE/PUBLISH/PING/DISCONNECT; fragmented/malformed packets, wildcard/system topic semantics and resource limits tested. No invented performance claims.
 Standards: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html and https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
 Future: QoS1/2 state machines, durable sessions, retained/Will, MQTT5 properties, auth/ACL, metrics, measured benchmarks, then TLS/WebSocket; clustering deferred.
+
+## Change log
+- Revision 1 (2026-10-28): frozen Phase 1 contracts, six isolated specialist
+  branches, iterative routing trie, shared `Arc<Packet>` outgoing deliveries and
+  short synchronous routing lock. Lock-protected connection-generation checks
+  prevent stale connections changing subscriptions after takeover. Packet-size
+  limits are checked from advertised length before payload allocation.
+- Session/QoS and Storage modules are intentionally separate groundwork: their
+  APIs need a coordinated durable transaction/outbox extension before runtime
+  QoS2 recovery. Storage assessment selects SQLite WAL for the next design pass.
