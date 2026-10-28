@@ -552,3 +552,5 @@ pub fn encode_frame(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod topic_alias_tests;
