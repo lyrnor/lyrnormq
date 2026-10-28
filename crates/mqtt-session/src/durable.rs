@@ -637,19 +637,20 @@ impl SessionEngine {
             if target.queued.len() >= self.config.max_queued {
                 return Err(EngineError::Capacity);
             }
-            if target.online {
-                let packet = Message {
-                    qos,
-                    ..message.clone()
-                }
-                .packet((qos != 0).then_some(1), false);
-                mqtt5::check_delivery_size(
-                    self.config.max_packet_size,
-                    target.version,
-                    &packet,
-                    &message.properties,
-                )?;
+            // An offline session retains the last runtime wire version. Reject
+            // data it cannot drain, including volatile V5 persistent sessions.
+            // Restored legacy sessions deliberately start as canonical V311.
+            let packet = Message {
+                qos,
+                ..message.clone()
             }
+            .packet((qos != 0).then_some(1), false);
+            mqtt5::check_delivery_size(
+                self.config.max_packet_size,
+                target.version,
+                &packet,
+                &message.properties,
+            )?;
         }
         for (index, grant) in matches {
             let client = clients

@@ -817,10 +817,95 @@ fn bridge_expired_offline_data_does_not_block_new_version_admission() {
     connect(&mut s, "a", true, 1, 8);
     subscribe(&mut s, "a", "a", 1);
     s.disconnect("a").unwrap();
+    // Restore resets the runtime version to canonical311 while preserving the
+    // finite deadline. Only that known version can accept this legacy envelope.
+    let mut s = SessionEngine::restore_with_clock(
+        SessionConfig {
+            max_packet_size: 64,
+            ..config()
+        },
+        &s.snapshot().unwrap(),
+        Arc::new(Open),
+        clock.clone(),
+    )
+    .unwrap();
+    s.connect("p", true).unwrap();
     s.handle("p", publication("a", &[42; 57], 1, 10, false))
         .unwrap();
     assert_eq!(s.sessions["a"].queued.len(), 1);
     clock.set(1000);
     assert!(!connect(&mut s, "a", false, 1, 8));
+    assert!(s.poll_frame_with_changes("a").unwrap().frame.is_none());
+}
+
+#[test]
+fn required_schema4_deadline_cannot_be_omitted_for_active_offline_or_infinite_session() {
+    let (mut s, clock) = state();
+    connect(&mut s, "active", true, 60, 8);
+    connect(&mut s, "offline", true, 60, 8);
+    connect(&mut s, "infinite", true, u32::MAX, 8);
+    s.disconnect("offline").unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&s.snapshot().unwrap()).unwrap();
+    for client in ["active", "offline", "infinite"] {
+        let mut bad = json.clone();
+        let record = bad["sessions"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|record| record["client_id"] == client)
+            .unwrap();
+        record.as_object_mut().unwrap().remove("expires_at");
+        assert!(
+            SessionEngine::restore_with_clock(
+                config(),
+                &serde_json::to_vec(&bad).unwrap(),
+                Arc::new(Open),
+                clock.clone()
+            )
+            .is_err(),
+            "missing deadline accepted for {client}"
+        );
+    }
+    clock.set(30000);
+    let restored = SessionEngine::restore_with_clock(
+        config(),
+        &serde_json::to_vec(&json).unwrap(),
+        Arc::new(Open),
+        clock.clone(),
+    )
+    .unwrap();
+    assert_eq!(restored.sessions["active"].expires_at, Some(90000));
+    assert_eq!(restored.sessions["offline"].expires_at, Some(60000));
+    assert_eq!(restored.sessions["infinite"].expires_at, None);
+    let legacy = legacy_schema3(json);
+    assert!(
+        SessionEngine::restore_with_clock(
+            config(),
+            &serde_json::to_vec(&legacy).unwrap(),
+            Arc::new(Open),
+            clock
+        )
+        .is_ok()
+    );
+}
+#[test]
+fn known_offline_v5_recipient_rejects_oversized_bridge_before_outbox_insert() {
+    let mut s = sized_state(64);
+    s.connect("p", true).unwrap();
+    connect(&mut s, "a", true, 60, 8);
+    subscribe(&mut s, "a", "a", 1);
+    s.disconnect("a").unwrap();
+    let packet = publication("a", &[42; 57], 1, 10, false);
+    assert_eq!(encode(&packet).unwrap().len(), 64);
+    assert_eq!(encode_frame(&frame(packet.clone())).unwrap().len(), 65);
+    let before = s.snapshot().unwrap();
+    let mut proposal = s.clone();
+    assert!(matches!(
+        proposal.handle("p", packet),
+        Err(EngineError::Capacity)
+    ));
+    assert!(proposal.sessions["a"].queued.is_empty());
+    assert_eq!(s.snapshot().unwrap(), before);
+    assert!(connect(&mut s, "a", false, 60, 8));
     assert!(s.poll_frame_with_changes("a").unwrap().frame.is_none());
 }

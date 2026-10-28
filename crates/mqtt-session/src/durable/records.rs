@@ -26,11 +26,19 @@ pub(super) struct SessionRecord {
     pub(super) owner: String,
     pub(super) client_id: String,
     pub(super) session_expiry_interval: u32,
+    #[serde(deserialize_with = "required_deadline")]
     pub(super) expires_at: Option<u64>,
     pub(super) subscriptions: Vec<(String, u8)>,
     pub(super) incoming: Vec<(u16, Vec<u8>, Properties)>,
     pub(super) outgoing: Vec<OutgoingRecord>,
     pub(super) queued: Vec<Message>,
+}
+// A missing Option would otherwise silently deserialize to None, which denotes
+// active-at-crash and would incorrectly restart a finite offline deadline.
+fn required_deadline<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<u64>, D::Error> {
+    Option::<u64>::deserialize(deserializer)
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
