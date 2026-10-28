@@ -38,6 +38,8 @@ preserves repeated UserProperty order. This is an explicit subset of MQTT5 seman
 | Will Delay | Durable delay capped by session end; surviving-session reconnect cancels before due |
 | Maximum Packet Size | Per-connection complete-frame ceiling; oversized recipient copies are discarded with QoS state/credit cleanup |
 | Assigned Client Identifier | Empty V5 IDs receive a unique key in CONNACK; explicit key resumes normal owned sessions |
+| Subscription options | No Local, Retain As Published and Retain Handling0/1/2; durable per-filter state |
+| Subscription Identifier | Per-subscription IDs, eligible overlap aggregation and durable delivery metadata |
 | Reasons | Context-validated ACK/SUBACK/UNSUBACK/CONNACK/DISCONNECT reasons, negative ACK cleanup |
 | Mixed versions | Publish/subscribe QoS0/1/2 routes across versions; properties are stripped only from MQTT311 wire output |
 
@@ -54,16 +56,16 @@ the exact failure instant is unknown: its deadline starts conservatively at rest
 plus the interval. A known offline deadline is never extended by reboot. An expiry
 timer removes offline subscription/queued/inflight state and frees IDs independently
 of traffic. Retained globals and pending Will intent remain separate. Schema3 owners
-are preserved in schema5; schema1/2 still migrate to anonymous ownership.
+are preserved in schema6; schema1/2 still migrate to anonymous ownership.
 
 The server advertises bounded ReceiveMaximum/MaximumPacketSize,
-SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable0; TopicAliasMaximum
+SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable1; TopicAliasMaximum
 defaults to0. Unsupported
 semantics are refused explicitly rather than accepted and discarded:
 
 - Enhanced AUTH/methods: CONNECT0x8C; unsolicited AUTH after basic auth is a protocol error.
-- Topic Alias:0x94, including zero; Subscription Identifier: DISCONNECT0xA1 (client PUBLISH0x82).
-- Shared filters: DISCONNECT0x9E; nondefault NoLocal/RAP/RetainHandling: SUBACK0x83.
+- Topic Alias:0x94, including zero; client-origin PUBLISH with Subscription Identifier is rejected0x82.
+- Shared filters: DISCONNECT0x9E.
 
 Complete output frames obey the packet cap too: legacy311 messages can grow when
 bridged to5. An unclean5 resume whose pending/queued output would exceed that cap
@@ -75,6 +77,38 @@ a publication/replay that cannot fit, rather than poisoning a durable outbox.
 These exclusions, full direction/conformance matrices and operational hardening
 remain work. Full MQTT5 compatibility and production-readiness are not claimed.
 
+## Subscription options and identifiers
+
+Each MQTT5 subscription stores its QoS, No Local, Retain As Published, Retain
+Handling and optional identifier. No Local removes self-origin live matches,
+including QoS2 completion and Will, before eligible QoS/identifier aggregation.
+Another eligible matching subscription may still deliver. Live routing sends one
+copy per recipient at the highest eligible grant, capped by source QoS. If eligible
+subscriptions mix RAP values, this broker preserves the original retain flag when
+any eligible match requests it; this is an explicit overlap policy.
+
+RH0 replays retained values on every accepted subscription, RH1 only for a new
+exact filter, and RH2 suppresses subscription-triggered replay. Retained replay
+always has RETAIN1 regardless of RAP and follows RH even with No Local. Multiple
+filters are processed sequentially, including repeated filters within one packet.
+Denied entries leave prior subscription state intact.
+
+Identifiers1..268435455 apply to every accepted filter in that SUBSCRIBE. Replacing
+with no identifier clears the old one; unsubscribe/session reset removes the full
+record. One identifier per eligible matching filter is attached to live output,
+including repeated equal values from different filters. Retained replay carries
+only its triggering subscription's identifier. Application property order remains
+unchanged. IDs are recipient metadata, never stored in the global retained value
+or accepted from client-origin PUBLISH/Will.
+
+Queued/outgoing copies capture their identifiers and retain choice at fanout;
+replacing/unsubscribing later does not rewrite accepted deliveries. Schema6 persists
+full subscription records and a required retained_replay marker, explicitly migrating
+versions1..5 with default options/no IDs. MQTT311 wire strips IDs and clears live
+RAP retain while preserving retained-replay RETAIN1; internal metadata survives a
+later MQTT5 resume. All added identifier bytes count in complete-frame size checks,
+peer-specific discard and state quotas. Shared subscriptions remain unsupported.
+
 ## Packet-size negotiation and assigned identifiers
 
 CONNECT MaximumPacketSize limits every server-to-client complete encoded packet,
@@ -85,7 +119,7 @@ metadata, ticket and credit are retired transactionally. This also applies to ol
 started PUBLISH replay when reconnecting with a smaller maximum; AwaitComp remains
 PUBREL-only. Other recipients and global retained data remain intact. Fitting
 messages continue, and offline data is not constrained by a previous connection's
-maximum. This negotiated maximum is runtime-only; schema5 is unchanged.
+maximum. This negotiated maximum is runtime-only; schema6 does not persist it.
 
 The exact success CONNACK is checked before session/Will/takeover changes. Required
 nondefault capabilities and AssignedClientIdentifier are retained; the default-zero
@@ -232,8 +266,8 @@ failure instant is unknown: delay starts conservatively at recovery and is cappe
 by the recovered session deadline. Capacity-blocked intents remain bounded and
 retry after progress without a busy timer.
 
-Schema5 requires deadlines, started flags, Will delay/due fields and a persisted
-logical clock floor. Clock rollback cannot extend deadlines beyond a committed
+Schema6 requires deadlines, started flags, Will delay/due fields and a persisted
+logical clock floor, plus full subscription records and replay markers. Clock rollback cannot extend deadlines beyond a committed
 observation. A later socket-only TTL refresh is not itself another transaction:
 a crash plus clock rollback may restore a TTL above that last advertised value,
 bounded by committed time. Start intent and TCP output also have a conservative
@@ -242,7 +276,7 @@ transactions and full snapshots have unmeasured throughput/latency costs.
 
 ## Persistence and limits
 
-SQLite uses WAL/FULL and schema5 JSON whole-registry transactions. Valid schema1/2/3/4
+SQLite uses WAL/FULL and schema6 JSON whole-registry transactions. Valid schema1/2/3/4/5
 snapshots are explicitly migrated, preserving IDs/order/subscriptions; the opaque
 SQLite container remains version1. Unknown/corrupt schemas or incompatible lowered
 quotas reject startup instead of dropping data. Atomic state/outbox commits precede
@@ -277,7 +311,7 @@ aliases, externally replacing/renaming/modifying an active DB are unsupported.
 
 Whole-registry cloning/JSON and per-proposal routing-index rebuilding have costs
 that are not benchmarked. Worker transaction waits can delay controls; operational
-fault/stress testing, disk quotas, rolling-version migrations beyond schema1/2/3/4->5, backup/admin and
+fault/stress testing, disk quotas, rolling-version migrations beyond schema1/2/3/4/5->6, backup/admin and
 observability remain work. SIGKILL and SQLITE_FULL tests do not establish physical
 power-loss behavior or application-side exactly-once processing.
 
@@ -298,6 +332,8 @@ python3 tests/mqtt5_blackbox.py
 /tmp/rmqtt-client-venv/bin/python tests/mqtt5_paho.py
 python3 tests/expiry_will_blackbox.py
 python3 tests/negotiation_blackbox.py
+python3 tests/subscription_blackbox.py
+/tmp/rmqtt-client-venv/bin/python tests/subscription_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/negotiation_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/expiry_will_paho.py
 python3 tests/persistence_blackbox.py
@@ -312,5 +348,5 @@ basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persis
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
 
-See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2g.md),
+See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2h.md),
 [actual results](docs/progress.md) and [remaining dependencies](docs/tasks.md).

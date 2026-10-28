@@ -928,3 +928,147 @@ unmeasured CPU/memory/latency costs. Row-scoped persistence/indexing needs measu
 baselines. Existing SQL/TCP start-intent ambiguity and clock-floor/wire-only time
 boundary remain unchanged and documented. No full MQTT5 conformance, production
 readiness or throughput improvement is claimed; cluster remains deferred.
+
+
+## Phase2h — Subscription options and Subscription Identifier (2026-10-28)
+
+Frozen [contract](contracts/phase2h.md) e789bea defines NL/RAP/RH, identifier
+aggregation, indexed matching, schema6 and version bridging before parallel writes.
+Architecture revision9, README and tasks.md describe current behavior. Existing
+codec, trie, Clock, expiry/Will/ACL, SQLite storage and QoS/outbox transactions are
+reused; no second runtime, storage engine or public Session API replacement.
+
+### Isolated implementation and independent review
+
+Session, Router and Quality started in separate Git worktrees/branches. Router's
+completed slot enabled Transport/Protocol capability and codec checks. Session
+cherry-picked the real Router dependency, then Transport independently reviewed
+the completed model and reran real tests. Coordinator owned contracts/docs and
+integration on integration/phase2h; main was not changed. All lib.rs files remain
+crate documentation, module declarations and public reexports only.
+
+| Specialist source | Integrated | Result |
+| --- | --- | --- |
+| 22fc779 |65bdb15|exact indexed subscription matches,4 new router tests|
+| 90cb56a5b78a3ab925f8471aaa5c3222f93bd170 |329c6a2|identifier capability1 and codec option/varint guards|
+| 6dd48c454eac10138fed72ac4368f7217a381d40 |d5611e1|full subscription records/schema6, recipient metadata and RETAIN provenance|
+| 24a2de8f66267547f1f6e65fe8a854847da61165 |2b127eb|independent wire/Paho/legacy fixtures and both-mode CI|
+
+Router::matching_subscriptions returns each indexed exact filter/client/grant once,
+retaining overlapping matches without global filter scanning. Prior matching_qos
+remains max-QoS deduplicated. Session applies ACL/No Local BEFORE eligible QoS,
+identifier and RAP aggregation, including source QoS2 PUBREL after recovery and
+Will routing by original ClientID. Live delivery remains one copy per recipient;
+any eligible RAP1 match preserves the publisher retain flag. This mixed-match rule
+is an explicit broker policy, not precedence mandated by OASIS or Mosquitto.
+
+RH0 replays on new/replacement, RH1 only when that exact filter did not exist before
+its sequential entry, RH2 suppresses replay. Denied entries leave existing records
+unchanged. Retained subscription replay always uses RETAIN1 and its triggering
+entry's identifier; No Local does not suppress that replay, matching established
+Mosquitto retain__process behavior. Repeated filters within one SUBSCRIBE observe
+preceding accepted entries. V311 resubscription replaces that filter with defaults.
+
+Identifiers1..268435455 apply to all accepted filters in one SUBSCRIBE. Overlapping
+eligible filters contribute one ID each, including repeated equal values; excluded
+NL/ACL matches do not contribute or inflate QoS. Replacement with no ID clears it;
+unsubscribe/session reset removes the record. Metadata is captured in recipient
+queue/inflight state and survives retry/restart; changing subscriptions does not
+rewrite accepted copies. UserProperty order stays intact. Source PUBLISH/Will,
+incomingQoS2 and global retained metadata cannot contain subscription IDs.
+
+Business schema6 adds strict full subscription records with REQUIRED nullable
+identifier, plus required retained_replay flags for queued/outgoing payloads and a
+runtime per-ID sidecar. It explicitly migrates1..5 with default options/no IDs,
+preserving owners, clock floor/deadlines, IDs/stages/order/metadata and Wills. Legacy
+queued/outgoing retain bits represented replay, so supply the provenance marker;
+Comp=false with no payload metadata. Legacy metadata smuggling IDs is rejected.
+V311 output strips IDs and masks live RAP retain to0 while preserving retained
+replay1; canonical internal properties/retain choices remain available for laterV5.
+Recipient full-wire size, negotiated cap discard before capacity, genuine queue
+backpressure and server resource/version-growth checks remain enforced.
+
+### Failure-first checks and review evidence
+
+- New model NL+ID/RAP+ID tests initially received unavailable-identifier errors;
+  RH2 initially received SUBACK83. Indexed-match missing-API compile-red and live
+  capability0 assertion failed before implementation; completed owner tests pass.
+- Independent actual TCP baseline failed capability availability and options/ID
+  subscription acceptance. Completed wire/Paho tests preserve remaining shared,
+  alias and enhanced-auth exclusions and input direction validation.
+- Codec tests exercise36 valid option combinations across8 identifier varint
+  boundaries, repeated identical server PUBLISH IDs and UserProperty order, while
+  duplicate SUBSCRIBE IDs still fail. No duplicate property parser was introduced.
+- Independent model review checked strict old5/current6 decoding, source/delivery
+  trust, eligible aggregation, RH replacement/denial, negative ACK/PUBREC/expiry/ACL
+  sidecar retirement, Poll AND Begin RETAIN masks, full envelope-before-capacity
+  and absence of identifier contamination in globals. No new defect found;
+  independent Protocol46/Session130/Transport50 test runs all pass.
+
+### Actual verification
+
+Darwin27 arm64; Rust/Cargo1.98.1 stable, edition2024; Python3.14.7; Paho MQTT2.1.0.
+Integrated debug executable built from production d5611e1 SHA256:
+2ab8a951aadd9048af08ea9008272201583b395d19dc5a3da246937a2e9b35ff.
+
+Workspace build/test offline, fmt check, strict all-target Clippy and Rustdoc all
+pass. Rust tests279: auth13,protocol46,router18,session130,storage16,transport50,
+CLI6. No production unwrap/expect/unsafe or business definitions in lib.rs added.
+
+| New independent suite | Memory | SQLite |
+| --- | --- | --- |
+| subscription_blackbox.py |20 passed,6 mode-only skips (3.776s)|26 passed (4.754s)|
+| subscription_paho.py |5 passed,1 mode-only skip (2.929s)|6 passed (3.466s)|
+
+Totals46 executed wire methods and11 Paho methods,7 explicit mode-only skips.
+Coverage includes QoS0/1/2 NL and overlap, Will/source QoS2 after crash, RAP flags/
+delete/replay, RH replacement/duplicate entries, accepted/denied identifier state,
+repeated IDs, metadata order, V5↔311 recovery/provenance, peer envelope limits and
+max_queued1, strict schema6 and legacy5 restore. Subcases/focused repeats are not
+counted as separate methods. Test durations are not performance benchmarks.
+
+All reused suites passed in both modes on this same integrated artifact:
+
+| Suite | Memory | SQLite |
+| --- | --- | --- |
+| blackbox.py |14 passed|14 passed|
+| qos_blackbox.py |9 passed|9 passed|
+| retained_will_blackbox.py |14 passed,6 skips|20 passed|
+| auth_acl_blackbox.py |13 passed,7 skips|20 passed|
+| mqtt5_blackbox.py |31 passed,11 skips|41 passed,1 skip|
+| expiry_will_blackbox.py |28 passed,10 skips|38 passed|
+| negotiation_blackbox.py |23 passed,3 skips|26 passed|
+| persistence_blackbox.py |not applicable|14 passed|
+| auth_acl_paho.py |2 passed,1 skip|3 passed|
+| mqtt5_paho.py |4 passed,1 skip|5 passed|
+| expiry_will_paho.py |5 passed,1 skip|6 passed|
+| negotiation_paho.py |5 passed,1 skip|6 passed|
+| paho_interop.py |3x3 QoS matrix passed|3x3 QoS matrix passed|
+| retained_will_paho.py |passed|passed|
+| persistence_paho.py |not applicable|offline QoS1/2 and SIGKILL passed|
+
+The reused wire suites total314 actual passing executions; with46 new methods,
+this increment verifies360 wire executions. Both-mode runners completed successfully;
+only tests intentionally tied to the other storage mode were skipped. Thin-lib audit,
+all Python test compilation and git diff --check also pass.
+
+A real accepted Phase2g executable generated authenticated schema5 sessions with
+QoS1 retained-replay RETAIN1 and live RETAIN0, AwaitComp, retained metadata, pending
+incomingQoS2 with original RETAIN1, and an active retained Will, then was SIGKILLed.
+The new executable upgraded to6, preserved Alice ownership/default subscriptions,
+IDs/DUP/flags/properties, replayed PUBREL-only AwaitComp and recovered the Will.
+On that SAME database it completed the original pendingQoS2, applied new RAP/ID
+forwarding, replaced a legacy subscription with NL+ID, suppressed its self publish,
+and verified RH1 replacement did not replay old retained values. Global retained
+properties had no recipient identifiers. The owned one-off fixture was removed
+after success. This validates process recovery, not physical power loss.
+
+### Remaining scope
+
+Topic Alias, Shared Subscriptions and enhanced AUTH remain unsupported. Broader
+MQTT311/5 direction/reason/client conformance, fault/fuzz/clock/crash campaigns,
+metrics and auth CPU/rate isolation, TLS/WebSocket and operations remain tasks.md
+work. Indexed match results/full subscription records/recipient property encoding
+and whole-registry transactions have unmeasured costs; no throughput/latency/memory
+baseline or full MQTT5 conformance/production-readiness claim. Existing SQL/TCP
+start-intent and latest-wire-time boundaries remain documented. Cluster is deferred.

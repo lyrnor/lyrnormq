@@ -48,12 +48,12 @@ quota, replay and writer cancellation defects were fixed before acceptance.
    client interoperability before claiming full conformance. Authentication/ACL
    is implemented and verified in Phase2d.
 2. Extend the accepted MQTT5 foundation under new semantic contracts:
-   nondefault subscription options, topic aliases, shared subscriptions,
-   Subscription Identifiers and enhanced AUTH remain explicitly unsupported.
+   topic aliases, shared subscriptions and enhanced AUTH remain explicitly unsupported.
    Typed Properties/ReasonCode, Clean Start/Session Expiry/Receive Maximum and
    cross-version recovery are implemented in Phase2e; MessageExpiry and WillDelay
    are implemented in Phase2f. Phase2g adds MaximumPacketSize negotiation and
-   Assigned Client Identifier with durable normal-key resume.
+   Assigned Client Identifier with durable normal-key resume. Phase2h adds durable
+   No Local/RAP/Retain Handling and Subscription Identifiers.
 3. Add TLS transport before exposing password authentication over untrusted networks;
    remote authentication, per-identity rate limiting and policy reload require
    explicit policy-version/control contracts.
@@ -219,8 +219,7 @@ schema5, SQLite backend, QoS state machines and outbox/expiry/Will paths are reu
 No schema migration or persistent allocator is introduced. Runtime peer caps reset
 on every connection/restore; assigned keys become ordinary owned session keys.
 
-Next protocol work remains nondefault subscription options, Topic Alias, Shared
-Subscriptions/Subscription Identifiers and enhanced AUTH, alongside the earlier
+Next protocol work remains Topic Alias, Shared Subscriptions and enhanced AUTH, alongside the earlier
 full-conformance/client-matrix gates. Measure peer-cap scanning/full-encoding and
 snapshot costs before optimizing. Existing SQL/TCP crash ambiguity, clock boundaries
 and operational/performance tasks remain explicit; no cluster work is introduced.
@@ -230,3 +229,24 @@ Poll, resumed backlog admission and retained replay without source/healthy-peer
 rejection. Reproduced cases were fixed by the Session owner and independently
 verified over TCP; genuine fitting-message backpressure remains. Shared Paho close
 helpers now wait remote EOF before a causal reconnect, proven by a SQL-lock probe.
+
+## Completed Phase2h dependency group
+
+```mermaid
+graph LR
+  Contract[Options identifiers and schema6 freeze] --> Router[Indexed exact matching subscriptions]
+  Contract --> Session[Durable options RH NL RAP recipient metadata]
+  Contract --> QA[Independent wire Paho and recovery]
+  Router --> Session
+  Capability[Codec guards and identifier availability1] --> Gate[Unified review and client regression]
+  Session --> Gate
+  QA --> Gate
+```
+
+Separate branches/worktrees preserve module ownership. Existing packet/property
+codec, trie, Clock, SQLite/QoS/outbox, expiry, negotiated caps and ACL/Will paths are
+reused. Schema6 introduces full subscription records and retained_replay markers;
+explicit1..5 migrations preserve prior state with defaults. Any-eligible-RAP live
+overlap is a documented broker policy, not a normative or Mosquitto precedence claim.
+Remaining protocol work: Topic Alias, Shared Subscriptions and enhanced AUTH, plus
+broader conformance/client/fuzz/fault verification and operational/performance gates.

@@ -1,4 +1,4 @@
-# Architecture — revision8 / Phase2g
+# Architecture — revision9 / Phase2h
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -25,7 +25,7 @@ graph LR
 
 lib.rs contains docs/module declarations/reexports only. Protocol splits packet,
 codec,error; Router has filter,trie,retained; Session has error,identifiers,incoming,
-outgoing,durable plus records/legacy,lifecycle,retention,authorization,mqtt5,expiry,temporal helpers;
+outgoing,durable plus records/legacy,lifecycle,retention,authorization,mqtt5,expiry,temporal,subscriptions helpers;
 Auth has api,policy,containment,error; Storage has
 model,error,trait,memory,durable; Transport has config,server,packet_io,durable and the production durable/network module.
 The previous duplicate live state/connection production path was retired; its
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2g contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2h contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -112,7 +112,7 @@ death loses all memory state; SQLite process recovery defers Wills until restart
 
 SQLite WAL/FULL and singleton opaque container schema remain version1, protected
 by the existing permanent canonical `.broker-lock` OS advisory lock. Business JSON
-is now schema5: persistent sessions plus required global retained and wills arrays.
+is now schema6: persistent sessions plus required global retained and wills arrays.
 Each session/Will has a required stable owner identity; passwords/hashes/raw CONNECT are never stored.
 Static owner labels include the non-secret username. Schema3 owners are preserved;
 1/2 migrate to anonymous. Schema4 adds required message/Will/retained properties,
@@ -121,12 +121,13 @@ Schema5 adds required message deadlines, outgoing started flags, Will delay/due
 fields and envelope clock_floor; version4 migrates with absent message deadlines,
 conservatively started outgoing exchanges and delay0 Wills. Required fields cannot
 be omitted; all versions1..4 migrate explicitly without resetting IDs or owners.
-Queued Message adds retain. Will records are client_id,owner,pending,delay_interval,
+Schema6 adds full subscription records and required queue/outgoing retained_replay
+markers, migrating version5 explicitly. Queued Message adds retain. Will records are client_id,owner,pending,delay_interval,
 due_at,will(topic,payload,
 qos,retain); retained records are topic,payload,qos and never empty. Valid schema1
 is explicitly decoded with its old DTOs and migrated to empty globals/retain=false;
 old retained wire that schema1 could not store is rejected. Schema2 preserves its
-required globals; versions1/2 migrate to anonymous,3 preserves identity. Schema5 strictly
+required globals; versions1/2 migrate to anonymous,3 preserves identity. Schema6 strictly
 validates fields, uniqueness, packet IDs/stages/order/topics and restored quotas.
 All restored sessions start offline; online maps/generations/replay cursors are
 runtime-only. Unknown/corrupt records fail startup rather than resetting state.
@@ -237,12 +238,10 @@ Never cancel a partial frame then append another one on the same stream. At most
 two frame deadlines bound terminal shutdown. Successful takeover sends old V5 socket
 reason0x8E when writable; stale cleanup cannot affect the new generation.
 
-Supported/excluded property semantics and initial refusal reasons are enumerated
-in phase2e.md/README. Codec coverage of all property types does not mean runtime
-implementation of every optional feature. Topic aliases, subscription IDs/shared
-subscriptions, nondefault subscription options, enhanced
-AUTH remain explicit exclusions; Phase2g below adds client MaximumPacketSize and
-assigned Client IDs.
+Current supported/excluded property semantics are enumerated in phase2h.md/README;
+phase2e.md preserves initial refusal history. Codec coverage of all property types
+does not mean runtime implementation of every optional feature. Topic aliases,
+shared subscriptions and enhanced AUTH remain explicit exclusions.
 No MQTT5 full-conformance, performance or production claim is made.
 
 MQTT5 normative source: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html.
@@ -285,8 +284,8 @@ Will TTL begins at successful publication. Known due times persist; active-at-cr
 connections conservatively start delay at restart, capped by restored session end.
 Startup validation, expiry, ACL reconciliation and Will recovery commit before ready.
 
-Current unsupported semantics remain nondefault subscription options, topic aliases,
-shared subscriptions/subscription IDs and enhanced AUTH. TLS/WebSocket/cluster and full conformance remain future work.
+Current unsupported semantics remain topic aliases, shared subscriptions and enhanced
+AUTH; Phase2h below adds nondefault options and subscription identifiers. TLS/WebSocket/cluster and full conformance remain future work.
 
 ## Phase2g connection limits and resolved session keys
 
@@ -322,3 +321,35 @@ length even with coalesced input. Unknown/invalid property blocks establish no c
 Peer-cap scans, encoded-size preflight and entropy allocation are bounded but have
 no measured performance baseline. Row-level persistence, packet-size indexes and
 higher throughput require measurement; no new compatibility/performance claim.
+
+## Phase2h per-filter state and recipient metadata
+
+The [Phase2h contract](contracts/phase2h.md) supersedes refusal of valid subscription
+options/identifiers. Router exposes exact indexed matching filter tuples, preserving
+distinct overlapping subscriptions while existing max-QoS APIs remain unchanged.
+Protocol option/property validation is reused. Transport advertises identifier
+availability1 explicitly, retaining the prior17/43byte success CONNACK boundaries.
+
+Schema6 full subscription records hold filter, QoS, NL, RAP, RH and required nullable
+identifier. Legacy1..5 explicitly migrate defaults without reconstructing unknown
+metadata; strict old DTOs reject smuggled new identifier state. Queue and outgoing
+records require retained_replay with matching runtime per-ID lifetime. This marker
+distinguishes a live RAP1 message from retained subscription replay on V5↔311
+resume:311 live output has RETAIN0; subscription replay retains1. Existing owners,
+time floors, deadlines, QoS stages, order/IDs, application metadata and Wills survive.
+
+Live source ClientID comes from normal publisher/session QoS2 completion or Will
+record, not a new storage service. ACL/NL filtering precedes highest-QoS, identifier
+and RAP aggregation. A single deduplicated live copy uses any-eligible-RAP retain
+policy; identifiers include each eligible matching subscription with multiplicity.
+Retained replay follows RH/sequential filter replacement and carries only the
+triggering entry's identifier. No Local does not suppress subscription-triggered
+retained replay, consistent with established Mosquitto retained replay behavior.
+
+Recipient metadata is captured before queue admission, including full identifier
+varint costs. Existing negotiated-cap pruning/global resource policy/atomic outbox
+commit apply. Incoming/global retained/Will properties cannot carry subscription
+IDs; trusted queued/outgoing delivery metadata can. Retries preserve captured
+metadata even after replacement/unsubscribe; PUBREC still retires payload metadata
+and transitions to PUBREL only. Additional record/index/clone/encoding costs have
+not been benchmarked. Remaining optional semantics and hardening are in tasks.md.
