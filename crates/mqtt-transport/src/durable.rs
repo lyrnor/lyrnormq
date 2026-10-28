@@ -21,6 +21,7 @@ use tokio::{
 };
 
 mod aliases;
+mod enhanced;
 mod network;
 #[cfg(test)]
 use tokio::time::timeout;
@@ -66,6 +67,23 @@ struct Command {
     reply: oneshot::Sender<ResultReply>,
 }
 enum Operation {
+    ConnectFrameAt {
+        frame: Frame,
+        generation: u64,
+        wake: watch::Sender<u64>,
+        cancel: watch::Sender<bool>,
+        close_reason: watch::Sender<Option<ReasonCode>>,
+        deadline: std::time::Instant,
+    },
+    Authenticate {
+        generation: u64,
+        frame: Frame,
+        deadline: std::time::Instant,
+    },
+    CancelAuthentication {
+        generation: u64,
+    },
+    #[cfg(test)]
     ConnectFrame {
         frame: Frame,
         generation: u64,
@@ -145,6 +163,12 @@ impl From<AuthError> for ConnectRefusal {
     }
 }
 enum Reply {
+    AuthContinue(Frame),
+    AuthComplete(Frame),
+    Authenticated {
+        client: String,
+        frame: Frame,
+    },
     FrameRejected(ReasonCode),
     Frames(Vec<Frame>),
     FramePolled(Option<Box<Frame>>),
@@ -272,6 +296,9 @@ fn run_worker(
 }
 
 struct ConnectRequest {
+    authenticated: Option<mqtt_auth::Principal>,
+    authentication: Option<enhanced::Completion>,
+    deadline: Option<std::time::Instant>,
     client: String,
     assigned: bool,
     clean: bool,
@@ -286,6 +313,14 @@ struct ConnectRequest {
     close_reason: Option<watch::Sender<Option<ReasonCode>>>,
 }
 enum Request {
+    Authenticate {
+        generation: u64,
+        frame: Frame,
+        deadline: std::time::Instant,
+    },
+    CancelAuthentication {
+        generation: u64,
+    },
     Connect(ConnectRequest),
     Handle {
         client: String,
@@ -317,6 +352,67 @@ enum Request {
     },
     Tick,
 }
+fn normalize_connect(
+    frame: Frame,
+    generation: u64,
+    wake: watch::Sender<u64>,
+    cancel: watch::Sender<bool>,
+    close_reason: watch::Sender<Option<ReasonCode>>,
+    deadline: Option<std::time::Instant>,
+) -> io::Result<Request> {
+    Ok({
+        let Packet::Connect {
+            client_id,
+            clean_session,
+            will,
+            username,
+            password,
+            ..
+        } = frame.packet
+        else {
+            return Err(failure(ReasonCode::PROTOCOL_ERROR, "CONNECT required"));
+        };
+        let mut expiry = if frame.version == ProtocolVersion::V311 && !clean_session {
+            u32::MAX
+        } else {
+            0
+        };
+        let mut receive_maximum = u16::MAX;
+        let mut maximum_packet_size = u32::MAX;
+        for property in &frame.properties {
+            match property {
+                Property::SessionExpiryInterval(value) => expiry = *value,
+                Property::ReceiveMaximum(value) => receive_maximum = *value,
+                Property::MaximumPacketSize(value) => maximum_packet_size = *value,
+                _ => {}
+            }
+        }
+        Request::Connect(ConnectRequest {
+            authenticated: None,
+            authentication: None,
+            deadline,
+            assigned: false,
+            client: client_id,
+            clean: clean_session,
+            will,
+            username,
+            password,
+            generation,
+            wake,
+            cancel,
+            close_reason: Some(close_reason),
+            properties: frame.properties,
+            options: ConnectionOptions {
+                version: frame.version,
+                clean_start: clean_session,
+                session_expiry_interval: expiry,
+                receive_maximum,
+                maximum_packet_size,
+                will_properties: frame.will_properties,
+            },
+        })
+    })
+}
 fn normalize(operation: Operation) -> io::Result<Request> {
     Ok(match operation {
         #[cfg(test)]
@@ -330,6 +426,9 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             wake,
             cancel,
         } => Request::Connect(ConnectRequest {
+            authenticated: None,
+            authentication: None,
+            deadline: None,
             assigned: false,
             client,
             clean,
@@ -350,60 +449,40 @@ fn normalize(operation: Operation) -> io::Result<Request> {
                 will_properties: Vec::new(),
             },
         }),
+        Operation::ConnectFrameAt {
+            frame,
+            generation,
+            wake,
+            cancel,
+            close_reason,
+            deadline,
+        } => normalize_connect(
+            frame,
+            generation,
+            wake,
+            cancel,
+            close_reason,
+            Some(deadline),
+        )?,
+        #[cfg(test)]
         Operation::ConnectFrame {
             frame,
             generation,
             wake,
             cancel,
             close_reason,
-        } => {
-            let Packet::Connect {
-                client_id,
-                clean_session,
-                will,
-                username,
-                password,
-                ..
-            } = frame.packet
-            else {
-                return Err(failure(ReasonCode::PROTOCOL_ERROR, "CONNECT required"));
-            };
-            let mut expiry = if frame.version == ProtocolVersion::V311 && !clean_session {
-                u32::MAX
-            } else {
-                0
-            };
-            let mut receive_maximum = u16::MAX;
-            let mut maximum_packet_size = u32::MAX;
-            for property in &frame.properties {
-                match property {
-                    Property::SessionExpiryInterval(value) => expiry = *value,
-                    Property::ReceiveMaximum(value) => receive_maximum = *value,
-                    Property::MaximumPacketSize(value) => maximum_packet_size = *value,
-                    _ => {}
-                }
-            }
-            Request::Connect(ConnectRequest {
-                assigned: false,
-                client: client_id,
-                clean: clean_session,
-                will,
-                username,
-                password,
-                generation,
-                wake,
-                cancel,
-                close_reason: Some(close_reason),
-                properties: frame.properties,
-                options: ConnectionOptions {
-                    version: frame.version,
-                    clean_start: clean_session,
-                    session_expiry_interval: expiry,
-                    receive_maximum,
-                    maximum_packet_size,
-                    will_properties: frame.will_properties,
-                },
-            })
+        } => normalize_connect(frame, generation, wake, cancel, close_reason, None)?,
+        Operation::Authenticate {
+            generation,
+            frame,
+            deadline,
+        } => Request::Authenticate {
+            generation,
+            frame,
+            deadline,
+        },
+        Operation::CancelAuthentication { generation } => {
+            Request::CancelAuthentication { generation }
         }
         #[cfg(test)]
         Operation::Handle {
@@ -473,8 +552,9 @@ fn normalize(operation: Operation) -> io::Result<Request> {
 }
 /// Bounded allocation runs on the blocking state owner; check all surviving
 /// sessions and pending Will intents before the candidate is used for auth.
-fn assigned_identifier(
+fn assigned_identifier_with(
     engine: &SessionEngine,
+    reserved: impl Fn(&str) -> bool,
     mut entropy: impl FnMut(&mut [u8]) -> io::Result<()>,
 ) -> io::Result<String> {
     const HEX: &[u8; 16] = b"0123456789abcdef";
@@ -487,7 +567,7 @@ fn assigned_identifier(
             candidate.push(char::from(HEX[usize::from(byte >> 4)]));
             candidate.push(char::from(HEX[usize::from(byte & 15)]));
         }
-        if !engine.client_id_in_use(&candidate) {
+        if !engine.client_id_in_use(&candidate) && !reserved(&candidate) {
             return Ok(candidate);
         }
     }
@@ -496,26 +576,22 @@ fn assigned_identifier(
         "identifier allocation exhausted",
     ))
 }
+#[cfg(test)]
+fn assigned_identifier(
+    engine: &SessionEngine,
+    entropy: impl FnMut(&mut [u8]) -> io::Result<()>,
+) -> io::Result<String> {
+    assigned_identifier_with(engine, |_| false, entropy)
+}
 fn connect_policy(request: &ConnectRequest, config: &BrokerConfig) -> Option<ReasonCode> {
     if request.options.version == ProtocolVersion::V311 {
         return None;
     }
-    for property in &request.properties {
-        match property {
-            Property::AuthenticationMethod(_) | Property::AuthenticationData(_) => {
-                return Some(ReasonCode::BAD_AUTHENTICATION_METHOD);
-            }
-            _ => {}
-        }
-    }
     // Refuse before installing a session when the configured resource cap cannot
     // carry our mandatory capability CONNACK. Never accept then fail its write.
-    match mqtt_protocol::encode_frame(&network::accepted_connack(
-        ProtocolVersion::V5,
-        false,
-        config,
-        request.assigned.then_some(request.client.as_str()),
-    )) {
+    match enhanced::success_frame(request, false, config)
+        .and_then(|frame| mqtt_protocol::encode_frame(&frame).map_err(io::Error::other))
+    {
         Ok(bytes)
             if bytes.len() <= config.max_packet_size
                 && bytes.len() <= request.options.maximum_packet_size as usize => {}
@@ -558,6 +634,7 @@ fn run_commands(
     mut engine: SessionEngine,
     mut online: HashMap<String, Online>,
 ) -> io::Result<()> {
+    let mut authentication = enhanced::Manager::default();
     while let Some(command) = commands.blocking_recv() {
         let mut request = match normalize(command.operation) {
             Ok(request) => request,
@@ -578,9 +655,7 @@ fn run_commands(
             && request.options.version == ProtocolVersion::V5
             && request.client.is_empty()
         {
-            match assigned_identifier(&engine, |bytes| {
-                getrandom::getrandom(bytes).map_err(|error| io::Error::other(error.to_string()))
-            }) {
+            match authentication.assigned_identifier(&engine) {
                 Ok(client) => {
                     request.client = client;
                     request.assigned = true;
@@ -591,16 +666,30 @@ fn run_commands(
                 }
             }
         }
-        let mut principal = if let Request::Connect(request) = &request {
+        request = match authentication.process(request, &config, &online) {
+            Ok(enhanced::Processed::Ready(request)) => request,
+            Ok(enhanced::Processed::Reply(reply)) => {
+                let _ = command.reply.send(Ok(reply));
+                continue;
+            }
+            Err(error) => {
+                let _ = command.reply.send(Err(error));
+                continue;
+            }
+        };
+        let mut principal = if let Request::Connect(request) = &mut request {
             if let Some(reason) = connect_policy(request, &config) {
                 let _ = command.reply.send(Ok(refusal(request, reason)));
                 continue;
             }
-            match config.access_control.authenticate(ConnectInfo {
-                client_id: &request.client,
-                username: request.username.as_deref(),
-                password: request.password.as_ref().map(Password::as_bytes),
-            }) {
+            let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
+                config.access_control.authenticate(ConnectInfo {
+                    client_id: &request.client,
+                    username: request.username.as_deref(),
+                    password: request.password.as_ref().map(Password::as_bytes),
+                })
+            });
+            match authenticated {
                 Ok(principal) => Some(principal),
                 Err(error) => {
                     let reason = match error {
@@ -614,11 +703,15 @@ fn run_commands(
         } else {
             None
         };
+        if command.reply.is_closed() {
+            continue;
+        }
         let mut proposal = engine.clone();
         let mut commit_required = true;
         let mut notify_required = false;
         let mut retry_required = true;
         let mut registration = None;
+        let mut auth_registration = None;
         let mut removal = None;
         let proposed = (|| -> io::Result<Reply> {
             match request {
@@ -626,10 +719,19 @@ fn run_commands(
                     let principal = principal
                         .take()
                         .ok_or_else(|| io::Error::other("missing authenticated identity"))?;
+                    if request
+                        .deadline
+                        .is_some_and(|at| std::time::Instant::now() >= at)
+                    {
+                        return Err(failure(
+                            ReasonCode::NOT_AUTHORIZED,
+                            "authentication deadline exceeded",
+                        ));
+                    }
                     let result = match proposal.connect_with_options(
                         &request.client,
                         request.will.clone(),
-                        principal,
+                        principal.clone(),
                         request.options.clone(),
                     ) {
                         Ok(result) => result,
@@ -654,7 +756,19 @@ fn run_commands(
                             "persistent sessions require --storage-path",
                         ));
                     }
+                    let enhanced_frame = if request.authentication.is_some() {
+                        auth_registration =
+                            Some(enhanced::Established::from_request(&request, principal));
+                        Some(enhanced::success_frame(
+                            &request,
+                            result.session_present,
+                            &config,
+                        )?)
+                    } else {
+                        None
+                    };
                     let assigned = request.assigned.then(|| request.client.clone());
+                    let resolved = request.client.clone();
                     registration = Some((
                         request.client,
                         Online {
@@ -665,12 +779,19 @@ fn run_commands(
                         },
                     ));
                     notify_required = true;
-                    Ok(match assigned {
-                        Some(client) => Reply::Assigned {
-                            present: result.session_present,
-                            client,
-                        },
-                        None => Reply::Connected(result.session_present),
+                    Ok(if let Some(frame) = enhanced_frame {
+                        Reply::Authenticated {
+                            client: resolved,
+                            frame,
+                        }
+                    } else {
+                        match assigned {
+                            Some(client) => Reply::Assigned {
+                                present: result.session_present,
+                                client,
+                            },
+                            None => Reply::Connected(result.session_present),
+                        }
                     })
                 }
                 Request::Handle {
@@ -743,6 +864,9 @@ fn run_commands(
                     removal = Some(client);
                     Ok(Reply::Done)
                 }
+                Request::Authenticate { .. } | Request::CancelAuthentication { .. } => {
+                    Err(io::Error::other("unprocessed authentication command"))
+                }
                 Request::Tick => {
                     commit_required = proposal.expire_sessions().map_err(model_error)?;
                     notify_required = commit_required;
@@ -790,6 +914,9 @@ fn run_commands(
                         return Err(io::Error::other(message));
                     }
                     engine = proposal;
+                }
+                if let Some(established) = auth_registration {
+                    authentication.install(established);
                 }
                 if let Some((client, connection)) = registration
                     && let Some(previous) = online.insert(client, connection)
@@ -898,6 +1025,9 @@ async fn connection(
         &mut identity,
     )
     .await;
+    let _ = worker
+        .request(Operation::CancelAuthentication { generation })
+        .await;
     if let Some(client) = identity {
         let _ = worker
             .request(Operation::Disconnect {
@@ -1683,3 +1813,7 @@ mod live_tests;
 #[cfg(test)]
 #[path = "auth_tests.rs"]
 mod auth_tests;
+
+#[cfg(test)]
+#[path = "enhanced_tests.rs"]
+mod enhanced_tests;

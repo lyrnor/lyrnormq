@@ -13,6 +13,8 @@ use std::{sync::Arc, time::Duration};
 pub struct BrokerConfig {
     /// Immutable, bounded hooks executed on the serialized blocking worker.
     pub access_control: Arc<dyn AccessControl>,
+    /// Optional connection-local enhanced authentication provider.
+    pub enhanced_auth: Option<Arc<dyn mqtt_auth::EnhancedAuthenticator>>,
     pub storage_path: Option<std::path::PathBuf>,
     pub max_sessions: usize,
     pub max_retained: usize,
@@ -33,6 +35,7 @@ impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
             access_control: Arc::new(AllowAnonymous),
+            enhanced_auth: None,
             storage_path: None,
             max_sessions: 1024,
             max_retained: 10_000,

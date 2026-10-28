@@ -1,6 +1,7 @@
 //! Versioned socket IO; all business mutations remain on the shared worker.
 use super::aliases::{InboundAliases, OutboundAliases};
 use super::{Operation, Reply, Worker, WorkerFailure, failure};
+mod authentication;
 use crate::BrokerConfig;
 use mqtt_protocol::{
     Frame, Packet, Property, ProtocolError, ProtocolVersion, ReasonCode, decode_frame,
@@ -120,6 +121,7 @@ struct Lease {
     worker: Worker,
     expires_at: Option<u64>,
     ticket: Option<u64>,
+    shared_subscription: Option<(String, u64)>,
 }
 pub(super) struct Output {
     frame: Frame,
@@ -145,6 +147,7 @@ fn delivery_output(delivery: Delivery, client: String, generation: u64, worker: 
             worker,
             expires_at: delivery.expires_at,
             ticket: delivery.ticket,
+            shared_subscription: delivery.shared_subscription,
         }),
         completion: None,
         written: None,
@@ -158,6 +161,7 @@ async fn begin_output(mut message: Output) -> io::Result<Option<Output>> {
         frame: message.frame,
         expires_at: lease.expires_at,
         ticket: lease.ticket,
+        shared_subscription: lease.shared_subscription,
     };
     let Reply::FramePolled(frame) = lease
         .worker
@@ -301,7 +305,7 @@ pub(super) fn connack(
             Property::ReceiveMaximum(config.max_inflight.min(u16::MAX as usize) as u16),
             Property::MaximumPacketSize(config.max_packet_size.min(u32::MAX as usize) as u32),
             Property::TopicAliasMaximum(config.topic_alias_maximum),
-            Property::SharedSubscriptionAvailable(0),
+            Property::SharedSubscriptionAvailable(1),
             Property::SubscriptionIdentifierAvailable(1),
         ];
     }
@@ -330,6 +334,7 @@ struct Context<'a> {
     identity: &'a mut Option<String>,
     version: &'a mut Option<ProtocolVersion>,
     connected: &'a mut bool,
+    authenticating: &'a mut bool,
     output: &'a mpsc::Sender<Output>,
     terminal: &'a watch::Sender<Option<Frame>>,
     credits: &'a SharedCredits,
@@ -381,6 +386,7 @@ pub(super) async fn connection_loop(
     );
     let mut version = None;
     let mut connected = false;
+    let mut authenticating = false;
     let mut flush = false;
     let result = drive(
         &mut reader,
@@ -391,6 +397,7 @@ pub(super) async fn connection_loop(
             identity,
             version: &mut version,
             connected: &mut connected,
+            authenticating: &mut authenticating,
             output: &output,
             terminal: &terminal,
             credits: &credits,
@@ -410,7 +417,7 @@ pub(super) async fn connection_loop(
     // Only an actual queued terminal packet authorizes bounded writer completion.
     // Established errors never drain the ordinary outbound data queue.
     if let Err(error) = &result
-        && connected
+        && (connected || authenticating)
         && version == Some(ProtocolVersion::V5)
         && !failed.load(Ordering::Acquire)
         && !flush
@@ -518,6 +525,9 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
     let mut received_at_millis = 0;
     let mut expires = Some(Instant::now() + context.config.handshake_timeout);
     let mut keepalive = None;
+    let mut handshake_keepalive = 0u16;
+    let mut initial_auth = false;
+    let mut reauth_deadline: Option<Instant> = None;
     let mut pending: Option<Delivery> = None;
     let mut aliases = InboundAliases::new(context.config.topic_alias_maximum);
     let mut needs_poll = false;
@@ -532,6 +542,12 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
             return Err(failure(
                 ReasonCode::SERVER_UNAVAILABLE,
                 "connection writer unavailable",
+            ));
+        }
+        if reauth_deadline.is_some_and(|at| Instant::now() >= at) {
+            return Err(failure(
+                ReasonCode::NOT_AUTHORIZED,
+                "reauthentication deadline exceeded",
             ));
         }
         if expires.is_some_and(|at| Instant::now() >= at) {
@@ -584,114 +600,139 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
             buffer.drain(..consumed);
             let received = Instant::now();
             if !*context.connected {
-                let Packet::Connect {
-                    client_id,
-                    keep_alive,
-                    ..
-                } = &frame.packet
-                else {
-                    return Err(failure(
-                        ReasonCode::PROTOCOL_ERROR,
-                        "CONNECT required first",
-                    ));
-                };
-                let mut client = client_id.clone();
-                let keep_alive = *keep_alive;
-                let version = frame.version;
-                let peer_limit = frame.properties.iter().find_map(|property| {
-                    if let Property::MaximumPacketSize(value) = property {
-                        Some(*value)
-                    } else {
-                        None
+                if initial_auth {
+                    if matches!(frame.packet, Packet::Disconnect) {
+                        return Ok(());
                     }
-                });
-                context
-                    .peer_maximum
-                    .store(peer_limit.unwrap_or(u32::MAX) as usize, Ordering::Release);
-                let peer_alias_maximum = frame
-                    .properties
-                    .iter()
-                    .find_map(|property| {
-                        if let Property::TopicAliasMaximum(value) = property {
+                    if !matches!(frame.packet, Packet::Auth) {
+                        return Err(failure(
+                            ReasonCode::PROTOCOL_ERROR,
+                            "only AUTH allowed before CONNACK",
+                        ));
+                    }
+                    let deadline = expires
+                        .ok_or_else(|| io::Error::other("missing authentication deadline"))?;
+                    let response = context
+                        .worker
+                        .request(Operation::Authenticate {
+                            generation: context.generation,
+                            frame,
+                            deadline: deadline.into_std(),
+                        })
+                        .await?;
+                    let accepted = authentication::handshake_reply(
+                        &mut context,
+                        response,
+                        ProtocolVersion::V5,
+                        String::new(),
+                    )
+                    .await?;
+                    if !accepted {
+                        tokio::task::yield_now().await;
+                        continue;
+                    }
+                    initial_auth = false;
+                    keepalive = (handshake_keepalive != 0)
+                        .then(|| Duration::from_millis(u64::from(handshake_keepalive) * 1500));
+                } else {
+                    let Packet::Connect {
+                        client_id,
+                        keep_alive,
+                        ..
+                    } = &frame.packet
+                    else {
+                        return Err(failure(
+                            ReasonCode::PROTOCOL_ERROR,
+                            "CONNECT required first",
+                        ));
+                    };
+                    let client = client_id.clone();
+                    let keep_alive = *keep_alive;
+                    handshake_keepalive = keep_alive;
+                    let version = frame.version;
+                    let peer_limit = frame.properties.iter().find_map(|property| {
+                        if let Property::MaximumPacketSize(value) = property {
                             Some(*value)
                         } else {
                             None
                         }
-                    })
-                    .unwrap_or(0);
-                context
-                    .peer_alias_maximum
-                    .store(usize::from(peer_alias_maximum), Ordering::Release);
-                *context.version = Some(version);
-                let response = context
-                    .worker
-                    .request(Operation::ConnectFrame {
-                        frame,
-                        generation: context.generation,
-                        wake: context.wake_tx.clone(),
-                        cancel: context.cancel_tx.clone(),
-                        close_reason: context.close_tx.clone(),
-                    })
-                    .await?;
-                let mut assigned = false;
-                let present = match response {
-                    Reply::Connected(present) => present,
-                    Reply::Assigned {
-                        present,
-                        client: resolved,
-                    } => {
-                        client = resolved;
-                        assigned = true;
-                        present
+                    });
+                    context
+                        .peer_maximum
+                        .store(peer_limit.unwrap_or(u32::MAX) as usize, Ordering::Release);
+                    let peer_alias_maximum = frame
+                        .properties
+                        .iter()
+                        .find_map(|property| {
+                            if let Property::TopicAliasMaximum(value) = property {
+                                Some(*value)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or(0);
+                    context
+                        .peer_alias_maximum
+                        .store(usize::from(peer_alias_maximum), Ordering::Release);
+                    *context.version = Some(version);
+                    let response = context
+                        .worker
+                        .request(Operation::ConnectFrameAt {
+                            deadline: expires
+                                .ok_or_else(|| io::Error::other("missing handshake deadline"))?
+                                .into_std(),
+                            frame,
+                            generation: context.generation,
+                            wake: context.wake_tx.clone(),
+                            cancel: context.cancel_tx.clone(),
+                            close_reason: context.close_tx.clone(),
+                        })
+                        .await?;
+                    let accepted =
+                        authentication::handshake_reply(&mut context, response, version, client)
+                            .await?;
+                    if !accepted {
+                        initial_auth = true;
+                        tokio::task::yield_now().await;
+                        continue;
                     }
-                    Reply::Rejected(reason) => {
-                        terminal_frame(
-                            &context,
-                            connack(version, false, reason.code(), context.config),
-                        );
-                        *context.flush = true;
-                        return Err(failure(ReasonCode::NOT_AUTHORIZED, "CONNECT refused"));
-                    }
-                    Reply::FrameRejected(reason) => {
-                        if peer_limit.is_none_or(|limit| limit >= 5) {
-                            terminal_frame(
-                                &context,
-                                connack(version, false, reason.value(), context.config),
-                            );
-                            *context.flush = true;
-                        }
-                        return Err(failure(reason, "CONNECT refused"));
-                    }
-                    _ => return Err(io::Error::other("invalid CONNECT response")),
-                };
-                *context.identity = Some(client.clone());
-                *context.connected = true;
-                let (written_tx, written_rx) = oneshot::channel();
-                let mut message = outgoing(
-                    accepted_connack(
-                        version,
-                        present,
-                        context.config,
-                        assigned.then_some(client.as_str()),
-                    ),
-                    context.credits,
-                )?;
-                message.written = Some(written_tx);
-                context
-                    .output
-                    .send(message)
-                    .await
-                    .map_err(io::Error::other)?;
-                // Accepted CONNACK must precede terminal output from pipelined input.
-                written_rx
-                    .await
-                    .map_err(|_| failure(ReasonCode::SERVER_UNAVAILABLE, "CONNACK write failed"))?;
-                keepalive = if keep_alive == 0 {
-                    None
-                } else {
-                    Some(Duration::from_millis(u64::from(keep_alive) * 1500))
-                };
+                    keepalive = if keep_alive == 0 {
+                        None
+                    } else {
+                        Some(Duration::from_millis(u64::from(keep_alive) * 1500))
+                    };
+                }
             } else {
+                if matches!(frame.packet, Packet::Auth) {
+                    if frame.reason_code.value() == 0x19 && reauth_deadline.is_none() {
+                        reauth_deadline = Some(Instant::now() + context.config.handshake_timeout);
+                    }
+                    let deadline = reauth_deadline
+                        .unwrap_or_else(|| Instant::now() + context.config.handshake_timeout);
+                    let response = context
+                        .worker
+                        .request(Operation::Authenticate {
+                            generation: context.generation,
+                            frame,
+                            deadline: deadline.into_std(),
+                        })
+                        .await?;
+                    let response = match response {
+                        Reply::AuthContinue(frame) => frame,
+                        Reply::AuthComplete(frame) => {
+                            reauth_deadline = None;
+                            frame
+                        }
+                        _ => return Err(io::Error::other("invalid reauthentication response")),
+                    };
+                    context
+                        .output
+                        .send(outgoing(response, context.credits)?)
+                        .await
+                        .map_err(io::Error::other)?;
+                    expires = keepalive.map(|duration| received + duration);
+                    continue;
+                }
                 aliases.normalize(&mut frame, context.config.max_packet_size)?;
                 let client = context
                     .identity
@@ -794,7 +835,10 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
         tokio::select! {
             changed=context.shutdown.changed()=>{if changed.is_err()||*context.shutdown.borrow(){return Ok(());}}
             _=context.cancel.changed()=>{continue;}
-            _=crate::packet_io::deadline(expires)=>return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded")),
+            _=crate::packet_io::deadline(match (expires, reauth_deadline) { (Some(a),Some(b))=>Some(a.min(b)), (a,b)=>a.or(b) })=>{
+                if reauth_deadline.is_some_and(|at|Instant::now()>=at) { return Err(failure(ReasonCode::NOT_AUTHORIZED,"reauthentication deadline exceeded")); }
+                return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded"));
+            },
             _=context.wake.changed(),if *context.connected=>{needs_poll=true;}
             permit=context.output.reserve(),if pending.is_some()=>{
                 let delivery=pending.take().ok_or_else(||io::Error::other("missing pending output"))?;
@@ -820,7 +864,7 @@ mod tests {
         assert!(
             frame
                 .properties
-                .contains(&Property::SharedSubscriptionAvailable(0))
+                .contains(&Property::SharedSubscriptionAvailable(1))
         );
         assert!(frame.properties.contains(&Property::ReceiveMaximum(32)));
         assert!(
