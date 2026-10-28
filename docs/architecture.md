@@ -1,80 +1,129 @@
-# Architecture — revision 2
+# Architecture — revision 3 / Phase2b
 
-The current executable supports TCP MQTT3.1.1 live clean-session QoS0/1/2.
-MQTT5, persistent sessions, Retained, Will and credentials remain unsupported.
-No full protocol or production-readiness claim is made.
+The broker supports TCP MQTT3.1.1 QoS0/1/2 with optional SQLite-backed persistent
+sessions. Without --storage-path, the established clean-session path remains.
+MQTT5, Retained, Will, credentials/auth and TLS remain unsupported. Full MQTT
+conformance and production-readiness are not claimed.
 
-## Module and data dependencies
+## Dependencies and ownership
 
 ```mermaid
 graph LR
-  Protocol[mqtt-protocol] --> Transport[mqtt-transport]
-  Router[mqtt-router] --> Transport
-  Session[mqtt-session] --> Transport
-  Transport --> Binary[rmqtt executable]
-  Storage[mqtt-storage memory transactions] -. future durable integration .-> Session
-  Transport --> Wire[Independent wire and Paho tests]
+  Protocol[mqtt-protocol codec] --> Session[mqtt-session QoS and recovery model]
+  Router[mqtt-router topic trie] --> Session
+  Session --> Transport[mqtt-transport]
+  Storage[mqtt-storage SQLite WAL] --> Transport
+  Protocol --> Transport
+  Router --> Transport
+  Transport --> Binary[rmqtt CLI]
+  Binary --> Checks[Independent TCP Paho and SIGKILL checks]
 ```
 
-TCP -> bounded incremental protocol decoding -> connection state machine -> short
-synchronous routing lock / iterative topic trie -> bounded per-client queue ->
-per-connection outgoing QoS state -> encoding -> bounded-time socket writes.
-The coordinator executable supplies CLI resource configuration, bind and shutdown.
-No routing lock spans an await. Routed application data is shared using Arc;
-recipient packet identifiers are assigned when its queue is drained. The connection
-select uses fair scheduling so continuous deliveries cannot starve control reads.
+Specialists own separate crates/tests in explicitly isolated branches/worktrees;
+coordinator freezes contracts, owns CLI/docs and cherry-picks validated commits.
+Current contract phase2b supersedes only the persistence boundaries of phase2a;
+phase1/phase2a contracts and progress remain historical evidence.
 
-## QoS and lifecycle invariants
+## SQLite-enabled runtime
 
-Incoming and outgoing Packet IDs occupy independent namespaces per connection.
-Incoming QoS1 routes then PUBACKs; duplicates may be forwarded again. Incoming
-QoS2 stores the complete application message and returns PUBREC; PUBREL takes the
-stored message once, routes it and returns PUBCOMP. Repeated/unknown PUBREL returns
-PUBCOMP without delivery; completed IDs can name a new exchange regardless of DUP.
+Network readers use the existing incremental codec and bounded buffers. Each
+connection has a bounded complete-frame writer queue; fair readiness selection
+avoids starving control reads. The network submits commands through a bounded
+mpsc queue (capacity=max_connections) to one spawn_blocking worker. That worker
+owns SQLite, the live SessionEngine and runtime generation/notification maps.
+No disk IO executes on Tokio async workers; no shared lock spans an await.
 
-Outgoing QoS1 retains its ID until PUBACK. Outgoing QoS2 waits for PUBREC, releases
-its PUBLISH bytes, sends PUBREL and retains its ID until PUBCOMP. Duplicate PUBREC
-repeats PUBREL with fixed flags 0x2. Known-ID ACKs in the wrong stage close the
-connection; unknown outgoing ACKs are ignored. The router grants requested QoS and
-returns the maximum matching subscription grant; outgoing QoS is the minimum of
-this grant and publication QoS. Overlapping filters produce one delivery.
+For each mutation the worker clones the engine, applies the event, validates and
+serializes a snapshot, commits SQLite, installs the clone, updates generation
+registration, and only then returns packets. Model/quota failure discards the
+entire proposal. SQL commit failure cancels connections and stops the durable
+service; there is no memory-only fallback. Empty polls neither commit nor notify.
+Committed handle/connect events wake recipients through watch notifications.
 
-Each direction has a bounded inflight window. A full outgoing window pauses queue
-draining but continues ACK reads. Queue overflow cancels the slow recipient.
-Inbound QoS2 window rejection closes without PUBREC. Keep Alive is based on
-complete incoming MQTT packets, not raw bytes. Generation checks under the routing
-lock prevent superseded connections changing subscriptions or routing messages;
-old cleanup cannot remove the replacement identity.
+The SQLite row contains one schema1 JSON registry of persistent sessions, including
+subscription grants, incoming QoS2 messages, ordered outgoing IDs/stages, and queued
+recipient messages (the outbox). Online flags, generations and replay cursors are
+runtime-only. Restore validates schema, IDs, QoS, complete packet/filter limits,
+counts and bytes; all restored sessions start offline. Unknown/corrupt versions
+fail startup rather than resetting records.
 
-States are volatile and discarded with clean connections. Reconnect retry depends
-on future persistent sessions; periodic retries inside an active TCP connection
-are not substituted for that work. SQLite integration requires a versioned record
-schema, atomic state/delivery-intent transaction, durable ACK ordering and bounded
-blocking workers. MemoryStorage batch atomicity is independent groundwork only.
+## Commit and delivery invariants
 
-## Resource and verification boundaries
+| Event | Commit before exposing response |
+| --- | --- |
+| Non-clean CONNECT | Restore/create session, then CONNACK with correct Session Present |
+| Clean CONNECT | Discard old persistent record, create volatile session, CONNACK present=false |
+| SUBSCRIBE/UNSUBSCRIBE | Subscription changes before SUBACK/UNSUBACK |
+| Incoming QoS1 PUBLISH | Route into all accepted recipient outboxes before PUBACK |
+| Incoming QoS2 PUBLISH | Pending inbound message before PUBREC |
+| Incoming PUBREL | Remove inbound state and enqueue all recipient outboxes atomically before PUBCOMP |
+| Outgoing PUBLISH | Queue removal and allocated ID/stage before wire transmission |
+| Outgoing PUBREC | AwaitComp before PUBREL |
+| Outgoing PUBACK/PUBCOMP | Remove exchange/free ID before later allocation |
 
-BrokerConfig/CLI bound full packet bytes, connections, queues, subscriptions,
-inflight, handshake time and socket write time. Numeric overflows and invalid
-limits fail. An individual socket write can defer cancellation/shutdown/Keep Alive
-until write_timeout; slow-reader stress and improved interruptibility are still
-pending. Router node capacity retains historical peak allocation and is reused.
-No CPU/memory/latency/throughput baseline has been measured.
+Existing IncomingQos2/OutgoingQos/PacketIdentifiers are reused with snapshot/order
+support; no independent second QoS state machine was introduced. Existing Router
+matching supplies maximum overlapping subscription QoS; delivery uses min of that
+grant and publication QoS. Inbound and outbound IDs are separate namespaces.
 
-Current contracts: `docs/contracts/phase2a.md` supersedes only the changed portions
-of historical `phase1.md`. Tests cover malformed/fragmented packets, wildcard and
-system-topic routing, lifecycle, control-read fairness, QoS state machines and real
-Paho interoperability. See progress for exact results and tasks for remaining work.
+Persistent disconnect keeps subscriptions, pending inbound/outbound state and
+bounded offline QoS1/2 queues. Clean disconnect removes the volatile session.
+Reconnection replays unresolved PUBLISH in original send order with original ID
+and DUP=true; AwaitComp replays only PUBREL (fixed flags0x2). Previously unsent
+queued messages use new IDs/DUP=false. Duplicate/unknown PUBREL never re-routes.
+No periodic retry timer substitutes for reconnect retry. QoS0 is dropped offline.
+A full durable outbox aborts the entire publication event without success ACK;
+there is no partial fanout installed on another recipient.
 
-Normative reference: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
-Future MQTT5 reference: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
+Runtime worker checks generation on every handle/poll/cleanup. Successful takeover
+cancels the predecessor only after its replacement state commits; stale cleanup
+cannot remove the new session. Successful outgoing ACKs discard obsolete local
+not-yet-queued replay frames so PUBLISH cannot follow its PUBREL. Already queued
+frames keep strict writer order. Takeover/shutdown/timeout/error closes the writer
+instead of draining stale data; only an actually queued pre-CONNECT protocol
+rejection CONNACK receives a bounded flush before close.
 
-## Change log
+## Storage, limits and remaining costs
 
-- Revision1: frozen QoS0 contracts and isolated specialist implementations; initial
-  executable accepted in commit 76853ea, with session/storage groundwork separate.
-- Revision2: add live QoS1/2 codec, reuse IncomingQos2 and PacketIdentifiers, add
-  outgoing ACK state and QoS trie metadata, integrate session into transport.
-  Add atomic bounded memory batches and CLI limits. Remove encoder validation via
-  full decode; fix verified delivery/read starvation. Persistent runtime remains
-  separate future work. Exact specialist/integration commits are in progress.
+SqliteStore uses rusqlite0.41 with bundled SQLite, verifies WAL and synchronous=FULL,
+and commits one atomic opaque row. It rejects foreign schemas and checks BLOB
+length before allocation. A lifetime OS lock on a permanent canonical-path
+.broker-lock sidecar rejects cooperating concurrent brokers. The sidecar is not an
+existence lock and is not deleted; process termination releases the OS lock.
+Existing symlinks resolve to a shared lock; dangling symlinks are rejected. Hard
+links, externally renaming/replacing or modifying an actively owned DB are outside
+the supported ownership model. Directly locking the DB inode was rejected after
+reproducing interference with SQLite's own locks on Darwin.
+
+CLI/BrokerConfig bound connections, sessions, subscriptions, packets, queues,
+inflight, snapshot/live serialized bytes and handshake/write deadlines. The
+allocator has a fixed65,536-byte bitmap per session; state cloning/serialization
+needs additional bounded copies. Whole-registry JSON commits and rebuilding the
+existing trie per routed proposal intentionally favor reviewable correctness over
+write/CPU efficiency. No throughput/latency/memory baseline has been measured.
+Disk quotas, row-level transactions/migrations, backups/admin APIs, continuous
+fuzzing and broad stress testing remain follow-up work.
+
+The legacy clean-only path still has short synchronous routing locks and one-task
+socket writes; an active legacy write can delay cancellation to write_timeout.
+Durable writer cancellation is tested with a blocked real TCP socket, but worker
+transaction waits can still delay control handling. Operational deadlines under
+slow/failing storage require further work. SIGKILL and SQLITE_FULL tests verify
+process/storage failure cases, not physical power loss or application-side
+exactly-once processing. SQLite durability depends on filesystem sync semantics.
+
+## Verification and references
+
+Progress records actual test commands/results and specialist commit provenance.
+Independent tests use protocol ACKs or confirmed recipient delivery as commit
+barriers, never sleeps as proof of durability. Existing basic/QoS/Paho suites run
+against both network paths. Task dependencies and unfinished requirements are in
+docs/tasks.md.
+
+- MQTT3.1.1: https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
+- SQLite WAL: https://www.sqlite.org/wal.html
+- SQLite sync: https://www.sqlite.org/pragma.html#pragma_synchronous
+
+Change log: revision1 delivered QoS0; revision2 added live QoS1/2, bounded memory
+transactions and CLI controls; revision3 adds versioned durable records, atomic
+outboxes, clean reset, offline queues, reconnect replay and crash recovery tests.

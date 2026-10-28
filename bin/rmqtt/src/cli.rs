@@ -1,7 +1,7 @@
 use mqtt_transport::BrokerConfig;
-use std::{io, time::Duration};
+use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N]";
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N]";
 
 pub struct Options {
     pub address: String,
@@ -35,6 +35,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         if !matches!(
             option.as_str(),
             "--listen"
+                | "--storage-path"
+                | "--max-sessions"
+                | "--max-state-bytes"
                 | "--max-packet-size"
                 | "--max-connections"
                 | "--outbound-capacity"
@@ -52,6 +55,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             options.address = value;
             continue;
         }
+        if option == "--storage-path" {
+            if value.is_empty() {
+                return Err(invalid("--storage-path cannot be empty"));
+            }
+            options.config.storage_path = Some(PathBuf::from(value));
+            continue;
+        }
         let number = positive(&value, &option)?;
         match option.as_str() {
             "--max-packet-size" => {
@@ -60,6 +70,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 }
                 options.config.max_packet_size = number;
             }
+            "--max-sessions" => options.config.max_sessions = number,
+            "--max-state-bytes" => options.config.max_state_bytes = number,
             "--max-connections" => options.config.max_connections = number,
             "--outbound-capacity" => options.config.outbound_capacity = number,
             "--max-subscriptions" => options.config.max_subscriptions = number,
@@ -102,9 +114,38 @@ mod tests {
             vec!["--max-connections", "184467440737095516160"],
             vec!["--outbound-capacity"],
             vec!["--unknown", "1"],
+            vec!["--storage-path", ""],
+            vec!["--max-sessions", "0"],
+            vec!["--max-state-bytes", "0"],
         ] {
             assert!(parse(args(&values)).is_err(), "{values:?}");
         }
+    }
+
+    #[test]
+    fn persistent_storage_is_opt_in_and_has_explicit_bounds() {
+        assert!(
+            parse(args(&[]))
+                .unwrap()
+                .unwrap()
+                .config
+                .storage_path
+                .is_none()
+        );
+        let config = parse(args(&[
+            "--storage-path",
+            "/tmp/test.sqlite",
+            "--max-sessions",
+            "12",
+            "--max-state-bytes",
+            "65536",
+        ]))
+        .unwrap()
+        .unwrap()
+        .config;
+        assert_eq!(config.storage_path, Some(PathBuf::from("/tmp/test.sqlite")));
+        assert_eq!(config.max_sessions, 12);
+        assert_eq!(config.max_state_bytes, 65536);
     }
 
     #[test]

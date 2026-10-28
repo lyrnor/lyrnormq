@@ -117,10 +117,117 @@ No remote CI-host execution, persistence validation or performance claims.
   write cancellation/Keep Alive responsiveness remains a known test/architecture
   limitation bounded by write_timeout; do not claim complete protocol conformance.
 
-### Current incomplete requirements
+### Phase2a incomplete requirements (historical; superseded by Phase2b)
 MQTT5, persistent sessions and reconnect retry, offline queues, durable storage and
 crash recovery, Retained, Will, credentials/auth/ACL, TLS/WebSocket, telemetry,
 fuzz/stress/performance baselines and production extensions remain unfinished.
 Session is now integrated for live clean-session QoS; storage is still independent.
 Durable exactly-once/application processing is not guaranteed. See tasks.md for
 full dependency groups and explicit next acceptance gates.
+
+## Phase2b accepted — 2026-10-28
+Contract ae3a3cf freezes durable session records, transactional recipient outboxes,
+Clean Session reset, ID/stage-preserving reconnect replay and ACK ordering. Storage,
+Session and Protocol work in isolated p2b worktrees. SQLite uses an explicit bounded
+versioned whole-registry snapshot for this increment; it is not a row-level storage
+performance optimization. Independent network tests must use successful protocol
+ACKs as durability barriers and SIGKILL/restart as process-crash validation.
+
+### Integrated implementation and review
+
+Five specialist roles used isolated p2b branches/worktrees: Storage and Session
+implemented in parallel, Protocol enabled non-clean CONNECT, Quality independently
+implemented wire/Paho/fault tests, then Transport integrated the tested APIs.
+Coordinator froze the contract before implementation and owns CLI/docs/integration
+on integration/phase2b. Existing Router/QoS primitives were reused.
+
+| Specialist | Isolated original commit(s) | Integrated commit(s) |
+| --- | --- | --- |
+| Protocol | 7f290b6 | 89c7dd4 |
+| Storage | 6c2eb38 + a67abf7 | f56da07 + 40b350b |
+| Session | b516d67 + 5df3f10 + 130d22e docs | 8263470 + f62e57a + d3d9e27 |
+| Quality | 344c2be + 1ccd079 + 9b9e307 + afd199c | 170eb9a + 3aee18f + d9140da + 3a247e2 |
+| Transport | 7f3b8d7 + 89219a5 | a26823a + e9ea6df |
+
+Persistent SQLite mode now commits subscriptions, incoming QoS2 and queued/inflight
+outboxes before acknowledgement/transmission. It supports offline QoS1/2, ordinary
+TCP reconnection, original-ID/DUP replay and PUBREL-only replay, session-present,
+Clean Session reset and generation-safe takeover. The durable path uses a bounded
+spawn_blocking transaction worker, fair reader/writer scheduling and bounded queues.
+CLI adds storage-path/max-sessions/max-state-bytes; no SQLite path keeps the prior
+clean-session-only mode. SQLite WAL/FULL is verified, with strict schema/load bounds
+and permanent canonical-sidecar OS locking.
+
+Review found and fixed concrete regressions before delivery:
+- Direct DB-inode OS locking conflicted with SQLite on Darwin; contract was amended
+  before integration to a permanent canonical-path OS sidecar lock.
+- A dangling symlink could create different alias/real sidecars and two owners;
+  an independent harness reproduced it, then a failing test preceded fail-closed fix.
+- Restoring a large subscription after lowering max_packet_size lacked a complete
+  SUBSCRIBE-size check; a failing quota regression preceded the correction.
+- ACK before a pending local replay was queued could leave obsolete PUBLISH after
+  PUBREL; a deterministic worker/wire scheduling regression failed then passed.
+- Cancelling a connection drained a blocked writer queue, multiplying write timeout;
+  a real tiny-buffer TCP/full-queue regression failed then passed after aborting
+  writers on close. Protocol rejection flush is restricted to an actually queued
+  pre-CONNECT rejection CONNACK.
+
+Independent session review and temporary public-API models found no remaining
+model blocker (including ID wrap/order); these extra temporary models are not CI
+artifacts or performance benchmarks. Independent storage/worker review findings
+were fixed; final acceptance runs committed, reproducible suites.
+
+### Remaining requirements and limitations after Phase2b
+MQTT5, Retained, Will, credentials/auth/ACL, TLS/WebSocket, metrics/config reload,
+continuous fuzzing, broader client/fault matrices and measured performance remain
+unfinished. SQLite row-level migrations/backup tooling/disk quotas are pending.
+Whole-registry JSON commits/clones and routing-index rebuilds are potentially
+expensive; snapshot size is not an aggregate process-memory/disk budget. Worker
+transaction waits can still delay controls. Hard-link aliases/external active-DB
+modification are unsupported. SIGKILL recovery and storage SQLITE_FULL rollback
+are tested; physical power-loss behavior and application-side exactly-once
+processing are not claimed. Current architecture/task dependencies are in
+architecture.md and tasks.md.
+
+### Final Phase2b acceptance results
+
+Final local environment: Darwin27.0.0 arm64, rustc/cargo1.98.1, Tokio1.54.1,
+rusqlite0.41.0/bundled SQLite3.54.1, serde1.0.229/serde_json1.0.154 and Paho2.1.0.
+Root Cargo.lock is committed. TCP and subprocess tests ran with local-network
+permission; no remote CI-host execution is claimed.
+
+| Final command / mode | Actual result |
+| --- | --- |
+| cargo fmt --all -- --check | passed |
+| cargo clippy --workspace --all-targets --offline -- -D warnings | passed |
+| cargo test --workspace --offline | 77 passed: protocol14/router9/session15/storage16/transport20/CLI3 |
+| cargo build --workspace --offline | passed |
+| python tests/blackbox.py / legacy | 14 passed, 3.523s |
+| python tests/qos_blackbox.py / legacy | 9 passed, 2.282s |
+| python tests/paho_interop.py / legacy | 3x3 QoS matrix passed |
+| tests/blackbox.py / SQLite enabled | 14 passed, 3.545s |
+| tests/qos_blackbox.py / SQLite enabled | 9 passed, 2.471s |
+| tests/paho_interop.py / SQLite enabled | 3x3 QoS matrix passed |
+| python tests/persistence_blackbox.py | 14 passed, 3.395s |
+| python tests/persistence_paho.py | persistent reconnect/offline QoS1+2/SIGKILL restart without resubscribe passed |
+
+This is 60 TCP test-method executions across the two existing modes and the
+persistence suite, plus the Paho checks. Durations are functional-suite elapsed
+times, not broker latency/throughput baselines. SQLite mode for reused suites is
+enabled by RMQTT_TEST_STORAGE_PATH; each suite used its own temporary DB. Paho
+commands used /tmp/rmqtt-client-venv/bin/python with Paho2.1.0 installed. The CI
+workflow reproduces the temporary-database split.
+
+Storage-level tests include an actual SQLITE_FULL error induced with SQLite page
+quota (not filling the host disk), prior-state rollback, SIGKILL of an uncommitted
+transaction and OS-lock release. Network fault cases include ordinary immediate
+TCP reconnect, SIGKILL at protocol-confirmed state barriers, original send order,
+QoS2 AwaitComp PUBREL-only recovery, never-read PUBCOMP and single onward fanout,
+full-outbox rollback across multiple recipients, takeover/late cleanup and corrupt
+DB/snapshot startup rejection.
+
+The final transport patch also added a regression for established-client version
+errors: only an actually queued pre-CONNECT rejection CONNACK may flush; inferring
+flush from UnsupportedVersion alone could drain a slow business queue. That
+regression failed before the explicit flag and passed after. All commands above
+were rerun on this final functional implementation.

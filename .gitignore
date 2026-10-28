@@ -1,3 +1,12 @@
 /target/
 .worktrees/
 __pycache__/
+
+# Local SQLite broker data
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.broker-lock
+*.db
+*.db-wal
+*.db-shm

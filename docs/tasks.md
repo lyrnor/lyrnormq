@@ -1,52 +1,74 @@
-# Task dependency graph and remaining work
+# Task dependencies and remaining work
 
-## Completed batch: Phase2a
-Protocol QoS codec ─┐
-Session outgoing ──┼─> Transport live QoS integration ─> independent wire/Paho checks ─> review/merge
-Router QoS index ──┘
-Memory transaction batch ─> standalone storage tests (independent of network)
+## Completed, preserving existing implementations
 
-Contracts: docs/contracts/phase2a.md. Historical Phase1 contract is retained for
-traceability and is superseded only where phase2a explicitly says so.
-Execution used three child agents maximum: wave1 protocol/session/router; wave2
-transport/quality/storage. Each gets a separate worktree+branch from the frozen
-contract commit. Coordinator alone integrates commits and edits root/docs.
+- Phase0/1: workspace, engineering rules/contracts, MQTT3.1.1 QoS0 codec, indexed
+  wildcard/system-topic routing, bounded TCP lifecycle, Keep Alive and takeover.
+- Phase2a: bidirectional live QoS1/2, bounded Packet ID/window lifetimes, requested
+  subscription grants/max matching QoS, atomic memory batches and CLI limits.
+- Phase2b: schema1 durable session/outbox contract; SQLite WAL/FULL storage and
+  OS writer exclusion; persisted subscriptions, bounded offline queues, ordered
+  reconnect replay and clean reset; transactional blocking worker; normal TCP
+  disconnect, SIGKILL/restart and SQL rollback tests; both-path interoperability.
 
-## Outstanding after this batch
-- Phase2b: versioned durable records and atomic state/outbox transaction contract,
-  SQLite WAL backend, crash/torn-write/disk-full recovery, durable ACK ordering.
-- Persistent sessions: Clean Session lifecycle, offline bounded queues, reconnect
-  retransmission and session-present correctness, generation-safe session takeover.
-- Retained storage/delivery/replacement/deletion and Last Will trigger conditions.
-- MQTT5 codec/properties/reason codes; Clean Start/session expiry, receive maximum,
-  shared subscriptions, topic aliases, limits and AUTH semantics.
-- Authentication/ACL extension traits and policy enforcement, tracing/metrics.
-- Configuration files and richer operational documentation; graceful write/shutdown
-  responsiveness under slow readers and explicit overload observability.
-- Continuous fuzzing and property tests, client interoperability matrix,
-  concurrent/slow-consumer/backpressure/hot-topic workloads; reproducible latency,
-  throughput and memory baselines. Assess remaining message copying and lock
-  contention only from measurements.
-- TLS, WebSocket, container/admin/config reload after single-node correctness.
-  Cluster design remains blocked on durable single-node semantics.
+The codec, Router, IncomingQos2, OutgoingQos and PacketIdentifiers were extended or
+reused. Storage/session/network were implemented and committed in separate Git
+worktrees; final integration and contracts belong to the coordinator.
 
-These are tracked requirements, not completed features. Performance figures must
-come from measured reproducible runs. Full MQTT conformance remains unclaimed.
+## Phase2b execution dependency graph
 
-## Completed without reimplementation
-- Existing protocol validation, wildcard trie, incoming QoS2 and PacketIdentifiers
-  were extended/reused; unrelated Phase1 behavior remains regression-tested.
-- Live QoS ACKs and max-QoS matching; bounded memory transactions; CLI resource
-  flags; encoder no longer validates by decoding/copying a whole packet.
-- Delivery/read fairness defect reproduced by a failing TCP regression then fixed.
+```mermaid
+graph LR
+  Contract[Durable record and outbox contract ae3a3cf] --> SQLite[SQLite store]
+  Contract --> Sessions[Session recovery model]
+  Contract --> Codec[Persistent CONNECT]
+  Contract --> QA[Independent reconnect/crash tests]
+  SQLite --> Runtime[Bounded worker/network integration]
+  Sessions --> Runtime
+  Codec --> Runtime
+  Runtime --> Gate[Unified review and acceptance]
+  QA --> Gate
+```
 
-## Next ready dependency groups
-1. Coordinator freezes durable record/outbox and session ownership contracts.
-2. Then storage SQLite transactions and session durable transition/recovery model
-   can proceed in separate worktrees; retained store and independent fault tests
-   can proceed once their record/query contracts are frozen.
-3. Persistent-session transport/reconnect integration follows storage+session;
-   crash/restart verification gates any durability claim.
-4. Slow-reader cancellation/shutdown tests and observability interfaces can be
-   specified independently. MQTT5 implementation must freeze a separate versioned
-   protocol/session contract before parallel codec/runtime changes.
+Storage and session implementation proceeded in parallel. Protocol finished early
+and its slot was used for independent quality work. Network integration started
+from the integrated dependency commits. Reviewers independently audited storage
+and session; coordinator/quality audited worker and network. Reproduced ownership,
+quota, replay and writer cancellation defects were fixed before acceptance.
+
+## Next single-node features
+
+1. Freeze Retained record/query and Last Will lifecycle contracts. Retained
+   storage/router work and Will state/protocol support can then run in isolated
+   worktrees; runtime delivery must use the existing outbox transaction boundary.
+2. Freeze authentication/ACL extension traits and denied-delivery behavior; add
+   implementation and independent authorization tests. Credentials are currently
+   rejected, not silently accepted as authenticated identities.
+3. Freeze versioned MQTT5 protocol/session contracts before parallel codec/runtime
+   changes: properties, reason codes, Clean Start/session expiry, Receive Maximum,
+   aliases/shared subscriptions, limits and AUTH remain unimplemented.
+
+## Durability and operational hardening still open
+
+- Row-level/session-scoped transactional records to reduce full-snapshot cloning,
+  JSON amplification and per-proposal trie rebuild cost; measure before optimizing.
+- Explicit migrations, consistent backup/restore and management/removal of offline
+  sessions. Lowered incompatible quotas currently reject startup; they do not evict.
+- Bounded control/transaction response deadlines with slow/failing storage; broad
+  slow-reader/backpressure/shutdown/fault campaigns, plus legacy writer cancellation.
+- More filesystem/disk-error scenarios, schema/fuzz/corruption corpus and CI matrix.
+  Process SIGKILL and storage SQLITE_FULL are tested; physical power loss is not.
+- Explicit disk-space/compaction/checkpoint quotas. Snapshot bytes are not a
+  complete disk or aggregate process-memory budget. Keep strict single-owner DB
+  constraints; hard-link aliases/external active DB modifications are unsupported.
+- Config files/reload, tracing/metrics and overload/error observability.
+
+## Phase3/4 gates
+
+Continuous fuzz/property testing, broader third-party client matrices, concurrent
+hot-topic/large-subscription/slow-consumer workloads, and reproducible CPU/memory/
+latency/throughput baselines remain. No performance baseline is claimed. TLS,
+WebSocket, containers and admin APIs follow single-node correctness/security.
+Cluster architecture remains deferred pending stronger single-node verification.
+
+Full MQTT conformance and application-side exactly-once processing are not claimed.

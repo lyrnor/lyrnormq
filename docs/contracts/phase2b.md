@@ -27,7 +27,10 @@ application-side exactly-once processing or physical power-loss testing.
 
 On reconnect/resume: pending outgoing QoS1/2 PUBLISH retransmits with original ID,
 DUP=true, original send order; AwaitComp retransmits PUBREL (0x62), never PUBLISH.
-Queued unsent messages get fresh IDs and DUP=false. No active-connection retry timer.
+Queued unsent messages get fresh IDs and DUP=false. If an outgoing ACK advances
+the exchange before its local replay is queued for writing, discard that obsolete
+pending PUBLISH/PUBREL; never enqueue PUBLISH after its successful PUBREC. Already
+queued frames retain strict writer order before the ACK response. No active-connection retry timer.
 Offline persistent subscriptions queue QoS1/2 only (QoS0 may be dropped offline).
 Full persistent outbox aborts publisher event rather than silently acknowledging
 and discarding it. Inbound/outbound namespaces remain separate. Clean sessions are
@@ -44,7 +47,8 @@ Own a lifetime exclusive OS advisory broker lock on a fixed sidecar beside the
 canonical database path (std File::try_lock or equivalent released-on-crash lock).
 Never delete the sidecar: its existence is not the lock. This avoids interference
 with SQLite locks on the DB file itself, as reproduced on Darwin. Reject a second
-broker for the same canonical DB path; hard-link aliases/external DB renames while
+broker for the same canonical DB path; reject dangling symlinks before opening a
+new DB, resolve existing symlinks to the shared canonical lock. Hard-link aliases/external DB renames while
 running are unsupported. No stale create_new existence lockfile. Refuse unknown nonempty database schemas and unsupported
 user_version; do not silently reset. Query blob length before allocating on load,
 reject oversize before commit, preserve old committed value on any failure.
@@ -98,7 +102,10 @@ cleanup; successful takeover cancels old task, stale disconnect cannot remove ne
 session. Notifications wake connected recipients after committed handle/connect,
 but not empty poll (no busy loop). CONNECT must await committed response before
 CONNACK; bound outgoing buffers, reads, writes, keepalive, shutdown and work queue.
-Avoid write/read starvation. Graceful shutdown joins network and worker. Preserve
+Avoid write/read starvation. On takeover/shutdown/timeout/error, terminate the dedicated socket writer rather
+draining old data frames; persisted outboxes are replayed on reconnect. Only a
+protocol-rejection CONNACK needs a bounded explicit flush before close. Graceful
+shutdown joins network and worker. Preserve
 legacy tests; add durable worker integration tests as needed.
 
 ## Coordinator executable
@@ -128,3 +135,23 @@ Whole snapshot cloning/serialization is intentionally simple and costly; benchma
 row-level migrations, disk quota/compaction and cross-process readers remain future.
 
 Contract clarification 2026-10-28: storage tests reproduced DatabaseBusy from OS-locking the SQLite DB inode; use a permanent canonical-path sidecar advisory lock instead. API and commit semantics unchanged.
+
+## Schema1 concrete representation (implementation freeze)
+SQLite application_id=0x524d5154, user_version=1. Exactly one application table:
+`broker_snapshot(id INTEGER PRIMARY KEY CHECK(id=1), schema_version INTEGER NOT NULL CHECK(schema_version=1), data BLOB NOT NULL)`.
+The store's canonical CREATE TABLE definition is checked on reopen. The optional
+singleton row has id1/schema_version1 and a bounded UTF8 JSON BLOB.
+
+JSON envelope fields: `schema_version:1`, `sessions:SessionRecord[]`.
+Each SessionRecord has `client_id:string`, `subscriptions:[string,u8][]`,
+`incoming:[u16,u8[]][]`, `outgoing:OutgoingRecord[]`, `queued:Message[]`.
+Messages have `topic:string`, `payload:u8[]`, `qos:u8`.
+OutgoingRecord has `packet_id:u16`, `stage` using serde's externally tagged values:
+`{"Ack":[wire bytes]}` waits PUBACK; `{"Receipt":[wire bytes]}` waits PUBREC;
+`"Comp"` waits PUBCOMP with no PUBLISH bytes. Outgoing array order is original send
+order, not sorted Packet ID order. Wire bytes are complete protocol-validated MQTT
+PUBLISH with actual assigned nonzero ID and DUP=false; incoming bytes hold original
+QoS2 PUBLISH. JSON u8 arrays contain integers0..255. Unknown fields/duplicates or
+invalid values fail restoration where model invariants require uniqueness. Any
+future incompatible record change requires explicit schema migration/versioning;
+no serde/private-enum rename may silently reinterpret existing version1 data.
