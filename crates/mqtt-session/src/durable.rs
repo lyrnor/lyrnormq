@@ -2,7 +2,8 @@
 //! clone the engine, apply an event, call snapshot, durably commit those bytes,
 //! then install the clone and send its packets. Discard a proposal on any error.
 //! Neither method success nor serialized bytes alone establish durability.
-use crate::{AckAction, AckKind, IncomingQos2, OutgoingQos, OutgoingState, SessionError};
+use crate::outgoing::OutgoingState;
+use crate::{AckAction, AckKind, IncomingQos2, OutgoingQos, SessionError};
 use mqtt_protocol::{Packet, decode, encode};
 use mqtt_router::{Router, validate_filter};
 use serde::{Deserialize, Serialize};
