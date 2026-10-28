@@ -402,12 +402,19 @@ fn typed_truncation_and_wrong_context_are_malformed_not_partial_success() {
             b"\x11\x00\x00\x00\x01".as_slice(),
         ),
     ] {
+        let mut values = vec![property];
+        let mut fields = raw.to_vec();
+        if matches!(context, Context::Auth) {
+            // Isolate the misplaced property from AUTH's independent method requirement.
+            values.insert(0, Property::AuthenticationMethod("PLAIN".into()));
+            fields.splice(0..0, b"\x15\x00\x05PLAIN".iter().copied());
+        }
         assert!(matches!(
-            encode_frame(&frame(context, vec![property])),
+            encode_frame(&frame(context, values)),
             Err(ProtocolError::Malformed(_))
         ));
         assert!(matches!(
-            decode_frame(&bytes(context, raw), 4096, Some(ProtocolVersion::V5)),
+            decode_frame(&bytes(context, &fields), 4096, Some(ProtocolVersion::V5)),
             Err(ProtocolError::Malformed(_))
         ));
     }
