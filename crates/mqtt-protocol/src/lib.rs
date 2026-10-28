@@ -3,6 +3,7 @@
 //! Session persistence policy belongs to the runtime, not the packet codec.
 
 mod codec;
+mod connect_limits;
 mod error;
 mod frame;
 mod packet;
@@ -13,6 +14,7 @@ mod v5;
 mod wire;
 
 pub use codec::{decode, encode};
+pub use connect_limits::peek_connect_maximum_packet_size;
 pub use error::ProtocolError;
 pub use frame::{Frame, ProtocolVersion};
 pub use packet::{Packet, Will};
