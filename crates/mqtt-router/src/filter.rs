@@ -62,7 +62,15 @@ pub(super) fn valid_topic(topic: &str) -> bool {
 /// Match a valid filter against a valid Topic Name. Root wildcards do not match
 /// names starting with `$`; an explicit `$` first level is required.
 pub fn matches(filter: &str, topic: &str) -> bool {
-    if !validate_filter(filter) || !valid_topic(topic) {
+    if !validate_filter(filter) {
+        return false;
+    }
+    matches_topic_filter(filter, topic)
+}
+
+/// Match a plain Topic pattern literally, including a `$share/`-looking prefix.
+pub fn matches_topic_filter(filter: &str, topic: &str) -> bool {
+    if !validate_topic_filter(filter) || !valid_topic(topic) {
         return false;
     }
     if topic.starts_with('$') && matches!(filter.split('/').next(), Some("+" | "#")) {

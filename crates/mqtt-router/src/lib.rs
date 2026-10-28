@@ -9,7 +9,7 @@ pub mod retained;
 mod trie;
 
 pub use filter::{
-    matches, split_shared_filter, validate_filter, validate_subscription_filter,
-    validate_topic_filter,
+    matches, matches_topic_filter, split_shared_filter, validate_filter,
+    validate_subscription_filter, validate_topic_filter,
 };
 pub use trie::Router;

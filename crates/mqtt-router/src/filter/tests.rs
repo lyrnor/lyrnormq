@@ -71,3 +71,13 @@ fn shared_filter_grammar_and_literal_inner_patterns() {
     assert!(validate_subscription_filter("a/+"));
     assert!(validate_subscription_filter("$share"));
 }
+
+#[test]
+fn plain_pattern_matcher_keeps_share_names_literal_and_system_isolated() {
+    assert!(matches_topic_filter("$share/g/#", "$share/g/x"));
+    assert!(!matches("$share/g/#", "$share/g/x"));
+    assert!(!matches_topic_filter("#", "$share/g/x"));
+    assert!(!matches_topic_filter("+/#", "$SYS/x"));
+    assert!(matches_topic_filter("$SYS/#", "$SYS/x"));
+    assert!(!matches_topic_filter("$share/g/#", "x"));
+}
