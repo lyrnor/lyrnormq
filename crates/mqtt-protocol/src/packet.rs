@@ -1,11 +1,22 @@
 //! MQTT control packet data model.
 
+/// Connection-associated publication sent when the connection ends abnormally.
+/// Payload bytes are opaque and the MQTT CONNECT field is limited to 65,535 bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Will {
+    pub topic: String,
+    pub payload: Vec<u8>,
+    pub qos: u8,
+    pub retain: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Packet {
     Connect {
         client_id: String,
         clean_session: bool,
         keep_alive: u16,
+        will: Option<Will>,
     },
     ConnAck {
         session_present: bool,

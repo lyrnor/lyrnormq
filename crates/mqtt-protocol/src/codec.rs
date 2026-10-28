@@ -1,6 +1,6 @@
 //! Incremental wire decoding, encoding and protocol validation.
 
-use crate::{Packet, ProtocolError};
+use crate::{Packet, ProtocolError, Will};
 
 fn malformed(s: &str) -> ProtocolError {
     ProtocolError::Malformed(s.into())
@@ -84,9 +84,6 @@ pub fn decode(
         if qos == 3 || (qos == 0 && flags & 8 != 0) {
             return Err(malformed("invalid PUBLISH flags"));
         }
-        if flags & 1 != 0 {
-            return Err(unsupported("retained publish"));
-        }
     }
     let mut remaining = 0usize;
     let mut header_len = 1;
@@ -133,18 +130,33 @@ pub fn decode(
             {
                 return Err(malformed("invalid CONNECT flags"));
             }
-            if flags & 0xfc != 0 {
-                return Err(unsupported("Will or credentials"));
+            if flags & 0xc0 != 0 {
+                return Err(unsupported("credentials"));
             }
             let keep_alive = r.u16()?;
             let client_id = r.string()?;
             if client_id.is_empty() {
                 return Err(unsupported("server-assigned client identifier"));
             }
+            let will = if flags & 4 != 0 {
+                let topic = r.string()?;
+                validate_topic(&topic)?;
+                let length = usize::from(r.u16()?);
+                let payload = r.take(length)?.to_vec();
+                Some(Will {
+                    topic,
+                    payload,
+                    qos: (flags >> 3) & 3,
+                    retain: flags & 0x20 != 0,
+                })
+            } else {
+                None
+            };
             Packet::Connect {
                 client_id,
                 clean_session: flags & 2 != 0,
                 keep_alive,
+                will,
             }
         }
         2 => {
@@ -170,7 +182,7 @@ pub fn decode(
                 qos,
                 packet_id,
                 dup: flags & 8 != 0,
-                retain: false,
+                retain: flags & 1 != 0,
             }
         }
         4 => Packet::PubAck { packet_id: r.id()? },
@@ -265,8 +277,19 @@ fn validate_id(id: u16) -> Result<(), ProtocolError> {
 /// bytes are opaque; checking metadata must never clone an application payload.
 fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
     match packet {
-        Packet::Connect { client_id, .. } => {
+        Packet::Connect {
+            client_id, will, ..
+        } => {
             validate_string(client_id)?;
+            if let Some(will) = will {
+                validate_topic(&will.topic)?;
+                if will.qos > 2 {
+                    return Err(malformed("invalid Will QoS"));
+                }
+                if will.payload.len() > usize::from(u16::MAX) {
+                    return Err(malformed("Will payload too long"));
+                }
+            }
             if client_id.is_empty() {
                 return Err(unsupported("server-assigned client identifier"));
             }
@@ -285,16 +308,13 @@ fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
             qos,
             packet_id,
             dup,
-            retain,
+            ..
         } => {
             if *qos > 2 || (*qos == 0 && (*dup || packet_id.is_some())) {
                 return Err(malformed("invalid PUBLISH flags or packet identifier"));
             }
             if *qos != 0 {
                 validate_id(packet_id.ok_or_else(|| malformed("missing packet identifier"))?)?;
-            }
-            if *retain {
-                return Err(unsupported("retained publish"));
             }
             validate_topic(topic)?;
             // Reject impossible wire lengths before allocating a second payload.
@@ -354,11 +374,23 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
             client_id,
             clean_session,
             keep_alive,
+            will,
         } => {
             string(&mut body, "MQTT")?;
-            body.extend([4, if *clean_session { 2 } else { 0 }]);
+            let mut flags = if *clean_session { 2 } else { 0 };
+            if let Some(will) = will {
+                flags |= 4 | (will.qos << 3) | (u8::from(will.retain) << 5);
+            }
+            body.extend([4, flags]);
             body.extend(keep_alive.to_be_bytes());
             string(&mut body, client_id)?;
+            if let Some(will) = will {
+                string(&mut body, &will.topic)?;
+                let length = u16::try_from(will.payload.len())
+                    .map_err(|_| malformed("Will payload too long"))?;
+                body.extend(length.to_be_bytes());
+                body.extend(&will.payload);
+            }
             0x10
         }
         Packet::ConnAck {

@@ -5,6 +5,7 @@ fn packets() -> Vec<Packet> {
             client_id: "client-1".into(),
             clean_session: true,
             keep_alive: 30,
+            will: None,
         },
         Packet::ConnAck {
             session_present: false,
@@ -141,6 +142,7 @@ fn connect_clean_and_persistent_flags_roundtrip_and_fragment() {
             client_id: "persistent-client".into(),
             clean_session,
             keep_alive: 45,
+            will: None,
         };
         let bytes = encode(&packet).unwrap();
         assert_eq!(bytes[9], if clean_session { 2 } else { 0 });
@@ -153,6 +155,7 @@ fn connect_clean_and_persistent_flags_roundtrip_and_fragment() {
                 client_id: String::new(),
                 clean_session,
                 keep_alive: 45,
+                will: None,
             })
             .is_err()
         );
@@ -181,6 +184,7 @@ fn connect_rejections_and_version() {
         client_id: "c".into(),
         clean_session: true,
         keep_alive: 0,
+        will: None,
     };
     let base = encode(&p).unwrap();
     let mut b = base.clone();
@@ -191,7 +195,7 @@ fn connect_rejections_and_version() {
         b[9] = flags;
         assert!(matches!(decode(&b, 1024), Err(ProtocolError::Malformed(_))));
     }
-    for flags in [6, 0x82, 0xc2] {
+    for flags in [0x82, 0xc2] {
         let mut b = base.clone();
         b[9] = flags;
         assert!(matches!(
@@ -201,13 +205,19 @@ fn connect_rejections_and_version() {
     }
 }
 #[test]
-fn unsupported_publish_features() {
-    for h in [0x31, 0x33, 0x35] {
-        assert!(matches!(
-            decode(&[h, 0], 1024),
-            Err(ProtocolError::UnsupportedFeature(_))
-        ));
-    }
+fn will_flag_without_payload_is_malformed() {
+    let mut bytes = encode(&Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: None,
+    })
+    .unwrap();
+    bytes[9] |= 4;
+    assert!(matches!(
+        decode(&bytes, 1024),
+        Err(ProtocolError::Malformed(_))
+    ));
 }
 #[test]
 fn encoder_checks_invariants() {
@@ -268,6 +278,10 @@ fn qos_publish_wire_fields() {
         (0x3a, 1, true),
         (0x34, 2, false),
         (0x3c, 2, true),
+        (0x33, 1, false),
+        (0x3b, 1, true),
+        (0x35, 2, false),
+        (0x3d, 2, true),
     ] {
         let bytes = [header, 6, 0, 1, b'a', 0, 42, 255];
         let packet = Packet::Publish {
@@ -276,7 +290,7 @@ fn qos_publish_wire_fields() {
             qos,
             packet_id: Some(42),
             dup,
-            retain: false,
+            retain: header & 1 != 0,
         };
         assert_eq!(decode(&bytes, 1024), Ok(Some((packet.clone(), 8))));
         assert_eq!(encode(&packet).unwrap(), bytes);
@@ -354,17 +368,6 @@ fn encoder_qos_combinations() {
             Err(ProtocolError::Malformed(_))
         ));
     }
-    assert!(matches!(
-        encode(&Packet::Publish {
-            topic: "a".into(),
-            payload: vec![],
-            qos: 1,
-            packet_id: Some(1),
-            dup: false,
-            retain: true
-        }),
-        Err(ProtocolError::UnsupportedFeature(_))
-    ));
 }
 #[test]
 fn encoder_metadata_validation_without_decoding() {
@@ -373,11 +376,13 @@ fn encoder_metadata_validation_without_decoding() {
             client_id: "".into(),
             clean_session: true,
             keep_alive: 0,
+            will: None,
         },
         Packet::Connect {
             client_id: "a\0".into(),
             clean_session: true,
             keep_alive: 0,
+            will: None,
         },
         Packet::ConnAck {
             session_present: true,
@@ -435,4 +440,182 @@ fn encoder_metadata_validation_without_decoding() {
     for packet in invalid {
         assert!(encode(&packet).is_err(), "{packet:?}");
     }
+}
+
+#[test]
+fn retained_publish_wire_roundtrip() {
+    for qos in 0..=2 {
+        let packet = Packet::Publish {
+            topic: "retained/state".into(),
+            payload: vec![0, 255, 42],
+            qos,
+            packet_id: if qos == 0 { None } else { Some(7) },
+            dup: false,
+            retain: true,
+        };
+        let wire = encode(&packet).unwrap();
+        assert_eq!(wire[0] & 1, 1);
+        assert_eq!(decode(&wire, 1024).unwrap(), Some((packet, wire.len())));
+    }
+}
+
+#[test]
+fn binary_will_connect_wire_is_supported() {
+    let bytes = [
+        0x10, 21, 0, 4, b'M', b'Q', b'T', b'T', 4, 0x2e, 0, 30, 0, 1, b'c', 0, 1, b't', 0, 3, 0xff,
+        0, b'a',
+    ];
+    assert!(
+        decode(&bytes, 1024).is_ok(),
+        "binary Will must not be interpreted as UTF8"
+    );
+}
+
+#[test]
+fn will_roundtrip_flags_binary_payload_and_all_fragments() {
+    for clean_session in [false, true] {
+        for qos in 0..=2 {
+            for retain in [false, true] {
+                for payload in [vec![], vec![0, 0xff, 0x80], b"last status".to_vec()] {
+                    let packet = Packet::Connect {
+                        client_id: "will-client".into(),
+                        clean_session,
+                        keep_alive: 42,
+                        will: Some(Will {
+                            topic: "last/温度".into(),
+                            payload,
+                            qos,
+                            retain,
+                        }),
+                    };
+                    let wire = encode(&packet).unwrap();
+                    assert_eq!(
+                        wire[9],
+                        (u8::from(clean_session) * 2) | 4 | (qos << 3) | (u8::from(retain) << 5)
+                    );
+                    for cut in 0..wire.len() {
+                        assert_eq!(decode(&wire[..cut], wire.len()).unwrap(), None);
+                    }
+                    assert_eq!(
+                        decode(&wire, wire.len()).unwrap(),
+                        Some((packet, wire.len()))
+                    );
+                    assert_eq!(
+                        decode(&wire, wire.len() - 1),
+                        Err(ProtocolError::PacketTooLarge)
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn will_wire_fields_and_u16_payload_boundaries() {
+    let wire = [
+        0x10, 21, 0, 4, b'M', b'Q', b'T', b'T', 4, 0x2e, 0, 30, 0, 1, b'c', 0, 1, b't', 0, 3, 0xff,
+        0, b'a',
+    ];
+    let packet = Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 30,
+        will: Some(Will {
+            topic: "t".into(),
+            payload: vec![0xff, 0, b'a'],
+            qos: 1,
+            retain: true,
+        }),
+    };
+    assert_eq!(
+        decode(&wire, 1024).unwrap(),
+        Some((packet.clone(), wire.len()))
+    );
+    assert_eq!(encode(&packet).unwrap(), wire);
+    for size in [65535, 65536] {
+        let packet = Packet::Connect {
+            client_id: "large-will".into(),
+            clean_session: false,
+            keep_alive: 0,
+            will: Some(Will {
+                topic: "a".into(),
+                payload: vec![255; size],
+                qos: 2,
+                retain: false,
+            }),
+        };
+        if size == 65535 {
+            let wire = encode(&packet).unwrap();
+            assert_eq!(
+                decode(&wire, wire.len()).unwrap(),
+                Some((packet, wire.len()))
+            );
+        } else {
+            assert!(matches!(encode(&packet), Err(ProtocolError::Malformed(_))));
+        }
+    }
+}
+
+#[test]
+fn will_rejects_invalid_flags_topics_and_truncated_binary_fields() {
+    let base = encode(&Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: Some(Will {
+            topic: "t".into(),
+            payload: vec![0, 255],
+            qos: 0,
+            retain: false,
+        }),
+    })
+    .unwrap();
+    for flags in [0x07, 0x1e, 0x0a, 0x12, 0x22] {
+        let mut wire = base.clone();
+        wire[9] = flags;
+        assert!(
+            matches!(decode(&wire, 1024), Err(ProtocolError::Malformed(_))),
+            "flags {flags}"
+        );
+    }
+    // The complete frame declares a Will binary field longer than the bytes it contains.
+    let mut wire = base.clone();
+    wire[19] = 3;
+    assert!(matches!(
+        decode(&wire, 1024),
+        Err(ProtocolError::Malformed(_))
+    ));
+    // Will topic is UTF8, unlike its payload, and cannot be empty or contain wildcards.
+    for topic in ["", "a/+", "a/#", "a\0b", "\u{ffff}"] {
+        let packet = Packet::Connect {
+            client_id: "c".into(),
+            clean_session: true,
+            keep_alive: 0,
+            will: Some(Will {
+                topic: topic.into(),
+                payload: vec![],
+                qos: 0,
+                retain: false,
+            }),
+        };
+        assert!(matches!(encode(&packet), Err(ProtocolError::Malformed(_))));
+    }
+    let mut wire = base.clone();
+    wire[17] = 0xff;
+    assert!(matches!(
+        decode(&wire, 1024),
+        Err(ProtocolError::Malformed(_))
+    ));
+    let invalid = Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: Some(Will {
+            topic: "a".into(),
+            payload: vec![],
+            qos: 3,
+            retain: false,
+        }),
+    };
+    assert!(matches!(encode(&invalid), Err(ProtocolError::Malformed(_))));
 }
