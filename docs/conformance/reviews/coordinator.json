@@ -1,0 +1,106 @@
+{
+  "reviewer": "coordinator",
+  "source_commit": "a3aa79c",
+  "verification": [
+    "Read-only official-source and TCP-only configuration scope review; reviewed candidate paragraphs by stable hash."
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-4.2.0-1",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Source index alias of body MQTT-4.2-1. This is not a second implementation obligation and is excluded from any conformance percentage."
+    },
+    {
+      "id": "MQTT-6.0.0-1",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket transport obligation. This broker exposes TCP only and does not claim WebSocket support; enabling WebSocket requires a new audit."
+    },
+    {
+      "id": "MQTT-6.0.0-2",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket transport obligation. This broker exposes TCP only and does not claim WebSocket support; enabling WebSocket requires a new audit."
+    },
+    {
+      "id": "MQTT-6.0.0-3",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket transport obligation. This broker exposes TCP only and does not claim WebSocket support; enabling WebSocket requires a new audit."
+    },
+    {
+      "id": "MQTT-6.0.0-4",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket transport obligation. This broker exposes TCP only and does not claim WebSocket support; enabling WebSocket requires a new audit."
+    },
+    {
+      "id": "U-1.2-a5b23ef7f9a6",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inventory candidate is terminology/keyword definition, not a distinct executable broker requirement. Retained for transparent candidate screening."
+    },
+    {
+      "id": "U-1.2-1128ee96d42f",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inventory candidate is terminology/keyword definition, not a distinct executable broker requirement. Retained for transparent candidate screening."
+    },
+    {
+      "id": "U-1.2-83c39e319ac7",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inventory candidate is terminology/keyword definition, not a distinct executable broker requirement. Retained for transparent candidate screening."
+    },
+    {
+      "id": "U-1.6-2368af9559b8",
+      "status": "policy-exception",
+      "implementation": [
+        "crates/mqtt-auth/src/policy.rs:StaticPolicy",
+        "crates/mqtt-transport/src/config.rs:BrokerConfig"
+      ],
+      "tests": [
+        "crates/mqtt-auth/src/policy/tests.rs:authenticate_and_authorize_each_resource_kind"
+      ],
+      "note": "Authentication and authorization are implemented; encrypted transport remains absent. TCP loopback/protected deployment is explicit; no TLS or secure-transport claim."
+    },
+    {
+      "id": "U-4.12-6f20ecdda845",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client choice of initial mechanism data. Server supports both forms; this row does not certify an external client."
+    },
+    {
+      "id": "U-7.1.1-56088afba646",
+      "status": "test-gap",
+      "implementation": [],
+      "tests": [],
+      "note": "Overall server conformance cannot be established while rows remain unreviewed or lack evidence. No full conformance claim."
+    },
+    {
+      "id": "U-7.1.2-c62966e0c8e9",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client conformance declaration is outside this broker assessment."
+    }
+  ]
+}

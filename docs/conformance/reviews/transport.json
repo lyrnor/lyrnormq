@@ -1,0 +1,609 @@
+{
+  "reviewer": "transport",
+  "source_commit": "689624bc8a6e69df4c73963b17372129ee00d368",
+  "verification": [
+    "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
+    "cargo fmt --all -- --check: passed",
+    "cargo clippy --offline -p mqtt-transport --all-targets -- -D warnings: passed"
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.1.2-22",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_reason"
+      ],
+      "note": "Client Keep Alive1 closes after the configured 1.5 multiplier with8D; zero disables established receive deadline. No ServerKeepAlive override emitted. Transport75 pass."
+    },
+    {
+      "id": "MQTT-3.2.2-22",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_reason"
+      ],
+      "note": "Client Keep Alive1 closes after the configured 1.5 multiplier with8D; zero disables established receive deadline. No ServerKeepAlive override emitted. Transport75 pass."
+    },
+    {
+      "id": "MQTT-3.1.2-24",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-transport/src/durable.rs:connect_policy"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_positive_peer_maximum_is_accepted_at_exact_connack_boundary",
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:exact_final_data_cap_and_identity_change_fail_closed"
+      ],
+      "note": "Exact complete-frame writer cap covers data/control; mandatory and provider-final CONNACK size preflight. Unit tests execute real socket boundary."
+    },
+    {
+      "id": "MQTT-3.1.2-25",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:discard_oversized",
+        "crates/mqtt-transport/src/durable/network.rs:begin_output"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2g_tests.rs:peer_discard_preserves_retained_and_another_recipient",
+        "crates/mqtt-session/src/durable/phase2g_tests.rs:never_polled_tiny_peer_does_not_block_healthy_recipient_with_queue_one",
+        "crates/mqtt-session/src/durable/phase2g_tests.rs:resumed_oversize_backlog_does_not_block_fitting_admission_before_poll"
+      ],
+      "note": "Inspected discard_oversized plus actual focused Session phase2g test run. Oversize copies release outgoing stages/capacity without poisoning other recipients or retained globals; complete recipient cap obligation is tested independently of alias compression."
+    },
+    {
+      "id": "MQTT-3.1.2-26",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:OutboundAliases::prepare",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::topic_alias_writer_binds_reuses_replaces_and_keeps_input_map_independent",
+        "crates/mqtt-transport/src/durable/network.rs:tests::topic_alias_binding_cap_fallback_does_not_create_unsent_mapping"
+      ],
+      "note": "Outbound map budget min(peer,local); absent/zero peer value omits aliases. Real writer tests execute range/binding/fallback."
+    },
+    {
+      "id": "MQTT-3.1.2-27",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:OutboundAliases::prepare",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::topic_alias_writer_binds_reuses_replaces_and_keeps_input_map_independent",
+        "crates/mqtt-transport/src/durable/network.rs:tests::topic_alias_binding_cap_fallback_does_not_create_unsent_mapping"
+      ],
+      "note": "Outbound map budget min(peer,local); absent/zero peer value omits aliases. Real writer tests execute range/binding/fallback."
+    },
+    {
+      "id": "MQTT-3.1.2-28",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "ResponseInformation deliberately omitted for request0 and1 (MAY feature). RequestProblem0 produces no forbidden ReasonString/UserProperty on AUTH/SUBACK/PUBACK; PUBLISH application properties remain permitted."
+    },
+    {
+      "id": "MQTT-3.1.2-29",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "ResponseInformation deliberately omitted for request0 and1 (MAY feature). RequestProblem0 produces no forbidden ReasonString/UserProperty on AUTH/SUBACK/PUBACK; PUBLISH application properties remain permitted."
+    },
+    {
+      "id": "MQTT-3.1.2-30",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:incomplete_auth_cannot_takeover_existing_connection_or_accept_publish"
+      ],
+      "note": "This numbered obligation is Client-side; server independently rejects premature PUBLISH, and its own pre-success packet obligation is3.14.0-1."
+    },
+    {
+      "id": "MQTT-3.1.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_malformed_payload_obeys_already_valid_connect_maximum"
+      ],
+      "note": "Malformed CONNECT is refused/closed, and trusted maximum-packet-size prefix constrains error output. Codec validation delegated to mqtt-protocol."
+    },
+    {
+      "id": "MQTT-3.1.4-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable.rs:run_commands",
+        "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/auth_tests.rs:refused_authentication_flushes_connack_and_discards_pipeline_and_will",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect"
+      ],
+      "note": "Authentication refusal closes without processing pipelined application data; invalid initial exchange uses final refusal CONNACK."
+    },
+    {
+      "id": "MQTT-3.1.4-3",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable.rs:run_commands"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:takeover_removes_old_subscriptions_and_old_cleanup_is_safe"
+      ],
+      "note": "Implementation signals SessionTakenOver8E after commit; live Rust takeover regression exercises311. Existing MQTT5 external takeover coverage needs integration-run attribution before verified here."
+    },
+    {
+      "id": "MQTT-3.1.4-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "crates/mqtt-transport/src/durable/network.rs:tests::accepted_connack_precedes_priority_disconnect_for_invalid_pipeline",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect"
+      ],
+      "note": "Success CONNACK physically written before connected application flow; only AUTH challenges may precede acceptance. New failure-first preauth regression passes after fix."
+    },
+    {
+      "id": "MQTT-3.2.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "crates/mqtt-transport/src/durable/network.rs:tests::accepted_connack_precedes_priority_disconnect_for_invalid_pipeline",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect"
+      ],
+      "note": "Success CONNACK physically written before connected application flow; only AUTH challenges may precede acceptance. New failure-first preauth regression passes after fix."
+    },
+    {
+      "id": "MQTT-3.2.0-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::accepted_connack_precedes_priority_disconnect_for_invalid_pipeline"
+      ],
+      "note": "Connected path cannot dispatch another handshake; explicit repeated CONNECT after success test remains useful to lock single-CONNACK invariant."
+    },
+    {
+      "id": "MQTT-3.2.2-4",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-5",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-11",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-14",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-15",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-17",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-18",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-21",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Numbered duty belongs to Client endpoint, not this Server. Server parsing/enforcement is tracked separately; this is not a claim that arbitrary Client behavior was verified."
+    },
+    {
+      "id": "MQTT-3.2.2-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect"
+      ],
+      "note": "Refusal CONNACK SessionPresent=false followed by EOF, with no extra packet; four realTCP initial-auth rejection scenarios."
+    },
+    {
+      "id": "MQTT-3.2.2-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect"
+      ],
+      "note": "Refusal CONNACK SessionPresent=false followed by EOF, with no extra packet; four realTCP initial-auth rejection scenarios."
+    },
+    {
+      "id": "MQTT-3.2.2-8",
+      "status": "test-gap",
+      "implementation": [],
+      "tests": [],
+      "note": "Identifier occurs only in the OASIS requirement index with no requirement text; do not invent an implementation assertion. Requires explicit source anomaly handling in coordinator inventory."
+    },
+    {
+      "id": "MQTT-3.2.2-9",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos_is_downgraded_to_publication_and_subscription_minimum"
+      ],
+      "note": "Conditional reduced-QoS/retained-unavailable duties are inactive: this configured server supports all QoS and Retained. Omitted MaximumQoS means2; RetainAvailable omission means1. Not an unsupported-feature gap."
+    },
+    {
+      "id": "MQTT-3.2.2-10",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos_is_downgraded_to_publication_and_subscription_minimum"
+      ],
+      "note": "Conditional reduced-QoS/retained-unavailable duties are inactive: this configured server supports all QoS and Retained. Omitted MaximumQoS means2; RetainAvailable omission means1. Not an unsupported-feature gap."
+    },
+    {
+      "id": "MQTT-3.2.2-12",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos_is_downgraded_to_publication_and_subscription_minimum"
+      ],
+      "note": "Conditional reduced-QoS/retained-unavailable duties are inactive: this configured server supports all QoS and Retained. Omitted MaximumQoS means2; RetainAvailable omission means1. Not an unsupported-feature gap."
+    },
+    {
+      "id": "MQTT-3.2.2-13",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos_is_downgraded_to_publication_and_subscription_minimum"
+      ],
+      "note": "Conditional reduced-QoS/retained-unavailable duties are inactive: this configured server supports all QoS and Retained. Omitted MaximumQoS means2; RetainAvailable omission means1. Not an unsupported-feature gap."
+    },
+    {
+      "id": "MQTT-3.2.2-16",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable.rs:assigned_identifier_with",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::assigned_identifier",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key",
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_assigned_connack_must_fit_and_explicit_identifier_has_no_assignment",
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id"
+      ],
+      "note": "Assigned key includes active/pending reservations, is returned on empty-ID success and used for normal session/auth identity. Generation collision bounds covered by existing worker tests."
+    },
+    {
+      "id": "MQTT-3.2.2-19",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "No ReasonString/UserProperty diagnostic properties are emitted by current CONNACK builder. Complete-frame maximum enforced even if future fields enlarge it."
+    },
+    {
+      "id": "MQTT-3.2.2-20",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "No ReasonString/UserProperty diagnostic properties are emitted by current CONNACK builder. Complete-frame maximum enforced even if future fields enlarge it."
+    },
+    {
+      "id": "MQTT-3.14.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
+        "crates/mqtt-transport/src/enhanced_tests.rs:initial_enhanced_deadline_reports_authentication_failure"
+      ],
+      "note": "ACTUAL MUST GAP FIXED: preauth unexpected PING/changed method/malformed AUTH/absolute deadline formerly emitted DISCONNECT. Failure-first log /tmp/rmqtt-p2k-transport-red.log; now failure CONNACK or silent close if not legal/fitting. Established error path remains DISCONNECT."
+    },
+    {
+      "id": "MQTT-3.14.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:spawn_writer",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::terminal_finishes_current_frame_then_discards_queue_and_unwritten_ack_credit",
+        "crates/mqtt-transport/src/durable/network.rs:tests::terminal_timeout_bounds_blocked_current_frame_and_closes_instead_of_appending"
+      ],
+      "note": "Terminal writer finishes only the already-started frame, sends terminal once, discards queued work and closes within bounded timeout; no packet starts after DISCONNECT."
+    },
+    {
+      "id": "MQTT-3.14.4-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:spawn_writer",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::terminal_finishes_current_frame_then_discards_queue_and_unwritten_ack_credit",
+        "crates/mqtt-transport/src/durable/network.rs:tests::terminal_timeout_bounds_blocked_current_frame_and_closes_instead_of_appending"
+      ],
+      "note": "Terminal writer finishes only the already-started frame, sends terminal once, discards queued work and closes within bounded timeout; no packet starts after DISCONNECT."
+    },
+    {
+      "id": "MQTT-3.14.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-session/src/durable/lifecycle.rs:disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:tests::nonzero_disconnect_reason_fires_will_while_normal_zero_cancels"
+      ],
+      "note": "RealTCP normal0 suppresses Will; nonzero abnormal reason retains Will behavior. Lifecycle persisted details tracked by Session owner."
+    },
+    {
+      "id": "MQTT-4.9.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:Credits",
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos2_full_outgoing_window_keeps_ack_reads_live",
+        "crates/mqtt-transport/src/durable/network.rs:tests::credits_hold_qos2_until_pubcomp_and_never_release_reused_id_from_stale_ack",
+        "crates/mqtt-transport/src/durable/network.rs:tests::actual_ack_write_releases_ticket",
+        "crates/mqtt-transport/src/durable/network.rs:tests::excess_inbound_qos2_sends_receive_maximum_reason"
+      ],
+      "note": "Connection quotas retain QoS2 credit through completion; control progress stays live at zero quota, stale ACK tickets cannot free a reused identifier. New connection quotas reset with credits."
+    },
+    {
+      "id": "MQTT-4.9.0-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:Credits",
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos2_full_outgoing_window_keeps_ack_reads_live",
+        "crates/mqtt-transport/src/durable/network.rs:tests::credits_hold_qos2_until_pubcomp_and_never_release_reused_id_from_stale_ack",
+        "crates/mqtt-transport/src/durable/network.rs:tests::actual_ack_write_releases_ticket",
+        "crates/mqtt-transport/src/durable/network.rs:tests::excess_inbound_qos2_sends_receive_maximum_reason"
+      ],
+      "note": "Connection quotas retain QoS2 credit through completion; control progress stays live at zero quota, stale ACK tickets cannot free a reused identifier. New connection quotas reset with credits."
+    },
+    {
+      "id": "MQTT-4.9.0-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:Credits",
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:qos2_full_outgoing_window_keeps_ack_reads_live",
+        "crates/mqtt-transport/src/durable/network.rs:tests::credits_hold_qos2_until_pubcomp_and_never_release_reused_id_from_stale_ack",
+        "crates/mqtt-transport/src/durable/network.rs:tests::actual_ack_write_releases_ticket",
+        "crates/mqtt-transport/src/durable/network.rs:tests::excess_inbound_qos2_sends_receive_maximum_reason"
+      ],
+      "note": "Connection quotas retain QoS2 credit through completion; control progress stays live at zero quota, stale ACK tickets cannot free a reused identifier. New connection quotas reset with credits."
+    },
+    {
+      "id": "MQTT-4.12.0-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process"
+      ],
+      "tests": [],
+      "note": "Unknown/disabled method returns8C and handshake refusal closes, inspected. Direct unit manager does not currently execute unsupported-method variant; external enhanced_auth_blackbox.py covers this and must be run on integrated artifact."
+    },
+    {
+      "id": "MQTT-4.12.0-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-transport/src/durable/enhanced.rs:success_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:initial_plain_direct_challenge_cancel_and_sequence"
+      ],
+      "note": "Challenges use18, same method accompanies AUTH and successful CONNACK, rejected initial exchange ends without session creation. Failed CONNACK may omit method."
+    },
+    {
+      "id": "MQTT-4.12.0-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-transport/src/durable/enhanced.rs:success_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:initial_plain_direct_challenge_cancel_and_sequence"
+      ],
+      "note": "Challenges use18, same method accompanies AUTH and successful CONNACK, rejected initial exchange ends without session creation. Failed CONNACK may omit method."
+    },
+    {
+      "id": "MQTT-4.12.0-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-transport/src/durable/enhanced.rs:success_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:initial_plain_direct_challenge_cancel_and_sequence"
+      ],
+      "note": "Challenges use18, same method accompanies AUTH and successful CONNACK, rejected initial exchange ends without session creation. Failed CONNACK may omit method."
+    },
+    {
+      "id": "MQTT-4.12.0-3",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:stale_generation_and_missing_method_cannot_reauthenticate"
+      ],
+      "note": "These numbered duties specify Client behavior. Server guards malformed sequence/method independently; do not mark a client MUST as server implementation coverage."
+    },
+    {
+      "id": "MQTT-4.12.0-7",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:stale_generation_and_missing_method_cannot_reauthenticate"
+      ],
+      "note": "These numbered duties specify Client behavior. Server guards malformed sequence/method independently; do not mark a client MUST as server implementation coverage."
+    },
+    {
+      "id": "MQTT-4.12.1-1",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:stale_generation_and_missing_method_cannot_reauthenticate"
+      ],
+      "note": "These numbered duties specify Client behavior. Server guards malformed sequence/method independently; do not mark a client MUST as server implementation coverage."
+    },
+    {
+      "id": "MQTT-4.12.0-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:stale_generation_and_missing_method_cannot_reauthenticate",
+        "crates/mqtt-transport/src/durable/network.rs:tests::phase2h_identifier_capability_preserves_handshake_size_and_other_limits"
+      ],
+      "note": "Basic CONNACK has only capability properties and no AuthenticationMethod. No established enhanced manager entry exists for basic authentication; unsolicited AUTH cannot elicit server AUTH."
+    },
+    {
+      "id": "MQTT-4.12.1-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:reauthentication_reason",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:wrong_reauthentication_flushes_legal_reason_and_fires_will",
+        "crates/mqtt-transport/src/enhanced_tests.rs:reauth_timeout_is_absolute_despite_ping_traffic"
+      ],
+      "note": "Reauth failure sends legal87, closes and follows abnormal Will behavior; absolute deadline unaffected by ping traffic."
+    },
+    {
+      "id": "MQTT-4.13.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:protocol_reason",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:spawn_writer"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
+        "crates/mqtt-transport/src/durable/network.rs:tests::excess_inbound_qos2_sends_receive_maximum_reason"
+      ],
+      "note": "Checked malformed/protocol closure and terminal transport behavior in selected packet paths, not proof all malformed grammar combinations are covered. Initial refusal packet context fixed."
+    },
+    {
+      "id": "MQTT-4.13.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:protocol_reason",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:spawn_writer"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
+        "crates/mqtt-transport/src/durable/network.rs:tests::excess_inbound_qos2_sends_receive_maximum_reason"
+      ],
+      "note": "Checked malformed/protocol closure and terminal transport behavior in selected packet paths, not proof all malformed grammar combinations are covered. Initial refusal packet context fixed."
+    }
+  ]
+}

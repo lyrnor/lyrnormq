@@ -1,0 +1,701 @@
+{
+  "reviewer": "protocol",
+  "source_commit": "81926bb3f5f005e22ffed69e42ac1a9d03fd6da7",
+  "verification": [
+    "cargo test --offline -p mqtt-protocol: 57 passed",
+    "cargo fmt --all -- --check: passed",
+    "cargo clippy --offline -p mqtt-protocol --all-targets -- -D warnings: passed"
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-1.5.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "Shared UTF-8 scalar/NUL validation and byte-preserving BOM path exercised with independent malformed wire inputs and encoded properties."
+    },
+    {
+      "id": "MQTT-1.5.4-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "Shared UTF-8 scalar/NUL validation and byte-preserving BOM path exercised with independent malformed wire inputs and encoded properties."
+    },
+    {
+      "id": "MQTT-1.5.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "Shared UTF-8 scalar/NUL validation and byte-preserving BOM path exercised with independent malformed wire inputs and encoded properties."
+    },
+    {
+      "id": "MQTT-1.5.5-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/wire.rs:Reader::varint",
+        "crates/mqtt-protocol/src/wire.rs:varint",
+        "crates/mqtt-protocol/src/v5.rs:bounds"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected",
+        "crates/mqtt-protocol/src/v5/tests.rs:phase2h_all_valid_options_preserve_identifier_varint_boundaries"
+      ],
+      "note": "Wire/property integers reject redundant representations; identifier width boundaries are exercised. MQTT311 alone is outside this row."
+    },
+    {
+      "id": "MQTT-1.5.7-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "Property pair names and values use the same validated string path; both invalid pair members and preserved BOM bytes are exercised."
+    },
+    {
+      "id": "MQTT-2.1.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload",
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip"
+      ],
+      "note": "Every wrong reserved flag combination is rejected before payload wait; valid frame templates cover every packet type."
+    },
+    {
+      "id": "MQTT-2.2.1-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/topic_alias_tests.rs:binding_reference_rebinding_and_qos_flags_remain_wire_only",
+        "crates/mqtt-protocol/src/tests.rs:encoder_qos_combinations"
+      ],
+      "note": "QoS0 emits no identifier and rejects encoder packet-id metadata. Wire payload bytes cannot be interpreted as a separate QoS0 identifier field."
+    },
+    {
+      "id": "MQTT-2.2.1-3",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/codec.rs:validate_id"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected"
+      ],
+      "note": "Codec rejects zero identifiers; the client obligation and cross-command uniqueness require Session/Transport evidence beyond this codec audit."
+    },
+    {
+      "id": "MQTT-2.2.1-4",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/codec.rs:validate_id"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/tests.rs:encoder_qos_combinations"
+      ],
+      "note": "Codec enforces nonzero outgoing IDs; currently-unused assignment belongs to Session PacketIdentifiers, not a stateless encoder."
+    },
+    {
+      "id": "MQTT-2.2.1-5",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip"
+      ],
+      "note": "Wire ID retention is exercised; request/response ID equality needs Session response-generation and recovery evidence."
+    },
+    {
+      "id": "MQTT-2.2.1-6",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip"
+      ],
+      "note": "Wire ID retention is exercised; request/response ID equality needs Session response-generation and recovery evidence."
+    },
+    {
+      "id": "MQTT-2.2.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Mandatory empty property lengths and legal ACK/DISCONNECT abbreviation forms are exercised. AUTH shorthand is separately rejected when its method is absent."
+    },
+    {
+      "id": "MQTT-3.1.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-11",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-12",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-13",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-16",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-17",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-18",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.2-19",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:connect_conditional_fields_and_order_match_independent_wire_fixtures"
+      ],
+      "note": "Independent exact-byte V5 CONNECT fixtures check Will-properties/topic/binary payload/username/password ordering, legal password-without-username, malformed reserved/Will flags and missing/extra conditional fields."
+    },
+    {
+      "id": "MQTT-3.1.3-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:connect_properties_binary_password_and_will_round_trip",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "CONNECT fields are read/written using validated length-prefixed strings; complete-prefix/fragmentation tests exercise the conditional layout, common lexical guards exercise invalid scalars."
+    },
+    {
+      "id": "MQTT-3.1.3-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:connect_properties_binary_password_and_will_round_trip",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "CONNECT fields are read/written using validated length-prefixed strings; complete-prefix/fragmentation tests exercise the conditional layout, common lexical guards exercise invalid scalars."
+    },
+    {
+      "id": "MQTT-3.1.3-11",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:connect_properties_binary_password_and_will_round_trip",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "CONNECT fields are read/written using validated length-prefixed strings; complete-prefix/fragmentation tests exercise the conditional layout, common lexical guards exercise invalid scalars."
+    },
+    {
+      "id": "MQTT-3.1.3-12",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:connect_properties_binary_password_and_will_round_trip",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "CONNECT fields are read/written using validated length-prefixed strings; complete-prefix/fragmentation tests exercise the conditional layout, common lexical guards exercise invalid scalars."
+    },
+    {
+      "id": "MQTT-3.3.1-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected",
+        "crates/mqtt-protocol/src/v5/topic_alias_tests.rs:binding_reference_rebinding_and_qos_flags_remain_wire_only"
+      ],
+      "note": "QoS0 DUP is rejected by both encoder and early fixed-header decoder validation."
+    },
+    {
+      "id": "MQTT-3.3.1-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/topic_alias_tests.rs:binding_reference_rebinding_and_qos_flags_remain_wire_only"
+      ],
+      "note": "Reserved PUBLISH QoS3 combination is rejected; no state mutation depends on accepting it."
+    },
+    {
+      "id": "MQTT-3.3.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/v5.rs:topic",
+        "crates/mqtt-protocol/src/codec.rs:validate_topic"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/topic_alias_tests.rs:alias_syntax_does_not_bypass_utf8_or_topic_validation",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "First Topic field uses the common lexical validator; wildcard names are rejected and alias syntax cannot bypass topic validation."
+    },
+    {
+      "id": "MQTT-3.3.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/v5.rs:topic",
+        "crates/mqtt-protocol/src/codec.rs:validate_topic"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/topic_alias_tests.rs:alias_syntax_does_not_bypass_utf8_or_topic_validation",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "First Topic field uses the common lexical validator; wildcard names are rejected and alias syntax cannot bypass topic validation."
+    },
+    {
+      "id": "MQTT-3.3.2-13",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:response_topic_semantics_are_distinct_from_utf8_lexical_errors",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "ResponseTopic lexical malformed inputs remain distinct from empty/wildcard semantic protocol errors; BOM content is preserved."
+    },
+    {
+      "id": "MQTT-3.3.2-14",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:response_topic_semantics_are_distinct_from_utf8_lexical_errors",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "ResponseTopic lexical malformed inputs remain distinct from empty/wildcard semantic protocol errors; BOM content is preserved."
+    },
+    {
+      "id": "MQTT-3.3.2-19",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string",
+        "crates/mqtt-protocol/src/wire.rs:string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "ContentType uses the same validated string primitives and byte-preserving property round-trip."
+    },
+    {
+      "id": "MQTT-3.4.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:reason"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Per-packet legal reason sets inspected against the official packet tables; invalid context values fail both input and output, shorthand defaults are exercised where legal."
+    },
+    {
+      "id": "MQTT-3.5.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:reason"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Per-packet legal reason sets inspected against the official packet tables; invalid context values fail both input and output, shorthand defaults are exercised where legal."
+    },
+    {
+      "id": "MQTT-3.6.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:reason"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Per-packet legal reason sets inspected against the official packet tables; invalid context values fail both input and output, shorthand defaults are exercised where legal."
+    },
+    {
+      "id": "MQTT-3.7.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:reason"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Per-packet legal reason sets inspected against the official packet tables; invalid context values fail both input and output, shorthand defaults are exercised where legal."
+    },
+    {
+      "id": "MQTT-3.14.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:reason"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Per-packet legal reason sets inspected against the official packet tables; invalid context values fail both input and output, shorthand defaults are exercised where legal."
+    },
+    {
+      "id": "MQTT-3.15.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:reason"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-protocol/src/v5/tests.rs:omitted_ack_reason_and_properties_forms_decode"
+      ],
+      "note": "Per-packet legal reason sets inspected against the official packet tables; invalid context values fail both input and output, shorthand defaults are exercised where legal."
+    },
+    {
+      "id": "MQTT-3.6.1-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+      ],
+      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+    },
+    {
+      "id": "MQTT-3.8.1-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+      ],
+      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+    },
+    {
+      "id": "MQTT-3.10.1-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+      ],
+      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+    },
+    {
+      "id": "MQTT-3.14.1-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+      ],
+      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+    },
+    {
+      "id": "MQTT-3.15.1-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:check_flags"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+      ],
+      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+    },
+    {
+      "id": "MQTT-3.8.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:subscribe_and_unsubscribe_require_nonempty_valid_utf8_filter_lists"
+      ],
+      "note": "Independent raw fixtures reject empty lists, empty strings, NUL and invalid UTF8 in each V5 list; empty encoder lists are rejected."
+    },
+    {
+      "id": "MQTT-3.8.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:subscribe_and_unsubscribe_require_nonempty_valid_utf8_filter_lists"
+      ],
+      "note": "Independent raw fixtures reject empty lists, empty strings, NUL and invalid UTF8 in each V5 list; empty encoder lists are rejected."
+    },
+    {
+      "id": "MQTT-3.10.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:subscribe_and_unsubscribe_require_nonempty_valid_utf8_filter_lists"
+      ],
+      "note": "Independent raw fixtures reject empty lists, empty strings, NUL and invalid UTF8 in each V5 list; empty encoder lists are rejected."
+    },
+    {
+      "id": "MQTT-3.10.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:subscribe_and_unsubscribe_require_nonempty_valid_utf8_filter_lists"
+      ],
+      "note": "Independent raw fixtures reject empty lists, empty strings, NUL and invalid UTF8 in each V5 list; empty encoder lists are rejected."
+    },
+    {
+      "id": "MQTT-3.8.3-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:option"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reserved_subscription_bits_are_malformed_but_option_values_are_protocol_errors"
+      ],
+      "note": "Shared NL, option values and reserved-bit errors are distinguished by error class in direct raw-input and encoder tests."
+    },
+    {
+      "id": "MQTT-3.8.3-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:option"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reserved_subscription_bits_are_malformed_but_option_values_are_protocol_errors"
+      ],
+      "note": "Shared NL, option values and reserved-bit errors are distinguished by error class in direct raw-input and encoder tests."
+    },
+    {
+      "id": "MQTT-3.9.3-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions"
+      ],
+      "note": "Legal wire reason values are tested; one code per original request filter is a session/runtime obligation, not established by codec-only evidence."
+    },
+    {
+      "id": "MQTT-3.11.3-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions"
+      ],
+      "note": "Legal wire reason values are tested; one code per original request filter is a session/runtime obligation, not established by codec-only evidence."
+    },
+    {
+      "id": "MQTT-4.12.0-5",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:auth_requires_method_even_when_reason_and_properties_are_omitted"
+      ],
+      "note": "K3 fixed a confirmed codec gap: AUTH now always carries its method, including formerly accepted shorthand forms. Equality with CONNECT and enhanced success CONNACK context still require Transport evidence."
+    },
+    {
+      "id": "U-3.15.2.2.2-93da298b901a",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:auth_requires_method_even_when_reason_and_properties_are_omitted"
+      ],
+      "note": "K3 confirmed stateless codec gap fixed after failing regression: all AUTH forms require AuthenticationMethod, including RL0 and Data-only. Connection negotiation equality remains runtime-owned."
+    }
+  ]
+}

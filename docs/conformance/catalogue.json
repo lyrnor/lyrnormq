@@ -1,0 +1,2203 @@
+{
+  "source_url": "https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html",
+  "source_date": "2019-03-07",
+  "source_html_sha256": "16f24e2b021d86b3bbb2b39c8b5ee134b3d39f69320ba61d3c07a38af74e696c",
+  "source_charset": "windows-1252",
+  "scope": "Literal numbered identifiers (including appendix index anomalies), plus heuristic unnumbered paragraph candidates. This is not a complete inventory of every normative sentence or table cell.",
+  "numbered": [
+    {
+      "id": "MQTT-1.5.4-1",
+      "section": "1.5.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-1.5.4-2",
+      "section": "1.5.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-1.5.4-3",
+      "section": "1.5.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-1.5.5-1",
+      "section": "1.5.5",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-1.5.7-1",
+      "section": "1.5.7",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.1.3-1",
+      "section": "2.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.2.1-2",
+      "section": "2.2.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.2.1-3",
+      "section": "2.2.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.2.1-4",
+      "section": "2.2.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.2.1-5",
+      "section": "2.2.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.2.1-6",
+      "section": "2.2.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-2.2.2-1",
+      "section": "2.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.0-1",
+      "section": "3.1.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.0-2",
+      "section": "3.1.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-1",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-2",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-3",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-4",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-5",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-6",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-7",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-8",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-9",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-10",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-11",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-12",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-13",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-14",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-15",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-16",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-17",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-18",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-19",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-20",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-21",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-22",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-23",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-24",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-25",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-26",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-27",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-28",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-29",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.2-30",
+      "section": "3.1.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-1",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-2",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-3",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-4",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-5",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-6",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-7",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-8",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-9",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-10",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-11",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.3-12",
+      "section": "3.1.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.4-1",
+      "section": "3.1.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.4-2",
+      "section": "3.1.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.4-3",
+      "section": "3.1.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.4-4",
+      "section": "3.1.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.4-5",
+      "section": "3.1.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.1.4-6",
+      "section": "3.1.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.0-1",
+      "section": "3.2.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.0-2",
+      "section": "3.2.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-1",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-2",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-3",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-4",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-5",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-6",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-7",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-9",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-10",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-11",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-12",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-13",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-14",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-15",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-16",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-17",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-18",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-19",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-20",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-21",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-22",
+      "section": "3.2.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-1",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-2",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-3",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-4",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-5",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-6",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-7",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-8",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-9",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-10",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-11",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-12",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.1-13",
+      "section": "3.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-1",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-2",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-3",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-4",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-5",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-6",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-7",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-8",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-9",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-10",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-11",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-12",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-13",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-14",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-15",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-16",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-17",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-18",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-19",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.2-20",
+      "section": "3.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-1",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-2",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-3",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-4",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-5",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-6",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-7",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-8",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-9",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.3.4-10",
+      "section": "3.3.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.4.2-1",
+      "section": "3.4.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.4.2-2",
+      "section": "3.4.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.4.2-3",
+      "section": "3.4.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.5.2-1",
+      "section": "3.5.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.5.2-2",
+      "section": "3.5.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.5.2-3",
+      "section": "3.5.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.6.1-1",
+      "section": "3.6.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.6.2-1",
+      "section": "3.6.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.6.2-2",
+      "section": "3.6.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.6.2-3",
+      "section": "3.6.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.7.2-1",
+      "section": "3.7.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.7.2-2",
+      "section": "3.7.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.7.2-3",
+      "section": "3.7.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.1-1",
+      "section": "3.8.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.3-1",
+      "section": "3.8.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.3-2",
+      "section": "3.8.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.3-3",
+      "section": "3.8.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.3-4",
+      "section": "3.8.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.3-5",
+      "section": "3.8.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-1",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-2",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-3",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-4",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-5",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-6",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-7",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.8.4-8",
+      "section": "3.8.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.9.2-1",
+      "section": "3.9.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.9.2-2",
+      "section": "3.9.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.9.3-1",
+      "section": "3.9.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.9.3-2",
+      "section": "3.9.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.1-1",
+      "section": "3.10.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.3-1",
+      "section": "3.10.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.3-2",
+      "section": "3.10.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.4-1",
+      "section": "3.10.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.4-2",
+      "section": "3.10.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.4-3",
+      "section": "3.10.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.4-4",
+      "section": "3.10.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.4-5",
+      "section": "3.10.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.10.4-6",
+      "section": "3.10.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.11.2-1",
+      "section": "3.11.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.11.2-2",
+      "section": "3.11.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.11.3-1",
+      "section": "3.11.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.11.3-2",
+      "section": "3.11.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.12.4-1",
+      "section": "3.12.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.0-1",
+      "section": "3.14.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.1-1",
+      "section": "3.14.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.2-1",
+      "section": "3.14.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.2-2",
+      "section": "3.14.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.2-3",
+      "section": "3.14.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.2-4",
+      "section": "3.14.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.4-1",
+      "section": "3.14.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.4-2",
+      "section": "3.14.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.14.4-3",
+      "section": "3.14.4",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.15.1-1",
+      "section": "3.15.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.15.2-1",
+      "section": "3.15.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.15.2-2",
+      "section": "3.15.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.15.2-3",
+      "section": "3.15.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.1.0-1",
+      "section": "4.1.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.1.0-2",
+      "section": "4.1.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.2-1",
+      "section": "4.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.1-1",
+      "section": "4.3.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.2-1",
+      "section": "4.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.2-2",
+      "section": "4.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.2-3",
+      "section": "4.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.2-4",
+      "section": "4.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.2-5",
+      "section": "4.3.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-1",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-2",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-3",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-4",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-5",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-6",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-7",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-8",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-9",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-10",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-11",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-12",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.3.3-13",
+      "section": "4.3.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.4.0-1",
+      "section": "4.4.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.4.0-2",
+      "section": "4.4.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.5.0-1",
+      "section": "4.5.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.5.0-2",
+      "section": "4.5.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.6.0-1",
+      "section": "4.6.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.6.0-2",
+      "section": "4.6.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.6.0-3",
+      "section": "4.6.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.6.0-4",
+      "section": "4.6.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.6.0-5",
+      "section": "4.6.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.6.0-6",
+      "section": "4.6.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.0-1",
+      "section": "4.7.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.1-1",
+      "section": "4.7.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.1-2",
+      "section": "4.7.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.2-1",
+      "section": "4.7.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.3-1",
+      "section": "4.7.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.3-2",
+      "section": "4.7.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.3-3",
+      "section": "4.7.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.7.3-4",
+      "section": "4.7.3",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.8.2-1",
+      "section": "4.8.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.8.2-2",
+      "section": "4.8.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.8.2-3",
+      "section": "4.8.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.8.2-4",
+      "section": "4.8.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.8.2-5",
+      "section": "4.8.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.8.2-6",
+      "section": "4.8.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.9.0-1",
+      "section": "4.9.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.9.0-2",
+      "section": "4.9.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.9.0-3",
+      "section": "4.9.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-1",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-2",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-3",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-4",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-5",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-6",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.0-7",
+      "section": "4.12.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.1-1",
+      "section": "4.12.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.12.1-2",
+      "section": "4.12.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.13.1-1",
+      "section": "4.13.1",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-4.13.2-1",
+      "section": "4.13.2",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-6.0.0-1",
+      "section": "6.0.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-6.0.0-2",
+      "section": "6.0.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-6.0.0-3",
+      "section": "6.0.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-6.0.0-4",
+      "section": "6.0.0",
+      "source_occurrence": "body"
+    },
+    {
+      "id": "MQTT-3.2.2-8",
+      "section": "3.2.2",
+      "source_occurrence": "appendix-only"
+    },
+    {
+      "id": "MQTT-4.2.0-1",
+      "section": "4.2.0",
+      "source_occurrence": "appendix-only"
+    }
+  ],
+  "unnumbered_candidates": [
+    {
+      "id": "U-1.2-a5b23ef7f9a6",
+      "section": "1.2",
+      "source_block": 372,
+      "text_sha256": "a5b23ef7f9a6c7ff9bbff9b4d92a0e9f243ee5bd8d6d34f9c0237fc0cfcfe8b4",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-1.2-1128ee96d42f",
+      "section": "1.2",
+      "source_block": 420,
+      "text_sha256": "1128ee96d42f0d2b578affa09f03b6c91064f56ecdeafa35a604733a4ca53ddf",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-1.2-83c39e319ac7",
+      "section": "1.2",
+      "source_block": 423,
+      "text_sha256": "83c39e319ac7094a4f2c07154d632f37dcd846c6d4f95d773e22d3b754998e26",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-1.5.4-9af9517981ff",
+      "section": "1.5.4",
+      "source_block": 587,
+      "text_sha256": "9af9517981ffc42b603d375c843e3aeb3e584788b6d79e1ab3495600717d52d3",
+      "candidate_kinds": [
+        "rfc2119-keyword",
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-1.6-2368af9559b8",
+      "section": "1.6",
+      "source_block": 747,
+      "text_sha256": "2368af9559b856a9fbc50d41fe68278e5f2dcfec70b5034d6af9f85881c4efbb",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-2.2.2.2-808be0207bdd",
+      "section": "2.2.2.2",
+      "source_block": 1062,
+      "text_sha256": "808be0207bdd21d2c379a5550bf40f61b51d30e6b784b4a1b2a310fa544f5bb7",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-2.4-e30c3f2f8f2f",
+      "section": "2.4",
+      "source_block": 1308,
+      "text_sha256": "e30c3f2f8f2fadacc4586cf0dd6751f35ddb51fc3a9a41e995fe9c792757711f",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-2.4-eedd70418e26",
+      "section": "2.4",
+      "source_block": 1312,
+      "text_sha256": "eedd70418e26bed8c127a66f3050a15d11ab96c45d83a3dcd4e514a1e5f51ba4",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.5-1ff2e70184ac",
+      "section": "3.1.2.5",
+      "source_block": 1644,
+      "text_sha256": "1ff2e70184ac457d5d9f37f53719d968f330131393d60c5cb76292823844f925",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.2.10-1cb7ed8401d2",
+      "section": "3.1.2.10",
+      "source_block": 1703,
+      "text_sha256": "1cb7ed8401d2dd18f6989319e28ea60c371751fd08e97ede2f2b915c65a6cb1e",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.2-2a7c8122ba88",
+      "section": "3.1.2.11.2",
+      "source_block": 1719,
+      "text_sha256": "2a7c8122ba883e4a2c4e642446ac2f6d71335e0b5c8d2d9d53d65c0316e6673e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.3-c6a14039a7b9",
+      "section": "3.1.2.11.3",
+      "source_block": 1754,
+      "text_sha256": "c6a14039a7b9d5a1f41b37c87027b6d045ee0fe385f275c7ed84810cc26a133d",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.4-7ff968510d7e",
+      "section": "3.1.2.11.4",
+      "source_block": 1766,
+      "text_sha256": "7ff968510d7e6e6c129e2d7487467391b0ba17add2627cec15a4ed66cadf99ae",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.5-b407e60d7d59",
+      "section": "3.1.2.11.5",
+      "source_block": 1784,
+      "text_sha256": "b407e60d7d59e0842c2e1955d72ce3cd2222fb993be20242f41bba1d35b7ba67",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.6-4ea20974caed",
+      "section": "3.1.2.11.6",
+      "source_block": 1790,
+      "text_sha256": "4ea20974caedddc26b39d9827985e66fe8f2df53fc84fe50dc7eaeaf1e21b30c",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.7-c780a5b3c739",
+      "section": "3.1.2.11.7",
+      "source_block": 1801,
+      "text_sha256": "c780a5b3c739d5539d6853f587f4703f5cd90da51ef4bb225eabce73b698b587",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.7-fc239606c5f3",
+      "section": "3.1.2.11.7",
+      "source_block": 1807,
+      "text_sha256": "fc239606c5f306480403dda8f35472cabeef3a57e568eb576a789d3d3d1246cd",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.9-902579498cf4",
+      "section": "3.1.2.11.9",
+      "source_block": 1820,
+      "text_sha256": "902579498cf48808cfab040597c9ba3f55fbcaf73cbc85920083c3bacf7e6e6a",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.2.11.10-70ef643a854e",
+      "section": "3.1.2.11.10",
+      "source_block": 1827,
+      "text_sha256": "70ef643a854e2a7236c74d4bf4c6fd0616f2b1c8a69df24aa51c7bef55bb5d34",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.3.1-8b8543f54ad7",
+      "section": "3.1.3.1",
+      "source_block": 2068,
+      "text_sha256": "8b8543f54ad762d930d617d0edc804dbbdc2bf0048a660c063f97b8ba250d68f",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.3.1-a843fdd096b3",
+      "section": "3.1.3.1",
+      "source_block": 2071,
+      "text_sha256": "a843fdd096b3ba8c4af3d6b94ef60b6e2d355a5781683e1b8a285982effedade",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.2-a9110cd668d6",
+      "section": "3.1.3.2.2",
+      "source_block": 2088,
+      "text_sha256": "a9110cd668d6fbeeba2f8999b6d10b331038091042f9bebeb62f542a7a35a732",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.3-66862b5ebc79",
+      "section": "3.1.3.2.3",
+      "source_block": 2102,
+      "text_sha256": "66862b5ebc79eece50ba1921953d66c60c9f9401c8ba93dcf77a06a5898d8ffc",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.3-4edcb931e96e",
+      "section": "3.1.3.2.3",
+      "source_block": 2104,
+      "text_sha256": "4edcb931e96ec775e4ad05cc9b4f3465aea07a77cb2522100b2d1aec72b0c0b6",
+      "candidate_kinds": [
+        "rfc2119-keyword",
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.4-6a3b53c42780",
+      "section": "3.1.3.2.4",
+      "source_block": 2108,
+      "text_sha256": "6a3b53c4278012ad47aab4ceea0e677f10ac47c6a2feb8ffa834bb108485e3c2",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.5-0b9fb803dbb9",
+      "section": "3.1.3.2.5",
+      "source_block": 2116,
+      "text_sha256": "0b9fb803dbb9f5086d5b4ae3a26a9cfc779e3b1ea825c489f6647d36bb794908",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.6-03ac6e643c71",
+      "section": "3.1.3.2.6",
+      "source_block": 2120,
+      "text_sha256": "03ac6e643c7106c93e13894a5ac52aa7925327d15a312c624878a634e7967867",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.3.2.7-47216b3ac0a6",
+      "section": "3.1.3.2.7",
+      "source_block": 2126,
+      "text_sha256": "47216b3ac0a60dd88df6abcbceedde7cfe592584f98f37d211feafbe1144713e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.1.4-e19cef55e75d",
+      "section": "3.1.4",
+      "source_block": 2154,
+      "text_sha256": "e19cef55e75d82aa3ccc092be07ec3e124acca3b73c51a1ea13639c1b4deabab",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.1.4-6cd927e67e84",
+      "section": "3.1.4",
+      "source_block": 2156,
+      "text_sha256": "6cd927e67e843d6e87aa0749c0803b6c6bb4fa7b5019c55e224384d51985e556",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2-422429c78f4e",
+      "section": "3.2",
+      "source_block": 2189,
+      "text_sha256": "422429c78f4e31eda8b12ffc8b4480dbec8cfa5fd524ca6486f813b292a303f6",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2.2.2-e30c3f2f8f2f",
+      "section": "3.2.2.2",
+      "source_block": 2265,
+      "text_sha256": "e30c3f2f8f2fadacc4586cf0dd6751f35ddb51fc3a9a41e995fe9c792757711f",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.2-eedd70418e26",
+      "section": "3.2.2.2",
+      "source_block": 2269,
+      "text_sha256": "eedd70418e26bed8c127a66f3050a15d11ab96c45d83a3dcd4e514a1e5f51ba4",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.2-692726813b8b",
+      "section": "3.2.2.2",
+      "source_block": 2344,
+      "text_sha256": "692726813b8b66092c4ea276b32e7e264cb083914586e70587eb2da701c19e58",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.2-2a7c8122ba88",
+      "section": "3.2.2.3.2",
+      "source_block": 2357,
+      "text_sha256": "2a7c8122ba883e4a2c4e642446ac2f6d71335e0b5c8d2d9d53d65c0316e6673e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.3-c6a14039a7b9",
+      "section": "3.2.2.3.3",
+      "source_block": 2363,
+      "text_sha256": "c6a14039a7b9d5a1f41b37c87027b6d045ee0fe385f275c7ed84810cc26a133d",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.4-a3e2357d7ca8",
+      "section": "3.2.2.3.4",
+      "source_block": 2373,
+      "text_sha256": "a3e2357d7ca86dfc7020fcc1da2a9d01449189b709e63aa564f2bf2cce831440",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.5-8a6440e79984",
+      "section": "3.2.2.3.5",
+      "source_block": 2386,
+      "text_sha256": "8a6440e79984f6d9b48fdc02f87628e242a25a893481ac759c8fcf2670a3cde0",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.6-7ff968510d7e",
+      "section": "3.2.2.3.6",
+      "source_block": 2396,
+      "text_sha256": "7ff968510d7e6e6c129e2d7487467391b0ba17add2627cec15a4ed66cadf99ae",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.7-00d10e468e15",
+      "section": "3.2.2.3.7",
+      "source_block": 2404,
+      "text_sha256": "00d10e468e1538deeba96b0a7096ebdfe122c860bd5cf8c7c3003c8c9c1da04b",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.8-b407e60d7d59",
+      "section": "3.2.2.3.8",
+      "source_block": 2412,
+      "text_sha256": "b407e60d7d59e0842c2e1955d72ce3cd2222fb993be20242f41bba1d35b7ba67",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.9-49f948215c2e",
+      "section": "3.2.2.3.9",
+      "source_block": 2418,
+      "text_sha256": "49f948215c2e9db458649345527d400cca99f0c21364638e1c5a8634ecd433b3",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.10-c29abe07b28c",
+      "section": "3.2.2.3.10",
+      "source_block": 2429,
+      "text_sha256": "c29abe07b28c8afc82db63687d7ef048bcda0d1cd38ef6360d0d66e4f994eb26",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.11-3f02217816bc",
+      "section": "3.2.2.3.11",
+      "source_block": 2433,
+      "text_sha256": "3f02217816bc5ce628e6bbffa32cc1345d50e6228872b02be796da43a6ef4bbb",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.11-9df3317e4a02",
+      "section": "3.2.2.3.11",
+      "source_block": 2435,
+      "text_sha256": "9df3317e4a02381037a38a4e53f7ebcdc6b174ae042c306ba7214bd1ea2f2d3f",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.11-0b0c32871349",
+      "section": "3.2.2.3.11",
+      "source_block": 2437,
+      "text_sha256": "0b0c328713495cae40be2a178000ba69f2f2d9429a436f9ca8a85b351a573f83",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.12-4100241fc514",
+      "section": "3.2.2.3.12",
+      "source_block": 2441,
+      "text_sha256": "4100241fc514b27e494354b5b8ebf55b43169aa1a9cb2a0ec87798d0db00b657",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.12-ed629b1387ce",
+      "section": "3.2.2.3.12",
+      "source_block": 2443,
+      "text_sha256": "ed629b1387ce72174399130c7778b1798ad35bfc5358ff6cc1843429786255ed",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.13-eca9b0773ec8",
+      "section": "3.2.2.3.13",
+      "source_block": 2447,
+      "text_sha256": "eca9b0773ec8368c97e5547b661ab50eb8e1ae99ea435f63c339e71fed9b7c09",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.13-284c1d97b12b",
+      "section": "3.2.2.3.13",
+      "source_block": 2449,
+      "text_sha256": "284c1d97b12b89bea579c3252937f3e49d7deaa2263f3a6d0ad71283c6e769e5",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.15-761042abe664",
+      "section": "3.2.2.3.15",
+      "source_block": 2460,
+      "text_sha256": "761042abe664e2dd61ddff921448e707c0ea645b0aeb1947cb3324e969062fbe",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.15-90e73bdb1669",
+      "section": "3.2.2.3.15",
+      "source_block": 2462,
+      "text_sha256": "90e73bdb166964d422d4db494d559009a9429ea0aeb85d0d309cca83653e985c",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.16-5305eac542c8",
+      "section": "3.2.2.3.16",
+      "source_block": 2471,
+      "text_sha256": "5305eac542c8c6618131484ccc9bf0d48cc3d9ba5728d6fd5cd11fcf6d310150",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.17-53e750055bb5",
+      "section": "3.2.2.3.17",
+      "source_block": 2479,
+      "text_sha256": "53e750055bb52edcef352aedfac4f541e0eac08f01da0d99960611d34addc82c",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.2.2.3.18-317102d3229b",
+      "section": "3.2.2.3.18",
+      "source_block": 2483,
+      "text_sha256": "317102d3229bf5f8711a524a8c38d5295669e0d7ed5543330cfe698f98bb3ebf",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.1.3-eb055d053591",
+      "section": "3.3.1.3",
+      "source_block": 2579,
+      "text_sha256": "eb055d0535911c299ddb39df9ff3e11c785977ed8e206590e87d927908cd84e1",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.3.2.1-3ad7f9d0c4db",
+      "section": "3.3.2.1",
+      "source_block": 2606,
+      "text_sha256": "3ad7f9d0c4db4cc2851e5f731395d78d954098b1153e5f65e5fbf2bc9d1e1382",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.2.3.2-d089a3edde54",
+      "section": "3.3.2.3.2",
+      "source_block": 2619,
+      "text_sha256": "d089a3edde5498749adb4911d405265bdcf51ebc0d149680412fb4455468dcd5",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.3.2.3.4-9c68182b1133",
+      "section": "3.3.2.3.4",
+      "source_block": 2635,
+      "text_sha256": "9c68182b113363b76f2482719d9ae123d8856b32f58de3211c5a6e4b8d0de03e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.2.3.6-47216b3ac0a6",
+      "section": "3.3.2.3.6",
+      "source_block": 2668,
+      "text_sha256": "47216b3ac0a60dd88df6abcbceedde7cfe592584f98f37d211feafbe1144713e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.2.3.8-285c17c6f78d",
+      "section": "3.3.2.3.8",
+      "source_block": 2693,
+      "text_sha256": "285c17c6f78d26513a3bfb505653b598ecac93061a021905c3c32d10ded363ae",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.2.3.9-a9c3b8cd52b8",
+      "section": "3.3.2.3.9",
+      "source_block": 2698,
+      "text_sha256": "a9c3b8cd52b852aa1225bbaafb8faa20981609f5cf9721e273d6572db839223e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.4-87c971f647e2",
+      "section": "3.3.4",
+      "source_block": 2838,
+      "text_sha256": "87c971f647e209d504e038af4ad10b95debc837b55c051f7475a39efe48eec57",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.3.4-c632732fd36b",
+      "section": "3.3.4",
+      "source_block": 2843,
+      "text_sha256": "c632732fd36be17ac44a1eb0ada05ea28f3e9528e2612d4153dcd4e26e186bca",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.4.2.1-223ad472404e",
+      "section": "3.4.2.1",
+      "source_block": 2941,
+      "text_sha256": "223ad472404e7e5a0c62357ae9a4b61cd13dfa2cca2856f6c4b2ee963fa8af8a",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.5.2.1-223ad472404e",
+      "section": "3.5.2.1",
+      "source_block": 3062,
+      "text_sha256": "223ad472404e7e5a0c62357ae9a4b61cd13dfa2cca2856f6c4b2ee963fa8af8a",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.5.2.2.2-d48486ddb1c1",
+      "section": "3.5.2.2.2",
+      "source_block": 3100,
+      "text_sha256": "d48486ddb1c1bf39c98154e302726436977b33cc212efb0d8ec703a1f258fb4a",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.6.2.2.2-d48486ddb1c1",
+      "section": "3.6.2.2.2",
+      "source_block": 3194,
+      "text_sha256": "d48486ddb1c1bf39c98154e302726436977b33cc212efb0d8ec703a1f258fb4a",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.7.2.2.2-9ef163f0f102",
+      "section": "3.7.2.2.2",
+      "source_block": 3287,
+      "text_sha256": "9ef163f0f1028f50af9f074b465f1b7ae3c79ceeb161d3741620316623141dda",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.8.2.1.2-90f9f6ef49d9",
+      "section": "3.8.2.1.2",
+      "source_block": 3390,
+      "text_sha256": "90f9f6ef49d98545a501df2456755394b51435c6e8d5e5f322edabeed8da27d0",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.8.3.1-f2cdca8f11c0",
+      "section": "3.8.3.1",
+      "source_block": 3411,
+      "text_sha256": "f2cdca8f11c00e12774c0dffafc457235b9e792a6b7ee66a92ad866801485b09",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.8.3.1-41625ee01066",
+      "section": "3.8.3.1",
+      "source_block": 3421,
+      "text_sha256": "41625ee01066f5193768288c9fc18d70a0fdfdbeb9ef7647804fd9142273afaa",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.9.2.1.2-49f948215c2e",
+      "section": "3.9.2.1.2",
+      "source_block": 3696,
+      "text_sha256": "49f948215c2e9db458649345527d400cca99f0c21364638e1c5a8634ecd433b3",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.11.2.1.2-49f948215c2e",
+      "section": "3.11.2.1.2",
+      "source_block": 4020,
+      "text_sha256": "49f948215c2e9db458649345527d400cca99f0c21364638e1c5a8634ecd433b3",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.14-7dbd4deef86d",
+      "section": "3.14",
+      "source_block": 4172,
+      "text_sha256": "7dbd4deef86d7b61207dbd23594e41e019fc0f07f09876404a99d4d98a01b2f0",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.14.2.1-e30c3f2f8f2f",
+      "section": "3.14.2.1",
+      "source_block": 4237,
+      "text_sha256": "e30c3f2f8f2fadacc4586cf0dd6751f35ddb51fc3a9a41e995fe9c792757711f",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.14.2.1-eedd70418e26",
+      "section": "3.14.2.1",
+      "source_block": 4242,
+      "text_sha256": "eedd70418e26bed8c127a66f3050a15d11ab96c45d83a3dcd4e514a1e5f51ba4",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.14.2.2.2-2a7c8122ba88",
+      "section": "3.14.2.2.2",
+      "source_block": 4380,
+      "text_sha256": "2a7c8122ba883e4a2c4e642446ac2f6d71335e0b5c8d2d9d53d65c0316e6673e",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.14.2.2.2-f33d52f2b2bf",
+      "section": "3.14.2.2.2",
+      "source_block": 4386,
+      "text_sha256": "f33d52f2b2bf89bb1670f5f1e08556fb5e328567fdc94865fd0a217e9e309593",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.14.2.2.3-166eda9725e0",
+      "section": "3.14.2.2.3",
+      "source_block": 4390,
+      "text_sha256": "166eda9725e0f798442244af5f7af86a0cc23bb0741c999d0de0e0747bf61c64",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-3.14.2.2.5-5305eac542c8",
+      "section": "3.14.2.2.5",
+      "source_block": 4400,
+      "text_sha256": "5305eac542c8c6618131484ccc9bf0d48cc3d9ba5728d6fd5cd11fcf6d310150",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.15-f315807fae94",
+      "section": "3.15",
+      "source_block": 4498,
+      "text_sha256": "f315807fae9436194cb521c58b49a54f591bc4892bffeddbae421c7ce0a21c90",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.15.2.2.2-93da298b901a",
+      "section": "3.15.2.2.2",
+      "source_block": 4566,
+      "text_sha256": "93da298b901a007f1d26b7bfa44b20625093e5b221a4cf093c004bfe83a0b350",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.15.2.2.3-e318b8fe0ec4",
+      "section": "3.15.2.2.3",
+      "source_block": 4570,
+      "text_sha256": "e318b8fe0ec430158d70501920d0dad62d8fc71f99fe512adb0c3ea6edbe4035",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-3.15.2.2.4-166eda9725e0",
+      "section": "3.15.2.2.4",
+      "source_block": 4574,
+      "text_sha256": "166eda9725e0f798442244af5f7af86a0cc23bb0741c999d0de0e0747bf61c64",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.2-7ae3da4cdd1f",
+      "section": "4.2",
+      "source_block": 4619,
+      "text_sha256": "7ae3da4cdd1ff17ddb1df3d31959f02cd91b9b92950c72582fe0114c42ec5e38",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.7.3-bd9cb090bad8",
+      "section": "4.7.3",
+      "source_block": 4852,
+      "text_sha256": "bd9cb090bad85121c2f2f2a8c840a27d830d4e8cbf95eba0607e4330f31eb2b5",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.8.2-ada5d2980047",
+      "section": "4.8.2",
+      "source_block": 4905,
+      "text_sha256": "ada5d2980047d55f8be47f8f32aaefa1f66cf55ffd92f2e8b40cf4ec5d47e776",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.11-18bf2d99126c",
+      "section": "4.11",
+      "source_block": 4966,
+      "text_sha256": "18bf2d99126c4716e2296fe5a7fba6914f4fbb566b923bba61d2c61f0aea0184",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.11-cea8b85512a3",
+      "section": "4.11",
+      "source_block": 4968,
+      "text_sha256": "cea8b85512a3ce90adb9ecc72f579111a3f73f44e0b8e1e97386b845f0559048",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.11-932912712418",
+      "section": "4.11",
+      "source_block": 4970,
+      "text_sha256": "93291271241869d280ba2bb41d057682f16363629c59775c9c9cc16bde7fd67b",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.12-6f20ecdda845",
+      "section": "4.12",
+      "source_block": 5003,
+      "text_sha256": "6f20ecdda8454afc94b430be4f31cf2f47ad80f728db980b8db39f6e30195634",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.12-8367dd1558b0",
+      "section": "4.12",
+      "source_block": 5017,
+      "text_sha256": "8367dd1558b0caf53a5f635b3179226d8f38b98068527ded4af365caa9bf0e6d",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-4.13.1-4812ad8c5d63",
+      "section": "4.13.1",
+      "source_block": 5047,
+      "text_sha256": "4812ad8c5d6359f8a5ffcbe9a8f3bb3561274ee416b6126c7cc9db10a78885fb",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-4.13.1-792926fb657f",
+      "section": "4.13.1",
+      "source_block": 5054,
+      "text_sha256": "792926fb657fad3c69f9868b8eea4e08b4a2fdcc01a9bcda8d22f1a0918e4e23",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-4.13.1-fade3fa107d1",
+      "section": "4.13.1",
+      "source_block": 5056,
+      "text_sha256": "fade3fa107d16cd2737edf8f4867c85bf491035bcd39d05bc8e14ec0494129fa",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-4.13.1-7006e5698d0d",
+      "section": "4.13.1",
+      "source_block": 5057,
+      "text_sha256": "7006e5698d0d9f61375897b1ef1e781f6f25b6a95b136645d67a0eeebb10b8da",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-4.13.1-d9b967129233",
+      "section": "4.13.1",
+      "source_block": 5058,
+      "text_sha256": "d9b9671292336f7c9b9c8c6fd09b290757fdfff6fa7f9d44aa546069700cf01f",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-4.13.1-9284ee78cc70",
+      "section": "4.13.1",
+      "source_block": 5067,
+      "text_sha256": "9284ee78cc70cc65a3e391b561d6c9d5632f7e1e25c1de97de2aa95978e6991d",
+      "candidate_kinds": [
+        "rfc2119-keyword",
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-4.13.2-ca8e1ca1ad37",
+      "section": "4.13.2",
+      "source_block": 5074,
+      "text_sha256": "ca8e1ca1ad3701198a72db2556a01eae983f3c601bee3f2cd7b1b51e71a5379f",
+      "candidate_kinds": [
+        "error-constraint"
+      ]
+    },
+    {
+      "id": "U-7.1.1-56088afba646",
+      "section": "7.1.1",
+      "source_block": 5288,
+      "text_sha256": "56088afba6462db582ef5ed90cbd7785e6ea077b9b667f50fc2267ad3bb9e8bf",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    },
+    {
+      "id": "U-7.1.2-c62966e0c8e9",
+      "section": "7.1.2",
+      "source_block": 5301,
+      "text_sha256": "c62966e0c8e9d9df67d69edad3c05cab466ba19f6cdc8becb63deb5a279d9089",
+      "candidate_kinds": [
+        "rfc2119-keyword"
+      ]
+    }
+  ],
+  "anomalies": [
+    {
+      "id": "MQTT-3.2.2-8",
+      "note": "Appendix index identifier; body reason-code statement has malformed literal label T-3.2.2-8]. Requires body-context review, not an invented separate obligation."
+    },
+    {
+      "id": "MQTT-4.2.0-1",
+      "canonical_id": "MQTT-4.2-1",
+      "note": "Appendix index spelling differs from body identifier. Alias; do not double count."
+    }
+  ]
+}

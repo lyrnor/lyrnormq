@@ -1,0 +1,1056 @@
+{
+  "reviewer": "session",
+  "source_commit": "95d9107e8f36ba04981573f536f911e99781eb6c",
+  "verification": [
+    "cargo test --offline -p mqtt-session: 151 passed",
+    "cargo fmt --all -- --check: passed",
+    "cargo clippy --offline -p mqtt-session --all-targets -- -D warnings: passed"
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.1.2-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:clean_start_and_expiry_are_independent_including_resumed_zero"
+      ],
+      "note": "Tests fresh/resumed/reset sessions independently of the new expiry; session present preserved only for surviving non-clean state."
+    },
+    {
+      "id": "MQTT-3.1.2-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:clean_start_and_expiry_are_independent_including_resumed_zero"
+      ],
+      "note": "Tests fresh/resumed/reset sessions independently of the new expiry; session present preserved only for surviving non-clean state."
+    },
+    {
+      "id": "MQTT-3.1.2-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:clean_start_and_expiry_are_independent_including_resumed_zero"
+      ],
+      "note": "Tests fresh/resumed/reset sessions independently of the new expiry; session present preserved only for surviving non-clean state."
+    },
+    {
+      "id": "MQTT-3.1.2-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:clean_source_active_will_survives_snapshot_and_publishes_on_recovery"
+      ],
+      "note": "Required Will record persists even for a clean source, and restart publishes it."
+    },
+    {
+      "id": "MQTT-3.1.2-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/will_delay_tests.rs:normal_disconnect_cancels_but_non_graceful_override_zero_accelerates"
+      ],
+      "note": "Normal disconnect removes Will; abnormal end schedules it, with finite session end capping delay."
+    },
+    {
+      "id": "MQTT-3.1.2-10",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/will_delay_tests.rs:normal_disconnect_cancels_but_non_graceful_override_zero_accelerates"
+      ],
+      "note": "Normal disconnect removes Will; abnormal end schedules it, with finite session end capping delay."
+    },
+    {
+      "id": "MQTT-3.1.2-14",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::retry_wills"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:graceful_will_is_silent_and_abnormal_binary_will_uses_each_qos"
+      ],
+      "note": "Binary Will data/QoS and retain path run through normal retained/fanout transaction."
+    },
+    {
+      "id": "MQTT-3.1.2-15",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::retry_wills"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:takeover_publishes_old_will_once_then_installs_and_clears_new_will"
+      ],
+      "note": "Retained Will publication survives source takeover/session reset and replays with RETAIN1 to a subsequent subscriber."
+    },
+    {
+      "id": "MQTT-3.1.2-23",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:restored_offline_deadline_does_not_extend_and_active_crash_starts_conservatively"
+      ],
+      "note": "Known offline state/deadline survives restore. Active-at-crash failure time is unknown; documented conservative restart anchoring remains an operational boundary."
+    },
+    {
+      "id": "MQTT-3.1.2-25",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:discard_oversized"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2g_tests.rs:smaller_cap_resume_discards_started_and_releases_credit"
+      ],
+      "note": "Recipient oversized PUBLISH retires ID/metadata/credit without sending, keeping another recipient and retained value independent."
+    },
+    {
+      "id": "MQTT-3.1.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable.rs:tests::persistent_subscriptions_offline_queue_and_clean_reset"
+      ],
+      "note": "Client-ID keyed registry resumes the same subscriptions and offline queue; this unit evidence does not claim generated-ID network negotiation coverage."
+    },
+    {
+      "id": "MQTT-3.1.3-9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/will_delay_tests.rs:pre_due_same_session_resume_and_active_takeover_cancel_old_will"
+      ],
+      "note": "Surviving-session reconnect before due cancels the old Will; clean reset and due-boundary cases are separately tested."
+    },
+    {
+      "id": "MQTT-3.1.3-10",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::retry_wills"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:will_metadata_and_expiry_zero_disconnection_keep_global_retained"
+      ],
+      "note": "Will application-property vector stays ordered through publication and retained storage."
+    },
+    {
+      "id": "MQTT-3.3.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::poll_delivery_with_changes"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order"
+      ],
+      "note": "Outgoing reconnect replay retains IDs/stages/order and creates its own DUP flag, independent of source flags."
+    },
+    {
+      "id": "MQTT-3.3.1-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::poll_delivery_with_changes"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent"
+      ],
+      "note": "New targeted test sends four QoS1 source publications reusing the same ID after each PUBACK, alternating DUP0/1; every publication creates a new copy and recipient QoS0/QoS1 DUP stays0 independently."
+    },
+    {
+      "id": "MQTT-3.3.1-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::poll_delivery_with_changes"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent"
+      ],
+      "note": "New targeted test sends four QoS1 source publications reusing the same ID after each PUBACK, alternating DUP0/1; every publication creates a new copy and recipient QoS0/QoS1 DUP stays0 independently."
+    },
+    {
+      "id": "MQTT-4.3.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::poll_delivery_with_changes"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent"
+      ],
+      "note": "New targeted test sends four QoS1 source publications reusing the same ID after each PUBACK, alternating DUP0/1; every publication creates a new copy and recipient QoS0/QoS1 DUP stays0 independently."
+    },
+    {
+      "id": "MQTT-3.3.1-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/retention.rs:SessionEngine::publish_from"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:retained_updates_delete_and_replay_flags_are_independent_of_sessions"
+      ],
+      "note": "Replacement, empty deletion, nonretained preservation, replay and source/session independence are asserted."
+    },
+    {
+      "id": "MQTT-3.3.1-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/retention.rs:SessionEngine::publish_from"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:retained_updates_delete_and_replay_flags_are_independent_of_sessions"
+      ],
+      "note": "Replacement, empty deletion, nonretained preservation, replay and source/session independence are asserted."
+    },
+    {
+      "id": "MQTT-3.3.1-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/retention.rs:SessionEngine::publish_from"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:retained_updates_delete_and_replay_flags_are_independent_of_sessions"
+      ],
+      "note": "Replacement, empty deletion, nonretained preservation, replay and source/session independence are asserted."
+    },
+    {
+      "id": "MQTT-3.3.1-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/retention.rs:SessionEngine::publish_from"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:retained_updates_delete_and_replay_flags_are_independent_of_sessions"
+      ],
+      "note": "Replacement, empty deletion, nonretained preservation, replay and source/session independence are asserted."
+    },
+    {
+      "id": "MQTT-3.3.1-9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:retain_handling_replace_and_replay_identifiers_are_entry_local"
+      ],
+      "note": "RH0 repeated replay and RH1 exact-existing suppression follow sequential entry processing; each replay snapshots only its triggering identifier."
+    },
+    {
+      "id": "MQTT-3.3.1-10",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:retain_handling_replace_and_replay_identifiers_are_entry_local"
+      ],
+      "note": "RH0 repeated replay and RH1 exact-existing suppression follow sequential entry processing; each replay snapshots only its triggering identifier."
+    },
+    {
+      "id": "MQTT-3.3.1-11",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:retain_handling_two_suppresses_replay"
+      ],
+      "note": "RH2 installs the record while suppressing retained replay."
+    },
+    {
+      "id": "MQTT-3.3.1-12",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy"
+      ],
+      "note": "Single-entry RAP path and any-eligible-RAP overlap policy are implemented. The named test asserts preserved retain; an independent mixed-RAP clause interpretation is still required before marking the entire clause verified."
+    },
+    {
+      "id": "MQTT-3.3.1-13",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy"
+      ],
+      "note": "Single-entry RAP path and any-eligible-RAP overlap policy are implemented. The named test asserts preserved retain; an independent mixed-RAP clause interpretation is still required before marking the entire clause verified."
+    },
+    {
+      "id": "MQTT-3.3.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_literal_dollar_topic_is_not_recursively_unwrapped_or_matched_by_hash"
+      ],
+      "note": "Indexed ordinary/shared matching preserves literal Topic names and dollar-name isolation."
+    },
+    {
+      "id": "MQTT-3.3.2-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "Payload-format/content/response/correlation and repeated User Properties survive QoS2 duplicate/recovery/retained fanout without reordering; legacy wire intentionally strips MQTT5-only metadata."
+    },
+    {
+      "id": "MQTT-3.3.2-15",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "Payload-format/content/response/correlation and repeated User Properties survive QoS2 duplicate/recovery/retained fanout without reordering; legacy wire intentionally strips MQTT5-only metadata."
+    },
+    {
+      "id": "MQTT-3.3.2-16",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "Payload-format/content/response/correlation and repeated User Properties survive QoS2 duplicate/recovery/retained fanout without reordering; legacy wire intentionally strips MQTT5-only metadata."
+    },
+    {
+      "id": "MQTT-3.3.2-17",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "Payload-format/content/response/correlation and repeated User Properties survive QoS2 duplicate/recovery/retained fanout without reordering; legacy wire intentionally strips MQTT5-only metadata."
+    },
+    {
+      "id": "MQTT-3.3.2-18",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "Payload-format/content/response/correlation and repeated User Properties survive QoS2 duplicate/recovery/retained fanout without reordering; legacy wire intentionally strips MQTT5-only metadata."
+    },
+    {
+      "id": "MQTT-3.3.2-20",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "Payload-format/content/response/correlation and repeated User Properties survive QoS2 duplicate/recovery/retained fanout without reordering; legacy wire intentionally strips MQTT5-only metadata."
+    },
+    {
+      "id": "MQTT-3.3.2-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/expiry.rs:SessionEngine::expire_messages"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/message_expiry_tests.rs:delivery_expiry_before_begin_retires_reserved_id_ticket_and_quota"
+      ],
+      "note": "Queued and reserved but unstarted recipient copies expire; started QoS obligations survive."
+    },
+    {
+      "id": "MQTT-3.3.2-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/temporal.rs:remaining_properties"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/message_expiry_tests.rs:delivery_refresh_after_start_commit_decreases_without_cancelling_started_qos"
+      ],
+      "note": "Recipient TTL decreases with residence time, refreshed before socket output; committed clock-floor and latest-wire clock gap remains explicit."
+    },
+    {
+      "id": "MQTT-3.3.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable.rs:tests::incoming_qos2_survives_restart_and_commits_fanout_once"
+      ],
+      "note": "Q2 PUBREC/PUBCOMP ownership/recovery transitions run in the named test; K unit source-ID tests additionally assert Q1 PUBACK ID. External commit barrier belongs to Transport."
+    },
+    {
+      "id": "MQTT-3.3.4-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:overlap_aggregates_eligible_qos_rap_and_duplicate_identifiers"
+      ],
+      "note": "Ordinary overlap forms one max-QoS eligible copy carrying all matching identifiers, preserving repeated identical identifier values."
+    },
+    {
+      "id": "MQTT-3.3.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:overlap_aggregates_eligible_qos_rap_and_duplicate_identifiers"
+      ],
+      "note": "Ordinary overlap forms one max-QoS eligible copy carrying all matching identifiers, preserving repeated identical identifier values."
+    },
+    {
+      "id": "MQTT-3.3.4-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:overlap_aggregates_eligible_qos_rap_and_duplicate_identifiers"
+      ],
+      "note": "Ordinary overlap forms one max-QoS eligible copy carrying all matching identifiers, preserving repeated identical identifier values."
+    },
+    {
+      "id": "MQTT-3.3.4-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/shared.rs:SessionEngine::plan_shared_copies"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_group_and_ordinary_copies_are_independent"
+      ],
+      "note": "Separate ordinary/group copies carry only their own contributing identifiers; no cross-group aggregation."
+    },
+    {
+      "id": "MQTT-3.3.4-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::validate_properties"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_3_4_6_client_subscription_identifier_cannot_mutate_queues"
+      ],
+      "note": "New targeted client PUBLISH SubscriptionIdentifier42 is refused82 before source/recipient queue state changes."
+    },
+    {
+      "id": "MQTT-3.3.4-9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::poll_delivery_with_changes"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:receive_maximum_one_is_held_through_pubrec_until_pubcomp_and_controls_progress"
+      ],
+      "note": "Receive Maximum blocks new PUBLISH until final ACK or negative PUBREC, while PUBREL/control can progress."
+    },
+    {
+      "id": "MQTT-3.3.4-10",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::poll_delivery_with_changes"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:receive_maximum_one_is_held_through_pubrec_until_pubcomp_and_controls_progress"
+      ],
+      "note": "Receive Maximum blocks new PUBLISH until final ACK or negative PUBREC, while PUBREL/control can progress."
+    },
+    {
+      "id": "MQTT-3.8.3-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:no_local_excludes_match_before_ids_and_qos"
+      ],
+      "note": "No Local excludes self-origin match before ordinary QoS/identifier aggregation, including QoS2 restart and Will origin tests."
+    },
+    {
+      "id": "MQTT-3.8.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement"
+      ],
+      "note": "New targeted multi-entry SUBSCRIBE returns exactly one packet-ID55 SUBACK [2,1,0], preserving input order and sequential exact replacement."
+    },
+    {
+      "id": "MQTT-3.8.4-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement"
+      ],
+      "note": "New targeted multi-entry SUBSCRIBE returns exactly one packet-ID55 SUBACK [2,1,0], preserving input order and sequential exact replacement."
+    },
+    {
+      "id": "MQTT-3.8.4-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement"
+      ],
+      "note": "New targeted multi-entry SUBSCRIBE returns exactly one packet-ID55 SUBACK [2,1,0], preserving input order and sequential exact replacement."
+    },
+    {
+      "id": "MQTT-3.8.4-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement"
+      ],
+      "note": "New targeted multi-entry SUBSCRIBE returns exactly one packet-ID55 SUBACK [2,1,0], preserving input order and sequential exact replacement."
+    },
+    {
+      "id": "MQTT-3.8.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:replacement_clears_identifier_and_unsubscribe_removes_record"
+      ],
+      "note": "Exact subscription replacement overwrites options/identifier without retaining stale identifier metadata."
+    },
+    {
+      "id": "MQTT-3.8.4-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:retain_handling_replace_and_replay_identifiers_are_entry_local"
+      ],
+      "note": "Sequential repeated entries follow RH and entry-local identifier snapshots without rewriting already accepted copies."
+    },
+    {
+      "id": "MQTT-3.8.4-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:retain_handling_replace_and_replay_identifiers_are_entry_local"
+      ],
+      "note": "Sequential repeated entries follow RH and entry-local identifier snapshots without rewriting already accepted copies."
+    },
+    {
+      "id": "MQTT-3.8.4-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_round_robin_one_copy_and_no_retained_replay"
+      ],
+      "note": "Ordinary and shared recipient QoS is min(source QoS, granted subscription QoS); all-QoS shared loop and retained cases run."
+    },
+    {
+      "id": "MQTT-3.10.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.10.4-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.10.4-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.10.4-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.10.4-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.11.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.11.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals"
+      ],
+      "note": "K2 fixed after actual RED [0,0,17]; sequential exact removals yield [0,17,17], one same-ID response and original entry order for ordinary and shared filters."
+    },
+    {
+      "id": "MQTT-3.10.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/shared.rs:SessionEngine::prune_shared_state"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_10_4_3_duplicate_unsubscribe_preserves_started_qos_obligations"
+      ],
+      "note": "Started Q1/Q2 survives ordinary/shared duplicate unsubscription and completes ACK exchange; last-member cleanup only prunes unstarted group work."
+    },
+    {
+      "id": "MQTT-4.1.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/expiry.rs:SessionEngine::expire_sessions"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:finite_deadline_only_runs_offline_and_releases_owner_and_subscriptions"
+      ],
+      "note": "Online state retained regardless elapsed expiry; offline deadline removes session ownership/subscriptions/queues."
+    },
+    {
+      "id": "MQTT-4.1.0-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/expiry.rs:SessionEngine::expire_sessions"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:finite_deadline_only_runs_offline_and_releases_owner_and_subscriptions"
+      ],
+      "note": "Online state retained regardless elapsed expiry; offline deadline removes session ownership/subscriptions/queues."
+    },
+    {
+      "id": "MQTT-4.3.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::start"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_identifiers_never_reused_until_final_ack"
+      ],
+      "note": "Entire 65535 identifier space exhausted and released only at final matching ACK; fresh recipient PUBLISH uses qos-specific state."
+    },
+    {
+      "id": "MQTT-4.3.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::start"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_identifiers_never_reused_until_final_ack"
+      ],
+      "note": "Entire 65535 identifier space exhausted and released only at final matching ACK; fresh recipient PUBLISH uses qos-specific state."
+    },
+    {
+      "id": "MQTT-4.3.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::start"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_identifiers_never_reused_until_final_ack"
+      ],
+      "note": "Entire 65535 identifier space exhausted and released only at final matching ACK; fresh recipient PUBLISH uses qos-specific state."
+    },
+    {
+      "id": "MQTT-4.3.2-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent"
+      ],
+      "note": "New targeted test sends four QoS1 source publications reusing the same ID after each PUBACK, alternating DUP0/1; every publication creates a new copy and recipient QoS0/QoS1 DUP stays0 independently."
+    },
+    {
+      "id": "MQTT-4.3.2-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent"
+      ],
+      "note": "New targeted test sends four QoS1 source publications reusing the same ID after each PUBACK, alternating DUP0/1; every publication creates a new copy and recipient QoS0/QoS1 DUP stays0 independently."
+    },
+    {
+      "id": "MQTT-4.3.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp"
+      ],
+      "note": "QoS2 stages retain ID; wrong ACK preserves state, PUBREC retires encoded PUBLISH and causes PUBREL, repeated PUBREC remains PUBREL-only."
+    },
+    {
+      "id": "MQTT-4.3.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp"
+      ],
+      "note": "QoS2 stages retain ID; wrong ACK preserves state, PUBREC retires encoded PUBLISH and causes PUBREL, repeated PUBREC remains PUBREL-only."
+    },
+    {
+      "id": "MQTT-4.3.3-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp"
+      ],
+      "note": "QoS2 stages retain ID; wrong ACK preserves state, PUBREC retires encoded PUBLISH and causes PUBREL, repeated PUBREC remains PUBREL-only."
+    },
+    {
+      "id": "MQTT-4.3.3-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp"
+      ],
+      "note": "QoS2 stages retain ID; wrong ACK preserves state, PUBREC retires encoded PUBLISH and causes PUBREL, repeated PUBREC remains PUBREL-only."
+    },
+    {
+      "id": "MQTT-4.3.3-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp"
+      ],
+      "note": "QoS2 stages retain ID; wrong ACK preserves state, PUBREC retires encoded PUBLISH and causes PUBREL, repeated PUBREC remains PUBREL-only."
+    },
+    {
+      "id": "MQTT-4.3.3-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/outgoing.rs:tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp"
+      ],
+      "note": "QoS2 stages retain ID; wrong ACK preserves state, PUBREC retires encoded PUBLISH and causes PUBREL, repeated PUBREC remains PUBREL-only."
+    },
+    {
+      "id": "MQTT-4.3.3-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/expiry.rs:SessionEngine::expire_messages"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/message_expiry_tests.rs:delivery_started_qos_retries_survive_expiry_and_publish_properties_reach_zero"
+      ],
+      "note": "Started recipient QoS2 state survives expiry including reconnect retry; only unstarted work expires."
+    },
+    {
+      "id": "MQTT-4.3.3-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/incoming.rs:IncomingQos2::publish"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/incoming.rs:tests::qos2_delivery_once_and_reused_id_is_new_even_with_dup"
+      ],
+      "note": "Repeated pending ID acknowledges original without duplicate fanout; PUBREL delivers once; completed IDs may start new exchanges with DUP1."
+    },
+    {
+      "id": "MQTT-4.3.3-10",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/incoming.rs:IncomingQos2::publish"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/incoming.rs:tests::qos2_delivery_once_and_reused_id_is_new_even_with_dup"
+      ],
+      "note": "Repeated pending ID acknowledges original without duplicate fanout; PUBREL delivers once; completed IDs may start new exchanges with DUP1."
+    },
+    {
+      "id": "MQTT-4.3.3-11",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/incoming.rs:IncomingQos2::publish"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/incoming.rs:tests::qos2_delivery_once_and_reused_id_is_new_even_with_dup"
+      ],
+      "note": "Repeated pending ID acknowledges original without duplicate fanout; PUBREL delivers once; completed IDs may start new exchanges with DUP1."
+    },
+    {
+      "id": "MQTT-4.3.3-12",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/incoming.rs:IncomingQos2::publish"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/incoming.rs:tests::qos2_delivery_once_and_reused_id_is_new_even_with_dup"
+      ],
+      "note": "Repeated pending ID acknowledges original without duplicate fanout; PUBREL delivers once; completed IDs may start new exchanges with DUP1."
+    },
+    {
+      "id": "MQTT-4.3.3-9",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [],
+      "note": "Server does not currently emit negative PUBREC for admitted state; denial closes connection. Conditional branch requires no negative-PUBREC receive history, but add explicit reconnect/new-ID interaction test if server adds negative receipt responses."
+    },
+    {
+      "id": "MQTT-4.3.3-13",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/message_expiry_tests.rs:message_expiry_qos2_duplicate_never_renews_and_expired_pubrel_completes"
+      ],
+      "note": "Expired incoming source no longer fans out, but completes Q2 ACK sequence and ignores duplicate replacement deadlines."
+    },
+    {
+      "id": "MQTT-4.4.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_4_4_0_1_unacknowledged_publish_is_only_replayed_after_reconnect"
+      ],
+      "note": "New targeted Q1/Q2 test observes no second delivery in16 live polls with ACK withheld; non-clean reconnect yields exactly one DUP1 replay with original ID. Session has no periodic resend timer; wire scheduling remains a separate Transport boundary."
+    },
+    {
+      "id": "MQTT-4.4.0-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:negative_ack_releases_exchange_metadata_and_connection_quota"
+      ],
+      "note": "Negative PUBACK/PUBREC retire ID/payload/sidecars/replay/quota; later reconnect cannot replay rejected copy."
+    },
+    {
+      "id": "MQTT-4.5.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable.rs:tests::persistent_subscriptions_offline_queue_and_clean_reset"
+      ],
+      "note": "Matching subscriptions append selected copies to bounded per-session queues; offline Q1/Q2 survives restore."
+    },
+    {
+      "id": "MQTT-4.5.0-2",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client processing of received publications is a peer obligation; this broker implementation is not the client under assessment."
+    },
+    {
+      "id": "MQTT-4.6.0-1",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "These numbered clauses explicitly address client-origin ordering; broker ordinary Topic forwarding duties are assessed separately under 4.6.0-5/6."
+    },
+    {
+      "id": "MQTT-4.6.0-2",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "These numbered clauses explicitly address client-origin ordering; broker ordinary Topic forwarding duties are assessed separately under 4.6.0-5/6."
+    },
+    {
+      "id": "MQTT-4.6.0-3",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "These numbered clauses explicitly address client-origin ordering; broker ordinary Topic forwarding duties are assessed separately under 4.6.0-5/6."
+    },
+    {
+      "id": "MQTT-4.6.0-4",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "These numbered clauses explicitly address client-origin ordering; broker ordinary Topic forwarding duties are assessed separately under 4.6.0-5/6."
+    },
+    {
+      "id": "MQTT-4.6.0-5",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order"
+      ],
+      "note": "Per-session FIFO and reconnect replay preserve order for conforming source flows; no explicit adversarial PUBREL-order/interleaved recovery ordering test currently establishes the entire clause."
+    },
+    {
+      "id": "MQTT-4.6.0-6",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order"
+      ],
+      "note": "Per-session FIFO and reconnect replay preserve order for conforming source flows; no explicit adversarial PUBREL-order/interleaved recovery ordering test currently establishes the entire clause."
+    },
+    {
+      "id": "MQTT-4.8.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/shared.rs:SessionEngine::plan_shared_copies"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_round_robin_one_copy_and_no_retained_replay"
+      ],
+      "note": "Selected group copy respects granted QoS and source cap."
+    },
+    {
+      "id": "MQTT-4.8.2-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/shared.rs:SessionEngine::plan_shared_copies"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_qos2_selected_owner_resumes_and_last_member_keeps_started_exchange"
+      ],
+      "note": "Chosen QoS2 recipient remains sole owner through restart and last-member unsubscribe; no transfer to another member."
+    },
+    {
+      "id": "MQTT-4.8.2-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/shared.rs:SessionEngine::plan_shared_copies"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_qos2_selected_owner_resumes_and_last_member_keeps_started_exchange"
+      ],
+      "note": "Chosen QoS2 recipient remains sole owner through restart and last-member unsubscribe; no transfer to another member."
+    },
+    {
+      "id": "MQTT-4.8.2-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:SessionEngine::handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_qos1_restart_keeps_recipient_and_negative_ack_never_reassigns"
+      ],
+      "note": "Negative recipient ACK discards owned copy and does not trigger reassignment to another subscriber."
+    },
+    {
+      "id": "U-3.14.2.2.2-f33d52f2b2bf",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:disconnect_expiry_override_zero_and_invalid_zero_to_positive"
+      ],
+      "note": "Original CONNECT expiry0 cannot become positive at DISCONNECT; explicit82 and unchanged snapshot are asserted."
+    },
+    {
+      "id": "U-4.8.2-ada5d2980047",
+      "status": "policy-exception",
+      "implementation": [
+        "crates/mqtt-session/src/durable/shared.rs:SessionEngine::plan_shared_copies"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_qos1_restart_keeps_recipient_and_negative_ack_never_reassigns"
+      ],
+      "note": "Documented SHOULD exception: QoS1 selected copy stays session-owned; if that session ends no group redistribution occurs. Does not violate numbered QoS2 no-reassignment duties."
+    },
+    {
+      "id": "U-3.1.2.5-1ff2e70184ac",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::retry_wills"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/will_delay_tests.rs:delayed_will_waits_until_exact_due_and_exposes_due_to_idle_timer"
+      ],
+      "note": "Healthy due Will publishes at timer boundary, and startup retries deferred failures. Resource-blocked Will intent waits for capacity; this delay remains explicit, with no claim of real-time scheduling."
+    }
+  ]
+}
