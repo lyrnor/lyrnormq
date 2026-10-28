@@ -577,7 +577,7 @@ async fn drive_connection(
         tokio::select! {
             changed = shutdown.changed() => { if changed.is_err() || *shutdown.borrow() { return Ok(()); } }
             _ = cancel.changed() => return Ok(()),
-            _ = crate::deadline(expires) => return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded")),
+            _ = crate::packet_io::deadline(expires) => return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded")),
             _ = wake.changed(), if connected => { needs_poll = true; }
             permit = output.reserve(), if pending.is_some() => {
                 permit.map_err(io::Error::other)?.send(pending.take().ok_or_else(|| io::Error::other("missing pending output"))?);
