@@ -6,8 +6,10 @@ use mqtt_protocol::{
 };
 #[cfg(test)]
 use mqtt_protocol::{ProtocolError, decode, encode};
+#[cfg(test)]
+use mqtt_session::durable::{Clock, SystemClock};
 use mqtt_session::durable::{
-    Clock, ConnectionOptions, Delivery, EngineError, SessionConfig, SessionEngine, SystemClock,
+    ConnectionOptions, Delivery, EngineError, SessionConfig, SessionEngine,
 };
 use mqtt_storage::durable::SqliteStore;
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
@@ -529,7 +531,7 @@ fn run_commands(
         if matches!(request, Request::Tick)
             && !engine
                 .next_expiry_deadline()
-                .is_some_and(|at| at <= SystemClock.now_millis())
+                .is_some_and(|at| at <= engine.effective_now())
         {
             let _ = command.reply.send(Ok(Reply::Done));
             continue;
@@ -1413,6 +1415,81 @@ mod tests {
         fn now_millis(&self) -> u64 {
             self.0.load(Ordering::SeqCst)
         }
+    }
+    #[tokio::test]
+    async fn expiry_tick_uses_restored_floor_and_empty_ticks_stay_quiet() {
+        let db = Database::new();
+        let config = db.config();
+        // Keep the deadline beyond the real wall clock so a raw SystemClock
+        // guard would incorrectly skip work after restoring the logical floor.
+        let start = SystemClock.now_millis() + 86_400_000;
+        let clock = Arc::new(ManualClock(AtomicU64::new(start)));
+        let mut engine = SessionEngine::new_with_clock(
+            session_config(&config),
+            config.access_control.clone(),
+            clock.clone(),
+        )
+        .unwrap();
+        engine
+            .connect_with_options(
+                "expires",
+                None,
+                mqtt_auth::Principal::anonymous(),
+                ConnectionOptions {
+                    version: ProtocolVersion::V5,
+                    clean_start: true,
+                    session_expiry_interval: 1,
+                    receive_maximum: 1,
+                    will_properties: Vec::new(),
+                },
+            )
+            .unwrap();
+        engine
+            .disconnect_with_options("expires", true, None)
+            .unwrap();
+        clock.0.store(start + 1500, Ordering::SeqCst);
+        engine.effective_now();
+        let before = engine.snapshot().unwrap();
+        clock.0.store(0, Ordering::SeqCst);
+        let engine = SessionEngine::restore_with_clock(
+            session_config(&config),
+            &before,
+            config.access_control.clone(),
+            clock.clone(),
+        )
+        .unwrap();
+        assert_eq!(engine.next_expiry_deadline(), Some(start + 1000));
+        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
+        store.commit(&before).unwrap();
+        let (sender, receiver) = mpsc::channel(1);
+        let worker = Worker { sender };
+        let (wake, mut notified) = watch::channel(0);
+        let (cancel, _) = watch::channel(false);
+        let online = HashMap::from([(
+            "observer".into(),
+            Online {
+                close_reason: None,
+                generation: 1,
+                wake,
+                cancel,
+            },
+        )]);
+        let task = tokio::task::spawn_blocking(move || {
+            run_commands(receiver, config, Some(store), engine, online)
+        });
+        worker.request(Operation::Tick).await.unwrap();
+        assert!(notified.has_changed().unwrap());
+        notified.borrow_and_update();
+        clock.0.store(start + 10_000, Ordering::SeqCst);
+        worker.request(Operation::Tick).await.unwrap();
+        assert!(!notified.has_changed().unwrap());
+        stop(worker, task).await;
+        let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
+        let after = store.load().unwrap().unwrap();
+        let after = std::str::from_utf8(&after).unwrap();
+        assert!(after.contains("\"sessions\":[]"));
+        // A later empty Tick must not commit time observation alone.
+        assert!(after.contains(&format!("\"clock_floor\":{}", start + 1500)));
     }
     #[tokio::test]
     async fn expiry_tick_commits_removal_without_any_client_reconnect() {

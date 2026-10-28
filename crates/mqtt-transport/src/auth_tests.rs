@@ -344,13 +344,23 @@ async fn empty_poll_commits_revoked_queued_payload_and_notifies() {
 
 #[tokio::test]
 async fn rejected_owner_and_password_leave_persistent_snapshot_unchanged() {
+    #[derive(Debug)]
+    struct FixedClock;
+    impl mqtt_session::durable::Clock for FixedClock {
+        fn now_millis(&self) -> u64 {
+            u64::MAX
+        }
+    }
     let db = super::tests::Database::new();
     let (policy, _) = policy();
     let config = BrokerConfig {
         access_control: policy.clone(),
         ..db.config()
     };
-    let mut engine = SessionEngine::new_with_access(session_config(&config), policy).unwrap();
+    // Keep legitimate reconnect/PING commits from changing only clock_floor.
+    let mut engine =
+        SessionEngine::new_with_clock(session_config(&config), policy, Arc::new(FixedClock))
+            .unwrap();
     engine
         .connect_authenticated(
             "shared",
