@@ -1,4 +1,4 @@
-# Architecture — revision7 / Phase2f
+# Architecture — revision8 / Phase2g
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2f contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2g contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -241,7 +241,8 @@ Supported/excluded property semantics and initial refusal reasons are enumerated
 in phase2e.md/README. Codec coverage of all property types does not mean runtime
 implementation of every optional feature. Topic aliases, subscription IDs/shared
 subscriptions, nondefault subscription options, enhanced
-AUTH, client MaximumPacketSize and assigned Client IDs remain explicit exclusions.
+AUTH remain explicit exclusions; Phase2g below adds client MaximumPacketSize and
+assigned Client IDs.
 No MQTT5 full-conformance, performance or production claim is made.
 
 MQTT5 normative source: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html.
@@ -284,6 +285,40 @@ Will TTL begins at successful publication. Known due times persist; active-at-cr
 connections conservatively start delay at restart, capped by restored session end.
 Startup validation, expiry, ACL reconciliation and Will recovery commit before ready.
 
-Current unsupported semantics remain client MaximumPacketSize negotiation, assigned
-IDs, nondefault subscription options, topic aliases, shared subscriptions/subscription
-IDs and enhanced AUTH. TLS/WebSocket/cluster and full conformance remain future work.
+Current unsupported semantics remain nondefault subscription options, topic aliases,
+shared subscriptions/subscription IDs and enhanced AUTH. TLS/WebSocket/cluster and full conformance remain future work.
+
+## Phase2g connection limits and resolved session keys
+
+The [Phase2g contract](contracts/phase2g.md) supersedes prior refusal of client
+MaximumPacketSize and empty V5 IDs. No persistent schema changes are required.
+ConnectionOptions adds maximum_packet_size; restored sessions default to the
+protocol maximum and each CONNECT resets this runtime-only field. Server allocation/
+input/output resource limits remain separate from a peer's negotiated inbound cap.
+
+Online admission skips oversized candidates and prunes guaranteed-oversize backlog
+before queue limits, including retained replay; offline admission ignores old peer caps.
+Poll transactionally drops oversized queued/replayed PUBLISH copies as completed,
+retiring all QoS IDs/order/expiry/tickets/quota, including previously started payloads.
+Begin checks the final encoded frame too. This explicit packet-size discard rule is
+separate from Message Expiry's obligation to finish started exchanges. Released
+QoS2 stages remain PUBREL-only. Routing does not reject a publication merely because
+one peer has a small cap; global retained state survives per-recipient discard.
+Existing global server resource/version-growth admission constraints remain intact.
+
+The worker resolves empty V5 IDs using bounded OS-entropy allocation and checks
+both session and Will keys before authentication/authorization. The resolved key
+is used for records, registration, cleanup and replies; no empty network identity
+is retained. The exact successful CONNACK, including mandatory capability/assignment
+properties, must fit before mutating the proposal or old connection. Durable commit
+precedes successful response, preserving the existing SQL/TCP uncertainty boundary.
+Assignment is not an authentication credential; normal owner/ACL rules still apply.
+
+Writer length guards apply to data, control, refusal and terminal frames. Oversized
+mandatory controls close without truncation or partial output. A protocol-owned
+prefix helper reuses the canonical property parser to discover a trustworthy cap
+before reporting errors in a later CONNECT payload, bounded by declared packet
+length even with coalesced input. Unknown/invalid property blocks establish no cap.
+Peer-cap scans, encoded-size preflight and entropy allocation are bounded but have
+no measured performance baseline. Row-level persistence, packet-size indexes and
+higher throughput require measurement; no new compatibility/performance claim.

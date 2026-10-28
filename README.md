@@ -36,6 +36,8 @@ preserves repeated UserProperty order. This is an explicit subset of MQTT5 seman
 | Application properties | UserProperty, ContentType, PayloadFormatIndicator, ResponseTopic and CorrelationData survive retained/Will/QoS/outbox recovery |
 | Message Expiry | Finite TTL for offline/retained/QoS2 data; expired unstarted writes are suppressed |
 | Will Delay | Durable delay capped by session end; surviving-session reconnect cancels before due |
+| Maximum Packet Size | Per-connection complete-frame ceiling; oversized recipient copies are discarded with QoS state/credit cleanup |
+| Assigned Client Identifier | Empty V5 IDs receive a unique key in CONNACK; explicit key resumes normal owned sessions |
 | Reasons | Context-validated ACK/SUBACK/UNSUBACK/CONNACK/DISCONNECT reasons, negative ACK cleanup |
 | Mixed versions | Publish/subscribe QoS0/1/2 routes across versions; properties are stripped only from MQTT311 wire output |
 
@@ -54,16 +56,14 @@ timer removes offline subscription/queued/inflight state and frees IDs independe
 of traffic. Retained globals and pending Will intent remain separate. Schema3 owners
 are preserved in schema5; schema1/2 still migrate to anonymous ownership.
 
-The server advertises bounded ReceiveMaximum/MaximumPacketSize, TopicAliasMaximum0,
-SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable0. Unsupported
+The server advertises bounded ReceiveMaximum/MaximumPacketSize,
+SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable0; TopicAliasMaximum
+defaults to0. Unsupported
 semantics are refused explicitly rather than accepted and discarded:
 
-- Client MaximumPacketSize negotiation: CONNECT refusal0x83; if even the five-byte
-  refusal cannot fit the supplied limit, the connection closes without an oversized reply.
 - Enhanced AUTH/methods: CONNECT0x8C; unsolicited AUTH after basic auth is a protocol error.
 - Topic Alias:0x94, including zero; Subscription Identifier: DISCONNECT0xA1 (client PUBLISH0x82).
 - Shared filters: DISCONNECT0x9E; nondefault NoLocal/RAP/RetainHandling: SUBACK0x83.
-- Server-assigned Client IDs: not implemented; empty MQTT5 Client ID gets CONNACK0x85.
 
 Complete output frames obey the packet cap too: legacy311 messages can grow when
 bridged to5. An unclean5 resume whose pending/queued output would exceed that cap
@@ -74,6 +74,35 @@ a publication/replay that cannot fit, rather than poisoning a durable outbox.
 
 These exclusions, full direction/conformance matrices and operational hardening
 remain work. Full MQTT5 compatibility and production-readiness are not claimed.
+
+## Packet-size negotiation and assigned identifiers
+
+CONNECT MaximumPacketSize limits every server-to-client complete encoded packet,
+including headers and property-length integers. It defaults to the protocol limit
+when absent and is independent of the configured server resource cap. Before online queue admission and at delivery,
+an oversized recipient PUBLISH is discarded as completed: its queue/inflight ID,
+metadata, ticket and credit are retired transactionally. This also applies to old
+started PUBLISH replay when reconnecting with a smaller maximum; AwaitComp remains
+PUBREL-only. Other recipients and global retained data remain intact. Fitting
+messages continue, and offline data is not constrained by a previous connection's
+maximum. This negotiated maximum is runtime-only; schema5 is unchanged.
+
+The exact success CONNACK is checked before session/Will/takeover changes. Required
+nondefault capabilities and AssignedClientIdentifier are retained; the default-zero
+TopicAliasMaximum property is omitted. A too-small limit gets reason0x95 if the
+five-byte refusal fits, otherwise EOF. Every writer path enforces the ceiling;
+a mandatory control reply that cannot fit closes without sending partial/oversized
+bytes. Valid prefix properties also bound diagnostics for a damaged later CONNECT
+payload. Invalid/incomplete properties cannot establish a trustworthy peer limit.
+
+A zero-length V5 ClientID with either CleanStart value receives a23-character
+alphanumeric key from OS entropy, with bounded collision checks against sessions
+and pending Wills. Authentication and ACL see the resolved key. Successful CONNACK
+returns that key exactly once; explicit-ID connections have no assignment property.
+Persisted subscriptions/outboxes/Wills use the same key, so explicit reconnect can
+resume over5 or311 under existing ownership/expiry rules. Assignment grants no extra
+authority. Entropy/admission/CONNACK-size failures leave prior state untouched.
+MQTT311 empty-ID behavior is unchanged.
 
 ## Authentication and ACL
 
@@ -268,6 +297,8 @@ python3 tests/auth_acl_blackbox.py
 python3 tests/mqtt5_blackbox.py
 /tmp/rmqtt-client-venv/bin/python tests/mqtt5_paho.py
 python3 tests/expiry_will_blackbox.py
+python3 tests/negotiation_blackbox.py
+/tmp/rmqtt-client-venv/bin/python tests/negotiation_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/expiry_will_paho.py
 python3 tests/persistence_blackbox.py
 python3 tests/retained_will_blackbox.py
@@ -281,5 +312,5 @@ basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persis
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
 
-See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2f.md),
+See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2g.md),
 [actual results](docs/progress.md) and [remaining dependencies](docs/tasks.md).

@@ -265,6 +265,7 @@ dependencies = [
 name = "mqtt-transport"
 version = "0.1.0"
 dependencies = [
+ "getrandom",
  "mqtt-auth",
  "mqtt-protocol",
  "mqtt-router",

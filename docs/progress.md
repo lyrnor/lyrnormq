@@ -772,3 +772,159 @@ transactions, full snapshots and deadline scans have unmeasured costs; no latenc
 throughput or memory performance number is claimed. tasks.md tracks measurement,
 row-scoped persistence, broader fault/fuzz/client campaigns, auth CPU/rate isolation
 and TLS/WebSocket/admin work. Cluster remains deferred.
+
+
+## Phase2g — Maximum Packet Size and Assigned Client Identifier (2026-10-28)
+
+Frozen [contract](contracts/phase2g.md): initial2a4720a, diagnostic prefix helper
+919c608, admission clarification b5a00e9. Architecture revision8/tasks.md/README now
+supersede prior refusal of these two MQTT5 features. Existing protocol properties,
+Clock, schema5/SQLite persistence, retained store, Will and QoS/outbox pipeline are
+reused. Negotiated peer maximum is connection state; no schema migration or durable
+allocator is introduced. All lib.rs files remain docs/module declarations/reexports.
+
+### Worktree isolation, implementation and review
+
+Session, Transport and Quality started on separate branches/worktrees after the
+contract freeze. Quality captured old reason83/85 refusals as intended failures.
+Its released slot enabled a Protocol specialist to reuse the canonical property
+parser for safe CONNECT prefix inspection. The initial Transport agent encountered
+service capacity errors before committing. That writer stopped; its existing diff
+was preserved and copied to a new isolated p2g-transport-finish branch/worktree.
+The continuation reused that implementation and completed verification; there was
+no concurrent writing to the old tree or shared integration checkout. Coordinator
+integrated tested commits on integration/phase2g; main was not changed.
+
+| Specialist commit | Integrated commit | Work |
+| --- | --- | --- |
+| 637580f91d7b3567c51d3a3dfd4bf8afd1b71b94 |b56c9cc|runtime peer cap, complete-size discard/QoS retirement, ID occupancy query|
+| 9c2237cd4c51aa3fe7d89f92af06b37b4951201a |3f2dc46|canonical prefix/property limit probe and boundary tests|
+| f37398e179629776c3835cfe5118985185f08967 |a035f1f|entropy ID assignment, resolved-key worker/network, exact CONNACK admission, writer caps|
+| a4c7dc1efa5d0aca1fbcc172b7ea9379c2de240c |f89fcfb|online preadmission discard/backlog pruning and genuine-backpressure guards|
+| f3c8f7f,40a51b5,2f3c8c7,885fe19 |181ab67,fb02453,afa6bd4,f31b691|independent wire/Paho/CI and failure-first edge cases|
+
+ConnectionOptions.maximum_packet_size and runtime session cap reset at each CONNECT
+and restore. Complete encoded size includes all headers and variable-length fields.
+Online guaranteed-oversize recipient copies are skipped before queue admission;
+preexisting backlog is pruned before fitting traffic/retained replay. Poll/Begin
+also enforce the cap and atomically retire QoS IDs/order/properties/deadlines/tickets/
+credit, even old started PUBLISH replay. AwaitComp remains PUBREL-only. Offline
+queues ignore old negotiated caps, while global retained records/other recipients
+survive per-peer discard. Configured server resource/version-growth admission rules
+and genuine fitting-message backpressure remain intact.
+
+The worker allocates23-character alphanumeric identifiers with88bits of OS entropy,
+bounded16 collision attempts against sessions AND Will records. Authentication,
+Connect/Will ACLs, registry generation, cleanup, records and reply all use the
+resolved key. Empty V5 ID with either CleanStart value returns assignment exactly
+once in successful CONNACK. Explicit reconnect, including311 where persistent-mode
+policy permits, uses normal owned-session recovery with no assignment property.
+Entropy/authorization/admission/CONNACK-fit failures cannot mutate old state.
+
+Exact successful CONNACK is preflighted before session/Will/takeover mutation;
+nondefault capabilities/assignment remain present and default TopicAliasMaximum0
+is omitted. At default limits the required success is17bytes,43 with assignment.
+Limits below required size get a fitting five-byte reason95 refusal or EOF. Writer
+guards every data/control/error/takeover/shutdown path; an oversized mandatory
+control closes without truncation or partial output. The protocol-owned diagnostic
+helper obeys the declared packet boundary, works before later payload completes,
+and reuses valid property parsing; malformed properties establish no trusted cap.
+Only cached getrandom0.2.17 was made a direct Transport dependency; Cargo.lock adds
+that dependency edge without a new package/version.
+
+### Reproduced defects and independent review
+
+- The old broker refused valid MaximumPacketSize and empty V5 IDs; independent
+  wire and real TCP tests failed before implementation. Existing codec support was
+  reused instead of replacing encoding/decoding.
+- A valid cap1 followed by malformed later CONNECT payload still caused the old
+  error path to write CONNACK byte0x20. The shared prefix probe plus final writer
+  cap fixes this; QA tests30 malformed-payload/Will subcases at multiple ceilings.
+- An independently compiled public-model probe with max_queued1 reproduced a
+  guaranteed-oversize, never-polled peer blocking a second source publication even
+  after the healthy peer consumed the first. Owner reproduced that plus reconnect
+  backlog/fitting admission and multiple oversized retained matches before fixing.
+- Independent real TCP reproduced the retained variant: two large retained values
+  and one fitting value with capacity1 yielded DISCONNECT instead of SUBACK. Final
+  admission skips/prunes pass the same wire case in both modes; uncapped observers
+  still recover both large global retained values. New unit guards retain genuine
+  fitting-message backpressure and server-global311→5 size rejection.
+- QA verifies original empty-ID CONNECT exactly64bytes with Will fits servercap64
+  after assignment; normalized-key expansion no longer poisons synthetic validation.
+- The Protocol specialist independently reviewed the full network/worker flow:
+  no further defect found; final Session118 and Transport49 test runs pass. The
+  original public-model queue-poison probe now returns successful PUBACK.
+
+During final legacy Paho regression, immediate reconnect after expiry0 disconnect
+once observed session_present=true. QA's deterministic SQL write-lock probe proved
+the old helper returned before server commit: durable state still existed and a
+duplicated socket had no remote EOF. Paho2.1 closes its own descriptor without
+shutdown, so the test helper now duplicates it before disconnect, stops the Paho
+reader and waits bounded remote EOF. No sleep/retry or production behavior changed;
+this establishes actual server-side ordering for both memory and SQLite tests.
+
+### Actual final verification
+
+Environment: Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024, Python3.14.7,
+Paho MQTT2.1.0. Integrated debug binary built from production commit f89fcfb SHA256:
+6594cd086f7e3240ac26ace0112d7e8cf137adb8a35769cd2b3ce40d5f3e100d.
+
+cargo build --workspace --offline; workspace test; fmt check; strict all-target
+Clippy and Rustdoc all pass. Rust tests260: auth13,protocol44,router14,session118,
+storage16,transport49,CLI6. Tests include deterministic bounded allocator collision/
+entropy errors, resolved-key authorization and full writer/error/cap boundaries.
+
+| New independent suite | Memory | SQLite |
+| --- | --- | --- |
+| negotiation_blackbox.py |23 passed,3 mode-only skips (15.675s)|26 passed (16.373s)|
+| negotiation_paho.py |5 passed,1 mode-only skip (2.066s)|6 passed (2.091s)|
+
+Totals49 executed new wire methods and11 executed Paho methods,4 explicit mode-only
+skips. Nested QoS/varint matrices, concurrent-ID checks and focused reruns are not
+counted as extra methods. Coverage includes exact/one-byte-over/variable-integer
+width limits, property preservation, data/control/refusal/terminal bounds, peer
+cap changes, queue/inflight discard and quota cleanup, retained preservation, TTL,
+311↔5 bridging, both CleanStart values, unique assigned IDs, explicit resume,
+owner/ACL denial, no-state on tiny CONNACK rejection, assigned Will, SIGKILL and
+repeated restart with same IDs/QoS stages. SQLite confirms negotiated max is absent
+from schema5 and retired oversized stages do not reappear after another restart.
+
+Reused final regression matrix also passes on that same final production artifact:
+
+| Suite | Memory | SQLite |
+| --- | --- | --- |
+| blackbox.py |14 passed|14 passed|
+| qos_blackbox.py |9 passed|9 passed|
+| retained_will_blackbox.py |14 passed,6 skips|20 passed|
+| auth_acl_blackbox.py |13 passed,7 skips|20 passed|
+| mqtt5_blackbox.py |31 passed,11 skips|41 passed,1 skip|
+| expiry_will_blackbox.py |28 passed,10 skips|38 passed|
+| persistence_blackbox.py |not applicable|14 passed|
+| auth_acl_paho.py |2 passed,1 skip|3 passed|
+| mqtt5_paho.py |4 passed,1 skip|5 passed|
+| expiry_will_paho.py |5 passed,1 skip|6 passed|
+| paho_interop.py |3x3 QoS matrix passed|3x3 QoS matrix passed|
+| retained_will_paho.py |passed|passed|
+| persistence_paho.py |not applicable|offline QoS1/2 and SIGKILL passed|
+
+The reused wire suites total265 passing executions; with49 new methods the total
+is314 wire executions. The Paho shared-helper ordering fix was the only test change
+after production artifact freeze: existing MQTT5, Negotiation and Expiry Paho suites
+were rerun in BOTH modes, plus the expiry0 disconnect case five times per mode, all
+passing. Focused repeats are not double-counted. Thin-lib audit, Python compilation
+and git diff --check also pass.
+
+Suite durations are local reproducibility evidence, not performance baselines.
+SIGKILL tests establish process recovery, not physical power-loss behavior.
+
+### Remaining scope
+
+Nondefault NoLocal/RAP/RetainHandling, Topic Alias, shared subscriptions/subscription
+IDs and enhanced AUTH remain unimplemented as listed in README/tasks.md. Broader
+MQTT311/5 direction/reason/client conformance, auth CPU/rate isolation, TLS/WebSocket,
+observability and operational/fuzz/fault campaigns remain. Whole-registry snapshots,
+extra first-write transactions, packet-size preflights and online backlog scans have
+unmeasured CPU/memory/latency costs. Row-scoped persistence/indexing needs measured
+baselines. Existing SQL/TCP start-intent ambiguity and clock-floor/wire-only time
+boundary remain unchanged and documented. No full MQTT5 conformance, production
+readiness or throughput improvement is claimed; cluster remains deferred.

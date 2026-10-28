@@ -47,13 +47,13 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 1. Complete broader MQTT3.1.1 conformance/rejection-code/client-ID edge cases and
    client interoperability before claiming full conformance. Authentication/ACL
    is implemented and verified in Phase2d.
-2. Extend the accepted MQTT5 foundation under new semantic contracts: client
-   MaximumPacketSize negotiation, assigned Client IDs, nondefault subscription
-   options, topic aliases, shared subscriptions,
+2. Extend the accepted MQTT5 foundation under new semantic contracts:
+   nondefault subscription options, topic aliases, shared subscriptions,
    Subscription Identifiers and enhanced AUTH remain explicitly unsupported.
    Typed Properties/ReasonCode, Clean Start/Session Expiry/Receive Maximum and
    cross-version recovery are implemented in Phase2e; MessageExpiry and WillDelay
-   are implemented in Phase2f.
+   are implemented in Phase2f. Phase2g adds MaximumPacketSize negotiation and
+   Assigned Client Identifier with durable normal-key resume.
 3. Add TLS transport before exposing password authentication over untrusted networks;
    remote authentication, per-identity rate limiting and policy reload require
    explicit policy-version/control contracts.
@@ -199,3 +199,34 @@ expand repeated clock-jump and crash-at-wire-boundary campaigns; evaluate indexe
 deadline scheduling and row-scoped persistence only from measured baselines. The
 SQL/TCP start-intent gap and latest uncommitted wire-clock observation remain
 explicit boundaries, alongside the operational/conformance tasks listed above.
+
+## Completed Phase2g dependency group
+
+```mermaid
+graph LR
+  Contract[Connection maximum and resolved-key freeze] --> Session[Runtime limits and transactional recipient discard]
+  Contract --> Transport[Assigned ID allocation and exact CONNACK admission]
+  Contract --> QA[Independent wire Paho boundary and recovery tests]
+  Probe[Protocol-owned safe CONNECT limit probe] --> Transport
+  Session --> Transport
+  Transport --> Gate[Unified review and full regression]
+  QA --> Gate
+```
+
+Separate Session, Transport and Quality worktrees start from frozen interfaces;
+Protocol uses a released slot for a parser-reusing diagnostic probe. The existing
+schema5, SQLite backend, QoS state machines and outbox/expiry/Will paths are reused.
+No schema migration or persistent allocator is introduced. Runtime peer caps reset
+on every connection/restore; assigned keys become ordinary owned session keys.
+
+Next protocol work remains nondefault subscription options, Topic Alias, Shared
+Subscriptions/Subscription Identifiers and enhanced AUTH, alongside the earlier
+full-conformance/client-matrix gates. Measure peer-cap scanning/full-encoding and
+snapshot costs before optimizing. Existing SQL/TCP crash ambiguity, clock boundaries
+and operational/performance tasks remain explicit; no cluster work is introduced.
+
+Independent review acceptance additionally covers max_queued1 oversize copies before
+Poll, resumed backlog admission and retained replay without source/healthy-peer
+rejection. Reproduced cases were fixed by the Session owner and independently
+verified over TCP; genuine fitting-message backpressure remains. Shared Paho close
+helpers now wait remote EOF before a causal reconnect, proven by a SQL-lock probe.
