@@ -195,10 +195,10 @@ class MQTTBlackbox(unittest.TestCase):
                 sock.sendall(data)
                 self.closed(sock)
 
-    def test_unsupported_publish_features_disconnect(self):
-        for header in (0x31, 0x33, 0x35):
+    def test_malformed_publish_flags_disconnect(self):
+        for header in (0x36, 0x38, 0x3e):
             with self.subTest(header=header):
-                sock = self.client(f'unsupported-{header}')
+                sock = self.client(f'invalid-publish-{header}')
                 sock.sendall(frame(header, string('a') + b'\x00\x01payload'))
                 self.closed(sock)
 
