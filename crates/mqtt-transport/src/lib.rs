@@ -1,4 +1,5 @@
-//! Bounded Tokio TCP transport for MQTT 3.1.1 clean-session live QoS 0/1/2.
+//! Bounded Tokio TCP transport for MQTT 3.1.1 live and persistent QoS 0/1/2.
+mod durable;
 use mqtt_protocol::{Packet, ProtocolError, decode, encode};
 use mqtt_router::{Router, validate_filter};
 use mqtt_session::{AckAction, AckKind, IncomingQos2, OutgoingQos};
@@ -22,9 +23,12 @@ use tokio::{
 /// packets; maximum queued payload memory is bounded by capacity × packet size.
 /// Each direction separately retains at most `max_inflight` QoS exchanges, with
 /// each encoded message limited by `max_packet_size`. State is volatile and is
-/// discarded on disconnect; this crate does not provide persistent sessions.
+/// discarded on disconnect unless storage_path enables the SQLite-backed worker.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
+    pub storage_path: Option<std::path::PathBuf>,
+    pub max_sessions: usize,
+    pub max_state_bytes: usize,
     pub max_packet_size: usize,
     pub max_connections: usize,
     pub outbound_capacity: usize,
@@ -37,6 +41,9 @@ pub struct BrokerConfig {
 impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
+            storage_path: None,
+            max_sessions: 1024,
+            max_state_bytes: 64 * 1024 * 1024,
             max_packet_size: 1024 * 1024,
             max_connections: 1024,
             outbound_capacity: 64,
@@ -176,7 +183,9 @@ pub async fn serve(
     config: BrokerConfig,
     mut shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
-    if config.max_packet_size < 2
+    if config.max_sessions == 0
+        || config.max_state_bytes == 0
+        || config.max_packet_size < 2
         || config.max_connections == 0
         || config.outbound_capacity == 0
         || config.max_subscriptions == 0
@@ -194,6 +203,9 @@ pub async fn serve(
             io::ErrorKind::InvalidInput,
             "invalid broker resource limits",
         ));
+    }
+    if config.storage_path.is_some() {
+        return durable::serve(listener, config, shutdown).await;
     }
     let state = Arc::new(Mutex::new(State::default()));
     let permits = Arc::new(Semaphore::new(config.max_connections));
