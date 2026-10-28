@@ -485,3 +485,164 @@ fn zero_ttl_retained_will_replaces_old_value_without_forwarding_expired_payload(
     assert_eq!(payload(&mut e), None);
     assert!(!e.wills.contains_key("source"));
 }
+
+fn fill_source_self_queue(e: &mut SessionEngine, topic: &str) {
+    e.handle(
+        "source",
+        Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("#".into(), 1)],
+        },
+    )
+    .unwrap();
+    e.connect("filler", true).unwrap();
+    for id in 1..=2 {
+        e.handle(
+            "filler",
+            Packet::Publish {
+                topic: topic.into(),
+                payload: b"fill".to_vec(),
+                qos: 1,
+                packet_id: Some(id),
+                dup: false,
+                retain: false,
+            },
+        )
+        .unwrap();
+    }
+    assert_eq!(e.sessions["source"].queued.len(), 2);
+}
+
+#[test]
+fn clean_start_drops_full_old_self_queue_before_forced_will_fanout() {
+    for offline in [false, true] {
+        for replacement in [false, true] {
+            let (mut e, _) = state();
+            observer(&mut e);
+            connect_will(&mut e, true, 60, 30);
+            fill_source_self_queue(&mut e, "fill");
+            if offline {
+                e.disconnect_with_reason("source", false).unwrap();
+            }
+            let mut o = options(true, 60, 30);
+            let new_will = replacement.then(|| will(b"new"));
+            if !replacement {
+                o.will_properties.clear();
+            }
+            let connected = e
+                .connect_with_options("source", new_will, Principal::anonymous(), o)
+                .unwrap();
+            assert!(!connected.session_present);
+            assert!(e.sessions["source"].queued.is_empty());
+            assert!(e.sessions["source"].subscriptions.is_empty());
+            assert!(e.sessions["source"].outgoing.pending.is_empty());
+            assert_eq!(payload(&mut e), Some(b"old".to_vec()));
+            assert_eq!(payload(&mut e), None);
+            assert!(!e.retry_wills().unwrap());
+            assert_eq!(e.wills.contains_key("source"), replacement);
+            if replacement {
+                assert_eq!(e.wills["source"].will.payload, b"new");
+            }
+        }
+    }
+}
+
+#[test]
+fn clean_start_preserves_real_external_capacity_deferral() {
+    for replacement in [false, true] {
+        let (mut e, _) = state();
+        observer(&mut e);
+        connect_will(&mut e, true, 60, 30);
+        fill_source_self_queue(&mut e, "will/fill");
+        let mut o = options(true, 60, 30);
+        if !replacement {
+            o.will_properties.clear();
+        }
+        let result = e.connect_with_options(
+            "source",
+            replacement.then(|| will(b"new")),
+            Principal::anonymous(),
+            o,
+        );
+        if replacement {
+            assert!(matches!(result, Err(EngineError::Capacity)));
+        } else {
+            assert!(!result.unwrap().session_present);
+        }
+        assert!(e.wills["source"].pending);
+        assert!(e.wills["source"].timer_blocked);
+        assert_eq!(e.wills["source"].will.payload, b"old");
+        assert_eq!(payload(&mut e), Some(b"fill".to_vec()));
+        assert!(e.retry_wills().unwrap());
+        assert_eq!(payload(&mut e), Some(b"fill".to_vec()));
+        assert_eq!(payload(&mut e), Some(b"old".to_vec()));
+        assert_eq!(payload(&mut e), None);
+        assert!(!e.wills.contains_key("source"));
+    }
+}
+
+#[test]
+fn zero_expiry_takeover_drops_full_old_self_queue_before_will_fanout() {
+    for clean in [false, true] {
+        for replacement in [false, true] {
+            let (mut e, _) = state();
+            observer(&mut e);
+            connect_will(&mut e, true, 0, 30);
+            fill_source_self_queue(&mut e, "fill");
+            let mut o = options(clean, 60, 30);
+            if !replacement {
+                o.will_properties.clear();
+            }
+            assert!(
+                !e.connect_with_options(
+                    "source",
+                    replacement.then(|| will(b"new")),
+                    Principal::anonymous(),
+                    o
+                )
+                .unwrap()
+                .session_present
+            );
+            assert!(e.sessions["source"].subscriptions.is_empty());
+            assert!(e.sessions["source"].queued.is_empty());
+            assert_eq!(payload(&mut e), Some(b"old".to_vec()));
+            assert_eq!(payload(&mut e), None);
+            assert_eq!(e.wills.contains_key("source"), replacement);
+        }
+    }
+}
+
+#[test]
+fn rollback_recovery_anchors_active_will_to_persisted_effective_clock() {
+    let (mut e, clock) = state();
+    observer(&mut e);
+    connect_will(&mut e, true, 60, 3);
+    clock.set(5000);
+    e.expire_sessions().unwrap();
+    let snapshot = e.snapshot().unwrap();
+    clock.set(2000);
+    let mut restored =
+        SessionEngine::restore_with_clock(config(), &snapshot, Arc::new(Permit), clock.clone())
+            .unwrap();
+    restored.recover_wills().unwrap();
+    assert_eq!(restored.wills["source"].due_at, Some(8000));
+    clock.set(7000);
+    assert!(!restored.retry_wills().unwrap());
+    clock.set(8000);
+    assert!(restored.retry_wills().unwrap());
+    assert!(!restored.wills.contains_key("source"));
+}
+
+#[test]
+fn rollback_cannot_cancel_an_already_observed_due_will_on_resume() {
+    let (mut e, clock) = state();
+    observer(&mut e);
+    connect_will(&mut e, true, 60, 3);
+    e.disconnect_with_reason("source", false).unwrap();
+    clock.set(4000);
+    e.expire_sessions().unwrap();
+    clock.set(2000);
+    resume(&mut e, false, 60).unwrap();
+    assert_eq!(payload(&mut e), Some(b"old".to_vec()));
+    assert!(!e.wills.contains_key("source"));
+}

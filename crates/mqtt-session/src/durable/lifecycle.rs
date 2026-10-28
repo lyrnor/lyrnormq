@@ -148,7 +148,7 @@ impl SessionEngine {
                 result => result?,
             }
         }
-        let now = self.clock.now_millis();
+        let now = self.effective_now();
         let survives = !options.clean_start
             && self
                 .sessions
@@ -182,7 +182,13 @@ impl SessionEngine {
             record.due_at = Some(record.due_at.map_or(now, |deadline| deadline.min(now)));
             record.timer_blocked = false;
         }
-        if was_online {
+        if !survives {
+            // Session end removes the old subscriptions and outboxes before
+            // forced Will fanout. Discarded self-delivery cannot consume quota
+            // or defer publication to genuine external recipients.
+            self.sessions.remove(client_id);
+        }
+        if was_online && survives {
             self.disconnect_with_reason(client_id, false)?;
         } else {
             self.retry_wills()?;
@@ -283,6 +289,7 @@ impl SessionEngine {
             session.expiry = expiry;
             session.persistent = expiry != 0;
         }
+        let now = self.effective_now();
         let persistent = self
             .sessions
             .get(client_id)
@@ -297,11 +304,7 @@ impl SessionEngine {
             session.expires_at = if session.expiry == u32::MAX {
                 None
             } else {
-                Some(
-                    self.clock
-                        .now_millis()
-                        .saturating_add(u64::from(session.expiry) * 1000),
-                )
+                Some(now.saturating_add(u64::from(session.expiry) * 1000))
             };
             session.sent.clear();
             session.replay.clear();
@@ -317,7 +320,6 @@ impl SessionEngine {
         } else if let Some(record) = self.wills.get_mut(client_id)
             && !record.pending
         {
-            let now = self.clock.now_millis();
             let session_end = self
                 .sessions
                 .get(client_id)
@@ -332,7 +334,7 @@ impl SessionEngine {
     }
     /// Called once on startup after restore, before the startup commit and ready.
     pub fn recover_wills(&mut self) -> Result<(), EngineError> {
-        let now = self.clock.now_millis();
+        let now = self.effective_now();
         for (client_id, record) in &mut self.wills {
             if !record.pending {
                 // The crash instant is unknown. Only active-at-crash records get
@@ -362,7 +364,7 @@ impl SessionEngine {
                 (record.pending
                     && record
                         .due_at
-                        .is_some_and(|deadline| deadline <= self.clock.now_millis()))
+                        .is_some_and(|deadline| deadline <= self.effective_now()))
                 .then_some(id.clone())
             })
             .collect();
@@ -375,7 +377,7 @@ impl SessionEngine {
             let publication = Message {
                 expires_at: super::temporal::expiry_deadline(
                     &record.will.properties,
-                    self.clock.now_millis(),
+                    self.effective_now(),
                 ),
                 topic: record.will.topic,
                 payload: record.will.payload,
