@@ -351,7 +351,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         capabilities = dict(self.connack(sock))
         self.assertEqual(capabilities[0x21], 3)
         self.assertEqual(capabilities[0x27], 65536)
-        self.assertEqual(capabilities.get(0x22, 0), 0)
+        self.assertEqual(capabilities.get(0x22, 0), 32)
         self.assertEqual(capabilities[0x2a], 0)
         self.assertEqual(capabilities[0x29], 1)
         self.assertNotIn(0x1f, capabilities)
@@ -690,7 +690,7 @@ class Mqtt5Blackbox(unittest.TestCase):
                     self.assertGreaterEqual(packet[1][1], 0x80)
                 self.closed(sock)
         cases = [([(0x21, 1)], 0x81), ([(0x23, 0)], 0x94),
-                 ([(0x23, 1)], 0x94), ([(0x0b, 1)], 0x82),
+                 ([(0x0b, 1)], 0x82),
                  ([(3, 'a'), (3, 'b')], 0x82),
                  ([(8, 'bad/+')], 0x82)]
         for index, (values, reason) in enumerate(cases):

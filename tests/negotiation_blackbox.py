@@ -39,6 +39,7 @@ class NegotiationBlackbox(unittest.TestCase):
         self.assertTrue(identifier)
         # Actual capability omissions must not enable unsupported/default features.
         caps = dict(values)
+        self.assertEqual(caps[0x22], 32)
         self.assertEqual(caps[0x21], 32)
         self.assertEqual(caps[0x27], 1048576)
         self.assertEqual(caps[0x2a], 0)
@@ -58,7 +59,7 @@ class NegotiationBlackbox(unittest.TestCase):
 
     def test_tiny_limits_never_emit_oversized_refusal(self):
         self.start()
-        for cap in range(1, 17):
+        for cap in range(1, 20):
             with self.subTest(maximum=cap):
                 sock = self.raw()
                 sock.sendall(wire.connect5('tiny-' + str(cap), properties=[(0x27, cap)]))
@@ -77,14 +78,9 @@ class NegotiationBlackbox(unittest.TestCase):
         other = self.raw();other.sendall(wire.connect5('below', properties=[(0x27, size - 1)]))
         header, body = self.limited(other, size - 1)
         self.assertEqual(header, 0x20)
-        # Omitting default TopicAliasMaximum0 is allowed, mandatory features are not.
-        self.assertIn(body[1], (0, 0x95))
-        if body[1] == 0:
-            caps, _ = wire.readprops(body, 2)
-            self.assertEqual({k: v for k, v in caps if k in (0x21, 0x27, 0x2a, 0x29)},
-                             {0x21: 32, 0x27: 1048576, 0x2a: 0, 0x29: 1})
-        else:
-            self.closed(other)
+        # Nonzero alias capacity and unavailable capabilities are mandatory.
+        self.assertEqual(body[:2], b'\0\x95')
+        self.closed(other)
 
     def test_zero_duplicate_and_wrong_context_remain_protocol_errors(self):
         self.start()

@@ -40,7 +40,7 @@ EXPECTED_METADATA = metadata(publication_properties())
 
 class Client:
     def __init__(self, broker, name, version=5, clean=True, expiry=None, maximum=None,
-                 will=None, username=None, password=None, accepted=True, present=False, packet_maximum=None):
+                 will=None, username=None, password=None, accepted=True, present=False, packet_maximum=None, topic_alias_maximum=None, client_factory=mqtt.Client):
         self.version = version
         self.messages = queue.Queue()
         self.subscriptions = queue.Queue()
@@ -54,7 +54,7 @@ class Client:
                        reconnect_on_failure=False)
         if version != 5:
             options['clean_session'] = clean
-        self.value = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, **options)
+        self.value = client_factory(mqtt.CallbackAPIVersion.VERSION2, **options)
         if username is not None:
             self.value.username_pw_set(username, password)
         if will is not None:
@@ -91,6 +91,8 @@ class Client:
                 properties.ReceiveMaximum = maximum
             if packet_maximum is not None:
                 properties.MaximumPacketSize = packet_maximum
+            if topic_alias_maximum is not None:
+                properties.TopicAliasMaximum = topic_alias_maximum
             connect_options = dict(clean_start=clean, properties=properties)
         self.value.connect('127.0.0.1', broker.port, keepalive=5, **connect_options)
         self.value.loop_start()
