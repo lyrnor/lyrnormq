@@ -10,6 +10,9 @@
   OS writer exclusion; persisted subscriptions, bounded offline queues, ordered
   reconnect replay and clean reset; transactional blocking worker; normal TCP
   disconnect, SIGKILL/restart and SQL rollback tests; both-path interoperability.
+- Phase2c: global retained replace/delete/replay, connection Will lifecycle/deferred
+  publication, schema1->2 migration, shared memory/SQLite worker, both-mode wire and
+  real-client verification. Existing QoS/outbox implementations are reused.
 
 The codec, Router, IncomingQos2, OutgoingQos and PacketIdentifiers were extended or
 reused. Storage/session/network were implemented and committed in separate Git
@@ -38,15 +41,13 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 
 ## Next single-node features
 
-1. Freeze Retained record/query and Last Will lifecycle contracts. Retained
-   storage/router work and Will state/protocol support can then run in isolated
-   worktrees; runtime delivery must use the existing outbox transaction boundary.
-2. Freeze authentication/ACL extension traits and denied-delivery behavior; add
-   implementation and independent authorization tests. Credentials are currently
-   rejected, not silently accepted as authenticated identities.
-3. Freeze versioned MQTT5 protocol/session contracts before parallel codec/runtime
-   changes: properties, reason codes, Clean Start/session expiry, Receive Maximum,
-   aliases/shared subscriptions, limits and AUTH remain unimplemented.
+1. Freeze authentication/ACL extension traits and denied-delivery behavior; implement
+   enforcement with independent authorization tests. Credentials remain rejected.
+2. Freeze versioned MQTT5 protocol/session contracts before parallel changes:
+   properties, reason codes, Clean Start/session expiry, Receive Maximum, topic
+   aliases/shared subscriptions, Will Delay and AUTH remain unimplemented.
+3. Broaden MQTT3.1.1 conformance/rejection-code/client-ID edge cases and client
+   interoperability beyond the current wire/Paho matrix before full conformance.
 
 ## Durability and operational hardening still open
 
@@ -55,7 +56,7 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 - Explicit migrations, consistent backup/restore and management/removal of offline
   sessions. Lowered incompatible quotas currently reject startup; they do not evict.
 - Bounded control/transaction response deadlines with slow/failing storage; broad
-  slow-reader/backpressure/shutdown/fault campaigns, plus legacy writer cancellation.
+  slow-reader/backpressure/shutdown/fault campaigns, and slow-worker control handling.
 - More filesystem/disk-error scenarios, schema/fuzz/corruption corpus and CI matrix.
   Process SIGKILL and storage SQLITE_FULL are tested; physical power loss is not.
 - Explicit disk-space/compaction/checkpoint quotas. Snapshot bytes are not a
@@ -77,3 +78,27 @@ Module-layout maintenance completed: every lib.rs is a declaration/re-export-onl
 entry point. Implementations/tests are grouped by responsibility, preserving the
 existing public API and durable format. This refactor does not complete or alter
 any of the unfinished feature/hardening requirements listed above.
+
+## Completed Phase2c dependency group
+Frozen contract: docs/contracts/phase2c.md (05e78a2).
+
+```mermaid
+graph LR
+  Protocol[Will CONNECT and retained PUBLISH codec] --> Model[Session retained and Will transactions]
+  Retained[Bounded retained store using existing matcher] --> Model
+  Model --> Runtime[Shared volatile or SQLite worker]
+  Runtime --> Verify[Both-mode blackbox Paho and lifecycle checks]
+  Quality[Independent Retained and Will cases] --> Verify
+```
+
+New retained state is global, not client-session-owned. Schema2 adds retained and
+connection-Will records and explicitly migrates schema1. Pending capacity-blocked
+Wills remain bounded and retry after progress. The network integration reuses one
+SessionEngine/outbox pipeline for both storage modes; no parallel competing file
+writers. lib.rs remains declarations/reexports only. These tasks passed integrated client/recovery acceptance; see progress.md.
+
+The final review added a recovery liveness boundary: an older capacity-blocked
+Will must not permanently prevent the same persistent client draining its own
+outbox. No-new-Will reconnect preserves that pending intent; admission carrying a
+new Will still refuses overwriting it. Per-connection multi-intent designs and
+throughput/fairness optimization under sustained saturation remain future work.

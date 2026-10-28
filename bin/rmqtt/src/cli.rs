@@ -1,7 +1,7 @@
 use mqtt_transport::BrokerConfig;
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N]";
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N]";
 
 pub struct Options {
     pub address: String,
@@ -38,6 +38,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 | "--storage-path"
                 | "--max-sessions"
                 | "--max-state-bytes"
+                | "--max-retained"
                 | "--max-packet-size"
                 | "--max-connections"
                 | "--outbound-capacity"
@@ -70,6 +71,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 }
                 options.config.max_packet_size = number;
             }
+            "--max-retained" => options.config.max_retained = number,
             "--max-sessions" => options.config.max_sessions = number,
             "--max-state-bytes" => options.config.max_state_bytes = number,
             "--max-connections" => options.config.max_connections = number,
@@ -117,6 +119,7 @@ mod tests {
             vec!["--storage-path", ""],
             vec!["--max-sessions", "0"],
             vec!["--max-state-bytes", "0"],
+            vec!["--max-retained", "0"],
         ] {
             assert!(parse(args(&values)).is_err(), "{values:?}");
         }
@@ -139,6 +142,8 @@ mod tests {
             "12",
             "--max-state-bytes",
             "65536",
+            "--max-retained",
+            "128",
         ]))
         .unwrap()
         .unwrap()
@@ -146,6 +151,7 @@ mod tests {
         assert_eq!(config.storage_path, Some(PathBuf::from("/tmp/test.sqlite")));
         assert_eq!(config.max_sessions, 12);
         assert_eq!(config.max_state_bytes, 65536);
+        assert_eq!(config.max_retained, 128);
     }
 
     #[test]

@@ -268,3 +268,89 @@ AwaitComp, a queued QoS1 and an incoming pending QoS2 record. The refactored bin
 restored session-present, the exact PUBREL ID and both queued/pending payloads
 without schema migration. This is a one-off cross-version validation, not a new
 committed test fixture. Runtime capabilities and remaining feature tasks are unchanged.
+
+## Phase2c accepted — 2026-10-28
+05e78a2 froze Retained Store, Will protocol/lifecycle, schema2 migration and shared
+worker contracts before parallel implementation. Protocol and Retained Store are
+integrated; Session adds global retained state, ordered subscription replay,
+connection-bound active/pending Wills and atomic publication through existing
+outboxes. Quality implemented independent both-mode wire/Paho checks. Network
+integration and unified acceptance are completed below. The pre-change binary also
+created a real schema1 DB with unacknowledged outgoing and pending incoming QoS2
+records for cross-version migration verification, rather than assuming compatibility.
+
+### Final Phase2c delivery
+
+Five real specialist agents used isolated branches/worktrees after contract05e78a2:
+Protocol and RetainedStore proceeded alongside Session implementation; Quality
+used a released slot; Transport started from integrated dependencies. Existing
+QoS primitives/allocator/Router/outbox/SQLite were reused. No business definitions
+were added to lib.rs. The old duplicate live production path was removed and its
+meaningful regression tests now exercise the shared worker.
+
+| Specialist | Original commit(s) | Integrated commit(s) |
+| --- | --- | --- |
+| Retained Store | a90b1d9 | 5d1aeaf |
+| Protocol | ce4a5fd | c88a1df |
+| Session | ff07108 + 6bf62d2 | 0d0844f + a40952d |
+| Independent Quality | 5c0f547 + 2475371 | 6e33720 + b3d77aa |
+| Shared Runtime | a07196e | 33ead95 |
+
+Implemented global retained replacement/deletion, retained QoS storage, ordered
+new/replacement subscription replay with correct RETAIN/QoS flags, normal live
+RETAIN=0, and QoS2 retained change only on PUBREL. Will supports binary/empty
+payloads and QoS0/1/2, retain updates/deletions, normal cancellation, abnormal
+EOF/RST/protocol error, Keep Alive timeout and generation-safe takeover. Pending
+capacity-blocked Wills are retained/retried atomically, including when Poll(None)
+causes progress elsewhere. Active clean-origin Wills recover after SIGKILL with
+SQLite. Schema2 required globals are strictly validated; valid schema1 migrates
+explicitly with original session IDs/stages/order preserved. CLI adds max-retained.
+
+Independent protocol-agent audits found no RetainedStore/Session blockers; temporary
+model comparisons were also run but are not committed CI artifacts or performance
+baselines. Quality independently reviewed commit/notification/generation ordering.
+Coordinator found an additional liveness edge after the first integration passed:
+a persistent source subscribed to its own Will with full inflight+outbox could
+never reconnect to free capacity. Contract da0ef83 was updated first. A failing
+model regression reproduced Capacity; the minimal guard now permits no-new-Will
+resume while retaining the older pending intent, but still rejects overwriting it
+with a new Will. Unit and independent TCP tests verify graceful/abnormal reclose,
+DUP replay, queue draining, one old Will and no repeat after restart. Unrecovered
+active records cannot use this bypass.
+
+### Final actual verification
+Local environment remains Darwin27.0.0 arm64, Rust/Cargo1.98.1, Tokio1.54.1,
+rusqlite0.41.0/bundled SQLite3.54.1 and Paho2.1.0. TCP tests run with local-network
+permission. No remote CI-host run or physical power-loss/performance claim.
+
+| Check on final functional code | Actual result |
+| --- | --- |
+| cargo fmt --all -- --check | passed |
+| cargo clippy --workspace --all-targets --offline -- -D warnings | passed |
+| RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --offline | passed |
+| cargo test --workspace --offline | 104 passed: protocol19/router14/session29/storage16/transport23/CLI3 |
+| cargo build --workspace --offline | passed |
+| lib.rs source audit | all5 contain only docs/modules/re-exports |
+| basic wire / memory | 14 passed, 3.468s |
+| QoS wire / memory | 9 passed, 2.311s |
+| Retained/Will wire / memory | 14 passed, 6 SQLite-only cases explicitly skipped; 4.783s |
+| basic wire / SQLite | 14 passed, 3.471s |
+| QoS wire / SQLite | 9 passed, 2.388s |
+| Retained/Will wire / SQLite | 20 passed, 6.565s |
+| persistence_blackbox.py | 14 passed, 2.926s |
+| paho_interop.py / both modes | both3x3 QoS matrices passed |
+| retained_will_paho.py / both modes | update/delete/resubscribe and normal/abnormal retained Will passed |
+| persistence_paho.py | persistent reconnect/offline QoS1/2/SIGKILL recovery passed |
+
+These are94 passing TCP test-method executions plus6 explicitly inapplicable
+volatile-mode skips and the separate Paho checks; elapsed suite times are not a
+throughput/latency benchmark. RMQTT_TEST_STORAGE_PATH selected SQLite for reused
+suites; each suite had an isolated temporary DB, as in the updated CI workflow.
+
+A real schema1 DB was generated by the pre-change binary, containing subscriptions,
+an unacknowledged outgoing QoS1 ID and pending incoming QoS2. The new executable
+restored session-present, replayed the same ID/DUP, completed the old incoming
+exchange, committed schema2, and successfully stored/replayed a new retained
+publication. This supplements the committed schema-migration tests with a one-off
+actual old-binary compatibility check; no synthetic fixture is shipped as production
+data. Remaining work is updated in tasks.md; Retained and Will are no longer TODOs.
