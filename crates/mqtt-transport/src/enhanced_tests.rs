@@ -180,3 +180,62 @@ async fn reauth_timeout_is_absolute_despite_ping_traffic() {
     closed(&mut stream).await;
     stop(shutdown, task).await;
 }
+
+#[tokio::test]
+async fn wrong_reauthentication_flushes_legal_reason_and_fires_will() {
+    let (address, shutdown, task) = broker(configured()).await;
+    let mut observer = TcpStream::connect(address).await.unwrap();
+    write(
+        &mut observer,
+        connect("observer", Some(b"\0alice\0password")),
+    )
+    .await;
+    read(&mut observer).await;
+    write(
+        &mut observer,
+        Frame::v5(Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("reauth/will".into(), 0)],
+        }),
+    )
+    .await;
+    read(&mut observer).await;
+    let mut stream = TcpStream::connect(address).await.unwrap();
+    let mut request = connect("wrong-reauth", Some(b"\0alice\0password"));
+    let Packet::Connect { will, .. } = &mut request.packet else {
+        panic!()
+    };
+    *will = Some(Will {
+        topic: "reauth/will".into(),
+        payload: b"failed".to_vec(),
+        qos: 0,
+        retain: false,
+    });
+    write(&mut stream, request).await;
+    read(&mut stream).await;
+    write(&mut stream, auth(0x19, Some(b"\0alice\0wrong"))).await;
+    let failure = read(&mut stream).await;
+    assert_eq!(failure.packet, Packet::Disconnect);
+    assert_eq!(failure.reason_code, ReasonCode::NOT_AUTHORIZED);
+    closed(&mut stream).await;
+    assert!(
+        matches!(read(&mut observer).await.packet,Packet::Publish{topic,payload,..} if topic=="reauth/will" && payload==b"failed")
+    );
+    write(&mut observer, Frame::v5(Packet::Disconnect)).await;
+    closed(&mut observer).await;
+    stop(shutdown, task).await;
+}
+#[tokio::test]
+async fn initial_enhanced_deadline_reports_authentication_failure() {
+    let mut config = configured();
+    config.handshake_timeout = Duration::from_millis(60);
+    let (address, shutdown, task) = broker(config).await;
+    let mut stream = TcpStream::connect(address).await.unwrap();
+    write(&mut stream, connect("initial-timeout", None)).await;
+    assert_eq!(read(&mut stream).await.packet, Packet::Auth);
+    let failure = read(&mut stream).await;
+    assert_eq!(failure.packet, Packet::Disconnect);
+    assert_eq!(failure.reason_code, ReasonCode::NOT_AUTHORIZED);
+    closed(&mut stream).await;
+    stop(shutdown, task).await;
+}

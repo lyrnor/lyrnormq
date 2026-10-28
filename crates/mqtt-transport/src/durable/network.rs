@@ -551,6 +551,12 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
             ));
         }
         if expires.is_some_and(|at| Instant::now() >= at) {
+            if initial_auth {
+                return Err(failure(
+                    ReasonCode::NOT_AUTHORIZED,
+                    "initial authentication deadline exceeded",
+                ));
+            }
             return Err(io::Error::new(
                 io::ErrorKind::TimedOut,
                 "MQTT receive deadline exceeded",
@@ -837,6 +843,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
             _=context.cancel.changed()=>{continue;}
             _=crate::packet_io::deadline(match (expires, reauth_deadline) { (Some(a),Some(b))=>Some(a.min(b)), (a,b)=>a.or(b) })=>{
                 if reauth_deadline.is_some_and(|at|Instant::now()>=at) { return Err(failure(ReasonCode::NOT_AUTHORIZED,"reauthentication deadline exceeded")); }
+                if initial_auth { return Err(failure(ReasonCode::NOT_AUTHORIZED,"initial authentication deadline exceeded")); }
                 return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded"));
             },
             _=context.wake.changed(),if *context.connected=>{needs_poll=true;}

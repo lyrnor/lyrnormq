@@ -60,6 +60,12 @@ fn reason(error: EnhancedAuthError) -> ReasonCode {
         EnhancedAuthError::Protocol => ReasonCode::PROTOCOL_ERROR,
     }
 }
+fn reauthentication_reason(error: EnhancedAuthError) -> ReasonCode {
+    match error {
+        EnhancedAuthError::Protocol => ReasonCode::PROTOCOL_ERROR,
+        _ => ReasonCode::NOT_AUTHORIZED,
+    }
+}
 fn take_data(properties: &mut Properties) -> Option<Password> {
     let position = properties
         .iter()
@@ -298,7 +304,9 @@ impl Manager {
                             method: &established.method,
                             data: data.as_ref().map(Password::as_bytes),
                         })
-                        .map_err(|e| failure(reason(e), "reauthentication refused"))?;
+                        .map_err(|e| {
+                            failure(reauthentication_reason(e), "reauthentication refused")
+                        })?;
                     (
                         Exchange {
                             exchange,
@@ -322,7 +330,9 @@ impl Manager {
                     let step = state
                         .exchange
                         .step(data.as_ref().map(Password::as_bytes))
-                        .map_err(|e| failure(reason(e), "reauthentication refused"))?;
+                        .map_err(|e| {
+                            failure(reauthentication_reason(e), "reauthentication refused")
+                        })?;
                     (state, step)
                 } else {
                     return Err(failure(ReasonCode::PROTOCOL_ERROR, "invalid AUTH reason"));
