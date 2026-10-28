@@ -69,14 +69,37 @@ pub(super) fn check_delivery_size(
     }
     Ok(())
 }
+/// Only the current online connection can discard its recipient copy.
+pub(super) fn exceeds_peer_limit(
+    session: &Session,
+    packet: &Packet,
+    properties: &Properties,
+    expires_at: Option<u64>,
+    now: u64,
+) -> Result<bool, EngineError> {
+    if !session.online || session.maximum_packet_size == u32::MAX {
+        return Ok(false);
+    }
+    let properties = temporal::remaining_properties(properties, expires_at, now);
+    match check_delivery_size(
+        session.maximum_packet_size as usize,
+        session.version,
+        packet,
+        &properties,
+    ) {
+        Ok(()) => Ok(false),
+        Err(EngineError::Capacity) => Ok(true),
+        Err(error) => Err(error),
+    }
+}
 /// Connection limits do not reject the source transaction or alter retained state.
 /// Discard each recipient copy as completed, including old possibly-sent exchanges.
-fn discard_oversized(
+pub(super) fn discard_oversized(
     session: &mut Session,
     now: u64,
     server_limit: usize,
 ) -> Result<bool, EngineError> {
-    if session.maximum_packet_size == u32::MAX {
+    if !session.online || session.maximum_packet_size == u32::MAX {
         return Ok(false);
     }
     let limit = session.maximum_packet_size as usize;

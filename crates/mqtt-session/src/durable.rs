@@ -705,6 +705,8 @@ impl SessionEngine {
             }
         }
         let matches = router.matching_qos(&message.topic);
+        let now = self.effective_now();
+        let mut admitted = Vec::with_capacity(matches.len());
         // A later recipient's version must not discover an oversized envelope
         // after earlier recipients have already had copies appended.
         for &(index, grant) in &matches {
@@ -713,7 +715,7 @@ impl SessionEngine {
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
             let target = self
                 .sessions
-                .get(client)
+                .get_mut(client)
                 .ok_or(EngineError::UnknownSession)?;
             if !self
                 .access
@@ -724,9 +726,6 @@ impl SessionEngine {
             let qos = message.qos.min(grant);
             if !target.online && qos == 0 {
                 continue;
-            }
-            if target.queued.len() >= self.config.max_queued {
-                return Err(EngineError::Capacity);
             }
             // An offline session retains the last runtime wire version. Reject
             // data it cannot drain, including volatile V5 persistent sessions.
@@ -742,8 +741,24 @@ impl SessionEngine {
                 &packet,
                 &message.properties,
             )?;
+            // A guaranteed-discard copy cannot exert queue backpressure on
+            // the source or healthy recipients while its socket is unpolled.
+            mqtt5::discard_oversized(target, now, self.config.max_packet_size)?;
+            if mqtt5::exceeds_peer_limit(
+                target,
+                &packet,
+                &message.properties,
+                message.expires_at,
+                now,
+            )? {
+                continue;
+            }
+            if target.queued.len() >= self.config.max_queued {
+                return Err(EngineError::Capacity);
+            }
+            admitted.push((index, grant));
         }
-        for (index, grant) in matches {
+        for (index, grant) in admitted {
             let client = clients
                 .get(index as usize)
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
@@ -829,10 +844,12 @@ impl SessionEngine {
         let mut replies = Vec::new();
         match packet {
             Packet::Subscribe { packet_id, filters } => {
+                let now = self.effective_now();
                 let session = self
                     .sessions
                     .get_mut(client_id)
                     .ok_or(EngineError::UnknownSession)?;
+                mqtt5::discard_oversized(session, now, self.config.max_packet_size)?;
                 let mut codes = Vec::new();
                 for (filter, qos) in filters {
                     if !validate_filter(&filter)
@@ -881,10 +898,7 @@ impl SessionEngine {
                         {
                             continue;
                         }
-                        if session.queued.len() >= self.config.max_queued {
-                            return Err(EngineError::Capacity);
-                        }
-                        session.queued.push_back(Message {
+                        let message = Message {
                             expires_at: self.retained_expiry.get(&retained.topic).copied(),
                             topic: retained.topic.clone(),
                             payload: retained.payload,
@@ -895,7 +909,20 @@ impl SessionEngine {
                                 .get(&retained.topic)
                                 .cloned()
                                 .unwrap_or_default(),
-                        });
+                        };
+                        if mqtt5::exceeds_peer_limit(
+                            session,
+                            &message.packet((message.qos != 0).then_some(1), false),
+                            &message.properties,
+                            message.expires_at,
+                            now,
+                        )? {
+                            continue;
+                        }
+                        if session.queued.len() >= self.config.max_queued {
+                            return Err(EngineError::Capacity);
+                        }
+                        session.queued.push_back(message);
                     }
                     codes.push(qos);
                 }

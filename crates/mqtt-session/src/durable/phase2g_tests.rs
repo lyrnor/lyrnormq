@@ -333,3 +333,164 @@ fn maximum_zero_rejected_before_existing_state_changes() {
     assert!(matches!(error,EngineError::Mqtt5(code) if code.value()==0x82));
     assert_eq!(before, e.snapshot().unwrap());
 }
+
+#[test]
+fn never_polled_tiny_peer_does_not_block_healthy_recipient_with_queue_one() {
+    let mut e = subscribed(20);
+    e.config.max_queued = 1;
+    connect(&mut e, "healthy", true, u32::MAX);
+    e.handle_frame(
+        "healthy",
+        Frame::v5(Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("a".into(), 1)],
+        }),
+    )
+    .unwrap();
+    for _ in 0..3 {
+        publish(&mut e, 50, 1, false);
+        let frame = e.poll_frame_with_changes("healthy").unwrap().frame.unwrap();
+        let id = match frame.packet {
+            Packet::Publish {
+                packet_id: Some(id),
+                ..
+            } => id,
+            _ => panic!(),
+        };
+        e.handle_frame("healthy", Frame::v5(Packet::PubAck { packet_id: id }))
+            .unwrap();
+    }
+    assert!(e.sessions["sub"].queued.is_empty());
+}
+
+#[test]
+fn resumed_oversize_backlog_does_not_block_fitting_admission_before_poll() {
+    let mut e = subscribed(u32::MAX);
+    e.config.max_queued = 1;
+    e.disconnect("sub").unwrap();
+    publish(&mut e, 50, 1, false);
+    connect(&mut e, "sub", false, 20);
+    publish(&mut e, 1, 1, false);
+    let f = e.poll_frame_with_changes("sub").unwrap().frame.unwrap();
+    assert!(matches!(f.packet,Packet::Publish {payload,..} if payload.len()==1));
+}
+
+#[test]
+fn multiple_oversize_retained_copies_do_not_consume_replay_capacity() {
+    let mut cfg = config();
+    cfg.max_queued = 1;
+    let mut e = SessionEngine::new(cfg).unwrap();
+    connect(&mut e, "src", true, u32::MAX);
+    connect(&mut e, "sub", true, 20);
+    for (topic, size) in [("a/1", 50), ("a/2", 50), ("a/z", 1)] {
+        e.handle_frame(
+            "src",
+            Frame::v5(Packet::Publish {
+                topic: topic.into(),
+                payload: vec![7; size],
+                qos: 0,
+                packet_id: None,
+                dup: false,
+                retain: true,
+            }),
+        )
+        .unwrap();
+    }
+    let replies = e
+        .handle_frame(
+            "sub",
+            Frame::v5(Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("a/#".into(), 2)],
+            }),
+        )
+        .unwrap();
+    assert!(matches!(&replies[0].packet,Packet::SubAck {codes,..} if codes==&[2]));
+    let f = e.poll_frame_with_changes("sub").unwrap().frame.unwrap();
+    assert!(matches!(f.packet,Packet::Publish {topic,retain:true,..} if topic=="a/z"));
+    assert_eq!(e.retained.len(), 3);
+}
+
+#[test]
+fn fitting_peer_copy_still_enforces_real_queue_backpressure() {
+    let mut e = subscribed(20);
+    e.config.max_queued = 1;
+    publish(&mut e, 1, 1, false);
+    let before = e.snapshot().unwrap();
+    let mut proposal = e.clone();
+    let result = proposal.handle_frame(
+        "src",
+        Frame::v5(Packet::Publish {
+            topic: "a".into(),
+            payload: vec![2],
+            qos: 1,
+            packet_id: Some(24),
+            dup: false,
+            retain: false,
+        }),
+    );
+    assert!(matches!(result, Err(EngineError::Capacity)));
+    assert_eq!(before, e.snapshot().unwrap());
+}
+
+#[test]
+fn peer_discard_does_not_bypass_global_version_growth_admission() {
+    let mut cfg = config();
+    cfg.max_packet_size = 64;
+    let mut e = SessionEngine::new(cfg).unwrap();
+    e.connect("src", true).unwrap();
+    connect(&mut e, "sub", true, 20);
+    e.handle_frame(
+        "sub",
+        Frame::v5(Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("a".into(), 0)],
+        }),
+    )
+    .unwrap();
+    let packet = Packet::Publish {
+        topic: "a".into(),
+        payload: vec![7; 59],
+        qos: 0,
+        packet_id: None,
+        dup: false,
+        retain: false,
+    };
+    assert_eq!(encode(&packet).unwrap().len(), 64);
+    assert_eq!(encode_frame(&Frame::v5(packet.clone())).unwrap().len(), 65);
+    assert!(matches!(
+        e.handle("src", packet),
+        Err(EngineError::Capacity)
+    ));
+}
+
+#[test]
+fn retained_replay_prunes_resumed_backlog_before_capacity_check() {
+    let mut e = subscribed(u32::MAX);
+    e.config.max_queued = 1;
+    e.disconnect("sub").unwrap();
+    publish(&mut e, 50, 1, false);
+    connect(&mut e, "sub", false, 20);
+    e.handle_frame(
+        "src",
+        Frame::v5(Packet::Publish {
+            topic: "z".into(),
+            payload: vec![1],
+            qos: 0,
+            packet_id: None,
+            dup: false,
+            retain: true,
+        }),
+    )
+    .unwrap();
+    e.handle_frame(
+        "sub",
+        Frame::v5(Packet::Subscribe {
+            packet_id: 2,
+            filters: vec![("z".into(), 0)],
+        }),
+    )
+    .unwrap();
+    let f = e.poll_frame_with_changes("sub").unwrap().frame.unwrap();
+    assert!(matches!(f.packet,Packet::Publish {topic,retain:true,..} if topic=="z"));
+}
