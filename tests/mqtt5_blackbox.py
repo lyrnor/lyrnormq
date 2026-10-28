@@ -330,6 +330,17 @@ class Mqtt5Blackbox(unittest.TestCase):
         with sqlite3.connect(self.broker.db) as db:
             return json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
 
+    def wait_snapshot(self, predicate, timeout=3):
+        # TCP connect readiness does not imply that the startup worker has committed.
+        # Observe SQL only: no MQTT request can lazily expire/reconcile state for us.
+        deadline = time.monotonic() + timeout
+        value = self.snapshot()
+        while not predicate(value) and time.monotonic() < deadline:
+            time.sleep(.02)
+            value = self.snapshot()
+        self.assertTrue(predicate(value), 'committed snapshot condition not reached')
+        return value
+
     def test_connack_capabilities_fragmentation_and_default_expiry(self):
         self.start('--max-inflight', '3', '--max-packet-size', '65536')
         sock = self.raw()
@@ -1001,20 +1012,21 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.broker.stop(kill=True)
         time.sleep(1.2)
         self.broker.start()
-        self.assertNotIn('durable-expiry', [s['client_id'] for s in self.snapshot()['sessions']])
+        self.wait_snapshot(lambda value: 'durable-expiry' not in [s['client_id'] for s in value['sessions']])
         self.client('durable-expiry', clean=False, expiry=30, present=False)
         target = self.client('timer-expiry', expiry=1)
         self.subscribe(target, [('timer/#', 1)])
         self.disconnect(target)
-        time.sleep(1.3)
-        self.assertNotIn('timer-expiry', [s['client_id'] for s in self.snapshot()['sessions']])
+        self.wait_snapshot(lambda value: 'timer-expiry' not in [s['client_id'] for s in value['sessions']])
 
     def test_active_crash_deadline_is_started_once_and_not_extended_by_restart(self):
         self.require_sqlite()
         self.start()
         self.client('active-crash', expiry=2)
         self.broker.restart_after_crash()
-        first = next(s for s in self.snapshot()['sessions'] if s['client_id'] == 'active-crash')
+        ready = self.wait_snapshot(lambda value: any(s['client_id'] == 'active-crash' and s['expires_at'] is not None
+                                                     for s in value['sessions']))
+        first = next(s for s in ready['sessions'] if s['client_id'] == 'active-crash')
         deadline = first['expires_at']
         self.assertIsNotNone(deadline)
         self.broker.restart_after_crash()
