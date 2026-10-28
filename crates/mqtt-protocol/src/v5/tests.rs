@@ -503,3 +503,92 @@ fn zero_topic_alias_has_specific_wire_reason_and_invalid_header_fails_early() {
         Err(ProtocolError::Malformed(_))
     ));
 }
+
+#[test]
+fn reserved_subscription_bits_are_malformed_but_option_values_are_protocol_errors() {
+    for value in [0x40, 0x80, 0xc0] {
+        let wire = [0x82, 7, 0, 1, 0, 0, 1, b'a', value];
+        assert!(
+            matches!(
+                decode_frame(&wire, 128, Some(ProtocolVersion::V5)),
+                Err(ProtocolError::Malformed(_))
+            ),
+            "reserved {value:#x}"
+        );
+        let mut frame = Frame::v5(Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("a".into(), 0)],
+        });
+        frame.subscription_options = vec![value];
+        assert!(matches!(
+            encode_frame(&frame),
+            Err(ProtocolError::Malformed(_))
+        ));
+    }
+    for value in [3, 0x30] {
+        let wire = [0x82, 7, 0, 1, 0, 0, 1, b'a', value];
+        assert!(matches!(
+            decode_frame(&wire, 128, Some(ProtocolVersion::V5)),
+            Err(ProtocolError::ProtocolViolation(_))
+        ));
+    }
+    let mut shared = Frame::v5(Packet::Subscribe {
+        packet_id: 1,
+        filters: vec![("$share/g/a".into(), 0)],
+    });
+    shared.subscription_options = vec![4];
+    assert!(matches!(
+        encode_frame(&shared),
+        Err(ProtocolError::ProtocolViolation(_))
+    ));
+}
+
+#[test]
+fn response_topic_semantics_are_distinct_from_utf8_lexical_errors() {
+    for response in ["", "bad/+", "bad/#"] {
+        let mut property = vec![8];
+        property.extend((response.len() as u16).to_be_bytes());
+        property.extend(response.as_bytes());
+        let mut body = vec![0, 1, b'a', property.len() as u8];
+        body.extend(property);
+        let mut wire = vec![0x30, body.len() as u8];
+        wire.extend(body);
+        assert!(
+            matches!(
+                decode_frame(&wire, 128, Some(ProtocolVersion::V5)),
+                Err(ProtocolError::ProtocolViolation(_))
+            ),
+            "response {response:?}"
+        );
+        let mut frame = publish();
+        frame.properties = vec![Property::ResponseTopic(response.into())];
+        assert!(matches!(
+            encode_frame(&frame),
+            Err(ProtocolError::ProtocolViolation(_))
+        ));
+    }
+    for response in ["bad\0", "bad\u{fdd0}"] {
+        let mut frame = publish();
+        frame.properties = vec![Property::ResponseTopic(response.into())];
+        assert!(matches!(
+            encode_frame(&frame),
+            Err(ProtocolError::Malformed(_))
+        ));
+        let mut property = vec![8];
+        property.extend((response.len() as u16).to_be_bytes());
+        property.extend(response.as_bytes());
+        let mut body = vec![0, 1, b'a', property.len() as u8];
+        body.extend(property);
+        let mut wire = vec![0x30, body.len() as u8];
+        wire.extend(body);
+        assert!(matches!(
+            decode_frame(&wire, 128, Some(ProtocolVersion::V5)),
+            Err(ProtocolError::Malformed(_))
+        ));
+    }
+    let invalid_utf8 = [0x30, 8, 0, 1, b'a', 4, 8, 0, 1, 0xff];
+    assert!(matches!(
+        decode_frame(&invalid_utf8, 128, Some(ProtocolVersion::V5)),
+        Err(ProtocolError::Malformed(_))
+    ));
+}

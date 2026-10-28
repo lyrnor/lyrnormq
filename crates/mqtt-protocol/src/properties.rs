@@ -1,6 +1,6 @@
 //! Ordered typed MQTT5 properties and strict packet-context validation.
 use crate::wire::{Reader, append, binary, malformed, string, varint, violation};
-use crate::{ProtocolError, codec::validate_topic};
+use crate::{ProtocolError, codec::validate_string};
 use serde::{Deserialize, Serialize};
 
 pub type Properties = Vec<Property>;
@@ -192,7 +192,12 @@ fn validate(properties: &[Property], context: u8) -> Result<(), ProtocolError> {
             Property::SubscriptionIdentifier(n) if *n == 0 || *n > 268_435_455 => {
                 return Err(violation("invalid Subscription Identifier"));
             }
-            Property::ResponseTopic(topic) => validate_topic(topic)?,
+            Property::ResponseTopic(topic) => {
+                validate_string(topic)?;
+                if topic.is_empty() || topic.contains(['+', '#']) {
+                    return Err(violation("Response Topic must be a nonempty Topic Name"));
+                }
+            }
             Property::AssignedClientIdentifier(s) if s.is_empty() => {
                 return Err(violation("empty assigned Client Identifier"));
             }

@@ -101,7 +101,10 @@ fn reason(kind: u8, value: u8) -> Result<ReasonCode, ProtocolError> {
     Ok(reason)
 }
 fn option(filter: &str, qos: u8, value: u8) -> Result<(), ProtocolError> {
-    if qos > 2 || value & 3 != qos || value & 0xc0 != 0 || (value >> 4) & 3 == 3 {
+    if value & 0xc0 != 0 {
+        return Err(malformed("reserved subscription option bits"));
+    }
+    if qos > 2 || value & 3 != qos || (value >> 4) & 3 == 3 {
         return Err(violation("invalid subscription options"));
     }
     if filter.starts_with("$share/") && value & 4 != 0 {
