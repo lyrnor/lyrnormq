@@ -14,7 +14,7 @@ write tests in its own worktree during this prerequisite; Will specialist initia
 performs read-only normative review. After integration create separate feature worktrees:
 - Message specialist owns mqtt-session/src/durable.rs, durable/{mqtt5.rs,expiry.rs,
   retention.rs,authorization.rs,temporal.rs,records.rs,records/**,message_expiry_tests.rs,
-  phase2e_tests.rs}
+  phase2e_tests.rs,phase2c_tests.rs,phase2d_tests.rs}
   and its Cargo.toml/lib.rs if required. No lifecycle.rs edits.
 - Will specialist owns durable/lifecycle.rs, durable/will_delay_tests.rs ONLY. Test
   module declaration lives in lifecycle.rs. No shared record/core/timer edits.
@@ -34,7 +34,13 @@ before timer pruning. Schema4 must still require its session expires_at field.
 Envelope adds required clock_floor:u64, a durable high-watermark of model-observed
 wall time. Legacy1/2/3/4 migrate floor0. All temporal decisions use effective_now()
 =max(raw Clock.now_millis,last observed floor), recording the nondecreasing floor
-per proposal (clones copy it independently). Restore never rewinds below persisted
+per proposal (clones copy it independently). Public effective_now() exposes logical
+time for the transport timer guard. Pure time observation is NOT expiry/progress:
+expire_sessions/retry_wills and empty Poll must not report changed/notify solely
+because the clock floor advanced, or wakeups form a busy loop. Persist observed
+floor together with real state/transmission commits; a returned frame may require
+committing its new observation, but an unchanged empty poll stays quiet.
+Restore never rewinds below persisted
 floor. Snapshot records observed floor, not a fresh lifetime. Incoming receipt age
 uses raw-now minus read timestamp (saturating), rebased onto effective-now, so new
 messages are not instantly expired merely because raw clock is below the floor.
