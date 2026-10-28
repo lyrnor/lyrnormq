@@ -47,6 +47,7 @@ fn options(clean: bool, expiry: u32, maximum: u16) -> ConnectionOptions {
         clean_start: clean,
         session_expiry_interval: expiry,
         receive_maximum: maximum,
+        maximum_packet_size: u32::MAX,
         will_properties: Vec::new(),
     }
 }

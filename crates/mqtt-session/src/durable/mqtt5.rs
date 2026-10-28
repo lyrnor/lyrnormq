@@ -7,6 +7,8 @@ pub struct ConnectionOptions {
     pub clean_start: bool,
     pub session_expiry_interval: u32,
     pub receive_maximum: u16,
+    /// Maximum complete frame accepted by this connection; never persisted.
+    pub maximum_packet_size: u32,
     pub will_properties: Properties,
 }
 #[derive(Clone, Debug)]
@@ -66,6 +68,65 @@ pub(super) fn check_delivery_size(
         return Err(EngineError::Capacity);
     }
     Ok(())
+}
+/// Connection limits do not reject the source transaction or alter retained state.
+/// Discard each recipient copy as completed, including old possibly-sent exchanges.
+fn discard_oversized(
+    session: &mut Session,
+    now: u64,
+    server_limit: usize,
+) -> Result<bool, EngineError> {
+    if session.maximum_packet_size == u32::MAX {
+        return Ok(false);
+    }
+    let limit = session.maximum_packet_size as usize;
+    let mut changed = false;
+    for id in session.replay.clone() {
+        let bytes = match session.outgoing.pending.get(&id) {
+            Some(OutgoingState::AwaitingAck { _message })
+            | Some(OutgoingState::AwaitingReceipt { _message }) => _message,
+            Some(OutgoingState::Released) => continue,
+            None => return Err(invalid_record("replay references absent exchange")),
+        };
+        let packet = decode_publish(bytes, server_limit)?;
+        let properties = session
+            .outgoing_properties
+            .get(&id)
+            .cloned()
+            .unwrap_or_default();
+        let properties = temporal::remaining_properties(
+            &properties,
+            session.outgoing_expiry.get(&id).copied(),
+            now,
+        );
+        match check_delivery_size(limit, session.version, &packet, &properties) {
+            Err(EngineError::Capacity) => {
+                session.retire_outgoing(id);
+                changed = true;
+            }
+            result => result?,
+        }
+    }
+    let queued = session.queued.len();
+    for _ in 0..queued {
+        let message = session
+            .queued
+            .pop_front()
+            .ok_or_else(|| invalid_record("queue disappeared"))?;
+        let properties =
+            temporal::remaining_properties(&message.properties, message.expires_at, now);
+        match check_delivery_size(
+            limit,
+            session.version,
+            &message.packet((message.qos != 0).then_some(1), false),
+            &properties,
+        ) {
+            Err(EngineError::Capacity) => changed = true,
+            Ok(()) => session.queued.push_back(message),
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(changed)
 }
 impl SessionEngine {
     pub(super) fn check_resume_size(
@@ -372,10 +433,12 @@ impl SessionEngine {
         self.require_online(client_id)?;
         let mut changed = self.expire_sessions()?;
         changed |= self.reconcile_authorization()?;
+        let now = self.effective_now();
         let session = self
             .sessions
             .get_mut(client_id)
             .ok_or(EngineError::UnknownSession)?;
+        changed |= discard_oversized(session, now, self.config.max_packet_size)?;
         let quota_available = session.sent.len() < usize::from(session.receive_maximum);
         let position = if quota_available {
             (!session.replay.is_empty()).then_some(0)
@@ -605,6 +668,20 @@ impl SessionEngine {
         let bytes = encode_frame(&frame).map_err(|e| invalid_record(e.to_string()))?;
         if bytes.len() > self.config.max_packet_size {
             return Err(EngineError::Capacity);
+        }
+        if bytes.len() > session.maximum_packet_size as usize {
+            if let Packet::Publish {
+                packet_id: Some(id),
+                ..
+            } = frame.packet
+            {
+                session.retire_outgoing(identifier(id)?);
+                changed = true;
+            }
+            return Ok(FramePollOutcome {
+                frame: None,
+                changed,
+            });
         }
         self.ensure_bounds()?;
         Ok(FramePollOutcome {

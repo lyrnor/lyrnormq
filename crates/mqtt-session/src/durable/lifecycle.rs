@@ -4,7 +4,9 @@ use super::{
     WillRecord, invalid_record,
 };
 use mqtt_auth::{Action, Principal};
-use mqtt_protocol::{Packet, Property, ProtocolVersion, Will, encode};
+#[cfg(test)]
+use mqtt_protocol::Packet;
+use mqtt_protocol::{Property, ProtocolVersion, Will};
 
 impl SessionEngine {
     /// Earliest scheduled intent that still needs its first timer attempt.
@@ -17,18 +19,9 @@ impl SessionEngine {
     }
 
     pub(super) fn validate_will(&self, client: &str, will: &Will) -> Result<(), EngineError> {
-        let bytes = encode(&Packet::Connect {
-            client_id: client.into(),
-            clean_session: true,
-            keep_alive: 0,
-            will: Some(will.clone()),
-            username: None,
-            password: None,
-        })
-        .map_err(|error| invalid_record(error.to_string()))?;
-        if bytes.len() > self.config.max_packet_size {
-            return Err(EngineError::Capacity);
-        }
+        // Validate the stored publication, not a synthetic CONNECT enlarged by
+        // an assigned key. The original inbound CONNECT was independently bounded.
+        self.validate_client(client)?;
         self.validate_message(&Message {
             expires_at: None,
             topic: will.topic.clone(),
@@ -72,6 +65,7 @@ impl SessionEngine {
                 clean_start: clean_session,
                 session_expiry_interval: if clean_session { 0 } else { u32::MAX },
                 receive_maximum: u16::MAX,
+                maximum_packet_size: u32::MAX,
                 will_properties: Vec::new(),
             },
         )
@@ -83,7 +77,7 @@ impl SessionEngine {
         principal: Principal,
         options: ConnectionOptions,
     ) -> Result<ConnectResult, EngineError> {
-        if options.receive_maximum == 0 {
+        if options.receive_maximum == 0 || options.maximum_packet_size == 0 {
             return Err(super::mqtt5::mqtt5_error(0x82));
         }
         if options.version == ProtocolVersion::V311 && !options.will_properties.is_empty() {
@@ -253,6 +247,11 @@ impl SessionEngine {
         session.persistent = session.expiry != 0;
         session.expires_at = None;
         session.receive_maximum = options.receive_maximum;
+        session.maximum_packet_size = if options.version == ProtocolVersion::V5 {
+            options.maximum_packet_size
+        } else {
+            u32::MAX
+        };
         session.sent.clear();
         session.replay = session.outgoing.order.clone();
         self.ensure_bounds()?;

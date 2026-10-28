@@ -118,6 +118,7 @@ struct Session {
     expiry: u32,
     expires_at: Option<u64>,
     receive_maximum: u16,
+    maximum_packet_size: u32,
     sent: BTreeSet<NonZeroU16>,
     incoming_properties: BTreeMap<NonZeroU16, Properties>,
     incoming_expiry: BTreeMap<NonZeroU16, u64>,
@@ -163,6 +164,7 @@ impl Session {
             expiry: if persistent { u32::MAX } else { 0 },
             expires_at: None,
             receive_maximum: u16::MAX,
+            maximum_packet_size: u32::MAX,
             sent: BTreeSet::new(),
             incoming_properties: BTreeMap::new(),
             incoming_expiry: BTreeMap::new(),
@@ -221,6 +223,10 @@ fn decode_publish(bytes: &[u8], limit: usize) -> Result<Packet, EngineError> {
 }
 
 impl SessionEngine {
+    /// Allocation must also avoid IDs retained only by a delayed/pending Will.
+    pub fn client_id_in_use(&self, id: &str) -> bool {
+        self.sessions.contains_key(id) || self.wills.contains_key(id)
+    }
     pub fn new(config: SessionConfig) -> Result<Self, EngineError> {
         Self::new_with_access(config, Arc::new(AllowAnonymous))
     }
@@ -1444,3 +1450,6 @@ mod phase2e_tests;
 
 #[cfg(test)]
 mod message_expiry_tests;
+
+#[cfg(test)]
+mod phase2g_tests;

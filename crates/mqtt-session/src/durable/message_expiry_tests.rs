@@ -41,6 +41,7 @@ fn connect(e: &mut SessionEngine, id: &str, clean: bool) {
             clean_start: clean,
             session_expiry_interval: 60,
             receive_maximum: 1,
+            maximum_packet_size: u32::MAX,
             will_properties: vec![],
         },
     )
@@ -370,6 +371,7 @@ fn nonzero_disconnect_adapter_marks_active_will_pending() {
             clean_start: true,
             session_expiry_interval: 60,
             receive_maximum: 1,
+            maximum_packet_size: u32::MAX,
             will_properties: vec![],
         },
     )

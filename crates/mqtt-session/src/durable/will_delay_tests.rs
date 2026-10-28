@@ -53,6 +53,7 @@ fn options(clean: bool, expiry: u32, delay: u32) -> ConnectionOptions {
         clean_start: clean,
         session_expiry_interval: expiry,
         receive_maximum: 4,
+        maximum_packet_size: u32::MAX,
         will_properties: vec![Property::WillDelayInterval(delay)],
     }
 }
