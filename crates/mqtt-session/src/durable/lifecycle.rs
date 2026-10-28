@@ -1,10 +1,10 @@
 //! Connection-bound Will lifecycle and capacity-safe deferred publication.
 use super::{
-    ConnectResult, EngineError, Message, Session, SessionEngine, WillData, WillRecord,
-    invalid_record,
+    ConnectResult, ConnectionOptions, EngineError, Message, Session, SessionEngine, WillData,
+    WillRecord, invalid_record,
 };
 use mqtt_auth::{Action, Principal};
-use mqtt_protocol::{Packet, Will, encode};
+use mqtt_protocol::{Packet, Property, ProtocolVersion, Will, encode};
 
 impl SessionEngine {
     pub(super) fn validate_will(&self, client: &str, will: &Will) -> Result<(), EngineError> {
@@ -25,6 +25,7 @@ impl SessionEngine {
             payload: will.payload.clone(),
             qos: will.qos,
             retain: will.retain,
+            properties: Vec::new(),
         })
     }
     pub fn connect(
@@ -52,6 +53,58 @@ impl SessionEngine {
         will: Option<Will>,
         principal: Principal,
     ) -> Result<ConnectResult, EngineError> {
+        self.connect_with_options(
+            client_id,
+            will,
+            principal,
+            ConnectionOptions {
+                version: ProtocolVersion::V311,
+                clean_start: clean_session,
+                session_expiry_interval: if clean_session { 0 } else { u32::MAX },
+                receive_maximum: u16::MAX,
+                will_properties: Vec::new(),
+            },
+        )
+    }
+    pub fn connect_with_options(
+        &mut self,
+        client_id: &str,
+        will: Option<Will>,
+        principal: Principal,
+        options: ConnectionOptions,
+    ) -> Result<ConnectResult, EngineError> {
+        if options.receive_maximum == 0 {
+            return Err(super::mqtt5::mqtt5_error(0x82));
+        }
+        if options.version == ProtocolVersion::V311 && !options.will_properties.is_empty() {
+            return Err(super::mqtt5::mqtt5_error(0x82));
+        }
+        let mut will_properties = options.will_properties;
+        if will.is_none() && !will_properties.is_empty() {
+            return Err(super::mqtt5::mqtt5_error(0x82));
+        }
+        if will_properties
+            .iter()
+            .any(|p| matches!(p,Property::WillDelayInterval(v) if *v!=0))
+        {
+            return Err(super::mqtt5::mqtt5_error(0x83));
+        }
+        will_properties.retain(|p| !matches!(p, Property::WillDelayInterval(0)));
+        if let Some(will) = &will {
+            let id = if will.qos == 0 { None } else { Some(1) };
+            self.validate_properties(
+                &Message {
+                    topic: will.topic.clone(),
+                    payload: will.payload.clone(),
+                    qos: will.qos,
+                    retain: will.retain,
+                    properties: Vec::new(),
+                }
+                .packet(id, false),
+                &will_properties,
+            )?;
+        }
+        self.expire_sessions()?;
         self.validate_client(client_id)?;
         Self::validate_owner(&principal.name).map_err(|_| EngineError::NotAuthorized)?;
         self.require_access(&principal, Action::Connect, client_id)?;
@@ -89,7 +142,7 @@ impl SessionEngine {
         {
             return Err(EngineError::Capacity);
         }
-        let present = !clean_session
+        let present = !options.clean_start
             && self
                 .sessions
                 .get(client_id)
@@ -102,7 +155,11 @@ impl SessionEngine {
             }
             self.sessions.insert(
                 client_id.into(),
-                Session::new(self.config, !clean_session, principal.clone()),
+                Session::new(
+                    self.config,
+                    options.session_expiry_interval != 0,
+                    principal.clone(),
+                ),
             );
         }
         if let Some(will) = will {
@@ -115,7 +172,10 @@ impl SessionEngine {
                     client_id: client_id.into(),
                     owner: principal.name.clone(),
                     pending: false,
-                    will: WillData::from(will),
+                    will: WillData {
+                        properties: will_properties,
+                        ..WillData::from(will)
+                    },
                 },
             );
         }
@@ -124,6 +184,12 @@ impl SessionEngine {
             .get_mut(client_id)
             .ok_or(EngineError::UnknownSession)?;
         session.online = true;
+        session.version = options.version;
+        session.expiry = options.session_expiry_interval;
+        session.persistent = session.expiry != 0;
+        session.expires_at = None;
+        session.receive_maximum = options.receive_maximum;
+        session.sent.clear();
         session.replay = session.outgoing.order.clone();
         self.ensure_bounds()?;
         Ok(ConnectResult {
@@ -140,6 +206,25 @@ impl SessionEngine {
         client_id: &str,
         graceful: bool,
     ) -> Result<(), EngineError> {
+        self.disconnect_with_options(client_id, graceful, None)
+    }
+    pub fn disconnect_with_options(
+        &mut self,
+        client_id: &str,
+        graceful: bool,
+        expiry_override: Option<u32>,
+    ) -> Result<(), EngineError> {
+        if let Some(expiry) = expiry_override {
+            let session = self
+                .sessions
+                .get_mut(client_id)
+                .ok_or(EngineError::UnknownSession)?;
+            if session.version != ProtocolVersion::V5 || (session.expiry == 0 && expiry != 0) {
+                return Err(super::mqtt5::mqtt5_error(0x82));
+            }
+            session.expiry = expiry;
+            session.persistent = expiry != 0;
+        }
         let persistent = self
             .sessions
             .get(client_id)
@@ -151,6 +236,16 @@ impl SessionEngine {
                 .get_mut(client_id)
                 .ok_or(EngineError::UnknownSession)?;
             session.online = false;
+            session.expires_at = if session.expiry == u32::MAX {
+                None
+            } else {
+                Some(
+                    self.clock
+                        .now_millis()
+                        .saturating_add(u64::from(session.expiry) * 1000),
+                )
+            };
+            session.sent.clear();
             session.replay.clear();
             session.queued.retain(|message| message.qos != 0);
         } else {
@@ -178,7 +273,8 @@ impl SessionEngine {
     /// Tries each pending Will on a separate bounded clone. A full recipient or
     /// retained store defers it unchanged; any other error is not swallowed.
     pub fn retry_wills(&mut self) -> Result<bool, EngineError> {
-        let mut progressed = self.prune_wills();
+        let mut progressed = self.expire_sessions()?;
+        progressed |= self.prune_wills();
         let pending: Vec<String> = self
             .wills
             .iter()
@@ -195,6 +291,7 @@ impl SessionEngine {
                 payload: record.will.payload,
                 qos: record.will.qos,
                 retain: record.will.retain,
+                properties: record.will.properties,
             };
             let result = proposal
                 .publish(publication)

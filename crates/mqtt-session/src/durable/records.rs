@@ -1,9 +1,8 @@
-//! Explicit schema1/schema2 migration; schema3 binds each session and Will owner.
+//! Schema4 preserves deadlines and message properties; older schemas migrate explicitly.
 use super::{EngineError, invalid_record};
-use mqtt_auth::Principal;
-use mqtt_protocol::Will;
+use mqtt_protocol::{Properties, Will};
 use serde::{Deserialize, Serialize};
-
+mod legacy;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Message {
@@ -11,6 +10,7 @@ pub(super) struct Message {
     pub(super) payload: Vec<u8>,
     pub(super) qos: u8,
     pub(super) retain: bool,
+    pub(super) properties: Properties,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25,8 +25,10 @@ pub(super) struct Envelope {
 pub(super) struct SessionRecord {
     pub(super) owner: String,
     pub(super) client_id: String,
+    pub(super) session_expiry_interval: u32,
+    pub(super) expires_at: Option<u64>,
     pub(super) subscriptions: Vec<(String, u8)>,
-    pub(super) incoming: Vec<(u16, Vec<u8>)>,
+    pub(super) incoming: Vec<(u16, Vec<u8>, Properties)>,
     pub(super) outgoing: Vec<OutgoingRecord>,
     pub(super) queued: Vec<Message>,
 }
@@ -35,6 +37,7 @@ pub(super) struct SessionRecord {
 pub(super) struct OutgoingRecord {
     pub(super) packet_id: u16,
     pub(super) stage: Stage,
+    pub(super) properties: Properties,
 }
 #[derive(Serialize, Deserialize)]
 pub(super) enum Stage {
@@ -48,6 +51,7 @@ pub(super) struct RetainedRecord {
     pub(super) topic: String,
     pub(super) payload: Vec<u8>,
     pub(super) qos: u8,
+    pub(super) properties: Properties,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -64,6 +68,7 @@ pub(super) struct WillData {
     pub(super) payload: Vec<u8>,
     pub(super) qos: u8,
     pub(super) retain: bool,
+    pub(super) properties: Properties,
 }
 impl From<Will> for WillData {
     fn from(value: Will) -> Self {
@@ -72,6 +77,7 @@ impl From<Will> for WillData {
             payload: value.payload,
             qos: value.qos,
             retain: value.retain,
+            properties: Vec::new(),
         }
     }
 }
@@ -85,135 +91,86 @@ impl WillData {
         }
     }
 }
-#[derive(Deserialize)]
-struct Version {
-    schema_version: u32,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LegacyEnvelope {
-    schema_version: u32,
-    sessions: Vec<LegacySession>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LegacySession {
-    client_id: String,
-    subscriptions: Vec<(String, u8)>,
-    incoming: Vec<(u16, Vec<u8>)>,
-    outgoing: Vec<OutgoingRecord>,
-    queued: Vec<LegacyMessage>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LegacyMessage {
-    topic: String,
-    payload: Vec<u8>,
-    qos: u8,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UnownedEnvelope {
-    schema_version: u32,
-    sessions: Vec<UnownedSession>,
-    retained: Vec<RetainedRecord>,
-    wills: Vec<UnownedWill>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UnownedSession {
-    client_id: String,
-    subscriptions: Vec<(String, u8)>,
-    incoming: Vec<(u16, Vec<u8>)>,
-    outgoing: Vec<OutgoingRecord>,
-    queued: Vec<Message>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct UnownedWill {
-    client_id: String,
-    pending: bool,
-    will: WillData,
-}
-
 pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
+    #[derive(Deserialize)]
+    struct Version {
+        schema_version: u32,
+    }
     let version: Version = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-    match version.schema_version {
-        1 => {
-            let old: LegacyEnvelope = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-            if old.schema_version != 1 {
-                return Err(invalid_record("legacy schema version"));
-            }
-            Ok((
-                Envelope {
-                    schema_version: 3,
-                    sessions: old
-                        .sessions
-                        .into_iter()
-                        .map(|session| SessionRecord {
-                            owner: Principal::anonymous().name,
-                            client_id: session.client_id,
-                            subscriptions: session.subscriptions,
-                            incoming: session.incoming,
-                            outgoing: session.outgoing,
-                            queued: session
-                                .queued
-                                .into_iter()
-                                .map(|message| Message {
-                                    topic: message.topic,
-                                    payload: message.payload,
-                                    qos: message.qos,
-                                    retain: false,
-                                })
-                                .collect(),
-                        })
-                        .collect(),
-                    retained: Vec::new(),
-                    wills: Vec::new(),
-                },
-                true,
-            ))
-        }
-        2 => {
-            let old: UnownedEnvelope = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-            if old.schema_version != 2 {
-                return Err(invalid_record("unowned schema version"));
-            }
-            Ok((
-                Envelope {
-                    schema_version: 3,
-                    sessions: old
-                        .sessions
-                        .into_iter()
-                        .map(|session| SessionRecord {
-                            owner: Principal::anonymous().name,
-                            client_id: session.client_id,
-                            subscriptions: session.subscriptions,
-                            incoming: session.incoming,
-                            outgoing: session.outgoing,
-                            queued: session.queued,
-                        })
-                        .collect(),
-                    retained: old.retained,
-                    wills: old
-                        .wills
-                        .into_iter()
-                        .map(|will| WillRecord {
-                            owner: Principal::anonymous().name,
-                            client_id: will.client_id,
-                            pending: will.pending,
-                            will: will.will,
-                        })
-                        .collect(),
-                },
-                false,
-            ))
-        }
-        3 => Ok((
+    if version.schema_version == 4 {
+        return Ok((
             serde_json::from_slice(bytes).map_err(EngineError::Json)?,
             false,
-        )),
-        _ => Err(invalid_record("unsupported schema version")),
+        ));
     }
+    let (old, legacy) = legacy::decode(bytes)?;
+    let map_message = |m: legacy::Message| Message {
+        topic: m.topic,
+        payload: m.payload,
+        qos: m.qos,
+        retain: m.retain,
+        properties: Vec::new(),
+    };
+    Ok((
+        Envelope {
+            schema_version: 4,
+            sessions: old
+                .sessions
+                .into_iter()
+                .map(|s| SessionRecord {
+                    owner: s.owner,
+                    client_id: s.client_id,
+                    session_expiry_interval: u32::MAX,
+                    expires_at: None,
+                    subscriptions: s.subscriptions,
+                    incoming: s
+                        .incoming
+                        .into_iter()
+                        .map(|(id, bytes)| (id, bytes, Vec::new()))
+                        .collect(),
+                    outgoing: s
+                        .outgoing
+                        .into_iter()
+                        .map(|o| OutgoingRecord {
+                            packet_id: o.packet_id,
+                            properties: Vec::new(),
+                            stage: match o.stage {
+                                legacy::Stage::Ack(b) => Stage::Ack(b),
+                                legacy::Stage::Receipt(b) => Stage::Receipt(b),
+                                legacy::Stage::Comp => Stage::Comp,
+                            },
+                        })
+                        .collect(),
+                    queued: s.queued.into_iter().map(map_message).collect(),
+                })
+                .collect(),
+            retained: old
+                .retained
+                .into_iter()
+                .map(|r| RetainedRecord {
+                    topic: r.topic,
+                    payload: r.payload,
+                    qos: r.qos,
+                    properties: Vec::new(),
+                })
+                .collect(),
+            wills: old
+                .wills
+                .into_iter()
+                .map(|w| WillRecord {
+                    owner: w.owner,
+                    client_id: w.client_id,
+                    pending: w.pending,
+                    will: WillData {
+                        topic: w.will.topic,
+                        payload: w.will.payload,
+                        qos: w.will.qos,
+                        retain: w.will.retain,
+                        properties: Vec::new(),
+                    },
+                })
+                .collect(),
+        },
+        legacy,
+    ))
 }

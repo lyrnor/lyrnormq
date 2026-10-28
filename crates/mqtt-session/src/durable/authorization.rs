@@ -78,6 +78,8 @@ impl SessionEngine {
                 session.outgoing.order.retain(|pending| *pending != id);
                 session.replay.retain(|pending| *pending != id);
                 session.outgoing.identifiers.release(id);
+                session.outgoing_properties.remove(&id);
+                session.sent.remove(&id);
                 changed = true;
             }
         }

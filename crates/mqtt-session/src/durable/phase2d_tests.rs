@@ -440,7 +440,7 @@ fn legacy_schema2_preserves_retained_wills_send_order_and_binds_only_anonymous()
     state
         .connect_with_will("will", true, Some(will("status")))
         .unwrap();
-    let mut json = snapshot(&state);
+    let mut json = super::phase2e_tests::legacy_schema3(snapshot(&state));
     json["schema_version"] = 2.into();
     for key in ["sessions", "wills"] {
         for record in json[key].as_array_mut().unwrap() {
@@ -483,7 +483,7 @@ fn legacy_schema2_preserves_retained_wills_send_order_and_binds_only_anonymous()
         Some(Packet::PubRel { packet_id: 3 })
     );
     let json = snapshot(&restored);
-    assert_eq!(json["schema_version"], 3);
+    assert_eq!(json["schema_version"], 4);
     assert_eq!(json["retained"][0]["topic"], "retained");
     assert_eq!(json["wills"][0]["owner"], "anonymous");
     for record in json["sessions"].as_array().unwrap() {
@@ -516,7 +516,7 @@ fn schema3_requires_valid_matching_owner_and_legacy_schemas_reject_owner_fields(
     let mut bad = json.clone();
     bad["wills"][0]["owner"] = "user:bob".into();
     assert!(SessionEngine::restore(config(), &serde_json::to_vec(&bad).unwrap()).is_err());
-    let mut bad = json;
+    let mut bad = super::phase2e_tests::legacy_schema3(json);
     bad["schema_version"] = 2.into();
     assert!(SessionEngine::restore(config(), &serde_json::to_vec(&bad).unwrap()).is_err());
     for name in ["".to_owned(), "bad\0name".to_owned(), "x".repeat(65536)] {
