@@ -40,9 +40,12 @@ Add `pub mod durable` with synchronous `pub struct SqliteStore`:
 `commit(&mut self,snapshot:&[u8])->Result<(),DurableError>`.
 DurableError implements Error/Display with typed IO/SQLite/limit/schema cases.
 Use rusqlite0.41 bundled SQLite, WAL and synchronous=FULL; verify PRAGMAs.
-Own a lifetime exclusive broker lock on the actual database file (std File::try_lock
-or equivalent OS released-on-crash lock) to reject simultaneous broker writers;
-no stale create_new lockfile. Refuse unknown nonempty database schemas and unsupported
+Own a lifetime exclusive OS advisory broker lock on a fixed sidecar beside the
+canonical database path (std File::try_lock or equivalent released-on-crash lock).
+Never delete the sidecar: its existence is not the lock. This avoids interference
+with SQLite locks on the DB file itself, as reproduced on Darwin. Reject a second
+broker for the same canonical DB path; hard-link aliases/external DB renames while
+running are unsupported. No stale create_new existence lockfile. Refuse unknown nonempty database schemas and unsupported
 user_version; do not silently reset. Query blob length before allocating on load,
 reject oversize before commit, preserve old committed value on any failure.
 Session snapshot is opaque to storage. No Tokio dependency or async IO in storage.
@@ -123,3 +126,5 @@ commits after session+storage ready. Coordinator owns CLI/docs, final review and
 all suites. API changes require updating this contract before dependent edits.
 Whole snapshot cloning/serialization is intentionally simple and costly; benchmark,
 row-level migrations, disk quota/compaction and cross-process readers remain future.
+
+Contract clarification 2026-10-28: storage tests reproduced DatabaseBusy from OS-locking the SQLite DB inode; use a permanent canonical-path sidecar advisory lock instead. API and commit semantics unchanged.
