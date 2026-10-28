@@ -5,6 +5,7 @@ RMQTT_TEST_STORAGE_PATH selects SQLite; every method owns a fresh DB. Barriers a
 ACKs, confirmed output, or committed snapshots. Bounded silence is only an unwanted
 output observation. SIGKILL tests do not simulate physical power failure.
 """
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -327,7 +328,7 @@ class Mqtt5Blackbox(unittest.TestCase):
             self.skipTest('SQLite process persistence only')
 
     def snapshot(self):
-        with sqlite3.connect(self.broker.db) as db:
+        with closing(sqlite3.connect(self.broker.db)) as db:
             return json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
 
     def wait_snapshot(self, predicate, timeout=3):

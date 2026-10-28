@@ -12,6 +12,8 @@ def schema4_fixture(value):
         return result
     assert result['schema_version'] == 5
     result['schema_version'] = 4
+    floor = result.pop('clock_floor')
+    assert type(floor) is int and 0 <= floor <= 0xffffffffffffffff
 
     def old_properties(properties):
         for prop in properties:

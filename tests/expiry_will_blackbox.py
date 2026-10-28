@@ -229,19 +229,33 @@ class ExpiryWillBlackbox(unittest.TestCase):
 
     def test_slow_writer_drops_expired_first_delivery_and_stays_connected(self):
         self.start('--max-packet-size', str(8 * 1024 * 1024),
-                   '--max-state-bytes', str(128 * 1024 * 1024), '--write-timeout-ms', '20000')
-        target = self.client('slow-reader', maximum=4)
-        target.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
-        target.settimeout(25)
+                   '--max-state-bytes', str(128 * 1024 * 1024), '--write-timeout-ms', '120000')
+        # Set the receive window before TCP negotiates window scaling. Changing
+        # it after CONNECT leaves a previously advertised large window in flight.
+        target = socket.socket()
+        self.addCleanup(target.close)
+        target.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 64 * 1024)
+        target.settimeout(125)
+        target.connect(('127.0.0.1', self.broker.port))
+        target.sendall(wire.connect5('slow-reader', properties=[(0x21, 4), (0x11, 60)], keepalive=0))
+        self.connack(target)
         self.subscribe(target, [('slow/#', 1)])
-        pub = self.client('slow-source')
-        pub.settimeout(25)
+        pub = self.client('slow-source', keepalive=0)
+        pub.settimeout(125)
         payload = b'x' * (6 * 1024 * 1024)
-        self.publish(pub, 'slow/blocker', payload)
+        # QoS0 keeps the large TCP blocker out of repeated durable snapshots.
+        self.publish(pub, 'slow/blocker', payload, qos=0)
         for qos in (0, 1, 2):
             self.publish(pub, f'slow/expired-{qos}', b'must not start', qos=qos,
-                         packet_id=110 + qos, properties=[(2, 1)])
-        time.sleep(1.3)
+                         packet_id=110 + qos, properties=[(2, 5)])
+        if self.sqlite:
+            # Prove at least one timed QoS exchange is reserved but not started
+            # behind the blocker; kernel-buffered bytes count as already written.
+            self.wait_snapshot(lambda state: any(
+                item['expires_at'] is not None and not item['started']
+                for session in state['sessions'] if session['client_id'] == 'slow-reader'
+                for item in session['outgoing']))
+        time.sleep(5.3)
         target.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
         value = wire.parse5(receive(target))
         self.assertEqual(value[0], 'slow/blocker')
@@ -340,6 +354,26 @@ class ExpiryWillBlackbox(unittest.TestCase):
         replacement = self.client('clean-reset', clean=True, expiry=60)
         self.message(sub, 'will/event', b'clean-reset')
         self.disconnect(replacement)
+
+    def test_clean_start_discards_full_old_self_queue_before_forced_will(self):
+        self.start('--outbound-capacity', '1')
+        source = self.client('self-capacity', expiry=60,
+                             will=('self-capacity/topic', b'old Will', 1, False),
+                             will_properties=[(0x18, 60)])
+        self.subscribe(source, [('self-capacity/topic', 1)])
+        self.abort(source)
+        pub = self.client('self-fill')
+        self.publish(pub, 'self-capacity/topic', b'old queued')
+        observer = self.observer('self-capacity/topic')
+        replacement = self.client('self-capacity', clean=True, expiry=60,
+                                  will=('self-capacity/topic', b'new Will', 1, False))
+        self.message(observer, 'self-capacity/topic', b'old Will')
+        self.publish(pub, 'self-capacity/topic', b'fresh session probe')
+        self.message(observer, 'self-capacity/topic', b'fresh session probe')
+        self.quiet(replacement)  # The clean session must not inherit its old subscription.
+        self.abort(replacement)
+        self.message(observer, 'self-capacity/topic', b'new Will')
+        self.quiet(observer)
 
     def test_active_takeover_resume_cancels_but_clean_reset_publishes(self):
         self.start()
@@ -544,6 +578,25 @@ class ExpiryWillBlackbox(unittest.TestCase):
             self.assertEqual(len(value['wills']), 1)
             value['wills'][0]['will']['properties'] = [{'MessageExpiryInterval': 60}]
             damaged = json.dumps(value).encode()
+            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (damaged,))
+        self.broker.assert_start_fails()
+        with sqlite3.connect(self.broker.db) as db:
+            self.assertEqual(bytes(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]), damaged)
+
+    def test_missing_schema5_clock_floor_rejects_startup_without_reset(self):
+        self.require_sqlite()
+        self.start()
+        pub = self.client('clock-floor-source')
+        self.publish(pub, 'clock-floor/value', b'persist', retain=True)
+        self.disconnect(pub)
+        self.broker.stop()
+        with sqlite3.connect(self.broker.db) as db:
+            value = json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0])
+        self.assertEqual(value['schema_version'], 5)
+        self.assertIn('clock_floor', value)
+        value.pop('clock_floor')
+        damaged = json.dumps(value).encode()
+        with sqlite3.connect(self.broker.db) as db:
             db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (damaged,))
         self.broker.assert_start_fails()
         with sqlite3.connect(self.broker.db) as db:
