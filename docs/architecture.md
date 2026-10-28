@@ -1,9 +1,10 @@
-# Architecture — revision4 / Phase2c
+# Architecture — revision5 / Phase2d
 
 TCP MQTT3.1.1 QoS0/1/2, Retained Messages and connection-bound Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
 SQLite modes. Persistent non-clean sessions require --storage-path. MQTT5,
-credentials/auth/ACL, TLS and WebSocket remain unsupported. Full MQTT conformance
+TLS and WebSocket remain unsupported. Authentication/ACL uses a bounded local
+policy with pluggable hooks, sharing the transactional session model. Full MQTT conformance
 and production-readiness are not claimed.
 
 ## Modules and dependency graph
@@ -12,6 +13,9 @@ and production-readiness are not claimed.
 graph LR
   Protocol[mqtt-protocol packets codec and Will] --> Model[mqtt-session QoS and lifecycle]
   Router[mqtt-router trie and retained store] --> Model
+  Router --> Auth[mqtt-auth bounded policy and identity]
+  Auth --> Model
+  Auth --> Worker
   Model --> Worker[mqtt-transport serialized worker]
   Storage[mqtt-storage opaque SQLite WAL snapshot] --> Worker
   Worker --> Network[Bounded reader and complete-frame writer]
@@ -21,16 +25,18 @@ graph LR
 
 lib.rs contains docs/module declarations/reexports only. Protocol splits packet,
 codec,error; Router has filter,trie,retained; Session has error,identifiers,incoming,
-outgoing,durable plus durable records/lifecycle/retention helpers; Storage has
+outgoing,durable plus durable records/lifecycle/retention/authorization helpers;
+Auth has api,policy,containment,error; Storage has
 model,error,trait,memory,durable; Transport has config,server,packet_io,durable.
 The previous duplicate live state/connection production path was retired; its
 meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2c contract supersedes only changed phase2b/phase2a boundaries; prior contracts
+phase2d contract supersedes changed authentication/ownership/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
-Will type/CONNECT field and max_retained config field documented in this phase.
+CONNECT credentials/Password, access_control config, identity/policy constructors
+and PollOutcome documented in this phase.
 
 ## Serialized transaction and network lifecycle
 
@@ -44,11 +50,11 @@ A mutation clones the engine, applies an event, retries eligible pending Wills,
 validates/snapshots, commits SQLite if enabled, installs the proposal and only then
 exposes ACKs/outgoing packets. Failure discards the complete proposal; SQL failure
 cancels service rather than falling back to memory success. Empty unchanged polls
-neither commit nor notify. Even Poll(None) commits/notifies if Will retry progressed.
+neither commit nor notify. Even Poll(None) commits/notifies if Will retry or authorization pruning progressed.
 
 | Event | Atomic effects before response/transmission |
 | --- | --- |
-| CONNECT | Session create/resume/reset, old connection Will if takeover, new Will registration |
+| CONNECT | Authentication and ownership/Will authorization, then session create/resume/reset, old connection Will if takeover, new Will registration |
 | SUBSCRIBE | Subscription grants and retained replay queued before SUBACK |
 | Incoming QoS1 | Retained update/delete if flagged plus all accepted recipient outboxes before PUBACK |
 | Incoming QoS2 PUBLISH | Pending original wire packet before PUBREC |
@@ -105,11 +111,14 @@ death loses all memory state; SQLite process recovery defers Wills until restart
 
 SQLite WAL/FULL and singleton opaque container schema remain version1, protected
 by the existing permanent canonical `.broker-lock` OS advisory lock. Business JSON
-is now schema2: persistent sessions plus required global retained and wills arrays.
-Queued Message adds retain. Will records are client_id,pending,will(topic,payload,
+is now schema3: persistent sessions plus required global retained and wills arrays.
+Each session/Will has a required stable owner identity; passwords/hashes/raw CONNECT are never stored.
+Static owner labels include the non-secret username.
+Queued Message adds retain. Will records are client_id,owner,pending,will(topic,payload,
 qos,retain); retained records are topic,payload,qos and never empty. Valid schema1
 is explicitly decoded with its old DTOs and migrated to empty globals/retain=false;
-old retained wire that schema1 could not store is rejected. Schema2 strictly
+old retained wire that schema1 could not store is rejected. Schema2 preserves its
+required globals; both legacy formats migrate to anonymous ownership. Schema3 strictly
 validates fields, uniqueness, packet IDs/stages/order/topics and restored quotas.
 All restored sessions start offline; online maps/generations/replay cursors are
 runtime-only. Unknown/corrupt records fail startup rather than resetting state.
@@ -146,3 +155,37 @@ Revisions1/2 delivered QoS0 then live QoS1/2. Revision3 added persistent session
 SQLite atomic outboxes/recovery, followed by thin-library structural refactoring.
 Revision4 adds global Retained and connection Will using the same persistence path,
 explicit schema1->2 migration and shared volatile/durable runtime.
+
+## Revision5: authenticated transaction boundaries
+
+The coordinator freezes docs/contracts/phase2d.md before isolated Auth, Protocol and
+Session work, followed by independent Quality and Transport integration. CLI parses
+--auth-policy without IO, then loads at most MAX_POLICY_BYTES+1 on spawn_blocking
+before binding. StaticPolicy is immutable per run, default-deny and contains bounded
+Argon2id PHC work factors. No policy uses AllowAnonymous for compatibility.
+
+The blocking worker authenticates before copying/mutating model state. Typed failures
+map to CONNACK4/5 with bounded flush; rejected CONNECT never processes pipelined data,
+registers Will, cancels the old generation or resets its session. Model then checks
+owner and new Will permission before takeover. Same-owner normal takeover semantics
+remain. Separate identity labels prevent user:anonymous colliding with anonymous.
+
+SessionEngine checks Publish before staging/ACK, including original inbound QoS2
+topic on PUBREL. Filter admission uses safe conservative containment rather than
+matching a filter as a topic. Receive checks cover live/offline routing, retained
+replay and retransmission. Startup reconciles revoked records, recovers authorized
+Wills and commits schema3 before ready. Pruning frees IDs/cursors together and
+PollOutcome.changed forces commits even with no output. AwaitComp may finish its
+already accepted control exchange; incoming pending state remains for reauthorization.
+
+Revoked Wills are explicitly suppressed/removed; retained globals remain protected
+by recipient rights. Anonymous legacy ownership is never silently reassigned to an
+authenticated claimant. Removing/offline converting legacy owners is not implemented.
+Policy reload, remote providers, TLS, per-identity rate limits and timing-attack
+resistance guarantees remain outside this implementation. Argon2 and full-state
+authorization reconciliation add bounded but unbenchmarked blocking-worker cost.
+
+Normative credential/denial reference: OASIS MQTT3.1.1 sections3.1.2.8–9,3.1.3.4–5,
+3.2.2.3,3.3.5 and3.8.4
+(https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html).
+Hash API reference: https://docs.rs/argon2/0.5.3/argon2/.

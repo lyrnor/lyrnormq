@@ -354,3 +354,124 @@ exchange, committed schema2, and successfully stored/replayed a new retained
 publication. This supplements the committed schema-migration tests with a one-off
 actual old-binary compatibility check; no synthetic fixture is shipped as production
 data. Remaining work is updated in tasks.md; Retained and Will are no longer TODOs.
+
+
+## Phase2d accepted — authentication, ACL and durable identity (2026-10-28)
+
+The frozen phase2d contract768f689 plus policy-limit clarification5dfc23c preceded
+implementation. Five actual Codex specialist agents used independent worktrees and
+branches under .worktrees/p2d-{auth,protocol,session,transport,quality}. Auth, Protocol
+and Session ran in parallel; after a slot freed Quality authored independent tests,
+and Transport integrated real dependency commits. Coordinator owns CLI/policy IO,
+contracts, Cargo.lock, documentation and unified integration on integration/phase2d.
+No unverified work was committed to main. Existing storage, routing, retained store,
+QoS state machines and transactional outboxes were reused.
+
+| Responsibility | Original commit | Integrated commit |
+| --- | --- | --- |
+| Credential codec/redacted Password | ce7099e | 9cb61b5 |
+| Bounded local policy/Argon2id/containment | 80abb70 | f4f8e38 |
+| Identity/session/Will/outbox/schema3 | a7ca213 | 26e0c38 |
+| Authenticated network transaction integration | 3bc7054 | 48331e3 |
+| Independent wire/Paho/CI and schema1 regression | 6037a42 | 8e47fc8 |
+| Failure-first refusal-order regression | 2e2ce14 | bc30fc5 |
+| Refusal-order fix and worker regression | 7f6a759 | 1d26af4 |
+
+The new mqtt-auth crate supplies bounded synchronous AccessControl hooks, stable
+non-secret Principal labels, backward-compatible AllowAnonymous and an immutable
+local StaticPolicy. JSON is capped at1MiB, users1024, names256bytes, each grant
+list128; Argon2id v19 PHCs require checked m/t/p minima and maxima65536KiB/10/4
+before library parameter construction. Passwords are binary, owned bytes zeroized
+on drop and Debug-redacted; no password/hash/raw CONNECT is serialized. Identity
+labels deliberately include static usernames. The stdin hash example uses OS salt
+and normal Argon2 defaults, with no password argv, logging or newline trimming.
+
+Policy file IO runs bounded on spawn_blocking before TCP bind. CONNECT authenticates
+before cloning model state; owner/new-Will checks precede takeover/reset. Bad
+credentials produce CONNACK4, denied identity/prefix/owner/Will produce5, then bounded
+writer flush/close. Pipelined data after refusal is not processed. Session/Will
+ownership prevents another principal taking or clearing the same Client ID. Shared
+anonymous identity remains explicit default behavior; it does not distinguish people.
+
+ACL covers exact-topic publishing (including retained deletion), safe single-grant
+subscription-language containment, retained replay, live/offline delivery, outgoing
+retransmission and Will registration/firing. Incoming QoS2's original topic is
+checked again before PUBREL completes. Restart with revoked permissions atomically
+prunes forbidden subscriptions/queues/payload-bearing inflight records and Wills,
+freeing IDs and replay cursors together. PollOutcome.changed forces commit even
+when no packet returns. AwaitComp may complete its already accepted payload-free
+handshake. Global retained values stay, protected by current recipient permissions.
+
+JSON schema3 requires Session/Will owner fields; SQLite opaque container remains1.
+Valid schema1 and2 explicitly migrate to anonymous, preserving stages/order/IDs,
+never assigning an old session to the first authenticated claimant. Restricted
+authentication can make legacy anonymous sessions inaccessible; offline identity
+conversion/removal remains unimplemented. Owner metadata may require extra snapshot
+limit headroom. Malformed/unknown schemas and incompatible quotas still fail closed.
+
+Independent read-only review checked both policy/model and runtime/CLI. Additional
+standalone model probes passed takeover, revoked Will/outgoing state, usable freed
+windows and denied original QoS2 replay without replacement. The actual Rust
+coverage function was checked against34,225 filter pairs and3,904 reference topics
+to depth5: none of the1,672 admitted pairs produced an observed false grant. This
+is bounded independent validation, not a formal proof of all filter languages.
+
+Review found one contract-order defect: memory-mode non-clean CONNECT checked
+persistence availability before owner/Will authorization and returned bare EOF
+instead of CONNACK5. Quality committed a failing two-subcase wire regression first;
+Transport also reproduced the failure in a worker test before moving capability
+checks after successful proposed authorization and before registration. Valid but
+unsupported memory persistence still closes without installing a proposal. Old
+owner PING, original Will, retained data and rejected pipeline remain unaffected.
+A separate early test failure was only a QA read-order assumption about a second
+already-queued PUBLISH; the test now reads both ordered messages before ACK/PING.
+
+### Actual verification
+Environment: Darwin27.0.0 arm64, rustc/cargo1.98.1, edition2024, Python3.14.7,
+paho-mqtt2.1.0 in /tmp/rmqtt-client-venv. Dependencies were resolved from cache
+with --offline; Argon2 is RustCrypto0.5.3 and zeroize1.9.1.
+
+- cargo build --workspace --offline and --examples: passed.
+- cargo fmt --all -- --check: passed.
+- cargo clippy --workspace --all-targets --offline -- -D warnings: passed.
+- cargo test --workspace --offline:141 passed: auth13, protocol23, router14,
+  session40, storage16, transport29, CLI6.
+- RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --offline: passed.
+- All six crate lib.rs entry points audited as docs/mod/reexports only.
+
+| Real TCP/client suite | Volatile mode | SQLite mode |
+| --- | --- | --- |
+| blackbox.py |14 passed|14 passed|
+| qos_blackbox.py |9 passed|9 passed|
+| retained_will_blackbox.py |14 passed,6 inapplicable skips|20 passed|
+| auth_acl_blackbox.py |13 passed,7 inapplicable skips|20 passed|
+| auth_acl_paho.py |2 passed,1 inapplicable skip|3 passed|
+| paho_interop.py |3x3 QoS matrix passed|3x3 QoS matrix passed|
+| retained_will_paho.py |passed|passed|
+| persistence_blackbox.py |not applicable|14 passed|
+| persistence_paho.py |not applicable|offline QoS1/2/reconnect/SIGKILL passed|
+
+The full old+new matrix passed before the narrow capability-order fix; afterward
+the complete final Rust checks, both-mode updated authentication/Paho suites and
+the affected existing rejected-CONNECT/Will regression passed again. This accounts
+for127 passing wire-method executions in the combined current matrix,
+plus client checks; repeated focused runs are not counted again. Skips are explicit
+mode applicability, not suppressed failures. No throughput/latency result is claimed.
+
+A real Phase2c binary generated a schema2 DB before new executable build, with
+an unacknowledged QoS1, AwaitComp, pending incomingQoS2, retained value and active
+persistent-source Will. After SIGKILL the new binary migrated to3, bound all
+legacy owners anonymous, replayed the same QoS1 ID/DUP and PUBREL-only AwaitComp,
+completed original incomingQoS2, and replayed retained/crash-Will values. The
+one-off fixture/old binary were cleaned after success. Committed tests separately
+cover v1/v2 migration and refusal to transfer anonymous data to authenticated users.
+
+### Remaining scope
+MQTT5 (properties/reason codes/session expiry/Receive Maximum/AUTH/etc.), TLS,
+WebSocket, remote auth, policy reload and per-identity rate limiting are still open.
+Argon2 and global ACL reconciliation use the shared bounded state worker and can
+delay controls under load; isolation/rate limits, batching/pruning efficiency,
+row-level persistence and measured stress/fuzz/latency/memory campaigns remain.
+Snapshot-byte caps do not establish process-memory/disk budgets. Physical power
+loss, hard-link/external DB modifications, production readiness and full MQTT
+conformance are not claimed. Detailed next dependencies are maintained in tasks.md.

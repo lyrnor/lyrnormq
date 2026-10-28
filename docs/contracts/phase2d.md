@@ -68,7 +68,8 @@ Add EngineError::NotAuthorized. Check valid principal (nonempty/bounded/no NUL),
 ActionConnect, existing Session/Will owner equality and new Will Publish right
 BEFORE takeover, retry, reset or any mutation. Cross-principal same ID is denied
 for BOTH clean flags, even when a pending Will has no SessionRecord. No owner binding
-is silently transferred. Passwords/hashes/CONNECT credentials never enter snapshots.
+is silently transferred. Passwords, hashes and raw CONNECT packets never enter snapshots.
+The non-secret owner label is persisted and includes the username for static users.
 
 Session and Will records gain owner:string, queued/outgoing message formats stay.
 Business JSON schema_version becomes3 (SQLite opaque container remains1). Explicitly
@@ -113,8 +114,8 @@ credentials -> CONNACK4; unauthorized ClientId/owner/Will -> CONNACK5, close aft
 bounded flush. No processing pipelined packets after rejection, no registered Will,
 no old client cancellation or clean reset. Use explicit rejection-close flag for
 any actually queued failure CONNACK, preserving established-error abort behavior.
-Typed worker rejection result preferred over parsing error strings. Credentials
-never appear in errors/debug/snapshots; hooks/Argon2 execute on existing bounded
+Typed worker rejection result preferred over parsing error strings. Password bytes
+never appear in errors/Debug/snapshots; non-secret identities may be displayed; hooks/Argon2 execute on existing bounded
 blocking worker, not async IO tasks. Other model/resource errors retain current behavior.
 
 Startup attaches configured policy, reconciles, recovers authorized Wills and commits

@@ -1,10 +1,11 @@
 use mqtt_transport::BrokerConfig;
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N]";
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH]";
 
 pub struct Options {
     pub address: String,
+    pub auth_policy: Option<PathBuf>,
     pub config: BrokerConfig,
 }
 
@@ -26,6 +27,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut args = args.into_iter();
     let mut options = Options {
         address: "127.0.0.1:1883".into(),
+        auth_policy: None,
         config: BrokerConfig::default(),
     };
     while let Some(option) = args.next() {
@@ -35,6 +37,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         if !matches!(
             option.as_str(),
             "--listen"
+                | "--auth-policy"
                 | "--storage-path"
                 | "--max-sessions"
                 | "--max-state-bytes"
@@ -54,6 +57,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
         if option == "--listen" {
             options.address = value;
+            continue;
+        }
+        if option == "--auth-policy" {
+            if value.is_empty() {
+                return Err(invalid("--auth-policy cannot be empty"));
+            }
+            options.auth_policy = Some(PathBuf::from(value));
             continue;
         }
         if option == "--storage-path" {
@@ -117,6 +127,8 @@ mod tests {
             vec!["--outbound-capacity"],
             vec!["--unknown", "1"],
             vec!["--storage-path", ""],
+            vec!["--auth-policy", ""],
+            vec!["--auth-policy"],
             vec!["--max-sessions", "0"],
             vec!["--max-state-bytes", "0"],
             vec!["--max-retained", "0"],
@@ -152,6 +164,18 @@ mod tests {
         assert_eq!(config.max_sessions, 12);
         assert_eq!(config.max_state_bytes, 65536);
         assert_eq!(config.max_retained, 128);
+    }
+
+    #[test]
+    fn policy_path_is_opt_in_and_parsed_without_reading_the_file() {
+        assert!(parse(args(&[])).unwrap().unwrap().auth_policy.is_none());
+        let options = parse(args(&["--auth-policy", "/does/not/exist.json"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            options.auth_policy,
+            Some(PathBuf::from("/does/not/exist.json"))
+        );
     }
 
     #[test]

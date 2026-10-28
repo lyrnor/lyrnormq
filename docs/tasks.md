@@ -10,6 +10,9 @@
   OS writer exclusion; persisted subscriptions, bounded offline queues, ordered
   reconnect replay and clean reset; transactional blocking worker; normal TCP
   disconnect, SIGKILL/restart and SQL rollback tests; both-path interoperability.
+- Phase2d: bounded local Argon2id authentication and ACL hooks; CONNECT credentials,
+  principal-bound sessions/Wills, schema1/2->3 migration, outbox/Will revocation and
+  both-mode independent wire/Paho denial/recovery tests.
 - Phase2c: global retained replace/delete/replay, connection Will lifecycle/deferred
   publication, schema1->2 migration, shared memory/SQLite worker, both-mode wire and
   real-client verification. Existing QoS/outbox implementations are reused.
@@ -41,13 +44,15 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 
 ## Next single-node features
 
-1. Freeze authentication/ACL extension traits and denied-delivery behavior; implement
-   enforcement with independent authorization tests. Credentials remain rejected.
+1. Complete broader MQTT3.1.1 conformance/rejection-code/client-ID edge cases and
+   client interoperability before claiming full conformance. Authentication/ACL
+   is implemented and verified in Phase2d.
 2. Freeze versioned MQTT5 protocol/session contracts before parallel changes:
    properties, reason codes, Clean Start/session expiry, Receive Maximum, topic
    aliases/shared subscriptions, Will Delay and AUTH remain unimplemented.
-3. Broaden MQTT3.1.1 conformance/rejection-code/client-ID edge cases and client
-   interoperability beyond the current wire/Paho matrix before full conformance.
+3. Add TLS transport before exposing password authentication over untrusted networks;
+   remote authentication, per-identity rate limiting and policy reload require
+   explicit policy-version/control contracts.
 
 ## Durability and operational hardening still open
 
@@ -62,7 +67,10 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 - Explicit disk-space/compaction/checkpoint quotas. Snapshot bytes are not a
   complete disk or aggregate process-memory budget. Keep strict single-owner DB
   constraints; hard-link aliases/external active DB modifications are unsupported.
-- Config files/reload, tracing/metrics and overload/error observability.
+- Policy reload, identity-aware session admin/conversion, tracing/metrics and
+  overload/authentication/error observability. Bounded static auth policy files exist.
+- Isolate expensive authentication CPU from the state actor and add rate limiting;
+  measure full-registry ACL reconciliation and batch ID-pruning costs under load.
 
 ## Phase3/4 gates
 
@@ -102,3 +110,25 @@ Will must not permanently prevent the same persistent client draining its own
 outbox. No-new-Will reconnect preserves that pending intent; admission carrying a
 new Will still refuses overwriting it. Per-connection multi-intent designs and
 throughput/fairness optimization under sustained saturation remain future work.
+
+## Phase2d dependency group
+
+```mermaid
+graph LR
+  Contract[Identity ACL credential and schema3 freeze 768f689] --> Auth[Argon2id policy and containment]
+  Contract --> Protocol[Credential codec and redaction]
+  Contract --> Session[Owned sessions and outbox ACL]
+  Auth --> Session
+  Auth --> Transport[Authentication and transactional worker]
+  Protocol --> Transport
+  Session --> Transport
+  Transport --> Gate[Both-mode wire Paho recovery review]
+  QA[Independent denied-path tests] --> Gate
+```
+
+All writers have separate branches/worktrees. Existing retained store, trie, QoS
+FSMs, storage and transaction/outbox pipeline are reused. No cluster/TLS/MQTT5
+implementation is hidden inside this dependency group. Legacy schemas bind to
+anonymous; offline administrative reassignment/removal needs a future explicit
+contract. Policy-triggered payload pruning is intentional revocation behavior;
+resource-quota incompatibility/corrupt schema still fail startup without resetting.
