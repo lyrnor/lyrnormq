@@ -120,7 +120,7 @@ class EnhancedAuthBlackbox(unittest.TestCase):
         for index, packet in enumerate([authentication(0, PLAIN), authentication(0x19, PLAIN),
                                          authentication(data=PLAIN, method=None), authentication(data=PLAIN, method='OTHER')]):
             sock = self.begin('initial-' + str(index), data=None);self.auth_reply(sock);sock.sendall(packet)
-            self.terminal(sock, 0x82)
+            self.connack(sock, code=0x82);self.closed(sock)
 
     def test_basic_unsolicited_auth_and_nested_reauth_fail82(self):
         self.start();basic = self.basic();basic.sendall(authentication(0x19, PLAIN));self.terminal(basic, 0x82)
@@ -135,7 +135,7 @@ class EnhancedAuthBlackbox(unittest.TestCase):
         for index, packet in enumerate([wire.publication5('allowed/preauth', b'no', 1, retain=True),
                                         frame(0x82, b'\0\1' + wire.props() + string('allowed/#') + b'\1'), frame(0xc0)]):
             sock = self.begin('preauth-' + str(index), data=None, will=('allowed/will', b'no', 1, False));self.auth_reply(sock)
-            sock.sendall(packet);self.terminal(sock, 0x82)
+            sock.sendall(packet);self.connack(sock, code=0x82);self.closed(sock)
         cancelled = self.begin('cancelled', data=None, will=('allowed/will', b'no', 1, False));self.auth_reply(cancelled)
         cancelled.sendall(frame(0xe0));self.closed(cancelled);self.quiet(reader)
         self.subscribe(reader, [('allowed/preauth', 1)], packet_id=2);self.quiet(reader)
@@ -179,7 +179,7 @@ class EnhancedAuthBlackbox(unittest.TestCase):
     def test_initial_absolute_deadline_and_pending_cleanup(self):
         self.start('--handshake-timeout-ms', '200', '--max-connections', '4')
         sock = self.begin('timeout', data=None, will=('allowed/will', b'no', 1, False));self.auth_reply(sock)
-        time.sleep(.3);self.terminal(sock, 0x87)
+        time.sleep(.3);self.connack(sock, code=0x87);self.closed(sock)
         for index in range(6):
             pending = self.begin('cancel-' + str(index), data=None);self.auth_reply(pending);pending.sendall(frame(0xe0));self.closed(pending)
         self.login('after-cleanup')
