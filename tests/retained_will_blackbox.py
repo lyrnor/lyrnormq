@@ -15,6 +15,7 @@ import tempfile
 import unittest
 
 from blackbox import frame, receive, string
+from schema_compat import schema3_fixture
 from persistence_blackbox import PersistentBroker
 from qos_blackbox import ack, parse_publish
 
@@ -484,7 +485,7 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.disconnect(publisher)
         self.broker.stop()
         with sqlite3.connect(self.broker.db) as db:
-            current = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
+            current = schema3_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]))
             self.assertEqual(current['schema_version'], 3)
             self.assertEqual(current.pop('retained'), [])
             self.assertEqual(current.pop('wills'), [])
@@ -499,7 +500,7 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.delivery(target, 'migration', b'legacy queue', 1)
         with sqlite3.connect(self.broker.db) as db:
             migrated = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
-            self.assertEqual(migrated['schema_version'], 3)
+            self.assertEqual(migrated['schema_version'], 4)
             self.assertTrue(all(s['owner'] == 'anonymous' for s in migrated['sessions']))
 
 

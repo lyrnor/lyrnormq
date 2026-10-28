@@ -202,10 +202,10 @@ class MQTTBlackbox(unittest.TestCase):
                 sock.sendall(frame(header, string('a') + b'\x00\x01payload'))
                 self.closed(sock)
 
-    def test_mqtt5_rejected_with_connack(self):
+    def test_unsupported_protocol_level_rejected_with_connack(self):
         sock = self.broker.socket()
         self.addCleanup(sock.close)
-        sock.sendall(connect_packet('v5', version=5))
+        sock.sendall(connect_packet('unsupported-v6', version=6))
         self.assertEqual(receive(sock), (0x20, b'\x00\x01'))
         self.closed(sock)
 

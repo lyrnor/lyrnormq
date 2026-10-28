@@ -17,6 +17,7 @@ import time
 import unittest
 
 from blackbox import frame, receive, string
+from schema_compat import schema3_fixture
 from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import FeatureBroker, publication
 
@@ -398,7 +399,7 @@ class AuthAclBlackbox(unittest.TestCase):
         for clean in (False, True):
             self.refused('durable-owned', 5, user='bob', clean=clean)
         snapshot = self.broker.snapshot()
-        self.assertEqual(snapshot['schema_version'], 3)
+        self.assertEqual(snapshot['schema_version'], 4)
         self.assertEqual(self.session('durable-owned')['owner'], 'user:alice')
         self.assertEqual(len(self.session('durable-owned')['queued']), 2)
         encoded = json.dumps(snapshot).encode()
@@ -570,7 +571,7 @@ class AuthAclBlackbox(unittest.TestCase):
         self.disconnect(publisher)
         self.broker.stop()
         with sqlite3.connect(self.broker.db) as db:
-            value = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
+            value = schema3_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]))
             self.assertEqual(value['schema_version'], 3)
             value['schema_version'] = 2
             for record in value['sessions'] + value['wills']:
@@ -580,7 +581,7 @@ class AuthAclBlackbox(unittest.TestCase):
         legacy = self.client('legacy-owned', user=None, password=None, clean=False, present=True)
         self.delivery(legacy, 'allowed/legacy', b'legacy retained and offline', 1)
         self.disconnect(legacy)
-        self.assertEqual(self.broker.snapshot()['schema_version'], 3)
+        self.assertEqual(self.broker.snapshot()['schema_version'], 4)
         self.assertEqual(self.session('legacy-owned')['owner'], 'anonymous')
         self.broker.stop()
         self.broker.use_policy = True
