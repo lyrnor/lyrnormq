@@ -28,3 +28,14 @@ CONNACK may omit method. Established reauth failure stays DISCONNECT87, protocol
 error82 and real KeepAlive timeout8D. Provider deadline/cap/state/Will/takeover
 isolation and basic authentication behavior otherwise remain unchanged. Exact cap
 checks and one terminal response still apply; add actual TCP regression before fix.
+
+## K2: ordered multi-filter UNSUBSCRIBE
+
+MQTT-3.10.4-6 requires processing multiple filters as successive requests with one
+UNSUBACK. MQTT-3.11.3-1/2 constrain result order and per-filter reason values.
+Apply each filter removal to current state before computing the next result;
+[existing, same-existing, missing] yields [00,11,11] in hex, not [00,00,11].
+Retain existing exact-key semantics, shared membership pruning, started QoS
+obligations, packet identifier, one response and transactional proposal boundary.
+No public API or schema change. Include ordinary/shared duplicate filters and
+existing invalid-filter validation behavior in regression coverage.
