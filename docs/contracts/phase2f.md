@@ -31,6 +31,17 @@ Every new nullable field is REQUIRED using a required-nullable deserializer (nev
 Serde Option missing->None). Unknown/malformed/unsupported legacy records fail closed
 before timer pruning. Schema4 must still require its session expires_at field.
 
+Envelope adds required clock_floor:u64, a durable high-watermark of model-observed
+wall time. Legacy1/2/3/4 migrate floor0. All temporal decisions use effective_now()
+=max(raw Clock.now_millis,last observed floor), recording the nondecreasing floor
+per proposal (clones copy it independently). Restore never rewinds below persisted
+floor. Snapshot records observed floor, not a fresh lifetime. Incoming receipt age
+uses raw-now minus read timestamp (saturating), rebased onto effective-now, so new
+messages are not instantly expired merely because raw clock is below the floor.
+This prevents committed remaining TTL/deadlines from regressing on clock rollback.
+Post-commit wire refresh and SQL/TCP crash ambiguity remain explicitly conservative;
+no atomic persistence of the exact last byte/wall instant is claimed.
+
 Current queued Message and RetainedRecord add expires_at:Option<u64> (Unix millis).
 Incoming entries become(id,canonical311_bytes,Properties,Option<u64>) quadruples.
 OutgoingRecord adds expires_at:Option<u64>,started:bool. Comp requires started=true,
@@ -152,6 +163,9 @@ oldWill immediately regardlessDelay (OASIS3.1.3.2 note). At/after due, reconnect
 not cancel intent; expiry/end wins. Preserve ownership/admission-before-takeover guards
 and stale generation cleanup. Failed CONNECT cannot cancel/publish/replace old intent.
 
+CleanStart=true must remove the old session/subscriptions/outboxes BEFORE oldWill
+fanout, after admission/auth guards. A full old self-queue must not cause phantom
+capacity denial; real external recipient capacity still defers publication.
 CleanStart=true ends original session before new creation; existing delayed intent
 becomes due now. If capacity defers it, existing one-intent-per-ID admission safeguards
 remain (never overwrite). No-new-Will resume may drain an older already-due pending
