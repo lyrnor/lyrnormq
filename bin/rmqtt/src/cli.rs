@@ -1,7 +1,7 @@
 use mqtt_transport::BrokerConfig;
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH]";
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH]";
 
 pub struct Options {
     pub address: String,
@@ -47,6 +47,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 | "--outbound-capacity"
                 | "--max-subscriptions"
                 | "--max-inflight"
+                | "--topic-alias-maximum"
                 | "--handshake-timeout-ms"
                 | "--write-timeout-ms"
         ) {
@@ -71,6 +72,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 return Err(invalid("--storage-path cannot be empty"));
             }
             options.config.storage_path = Some(PathBuf::from(value));
+            continue;
+        }
+        if option == "--topic-alias-maximum" {
+            options.config.topic_alias_maximum = value
+                .parse::<u16>()
+                .map_err(|_| invalid("--topic-alias-maximum must be in 0..65535"))?;
             continue;
         }
         let number = positive(&value, &option)?;
@@ -132,8 +139,32 @@ mod tests {
             vec!["--max-sessions", "0"],
             vec!["--max-state-bytes", "0"],
             vec!["--max-retained", "0"],
+            vec!["--topic-alias-maximum", "65536"],
+            vec!["--topic-alias-maximum", "-1"],
+            vec!["--topic-alias-maximum", "invalid"],
+            vec!["--topic-alias-maximum"],
         ] {
             assert!(parse(args(&values)).is_err(), "{values:?}");
+        }
+    }
+
+    #[test]
+    fn topic_alias_budget_defaults_but_can_be_disabled_or_use_full_range() {
+        assert_eq!(
+            parse(args(&[]))
+                .unwrap()
+                .unwrap()
+                .config
+                .topic_alias_maximum,
+            32
+        );
+        for maximum in [0u16, 1, 32, u16::MAX] {
+            let value = maximum.to_string();
+            let config = parse(args(&["--topic-alias-maximum", &value]))
+                .unwrap()
+                .unwrap()
+                .config;
+            assert_eq!(config.topic_alias_maximum, maximum);
         }
     }
 
