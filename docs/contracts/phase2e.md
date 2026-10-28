@@ -181,7 +181,12 @@ pipelined rejected input. Accepted V5 errors send bounded DISCONNECT with reason
 0x81 malformed,0x82 protocol,0x93 receive limit,0x95 too large,0x87 denied,0x8D timeout;
 takeover old V5 socket sends0x8E when possible. EOF/shutdown still unexpected Will.
 Do not use a blanket error-type flush heuristic; only actually queued terminal frames
-are flushed under write_timeout. Existing writer cancellation/backpressure preserved.
+are flushed under bounded deadlines. A connected terminal frame uses a bounded
+priority signal: finish at most the current complete frame (or close on its write
+timeout), discard queued data, then write one terminal frame. Do not drain an entire
+slow-client queue before DISCONNECT; do not interrupt a partially written frame and
+continue writing a new frame on that stream. Bound total wait to at most two frame
+write_timeout intervals, then abort/close. Existing writer/backpressure safety preserved.
 
 Advertised inbound ReceiveMaximum enforced through QoS1/2 outstanding IDs until
 corresponding PUBACK/PUBCOMP/negativePUBREC is actually written. Repeated QoS2 PUBLISH
