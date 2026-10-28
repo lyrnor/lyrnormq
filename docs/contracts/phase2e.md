@@ -101,7 +101,8 @@ Identifier client->server PUBLISH rejected0x82; on SUBSCRIBE return0xA1 per filt
 MessageExpiryInterval is not implemented: reject its presence with0x83, do not ignore.
 Nonzero WillDelayInterval rejectedCONNACK0x83; zero accepted/removed before publication.
 Nondefault subscription NoLocal/RAP/RH unsupported ->SUBACK0x83 per filter (no silent
-acceptance); shared filters ->0x9E. Malformed option bits remain codec errors.
+acceptance); shared filters ->0x9E. Reserved option bits6/7 are MalformedPacket0x81 perMQTT-3.8.3-5;
+QoS3,RetainHandling3 and NoLocal-on-shared are ProtocolError0x82.
 All exclusions documented/tested; these are not claims of full MQTT5 compliance.
 
 ## Session API — session owner
