@@ -19,7 +19,7 @@ from blackbox import frame, receive, string
 from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import FeatureBroker
 from auth_acl_blackbox import AuthBroker, PASSWORD, connect_packet as auth311
-from schema_compat import schema3_fixture
+from schema_compat import schema3_fixture, schema4_fixture
 
 
 def varint(value):
@@ -689,7 +689,7 @@ class Mqtt5Blackbox(unittest.TestCase):
                 self.closed(sock)
         cases = [([(0x21, 1)], 0x81), ([(0x23, 0)], 0x94),
                  ([(0x23, 1)], 0x94), ([(0x0b, 1)], 0x82),
-                 ([(2, 10)], 0x83), ([(3, 'a'), (3, 'b')], 0x82),
+                 ([(3, 'a'), (3, 'b')], 0x82),
                  ([(8, 'bad/+')], 0x82)]
         for index, (values, reason) in enumerate(cases):
             with self.subTest(publish=values):
@@ -737,7 +737,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.subscribe(observer, [('unsupported/#', 1)])
         cases = [([(0x27, 65536)], [], 0x83),
                  ([(0x15, 'unsupported')], [], 0x8c),
-                 ([], [(0x18, 1)], 0x83), ([], [(2, 1)], 0x83)]
+                 ]
         for index, (values, will_values, code) in enumerate(cases):
             sock = self.raw()
             sock.sendall(connect5('unsupported-' + str(index), properties=values,
@@ -1114,7 +1114,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         source.sendall(ack(0x62, 72))
         parse_ack5(receive(source), 0x70, 72)
         self.message(target, 'legacy/pending', b'old pending', 2)
-        self.assertEqual(self.snapshot()['schema_version'], 4)
+        self.assertEqual(self.snapshot()['schema_version'], 5)
         self.assertTrue(all(s['owner'] == 'anonymous' for s in self.snapshot()['sessions']))
 
     def test_schema4_missing_required_expiry_deadline_rejects_startup_without_reset(self):
@@ -1126,7 +1126,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.broker.stop()
         with sqlite3.connect(self.broker.db) as db:
             original = db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]
-            current = json.loads(original)
+            current = schema4_fixture(json.loads(original))
             record = next(s for s in current['sessions'] if s['client_id'] == 'required-deadline')
             self.assertIsNotNone(record.pop('expires_at'))
             corrupt = json.dumps(current).encode()

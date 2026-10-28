@@ -399,7 +399,7 @@ class AuthAclBlackbox(unittest.TestCase):
         for clean in (False, True):
             self.refused('durable-owned', 5, user='bob', clean=clean)
         snapshot = self.broker.snapshot()
-        self.assertEqual(snapshot['schema_version'], 4)
+        self.assertEqual(snapshot['schema_version'], 5)
         self.assertEqual(self.session('durable-owned')['owner'], 'user:alice')
         self.assertEqual(len(self.session('durable-owned')['queued']), 2)
         encoded = json.dumps(snapshot).encode()
@@ -581,7 +581,7 @@ class AuthAclBlackbox(unittest.TestCase):
         legacy = self.client('legacy-owned', user=None, password=None, clean=False, present=True)
         self.delivery(legacy, 'allowed/legacy', b'legacy retained and offline', 1)
         self.disconnect(legacy)
-        self.assertEqual(self.broker.snapshot()['schema_version'], 4)
+        self.assertEqual(self.broker.snapshot()['schema_version'], 5)
         self.assertEqual(self.session('legacy-owned')['owner'], 'anonymous')
         self.broker.stop()
         self.broker.use_policy = True
