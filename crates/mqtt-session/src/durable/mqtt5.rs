@@ -320,25 +320,36 @@ impl SessionEngine {
                 Ok(vec![Frame::v5(Packet::SubAck { packet_id, codes })])
             }
             Packet::Unsubscribe { packet_id, filters } => {
-                let session = self
-                    .sessions
-                    .get(client_id)
-                    .ok_or(EngineError::UnknownSession)?;
-                let codes: Vec<ReasonCode> = filters
+                // Entry results observe the preceding removals, including a
+                // repeated exact filter in the same packet (MQTT-3.10.4-6).
+                // Validate the whole request before installing any removal;
+                // malformed later entries must not partially change state.
+                if filters
                     .iter()
-                    .map(|filter| {
-                        reason(if session.subscriptions.contains_key(filter) {
-                            0
-                        } else {
-                            0x11
-                        })
-                    })
-                    .collect::<Result<_, _>>()?;
-                self.handle_packet(
-                    client_id,
-                    Packet::Unsubscribe { packet_id, filters },
-                    Vec::new(),
-                )?;
+                    .any(|filter| !validate_subscription_filter(filter))
+                {
+                    return Err(EngineError::InvalidPacket(
+                        "invalid unsubscribe filter".into(),
+                    ));
+                }
+                let mut codes = Vec::with_capacity(filters.len());
+                for filter in filters {
+                    let existed = self
+                        .sessions
+                        .get(client_id)
+                        .ok_or(EngineError::UnknownSession)?
+                        .subscriptions
+                        .contains_key(&filter);
+                    self.handle_packet(
+                        client_id,
+                        Packet::Unsubscribe {
+                            packet_id,
+                            filters: vec![filter],
+                        },
+                        Vec::new(),
+                    )?;
+                    codes.push(reason(if existed { 0 } else { 0x11 })?);
+                }
                 let mut response = Frame::v5(Packet::UnsubAck { packet_id });
                 response.reason_codes = codes;
                 Ok(vec![response])
