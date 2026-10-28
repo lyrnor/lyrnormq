@@ -1,0 +1,9 @@
+[package]
+name = "mqtt-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+mqtt-protocol = { path = "../mqtt-protocol" }
+mqtt-router = { path = "../mqtt-router" }
+tokio.workspace = true
