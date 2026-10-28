@@ -123,7 +123,9 @@ Accept nonzero WillDelayInterval only for MQTT5; default0 preserves311 behavior.
 Clock + persisted due_at schedule unexpected EOF/error/timeout/shutdown and DISCONNECT04
 at min(closeNow+delay,offline Session expiry deadline). Expiry0 means immediate,
 UINT_MAX Session expiry unbounded. DISCONNECT04 respects delay (not forced immediate).
-A normal DISCONNECT clears the active Will as before, preserving an older already
+Only DISCONNECT reason0x00 (normal) clears the active Will. Other valid nonzero
+client reasons, including0x80 and0x04, schedule it; the model Frame adapter and
+transport must map graceful=(reason==SUCCESS), not reason!=0x04. Preserve an older already
 capacity-deferred immediate intent if a no-new-Will connection had resumed to drain.
 
 Same owner, CleanStart=false, SAME surviving session resumed before due cancels its
