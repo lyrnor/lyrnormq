@@ -16,6 +16,7 @@ returns name="anonymous". Static users use name="user:"+username to avoid collis
 `AllowAnonymous` unit struct Debug/Default, authenticates only absent username AND
 password, rejects supplied credentials as BadCredentials, authorizes all actions
 only for anonymous principal (including $ topics, preserving previous defaults).
+`MAX_POLICY_BYTES:usize = 1024*1024` root-reexported for bounded CLI IO.
 `StaticPolicy::from_json(bytes:&[u8])->Result<Self,PolicyError>` typed errors, Debug
 redacts hashes. No IO inside policy; caller loads bounded bytes on blocking worker.
 
