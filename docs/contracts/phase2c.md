@@ -70,8 +70,12 @@ Will cannot publish due to capacity, keep a bounded pending record (do not drop 
 partially fanout) while finalizing disconnection. retry_wills tries pending records
 on proposed clones, installs only successful complete publications, defers capacity
 errors but propagates invalid/corrupt data errors. Bound Will records by max_sessions
-and serialized max_state_bytes. Reject same-ID new CONNECT if an older pending Will
-cannot be drained (never overwrite it). retry after queue space is freed/events;
+and serialized max_state_bytes. Reject a same-ID CONNECT carrying a NEW Will while
+an older pending Will cannot be drained (never overwrite it). A CONNECT with no new
+Will may resume while preserving the older pending record, so a persistent client
+can drain its own full outbox instead of being permanently blocked by its own Will.
+Graceful/abnormal termination of that no-Will connection must not delete or duplicate
+the older pending intent. Retry after queue space is freed/events;
 no busy loop when none can progress. Active wills survive SQLite process crash,
 including clean-session source wills, and publish on startup before serving clients.
 recover_wills marks all loaded active Wills pending then attempts publication once.
