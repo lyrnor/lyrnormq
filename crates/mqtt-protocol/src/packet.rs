@@ -1,5 +1,7 @@
 //! MQTT control packet data model.
 
+use crate::Password;
+
 /// Connection-associated publication sent when the connection ends abnormally.
 /// Payload bytes are opaque and the MQTT CONNECT field is limited to 65,535 bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +19,8 @@ pub enum Packet {
         clean_session: bool,
         keep_alive: u16,
         will: Option<Will>,
+        username: Option<String>,
+        password: Option<Password>,
     },
     ConnAck {
         session_present: bool,

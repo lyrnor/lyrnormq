@@ -2,6 +2,8 @@ use super::*;
 fn packets() -> Vec<Packet> {
     vec![
         Packet::Connect {
+            username: None,
+            password: None,
             client_id: "client-1".into(),
             clean_session: true,
             keep_alive: 30,
@@ -139,6 +141,8 @@ fn reject_invalid_payloads() {
 fn connect_clean_and_persistent_flags_roundtrip_and_fragment() {
     for clean_session in [false, true] {
         let packet = Packet::Connect {
+            username: None,
+            password: None,
             client_id: "persistent-client".into(),
             clean_session,
             keep_alive: 45,
@@ -152,6 +156,8 @@ fn connect_clean_and_persistent_flags_roundtrip_and_fragment() {
         assert_eq!(decode(&bytes, 1024).unwrap(), Some((packet, bytes.len())));
         assert!(
             encode(&Packet::Connect {
+                username: None,
+                password: None,
                 client_id: String::new(),
                 clean_session,
                 keep_alive: 45,
@@ -181,6 +187,8 @@ fn connect_clean_and_persistent_flags_roundtrip_and_fragment() {
 #[test]
 fn connect_rejections_and_version() {
     let p = Packet::Connect {
+        username: None,
+        password: None,
         client_id: "c".into(),
         clean_session: true,
         keep_alive: 0,
@@ -198,15 +206,14 @@ fn connect_rejections_and_version() {
     for flags in [0x82, 0xc2] {
         let mut b = base.clone();
         b[9] = flags;
-        assert!(matches!(
-            decode(&b, 1024),
-            Err(ProtocolError::UnsupportedFeature(_))
-        ));
+        assert!(matches!(decode(&b, 1024), Err(ProtocolError::Malformed(_))));
     }
 }
 #[test]
 fn will_flag_without_payload_is_malformed() {
     let mut bytes = encode(&Packet::Connect {
+        username: None,
+        password: None,
         client_id: "c".into(),
         clean_session: true,
         keep_alive: 0,
@@ -373,12 +380,16 @@ fn encoder_qos_combinations() {
 fn encoder_metadata_validation_without_decoding() {
     let invalid = [
         Packet::Connect {
+            username: None,
+            password: None,
             client_id: "".into(),
             clean_session: true,
             keep_alive: 0,
             will: None,
         },
         Packet::Connect {
+            username: None,
+            password: None,
             client_id: "a\0".into(),
             clean_session: true,
             keep_alive: 0,
@@ -478,6 +489,8 @@ fn will_roundtrip_flags_binary_payload_and_all_fragments() {
             for retain in [false, true] {
                 for payload in [vec![], vec![0, 0xff, 0x80], b"last status".to_vec()] {
                     let packet = Packet::Connect {
+                        username: None,
+                        password: None,
                         client_id: "will-client".into(),
                         clean_session,
                         keep_alive: 42,
@@ -517,6 +530,8 @@ fn will_wire_fields_and_u16_payload_boundaries() {
         0, b'a',
     ];
     let packet = Packet::Connect {
+        username: None,
+        password: None,
         client_id: "c".into(),
         clean_session: true,
         keep_alive: 30,
@@ -534,6 +549,8 @@ fn will_wire_fields_and_u16_payload_boundaries() {
     assert_eq!(encode(&packet).unwrap(), wire);
     for size in [65535, 65536] {
         let packet = Packet::Connect {
+            username: None,
+            password: None,
             client_id: "large-will".into(),
             clean_session: false,
             keep_alive: 0,
@@ -559,6 +576,8 @@ fn will_wire_fields_and_u16_payload_boundaries() {
 #[test]
 fn will_rejects_invalid_flags_topics_and_truncated_binary_fields() {
     let base = encode(&Packet::Connect {
+        username: None,
+        password: None,
         client_id: "c".into(),
         clean_session: true,
         keep_alive: 0,
@@ -588,6 +607,8 @@ fn will_rejects_invalid_flags_topics_and_truncated_binary_fields() {
     // Will topic is UTF8, unlike its payload, and cannot be empty or contain wildcards.
     for topic in ["", "a/+", "a/#", "a\0b", "\u{ffff}"] {
         let packet = Packet::Connect {
+            username: None,
+            password: None,
             client_id: "c".into(),
             clean_session: true,
             keep_alive: 0,
@@ -607,6 +628,8 @@ fn will_rejects_invalid_flags_topics_and_truncated_binary_fields() {
         Err(ProtocolError::Malformed(_))
     ));
     let invalid = Packet::Connect {
+        username: None,
+        password: None,
         client_id: "c".into(),
         clean_session: true,
         keep_alive: 0,
@@ -618,4 +641,165 @@ fn will_rejects_invalid_flags_topics_and_truncated_binary_fields() {
         }),
     };
     assert!(matches!(encode(&invalid), Err(ProtocolError::Malformed(_))));
+}
+
+#[test]
+fn credential_connects_roundtrip_binary_empty_and_all_fragments() {
+    for username in [None, Some(""), Some("user/温度")] {
+        for password in [None, Some(vec![]), Some(vec![0, 255, 0x80, b'a'])] {
+            if username.is_none() && password.is_some() {
+                continue;
+            }
+            for with_will in [false, true] {
+                let packet = Packet::Connect {
+                    client_id: "client".into(),
+                    clean_session: false,
+                    keep_alive: 17,
+                    will: with_will.then(|| Will {
+                        topic: "last/status".into(),
+                        payload: vec![255, 0, 128],
+                        qos: 2,
+                        retain: true,
+                    }),
+                    username: username.map(str::to_owned),
+                    password: password.clone().map(Password::new),
+                };
+                let wire = encode(&packet).unwrap();
+                assert_eq!(wire[9] & 0x80 != 0, username.is_some());
+                assert_eq!(wire[9] & 0x40 != 0, password.is_some());
+                for cut in 0..wire.len() {
+                    assert_eq!(decode(&wire[..cut], wire.len()).unwrap(), None);
+                }
+                assert_eq!(
+                    decode(&wire, wire.len()).unwrap(),
+                    Some((packet, wire.len()))
+                );
+                assert_eq!(
+                    decode(&wire, wire.len() - 1),
+                    Err(ProtocolError::PacketTooLarge)
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn credential_wire_order_is_client_will_username_binary_password() {
+    let wire = [
+        0x10, 27, 0, 4, b'M', b'Q', b'T', b'T', 4, 0xce, 0, 30, 0, 1, b'c', 0, 1, b't', 0, 1, 255,
+        0, 1, b'u', 0, 3, 0, 128, 255,
+    ];
+    let packet = Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 30,
+        will: Some(Will {
+            topic: "t".into(),
+            payload: vec![255],
+            qos: 1,
+            retain: false,
+        }),
+        username: Some("u".into()),
+        password: Some(Password::new(vec![0, 128, 255])),
+    };
+    assert_eq!(
+        decode(&wire, 1024).unwrap(),
+        Some((packet.clone(), wire.len()))
+    );
+    assert_eq!(encode(&packet).unwrap(), wire);
+}
+
+#[test]
+fn credentials_require_username_and_reject_bad_utf8_and_complete_truncations() {
+    let mut packet = Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: None,
+        username: None,
+        password: Some(Password::new(vec![])),
+    };
+    assert!(matches!(encode(&packet), Err(ProtocolError::Malformed(_))));
+    if let Packet::Connect { username, .. } = &mut packet {
+        *username = Some("u".into());
+    }
+    let valid = encode(&packet).unwrap();
+    let mut password_only = valid.clone();
+    password_only[9] &= !0x80;
+    assert!(matches!(
+        decode(&password_only, 1024),
+        Err(ProtocolError::Malformed(_))
+    ));
+    for bad in [0, 255] {
+        let mut wire = valid.clone();
+        wire[17] = bad;
+        assert!(matches!(
+            decode(&wire, 1024),
+            Err(ProtocolError::Malformed(_))
+        ));
+    }
+    // Recompute Remaining Length so these are complete malformed packets, not
+    // legitimate stream prefixes still waiting for the rest of the field.
+    for cut in 15..valid.len() {
+        let mut wire = valid[..cut].to_vec();
+        wire[1] = (cut - 2) as u8;
+        assert!(
+            matches!(decode(&wire, 1024), Err(ProtocolError::Malformed(_))),
+            "cut={cut}"
+        );
+    }
+    let mut extra = valid.clone();
+    extra.push(0);
+    extra[1] += 1;
+    assert!(matches!(
+        decode(&extra, 1024),
+        Err(ProtocolError::Malformed(_))
+    ));
+    for name in ["a\0b", "\u{fdd0}", "\u{ffff}"] {
+        if let Packet::Connect { username, .. } = &mut packet {
+            *username = Some(name.into());
+        }
+        assert!(matches!(encode(&packet), Err(ProtocolError::Malformed(_))));
+    }
+}
+
+#[test]
+fn credential_lengths_are_u16_and_password_debug_is_redacted() {
+    for size in [65535, 65536] {
+        for binary in [false, true] {
+            let packet = Packet::Connect {
+                client_id: "c".into(),
+                clean_session: true,
+                keep_alive: 0,
+                will: None,
+                username: Some(if binary { "u".into() } else { "u".repeat(size) }),
+                password: binary.then(|| Password::new(vec![255; size])),
+            };
+            if size == 65535 {
+                let wire = encode(&packet).unwrap();
+                assert_eq!(
+                    decode(&wire, wire.len()).unwrap(),
+                    Some((packet, wire.len()))
+                );
+            } else {
+                assert!(matches!(encode(&packet), Err(ProtocolError::Malformed(_))));
+            }
+        }
+    }
+    let password = Password::new(b"secret-do-not-print".to_vec());
+    assert_eq!(password.as_bytes(), b"secret-do-not-print");
+    assert_eq!(password.clone(), password);
+    assert_eq!(format!("{password:?}"), "Password([REDACTED])");
+    let packet = Packet::Connect {
+        client_id: "c".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: None,
+        username: Some("user".into()),
+        password: Some(password),
+    };
+    let debug = format!("{packet:?}");
+    assert!(debug.contains("[REDACTED]"));
+    assert!(!debug.contains("secret-do-not-print"));
+    assert!(!debug.contains("115, 101, 99, 114, 101, 116"));
 }

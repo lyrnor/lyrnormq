@@ -1,6 +1,6 @@
 //! Incremental wire decoding, encoding and protocol validation.
 
-use crate::{Packet, ProtocolError, Will};
+use crate::{Packet, Password, ProtocolError, Will};
 
 fn malformed(s: &str) -> ProtocolError {
     ProtocolError::Malformed(s.into())
@@ -130,9 +130,6 @@ pub fn decode(
             {
                 return Err(malformed("invalid CONNECT flags"));
             }
-            if flags & 0xc0 != 0 {
-                return Err(unsupported("credentials"));
-            }
             let keep_alive = r.u16()?;
             let client_id = r.string()?;
             if client_id.is_empty() {
@@ -152,7 +149,20 @@ pub fn decode(
             } else {
                 None
             };
+            let username = if flags & 0x80 != 0 {
+                Some(r.string()?)
+            } else {
+                None
+            };
+            let password = if flags & 0x40 != 0 {
+                let length = usize::from(r.u16()?);
+                Some(Password::new(r.take(length)?.to_vec()))
+            } else {
+                None
+            };
             Packet::Connect {
+                username,
+                password,
                 client_id,
                 clean_session: flags & 2 != 0,
                 keep_alive,
@@ -278,9 +288,24 @@ fn validate_id(id: u16) -> Result<(), ProtocolError> {
 fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
     match packet {
         Packet::Connect {
-            client_id, will, ..
+            client_id,
+            will,
+            username,
+            password,
+            ..
         } => {
             validate_string(client_id)?;
+            if let Some(username) = username {
+                validate_string(username)?;
+            }
+            if let Some(password) = password {
+                if username.is_none() {
+                    return Err(malformed("password requires username"));
+                }
+                if password.as_bytes().len() > usize::from(u16::MAX) {
+                    return Err(malformed("password too long"));
+                }
+            }
             if let Some(will) = will {
                 validate_topic(&will.topic)?;
                 if will.qos > 2 {
@@ -375,11 +400,19 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
             clean_session,
             keep_alive,
             will,
+            username,
+            password,
         } => {
             string(&mut body, "MQTT")?;
             let mut flags = if *clean_session { 2 } else { 0 };
             if let Some(will) = will {
                 flags |= 4 | (will.qos << 3) | (u8::from(will.retain) << 5);
+            }
+            if username.is_some() {
+                flags |= 0x80;
+            }
+            if password.is_some() {
+                flags |= 0x40;
             }
             body.extend([4, flags]);
             body.extend(keep_alive.to_be_bytes());
@@ -390,6 +423,16 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
                     .map_err(|_| malformed("Will payload too long"))?;
                 body.extend(length.to_be_bytes());
                 body.extend(&will.payload);
+            }
+            if let Some(username) = username {
+                string(&mut body, username)?;
+            }
+            if let Some(password) = password {
+                let bytes = password.as_bytes();
+                let length =
+                    u16::try_from(bytes.len()).map_err(|_| malformed("password too long"))?;
+                body.extend(length.to_be_bytes());
+                body.extend(bytes);
             }
             0x10
         }
