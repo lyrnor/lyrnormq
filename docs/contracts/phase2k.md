@@ -39,3 +39,13 @@ Retain existing exact-key semantics, shared membership pruning, started QoS
 obligations, packet identifier, one response and transactional proposal boundary.
 No public API or schema change. Include ordinary/shared duplicate filters and
 existing invalid-filter validation behavior in regression coverage.
+
+## K3: AUTH method presence at the codec boundary
+
+MQTT-4.12.0-5 and unnumbered section3.15.2.2.2 require the method on AUTH.
+The codec can enforce presence without knowing connection state; Transport still
+checks equality to the negotiated value. Reject AUTH without AuthenticationMethod
+on encode and decode with Protocol Error82, including RemainingLength0 and data-only
+forms. Keep valid method-only success/continue/reauth encodings accepted and leave
+CONNECT/CONNACK failure-context rules unchanged. No API/schema change. Update only
+invalid generic codec fixtures; do not weaken runtime negative-path expectations.
