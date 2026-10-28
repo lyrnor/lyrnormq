@@ -213,6 +213,14 @@ impl SessionEngine {
             let mut session = Session::new(config, true);
             session.online = false;
             for (filter, qos) in record.subscriptions {
+                let packet = Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![(filter.clone(), qos)],
+                };
+                let bytes = encode(&packet).map_err(|error| invalid_record(error.to_string()))?;
+                if bytes.len() > config.max_packet_size {
+                    return Err(EngineError::Capacity);
+                }
                 if qos > 2
                     || !validate_filter(&filter)
                     || session.subscriptions.insert(filter, qos).is_some()
@@ -1002,6 +1010,24 @@ mod tests {
                     ..config()
                 },
                 &state.snapshot().unwrap()
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn restore_rejects_subscription_exceeding_reduced_packet_quota() {
+        let mut state = engine();
+        state.connect("s", false).unwrap();
+        subscribe(&mut state, "s", &"a".repeat(100), 1);
+        let bytes = state.snapshot().unwrap();
+        assert!(
+            SessionEngine::restore(
+                SessionConfig {
+                    max_packet_size: 32,
+                    ..config()
+                },
+                &bytes
             )
             .is_err()
         );
