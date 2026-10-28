@@ -203,6 +203,24 @@ bounded by max_inflight and controlled without locks across await. Inbound pendi
 QoS2 survives session reconnect but connection receive quota resets. Controls keep
 progress under outbound quota. New commands/queues bounded; no async storage IO.
 
+## Bridge wire-size admission clarification
+max_packet_size bounds every complete outbound frame as well as input. V5 adds a
+Property Length byte and can cross a Remaining Length boundary even with no metadata.
+Never accept/emit a too-large frame or silently drop previously durable QoS data.
+For CleanStart=false resume into a version whose encoded queued or payload-bearing
+outgoing replay exceeds the bound, refuse CONNECT with0x83 BEFORE takeover/reset,
+preserve old session/IDs and allow311 reconnect to drain. Check after owner/new-Will
+ACL so other principals still get0x87. CleanStart=true may explicitly discard the
+old session as normal. Expired old sessions do not block admission.
+For online recipients preflight actual versioned PUBLISH size before adding outbox
+or retained replay; overflow is Capacity (V5 data event closes0x97), no source ACK or
+partial route/subscription install. Offline canonical data can be stored, with later
+version-resume admission above. Keep a final poll guard before emitting/allocating
+an oversized delivery; errors discard proposals. Do not reject valid legacy snapshots
+merely because a future5 envelope might be larger; restore/311 replay remain valid.
+Test exact64-byte311QoS1->65-byte5 plus127/128 Remaining Length transitions, failed
+5 resume preservation/311 drain, live mixed-version publish and retained replay.
+
 ## Independent Quality / integration gates
 Protocol + Session + Quality launch in separate worktrees after this freeze; Session
 uses frozen protocol APIs until actual dependency commit then tests. Transport wave
