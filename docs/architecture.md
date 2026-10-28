@@ -1,4 +1,4 @@
-# Architecture — revision6 / Phase2e
+# Architecture — revision7 / Phase2f
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -25,7 +25,7 @@ graph LR
 
 lib.rs contains docs/module declarations/reexports only. Protocol splits packet,
 codec,error; Router has filter,trie,retained; Session has error,identifiers,incoming,
-outgoing,durable plus records/legacy,lifecycle,retention,authorization,mqtt5,expiry helpers;
+outgoing,durable plus records/legacy,lifecycle,retention,authorization,mqtt5,expiry,temporal helpers;
 Auth has api,policy,containment,error; Storage has
 model,error,trait,memory,durable; Transport has config,server,packet_io,durable and the production durable/network module.
 The previous duplicate live state/connection production path was retired; its
@@ -33,10 +33,11 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2e contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2f contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
-and PollOutcome documented in this phase.
+PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
+current contracts.
 
 ## Serialized transaction and network lifecycle
 
@@ -111,16 +112,21 @@ death loses all memory state; SQLite process recovery defers Wills until restart
 
 SQLite WAL/FULL and singleton opaque container schema remain version1, protected
 by the existing permanent canonical `.broker-lock` OS advisory lock. Business JSON
-is now schema4: persistent sessions plus required global retained and wills arrays.
+is now schema5: persistent sessions plus required global retained and wills arrays.
 Each session/Will has a required stable owner identity; passwords/hashes/raw CONNECT are never stored.
 Static owner labels include the non-secret username. Schema3 owners are preserved;
 1/2 migrate to anonymous. Schema4 adds required message/Will/retained properties,
 per-ID incoming/outgoing metadata, and session_expiry_interval/expires_at fields.
-Queued Message adds retain. Will records are client_id,owner,pending,will(topic,payload,
+Schema5 adds required message deadlines, outgoing started flags, Will delay/due
+fields and envelope clock_floor; version4 migrates with absent message deadlines,
+conservatively started outgoing exchanges and delay0 Wills. Required fields cannot
+be omitted; all versions1..4 migrate explicitly without resetting IDs or owners.
+Queued Message adds retain. Will records are client_id,owner,pending,delay_interval,
+due_at,will(topic,payload,
 qos,retain); retained records are topic,payload,qos and never empty. Valid schema1
 is explicitly decoded with its old DTOs and migrated to empty globals/retain=false;
 old retained wire that schema1 could not store is rejected. Schema2 preserves its
-required globals; versions1/2 migrate to anonymous,3 preserves identity. Schema4 strictly
+required globals; versions1/2 migrate to anonymous,3 preserves identity. Schema5 strictly
 validates fields, uniqueness, packet IDs/stages/order/topics and restored quotas.
 All restored sessions start offline; online maps/generations/replay cursors are
 runtime-only. Unknown/corrupt records fail startup rather than resetting state.
@@ -219,10 +225,11 @@ Application metadata stays alongside canonical MQTT311 QoS wire bytes; all pendi
 state machines/routing remain shared. Retained metadata uses a model sidecar paired
 with the existing store, not a competing router. Properties survive QoS2 original
 ownership, replay, offline/retained/Will recovery and are stripped only for311 wire.
-Durable incoming entries are(id,canonical_bytes,properties) triples; outgoing records
-add properties to existing stage, queued/retained/WillData add properties. Legacy
-1/2/3 DTOs explicitly migrate to empty metadata and infinite expiry; current4 fields
-are required. Runtime sent sets/quota/version are omitted from persistence.
+Durable incoming entries are(id,canonical_bytes,properties,expires_at) tuples; outgoing
+records add properties, expires_at and started to their stage. Queued/retained data
+also carry deadlines; WillData holds relative TTL until publication. Legacy1/2/3
+DTOs migrate to empty metadata; version4 preserves existing metadata and session
+deadlines. Schema5 time fields are required. Runtime sent sets/quota/version are omitted from persistence.
 
 Terminal DISCONNECT uses a bounded priority signal: finish at most the in-progress
 frame, discard queued data, then write the terminal frame; timeout closes the socket.
@@ -233,8 +240,50 @@ reason0x8E when writable; stale cleanup cannot affect the new generation.
 Supported/excluded property semantics and initial refusal reasons are enumerated
 in phase2e.md/README. Codec coverage of all property types does not mean runtime
 implementation of every optional feature. Topic aliases, subscription IDs/shared
-subscriptions, nondefault subscription options, MessageExpiry/WillDelay, enhanced
+subscriptions, nondefault subscription options, enhanced
 AUTH, client MaximumPacketSize and assigned Client IDs remain explicit exclusions.
 No MQTT5 full-conformance, performance or production claim is made.
 
 MQTT5 normative source: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html.
+
+## Phase2f temporal and first-write boundaries
+
+The frozen [Phase2f contract](contracts/phase2f.md) supersedes prior exclusions of
+MessageExpiry/WillDelay. The model reuses Clock and the existing QoS FSMs/outboxes;
+absolute message deadlines are shared across offline, retained and mixed-version
+copies. TTL0 is immediate and UINT_MAX finite. Incoming QoS2 retains its protocol
+stage after expiry; expired retained replacement removes the former value.
+
+Reader timestamps include completed-buffer and actor-queue waiting. Raw receive age
+is rebased onto effective logical time; restored clock_floor prevents moving back
+below committed observations. Pure clock observation neither creates semantic
+progress nor repeatedly notifies connections. The aggregate timer includes queued,
+retained, unstarted outgoing, offline session and unattempted Will deadlines.
+Capacity-blocked Will timer state is runtime-only, reset on recovery, and retries
+on actual progress without a due-deadline spin.
+
+Poll reserves a Delivery/ticket; Begin validates generation and expiry and commits
+started=true before output. A stale/expired unstarted ticket returns no frame and
+retires ID/order/quota metadata atomically. Started QoS1/2 exchanges remain until
+protocol completion, including TTL0 replay; PUBREC advances to PUBREL-only state.
+The writer refreshes remaining TTL after SQL, then writes a complete frame with
+existing bounded queues/terminal priority. Snapshot cloning and this additional
+start transaction have no measured performance baseline. SQL and TCP cannot commit
+atomically: persisted start intent conservatively means may-have-sent. A later
+wire-only clock observation is not persisted until another model transaction, so
+crash plus clock rollback may exceed that last advertised TTL, but not the ceiling
+from committed observations. This is logical rollback protection, not certification
+of physical wall-clock accuracy.
+
+Will scheduling uses min(disconnect+delay,session-expiry). Only reason00 cancels;
+04/80 and other valid nonzero reasons schedule. A surviving pre-due session resume
+cancels delayed intent; expiry0, CleanStart or elapsed deadline forces publication.
+Ended old sessions/subscriptions are removed before forced-Will fanout, avoiding
+phantom self-queue backpressure. Real external capacity pressure still defers intent.
+Will TTL begins at successful publication. Known due times persist; active-at-crash
+connections conservatively start delay at restart, capped by restored session end.
+Startup validation, expiry, ACL reconciliation and Will recovery commit before ready.
+
+Current unsupported semantics remain client MaximumPacketSize negotiation, assigned
+IDs, nondefault subscription options, topic aliases, shared subscriptions/subscription
+IDs and enhanced AUTH. TLS/WebSocket/cluster and full conformance remain future work.

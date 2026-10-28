@@ -34,6 +34,8 @@ preserves repeated UserProperty order. This is an explicit subset of MQTT5 seman
 | Receive Maximum | Per connection; QoS1/2 quota is held through PUBACK/PUBCOMP or negative PUBREC |
 | Reconnect flow | New quota applies to old replay; PUBREL/control progress bypasses blocked PUBLISH |
 | Application properties | UserProperty, ContentType, PayloadFormatIndicator, ResponseTopic and CorrelationData survive retained/Will/QoS/outbox recovery |
+| Message Expiry | Finite TTL for offline/retained/QoS2 data; expired unstarted writes are suppressed |
+| Will Delay | Durable delay capped by session end; surviving-session reconnect cancels before due |
 | Reasons | Context-validated ACK/SUBACK/UNSUBACK/CONNACK/DISCONNECT reasons, negative ACK cleanup |
 | Mixed versions | Publish/subscribe QoS0/1/2 routes across versions; properties are stripped only from MQTT311 wire output |
 
@@ -50,7 +52,7 @@ the exact failure instant is unknown: its deadline starts conservatively at rest
 plus the interval. A known offline deadline is never extended by reboot. An expiry
 timer removes offline subscription/queued/inflight state and frees IDs independently
 of traffic. Retained globals and pending Will intent remain separate. Schema3 owners
-are preserved in schema4; schema1/2 still migrate to anonymous ownership.
+are preserved in schema5; schema1/2 still migrate to anonymous ownership.
 
 The server advertises bounded ReceiveMaximum/MaximumPacketSize, TopicAliasMaximum0,
 SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable0. Unsupported
@@ -59,7 +61,6 @@ semantics are refused explicitly rather than accepted and discarded:
 - Client MaximumPacketSize negotiation: CONNECT refusal0x83; if even the five-byte
   refusal cannot fit the supplied limit, the connection closes without an oversized reply.
 - Enhanced AUTH/methods: CONNECT0x8C; unsolicited AUTH after basic auth is a protocol error.
-- MessageExpiryInterval and nonzero WillDelayInterval:0x83.
 - Topic Alias:0x94, including zero; Subscription Identifier: DISCONNECT0xA1 (client PUBLISH0x82).
 - Shared filters: DISCONNECT0x9E; nondefault NoLocal/RAP/RetainHandling: SUBACK0x83.
 - Server-assigned Client IDs: not implemented; empty MQTT5 Client ID gets CONNACK0x85.
@@ -161,10 +162,13 @@ and recipient outboxes. Retained replay flags survive outgoing retries/restarts.
 
 ## Last Will
 
-CONNECT accepts binary Will payloads at QoS0/1/2, with optional retain. A normal
-DISCONNECT commits cancellation before closing. EOF/RST, protocol error, Keep Alive
-timeout and successful connection takeover publish the old Will once through the
-same outbox path. Replacement registration/cancellation and old-Will effects share
+CONNECT accepts binary Will payloads at QoS0/1/2, with optional retain. A reason00
+DISCONNECT commits cancellation before closing. Other valid nonzero reasons, EOF/RST,
+protocol error and Keep Alive timeout schedule the Will through the same outbox path.
+MQTT311 and delay0 Wills are immediate; MQTT5 positive delay waits until the earlier
+of its deadline or Session Expiry. A pre-due CleanStart=false resume of a surviving
+session cancels its delayed Will, including takeover; CleanStart=true or expiry0 ends
+the old session and forces publication. Reason04 also respects the configured delay. Replacement registration/cancellation and old-Will effects share
 a transaction; stale connection cleanup cannot fire the replacement's Will.
 A retained Will updates/deletes retained state using the same empty-payload rule.
 
@@ -174,13 +178,42 @@ rejected while the old one cannot drain; reconnecting with no new Will can resum
 the session without overwriting the pending intent, including draining a full
 self-subscription outbox. Graceful close of that new connection preserves the old
 pending intent. SQLite stores accepted Wills even for clean-session origins, and
-recovers/publishes them on restart before serving clients. Without SQLite, process
+recovers them before serving clients; publication follows the durable due time. Without SQLite, process
 failure loses volatile state. Server shutdown closes connections as unexpected
 ends unless their DISCONNECT was already committed.
 
+## Message Expiry and delayed Will recovery
+
+MQTT5 MessageExpiryInterval is stored as one absolute deadline shared by all routed
+copies. Zero suppresses delivery immediately; 0xFFFFFFFF is finite, while absence
+means no expiry. Offline queues and retained records expire without MQTT traffic;
+an expired retained replacement removes the previous value. Incoming QoS2 keeps
+its handshake through PUBREL even when its payload expires. Mixed-version delivery
+keeps internal deadlines and omits properties on MQTT311 wire output.
+
+The writer reserves a delivery, then validates its generation/deadline and commits
+start intent before socket output. A never-started expired QoS1/2 exchange retires
+its ID and quota. Already-started QoS1/2 exchanges still finish/retransmit with their
+original IDs (remaining TTL may be0); AwaitComp sends only PUBREL. Remaining TTL is
+rounded up and refreshed after storage commit immediately before writing.
+
+Will Message Expiry starts when publication succeeds, after any delay/capacity wait.
+Known delayed-Will deadlines survive restart. For an active-at-crash connection the
+failure instant is unknown: delay starts conservatively at recovery and is capped
+by the recovered session deadline. Capacity-blocked intents remain bounded and
+retry after progress without a busy timer.
+
+Schema5 requires deadlines, started flags, Will delay/due fields and a persisted
+logical clock floor. Clock rollback cannot extend deadlines beyond a committed
+observation. A later socket-only TTL refresh is not itself another transaction:
+a crash plus clock rollback may restore a TTL above that last advertised value,
+bounded by committed time. Start intent and TCP output also have a conservative
+may-have-sent gap; no atomic database/socket guarantee is claimed. Extra first-write
+transactions and full snapshots have unmeasured throughput/latency costs.
+
 ## Persistence and limits
 
-SQLite uses WAL/FULL and schema4 JSON whole-registry transactions. Valid schema1/2/3
+SQLite uses WAL/FULL and schema5 JSON whole-registry transactions. Valid schema1/2/3/4
 snapshots are explicitly migrated, preserving IDs/order/subscriptions; the opaque
 SQLite container remains version1. Unknown/corrupt schemas or incompatible lowered
 quotas reject startup instead of dropping data. Atomic state/outbox commits precede
@@ -215,13 +248,15 @@ aliases, externally replacing/renaming/modifying an active DB are unsupported.
 
 Whole-registry cloning/JSON and per-proposal routing-index rebuilding have costs
 that are not benchmarked. Worker transaction waits can delay controls; operational
-fault/stress testing, disk quotas, migrations beyond schema1/2/3->4, backup/admin and
+fault/stress testing, disk quotas, rolling-version migrations beyond schema1/2/3/4->5, backup/admin and
 observability remain work. SIGKILL and SQLITE_FULL tests do not establish physical
 power-loss behavior or application-side exactly-once processing.
 
 ## Verification
 
 ```sh
+python3 -m venv /tmp/rmqtt-client-venv
+/tmp/rmqtt-client-venv/bin/pip install paho-mqtt==2.1.0
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
@@ -229,13 +264,13 @@ RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps
 python3 tests/blackbox.py
 python3 tests/qos_blackbox.py
 python3 tests/auth_acl_blackbox.py
-python3 tests/auth_acl_paho.py
+/tmp/rmqtt-client-venv/bin/python tests/auth_acl_paho.py
 python3 tests/mqtt5_blackbox.py
-python3 tests/mqtt5_paho.py
+/tmp/rmqtt-client-venv/bin/python tests/mqtt5_paho.py
+python3 tests/expiry_will_blackbox.py
+/tmp/rmqtt-client-venv/bin/python tests/expiry_will_paho.py
 python3 tests/persistence_blackbox.py
 python3 tests/retained_will_blackbox.py
-python3 -m venv /tmp/rmqtt-client-venv
-/tmp/rmqtt-client-venv/bin/pip install paho-mqtt==2.1.0
 /tmp/rmqtt-client-venv/bin/python tests/paho_interop.py
 /tmp/rmqtt-client-venv/bin/python tests/persistence_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/retained_will_paho.py
@@ -246,5 +281,5 @@ basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persis
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
 
-See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2e.md),
+See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2f.md),
 [actual results](docs/progress.md) and [remaining dependencies](docs/tasks.md).

@@ -49,10 +49,11 @@ quota, replay and writer cancellation defects were fixed before acceptance.
    is implemented and verified in Phase2d.
 2. Extend the accepted MQTT5 foundation under new semantic contracts: client
    MaximumPacketSize negotiation, assigned Client IDs, nondefault subscription
-   options, MessageExpiryInterval, WillDelay, topic aliases, shared subscriptions,
+   options, topic aliases, shared subscriptions,
    Subscription Identifiers and enhanced AUTH remain explicitly unsupported.
    Typed Properties/ReasonCode, Clean Start/Session Expiry/Receive Maximum and
-   cross-version recovery are implemented in Phase2e.
+   cross-version recovery are implemented in Phase2e; MessageExpiry and WillDelay
+   are implemented in Phase2f.
 3. Add TLS transport before exposing password authentication over untrusted networks;
    remote authentication, per-identity rate limiting and policy reload require
    explicit policy-version/control contracts.
@@ -166,3 +167,35 @@ Next verification work includes broader direction/reason conformance, small-pack
 bridging policies, clock rollback/expiry concurrency, slow-client credit reuse and
 terminal-write stress, rolling-version/client matrices and expanded fuzz/fault data.
 No benchmark improvement or full MQTT5 compatibility is claimed.
+
+## Completed Phase2f dependency group
+
+```mermaid
+graph LR
+  Contract[TTL Will Delay delivery-ticket schema5 clock freeze] --> Schema[Strict records and legacy1..4 migration]
+  Schema --> Message[Message expiry and persisted clock floor]
+  Schema --> Will[Delayed Will and session lifecycle]
+  Contract --> QA[Independent wire Paho SIGKILL and migration tests]
+  Message --> Transport[Receive timestamps transactional Begin and timer]
+  Will --> Transport
+  Transport --> Gate[Cross-review full regression and integration]
+  QA --> Gate
+```
+
+Message, Will and Quality wrote separate branches/worktrees with disjoint file
+ownership after schema bootstrap. Transport started from integrated model commits;
+independent cross-review reproduced clock rollback and CleanStart phantom-recipient
+defects before owner fixes. Existing SQLite storage, Clock, router and QoS/outbox
+implementations were reused. lib.rs remains module declarations/reexports only.
+
+Accepted behavior includes offline/retained TTL, expired replacement deletion,
+QoS2 protocol completion after payload expiry, pre-write suppression, started
+exchange recovery, delayed-Will cancellation/session-end interaction and crash
+recovery. Strict schema5 migrates1..4 and rejects missing time/start/delay fields.
+No performance improvement or full MQTT5 conformance is claimed.
+
+Next hardening: benchmark additional Begin transactions/full-snapshot amplification;
+expand repeated clock-jump and crash-at-wire-boundary campaigns; evaluate indexed
+deadline scheduling and row-scoped persistence only from measured baselines. The
+SQL/TCP start-intent gap and latest uncommitted wire-clock observation remain
+explicit boundaries, alongside the operational/conformance tasks listed above.

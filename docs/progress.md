@@ -633,3 +633,142 @@ response deadlines, CPU/rate isolation, row-level persistence, operational fault
 coverage and reproducible throughput/latency/memory baselines remain tasks.md work.
 TLS/WebSocket/admin/cluster remain outside this increment; physical power-loss
 behavior, production readiness and application-side exactly-once are not claimed.
+
+
+## Phase2f — Message Expiry and Will Delay (2026-10-28)
+
+Frozen contract: [phase2f.md](contracts/phase2f.md), initially704f81d; subsequent
+receive-time, first-write, clock-floor and lifecycle clarifications were committed
+before affected implementations. Architecture revision7 and tasks.md describe the
+current boundaries. This increment reuses Clock, canonical QoS FSMs, trie/retained
+store, SQLite WAL/FULL and the serialized session/outbox transaction pipeline.
+No storage-engine or competing runtime rewrite was introduced.
+
+### Implementation and isolation
+
+A single isolated schema bootstrap preceded parallel Message, Will and Quality
+work. Message and Will had disjoint source ownership in independent branches and
+worktrees; Transport started from integrated real model commits. The coordinator
+owned contracts/docs and cherry-pick integration on integration/phase2f; main was
+not changed. Every lib.rs remains documentation/module declarations/reexports only.
+
+| Specialist source commit | Integrated work |
+| --- | --- |
+| 72eb1ed24a303518c52d6cb73c81067183997b17 | schema5 required records and explicit legacy1..4 migration |
+| a735822e72adaa2525ce497f515e6eb61301d870 | absolute message deadlines, retained/offline expiry, Delivery/Begin lifecycle |
+| 1f62a2d4c3b877c6e67829f7b2de1e4a6535794f | ingress age, nonzero DISCONNECT Will handling |
+| 4284f59035072df72c7f41d93c609ab224384fcb | durable logical clock floor and quiescent observations |
+| 0a6feee2728152407db9516f646077bfcf276d4a | delayed Will scheduling/cancellation/session-end/recovery |
+| a399fb5f7720a05bba5aeb480dc9f0ea7f58671c | CleanStart old-recipient removal and effective-time lifecycle |
+| 090ca4c7060e88e45f9adcaf5aaa5ac2c800d6be | reader timestamps, transactional Begin, writer TTL refresh/timer |
+| 764e1e74f99ec397c576248c709043254adf9d95 | effective-time Tick guard and rollback no-spin test |
+| 206cb0a,30568bc,7c64a2d28e0b7ee5132d5e92d74e2479db90913a | independent wire/Paho/SQL/SIGKILL/strict migration tests |
+
+MessageExpiry0 expires immediately; UINT_MAX is finite and absence unbounded.
+Queued/offline/retained copies share their original absolute deadline; expired
+replacement removes old retained data. QoS2 keeps its handshake until PUBREL even
+when its payload expires. Before first write, stale/expired leases retire complete
+unstarted exchanges and IDs; started QoS1/2 remain protocol obligations and may
+replay interval0, while AwaitComp remains PUBREL-only. Receive timestamps include
+coalesced-buffer/actor waiting; TTL is refreshed after storage commit before output.
+
+Will Delay uses the earlier delay/session-end deadline. Pre-due surviving-session
+resume cancels it; CleanStart, expiry0 or due time forces it. Only reason00 cancels;
+04/80 and other valid nonzero reasons schedule. TTL starts at successful Will
+publication after delay/capacity waiting. Known due times persist, active-at-crash
+delay starts conservatively at restart capped by restored session expiry. Current
+ACL and bounded pending-intent retry semantics are reused.
+
+### Failure-first review and fixes
+
+- Independent CleanStart/full-old-self-queue probes reproduced phantom-recipient
+  rejection, including replacement-Will admission. Removing ended old session and
+  subscriptions before forced Will routing fixes it while retaining real external
+  capacity pressure and existing pending-intent protection.
+- A separate clock rollback/restart probe reproduced remaining TTL growing6→9.
+  Required clock_floor and effective-time lifecycle/timer restore committed temporal
+  observations; clones do not share proposal clock mutation. Pure clock observation
+  does not create repeated commits/notifications. Ingress raw age is rebased onto
+  logical time, preventing premature expiry after rollback.
+- Actor/buffer waiting, due-Will no-traffic scheduling, nonzero80 DISCONNECT and
+  write-reservation boundaries gained reproduced regression coverage.
+- Slow-reader blackbox uses a6MiB QoS0 frame, bounded120s write timeout, receive
+  buffer set before TCP handshake, and a persistent reader. SQLite directly proves
+  timed QoS1/2 reservations have started=false before expiry; after draining the
+  full blocking frame, PINGRESP arrives without expired QoS0/1/2 payloads. Started
+  frame/replay behavior has separate production-worker and wire coverage. Earlier
+  too-small TCP windows/timeouts were harness failures; requirements were retained.
+- Old schema fixtures explicitly remove schema5-only fields when constructing
+  legacy versions. A prior imported helper failed one schema1 regression during
+  integration; current strict helper and full affected SQL suites pass. Current5
+  still rejects missing floor/deadline/start/delay fields rather than defaulting.
+
+### Actual verification
+
+Environment: Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024, Python3.14.7,
+Paho MQTT2.1.0. Tests used the integrated debug executable built from production
+commit b4b931c; subsequent ac960df changes only tests. SHA256:
+396f7ce104f72dde3889c41dd24c123536914894829d36abf6682ea11dcbcffb.
+
+cargo build/test --workspace --offline, cargo fmt --all -- --check, strict
+all-target Clippy and RUSTDOCFLAGS=-D warnings rustdoc all pass. Rust tests:229
+(auth13,protocol37,router14,session102,storage16,transport41,CLI6). Thin-lib audit,
+all Python test compilation and git diff --check pass.
+
+| New suite | Memory | SQLite |
+| --- | --- | --- |
+| expiry_will_blackbox.py |28 passed,10 mode-only skips (47.118s)|38 passed (58.809s)|
+| expiry_will_paho.py |5 passed,1 mode-only skip (14.466s)|6 passed (16.027s)|
+
+These are66 passing new wire-method executions and11 Paho executions; focused
+reruns are not double-counted. Coverage includes offline/retained TTL/update/delete,
+remaining TTL, mixed versions, QoS2 expiry/ID obligations, first-write reservations,
+started replay, delayed normal/abnormal/timeout/takeover Wills, reconnect cancellation,
+finite/zero/infinite Session Expiry interactions, no-traffic timers, strict legacy
+migration, SIGKILL/restart and malformed state rejection.
+
+Reused regression suites also pass against this executable (current strict fixture
+helper for all legacy-data tests):
+
+| Suite | Memory | SQLite |
+| --- | --- | --- |
+| blackbox.py |14 passed|14 passed|
+| qos_blackbox.py |9 passed|9 passed|
+| retained_will_blackbox.py |14 passed,6 skips|20 passed|
+| auth_acl_blackbox.py |13 passed,7 skips|20 passed|
+| mqtt5_blackbox.py |31 passed,11 skips|41 passed,1 skip|
+| auth_acl_paho.py |2 passed,1 skip|3 passed|
+| mqtt5_paho.py |4 passed,1 skip|5 passed|
+| paho_interop.py |3x3 QoS matrix passed|3x3 QoS matrix passed|
+| retained_will_paho.py |passed|passed|
+| persistence_blackbox.py |not applicable|14 passed|
+| persistence_paho.py |not applicable|offline QoS1/2 and SIGKILL passed|
+
+The reused wire suites total199 passing method executions; combined with the new
+suite this is265 wire executions. Mode-only skips are explicit, and Paho workflows
+are reported separately. Local suite durations are reproducibility evidence, not
+throughput/latency benchmarks.
+
+A real accepted Phase2e executable generated authenticated schema4 sessions with
+unacknowledged QoS1, AwaitComp, pending inboundQoS2, retained metadata and an active
+Will, then was SIGKILLed. The new executable migrated to5, preserved Alice ownership,
+IDs/DUP/application properties, replayed PUBREL-only AwaitComp, recovered the Will,
+and completed old pending inboundQoS2 over MQTT5. New retained TTL expiry without
+MQTT traffic and delayed-Will TTL then worked on that same upgraded database.
+The one-off fixture/old binary were removed after success.
+
+### Remaining work and measured limits
+
+Client MaximumPacketSize negotiation, assigned IDs, nondefault subscription options,
+topic aliases, shared/subscription IDs and enhanced AUTH remain unsupported as
+listed in README. Full MQTT conformance/production readiness are not claimed.
+
+Start intent and socket output have a conservative may-have-sent gap; no atomic
+SQL/TCP guarantee exists. The clock floor bounds recovery by committed observations;
+a later socket-only TTL refresh can be newer than durable time, so crash plus clock
+rollback may restore a value above that last wire-only observation. Physical clock
+accuracy and physical power-loss behavior are not certified. Additional Begin
+transactions, full snapshots and deadline scans have unmeasured costs; no latency,
+throughput or memory performance number is claimed. tasks.md tracks measurement,
+row-scoped persistence, broader fault/fuzz/client campaigns, auth CPU/rate isolation
+and TLS/WebSocket/admin work. Cluster remains deferred.
