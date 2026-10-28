@@ -62,7 +62,14 @@ Remaining interval never grows on repeated poll/restart or backward clock moveme
 
 ## Message Expiry semantics
 Accept valid MessageExpiryInterval on MQTT5 PUBLISH and Will properties, keep existing
-codec duplicate/context checks. Compute deadline ON FIRST accepted PUBLISH receipt;
+codec duplicate/context checks. Add handle_frame_at(&mut self,id:&str,frame:Frame,
+received_at_millis:u64)->Result<Vec<Frame>,EngineError>; handle_frame wraps it using
+the current Clock. For first PUBLISH, base deadline on min(received_at,Clock.now),
+not execution time after a worker-mailbox stall. Production reader records the
+wall-clock timestamp when the bytes completing a frame were read; complete frames
+already coalesced in its buffer retain that read timestamp while earlier frames
+wait for worker replies. Do not stamp them again at later decode/actor execution.
+Compute deadline ON FIRST accepted PUBLISH receipt;
 inbound QoS2 duplicate ID never replaces payload/properties/deadline. Pending QoS2
 still completes PUBREC/PUBREL/PUBCOMP after expiry, but does not route expired payload.
 Keep pending original until PUBREL/session end (do not free its ID on TTL alone).
