@@ -6,4 +6,5 @@ license.workspace = true
 [dependencies]
 mqtt-protocol = { path = "../mqtt-protocol" }
 mqtt-router = { path = "../mqtt-router" }
+mqtt-session = { path = "../mqtt-session" }
 tokio.workspace = true
