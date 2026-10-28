@@ -127,3 +127,9 @@ docs/tasks.md.
 Change log: revision1 delivered QoS0; revision2 added live QoS1/2, bounded memory
 transactions and CLI controls; revision3 adds versioned durable records, atomic
 outboxes, clean reset, offline queues, reconnect replay and crash recovery tests.
+
+## Module organization convention
+lib.rs is the crate entry point: documentation, module declarations and re-exports
+only. Implementation and tests live in modules grouped by responsibility. This
+structural refactor preserves public API paths, packet behavior and schema1 durable
+records; internal visibility may be crate-scoped where sibling modules cooperate.
