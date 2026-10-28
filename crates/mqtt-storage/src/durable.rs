@@ -84,6 +84,22 @@ impl SqliteStore {
         let normalized = match path.canonicalize() {
             Ok(path) => path,
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                // A dangling symlink has no canonical target yet. Falling back
+                // to its name would give it a different ownership lock from the
+                // target after SQLite creates that file. Reject before any IO
+                // that could create the target or a sidecar under an alias.
+                match path.symlink_metadata() {
+                    Ok(metadata) if metadata.file_type().is_symlink() => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "database path must not be a dangling symlink",
+                        )
+                        .into());
+                    }
+                    Ok(_) => return Err(error.into()),
+                    Err(metadata_error) if metadata_error.kind() == io::ErrorKind::NotFound => {}
+                    Err(metadata_error) => return Err(metadata_error.into()),
+                }
                 let parent = path
                     .parent()
                     .filter(|parent| !parent.as_os_str().is_empty())
@@ -246,6 +262,9 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
     };
     static NEXT: AtomicU64 = AtomicU64::new(0);
+    // The crash helper forks/execs. Serialize these file tests so its transient
+    // inherited lock descriptors cannot delay another test's immediate reopen.
+    static FILE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
     struct TempDb(PathBuf);
     impl TempDb {
         fn new() -> Self {
@@ -267,6 +286,7 @@ mod tests {
     }
     #[test]
     fn commit_reopen_and_limits_preserve_previous_snapshot() {
+        let _serial = FILE_TESTS.lock().unwrap();
         let path = TempDb::new();
         {
             let mut store = SqliteStore::open(&path.0, 8).unwrap();
@@ -302,6 +322,7 @@ mod tests {
     }
     #[test]
     fn exclusive_owner_lock_releases_on_drop() {
+        let _serial = FILE_TESTS.lock().unwrap();
         let path = TempDb::new();
         let first = SqliteStore::open(&path.0, 8).unwrap();
         assert!(matches!(
@@ -311,8 +332,30 @@ mod tests {
         drop(first);
         assert!(SqliteStore::open(&path.0, 8).is_ok());
     }
+    #[cfg(unix)]
+    #[test]
+    fn rejects_dangling_symlink_but_existing_alias_shares_owner_lock() {
+        let _serial = FILE_TESTS.lock().unwrap();
+        let path = TempDb::new();
+        let alias = path.0.parent().unwrap().join("alias.sqlite");
+        std::os::unix::fs::symlink(&path.0, &alias).unwrap();
+        assert!(matches!(
+            SqliteStore::open(&alias, 8),
+            Err(DurableError::Io(error)) if error.kind() == io::ErrorKind::InvalidInput
+        ));
+        assert!(
+            !path.0.exists(),
+            "rejected alias must not create its target"
+        );
+        let _owner = SqliteStore::open(&path.0, 8).unwrap();
+        assert!(matches!(
+            SqliteStore::open(&alias, 8),
+            Err(DurableError::Locked)
+        ));
+    }
     #[test]
     fn rejects_foreign_unknown_or_corrupt_schemas_without_resetting() {
+        let _serial = FILE_TESTS.lock().unwrap();
         let foreign = TempDb::new();
         let connection = Connection::open(&foreign.0).unwrap();
         connection
@@ -354,6 +397,7 @@ mod tests {
     }
     #[test]
     fn disk_full_sql_error_rolls_back_and_store_can_continue() {
+        let _serial = FILE_TESTS.lock().unwrap();
         let path = TempDb::new();
         let mut store = SqliteStore::open(&path.0, 128 * 1024).unwrap();
         store.commit(b"committed").unwrap();
@@ -382,6 +426,7 @@ mod tests {
     }
     #[test]
     fn killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock() {
+        let _serial = FILE_TESTS.lock().unwrap();
         if let Some(path) = std::env::var_os("RMQTT_SQLITE_CRASH_CHILD") {
             let store = SqliteStore::open(Path::new(&path), 1024).unwrap();
             store.connection.execute_batch("BEGIN IMMEDIATE; UPDATE broker_snapshot SET data = x'6e6f7420636f6d6d6974746564' WHERE id = 1").unwrap();
