@@ -40,6 +40,7 @@ preserves repeated UserProperty order. This is an explicit subset of MQTT5 seman
 | Assigned Client Identifier | Empty V5 IDs receive a unique key in CONNACK; explicit key resumes normal owned sessions |
 | Subscription options | No Local, Retain As Published and Retain Handling0/1/2; durable per-filter state |
 | Subscription Identifier | Per-subscription IDs, eligible overlap aggregation and durable delivery metadata |
+| Topic Alias | Separate bounded connection-local input/output maps, rebind/reset and exact-size fallback |
 | Reasons | Context-validated ACK/SUBACK/UNSUBACK/CONNACK/DISCONNECT reasons, negative ACK cleanup |
 | Mixed versions | Publish/subscribe QoS0/1/2 routes across versions; properties are stripped only from MQTT311 wire output |
 
@@ -59,12 +60,12 @@ of traffic. Retained globals and pending Will intent remain separate. Schema3 ow
 are preserved in schema6; schema1/2 still migrate to anonymous ownership.
 
 The server advertises bounded ReceiveMaximum/MaximumPacketSize,
-SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable1; TopicAliasMaximum
-defaults to0. Unsupported
+SharedSubscriptionAvailable0, SubscriptionIdentifierAvailable1 and configured
+TopicAliasMaximum (default32). Unsupported
 semantics are refused explicitly rather than accepted and discarded:
 
 - Enhanced AUTH/methods: CONNECT0x8C; unsolicited AUTH after basic auth is a protocol error.
-- Topic Alias:0x94, including zero; client-origin PUBLISH with Subscription Identifier is rejected0x82.
+- Client-origin PUBLISH with Subscription Identifier is rejected0x82.
 - Shared filters: DISCONNECT0x9E.
 
 Complete output frames obey the packet cap too: legacy311 messages can grow when
@@ -109,6 +110,35 @@ RAP retain while preserving retained-replay RETAIN1; internal metadata survives 
 later MQTT5 resume. All added identifier bytes count in complete-frame size checks,
 peer-specific discard and state quotas. Shared subscriptions remain unsupported.
 
+## Topic Alias
+
+Both MQTT5 directions support connection-local aliases. The broker advertises
+`--topic-alias-maximum` (default32,0 disables); sender-selected IDs must be positive
+and within this advertised range. Full Topic plus alias binds/replaces, and empty
+Topic plus a known alias references it. Zero/out-of-range/unbound aliases get94;
+empty Topic without alias and duplicate aliases remain protocol errors.
+
+Input is resolved and alias properties removed before ACL, subscription matching,
+QoS2, retained/Will/session processing. Source timestamps and other properties are
+preserved. A later alias rebind cannot change the Topic already stored for incoming
+QoS2. Wire input is checked before expansion; a normalized canonical message beyond
+the configured resource cap gets quota97 rather than a false wire-size95.
+
+Outbound use respects CONNECT TopicAliasMaximum (default0) and the local entry
+budget, independently of input mappings. A first binding carries full Topic; reuse
+can omit it; bounded round-robin replacement always rebinds with full Topic.
+Mappings become usable only after the complete binding frame writes successfully.
+If adding an alias exceeds the complete packet limit, output falls back to the
+fitting canonical frame without installing a phantom binding. All non-alias
+properties and QoS/expiry behavior remain unchanged.
+
+Both maps disappear on disconnect/reconnect/takeover/crash, even SessionPresent1.
+Schema6 still stores full canonical Topics and rejects aliases in every persistent
+scope. Replay on a new connection establishes bindings anew. Alias compression is
+optional after canonical admission: it does not rescue recipient copies already
+discarded by canonical peer/resource size limits. Configured budget bounds map
+entries; alias strings are additional memory outside the serialized state budget.
+
 ## Packet-size negotiation and assigned identifiers
 
 CONNECT MaximumPacketSize limits every server-to-client complete encoded packet,
@@ -122,8 +152,7 @@ messages continue, and offline data is not constrained by a previous connection'
 maximum. This negotiated maximum is runtime-only; schema6 does not persist it.
 
 The exact success CONNACK is checked before session/Will/takeover changes. Required
-nondefault capabilities and AssignedClientIdentifier are retained; the default-zero
-TopicAliasMaximum property is omitted. A too-small limit gets reason0x95 if the
+capabilities, configured TopicAliasMaximum and AssignedClientIdentifier are retained. A too-small limit gets reason0x95 if the
 five-byte refusal fits, otherwise EOF. Every writer path enforces the ceiling;
 a mandatory control reply that cannot fit closes without sending partial/oversized
 bytes. Valid prefix properties also bound diagnostics for a damaged later CONNECT
@@ -293,13 +322,15 @@ never PUBLISH; other unresolved publishes keep their IDs and set DUP.
 | `--max-sessions` | 1024 | Online/offline session count and bounded Will records |
 | `--outbound-capacity` | 64 | Per-session pending outbox / per-connection write queue |
 | `--max-subscriptions` | 256 | Distinct filters per session |
+| `--topic-alias-maximum` | 32 | Inbound alias maximum and local outbound entry budget;0 disables aliases |
 | `--max-inflight` | 32 | Each incoming QoS2 and outgoing QoS1/2 window |
 | `--max-retained` | 10000 | Global retained topic count |
 | `--max-state-bytes` | 67108864 | Serialized live registry and durable snapshot limit |
 | `--handshake-timeout-ms` | 10000 | CONNECT deadline |
 | `--write-timeout-ms` | 5000 | Per-frame write deadline |
 
-All numeric limits are positive; packet size is at least2 and inflight<=65535.
+All numeric limits except alias budget are positive; packet size is at least2 and
+inflight<=65535. Alias budget accepts0..65535.
 `--help` and BrokerConfig expose the controls. Count and logical-byte limits do not
 constitute an aggregate process-memory or disk budget. Full retained replay/outboxes
 abort a proposal without a success ACK; pending Will publication waits for capacity.
@@ -333,6 +364,8 @@ python3 tests/mqtt5_blackbox.py
 python3 tests/expiry_will_blackbox.py
 python3 tests/negotiation_blackbox.py
 python3 tests/subscription_blackbox.py
+python3 tests/alias_blackbox.py
+/tmp/rmqtt-client-venv/bin/python tests/alias_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/subscription_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/negotiation_paho.py
 /tmp/rmqtt-client-venv/bin/python tests/expiry_will_paho.py
@@ -348,5 +381,11 @@ basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persis
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
 
-See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2h.md),
+See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2i.md),
 [actual results](docs/progress.md) and [remaining dependencies](docs/tasks.md).
+
+The Topic Alias Paho2.1 test uses an explicitly scoped receive adapter because that
+library does not resolve incoming aliases before its QoS2 cache. Real Paho still
+performs socket IO and QoS handshakes; raw Wire tests independently validate alias
+encoding/mappings. Native clients must implement receive mapping when advertising
+a nonzero TopicAliasMaximum. Default Paho alias maximum0 needs no adapter.

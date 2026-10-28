@@ -1,4 +1,4 @@
-# Architecture — revision9 / Phase2h
+# Architecture — revision10 / Phase2i
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -27,13 +27,13 @@ lib.rs contains docs/module declarations/reexports only. Protocol splits packet,
 codec,error; Router has filter,trie,retained; Session has error,identifiers,incoming,
 outgoing,durable plus records/legacy,lifecycle,retention,authorization,mqtt5,expiry,temporal,subscriptions helpers;
 Auth has api,policy,containment,error; Storage has
-model,error,trait,memory,durable; Transport has config,server,packet_io,durable and the production durable/network module.
+model,error,trait,memory,durable; Transport has config,server,packet_io,durable and production durable/network/aliases modules.
 The previous duplicate live state/connection production path was retired; its
 meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2h contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2i contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -238,10 +238,9 @@ Never cancel a partial frame then append another one on the same stream. At most
 two frame deadlines bound terminal shutdown. Successful takeover sends old V5 socket
 reason0x8E when writable; stale cleanup cannot affect the new generation.
 
-Current supported/excluded property semantics are enumerated in phase2h.md/README;
+Current supported/excluded property semantics are enumerated in phase2i.md/README;
 phase2e.md preserves initial refusal history. Codec coverage of all property types
-does not mean runtime implementation of every optional feature. Topic aliases,
-shared subscriptions and enhanced AUTH remain explicit exclusions.
+does not mean runtime implementation of every optional feature. Shared subscriptions and enhanced AUTH remain explicit exclusions.
 No MQTT5 full-conformance, performance or production claim is made.
 
 MQTT5 normative source: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html.
@@ -284,8 +283,7 @@ Will TTL begins at successful publication. Known due times persist; active-at-cr
 connections conservatively start delay at restart, capped by restored session end.
 Startup validation, expiry, ACL reconciliation and Will recovery commit before ready.
 
-Current unsupported semantics remain topic aliases, shared subscriptions and enhanced
-AUTH; Phase2h below adds nondefault options and subscription identifiers. TLS/WebSocket/cluster and full conformance remain future work.
+Current unsupported semantics remain shared subscriptions and enhanced AUTH; Phase2h below adds nondefault options and subscription identifiers. TLS/WebSocket/cluster and full conformance remain future work.
 
 ## Phase2g connection limits and resolved session keys
 
@@ -353,3 +351,32 @@ IDs; trusted queued/outgoing delivery metadata can. Retries preserve captured
 metadata even after replacement/unsubscribe; PUBREC still retires payload metadata
 and transitions to PUBREL only. Additional record/index/clone/encoding costs have
 not been benchmarked. Remaining optional semantics and hardening are in tasks.md.
+
+## Phase2i network-local Topic Alias boundary
+
+The [frozen contract](contracts/phase2i.md) adds separate bounded reader/writer maps
+without changing canonical SessionEngine APIs or schema6. BrokerConfig adds
+u16 topic_alias_maximum default32, CLI0..65535. Successful CONNACK always advertises
+this exact value, including0; default complete success is20bytes or46 with assigned
+ID. Exact preflight still precedes session/Will/takeover mutation.
+
+The reader resolves full-topic binds/empty references after bounded wire decoding,
+strips alias properties and checks normalized canonical resource size before worker
+submission. Original read timestamp/flags/IDs/properties remain intact. Canonical
+expansion exhaustion is97, original oversized wire is95, invalid range/reference94.
+QoS2 originals are stored under their resolved Topic and cannot be changed by later
+wire rebindings or duplicate payloads. ACL/NL and routing always see canonical names.
+
+The writer owns outbound state, budgeted by min(clientMaximum,localMaximum).
+After transactional Begin, TTL refresh and terminal-priority check it prepares the
+exact next wire frame. Binding/replacement commits only after write_all succeeds;
+references cannot overtake bindings. Candidate encoding includes all variable-int
+widths and final min(server,peer) guard. Failed alias inflation falls back without
+installing a mapping; known references are used only if smaller and fitting.
+
+Maps are sparse/count-bounded and reset with each network connection, independently
+of SessionPresent/clean flags. No aliases/limits are stored in snapshot or outbox.
+Canonical admission/discard policy is unchanged: compression does not salvage a
+previously oversized canonical recipient. Additional map/string/encoding costs are
+unmeasured and not included in the serialized model-byte budget. Paho2.1 receive
+adapter usage is explicit in tests; raw wire checks remain independent evidence.

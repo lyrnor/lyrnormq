@@ -1072,3 +1072,140 @@ work. Indexed match results/full subscription records/recipient property encodin
 and whole-registry transactions have unmeasured costs; no throughput/latency/memory
 baseline or full MQTT5 conformance/production-readiness claim. Existing SQL/TCP
 start-intent and latest-wire-time boundaries remain documented. Cluster is deferred.
+
+
+## Phase2i — Connection-local Topic Alias (2026-10-28)
+
+Frozen [contract](contracts/phase2i.md) a9415e8 defines independent bounded map
+ownership, canonical worker boundary, output write ordering and resource policy.
+Architecture revision10/README/tasks.md supersede the old alias refusal. Schema6,
+SessionEngine/QoS/outbox, subscription options/identifiers, Clock/expiry/Will/ACL
+and the existing codec are reused. lib.rs remains docs/module declarations/reexports.
+
+### Isolated implementation and review
+
+Transport, Protocol and Quality wrote separate Git worktrees/branches. Coordinator
+owned CLI/docs/integration. Protocol then independently reviewed the tested Transport
+commit in its own tree and ran real TCP tests; no shared source writes. Integration
+branch is integration/phase2i; main was not changed.
+
+| Specialist source | Integrated | Work |
+| --- | --- | --- |
+| bf240c39162eb88d87228e6600d4fac7d03b1dac |a788cca|bounded input/output aliases, canonical normalization and postwrite binding|
+| 787e12301489186ec339401d6654657e3c3a9862 |5632c38|6 codec syntax/size/UTF8/coalesced guards, no production parser rewrite|
+| fa12bc4 |bbfc0f0|raw Wire/Paho tests, adapter disclosure, old expectations and CI|
+| coordinator |d569ae3|CLI alias budget/default/disable/range tests|
+
+BrokerConfig.topic_alias_maximum:u16 defaults32; CLI --topic-alias-maximum accepts
+0..65535. The exact configured input maximum is advertised, including0; local
+outbound entries are bounded by min(configured budget,CONNECT TopicAliasMaximum).
+CONNACK adds3bytes: default success20/assigned46, preflight before prior session/
+Will/takeover changes. Tiny peer packet maxima keep existing fitting reason95/EOF.
+
+Input full Topic+alias binds/rebinds; empty Topic+known alias resolves. Duplicate
+singleton remains82, empty-without-alias82, zero/out-of-range/unbound aliases94.
+Bounded wire decode precedes canonical expansion; expanded canonical resource
+exhaustion returns97 rather than false wire-size95. Alias properties are stripped
+before worker/ACL/NL/routing/storage and original timestamp/flags/IDs/other metadata
+are preserved. A duplicate QoS2 may update wire binding without replacing the
+original stored QoS2 Topic/payload/properties/expiry; PUBREL uses that original.
+
+Output state belongs to the writer. After committed Begin/TTL refresh/terminal
+priority, prepare the exact next encoded frame; full-topic binding/reassignment is
+committed only after complete write succeeds. Later references can use empty Topic.
+Candidate encoding accounts for all varint widths and final peer/server caps.
+Inflating bindings fall back to canonical output without installing phantom state;
+known references are used only when smaller and fitting. Maps are sparse/count-
+bounded, separate by direction/client, deterministic round-robin, and die with the
+network connection including persistent resume/takeover/crash. No state is added
+to schema6; replay establishes fresh mappings from canonical full Topic records.
+
+Canonical resource/recipient admission is deliberately unchanged: optional alias
+compression does not rescue a copy already dropped for canonical size. This policy
+is documented rather than claimed as maximal compression optimization. Additional
+map/string memory is outside serialized state-byte accounting and is separately
+bounded by alias count/UTF8 Topic length; no performance baseline is claimed.
+
+### Failure-first and independent evidence
+
+- Old executable failed actual TCP capability discovery, valid aliased publication
+  and outgoing compression checks. Transport's capability/handshake assertion was
+  red before adding the nonzero maximum; the new20/46 boundaries pass.
+- Existing codec already supported alias syntax; six focused guards cover allQoS,
+  min/max values, binding/reference/rebind, zero94/duplicate82/empty-no-alias82,
+  wrong contexts, Unicode, packet/varint boundaries and coalesced input.
+- A valid-schema6 public-API corruption probe inserted real TopicAlias properties
+  into incoming, queued, outgoing, retained and Will scopes; ALL were rejected while
+  untouched baseline restored. Existing Session validators remain a canonical-
+  boundary defense, not a claim that valid network aliases are unsupported.
+- Independent read-only audit checked original wire bounds/canonical97/timestamps,
+  ACL/NL/QoS2 retention, writer preparation/commit order, fallback/round-robin/map
+  lifetimes and no durable leakage. No new defect found; independent Protocol52
+  and Transport61 actual TCP/unit tests pass.
+
+### Actual verification and interoperability boundary
+
+Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024, Python3.14.7, Paho MQTT2.1.0.
+Integrated debug binary including CLI d569ae3 SHA256:
+51d141b123e2091ccdb793f3e45f4ea15fc40630dfd85c2d36e8da972cc64cc5.
+
+Workspace offline build/test, fmt check, strict all-target Clippy and Rustdoc pass.
+Rust tests297: auth13,protocol52,router18,session130,storage16,transport61,CLI7.
+Thin-lib audit, Python compilation and git diff --check pass.
+
+| New independent suite | Memory | SQLite |
+| --- | --- | --- |
+| alias_blackbox.py |23 passed,2 mode-only skips (1.766s)|25 passed (1.945s)|
+| alias_paho.py |5 passed,1 mode-only skip (0.243s)|6 passed (0.268s)|
+
+Totals48 executed new wire methods and11 Paho methods,3 explicit mode-only skips.
+Subcases/focused repeats are not double-counted; timings are not throughput metrics.
+Coverage includes sparse65535/config0, binding/ref/rebind/separate maps/clients,
+canonical97, exact caps/varints/fallback/no phantom binding, Q2 duplicate/rebind/
+restart originals, outgoing Q1/Q2 and PUBREL-only recovery, SessionPresent1/reset/
+takeover/crash, NL/RAP/SubIDs/TTL/ACL and legacy311 bridging.
+
+Paho2.1's native receive path does not resolve incoming TopicAlias before caching
+QoS2. Its alias suite therefore explicitly uses a small validated receive subclass:
+check nonzero/range/unbound, reset on CONNACK and resolve before Paho's QoS2 cache;
+actual Paho sockets/ACKs/QoS and outbound behavior are unchanged. Independent raw
+Wire tests validate the actual broker encoding/mapping. This is not a claim of
+unmodified Paho2.1 receive-alias support; default alias maximum0 clients need none.
+
+All reused suites pass on the same final artifact in both modes:
+
+| Suite | Memory | SQLite |
+| --- | --- | --- |
+| blackbox.py |14 passed|14 passed|
+| qos_blackbox.py |9 passed|9 passed|
+| retained_will_blackbox.py |14 passed,6 skips|20 passed|
+| auth_acl_blackbox.py |13 passed,7 skips|20 passed|
+| mqtt5_blackbox.py |31 passed,11 skips|41 passed,1 skip|
+| expiry_will_blackbox.py |28 passed,10 skips|38 passed|
+| negotiation_blackbox.py |23 passed,3 skips|26 passed|
+| subscription_blackbox.py |20 passed,6 skips|26 passed|
+| persistence_blackbox.py |not applicable|14 passed|
+| auth_acl_paho.py |2 passed,1 skip|3 passed|
+| mqtt5_paho.py |4 passed,1 skip|5 passed|
+| expiry_will_paho.py |5 passed,1 skip|6 passed|
+| negotiation_paho.py |5 passed,1 skip|6 passed|
+| subscription_paho.py |5 passed,1 skip|6 passed|
+| paho_interop.py |3x3 QoS matrix passed|3x3 QoS matrix passed|
+| retained_will_paho.py |passed|passed|
+| persistence_paho.py |not applicable|offline QoS1/2 and SIGKILL passed|
+
+Reused wire suites total360 actual passing executions; adding48 new methods gives
+408 wire executions. Both-mode runners completed successfully with explicit mode-
+only skips. Default peer alias maximum0 leaves old plain-wire client behavior
+unchanged. No post-verification production changes.
+
+### Remaining scope
+
+Shared Subscriptions and enhanced AUTH remain unsupported. Broader conformance,
+client/fuzz/fault/clock/crash campaigns, auth CPU/rate isolation, TLS/WebSocket,
+metrics/admin/backup and measured CPU/memory/latency/throughput baselines remain
+in tasks.md. Whole-registry persistence/first-write transactions, alias map scans/
+encoding and memory budgets need measurements before optimization. Existing SQL/TCP
+start-intent and latest-wire-clock boundaries are unchanged. Process SIGKILL is not
+physical power-loss certification. No full MQTT5 conformance or production claim;
+cluster remains deferred.
