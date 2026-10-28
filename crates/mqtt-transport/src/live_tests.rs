@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use tokio::task::JoinHandle;
 use tokio::{io::AsyncWriteExt, net::TcpListener, time::timeout};
 
-async fn broker(
+pub(super) async fn broker(
     config: BrokerConfig,
 ) -> (SocketAddr, watch::Sender<bool>, JoinHandle<io::Result<()>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -14,10 +14,10 @@ async fn broker(
     let handle = tokio::spawn(serve(listener, config, rx));
     (address, tx, handle)
 }
-async fn send(stream: &mut TcpStream, packet: Packet) {
+pub(super) async fn send(stream: &mut TcpStream, packet: Packet) {
     stream.write_all(&encode(&packet).unwrap()).await.unwrap();
 }
-async fn receive(stream: &mut TcpStream) -> Packet {
+pub(super) async fn receive(stream: &mut TcpStream) -> Packet {
     timeout(Duration::from_secs(2), async {
         let mut bytes = Vec::new();
         loop {
@@ -37,6 +37,8 @@ async fn connected(address: SocketAddr, name: &str) -> TcpStream {
     send(
         &mut stream,
         Packet::Connect {
+            username: None,
+            password: None,
             client_id: name.into(),
             clean_session: true,
             keep_alive: 0,
@@ -53,14 +55,14 @@ async fn connected(address: SocketAddr, name: &str) -> TcpStream {
     );
     stream
 }
-async fn closed(stream: &mut TcpStream) {
+pub(super) async fn closed(stream: &mut TcpStream) {
     let mut byte = [0];
     assert!(matches!(
         timeout(Duration::from_secs(2), stream.read(&mut byte)).await,
         Ok(Ok(0)) | Ok(Err(_))
     ));
 }
-async fn stop(tx: watch::Sender<bool>, handle: JoinHandle<io::Result<()>>) {
+pub(super) async fn stop(tx: watch::Sender<bool>, handle: JoinHandle<io::Result<()>>) {
     tx.send(true).unwrap();
     timeout(Duration::from_secs(2), handle)
         .await
@@ -514,6 +516,8 @@ async fn continuous_qos0_delivery_does_not_starve_ping_reads() {
             client: "producer".into(),
             clean: true,
             will: None,
+            username: None,
+            password: None,
             generation: 2,
             wake,
             cancel,

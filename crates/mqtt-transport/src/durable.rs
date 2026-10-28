@@ -1,7 +1,8 @@
 //! Serialized durable worker: propose, commit, install, then expose packets.
 use crate::BrokerConfig;
-use mqtt_protocol::{Packet, ProtocolError, Will, decode, encode};
-use mqtt_session::durable::{SessionConfig, SessionEngine};
+use mqtt_auth::{AuthError, ConnectInfo};
+use mqtt_protocol::{Packet, Password, ProtocolError, Will, decode, encode};
+use mqtt_session::durable::{EngineError, SessionConfig, SessionEngine};
 use mqtt_storage::durable::SqliteStore;
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
 use tokio::{
@@ -25,6 +26,8 @@ enum Operation {
         client: String,
         clean: bool,
         will: Option<Will>,
+        username: Option<String>,
+        password: Option<Password>,
         generation: u64,
         wake: watch::Sender<u64>,
         cancel: watch::Sender<bool>,
@@ -44,8 +47,30 @@ enum Operation {
         graceful: bool,
     },
 }
+#[derive(Clone, Copy, Debug)]
+enum ConnectRefusal {
+    BadCredentials,
+    NotAuthorized,
+}
+impl ConnectRefusal {
+    fn code(self) -> u8 {
+        match self {
+            Self::BadCredentials => 4,
+            Self::NotAuthorized => 5,
+        }
+    }
+}
+impl From<AuthError> for ConnectRefusal {
+    fn from(error: AuthError) -> Self {
+        match error {
+            AuthError::BadCredentials => Self::BadCredentials,
+            AuthError::NotAuthorized => Self::NotAuthorized,
+        }
+    }
+}
 enum Reply {
     Connected(bool),
+    Rejected(ConnectRefusal),
     Packets(Vec<Packet>),
     Polled(Option<Packet>),
     Done,
@@ -124,10 +149,18 @@ fn run_worker(
             .map_err(io::Error::other)?
             .flatten();
         let mut engine = match loaded {
-            Some(bytes) => SessionEngine::restore(session_config(&config), &bytes),
-            None => SessionEngine::new(session_config(&config)),
+            Some(bytes) => SessionEngine::restore_with_access(
+                session_config(&config),
+                &bytes,
+                Arc::clone(&config.access_control),
+            ),
+            None => SessionEngine::new_with_access(
+                session_config(&config),
+                Arc::clone(&config.access_control),
+            ),
         }
         .map_err(io::Error::other)?;
+        engine.reconcile_authorization().map_err(io::Error::other)?;
         engine.recover_wills().map_err(io::Error::other)?;
         let snapshot = engine.snapshot().map_err(io::Error::other)?;
         if let Some(store) = &mut store {
@@ -156,6 +189,29 @@ fn run_commands(
     mut online: HashMap<String, Online>,
 ) -> io::Result<()> {
     while let Some(command) = commands.blocking_recv() {
+        // Reject bad credentials before copying potentially large durable state.
+        // Password borrows and hashing stay on this bounded blocking worker.
+        let mut principal = if let Operation::Connect {
+            client,
+            username,
+            password,
+            ..
+        } = &command.operation
+        {
+            match config.access_control.authenticate(ConnectInfo {
+                client_id: client,
+                username: username.as_deref(),
+                password: password.as_ref().map(Password::as_bytes),
+            }) {
+                Ok(principal) => Some(principal),
+                Err(error) => {
+                    let _ = command.reply.send(Ok(Reply::Rejected(error.into())));
+                    continue;
+                }
+            }
+        } else {
+            None
+        };
         // Every command mutates only a proposed clone. On model/quota errors the
         // full proposal is discarded; SQL failure additionally stops all service.
         let mut proposal = engine.clone();
@@ -170,6 +226,8 @@ fn run_commands(
                     client,
                     clean,
                     will,
+                    username: _,
+                    password: _,
                     generation,
                     wake,
                     cancel,
@@ -180,9 +238,21 @@ fn run_commands(
                             "persistent sessions require --storage-path",
                         ));
                     }
-                    let result = proposal
-                        .connect_with_will(&client, clean, will)
-                        .map_err(io::Error::other)?;
+                    let principal = principal
+                        .take()
+                        .ok_or_else(|| io::Error::other("missing authenticated identity"))?;
+                    let result =
+                        match proposal.connect_authenticated(&client, clean, will, principal) {
+                            Ok(result) => result,
+                            Err(EngineError::NotAuthorized) => {
+                                // A rejected CONNECT cannot commit pruning, Will retry,
+                                // clean reset or cancel an already established client.
+                                commit_required = false;
+                                retry_required = false;
+                                return Ok(Reply::Rejected(ConnectRefusal::NotAuthorized));
+                            }
+                            Err(error) => return Err(io::Error::other(error)),
+                        };
                     registration = Some((
                         client,
                         Online {
@@ -206,10 +276,13 @@ fn run_commands(
                 }
                 Operation::Poll { client, generation } => {
                     valid_generation(&online, &client, generation)?;
-                    let packet = proposal.poll(&client).map_err(io::Error::other)?;
-                    // Empty polls do not change state or trigger wakeups.
-                    commit_required = packet.is_some();
-                    Ok(Reply::Polled(packet))
+                    let outcome = proposal
+                        .poll_with_changes(&client)
+                        .map_err(io::Error::other)?;
+                    // Revocation can prune state without producing a packet.
+                    commit_required = outcome.changed;
+                    notify_required = outcome.changed;
+                    Ok(Reply::Polled(outcome.packet))
                 }
                 Operation::Disconnect {
                     client,
@@ -231,9 +304,15 @@ fn run_commands(
             }
         })();
         let proposed = proposed.and_then(|reply| {
-            if retry_required && proposal.retry_wills().map_err(io::Error::other)? {
-                commit_required = true;
-                notify_required = true;
+            if retry_required {
+                let pruned = proposal
+                    .reconcile_authorization()
+                    .map_err(io::Error::other)?;
+                let retried = proposal.retry_wills().map_err(io::Error::other)?;
+                if pruned || retried {
+                    commit_required = true;
+                    notify_required = true;
+                }
             }
             Ok(reply)
         });
@@ -547,24 +626,43 @@ async fn drive_connection(
                     clean_session,
                     keep_alive,
                     will,
+                    username,
+                    password,
                 } = packet
                 else {
                     return Err(io::Error::other("CONNECT required first"));
                 };
-                *identity = Some(client_id.clone());
                 let response = worker
                     .request(Operation::Connect {
-                        client: client_id,
+                        client: client_id.clone(),
                         clean: clean_session,
                         will,
+                        username,
+                        password,
                         generation,
                         wake: wake_tx.clone(),
                         cancel: cancel_tx.clone(),
                     })
                     .await?;
-                let Reply::Connected(session_present) = response else {
-                    return Err(io::Error::other("invalid CONNECT response"));
+                let session_present = match response {
+                    Reply::Connected(present) => present,
+                    Reply::Rejected(reason) => {
+                        output
+                            .send(Packet::ConnAck {
+                                session_present: false,
+                                code: reason.code(),
+                            })
+                            .await
+                            .map_err(io::Error::other)?;
+                        *flush_rejection = true;
+                        return Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            "CONNECT refused",
+                        ));
+                    }
+                    _ => return Err(io::Error::other("invalid CONNECT response")),
                 };
+                *identity = Some(client_id);
                 output
                     .send(Packet::ConnAck {
                         session_present,
@@ -673,9 +771,9 @@ mod tests {
     };
     use tokio::task::JoinHandle;
 
-    struct Database(PathBuf);
+    pub(super) struct Database(pub(super) PathBuf);
     impl Database {
-        fn new() -> Self {
+        pub(super) fn new() -> Self {
             static NEXT: AtomicU64 = AtomicU64::new(1);
             let directory = std::env::temp_dir().join(format!(
                 "rmqtt-worker-{}-{}",
@@ -685,7 +783,7 @@ mod tests {
             std::fs::create_dir_all(&directory).unwrap();
             Self(directory.join("state.sqlite"))
         }
-        fn config(&self) -> BrokerConfig {
+        pub(super) fn config(&self) -> BrokerConfig {
             BrokerConfig {
                 storage_path: Some(self.0.clone()),
                 outbound_capacity: 1,
@@ -700,7 +798,7 @@ mod tests {
             }
         }
     }
-    async fn worker(config: BrokerConfig) -> (Worker, JoinHandle<io::Result<()>>) {
+    pub(super) async fn worker(config: BrokerConfig) -> (Worker, JoinHandle<io::Result<()>>) {
         let (sender, receiver) = mpsc::channel(config.max_connections);
         let (ready_tx, ready_rx) = oneshot::channel();
         let handle = tokio::task::spawn_blocking(move || run_worker(receiver, config, ready_tx));
@@ -720,6 +818,8 @@ mod tests {
                 client: client.into(),
                 clean,
                 will: None,
+                username: None,
+                password: None,
                 generation,
                 wake,
                 cancel,
@@ -791,7 +891,7 @@ mod tests {
             retain: false,
         }
     }
-    async fn stop(worker: Worker, task: JoinHandle<io::Result<()>>) {
+    pub(super) async fn stop(worker: Worker, task: JoinHandle<io::Result<()>>) {
         drop(worker);
         timeout(Duration::from_secs(3), task)
             .await
@@ -1025,6 +1125,8 @@ mod tests {
                     client: client.into(),
                     clean: true,
                     will,
+                    username: None,
+                    password: None,
                     generation,
                     wake,
                     cancel,
@@ -1115,6 +1217,8 @@ mod tests {
                     client: "persistent".into(),
                     clean: false,
                     will: None,
+                    username: None,
+                    password: None,
                     generation: 1,
                     wake,
                     cancel
@@ -1204,3 +1308,7 @@ mod tests {
 #[cfg(test)]
 #[path = "live_tests.rs"]
 mod live_tests;
+
+#[cfg(test)]
+#[path = "auth_tests.rs"]
+mod auth_tests;

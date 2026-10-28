@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+mqtt-auth = { path = "../mqtt-auth" }
 mqtt-protocol = { path = "../mqtt-protocol" }
 mqtt-router = { path = "../mqtt-router" }
 mqtt-session = { path = "../mqtt-session" }

@@ -1,5 +1,6 @@
 //! Broker resource configuration.
-use std::time::Duration;
+use mqtt_auth::{AccessControl, AllowAnonymous};
+use std::{sync::Arc, time::Duration};
 
 /// Limits apply per connection except for `max_connections`. Queue capacity counts
 /// packets; maximum queued payload memory is bounded by capacity × packet size.
@@ -10,6 +11,8 @@ use std::time::Duration;
 /// process termination. SQLite retains persistent sessions and global records.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
+    /// Immutable, bounded hooks executed on the serialized blocking worker.
+    pub access_control: Arc<dyn AccessControl>,
     pub storage_path: Option<std::path::PathBuf>,
     pub max_sessions: usize,
     pub max_retained: usize,
@@ -26,6 +29,7 @@ pub struct BrokerConfig {
 impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
+            access_control: Arc::new(AllowAnonymous),
             storage_path: None,
             max_sessions: 1024,
             max_retained: 10_000,
