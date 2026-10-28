@@ -191,3 +191,213 @@ fn mqtt_3_10_4_3_duplicate_unsubscribe_preserves_started_qos_obligations() {
         }
     }
 }
+
+#[test]
+fn mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent() {
+    for grant in [0, 1] {
+        let mut engine = engine();
+        engine
+            .handle_frame(
+                "client",
+                Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("topic/#".into(), grant)],
+                }),
+            )
+            .unwrap();
+        for (sequence, duplicate) in [false, true, false, true].into_iter().enumerate() {
+            let payload = vec![sequence as u8];
+            let ack = engine
+                .handle_frame(
+                    "client",
+                    Frame::v5(Packet::Publish {
+                        topic: "topic/item".into(),
+                        payload: payload.clone(),
+                        qos: 1,
+                        packet_id: Some(100),
+                        dup: duplicate,
+                        retain: false,
+                    }),
+                )
+                .unwrap();
+            assert_eq!(ack[0].packet, Packet::PubAck { packet_id: 100 });
+            let next = engine
+                .poll_frame_with_changes("client")
+                .unwrap()
+                .frame
+                .unwrap();
+            let Packet::Publish {
+                payload: delivered,
+                qos,
+                packet_id,
+                dup,
+                ..
+            } = next.packet
+            else {
+                panic!("expected new recipient copy")
+            };
+            assert_eq!(delivered, payload);
+            assert_eq!(qos, grant);
+            assert!(!dup, "source DUP does not determine recipient DUP");
+            if let Some(id) = packet_id {
+                engine
+                    .handle_frame("client", Frame::v5(Packet::PubAck { packet_id: id }))
+                    .unwrap();
+            }
+            assert!(
+                engine
+                    .poll_frame_with_changes("client")
+                    .unwrap()
+                    .frame
+                    .is_none()
+            );
+        }
+    }
+}
+
+#[test]
+fn mqtt_4_4_0_1_unacknowledged_publish_is_only_replayed_after_reconnect() {
+    for qos in [1, 2] {
+        let mut engine = engine();
+        engine
+            .handle_frame(
+                "client",
+                Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("topic/#".into(), qos)],
+                }),
+            )
+            .unwrap();
+        engine
+            .handle_frame(
+                "client",
+                Frame::v5(Packet::Publish {
+                    topic: "topic/item".into(),
+                    payload: b"pending".to_vec(),
+                    qos,
+                    packet_id: Some(100),
+                    dup: false,
+                    retain: false,
+                }),
+            )
+            .unwrap();
+        if qos == 2 {
+            engine
+                .handle_frame("client", Frame::v5(Packet::PubRel { packet_id: 100 }))
+                .unwrap();
+        }
+        let original = engine
+            .poll_frame_with_changes("client")
+            .unwrap()
+            .frame
+            .unwrap();
+        for _ in 0..16 {
+            assert!(
+                engine
+                    .poll_frame_with_changes("client")
+                    .unwrap()
+                    .frame
+                    .is_none()
+            );
+        }
+        engine.disconnect("client").unwrap();
+        assert!(
+            engine
+                .connect_with_options(
+                    "client",
+                    None,
+                    Principal::anonymous(),
+                    ConnectionOptions {
+                        version: ProtocolVersion::V5,
+                        clean_start: false,
+                        session_expiry_interval: u32::MAX,
+                        receive_maximum: 16,
+                        maximum_packet_size: u32::MAX,
+                        will_properties: Vec::new(),
+                    },
+                )
+                .unwrap()
+                .session_present
+        );
+        let replay = engine
+            .poll_frame_with_changes("client")
+            .unwrap()
+            .frame
+            .unwrap();
+        let Packet::Publish {
+            packet_id: original_id,
+            ..
+        } = original.packet
+        else {
+            panic!("publish")
+        };
+        assert!(
+            matches!(replay.packet, Packet::Publish { packet_id, dup: true, .. } if packet_id == original_id)
+        );
+        assert!(
+            engine
+                .poll_frame_with_changes("client")
+                .unwrap()
+                .frame
+                .is_none()
+        );
+    }
+}
+
+#[test]
+fn mqtt_3_3_4_6_client_subscription_identifier_cannot_mutate_queues() {
+    let mut engine = engine();
+    engine
+        .handle_frame(
+            "client",
+            Frame::v5(Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("topic/#".into(), 1)],
+            }),
+        )
+        .unwrap();
+    let before = engine.snapshot().unwrap();
+    let mut publish = Frame::v5(Packet::Publish {
+        topic: "topic/item".into(),
+        payload: b"source".to_vec(),
+        qos: 1,
+        packet_id: Some(100),
+        dup: false,
+        retain: false,
+    });
+    publish
+        .properties
+        .push(Property::SubscriptionIdentifier(42));
+    assert!(
+        matches!(engine.handle_frame("client", publish), Err(EngineError::Mqtt5(reason)) if reason.value() == 0x82)
+    );
+    assert_eq!(engine.snapshot().unwrap(), before);
+}
+
+#[test]
+fn mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement() {
+    let mut engine = engine();
+    let replies = engine
+        .handle_frame(
+            "client",
+            Frame::v5(Packet::Subscribe {
+                packet_id: 55,
+                filters: vec![
+                    ("topic/#".into(), 2),
+                    ("topic/+".into(), 1),
+                    ("topic/#".into(), 0),
+                ],
+            }),
+        )
+        .unwrap();
+    assert_eq!(replies.len(), 1);
+    assert_eq!(
+        replies[0].packet,
+        Packet::SubAck {
+            packet_id: 55,
+            codes: vec![2, 1, 0]
+        }
+    );
+    assert_eq!(engine.sessions["client"].subscriptions["topic/#"].qos, 0);
+    assert_eq!(engine.sessions["client"].subscriptions["topic/+"].qos, 1);
+}
