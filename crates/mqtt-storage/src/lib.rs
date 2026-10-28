@@ -1,7 +1,8 @@
-//! Bounded synchronous storage primitives for future broker persistence.
+//! Bounded synchronous storage primitives and a durable SQLite snapshot backend.
 //!
-//! The broker does not yet use these primitives. Values are opaque encoded records;
-//! protocol and session owners are responsible for their schema and MQTT semantics.
+//! Values are opaque encoded records; protocol and session owners are responsible
+//! for their schema and MQTT semantics. Call SQLite only from a blocking worker.
+pub mod durable;
 use std::{collections::BTreeMap, error::Error, fmt};
 
 /// Distinct namespaces prevent retained, session and inflight record collisions.
