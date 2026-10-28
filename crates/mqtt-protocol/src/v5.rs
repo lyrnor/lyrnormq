@@ -321,6 +321,10 @@ pub fn decode_frame(
     if !r.done() {
         return Err(malformed("trailing packet bytes"));
     }
+    if kind == 15 {
+        // Even the abbreviated AUTH forms must carry the mandatory method.
+        properties::validate(&frame.properties, kind)?;
+    }
     Ok(Some((frame, total)))
 }
 
@@ -366,6 +370,9 @@ pub fn encode_frame(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
         Packet::Auth => 15,
     };
     clean_metadata(frame, kind)?;
+    if kind == 15 {
+        properties::validate(&frame.properties, kind)?;
+    }
     let header = match &frame.packet {
         Packet::Connect {
             client_id,
@@ -554,3 +561,6 @@ pub fn encode_frame(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
 mod tests;
 #[cfg(test)]
 mod topic_alias_tests;
+
+#[cfg(test)]
+mod conformance_tests;

@@ -106,8 +106,10 @@ fn all_base_frames_round_trip() {
         Frame::v5(Packet::PingReq),
         Frame::v5(Packet::PingResp),
         Frame::v5(Packet::Disconnect),
-        Frame::v5(Packet::Auth),
     ];
+    let mut auth = Frame::v5(Packet::Auth);
+    auth.properties = vec![Property::AuthenticationMethod("PLAIN".into())];
+    frames.push(auth);
     let mut sub = Frame::v5(Packet::Subscribe {
         packet_id: 5,
         filters: vec![("a/#".into(), 2), ("b/+".into(), 1)],
@@ -292,7 +294,7 @@ fn omitted_ack_reason_and_properties_forms_decode() {
             assert!(frame.properties.is_empty());
         }
     }
-    for header in [0xe0, 0xf0] {
+    for header in [0xe0] {
         for wire in [vec![header, 0], vec![header, 1, 0], vec![header, 2, 0, 0]] {
             assert_eq!(
                 decode_frame(&wire, 100, Some(ProtocolVersion::V5))

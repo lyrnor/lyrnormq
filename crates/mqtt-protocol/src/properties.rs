@@ -158,7 +158,7 @@ fn permitted(context: u8, id: u8) -> bool {
         _ => false,
     }
 }
-fn validate(properties: &[Property], context: u8) -> Result<(), ProtocolError> {
+pub(super) fn validate(properties: &[Property], context: u8) -> Result<(), ProtocolError> {
     let mut seen = 0u64;
     for property in properties {
         let id = property.id();
@@ -203,6 +203,9 @@ fn validate(properties: &[Property], context: u8) -> Result<(), ProtocolError> {
             }
             _ => {}
         }
+    }
+    if context == 15 && seen & (1 << 21) == 0 {
+        return Err(violation("AUTH requires Authentication Method"));
     }
     if matches!(context, 1 | 2) && seen & (1 << 22) != 0 && seen & (1 << 21) == 0 {
         return Err(violation(
