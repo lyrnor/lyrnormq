@@ -142,3 +142,14 @@ Will/takeover, assignedID, pending cleanup/boundedrounds/timeouts/pipeline/contr
 progress, identitychange denied, caps/alias/SessionPresent/restart/secretredaction.
 Use independent rawclient where SDK lacksAUTH; explicitly disclose SDK adapters.
 Run old full regression, fmt/Clippy/test/rustdoc; report actual data and limitations.
+
+## Literal-pattern ACL clarification
+Policy grants remain plain Topic patterns, not shared group expressions. For a
+shared filter whose underlying pattern literally starts $share/, ACL must still
+work without recursive unwrapping or reserved-prefix rejection. Add router public
+matches_topic_filter(filter:&str,topic:&str)->bool using pure normal syntax;
+existing matches preserves its ordinary reserved-prefix contract. Auth policy uses
+validate_topic_filter/matches_topic_filter and covers_filter validates pure syntax.
+This does NOT grant group membership via a $share policy prefix: Session unwraps
+only the actual subscription once; grants stay literal and wildcard/$ isolation
+is preserved. Session/Router owner adds helper, Auth owner uses the real dependency.
