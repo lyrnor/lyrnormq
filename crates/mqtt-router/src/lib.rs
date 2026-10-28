@@ -2,9 +2,10 @@
 //!
 //! Callers enforce connection and subscription quotas. Operations are synchronous;
 //! an external lock must not be held across asynchronous work. Shared subscriptions
-//! and retained message storage remain outside this module.
+//! remain unsupported. Retained messages use the bounded store in `retained`.
 
 mod filter;
+pub mod retained;
 mod trie;
 
 pub use filter::{matches, validate_filter};
