@@ -1,0 +1,8 @@
+[package]
+name = "rmqtt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+mqtt-transport = { path = "../../crates/mqtt-transport" }
+tokio.workspace = true
