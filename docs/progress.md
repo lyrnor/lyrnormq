@@ -1321,3 +1321,99 @@ latency/throughput baselines are in tasks.md. Full snapshots and shared group vi
 trie construction remain bounded but need measurement before optimization. Process
 SIGKILL is not physical power-loss certification. No full MQTT5 compatibility,
 production or cluster claim is made.
+
+## Phase2k — normative clause matrix and confirmed corrections
+
+### Source and engineering approach
+
+Inventory pins the official OASIS MQTT5 OS HTML (2019-03-07), windows-1252, SHA256
+16f24e2b021d86b3bbb2b39c8b5ee134b3d39f69320ba61d3c07a38af74e696c.
+There are252 distinct literal numbered IDs, including250 literal body IDs plus two
+appendix-only index spellings. The body reason-code paragraph has a damaged
+3.2.2-8 label; body4.2-1 and appendix4.2.0-1 are aliases. These source anomalies are
+explicitly recorded, never fabricated as independent passing requirements.
+
+The catalogue also fingerprints102 unnumbered paragraph candidates selected by
+normative keywords or error-constraint terminology. This is a reproducible heuristic,
+not an exhaustive sentence/property-table extraction. The matrix preserves scope,
+client-only/conditional applicability, policy exceptions, test gaps and limitations.
+No feature-level claim automatically produces verified rows or a compliance percentage.
+
+Isolated Protocol, Session and Transport worktrees audited actual code and tests;
+coordinator froze K1/K2/K3 before implementation. Quality wrote independent wire
+cases and a reference/inventory/staleness gate in its own worktree; independent
+read-only reviewers checked normative context and submitted further evidence.
+Source verification runs, exact symbols/cases and source commits are preserved in
+`docs/conformance/reviews/`; source import and matrix merging are deterministic.
+The checker validates references, not the truth of normative interpretation.
+
+### Confirmed defects and failure-first corrections
+
+| Finding | Frozen correction | Source commit |
+| --- | --- | --- |
+| Initial enhanced AUTH emitted forbidden pre-acceptance DISCONNECT |K1/b251263; failed CONNACK or close, established reauth unchanged|689624b|
+| Multi-filter UNSUBSCRIBE reasons read stale pre-removal state |K2/23dd4f3; sequential ordinary/shared removals and atomic malformed rejection|4ac44bf|
+| Public AUTH codec accepted missing AuthenticationMethod |K3/d75dd51; strict encode/decode82, Transport still checks negotiated equality|81926bb|
+
+Logs captured the old preauth headerE0 rather than20, duplicate unsubscribe reasons
+[0,0,17] rather than[0,17,17], and accepted shorthand AUTH before fixes. These are
+actual counterexamples, not inferred gaps from feature names. The public codec gap
+was already defended by Transport's connection-state checks; its fix strengthens
+the public codec contract rather than claiming an additional network exploit.
+Session followup95d9107 closes new evidence gaps with no production behavior change.
+Qualitye00d3c5 integrates the independent real-client suite and offline matrix gate.
+Existing schema7, outbox/SQLite transactions, clocks, aliases and thin lib.rs remain.
+
+### Final implementation verification
+
+Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024, Python3.14.7, Paho2.1.0.
+Immutable debug binary SHA256:
+73693ad51e5b2258778676e3e2b4682ff8f20e2816654ba15f19752025bd175d.
+
+Workspace Rust tests348 pass: Auth20, Protocol57, Router21, Session151, Storage16,
+Transport75, CLI8. Fmt, strict all-target Clippy, strict Rustdoc pass. Independent
+review reruns Protocol57/Session151/Router21/Transport75 and alias wire23 pass with
+2 explicit mode-only skips. Counts exclude repeated runs and subcases.
+
+Independent conformance_blackbox.py18 defined cases: memory17 pass,1 mode-only skip
+(1.976s); SQLite18 pass (2.172s). Existing495 actual wire executions plus35 new
+executions total530; all reused Paho both-mode suites also pass on the same artifact.
+The full runner executes21 suites in memory and23 with SQLite; the final two added
+conformance methods were independently rerun in both modes, with no production
+change. Dedicated raw clients check AUTH; shared Paho stays unmodified and the old
+alias suite's explicit receive adapter is unchanged. Test durations are not latency
+or throughput measurements. CI is updated; hosted CI execution is not claimed.
+
+Actual old-binary regressions, new terminal packet/size boundaries, no preauth
+Will/takeover, started QoS completion, ordered ACKs and SQLite restart pass.
+
+
+### Final matrix disposition and limits
+
+All354 inventoried entries now have first-review dispositions, with954 valid code/
+test references checked offline. Literal numbered entries252:198 verified within
+recorded scenarios,20 test-gap,34 not-applicable/source aliases. Supplementary
+candidates102:23 verified,41 test-gap,36 not-applicable/editorial/client-only and
+2 SHOULD exceptions. Total221 verified,61 test-gap,70 not-applicable,2 policy
+exceptions; no inventoried row remains unreviewed. These heterogeneous entries must
+not be used as a conformance percentage. No full MQTT5 conformance is established.
+
+The final unnumbered read-only audit screened91 previously pending candidates and
+reran Protocol57/Session151/Auth20/Router21/Transport75 plus five focused existing
+wire methods; all pass. Those repeats are excluded from530 wire executions. Many
+singleton properties use correct shared seen-ID guards but still lack exact
+property-by-packet counterexamples. PFI1 origin/forwarding semantics, diagnostic
+text independence and directional Reason Code/property table combinations need
+further audit. Numeric tables and unmarked sentences are not exhaustively certified
+by the heuristic inventory. A test-gap is not automatically a confirmed code defect.
+
+The source importer reproduces the digest/ID/candidate inventory from the original
+local official HTML; matrix generation and offline integrity checks pass. Python
+compilation, thin-lib audit and git diff checks pass. Build output matches the
+immutable client-tested artifact exactly. No post-verification production changes.
+
+Next acceptance follows specific rows in docs/tasks.md: packet IDs/association,
+refusal contexts, complete malformed-packet termination, RAP/order/Unicode,
+property/table/direction negatives, and deliberate shared-QoS1/secure-transport
+SHOULD decisions. TLS/SCRAM/performance/operations remain separate engineering
+work; adding them does not replace normative acceptance. Clustering stays deferred.

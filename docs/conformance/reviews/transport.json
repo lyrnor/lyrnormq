@@ -4,7 +4,8 @@
   "verification": [
     "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
     "cargo fmt --all -- --check: passed",
-    "cargo clippy --offline -p mqtt-transport --all-targets -- -D warnings: passed"
+    "cargo clippy --offline -p mqtt-transport --all-targets -- -D warnings: passed",
+    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes."
   ],
   "clauses": [
     {
@@ -185,15 +186,16 @@
     },
     {
       "id": "MQTT-3.2.0-2",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-transport/src/durable/network.rs:drive",
         "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply"
       ],
       "tests": [
-        "crates/mqtt-transport/src/durable/network.rs:tests::accepted_connack_precedes_priority_disconnect_for_invalid_pipeline"
+        "crates/mqtt-transport/src/durable/network.rs:tests::accepted_connack_precedes_priority_disconnect_for_invalid_pipeline",
+        "tests/conformance_blackbox.py:test_mqtt_3_1_0_2_second_connect_and_3_2_2_session_present"
       ],
-      "note": "Connected path cannot dispatch another handshake; explicit repeated CONNECT after success test remains useful to lock single-CONNACK invariant."
+      "note": "Coordinator post-integration reconciliation: repeated CONNECT receives DISCONNECT82 and EOF, not another CONNACK. Initial branch has one final success/refusal response; continuation replies are AUTH."
     },
     {
       "id": "MQTT-3.2.2-4",
@@ -282,7 +284,7 @@
       "status": "test-gap",
       "implementation": [],
       "tests": [],
-      "note": "Identifier occurs only in the OASIS requirement index with no requirement text; do not invent an implementation assertion. Requires explicit source anomaly handling in coordinator inventory."
+      "note": "Coordinator source correction: the body CONNACK reason-code statement exists with malformed literal label T-3.2.2-8]; AppendixB supplies the normal ID. Dedicated complete runtime reason-context evidence remains a test gap; do not infer an absent requirement."
     },
     {
       "id": "MQTT-3.2.2-9",
@@ -424,7 +426,7 @@
       "status": "verified",
       "implementation": [
         "crates/mqtt-transport/src/durable/network.rs:Credits",
-        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery"
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery_with_changes"
       ],
       "tests": [
         "crates/mqtt-transport/src/live_tests.rs:qos2_full_outgoing_window_keeps_ack_reads_live",
@@ -439,7 +441,7 @@
       "status": "verified",
       "implementation": [
         "crates/mqtt-transport/src/durable/network.rs:Credits",
-        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery"
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery_with_changes"
       ],
       "tests": [
         "crates/mqtt-transport/src/live_tests.rs:qos2_full_outgoing_window_keeps_ack_reads_live",
@@ -454,7 +456,7 @@
       "status": "verified",
       "implementation": [
         "crates/mqtt-transport/src/durable/network.rs:Credits",
-        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery"
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery_with_changes"
       ],
       "tests": [
         "crates/mqtt-transport/src/live_tests.rs:qos2_full_outgoing_window_keeps_ack_reads_live",
@@ -605,5 +607,6 @@
       ],
       "note": "Checked malformed/protocol closure and terminal transport behavior in selected packet paths, not proof all malformed grammar combinations are covered. Initial refusal packet context fixed."
     }
-  ]
+  ],
+  "integrated_evidence_commit": "fc9c950"
 }

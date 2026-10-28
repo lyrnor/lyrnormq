@@ -1,0 +1,702 @@
+{
+  "reviewer": "independent",
+  "source_commit": "a3aa79c",
+  "verification": [
+    "cargo test --offline -p mqtt-session -p mqtt-protocol: Session151/Protocol57 passed",
+    "cargo test --offline -p mqtt-router: 21 passed",
+    "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
+    "RMQTT_BIN=/tmp/rmqtt-p2k-candidate python tests/alias_blackbox.py: 23 passed,2 mode-only skips",
+    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes."
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.1.0-1",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-3.1.2-20",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-3.1.2-21",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-3.3.2-9",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-3.3.2-10",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-3.3.4-7",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-3.3.4-8",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Inspected each body statement: these numbered obligations explicitly govern the Client endpoint. Server-side rejection/flow obligations are assessed separately; no server coverage is inferred."
+    },
+    {
+      "id": "MQTT-6.0.0-1",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+    },
+    {
+      "id": "MQTT-6.0.0-2",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+    },
+    {
+      "id": "MQTT-6.0.0-3",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+    },
+    {
+      "id": "MQTT-6.0.0-4",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [],
+      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+    },
+    {
+      "id": "MQTT-4.2.0-1",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "AppendixB index spelling aliases body MQTT-4.2-1. Preserve catalogue row for provenance, but do not count a distinct requirement or an implementation gap."
+    },
+    {
+      "id": "MQTT-3.1.0-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-session/src/durable.rs:handle_packet"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_1_0_2_second_connect_and_3_2_2_session_present"
+      ],
+      "note": "Coordinator post-integration reconciliation: the formerly temporary second-CONNECT probe is now committed and passed in both modes. It asserts82 and EOF after the single successful CONNACK."
+    },
+    {
+      "id": "MQTT-3.1.2-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:negotiated_version_and_bounded_prefix_inspection"
+      ],
+      "note": "Independent wrong-protocol-name/version probes confirm refusal+EOF. Untrusted protocol prefix currently produces a legacy CONNACK1 before V5 is selected; exact version/error-reason context remains an explicit targeted conformance test/review gap."
+    },
+    {
+      "id": "MQTT-3.1.2-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:negotiated_version_and_bounded_prefix_inspection"
+      ],
+      "note": "Independent wrong-protocol-name/version probes confirm refusal+EOF. Untrusted protocol prefix currently produces a legacy CONNACK1 before V5 is selected; exact version/error-reason context remains an explicit targeted conformance test/review gap."
+    },
+    {
+      "id": "MQTT-3.1.3-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:validate_client"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_1_3_5_alphanumeric_client_ids_one_through_23_bytes"
+      ],
+      "note": "Coordinator post-integration reconciliation: committed wire cases accept default-policy alphanumeric ClientID lengths1..23, with PING and graceful close. Inspected byte-preserving validator has no alphanumeric exclusion."
+    },
+    {
+      "id": "MQTT-3.1.3-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable.rs:assigned_identifier",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key",
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_generated_key_is_used_for_authentication_and_authorization"
+      ],
+      "note": "Actual Transport tests cover generated nonempty ID returned in CONNACK and resolved key used for subsequent routing/auth/session identity; source uniqueness/pending reservation paths inspected."
+    },
+    {
+      "id": "MQTT-3.1.3-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable.rs:assigned_identifier",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key",
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_generated_key_is_used_for_authentication_and_authorization"
+      ],
+      "note": "Actual Transport tests cover generated nonempty ID returned in CONNACK and resolved key used for subsequent routing/auth/session identity; source uniqueness/pending reservation paths inspected."
+    },
+    {
+      "id": "MQTT-3.1.3-8",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:validate_client",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [],
+      "note": "ClientID validation/refusal path inspected; no standalone actualTCP identifier-specific refusal reason85+EOF regression is linked by this independent review."
+    },
+    {
+      "id": "MQTT-3.1.4-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:connect_with_options",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:clean_start_and_expiry_are_independent_including_resumed_zero",
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key"
+      ],
+      "note": "Model tests exercise fresh/resumed/clean-reset SessionPresent decisions, and the transport builder encodes that exact result. Independent actualTCP clean/resume/reset probe also passed."
+    },
+    {
+      "id": "MQTT-3.2.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:connect_with_options",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:clean_start_and_expiry_are_independent_including_resumed_zero",
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key"
+      ],
+      "note": "Model tests exercise fresh/resumed/clean-reset SessionPresent decisions, and the transport builder encodes that exact result. Independent actualTCP clean/resume/reset probe also passed."
+    },
+    {
+      "id": "MQTT-3.2.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/lifecycle.rs:connect_with_options",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:clean_start_and_expiry_are_independent_including_resumed_zero",
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key"
+      ],
+      "note": "Model tests exercise fresh/resumed/clean-reset SessionPresent decisions, and the transport builder encodes that exact result. Independent actualTCP clean/resume/reset probe also passed."
+    },
+    {
+      "id": "MQTT-3.1.4-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/auth_tests.rs:refused_authentication_flushes_connack_and_discards_pipeline_and_will",
+        "crates/mqtt-transport/src/enhanced_tests.rs:incomplete_auth_cannot_takeover_existing_connection_or_accept_publish"
+      ],
+      "note": "ActualTCP basic refusal and incomplete enhanced-auth tests confirm pipelined application data does not create session/Will/takeover effects; rejection exits processing."
+    },
+    {
+      "id": "MQTT-3.2.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connack"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip"
+      ],
+      "note": "CONNACK encoder emits its flags from a bool only, so reserved bits cannot be produced. Common V5 CONNACK encoding/decoding test exercises SessionPresent1; refusal builder emits0."
+    },
+    {
+      "id": "MQTT-3.3.2-7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:InboundAliases",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_reconnect_and_takeover_reset_inbound_map",
+        "tests/alias_blackbox.py:test_outgoing_replay_rebinds_after_reconnect_and_pubrel_stays_control"
+      ],
+      "note": "Independent actual alias wire suite passed: inbound and outbound reconnection require fresh bindings. Both map instances are constructed per connection; no alias state enters SessionEngine snapshot."
+    },
+    {
+      "id": "MQTT-3.3.2-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-transport/src/durable/aliases.rs:OutboundAliases"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_zero_over_limit_unbound_and_empty_without_alias"
+      ],
+      "note": "Receiver rejects zero with94; outbound alias allocator produces positive IDs only. Independent real-wire invalid-alias suite passed."
+    },
+    {
+      "id": "MQTT-3.3.2-11",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:InboundAliases",
+        "crates/mqtt-transport/src/durable/aliases.rs:OutboundAliases"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_configured_boundaries_and_sparse_largest_identifier",
+        "tests/alias_blackbox.py:test_local_outbound_budget_caps_peer_maximum"
+      ],
+      "note": "Actual wire suite covers advertised/configured sparse maximum65535 and local/peer output range; comparison guards use negotiated bounds, with no dense-array indexing limitation."
+    },
+    {
+      "id": "MQTT-3.3.2-12",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:InboundAliases",
+        "crates/mqtt-transport/src/durable/aliases.rs:OutboundAliases"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_configured_boundaries_and_sparse_largest_identifier",
+        "tests/alias_blackbox.py:test_local_outbound_budget_caps_peer_maximum"
+      ],
+      "note": "Actual wire suite covers advertised/configured sparse maximum65535 and local/peer output range; comparison guards use negotiated bounds, with no dense-array indexing limitation."
+    },
+    {
+      "id": "MQTT-3.4.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.4.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.5.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.5.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.6.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.6.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.7.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.7.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.9.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.9.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.11.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.11.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.14.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.14.2-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.15.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.15.2-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "Inspected current server builders: listed control diagnostics are omitted, and final complete-frame write guard applies min(server,peer) before bytes. Actual control/data exact-cap and request-info tests passed. This does not claim server diagnostic generation is implemented."
+    },
+    {
+      "id": "MQTT-3.9.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement"
+      ],
+      "note": "Targeted Session test returns same-ID55, ordered SUBACK[2,1,0] for repeated/multiple filters. Independently executed in the full Session run."
+    },
+    {
+      "id": "MQTT-3.12.4-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:handle_packet",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "crates/mqtt-transport/src/live_tests.rs:continuous_qos0_delivery_does_not_starve_ping_reads"
+      ],
+      "note": "ActualTCP PINGREQ/PINGRESP tests run during enhanced reauthentication and sustained outgoing traffic; independent full Transport run passed."
+    },
+    {
+      "id": "MQTT-3.14.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:terminal_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:wrong_reauthentication_flushes_legal_reason_and_fires_will",
+        "crates/mqtt-transport/src/durable/network.rs:nonzero_disconnect_reason_fires_will_while_normal_zero_cancels"
+      ],
+      "note": "Server terminal DISCONNECT builders create empty properties; client-origin expiry overrides are consumed rather than echoed. Actual terminal/Will tests passed. No server SessionExpiry property emission path exists."
+    },
+    {
+      "id": "MQTT-4.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes"
+      ],
+      "note": "Tokio TCP listener/stream supplies ordered reliable bidirectional bytes; complete writes use write_all. Independent actualTCP Transport suite passed. No WebSocket support inferred."
+    },
+    {
+      "id": "MQTT-4.7.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/codec.rs:validate_topic",
+        "crates/mqtt-router/src/filter.rs:valid_topic"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges",
+        "crates/mqtt-protocol/src/v5/tests.rs:subscription_options_and_topic_alias_syntax"
+      ],
+      "note": "Protocol Topic Name validation rejects wildcard names, alias normalization restores canonical names before routing, and independent Router/Protocol tests passed."
+    },
+    {
+      "id": "MQTT-4.7.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:validate_topic_filter"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:filter_validation",
+        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges"
+      ],
+      "note": "Direct grammar tests include malformed embedded/misplaced #/+ and valid parent/empty-level matches; inspected validators require # final whole level and + whole level."
+    },
+    {
+      "id": "MQTT-4.7.1-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:validate_topic_filter"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:filter_validation",
+        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges"
+      ],
+      "note": "Direct grammar tests include malformed embedded/misplaced #/+ and valid parent/empty-level matches; inspected validators require # final whole level and + whole level."
+    },
+    {
+      "id": "MQTT-4.7.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:matches_topic_filter",
+        "crates/mqtt-router/src/trie.rs:matching_qos"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges",
+        "crates/mqtt-router/src/trie/tests.rs:qos_validation_is_atomic_and_system_topics_are_isolated"
+      ],
+      "note": "Independent Router tests assert root wildcards exclude dollar-prefixed Topics while explicit system filters match; trie path uses the same root isolation policy."
+    },
+    {
+      "id": "MQTT-4.7.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:valid_string",
+        "crates/mqtt-protocol/src/codec.rs:validate_string"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:filter_validation",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected",
+        "crates/mqtt-router/src/trie/tests.rs:deep_topic_is_iterative_and_nodes_are_reused"
+      ],
+      "note": "Validators reject empty/NUL/oversized byte-length input; deep slash-heavy valid Topics remain accepted. Common UTF8 scalar tests and direct65536-byte filter rejection independently passed."
+    },
+    {
+      "id": "MQTT-4.7.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:valid_string",
+        "crates/mqtt-protocol/src/codec.rs:validate_string"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:filter_validation",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected",
+        "crates/mqtt-router/src/trie/tests.rs:deep_topic_is_iterative_and_nodes_are_reused"
+      ],
+      "note": "Validators reject empty/NUL/oversized byte-length input; deep slash-heavy valid Topics remain accepted. Common UTF8 scalar tests and direct65536-byte filter rejection independently passed."
+    },
+    {
+      "id": "MQTT-4.7.3-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:valid_string",
+        "crates/mqtt-protocol/src/codec.rs:validate_string"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:filter_validation",
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected",
+        "crates/mqtt-router/src/trie/tests.rs:deep_topic_is_iterative_and_nodes_are_reused"
+      ],
+      "note": "Validators reject empty/NUL/oversized byte-length input; deep slash-heavy valid Topics remain accepted. Common UTF8 scalar tests and direct65536-byte filter rejection independently passed."
+    },
+    {
+      "id": "MQTT-4.7.3-4",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:matches_topic_filter",
+        "crates/mqtt-router/src/trie.rs:matching_qos"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges"
+      ],
+      "note": "String and trie equality are byte-preserving and case-sensitive; no normalization call exists. Existing a-vs-A assertion passes, but composed/decomposed Unicode and space-preservation should get dedicated exact-match tests before full clause promotion."
+    },
+    {
+      "id": "MQTT-4.8.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:split_shared_filter"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:shared_filter_grammar_and_literal_inner_patterns"
+      ],
+      "note": "Direct valid/invalid shared grammar tests cover empty group/filter, missing delimiter, forbidden group wildcards, Unicode names and literal nested-looking underlying patterns. Independent Router21 passed."
+    },
+    {
+      "id": "MQTT-4.8.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:split_shared_filter"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/filter/tests.rs:shared_filter_grammar_and_literal_inner_patterns"
+      ],
+      "note": "Direct valid/invalid shared grammar tests cover empty group/filter, missing delimiter, forbidden group wildcards, Unicode names and literal nested-looking underlying patterns. Independent Router21 passed."
+    }
+  ],
+  "integrated_evidence_commit": "fc9c950"
+}

@@ -4,6 +4,10 @@ Rust 2024 / Tokio TCP MQTT3.1.1 broker with an initial MQTT5.0 implementation, s
 Retained Messages, Last Will and local authentication/ACL, with optional SQLite-backed persistent sessions.
 **Full MQTT conformance and production-readiness are not yet claimed.**
 
+See the [MQTT5 clause/evidence matrix](docs/conformance/README.md) for normative
+coverage, confirmed corrections, unreviewed requirements and test gaps. Feature
+availability below is not a substitute for that assessment.
+
 ```sh
 cargo build --workspace
 cargo run -p rmqtt -- --listen 127.0.0.1:1883

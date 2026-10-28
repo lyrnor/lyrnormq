@@ -1,4 +1,4 @@
-# Architecture — revision11 / Phase2j
+# Architecture — revision12 / Phase2k
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2j contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2k contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -426,3 +426,23 @@ existing credential verifier and ACLs, with direct or server-prompted credential
 It adds no encryption and needs a protected transport; TLS is still unimplemented.
 The default provider is disabled. SCRAM, delegated authzid, SASLprep normalization,
 remote providers and auth rate/CPU isolation are not claimed implemented.
+
+
+## Phase2k conformance evidence boundary
+
+The clause catalogue and matrix in `docs/conformance/` separate implementation
+availability from evidence for specific obligations. Coordinator pins source bytes,
+records source-index anomalies and merges conservative review statuses. Reviewers
+link exact source/test symbols and real commands; Quality checks inventory equality,
+reference resolution and deterministic regeneration offline. These checks prevent
+stale/fabricated links, not semantic overclaims; independent source review remains
+required. Unnumbered candidates are heuristic, not an exhaustive normative extraction.
+
+The frozen phase2k contract corrects three existing boundaries without a public API
+or durable schema change: initial enhanced-auth failures use failed CONNACK before
+acceptance; multiple UNSUBSCRIBE filters observe preceding removals; the codec
+requires AuthenticationMethod on every AUTH while Transport checks its negotiated
+value. Whole-request syntax validation precedes unsubscribe mutation, preserving
+atomic rejection. Existing worker transactions, schema7, IDs, outbox, clock, alias
+and authenticated-owner state remain the integration boundaries. Failure-first
+regressions and independent TCP tests validate the corrections.

@@ -1,0 +1,958 @@
+{
+  "reviewer": "unnumbered-independent",
+  "source_commit": "fc9c950",
+  "verification": [
+    "cargo test --offline -p mqtt-protocol -p mqtt-session -p mqtt-auth -p mqtt-router: 57/151/20/21 passed",
+    "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
+    "Five focused existing raw-wire methods passed on immutable candidate: duplicate properties, invalid/duplicate aliases, zero/duplicate MPS and ClientID lengths1..23; review repeats excluded from530 wire total."
+  ],
+  "clauses": [
+    {
+      "id": "U-1.5.4-9af9517981ff",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/codec.rs:valid_utf8"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+      ],
+      "note": "Lexical validator rejects NUL/noncharacters but permits other control-code ranges; receiver rejection of disallowed points is optional. An explicit codepoint-set acceptance/rejection policy and committed matrix is absent, so this is not a mandatory UTF-8 failure assertion."
+    },
+    {
+      "id": "U-2.2.2.2-808be0207bdd",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/wire.rs:Reader"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected"
+      ],
+      "note": "Unknown/misplaced identifiers and truncated typed fields are rejected as Malformed; actual focused wire property-error method also passed. Complete property-ID/type/context cross-product coverage remains missing."
+    },
+    {
+      "id": "U-2.4-e30c3f2f8f2f",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-2.4-eedd70418e26",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-3.1.2.10-1cb7ed8401d2",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "External client PINGRESP timeout recommendation; broker receives PINGREQ and returns PINGRESP but is not the client endpoint being assessed."
+    },
+    {
+      "id": "U-3.1.2.11.2-2a7c8122ba88",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "tests/mqtt5_blackbox.py:test_duplicate_zero_wrong_context_and_unknown_properties_fail"
+      ],
+      "note": "Actual raw CONNECT duplicate SessionExpiryInterval is refused and connection closes; generic singleton parsing rejects repeated ID17 before session mutation. Exact method independently passed on final candidate."
+    },
+    {
+      "id": "U-3.1.2.11.3-c6a14039a7b9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "tests/mqtt5_blackbox.py:test_duplicate_zero_wrong_context_and_unknown_properties_fail"
+      ],
+      "note": "Exact zero and repeated ReceiveMaximum CONNECT fixtures are exercised in symmetric codec tests and independently rerun raw TCP test; typed two-byte read and singleton validation were inspected."
+    },
+    {
+      "id": "U-3.1.2.11.4-7ff968510d7e",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "tests/negotiation_blackbox.py:test_zero_duplicate_and_wrong_context_remain_protocol_errors"
+      ],
+      "note": "Actual zero and duplicate MaximumPacketSize CONNECT fixtures are refused with failure CONNACK and EOF; independent focused final-candidate method passed."
+    },
+    {
+      "id": "U-3.1.2.11.5-b407e60d7d59",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.2.11.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.2.11.6-4ea20974caed",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.2.11.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.2.11.7-c780a5b3c739",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.2.11.7 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.2.11.7-fc239606c5f3",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Optional permission, not an additional mandatory capability. The current broker does not claim the optional response/redirection policy described here; this classification is not counted as a passed test."
+    },
+    {
+      "id": "U-3.1.2.11.9-902579498cf4",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.2.11.9 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.2.11.10-70ef643a854e",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.2.11.10 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.3.1-8b8543f54ad7",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:validate_client"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_1_3_5_alphanumeric_client_ids_one_through_23_bytes"
+      ],
+      "note": "Exact committed wire loop accepts alphanumeric lengths1..23 with successful control traffic and graceful close on the final candidate; current byte-preserving ClientID validator inspected."
+    },
+    {
+      "id": "U-3.1.3.1-a843fdd096b3",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Optional permission to accept identifiers beyond the mandatory minimum. The current byte-preserving validator allows longer/other valid identifiers, but the permission adds no additional MUST obligation and is not counted as a passed test."
+    },
+    {
+      "id": "U-3.1.3.2.2-a9110cd668d6",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.3.2.2 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.3.2.3-66862b5ebc79",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_delivery_properties"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "PFI value/property preservation is implemented, but the broker does not inspect arbitrary payload UTF-8. The specification permits server payload validation rather than mandating it; exact origin/forwarded-Will interpretation and explicit invalid-PFI1 payload policy tests remain open, not asserted as a confirmed MUST defect."
+    },
+    {
+      "id": "U-3.1.3.2.3-4edcb931e96e",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.3.2.3 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.3.2.4-6a3b53c42780",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.3.2.4 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.3.2.5-0b9fb803dbb9",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.3.2.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.3.2.6-03ac6e643c71",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.3.2.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.3.2.7-47216b3ac0a6",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.1.3.2.7 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.1.4-e19cef55e75d",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Permission to multiplex protocol versions on one endpoint, not a requirement to support more versions. The broker negotiates3.1.1/5 on TCP; actual version behavior is assessed under dedicated numbered and mixed-version cases."
+    },
+    {
+      "id": "U-3.1.4-6cd927e67e84",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/live_tests.rs:handshake_timeout_and_connection_capacity"
+      ],
+      "note": "Transport realTCP test exercises an idle initial connection closing at configured handshake timeout, independently passed in the75-test Transport run."
+    },
+    {
+      "id": "U-3.2-422429c78f4e",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "External client CONNACK waiting recommendation; not a server timer obligation."
+    },
+    {
+      "id": "U-3.2.2.2-e30c3f2f8f2f",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-3.2.2.2-eedd70418e26",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-3.2.2.2-692726813b8b",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/reason.rs:valid_reason",
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions"
+      ],
+      "note": "Body normative statement exists despite malformed printed label. Codec rejects an illegal CONNACK reason and server constructors use legal values, but exhaustive actual runtime reason-context cases remain missing; aligns with MQTT-3.2.2-8 source-anomaly row."
+    },
+    {
+      "id": "U-3.2.2.3.2-2a7c8122ba88",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.2 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.3-c6a14039a7b9",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.3 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.4-a3e2357d7ca8",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.4 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.5-8a6440e79984",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.6-7ff968510d7e",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.7-00d10e468e15",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.7 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.8-b407e60d7d59",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.8 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.9-49f948215c2e",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client diagnostic ReasonString parsing recommendation; this broker is the server endpoint."
+    },
+    {
+      "id": "U-3.2.2.3.10-c29abe07b28c",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Receiving client permission to ignore CONNACK UserProperty; not a broker requirement."
+    },
+    {
+      "id": "U-3.2.2.3.11-3f02217816bc",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.11 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.11-9df3317e4a02",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [],
+      "note": "Conditional rejection when wildcard subscriptions are unsupported. This broker supports the capability and does not expose a disable switch; any future capability-disable configuration needs its own refusal-path audit."
+    },
+    {
+      "id": "U-3.2.2.3.11-0b0c32871349",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Optional permission, not an additional mandatory capability. The current broker does not claim the optional response/redirection policy described here; this classification is not counted as a passed test."
+    },
+    {
+      "id": "U-3.2.2.3.12-4100241fc514",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.12 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.12-ed629b1387ce",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [],
+      "note": "Conditional rejection when Subscription Identifiers are unsupported. This broker supports the capability and does not expose a disable switch; any future capability-disable configuration needs its own refusal-path audit."
+    },
+    {
+      "id": "U-3.2.2.3.13-eca9b0773ec8",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.13 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.13-284c1d97b12b",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [],
+      "note": "Conditional rejection when Shared Subscriptions are unsupported. This broker supports the capability and does not expose a disable switch; any future capability-disable configuration needs its own refusal-path audit."
+    },
+    {
+      "id": "U-3.2.2.3.15-761042abe664",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.15 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.15-90e73bdb1669",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_1_2_28_29_problem_and_response_information_choices"
+      ],
+      "note": "ResponseInformation is deliberately omitted for request values0 and1; this is a permitted optional facility. Actual TCP test asserts omission and completes subsequent control/publication traffic, independently passed."
+    },
+    {
+      "id": "U-3.2.2.3.16-5305eac542c8",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.16 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.17-53e750055bb5",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.17 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.2.2.3.18-317102d3229b",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.2.2.3.18 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.3.1.3-eb055d053591",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/retention.rs:publish_from"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2c_tests.rs:retained_updates_delete_and_replay_flags_are_independent_of_sessions"
+      ],
+      "note": "Existing deterministic test replaces retained data with an actual QoS0 publication, verifies stored payload and later independent lifecycle/deletion behavior. Source shares retained store across accepted QoS values; Session151 rerun passed."
+    },
+    {
+      "id": "U-3.3.2.1-3ad7f9d0c4db",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/aliases.rs:normalize"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_zero_over_limit_unbound_and_empty_without_alias"
+      ],
+      "note": "Final-candidate actual TCP fixture sends empty Topic without alias and receives82+EOF; positive alias syntax and invalid lexical cases also run in Protocol57."
+    },
+    {
+      "id": "U-3.3.2.3.2-d089a3edde54",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_delivery_properties"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+      ],
+      "note": "PFI value/property preservation is implemented, but the broker does not inspect arbitrary payload UTF-8. The specification permits server payload validation rather than mandating it; exact origin/forwarded-Will interpretation and explicit invalid-PFI1 payload policy tests remain open, not asserted as a confirmed MUST defect."
+    },
+    {
+      "id": "U-3.3.2.3.4-9c68182b1133",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_duplicate_and_wrong_context_preserve_reason_validation"
+      ],
+      "note": "Final-candidate actual duplicate TopicAlias PUBLISH receives82+EOF; forbidden Will/SUBSCRIBE alias contexts also exercised. Shared singleton guard has only the documented repeatable IDs as exceptions."
+    },
+    {
+      "id": "U-3.3.2.3.6-47216b3ac0a6",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.3.2.3.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.3.2.3.8-285c17c6f78d",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/tests.rs:phase2h_all_valid_options_preserve_identifier_varint_boundaries",
+        "crates/mqtt-protocol/src/v5/tests.rs:phase2h_repeated_publish_identifiers_preserve_multiplicity_and_user_order"
+      ],
+      "note": "Codec exercises positive boundary identifiers, invalid0/overflow and repeated publication identifiers. Relative order is retained but no ordering significance is imposed by the broker; Protocol57 independently passed."
+    },
+    {
+      "id": "U-3.3.2.3.9-a9c3b8cd52b8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "tests/mqtt5_blackbox.py:test_duplicate_zero_wrong_context_and_unknown_properties_fail"
+      ],
+      "note": "Exact duplicate ContentType PUBLISH is exercised in symmetric codec validation and independently rerun actual TCP error fixture. Application-defined content strings are preserved, not interpreted by routing."
+    },
+    {
+      "id": "U-3.3.4-87c971f647e2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:normalize"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_zero_over_limit_unbound_and_empty_without_alias"
+      ],
+      "note": "Actual zero, above-advertised and unbound alias cases receive94+EOF on final candidate; configured advertised bound and canonical input map inspected."
+    },
+    {
+      "id": "U-3.3.4-c632732fd36b",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:normalize"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_zero_over_limit_unbound_and_empty_without_alias"
+      ],
+      "note": "Actual empty Topic without alias receives82+EOF; distinguish zero/out-of-range/unbound alias94 cases in the same independently rerun method."
+    },
+    {
+      "id": "U-3.4.2.1-223ad472404e",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Optional alternative NoMatchingSubscribers reason. The current accepted-publication path returns Success; this paragraph does not require the alternative optimization and is not counted as a successful test."
+    },
+    {
+      "id": "U-3.5.2.1-223ad472404e",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Optional alternative NoMatchingSubscribers reason. The current accepted-publication path returns Success; this paragraph does not require the alternative optimization and is not counted as a successful test."
+    },
+    {
+      "id": "U-3.5.2.2.2-d48486ddb1c1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+      ],
+      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+    },
+    {
+      "id": "U-3.6.2.2.2-d48486ddb1c1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+      ],
+      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+    },
+    {
+      "id": "U-3.7.2.2.2-9ef163f0f102",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+      ],
+      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+    },
+    {
+      "id": "U-3.8.2.1.2-90f9f6ef49d9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/tests.rs:phase2h_all_valid_options_preserve_identifier_varint_boundaries"
+      ],
+      "note": "Exact duplicate SUBSCRIBE identifier fixture is rejected; common numeric guard rejects zero/overflow and boundary values round-trip. These codec branches were inspected and Protocol57 passed; this does not certify recipient fanout by itself."
+    },
+    {
+      "id": "U-3.8.3.1-f2cdca8f11c0",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:subscription_options_and_topic_alias_syntax",
+        "crates/mqtt-protocol/src/v5/tests.rs:reserved_subscription_bits_are_malformed_but_option_values_are_protocol_errors"
+      ],
+      "note": "Explicit MaximumQoS3/RetainHandling3 encode/decode fixtures distinguish ProtocolError82 from reserved-bit Malformed81; both exact option tests independently passed in Protocol57."
+    },
+    {
+      "id": "U-3.8.3.1-41625ee01066",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:subscription_options_and_topic_alias_syntax",
+        "crates/mqtt-protocol/src/v5/tests.rs:reserved_subscription_bits_are_malformed_but_option_values_are_protocol_errors"
+      ],
+      "note": "Explicit MaximumQoS3/RetainHandling3 encode/decode fixtures distinguish ProtocolError82 from reserved-bit Malformed81; both exact option tests independently passed in Protocol57."
+    },
+    {
+      "id": "U-3.9.2.1.2-49f948215c2e",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client diagnostic ReasonString parsing recommendation for SUBACK; server-side encoding/size requirements are assessed separately."
+    },
+    {
+      "id": "U-3.11.2.1.2-49f948215c2e",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client diagnostic ReasonString parsing recommendation for UNSUBACK; not a broker receiver obligation."
+    },
+    {
+      "id": "U-3.14-7dbd4deef86d",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection",
+        "crates/mqtt-session/src/durable/lifecycle.rs:disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:nonzero_disconnect_reason_fires_will_while_normal_zero_cancels",
+        "crates/mqtt-transport/src/durable/network.rs:terminal_finishes_current_frame_then_discards_queue_and_unwritten_ack_credit"
+      ],
+      "note": "Actual network tests verify normal0 suppresses Will/nonzero triggers Will and terminal writer completes the current frame then discards queued data; these cases independently passed in Transport75. Initial-auth ordering is covered by K1 separately."
+    },
+    {
+      "id": "U-3.14.2.1-e30c3f2f8f2f",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-3.14.2.1-eedd70418e26",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-3.14.2.2.2-2a7c8122ba88",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.14.2.2.2 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.14.2.2.3-166eda9725e0",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+      ],
+      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+    },
+    {
+      "id": "U-3.14.2.2.5-5305eac542c8",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.14.2.2.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.15-f315807fae94",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:auth_requires_method_even_when_reason_and_properties_are_omitted",
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:initial_plain_direct_challenge_cancel_and_sequence",
+        "crates/mqtt-transport/src/durable/enhanced/tests.rs:stale_generation_and_missing_method_cannot_reauthenticate"
+      ],
+      "note": "K3 enforces AUTH method presence while connection manager rejects missing/changed/unnegotiated method. Exact codec/manager positive and negative cases independently passed, including stale generation guard."
+    },
+    {
+      "id": "U-3.15.2.2.3-e318b8fe0ec4",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:validate",
+        "crates/mqtt-protocol/src/properties.rs:read"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+      ],
+      "note": "Section3.15.2.2.3 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+    },
+    {
+      "id": "U-3.15.2.2.4-166eda9725e0",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+      ],
+      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+    },
+    {
+      "id": "U-4.2-7ae3da4cdd1f",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/server.rs:serve"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id"
+      ],
+      "note": "Broker exposes Tokio TCP byte streams and exact incremental framing; actual TCP handshake/control/reauth tests passed. TCP is the chosen ordered transport; no TLS/WebSocket claim."
+    },
+    {
+      "id": "U-4.7.3-bd9cb090bad8",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:route",
+        "crates/mqtt-session/src/durable/authorization.rs:require_access"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2d_tests.rs:subscribe_partial_denial_and_retained_receive_checks_are_independent",
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_group_and_ordinary_copies_are_independent"
+      ],
+      "note": "Dynamic topic/trie matching and per-owner ACL filtering inspected, with ordinary/shared/retained cases passing. This broad explanatory paragraph is not a proof of the complete application-message matching/order space; preserve a bounded routing evidence gap."
+    },
+    {
+      "id": "U-4.11-18bf2d99126c",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Optional permission, not an additional mandatory capability. The current broker does not claim the optional response/redirection policy described here; this classification is not counted as a passed test."
+    },
+    {
+      "id": "U-4.11-cea8b85512a3",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client temporary redirection behavior. Server redirection facility is absent and is not claimed."
+    },
+    {
+      "id": "U-4.11-932912712418",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Client permanent redirection behavior. Server redirection facility is absent and is not claimed."
+    },
+    {
+      "id": "U-4.12-8367dd1558b0",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-auth/src/policy.rs:StaticPolicy",
+        "crates/mqtt-transport/src/durable.rs:run_commands"
+      ],
+      "tests": [
+        "crates/mqtt-auth/src/policy/tests.rs:authenticate_and_authorize_each_resource_kind",
+        "crates/mqtt-transport/src/auth_tests.rs:default_anonymous_policy_refuses_supplied_credentials"
+      ],
+      "note": "Without enhanced method, existing CONNECT credentials are passed to configured access policy on blocking worker; configured Argon2/ACL and anonymous credential handling tests independently passed. This does not assert TLS authentication support."
+    },
+    {
+      "id": "U-4.13.1-4812ad8c5d63",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
+    },
+    {
+      "id": "U-4.13.1-792926fb657f",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
+    },
+    {
+      "id": "U-4.13.1-fade3fa107d1",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
+    },
+    {
+      "id": "U-4.13.1-7006e5698d0d",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-4.13.1-d9b967129233",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Terminology/table label candidate, not an additional executable obligation. Legal reason/error behavior is audited under the corresponding numbered clauses and packet-context tests."
+    },
+    {
+      "id": "U-4.13.1-9284ee78cc70",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "This paragraph explicitly describes errors detected by the Client; broker server error duties are audited separately."
+    },
+    {
+      "id": "U-4.13.2-ca8e1ca1ad37",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
+    }
+  ]
+}

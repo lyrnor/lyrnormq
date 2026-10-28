@@ -4,7 +4,8 @@
   "verification": [
     "cargo test --offline -p mqtt-protocol: 57 passed",
     "cargo fmt --all -- --check: passed",
-    "cargo clippy --offline -p mqtt-protocol --all-targets -- -D warnings: passed"
+    "cargo clippy --offline -p mqtt-protocol --all-targets -- -D warnings: passed",
+    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes."
   ],
   "clauses": [
     {
@@ -647,42 +648,47 @@
     },
     {
       "id": "MQTT-3.9.3-2",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/reason.rs:valid_reason",
         "crates/mqtt-protocol/src/v5.rs:decode_frame",
         "crates/mqtt-protocol/src/v5.rs:encode_frame"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions"
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement"
       ],
-      "note": "Legal wire reason values are tested; one code per original request filter is a session/runtime obligation, not established by codec-only evidence."
+      "note": "Coordinator post-integration reconciliation combines codec reason validation with actual Session response generation: three requested entries, three ordered legal result codes and packet ID55; sequential replacement is asserted."
     },
     {
       "id": "MQTT-3.11.3-2",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/reason.rs:valid_reason",
         "crates/mqtt-protocol/src/v5.rs:decode_frame",
         "crates/mqtt-protocol/src/v5.rs:encode_frame"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions"
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "tests/conformance_blackbox.py:test_mqtt_3_11_3_1_unsuback_preserves_mixed_filter_order"
       ],
-      "note": "Legal wire reason values are tested; one code per original request filter is a session/runtime obligation, not established by codec-only evidence."
+      "note": "Coordinator post-integration reconciliation combines codec legality with Session and independent ordinary/shared mixed duplicate UNSUBACK: one legal result per requested position, original packet identifier preserved."
     },
     {
       "id": "MQTT-4.12.0-5",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
         "crates/mqtt-protocol/src/v5.rs:decode_frame",
         "crates/mqtt-protocol/src/v5.rs:encode_frame"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:auth_requires_method_even_when_reason_and_properties_are_omitted"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:auth_requires_method_even_when_reason_and_properties_are_omitted",
+        "tests/enhanced_auth_blackbox.py:accepted",
+        "tests/enhanced_auth_blackbox.py:auth_reply",
+        "tests/enhanced_auth_blackbox.py:test_initial_wrong_reason_missing_changed_method_fail"
       ],
-      "note": "K3 fixed a confirmed codec gap: AUTH now always carries its method, including formerly accepted shorthand forms. Equality with CONNECT and enhanced success CONNACK context still require Transport evidence."
+      "note": "Coordinator post-integration reconciliation combines strict AUTH method presence with exact PLAIN assertions on every tested challenge/success CONNACK and runtime rejection of missing/changed method. Codec alone does not establish connection equality."
     },
     {
       "id": "U-3.15.2.2.2-93da298b901a",
@@ -697,5 +703,6 @@
       ],
       "note": "K3 confirmed stateless codec gap fixed after failing regression: all AUTH forms require AuthenticationMethod, including RL0 and Data-only. Connection negotiation equality remains runtime-owned."
     }
-  ]
+  ],
+  "integrated_evidence_commit": "fc9c950"
 }

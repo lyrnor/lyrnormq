@@ -1,0 +1,132 @@
+{
+  "reviewer": "quality",
+  "source_commit": "e00d3c5",
+  "verification": [
+    "RMQTT_BIN=/tmp/rmqtt-p2k-candidate python tests/conformance_blackbox.py: memory17 passed,1 skip; SQLite18 passed",
+    "Same immutable candidate full both-mode regression: 530 actual wire executions and all Paho suites passed",
+    "python tests/check_conformance_matrix.py --root /Volumes/data/rmqtt: passed (before final review merge)"
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.14.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_14_0_1_preauth_errors_use_connack_never_disconnect"
+      ],
+      "note": "Actual wire rejects preauth PING/PUBLISH/SUBSCRIBE/method change with failure CONNACK and EOF; separate timeout, cap, no-takeover/Will and established DISCONNECT cases pass in both modes."
+    },
+    {
+      "id": "MQTT-3.10.4-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_10_4_6_duplicate_ordinary_filters_observe_each_removal"
+      ],
+      "note": "Actual duplicate ordinary and shared filters return sequential outcomes; final missing-filter and mixed-order assertions pass, including SQLite restart."
+    },
+    {
+      "id": "MQTT-3.11.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_11_3_1_unsuback_preserves_mixed_filter_order"
+      ],
+      "note": "Actual mixed missing/ordinary/shared duplicate request receives exactly one response preserving each requested position and packet identifier65535."
+    },
+    {
+      "id": "MQTT-3.11.3-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_10_4_6_duplicate_shared_filters_observe_each_removal"
+      ],
+      "note": "Actual server emitted one legal00/11 result per entry; source emits these two success/no-existing outcomes for accepted filters."
+    },
+    {
+      "id": "MQTT-3.10.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_10_4_3_started_qos1_and_qos2_complete_after_unsubscribe"
+      ],
+      "note": "Actual started QoS1/QoS2 finish after duplicate unsubscribe while later matching publication is not forwarded."
+    },
+    {
+      "id": "MQTT-2.1.3-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_2_1_3_1_invalid_reserved_flags_close_connection"
+      ],
+      "note": "Independent malformed reserved flags for PING/SUBSCRIBE/UNSUBSCRIBE/AUTH receive81 and EOF; full flagbit enumeration is supplied by Protocol clause tests, not this wire subset alone."
+    },
+    {
+      "id": "MQTT-4.13.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_4_13_1_1_server_only_packet_types_from_client_close"
+      ],
+      "note": "Actual established clients sending CONNACK/SUBACK/PINGRESP are closed with82; other malformed-wire and AUTH cases exercise deterministic terminal behavior."
+    },
+    {
+      "id": "MQTT-4.3.2-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_4_3_2_5_reused_qos1_id_is_new_independent_of_dup"
+      ],
+      "note": "After each observed PUBACK, same source ID39 is reused with DUP false/true/false; every source PUBLISH creates a fresh recipient delivery with independent DUP0."
+    },
+    {
+      "id": "MQTT-4.4.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_4_4_0_1_live_pending_delivery_is_not_unsolicited_retransmission"
+      ],
+      "note": "Actual unanswered QoS1 has no unsolicited retry across three live PING/silence windows and resumes on reconnect with original ID and DUP1; existing QoS2 reconnect cases supplement this bounded probe."
+    },
+    {
+      "id": "MQTT-3.1.0-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_1_0_2_second_connect_and_3_2_2_session_present"
+      ],
+      "note": "Actual second CONNECT on an established connection receives82 and EOF; this independently preserves the existing session for later clean reset."
+    },
+    {
+      "id": "MQTT-3.2.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/conformance_blackbox.py:test_mqtt_3_1_0_2_second_connect_and_3_2_2_session_present"
+      ],
+      "note": "Actual new connection has SessionPresent0, surviving unclean reconnect1, CleanStart reset0, with successful followup control traffic."
+    }
+  ]
+}

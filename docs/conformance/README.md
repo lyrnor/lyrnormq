@@ -9,6 +9,7 @@ requirements are assessed explicitly, not silently counted as successful tests.
 
 - `mqtt5-matrix.csv`: one row per inventoried identifier/candidate, with implementation
   symbols, test cases, reviewers, status and the scope/limitation of the evidence.
+- `import_source.py`: reproducible local-HTML inventory import; no network or status inference.
 - `catalogue.json`: source URL/charset/SHA256,252 distinct literal numbered identifiers
   and102 supplementary paragraph candidates with stable content hashes/block offsets.
 - `reviews/*.json`: reviewed observations, source commits and actual verification runs.
@@ -51,6 +52,26 @@ not-applicable rows, aliases and heuristic candidates cannot inflate a pass rate
 Closed defects remain recorded in the fixes table and regression cases even when
 their current rows become verified. See `docs/progress.md` for actual final totals.
 
+## Current screening result
+
+All354 inventoried entries have a first review disposition. This includes252 literal
+numbered entries and102 unnumbered candidates, not354 distinct applicable MUSTs.
+There are954 validated implementation/test references. Scope remains the pinned OS
+source and the recorded scenarios, with no full conformance claim.
+
+| Disposition | Numbered entries | Supplementary candidates | Total |
+| --- | --- | --- | --- |
+| verified within recorded evidence |198|23|221|
+| test-gap / unresolved interpretation |20|41|61|
+| not-applicable / source alias / editorial |34|36|70|
+| SHOULD policy-exception |0|2|2|
+
+Three confirmed implementation mismatches were fixed; none of those remains open.
+The61 evidence gaps still block a full conformance conclusion. A screened candidate
+is not automatically an executable requirement, and screening does not exhaust all
+unnumbered sentences or property table combinations. Never turn this table into a
+compliance percentage.
+
 ## Confirmed defects corrected in Phase2k
 
 | Finding | Evidence and result | Source commit |
@@ -66,6 +87,7 @@ SQLite/outbox and aliases were reused. `lib.rs` stays declarations/reexports onl
 ## Keeping the matrix reviewable
 
 ```sh
+python3 docs/conformance/import_source.py /path/to/mqtt-v5.0-os.html --check
 python3 docs/conformance/build_matrix.py
 python3 docs/conformance/build_matrix.py --check
 python3 tests/check_conformance_matrix.py
@@ -80,8 +102,8 @@ staleness offline; it does not substitute for reviewing the normative meaning.
 
 ## Remaining acceptance work
 
-Prioritize unreviewed numbered obligations, then missing independent assertions and
-the unnumbered/table sweep. Explicit open interpretations include mixed-RAP overlap
+The current catalogue is screened. Prioritize the remaining explicit test gaps and
+unresolved interpretations, then the exhaustive unnumbered/table sweep. Explicit open interpretations include mixed-RAP overlap
 and adversarial/interleaved ordering. Shared QoS1 redistribution after selected-session
 termination remains a documented SHOULD exception, not seamless group redelivery.
 Secure transport is absent; PLAIN is not encryption. Additional SASL mechanisms,

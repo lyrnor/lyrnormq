@@ -44,7 +44,10 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 
 ## Next single-node features
 
-1. Complete broader MQTT3.1.1 conformance/rejection-code/client-ID edge cases and
+1. Use the [MQTT5 clause/evidence matrix](conformance/README.md) to drive normative
+   acceptance: resolve explicit test gaps, policy exceptions and unnumbered/table
+   review before any full conformance claim. Complete broader MQTT3.1.1
+   conformance/rejection-code/client-ID edge cases and
    client interoperability before claiming full conformance. Authentication/ACL
    is implemented and verified in Phase2d.
 2. Extend the accepted MQTT5 foundation under new semantic contracts:
@@ -312,3 +315,54 @@ An independent actual-wire regression caught illegal reauth DISCONNECT reason86;
 owner fix99f4ea5 plus absolute-auth-deadline reason87 was failure-first tested and
 revalidated before acceptance. See progress.md for source commits, environment,
 artifact digest, actual old-schema6 executable upgrade and explicit limitations.
+
+
+## Completed Phase2k first audit and corrections
+
+```mermaid
+graph LR
+  Source[Official OS source digest and clause inventory] --> Audits[Isolated Protocol Session Transport audits]
+  Audits --> Contract[Frozen K1 K2 K3 corrections]
+  Contract --> Fixes[Owned failure-first fixes]
+  Fixes --> QA[Independent real TCP and legacy both-mode regression]
+  Audits --> Matrix[Explicit per-clause statuses and evidence]
+  Matrix --> Guard[Offline reference and staleness gate]
+  QA --> Review[Independent normative review and integration]
+  Guard --> Review
+```
+
+Implemented corrections: pre-acceptance server terminal packet context, sequential
+multi-filter UNSUBSCRIBE, and AUTH method presence at public encode/decode boundary.
+Additional tests close QoS1 ID reuse, DUP independence, no live unsolicited retry,
+ClientID length, second CONNECT, SUBACK order and persistent duplicate-UNSUB cases.
+No schema or public API change; schema7/outbox/clock/alias state reused.
+
+Next acceptance order (not a feature-name backlog):
+
+1. Packet identifier uniqueness/reuse and request-response association across every
+   control type (`MQTT-2.2.1-3/4/5/6`), including interruption/recovery and wrong stages.
+2. Version/protocol-name refusal context and invalid ClientID reason/EOF
+   (`MQTT-3.1.2-1/2`, `3.1.3-8`); distinguish optional refusal behavior from MUST gaps.
+3. Complete invalid-reserved-bit wire termination matrix for the remaining packet
+   types; codec enumeration alone does not certify the connection lifecycle.
+4. Mixed RAP overlap (`MQTT-3.3.1-12/13`), adversarial/interleaved ordering
+   (`4.6.0-5/6`) and non-normalized Unicode equality (`4.7.3-4`). Resolve interpretation
+   before changing the existing documented policy.
+5. Exhaustive unnumbered/property-table/direction/context sweep. The candidate
+   inventory is heuristic; screening it does not prove every table constraint.
+6. Decide whether to replace the shared QoS1 session-owned SHOULD exception with a
+   group-owned redelivery transaction, and separately address secure transport.
+
+Keep missing evidence distinct from confirmed implementation defects. A MUST may
+never be waived as a policy exception. Every newly confirmed defect needs its own
+failure-first regression, frozen correction and owner review. Exact status counts,
+actual test results and source hashes belong to progress.md and the generated CSV.
+
+
+Phase2k final disposition:354 inventoried entries screened,221 evidence-verified,
+61 test gaps,70 not-applicable/editorial/aliases and2 SHOULD policy exceptions.
+All252 literal numbered entries have a review decision. The102 supplementary
+candidates do not exhaust every normative sentence/table value. Three confirmed
+code mismatches were corrected; Rust348, wire530 and all Paho regressions pass.
+Remaining evidence/interpretation rows, rather than feature availability, drive
+subsequent acceptance. Full conformance remains unclaimed.
