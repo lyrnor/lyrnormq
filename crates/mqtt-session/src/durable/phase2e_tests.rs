@@ -461,14 +461,14 @@ fn unsupported_properties_subscription_options_and_unknown_ack_reasons_are_expli
     assert!(matches!(s.handle_frame("a",p),Err(EngineError::Mqtt5(code)) if code.value()==0x83));
     let mut sub = frame(Packet::Subscribe {
         packet_id: 1,
-        filters: vec![("data".into(), 1), ("$share/g/data".into(), 1)],
+        filters: vec![("data".into(), 1)],
     });
-    sub.subscription_options = vec![5, 1];
+    sub.subscription_options = vec![5];
     assert_eq!(
         s.handle_frame("a", sub).unwrap()[0].packet,
         Packet::SubAck {
             packet_id: 1,
-            codes: vec![0x83, 0x9e]
+            codes: vec![0x83]
         }
     );
     assert_eq!(
@@ -572,5 +572,255 @@ fn early_pubrec_after_reconnect_does_not_duplicate_automatic_pubrel() {
         }
     );
     assert_eq!(id(&next(&mut s, "a")), id(&first));
+    assert!(s.poll_frame_with_changes("a").unwrap().frame.is_none());
+}
+
+fn sized_state(limit: usize) -> SessionEngine {
+    SessionEngine::new_with_clock(
+        SessionConfig {
+            max_packet_size: limit,
+            ..config()
+        },
+        Arc::new(Open),
+        Arc::new(TestClock::default()),
+    )
+    .unwrap()
+}
+fn seed_large_legacy(s: &mut SessionEngine, payload: usize, pending: bool) {
+    s.connect("p", true).unwrap();
+    if pending {
+        s.connect_with_will(
+            "a",
+            false,
+            Some(mqtt_protocol::Will {
+                topic: "status".into(),
+                payload: b"old-will".to_vec(),
+                qos: 1,
+                retain: false,
+            }),
+        )
+        .unwrap();
+    } else {
+        s.connect("a", false).unwrap();
+    }
+    s.handle(
+        "a",
+        Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("a".into(), 1)],
+        },
+    )
+    .unwrap();
+    if !pending {
+        s.disconnect("a").unwrap();
+    }
+    s.handle("p", publication("a", &vec![42; payload], 1, 10, false))
+        .unwrap();
+    if pending {
+        s.poll("a").unwrap().unwrap();
+    }
+}
+#[test]
+fn bridge_resume_size_boundaries_preserve_legacy_and_allow_drain_or_clean_reset() {
+    for (limit, payload, v5_size) in [(64, 57, 65), (128, 121, 129), (129, 122, 131)] {
+        let packet = publication("a", &vec![42; payload], 1, 1, false);
+        assert_eq!(encode(&packet).unwrap().len(), limit);
+        assert_eq!(encode_frame(&frame(packet)).unwrap().len(), v5_size);
+        for pending in [false, true] {
+            let mut s = sized_state(limit);
+            seed_large_legacy(&mut s, payload, pending);
+            let before = s.snapshot().unwrap();
+            // Real legacy schema3 remains valid even if a future5 envelope cannot fit.
+            let legacy = legacy_schema3(serde_json::from_slice(&before).unwrap());
+            let mut restored = SessionEngine::restore_with_clock(
+                SessionConfig {
+                    max_packet_size: limit,
+                    ..config()
+                },
+                &serde_json::to_vec(&legacy).unwrap(),
+                Arc::new(Open),
+                Arc::new(TestClock::default()),
+            )
+            .unwrap();
+            restored.recover_wills().unwrap();
+            let restored_before = restored.snapshot().unwrap();
+            assert!(
+                matches!(restored.connect_with_options("a",None,Principal::anonymous(),options(false,u32::MAX,8)),Err(EngineError::Mqtt5(code)) if code.value()==0x83)
+            );
+            assert_eq!(restored.snapshot().unwrap(), restored_before);
+            assert!(restored.connect("a", false).unwrap().session_present);
+            assert_eq!(
+                encode(&restored.poll("a").unwrap().unwrap()).unwrap().len(),
+                limit
+            );
+            assert!(matches!(
+                s.connect_with_options(
+                    "a",
+                    None,
+                    Principal {
+                        name: "intruder".into()
+                    },
+                    options(false, u32::MAX, 8)
+                ),
+                Err(EngineError::NotAuthorized)
+            ));
+            assert!(
+                matches!(s.connect_with_options("a",None,Principal::anonymous(),options(false,u32::MAX,8)),Err(EngineError::Mqtt5(code)) if code.value()==0x83),
+                "limit={limit}, pending={pending}"
+            );
+            assert_eq!(s.snapshot().unwrap(), before);
+            assert_eq!(s.sessions["a"].online, pending);
+            assert!(s.connect("a", false).unwrap().session_present);
+            let delivery = s.poll("a").unwrap().unwrap();
+            assert_eq!(encode(&delivery).unwrap().len(), limit);
+            let Packet::Publish {
+                packet_id: Some(packet_id),
+                dup,
+                ..
+            } = delivery
+            else {
+                panic!("publish required")
+            };
+            assert_eq!(dup, pending);
+            s.handle("a", Packet::PubAck { packet_id }).unwrap();
+            s.disconnect("a").unwrap();
+            assert!(connect(&mut s, "a", false, u32::MAX, 8));
+            assert!(s.poll_frame_with_changes("a").unwrap().frame.is_none());
+            let mut s = sized_state(limit);
+            seed_large_legacy(&mut s, payload, pending);
+            assert!(!connect(&mut s, "a", true, u32::MAX, 8));
+            assert!(s.poll_frame_with_changes("a").unwrap().frame.is_none());
+        }
+    }
+}
+#[test]
+fn bridge_live_size_preflight_happens_before_any_recipient_queue_or_source_ack() {
+    let mut s = sized_state(64);
+    s.connect("p", true).unwrap();
+    s.connect("a", false).unwrap();
+    s.handle(
+        "a",
+        Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![("a".into(), 1)],
+        },
+    )
+    .unwrap();
+    connect(&mut s, "b", true, u32::MAX, 8);
+    subscribe(&mut s, "b", "a", 1);
+    let before = s.snapshot().unwrap();
+    let mut proposal = s.clone();
+    assert!(matches!(
+        proposal.handle("p", publication("a", &[42; 57], 1, 10, true)),
+        Err(EngineError::Capacity)
+    ));
+    assert!(proposal.sessions["a"].queued.is_empty());
+    assert!(proposal.sessions["b"].queued.is_empty());
+    assert_eq!(s.snapshot().unwrap(), before);
+}
+#[test]
+fn bridge_retained_replay_size_preflight_does_not_install_subscription() {
+    let mut s = sized_state(64);
+    s.connect("p", true).unwrap();
+    s.handle("p", publication("a", &[42; 57], 1, 10, true))
+        .unwrap();
+    connect(&mut s, "r", true, u32::MAX, 8);
+    let before = s.snapshot().unwrap();
+    let mut proposal = s.clone();
+    assert!(matches!(
+        proposal.handle_frame(
+            "r",
+            frame(Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("a".into(), 1)]
+            })
+        ),
+        Err(EngineError::Capacity)
+    ));
+    assert!(proposal.sessions["r"].subscriptions.is_empty());
+    assert!(proposal.sessions["r"].queued.is_empty());
+    assert_eq!(s.snapshot().unwrap(), before);
+}
+#[test]
+fn bridge_final_poll_guard_preserves_queue_id_and_replay_cursor_on_overflow() {
+    for pending in [false, true] {
+        let mut s = sized_state(64);
+        seed_large_legacy(&mut s, 57, pending);
+        s.connect("a", false).unwrap();
+        s.sessions.get_mut("a").unwrap().version = ProtocolVersion::V5;
+        let before = s.snapshot().unwrap();
+        let queued = s.sessions["a"].queued.len();
+        let replay = s.sessions["a"].replay.clone();
+        let count = s.sessions["a"].outgoing.inflight_count();
+        assert!(matches!(
+            s.poll_frame_with_changes("a"),
+            Err(EngineError::Capacity)
+        ));
+        assert_eq!(s.snapshot().unwrap(), before);
+        assert_eq!(s.sessions["a"].queued.len(), queued);
+        assert_eq!(s.sessions["a"].replay, replay);
+        assert_eq!(s.sessions["a"].outgoing.inflight_count(), count);
+        assert!(s.sessions["a"].sent.is_empty());
+    }
+}
+
+#[test]
+fn advertised_unsupported_subscription_features_close_before_any_filter_install() {
+    let (mut s, _) = state();
+    s.connect("p", true).unwrap();
+    s.handle("p", publication("data", b"retained", 1, 10, true))
+        .unwrap();
+    connect(&mut s, "a", true, u32::MAX, 8);
+    for subscription_id in [false, true] {
+        let before = s.snapshot().unwrap();
+        let mut request = frame(Packet::Subscribe {
+            packet_id: 1,
+            filters: vec![
+                ("data".into(), 1),
+                (
+                    (if subscription_id {
+                        "other"
+                    } else {
+                        "$share/g/data"
+                    })
+                    .into(),
+                    1,
+                ),
+            ],
+        });
+        if subscription_id {
+            request.properties.push(Property::SubscriptionIdentifier(1));
+        }
+        let expected = if subscription_id { 0xa1 } else { 0x9e };
+        assert!(
+            matches!(s.handle_frame("a",request),Err(EngineError::Mqtt5(code)) if code.value()==expected)
+        );
+        assert_eq!(s.snapshot().unwrap(), before);
+        assert!(s.sessions["a"].subscriptions.is_empty());
+        assert!(s.sessions["a"].queued.is_empty());
+    }
+}
+
+#[test]
+fn bridge_expired_offline_data_does_not_block_new_version_admission() {
+    let clock = Arc::new(TestClock::default());
+    let mut s = SessionEngine::new_with_clock(
+        SessionConfig {
+            max_packet_size: 64,
+            ..config()
+        },
+        Arc::new(Open),
+        clock.clone(),
+    )
+    .unwrap();
+    s.connect("p", true).unwrap();
+    connect(&mut s, "a", true, 1, 8);
+    subscribe(&mut s, "a", "a", 1);
+    s.disconnect("a").unwrap();
+    s.handle("p", publication("a", &[42; 57], 1, 10, false))
+        .unwrap();
+    assert_eq!(s.sessions["a"].queued.len(), 1);
+    clock.set(1000);
+    assert!(!connect(&mut s, "a", false, 1, 8));
     assert!(s.poll_frame_with_changes("a").unwrap().frame.is_none());
 }

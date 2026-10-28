@@ -32,7 +32,53 @@ fn wrap(version: ProtocolVersion, packet: Packet, properties: Properties) -> Fra
         frame
     }
 }
+/// Preflight the complete recipient envelope, including both variable integers.
+pub(super) fn check_delivery_size(
+    limit: usize,
+    version: ProtocolVersion,
+    packet: &Packet,
+    properties: &Properties,
+) -> Result<(), EngineError> {
+    let frame = wrap(version, packet.clone(), properties.clone());
+    let bytes = encode_frame(&frame).map_err(|error| invalid_record(error.to_string()))?;
+    if bytes.len() > limit {
+        return Err(EngineError::Capacity);
+    }
+    Ok(())
+}
 impl SessionEngine {
+    pub(super) fn check_resume_size(
+        &self,
+        session: &Session,
+        version: ProtocolVersion,
+    ) -> Result<(), EngineError> {
+        for message in &session.queued {
+            check_delivery_size(
+                self.config.max_packet_size,
+                version,
+                &message.packet((message.qos != 0).then_some(1), false),
+                &message.properties,
+            )?;
+        }
+        for (id, state) in &session.outgoing.pending {
+            if let OutgoingState::AwaitingAck { _message }
+            | OutgoingState::AwaitingReceipt { _message } = state
+            {
+                let packet = decode_publish(_message, self.config.max_packet_size)?;
+                check_delivery_size(
+                    self.config.max_packet_size,
+                    version,
+                    &packet,
+                    &session
+                        .outgoing_properties
+                        .get(id)
+                        .cloned()
+                        .unwrap_or_default(),
+                )?;
+            }
+        }
+        Ok(())
+    }
     /// Only properties whose delivery semantics are implemented may enter records.
     pub(super) fn validate_properties(
         &self,
@@ -97,6 +143,17 @@ impl SessionEngine {
                     .properties
                     .iter()
                     .any(|p| matches!(p, Property::SubscriptionIdentifier(_)));
+                // CONNACK advertises both capabilities as unavailable. Their use
+                // is a connection error, never a partial subscription grant.
+                if identifier_unsupported {
+                    return Err(mqtt5_error(0xa1));
+                }
+                if filters
+                    .iter()
+                    .any(|(filter, _)| filter.starts_with("$share/"))
+                {
+                    return Err(mqtt5_error(0x9e));
+                }
                 let mut codes = Vec::with_capacity(filters.len());
                 for (index, (filter, qos)) in filters.into_iter().enumerate() {
                     let option = frame
@@ -108,11 +165,7 @@ impl SessionEngine {
                         .sessions
                         .get(client_id)
                         .ok_or(EngineError::UnknownSession)?;
-                    let denied = if identifier_unsupported {
-                        Some(0xa1)
-                    } else if filter.starts_with("$share/") {
-                        Some(0x9e)
-                    } else if option & 0x3c != 0 {
+                    let denied = if option & 0x3c != 0 {
                         Some(0x83)
                     } else if !validate_filter(&filter) {
                         Some(0x8f)
@@ -279,9 +332,9 @@ impl SessionEngine {
             })
         };
         if let Some(position) = position {
-            let id = session
+            let id = *session
                 .replay
-                .remove(position)
+                .get(position)
                 .ok_or_else(|| invalid_record("replay position disappeared"))?;
             let packet = match session.outgoing.pending.get(&id) {
                 Some(OutgoingState::Released) => Packet::PubRel {
@@ -294,7 +347,6 @@ impl SessionEngine {
                         *packet_id = Some(id.get());
                         *dup = true;
                     }
-                    session.sent.insert(id);
                     packet
                 }
                 None => return Err(invalid_record("replay references absent exchange")),
@@ -304,6 +356,16 @@ impl SessionEngine {
                 .get(&id)
                 .cloned()
                 .unwrap_or_default();
+            check_delivery_size(
+                self.config.max_packet_size,
+                session.version,
+                &packet,
+                &properties,
+            )?;
+            session.replay.remove(position);
+            if matches!(packet, Packet::Publish { .. }) {
+                session.sent.insert(id);
+            }
             return Ok(FramePollOutcome {
                 frame: Some(wrap(session.version, packet, properties)),
                 changed: true,
@@ -315,12 +377,22 @@ impl SessionEngine {
                 changed,
             });
         }
-        let Some(message) = session.queued.pop_front() else {
+        let Some(message) = session.queued.front() else {
             return Ok(FramePollOutcome {
                 frame: None,
                 changed,
             });
         };
+        check_delivery_size(
+            self.config.max_packet_size,
+            session.version,
+            &message.packet((message.qos != 0).then_some(1), false),
+            &message.properties,
+        )?;
+        let message = session
+            .queued
+            .pop_front()
+            .ok_or_else(|| invalid_record("queue disappeared"))?;
         let id = if message.qos == 0 {
             None
         } else {

@@ -123,6 +123,15 @@ impl SessionEngine {
             self.validate_will(client_id, will)?;
             self.require_access(&principal, Action::Publish, &will.topic)?;
         }
+        if !options.clean_start
+            && let Some(session) = self.sessions.get(client_id)
+            && session.persistent
+        {
+            match self.check_resume_size(session, options.version) {
+                Err(EngineError::Capacity) => return Err(super::mqtt5::mqtt5_error(0x83)),
+                result => result?,
+            }
+        }
         if self
             .sessions
             .get(client_id)

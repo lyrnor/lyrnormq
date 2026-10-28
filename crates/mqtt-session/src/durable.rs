@@ -613,7 +613,45 @@ impl SessionEngine {
                 }
             }
         }
-        for (index, grant) in router.matching_qos(&message.topic) {
+        let matches = router.matching_qos(&message.topic);
+        // A later recipient's version must not discover an oversized envelope
+        // after earlier recipients have already had copies appended.
+        for &(index, grant) in &matches {
+            let client = clients
+                .get(index as usize)
+                .ok_or_else(|| invalid_record("router returned absent client"))?;
+            let target = self
+                .sessions
+                .get(client)
+                .ok_or(EngineError::UnknownSession)?;
+            if !self
+                .access
+                .authorize(&target.owner, Action::Receive, &message.topic)
+            {
+                continue;
+            }
+            let qos = message.qos.min(grant);
+            if !target.online && qos == 0 {
+                continue;
+            }
+            if target.queued.len() >= self.config.max_queued {
+                return Err(EngineError::Capacity);
+            }
+            if target.online {
+                let packet = Message {
+                    qos,
+                    ..message.clone()
+                }
+                .packet((qos != 0).then_some(1), false);
+                mqtt5::check_delivery_size(
+                    self.config.max_packet_size,
+                    target.version,
+                    &packet,
+                    &message.properties,
+                )?;
+            }
+        }
+        for (index, grant) in matches {
             let client = clients
                 .get(index as usize)
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
@@ -697,8 +735,36 @@ impl SessionEngine {
                         codes.push(128);
                         continue;
                     }
+                    let retained_matches = self.retained.matching(&filter, qos);
+                    for retained in &retained_matches {
+                        if !self.access.authorize(&owner, Action::Connect, client_id)
+                            || !self
+                                .access
+                                .authorize(&owner, Action::Receive, &retained.topic)
+                        {
+                            continue;
+                        }
+                        let properties = self
+                            .retained_properties
+                            .get(&retained.topic)
+                            .cloned()
+                            .unwrap_or_default();
+                        let message = Message {
+                            topic: retained.topic.clone(),
+                            payload: retained.payload.clone(),
+                            qos: retained.qos,
+                            retain: true,
+                            properties,
+                        };
+                        mqtt5::check_delivery_size(
+                            self.config.max_packet_size,
+                            session.version,
+                            &message.packet((retained.qos != 0).then_some(1), false),
+                            &message.properties,
+                        )?;
+                    }
                     session.subscriptions.insert(filter.clone(), qos);
-                    for retained in self.retained.matching(&filter, qos) {
+                    for retained in retained_matches {
                         if !self.access.authorize(&owner, Action::Connect, client_id)
                             || !self
                                 .access
