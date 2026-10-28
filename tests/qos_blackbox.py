@@ -174,6 +174,18 @@ class QoSBlackbox(unittest.TestCase):
             self.assertEqual(receive(pub), (0x40, b'\0\x2d'))
             self.assertEqual(parse_publish(receive(sub))[:3], ('qos1-dup', b'valid duplicate', 0))
 
+    def test_incoming_window_disconnects_new_id_without_acknowledgement(self):
+        pub = self.client('incoming-window-full')
+        for packet_id in range(1, 33):
+            pub.sendall(publish('incoming-window', b'pending', 2, packet_id))
+            self.assertEqual(receive(pub), (0x50, struct.pack('!H', packet_id)))
+        # A retransmission does not consume a second slot, even at full capacity.
+        pub.sendall(publish('incoming-window', b'ignored duplicate', 2, 1, dup=True))
+        self.assertEqual(receive(pub), (0x50, b'\0\x01'))
+        pub.sendall(publish('incoming-window', b'rejected', 2, 33))
+        # Reading even one byte would expose an erroneous PUBREC before disconnect.
+        self.closed(pub)
+
     def test_outgoing_window_waits_for_final_ack_and_preserves_ids(self):
         sub = self.client('window-sub')
         pub = self.client('window-pub')
