@@ -1,4 +1,5 @@
 //! Versioned socket IO; all business mutations remain on the shared worker.
+use super::aliases::{InboundAliases, OutboundAliases};
 use super::{Operation, Reply, Worker, WorkerFailure, failure};
 use crate::BrokerConfig;
 use mqtt_protocol::{
@@ -227,6 +228,7 @@ async fn write_frame(
 struct WriterLimits {
     config: BrokerConfig,
     peer_maximum: Arc<AtomicUsize>,
+    peer_alias_maximum: Arc<AtomicUsize>,
 }
 fn spawn_writer(
     mut writer: OwnedWriteHalf,
@@ -240,7 +242,9 @@ fn spawn_writer(
     let WriterLimits {
         config,
         peer_maximum,
+        peer_alias_maximum,
     } = limits;
+    let mut aliases = OutboundAliases::new(config.topic_alias_maximum);
     tokio::spawn(async move {
         let result = async {
             loop {
@@ -262,7 +266,9 @@ fn spawn_writer(
                         let Some(message)=prepared? else{continue;};
                         // No select/cancellation inside a frame: terminal output may only
                         // follow a completed frame, never bytes from a partial PUBLISH.
-                        write_frame(&mut writer,&message.frame,&config,peer_maximum.load(Ordering::Acquire)).await?;
+                        let prepared = aliases.prepare(message.frame, peer_alias_maximum.load(Ordering::Acquire) as u16, config.max_packet_size.min(peer_maximum.load(Ordering::Acquire)))?;
+                        write_frame(&mut writer,&prepared.frame,&config,peer_maximum.load(Ordering::Acquire)).await?;
+                        aliases.commit(prepared.binding);
                         if let Some(ticket)=message.completion {locked(&credits)?.complete(ticket);}
                         if let Some(written)=message.written {let _=written.send(());}
                     }
@@ -294,6 +300,7 @@ pub(super) fn connack(
         frame.properties = vec![
             Property::ReceiveMaximum(config.max_inflight.min(u16::MAX as usize) as u16),
             Property::MaximumPacketSize(config.max_packet_size.min(u32::MAX as usize) as u32),
+            Property::TopicAliasMaximum(config.topic_alias_maximum),
             Property::SharedSubscriptionAvailable(0),
             Property::SubscriptionIdentifierAvailable(1),
         ];
@@ -327,6 +334,7 @@ struct Context<'a> {
     terminal: &'a watch::Sender<Option<Frame>>,
     credits: &'a SharedCredits,
     peer_maximum: &'a Arc<AtomicUsize>,
+    peer_alias_maximum: &'a Arc<AtomicUsize>,
     wake_tx: watch::Sender<u64>,
     wake: watch::Receiver<u64>,
     cancel_tx: watch::Sender<bool>,
@@ -357,6 +365,7 @@ pub(super) async fn connection_loop(
     let credits = Arc::new(Mutex::new(Credits::new(config.max_inflight)));
     let failed = Arc::new(AtomicBool::new(false));
     let peer_maximum = Arc::new(AtomicUsize::new(usize::MAX));
+    let peer_alias_maximum = Arc::new(AtomicUsize::new(0));
     let writer = spawn_writer(
         writer,
         receiver,
@@ -365,6 +374,7 @@ pub(super) async fn connection_loop(
         WriterLimits {
             config: config.clone(),
             peer_maximum: peer_maximum.clone(),
+            peer_alias_maximum: peer_alias_maximum.clone(),
         },
         cancel_tx.clone(),
         failed.clone(),
@@ -385,6 +395,7 @@ pub(super) async fn connection_loop(
             terminal: &terminal,
             credits: &credits,
             peer_maximum: &peer_maximum,
+            peer_alias_maximum: &peer_alias_maximum,
             wake_tx,
             wake,
             cancel_tx,
@@ -464,6 +475,7 @@ pub(super) fn test_writer(
             WriterLimits {
                 config,
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+                peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
             },
             cancel,
             Arc::new(AtomicBool::new(false)),
@@ -507,6 +519,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
     let mut expires = Some(Instant::now() + context.config.handshake_timeout);
     let mut keepalive = None;
     let mut pending: Option<Delivery> = None;
+    let mut aliases = InboundAliases::new(context.config.topic_alias_maximum);
     let mut needs_poll = false;
     loop {
         if *context.shutdown.borrow() {
@@ -567,7 +580,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                 return Err(failure(protocol_reason(&error), error.to_string()));
             }
         };
-        if let Some((frame, consumed)) = decoded {
+        if let Some((mut frame, consumed)) = decoded {
             buffer.drain(..consumed);
             let received = Instant::now();
             if !*context.connected {
@@ -595,6 +608,20 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                 context
                     .peer_maximum
                     .store(peer_limit.unwrap_or(u32::MAX) as usize, Ordering::Release);
+                let peer_alias_maximum = frame
+                    .properties
+                    .iter()
+                    .find_map(|property| {
+                        if let Property::TopicAliasMaximum(value) = property {
+                            Some(*value)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0);
+                context
+                    .peer_alias_maximum
+                    .store(usize::from(peer_alias_maximum), Ordering::Release);
                 *context.version = Some(version);
                 let response = context
                     .worker
@@ -665,6 +692,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                     Some(Duration::from_millis(u64::from(keep_alive) * 1500))
                 };
             } else {
+                aliases.normalize(&mut frame, context.config.max_packet_size)?;
                 let client = context
                     .identity
                     .as_ref()
@@ -800,14 +828,15 @@ mod tests {
                 .properties
                 .contains(&Property::MaximumPacketSize(1_048_576))
         );
-        assert_eq!(encode_frame(&frame).unwrap().len(), 17);
+        assert!(frame.properties.contains(&Property::TopicAliasMaximum(32)));
+        assert_eq!(encode_frame(&frame).unwrap().len(), 20);
         let assigned = accepted_connack(
             ProtocolVersion::V5,
             false,
             &config,
             Some("r0123456789abcdef012345"),
         );
-        assert_eq!(encode_frame(&assigned).unwrap().len(), 43);
+        assert_eq!(encode_frame(&assigned).unwrap().len(), 46);
         assert!(
             accepted_connack(ProtocolVersion::V311, false, &config, None)
                 .properties
@@ -902,6 +931,7 @@ mod tests {
             WriterLimits {
                 config,
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+                peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
             },
             cancel,
             Arc::new(AtomicBool::new(false)),
@@ -952,6 +982,7 @@ mod tests {
             WriterLimits {
                 config,
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+                peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
             },
             cancel,
             Arc::new(AtomicBool::new(false)),
@@ -1546,6 +1577,7 @@ mod tests {
             WriterLimits {
                 config: config.clone(),
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
+                peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
             },
             cancel,
             Arc::new(AtomicBool::new(false)),
@@ -1786,5 +1818,218 @@ mod tests {
             Reply::DeliveryPolled(None)
         ));
         super::super::tests::stop(worker, task).await;
+    }
+    fn alias_publish(topic: &str, payload: &[u8], qos: u8, alias: Option<u16>) -> Frame {
+        let mut frame = Frame::v5(Packet::Publish {
+            topic: topic.into(),
+            payload: payload.to_vec(),
+            qos,
+            packet_id: (qos > 0).then_some(7),
+            dup: false,
+            retain: false,
+        });
+        if let Some(alias) = alias {
+            frame.properties.push(Property::TopicAlias(alias));
+        }
+        frame
+    }
+    async fn subscribe_alias_test(client: &mut tokio::net::TcpStream, filter: &str, qos: u8) {
+        client
+            .write_all(
+                &encode_frame(&Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![(filter.into(), qos)],
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(client).await.packet,
+            Packet::SubAck { .. }
+        ));
+    }
+    #[tokio::test]
+    async fn topic_alias_qos2_binding_changes_do_not_replace_original_exchange() {
+        let (mut client, stop, task) = server(BrokerConfig::default()).await;
+        subscribe_alias_test(&mut client, "alias/#", 2).await;
+        let original = alias_publish("alias/original", b"original", 2, Some(1));
+        client
+            .write_all(&encode_frame(&original).unwrap())
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(&mut client).await.packet,
+            Packet::PubRec { packet_id: 7 }
+        ));
+        client
+            .write_all(
+                &encode_frame(&alias_publish("alias/rebound", b"later", 0, Some(1))).unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            matches!(received(&mut client).await.packet,Packet::Publish{topic,payload,..} if topic=="alias/rebound" && payload==b"later")
+        );
+        let mut duplicate = alias_publish("", b"must-not-replace", 2, Some(1));
+        if let Packet::Publish { dup, .. } = &mut duplicate.packet {
+            *dup = true;
+        }
+        client
+            .write_all(&encode_frame(&duplicate).unwrap())
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(&mut client).await.packet,
+            Packet::PubRec { packet_id: 7 }
+        ));
+        client
+            .write_all(&encode_frame(&Frame::v5(Packet::PubRel { packet_id: 7 })).unwrap())
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(&mut client).await.packet,
+            Packet::PubComp { packet_id: 7 }
+        ));
+        let delivered = received(&mut client).await;
+        assert!(
+            !delivered
+                .properties
+                .iter()
+                .any(|p| matches!(p, Property::TopicAlias(_)))
+        );
+        let Packet::Publish {
+            topic,
+            payload,
+            packet_id: Some(id),
+            ..
+        } = delivered.packet
+        else {
+            panic!("expected original publish")
+        };
+        assert_eq!(topic, "alias/original");
+        assert_eq!(payload, b"original");
+        client
+            .write_all(&encode_frame(&Frame::v5(Packet::PubRec { packet_id: id })).unwrap())
+            .await
+            .unwrap();
+        assert!(
+            matches!(received(&mut client).await.packet,Packet::PubRel{packet_id} if packet_id==id)
+        );
+        client
+            .write_all(&encode_frame(&Frame::v5(Packet::PubComp { packet_id: id })).unwrap())
+            .await
+            .unwrap();
+        client
+            .write_all(&encode_frame(&alias_publish("", b"reference", 0, Some(1))).unwrap())
+            .await
+            .unwrap();
+        assert!(
+            matches!(received(&mut client).await.packet,Packet::Publish{topic,..} if topic=="alias/rebound")
+        );
+        client
+            .write_all(&encode_frame(&alias_publish("", b"unknown", 0, Some(2))).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            received(&mut client).await.reason_code,
+            ReasonCode::TOPIC_ALIAS_INVALID
+        );
+        stop.send_replace(true);
+        task.await.unwrap().unwrap();
+    }
+    #[tokio::test]
+    async fn topic_alias_writer_binds_reuses_replaces_and_keeps_input_map_independent() {
+        let (address, stop, task) = super::super::live_tests::broker(BrokerConfig {
+            topic_alias_maximum: 1,
+            ..BrokerConfig::default()
+        })
+        .await;
+        let mut client = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut connect = connect_frame();
+        connect.properties.push(Property::TopicAliasMaximum(1));
+        client
+            .write_all(&encode_frame(&connect).unwrap())
+            .await
+            .unwrap();
+        assert!(
+            received(&mut client)
+                .await
+                .properties
+                .contains(&Property::TopicAliasMaximum(1))
+        );
+        subscribe_alias_test(&mut client, "alias/#", 0).await;
+        for (topic, expected) in [
+            ("alias/first", "alias/first"),
+            ("alias/first", ""),
+            ("alias/second", "alias/second"),
+            ("alias/first", "alias/first"),
+        ] {
+            client
+                .write_all(&encode_frame(&alias_publish(topic, b"data", 0, None)).unwrap())
+                .await
+                .unwrap();
+            let frame = received(&mut client).await;
+            assert!(frame.properties.contains(&Property::TopicAlias(1)));
+            assert!(matches!(frame.packet,Packet::Publish{topic,..} if topic==expected));
+        }
+        client
+            .write_all(
+                &encode_frame(&alias_publish("", b"input-map-is-empty", 0, Some(1))).unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            received(&mut client).await.reason_code,
+            ReasonCode::TOPIC_ALIAS_INVALID
+        );
+        stop.send_replace(true);
+        task.await.unwrap().unwrap();
+    }
+    #[tokio::test]
+    async fn topic_alias_binding_cap_fallback_does_not_create_unsent_mapping() {
+        let canonical = alias_publish("alias/long/topic", &[b'x'; 40], 0, None);
+        let cap = encode_frame(&canonical).unwrap().len();
+        let (address, stop, task) = super::super::live_tests::broker(BrokerConfig::default()).await;
+        let mut client = tokio::net::TcpStream::connect(address).await.unwrap();
+        let mut connect = connect_frame();
+        connect.properties = vec![
+            Property::TopicAliasMaximum(1),
+            Property::MaximumPacketSize(cap as u32),
+        ];
+        client
+            .write_all(&encode_frame(&connect).unwrap())
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(&mut client).await.packet,
+            Packet::ConnAck { code: 0, .. }
+        ));
+        subscribe_alias_test(&mut client, "alias/#", 0).await;
+        for _ in 0..2 {
+            client
+                .write_all(&encode_frame(&canonical).unwrap())
+                .await
+                .unwrap();
+            let frame = received(&mut client).await;
+            assert_eq!(frame, canonical);
+        }
+        let short = alias_publish("alias/long/topic", b"short", 0, None);
+        client
+            .write_all(&encode_frame(&short).unwrap())
+            .await
+            .unwrap();
+        let first = received(&mut client).await;
+        assert!(first.properties.contains(&Property::TopicAlias(1)));
+        assert!(matches!(first.packet,Packet::Publish{topic,..} if !topic.is_empty()));
+        client
+            .write_all(&encode_frame(&short).unwrap())
+            .await
+            .unwrap();
+        let next = received(&mut client).await;
+        assert!(next.properties.contains(&Property::TopicAlias(1)));
+        assert!(matches!(next.packet,Packet::Publish{topic,..} if topic.is_empty()));
+        stop.send_replace(true);
+        task.await.unwrap().unwrap();
     }
 }

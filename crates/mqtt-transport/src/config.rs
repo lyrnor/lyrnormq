@@ -18,6 +18,8 @@ pub struct BrokerConfig {
     pub max_retained: usize,
     pub max_state_bytes: usize,
     pub max_packet_size: usize,
+    /// Advertised inbound Topic Alias maximum and local outbound entry budget.
+    pub topic_alias_maximum: u16,
     pub max_connections: usize,
     pub outbound_capacity: usize,
     pub max_subscriptions: usize,
@@ -36,6 +38,7 @@ impl Default for BrokerConfig {
             max_retained: 10_000,
             max_state_bytes: 64 * 1024 * 1024,
             max_packet_size: 1024 * 1024,
+            topic_alias_maximum: 32,
             max_connections: 1024,
             outbound_capacity: 64,
             max_subscriptions: 256,

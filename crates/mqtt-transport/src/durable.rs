@@ -20,6 +20,7 @@ use tokio::{
     time::MissedTickBehavior,
 };
 
+mod aliases;
 mod network;
 #[cfg(test)]
 use tokio::time::timeout;
