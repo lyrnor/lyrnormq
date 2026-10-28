@@ -483,7 +483,7 @@ fn legacy_schema2_preserves_retained_wills_send_order_and_binds_only_anonymous()
         Some(Packet::PubRel { packet_id: 3 })
     );
     let json = snapshot(&restored);
-    assert_eq!(json["schema_version"], 4);
+    assert_eq!(json["schema_version"], 5);
     assert_eq!(json["retained"][0]["topic"], "retained");
     assert_eq!(json["wills"][0]["owner"], "anonymous");
     for record in json["sessions"].as_array().unwrap() {

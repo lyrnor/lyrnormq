@@ -20,6 +20,7 @@ mod lifecycle;
 mod mqtt5;
 mod records;
 mod retention;
+mod temporal;
 pub use expiry::{Clock, SystemClock};
 pub use mqtt5::{ConnectionOptions, FramePollOutcome};
 use std::{
@@ -119,6 +120,9 @@ struct Session {
     receive_maximum: u16,
     sent: BTreeSet<NonZeroU16>,
     incoming_properties: BTreeMap<NonZeroU16, Properties>,
+    incoming_expiry: BTreeMap<NonZeroU16, u64>,
+    outgoing_expiry: BTreeMap<NonZeroU16, u64>,
+    outgoing_started: BTreeSet<NonZeroU16>,
     outgoing_properties: BTreeMap<NonZeroU16, Properties>,
 }
 impl Session {
@@ -138,6 +142,9 @@ impl Session {
             receive_maximum: u16::MAX,
             sent: BTreeSet::new(),
             incoming_properties: BTreeMap::new(),
+            incoming_expiry: BTreeMap::new(),
+            outgoing_expiry: BTreeMap::new(),
+            outgoing_started: BTreeSet::new(),
             outgoing_properties: BTreeMap::new(),
         }
     }
@@ -147,6 +154,7 @@ pub struct SessionEngine {
     access: Arc<dyn AccessControl>,
     clock: Arc<dyn Clock>,
     retained_properties: BTreeMap<String, Properties>,
+    retained_expiry: BTreeMap<String, u64>,
     config: SessionConfig,
     sessions: BTreeMap<String, Session>,
     retained: RetainedStore,
@@ -217,6 +225,7 @@ impl SessionEngine {
             access,
             clock,
             retained_properties: BTreeMap::new(),
+            retained_expiry: BTreeMap::new(),
             config,
             sessions: BTreeMap::new(),
             retained: RetainedStore::new(config.max_retained, config.max_state_bytes)
@@ -305,7 +314,8 @@ impl SessionEngine {
                     return Err(invalid_record("invalid or duplicate subscription"));
                 }
             }
-            for (id, bytes, properties) in record.incoming {
+            for (id, bytes, properties, expires_at) in record.incoming {
+                temporal::validate_deadline(&properties, expires_at)?;
                 let id = identifier(id)?;
                 let packet = decode_publish(&bytes, config.max_packet_size)?;
                 if legacy && matches!(packet, Packet::Publish { retain: true, .. }) {
@@ -319,6 +329,9 @@ impl SessionEngine {
                 engine.validate_properties(&packet, &properties)?;
                 session.incoming.publish(id, &bytes, false)?;
                 session.incoming_properties.insert(id, properties);
+                if let Some(deadline) = expires_at {
+                    session.incoming_expiry.insert(id, deadline);
+                }
             }
             for record in record.outgoing {
                 let id = identifier(record.packet_id)?;
@@ -334,8 +347,21 @@ impl SessionEngine {
                 {
                     return Err(invalid_record("retained output in legacy schema"));
                 }
-                if matches!(record.stage, Stage::Comp) && !record.properties.is_empty() {
+                if matches!(record.stage, Stage::Comp)
+                    && (!record.properties.is_empty()
+                        || record.expires_at.is_some()
+                        || !record.started)
+                {
                     return Err(invalid_record("properties on released exchange"));
+                }
+                if !matches!(record.stage, Stage::Comp) {
+                    temporal::validate_deadline(&record.properties, record.expires_at)?;
+                }
+                if let Some(deadline) = record.expires_at {
+                    session.outgoing_expiry.insert(id, deadline);
+                }
+                if record.started {
+                    session.outgoing_started.insert(id);
                 }
                 let state = match record.stage {
                     Stage::Ack(message) => {
@@ -382,10 +408,17 @@ impl SessionEngine {
         }
         let mut topics = std::collections::BTreeSet::new();
         for retained in envelope.retained {
+            temporal::validate_deadline(&retained.properties, retained.expires_at)?;
+            if let Some(deadline) = retained.expires_at {
+                engine
+                    .retained_expiry
+                    .insert(retained.topic.clone(), deadline);
+            }
             if retained.payload.is_empty() || !topics.insert(retained.topic.clone()) {
                 return Err(invalid_record("empty or duplicate retained record"));
             }
             engine.validate_message(&Message {
+                expires_at: None,
                 topic: retained.topic.clone(),
                 payload: retained.payload.clone(),
                 qos: retained.qos,
@@ -401,6 +434,9 @@ impl SessionEngine {
                 .map_err(EngineError::Retained)?;
         }
         for record in envelope.wills {
+            if record.pending != record.due_at.is_some() {
+                return Err(invalid_record("inconsistent Will schedule"));
+            }
             Self::validate_owner(&record.owner)?;
             if engine
                 .sessions
@@ -412,6 +448,7 @@ impl SessionEngine {
             engine.validate_will(&record.client_id, &record.will.to_protocol())?;
             engine.validate_properties(
                 &Message {
+                    expires_at: None,
                     topic: record.will.topic.clone(),
                     payload: record.will.payload.clone(),
                     qos: record.will.qos,
@@ -463,6 +500,7 @@ impl SessionEngine {
         Ok(())
     }
     fn validate_message(&self, message: &Message) -> Result<(), EngineError> {
+        temporal::validate_deadline(&message.properties, message.expires_at)?;
         let id = if message.qos == 0 { None } else { Some(1) };
         self.validate_properties(&message.packet(id, false), &message.properties)?;
         let bytes = encode(&message.packet(id, false))
@@ -492,6 +530,8 @@ impl SessionEngine {
                 };
                 outgoing.push(OutgoingRecord {
                     packet_id: id.get(),
+                    expires_at: session.outgoing_expiry.get(id).copied(),
+                    started: session.outgoing_started.contains(id),
                     stage,
                     properties: session
                         .outgoing_properties
@@ -523,6 +563,7 @@ impl SessionEngine {
                                 .get(id)
                                 .cloned()
                                 .unwrap_or_default(),
+                            session.incoming_expiry.get(id).copied(),
                         )
                     })
                     .collect(),
@@ -531,13 +572,14 @@ impl SessionEngine {
             });
         }
         Ok(Envelope {
-            schema_version: 4,
+            schema_version: 5,
             sessions: records,
             retained: self
                 .retained
                 .entries()
                 .into_iter()
                 .map(|message| RetainedRecord {
+                    expires_at: self.retained_expiry.get(&message.topic).copied(),
                     topic: message.topic.clone(),
                     payload: message.payload,
                     qos: message.qos,
@@ -674,6 +716,7 @@ impl SessionEngine {
                 return Err(EngineError::Capacity);
             }
             target.queued.push_back(Message {
+                expires_at: None,
                 topic: message.topic.clone(),
                 payload: message.payload.clone(),
                 qos,
@@ -751,6 +794,7 @@ impl SessionEngine {
                             .cloned()
                             .unwrap_or_default();
                         let message = Message {
+                            expires_at: None,
                             topic: retained.topic.clone(),
                             payload: retained.payload.clone(),
                             qos: retained.qos,
@@ -777,6 +821,7 @@ impl SessionEngine {
                             return Err(EngineError::Capacity);
                         }
                         session.queued.push_back(Message {
+                            expires_at: None,
                             topic: retained.topic.clone(),
                             payload: retained.payload,
                             qos: retained.qos,
@@ -833,6 +878,7 @@ impl SessionEngine {
                     });
                 } else {
                     self.publish(Message {
+                        expires_at: None,
                         topic,
                         payload,
                         qos,
@@ -874,6 +920,7 @@ impl SessionEngine {
                         return Err(invalid_record("invalid incoming message"));
                     };
                     self.publish(Message {
+                        expires_at: None,
                         topic,
                         payload,
                         qos,
@@ -898,6 +945,7 @@ impl SessionEngine {
                     AckAction::SendPubRel => {
                         session.replay.retain(|pending| pending.get() != id);
                         session.outgoing_properties.remove(&identifier(id)?);
+                        session.outgoing_expiry.remove(&identifier(id)?);
                         replies.push(Packet::PubRel { packet_id: id });
                     }
                     AckAction::Complete => {
@@ -905,6 +953,8 @@ impl SessionEngine {
                         session.replay.retain(|pending| *pending != id);
                         session.sent.remove(&id);
                         session.outgoing_properties.remove(&id);
+                        session.outgoing_expiry.remove(&id);
+                        session.outgoing_started.remove(&id);
                     }
                     AckAction::Ignore => {}
                 }

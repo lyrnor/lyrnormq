@@ -28,7 +28,7 @@ fn wrap(version: ProtocolVersion, packet: Packet, properties: Properties) -> Fra
         Frame::v311(packet)
     } else {
         let mut frame = Frame::v5(packet);
-        frame.properties = properties;
+        frame.properties = super::temporal::remaining_properties(&properties, None, 0);
         frame
     }
 }
@@ -257,6 +257,8 @@ impl SessionEngine {
                 session.replay.retain(|v| *v != id);
                 session.outgoing.identifiers.release(id);
                 session.outgoing_properties.remove(&id);
+                session.outgoing_expiry.remove(&id);
+                session.outgoing_started.remove(&id);
                 session.sent.remove(&id);
                 self.ensure_bounds()?;
                 Ok(Vec::new())
@@ -365,6 +367,7 @@ impl SessionEngine {
             session.replay.remove(position);
             if matches!(packet, Packet::Publish { .. }) {
                 session.sent.insert(id);
+                session.outgoing_started.insert(id);
             }
             return Ok(FramePollOutcome {
                 frame: Some(wrap(session.version, packet, properties)),
@@ -414,6 +417,7 @@ impl SessionEngine {
                 .outgoing_properties
                 .insert(id, message.properties.clone());
             session.sent.insert(id);
+            session.outgoing_started.insert(id);
         }
         let frame = wrap(session.version, packet, message.properties);
         self.ensure_bounds()?;

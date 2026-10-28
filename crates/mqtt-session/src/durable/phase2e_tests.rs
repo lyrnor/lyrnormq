@@ -127,19 +127,26 @@ pub(super) fn legacy_schema3(mut json: serde_json::Value) -> serde_json::Value {
         session.as_object_mut().unwrap().remove("expires_at");
         for incoming in session["incoming"].as_array_mut().unwrap() {
             incoming.as_array_mut().unwrap().pop();
+            incoming.as_array_mut().unwrap().pop();
         }
         for outgoing in session["outgoing"].as_array_mut().unwrap() {
             outgoing.as_object_mut().unwrap().remove("properties");
+            outgoing.as_object_mut().unwrap().remove("expires_at");
+            outgoing.as_object_mut().unwrap().remove("started");
         }
         for queued in session["queued"].as_array_mut().unwrap() {
             queued.as_object_mut().unwrap().remove("properties");
+            queued.as_object_mut().unwrap().remove("expires_at");
         }
     }
     for retained in json["retained"].as_array_mut().unwrap() {
         retained.as_object_mut().unwrap().remove("properties");
+        retained.as_object_mut().unwrap().remove("expires_at");
     }
     for will in json["wills"].as_array_mut().unwrap() {
         will["will"].as_object_mut().unwrap().remove("properties");
+        will.as_object_mut().unwrap().remove("delay_interval");
+        will.as_object_mut().unwrap().remove("due_at");
     }
     json
 }
@@ -516,7 +523,7 @@ fn schema3_migration_and_schema4_property_expiry_corruption_are_strict() {
             .all(|session| session.expiry == u32::MAX)
     );
     let json: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
-    assert_eq!(json["schema_version"], 4);
+    assert_eq!(json["schema_version"], 5);
     for variant in 0..4 {
         let mut corrupt = json.clone();
         match variant {

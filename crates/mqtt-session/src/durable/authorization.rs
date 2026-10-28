@@ -79,6 +79,8 @@ impl SessionEngine {
                 session.replay.retain(|pending| *pending != id);
                 session.outgoing.identifiers.release(id);
                 session.outgoing_properties.remove(&id);
+                session.outgoing_expiry.remove(&id);
+                session.outgoing_started.remove(&id);
                 session.sent.remove(&id);
                 changed = true;
             }

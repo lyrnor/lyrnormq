@@ -421,7 +421,7 @@ fn schema1_migrates_explicitly_and_schema2_globals_are_required_and_validated() 
     restored.connect("sub", false).unwrap();
     check(&restored.poll("sub").unwrap().unwrap(), b"legacy", 1, false);
     let json: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
-    assert_eq!(json["schema_version"], 4);
+    assert_eq!(json["schema_version"], 5);
     for field in ["retained", "wills"] {
         let mut bad = json.clone();
         bad.as_object_mut().unwrap().remove(field);

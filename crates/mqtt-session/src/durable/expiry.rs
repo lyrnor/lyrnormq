@@ -25,6 +25,7 @@ impl SessionEngine {
             .values()
             .filter(|s| !s.online)
             .filter_map(|s| s.expires_at)
+            .chain(self.next_will_deadline())
             .min()
     }
     /// Retained values and pending Will intents are independent of session expiry.
@@ -32,7 +33,7 @@ impl SessionEngine {
         let now = self.clock.now_millis();
         let before = self.sessions.len();
         self.sessions.retain(|_, session| {
-            session.online || session.expires_at.is_none_or(|deadline| deadline > now)
+            session.online || !super::temporal::is_expired(session.expires_at, now)
         });
         let changed = before != self.sessions.len();
         if changed {

@@ -7,6 +7,15 @@ use mqtt_auth::{Action, Principal};
 use mqtt_protocol::{Packet, Property, ProtocolVersion, Will, encode};
 
 impl SessionEngine {
+    /// Earliest scheduled intent that still needs its first timer attempt.
+    pub(super) fn next_will_deadline(&self) -> Option<u64> {
+        self.wills
+            .values()
+            .filter(|will| will.pending && !will.timer_blocked)
+            .filter_map(|will| will.due_at)
+            .min()
+    }
+
     pub(super) fn validate_will(&self, client: &str, will: &Will) -> Result<(), EngineError> {
         let bytes = encode(&Packet::Connect {
             client_id: client.into(),
@@ -21,6 +30,7 @@ impl SessionEngine {
             return Err(EngineError::Capacity);
         }
         self.validate_message(&Message {
+            expires_at: None,
             topic: will.topic.clone(),
             payload: will.payload.clone(),
             qos: will.qos,
@@ -94,6 +104,7 @@ impl SessionEngine {
             let id = if will.qos == 0 { None } else { Some(1) };
             self.validate_properties(
                 &Message {
+                    expires_at: None,
                     topic: will.topic.clone(),
                     payload: will.payload.clone(),
                     qos: will.qos,
@@ -181,6 +192,9 @@ impl SessionEngine {
                     client_id: client_id.into(),
                     owner: principal.name.clone(),
                     pending: false,
+                    timer_blocked: false,
+                    delay_interval: 0,
+                    due_at: None,
                     will: WillData {
                         properties: will_properties,
                         ..WillData::from(will)
@@ -267,6 +281,7 @@ impl SessionEngine {
             }
         } else if let Some(record) = self.wills.get_mut(client_id) {
             record.pending = true;
+            record.due_at = Some(self.clock.now_millis());
         }
         self.retry_wills()?;
         self.ensure_bounds()
@@ -275,6 +290,7 @@ impl SessionEngine {
     pub fn recover_wills(&mut self) -> Result<(), EngineError> {
         for record in self.wills.values_mut() {
             record.pending = true;
+            record.due_at = Some(self.clock.now_millis());
         }
         self.retry_wills()?;
         self.ensure_bounds()
@@ -296,6 +312,7 @@ impl SessionEngine {
                 .remove(&id)
                 .ok_or_else(|| invalid_record("pending Will disappeared"))?;
             let publication = Message {
+                expires_at: None,
                 topic: record.will.topic,
                 payload: record.will.payload,
                 qos: record.will.qos,
@@ -310,8 +327,20 @@ impl SessionEngine {
                     *self = proposal;
                     progressed = true;
                 }
-                Err(EngineError::Capacity) => {}
-                Err(EngineError::Retained(error)) if super::is_retained_capacity(&error) => {}
+                Err(EngineError::Capacity) => {
+                    if let Some(will) = self.wills.get_mut(&id)
+                        && !will.timer_blocked
+                    {
+                        will.timer_blocked = true;
+                    }
+                }
+                Err(EngineError::Retained(error)) if super::is_retained_capacity(&error) => {
+                    if let Some(will) = self.wills.get_mut(&id)
+                        && !will.timer_blocked
+                    {
+                        will.timer_blocked = true;
+                    }
+                }
                 Err(error) => return Err(error),
             }
         }
