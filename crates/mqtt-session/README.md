@@ -1,4 +1,4 @@
-# Clean-session QoS primitives (Phase 2a)
+# MQTT 3.1.1 QoS primitives and durable sessions
 
 The Phase 2a transport uses this crate for live clean-session QoS1/QoS2 exchanges.
 Transport now delegates incoming QoS2 ownership and outgoing QoS1/QoS2 ACK
@@ -19,12 +19,14 @@ without affecting repeated PUBREL handling; unknown PUBREL produces no delivery.
 Incoming identifiers are independent of the outgoing allocator. Caller validates
 packets, maintains ordering, sends ACKs, and closes on rejected resource limits.
 
-An eventual persistent runtime must durably accept a PUBLISH before PUBREC. It
-must atomically commit the PUBREL state transition together with onward-delivery
-intent before PUBCOMP. Returning a Vec here is an in-memory action, not a durable
-outbox or application exactly-once guarantee. Caller must process the action
-before accepting another PUBLISH for the same ID. No session expiry, offline
-queue, reconnect, storage recovery or Will is implemented.
+The basic incoming state machine performs no IO. The Phase 2b transport worker
+uses `durable::SessionEngine` and SQLite to commit an accepted PUBLISH before
+PUBREC, and to atomically commit the PUBREL transition with recipient outboxes
+before PUBCOMP. Returning a Vec from the primitive is still an in-memory action;
+callers using it directly must arrange those commits and process the action
+before accepting another PUBLISH for the same ID. Persistent subscriptions,
+offline QoS1/2 queues and reconnect replay are implemented by the durable model
+and transaction worker. MQTT5 session expiry and Will remain unsupported.
 
 Reference: [OASIS MQTT 3.1.1 section 4.3.3](https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html).
 
@@ -54,11 +56,13 @@ stored encoded messages is bounded by window times maximum encoded size, plus
 bounded metadata and the fixed identifier bitmap. QoS2 discards stored PUBLISH
 bytes upon PUBREC, so repeated PUBREC cannot trigger PUBLISH redelivery.
 
-This is volatile clean-session state. There is no retry timer within the current
-connection, durable state/outbox transaction or reconnect retransmission API.
-Persistent-session reconnect behavior (MQTT3.1.1 section 4.4) requires a future
-versioned durable schema and transport integration; this crate makes no crash
-recovery or application exactly-once guarantee.
+The outgoing primitive alone supplies volatile state and no IO or retry timer
+within the current connection. The Phase 2b model snapshots its stages and IDs,
+then restores and replays them on persistent reconnect (MQTT3.1.1 section 4.4).
+The transport worker commits the versioned state/outbox transaction before
+sending its packets. Clean-session state remains volatile. Neither these state
+machines nor the worker establish application-side exactly-once processing or
+physical power-loss validation.
 
 ## Phase 2b durable model
 
@@ -66,7 +70,9 @@ recovery or application exactly-once guarantee.
 allocator. It models persistent subscriptions, offline QoS1/2 queues, restored
 inflight IDs, ordered DUP PUBLISH replay and PUBREL-only replay after PUBREC.
 The schema1 JSON envelope contains only persistent records; online flags and
-replay cursors are runtime-only and all restored sessions start offline.
+replay cursors are runtime-only and all restored sessions start offline. The
+SQLite-enabled transport integrates this model for durable session recovery;
+the model itself remains a pure, IO-free component.
 
 Every mutation is a proposal: clone the engine, apply an event, validate and
 serialize with snapshot, commit through the storage worker, then install and
