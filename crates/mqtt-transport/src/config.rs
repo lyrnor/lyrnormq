@@ -21,7 +21,8 @@ pub struct BrokerConfig {
     pub max_connections: usize,
     pub outbound_capacity: usize,
     pub max_subscriptions: usize,
-    /// Independent limits for inbound QoS2 and outbound QoS1/2 exchanges.
+    /// Inbound QoS1/2 Receive Maximum and independent durable QoS windows.
+    /// MQTT5 peer Receive Maximum further limits outbound PUBLISH per connection.
     pub max_inflight: usize,
     pub handshake_timeout: Duration,
     pub write_timeout: Duration,

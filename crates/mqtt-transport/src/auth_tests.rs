@@ -3,6 +3,7 @@ use super::live_tests::{broker, closed, receive, send, stop};
 use super::*;
 use mqtt_auth::{AccessControl, Action, AuthError, ConnectInfo, Principal, covers_filter};
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const SECRET: &[u8] = b"transport-test\0\xff";
 

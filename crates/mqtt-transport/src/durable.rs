@@ -1,27 +1,92 @@
 //! Serialized durable worker: propose, commit, install, then expose packets.
 use crate::BrokerConfig;
 use mqtt_auth::{AuthError, ConnectInfo};
-use mqtt_protocol::{Packet, Password, ProtocolError, Will, decode, encode};
-use mqtt_session::durable::{EngineError, SessionConfig, SessionEngine};
+use mqtt_protocol::{
+    Frame, Packet, Password, Properties, Property, ProtocolVersion, ReasonCode, Will,
+};
+#[cfg(test)]
+use mqtt_protocol::{ProtocolError, decode, encode};
+use mqtt_session::durable::{
+    Clock, ConnectionOptions, EngineError, SessionConfig, SessionEngine, SystemClock,
+};
 use mqtt_storage::durable::SqliteStore;
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{
-        TcpListener, TcpStream,
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-    },
+    net::{TcpListener, TcpStream},
     sync::{Semaphore, mpsc, oneshot, watch},
     task::JoinSet,
-    time::{Instant, timeout},
+    time::MissedTickBehavior,
 };
 
-type ResultReply = Result<Reply, String>;
+mod network;
+#[cfg(test)]
+use tokio::time::timeout;
+
+#[derive(Debug)]
+struct WorkerFailure {
+    reason: ReasonCode,
+    message: String,
+}
+impl std::fmt::Display for WorkerFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+impl std::error::Error for WorkerFailure {}
+fn failure(reason: ReasonCode, message: impl Into<String>) -> io::Error {
+    io::Error::other(WorkerFailure {
+        reason,
+        message: message.into(),
+    })
+}
+fn model_error(error: EngineError) -> io::Error {
+    let reason = match &error {
+        EngineError::Mqtt5(reason) => *reason,
+        EngineError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
+        EngineError::Capacity
+        | EngineError::Retained(mqtt_router::retained::RetainedError::CapacityExceeded) => {
+            ReasonCode::QUOTA_EXCEEDED
+        }
+        EngineError::Qos(mqtt_session::SessionError::InflightFull) => {
+            ReasonCode::RECEIVE_MAXIMUM_EXCEEDED
+        }
+        EngineError::Qos(mqtt_session::SessionError::MessageTooLarge) => {
+            ReasonCode::PACKET_TOO_LARGE
+        }
+        _ => ReasonCode::PROTOCOL_ERROR,
+    };
+    failure(reason, error.to_string())
+}
+type ResultReply = Result<Reply, io::Error>;
 struct Command {
     operation: Operation,
     reply: oneshot::Sender<ResultReply>,
 }
 enum Operation {
+    ConnectFrame {
+        frame: Frame,
+        generation: u64,
+        wake: watch::Sender<u64>,
+        cancel: watch::Sender<bool>,
+        close_reason: watch::Sender<Option<ReasonCode>>,
+    },
+    HandleFrame {
+        client: String,
+        generation: u64,
+        frame: Frame,
+    },
+    PollFrame {
+        client: String,
+        generation: u64,
+    },
+    DisconnectOptions {
+        client: String,
+        generation: u64,
+        graceful: bool,
+        expiry: Option<u32>,
+    },
+    Tick,
+    #[cfg(test)]
     Connect {
         client: String,
         clean: bool,
@@ -32,11 +97,13 @@ enum Operation {
         wake: watch::Sender<u64>,
         cancel: watch::Sender<bool>,
     },
+    #[cfg(test)]
     Handle {
         client: String,
         generation: u64,
         packet: Packet,
     },
+    #[cfg(test)]
     Poll {
         client: String,
         generation: u64,
@@ -69,13 +136,19 @@ impl From<AuthError> for ConnectRefusal {
     }
 }
 enum Reply {
+    FrameRejected(ReasonCode),
+    Frames(Vec<Frame>),
+    FramePolled(Option<Box<Frame>>),
     Connected(bool),
     Rejected(ConnectRefusal),
+    #[cfg(test)]
     Packets(Vec<Packet>),
+    #[cfg(test)]
     Polled(Option<Packet>),
     Done,
 }
 struct Online {
+    close_reason: Option<watch::Sender<Option<ReasonCode>>>,
     generation: u64,
     wake: watch::Sender<u64>,
     cancel: watch::Sender<bool>,
@@ -93,8 +166,7 @@ impl Worker {
             .map_err(|_| io::Error::other("durable worker unavailable"))?;
         receive
             .await
-            .map_err(|_| io::Error::other("durable worker terminated"))?
-            .map_err(io::Error::other)
+            .map_err(|_| failure(ReasonCode::SERVER_UNAVAILABLE, "durable worker terminated"))?
     }
 }
 fn session_config(config: &BrokerConfig) -> SessionConfig {
@@ -119,7 +191,10 @@ fn valid_generation(
     {
         Ok(())
     } else {
-        Err(io::Error::other("connection superseded"))
+        Err(failure(
+            ReasonCode::SESSION_TAKEN_OVER,
+            "connection superseded",
+        ))
     }
 }
 fn notify(online: &HashMap<String, Online>) {
@@ -160,7 +235,8 @@ fn run_worker(
             ),
         }
         .map_err(io::Error::other)?;
-        engine.reconcile_authorization().map_err(io::Error::other)?;
+        engine.expire_sessions().map_err(model_error)?;
+        engine.reconcile_authorization().map_err(model_error)?;
         engine.recover_wills().map_err(io::Error::other)?;
         let snapshot = engine.snapshot().map_err(io::Error::other)?;
         if let Some(store) = &mut store {
@@ -181,6 +257,238 @@ fn run_worker(
     run_commands(commands, config, store, engine, HashMap::new())
 }
 
+struct ConnectRequest {
+    client: String,
+    clean: bool,
+    will: Option<Will>,
+    username: Option<String>,
+    password: Option<Password>,
+    options: ConnectionOptions,
+    properties: Properties,
+    generation: u64,
+    wake: watch::Sender<u64>,
+    cancel: watch::Sender<bool>,
+    close_reason: Option<watch::Sender<Option<ReasonCode>>>,
+}
+enum Request {
+    Connect(ConnectRequest),
+    Handle {
+        client: String,
+        generation: u64,
+        frame: Frame,
+        legacy: bool,
+    },
+    Poll {
+        client: String,
+        generation: u64,
+        legacy: bool,
+    },
+    Disconnect {
+        client: String,
+        generation: u64,
+        graceful: bool,
+        expiry: Option<u32>,
+    },
+    Tick,
+}
+fn normalize(operation: Operation) -> io::Result<Request> {
+    Ok(match operation {
+        #[cfg(test)]
+        Operation::Connect {
+            client,
+            clean,
+            will,
+            username,
+            password,
+            generation,
+            wake,
+            cancel,
+        } => Request::Connect(ConnectRequest {
+            client,
+            clean,
+            will,
+            username,
+            password,
+            generation,
+            wake,
+            cancel,
+            close_reason: None,
+            properties: Vec::new(),
+            options: ConnectionOptions {
+                version: ProtocolVersion::V311,
+                clean_start: clean,
+                session_expiry_interval: if clean { 0 } else { u32::MAX },
+                receive_maximum: u16::MAX,
+                will_properties: Vec::new(),
+            },
+        }),
+        Operation::ConnectFrame {
+            frame,
+            generation,
+            wake,
+            cancel,
+            close_reason,
+        } => {
+            let Packet::Connect {
+                client_id,
+                clean_session,
+                will,
+                username,
+                password,
+                ..
+            } = frame.packet
+            else {
+                return Err(failure(ReasonCode::PROTOCOL_ERROR, "CONNECT required"));
+            };
+            let mut expiry = if frame.version == ProtocolVersion::V311 && !clean_session {
+                u32::MAX
+            } else {
+                0
+            };
+            let mut receive_maximum = u16::MAX;
+            for property in &frame.properties {
+                match property {
+                    Property::SessionExpiryInterval(value) => expiry = *value,
+                    Property::ReceiveMaximum(value) => receive_maximum = *value,
+                    _ => {}
+                }
+            }
+            Request::Connect(ConnectRequest {
+                client: client_id,
+                clean: clean_session,
+                will,
+                username,
+                password,
+                generation,
+                wake,
+                cancel,
+                close_reason: Some(close_reason),
+                properties: frame.properties,
+                options: ConnectionOptions {
+                    version: frame.version,
+                    clean_start: clean_session,
+                    session_expiry_interval: expiry,
+                    receive_maximum,
+                    will_properties: frame.will_properties,
+                },
+            })
+        }
+        #[cfg(test)]
+        Operation::Handle {
+            client,
+            generation,
+            packet,
+        } => Request::Handle {
+            client,
+            generation,
+            frame: Frame::v311(packet),
+            legacy: true,
+        },
+        Operation::HandleFrame {
+            client,
+            generation,
+            frame,
+        } => Request::Handle {
+            client,
+            generation,
+            frame,
+            legacy: false,
+        },
+        #[cfg(test)]
+        Operation::Poll { client, generation } => Request::Poll {
+            client,
+            generation,
+            legacy: true,
+        },
+        Operation::PollFrame { client, generation } => Request::Poll {
+            client,
+            generation,
+            legacy: false,
+        },
+        Operation::Disconnect {
+            client,
+            generation,
+            graceful,
+        } => Request::Disconnect {
+            client,
+            generation,
+            graceful,
+            expiry: None,
+        },
+        Operation::DisconnectOptions {
+            client,
+            generation,
+            graceful,
+            expiry,
+        } => Request::Disconnect {
+            client,
+            generation,
+            graceful,
+            expiry,
+        },
+        Operation::Tick => Request::Tick,
+    })
+}
+fn connect_policy(request: &ConnectRequest, config: &BrokerConfig) -> Option<ReasonCode> {
+    if request.options.version == ProtocolVersion::V311 {
+        return None;
+    }
+    if request.client.is_empty() {
+        return Some(ReasonCode::CLIENT_IDENTIFIER_NOT_VALID);
+    }
+    for property in &request.properties {
+        match property {
+            Property::AuthenticationMethod(_) | Property::AuthenticationData(_) => {
+                return Some(ReasonCode::BAD_AUTHENTICATION_METHOD);
+            }
+            Property::MaximumPacketSize(_) => {
+                return Some(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR);
+            }
+            _ => {}
+        }
+    }
+    for property in &request.options.will_properties {
+        if matches!(property, Property::MessageExpiryInterval(_))
+            || matches!(property,Property::WillDelayInterval(value) if *value!=0)
+        {
+            return Some(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR);
+        }
+    }
+    // Refuse before installing a session when the configured resource cap cannot
+    // carry our mandatory capability CONNACK. Never accept then fail its write.
+    match mqtt_protocol::encode_frame(&network::connack(ProtocolVersion::V5, false, 0, config)) {
+        Ok(bytes) if bytes.len() <= config.max_packet_size => {}
+        _ => return Some(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR),
+    }
+    None
+}
+fn refusal(request: &ConnectRequest, reason: ReasonCode) -> Reply {
+    if request.options.version == ProtocolVersion::V5 {
+        Reply::FrameRejected(reason)
+    } else {
+        Reply::Rejected(if reason == ReasonCode::BAD_USER_NAME_OR_PASSWORD {
+            ConnectRefusal::BadCredentials
+        } else {
+            ConnectRefusal::NotAuthorized
+        })
+    }
+}
+fn frames_reply(frames: Vec<Frame>, legacy: bool) -> Reply {
+    #[cfg(test)]
+    if legacy {
+        return Reply::Packets(frames.into_iter().map(|frame| frame.packet).collect());
+    }
+    let _ = legacy;
+    Reply::Frames(frames)
+}
+fn poll_reply(frame: Option<Frame>, legacy: bool) -> Reply {
+    #[cfg(test)]
+    if legacy {
+        return Reply::Polled(frame.map(|frame| frame.packet));
+    }
+    let _ = legacy;
+    Reply::FramePolled(frame.map(Box::new))
+}
 fn run_commands(
     mut commands: mpsc::Receiver<Command>,
     config: BrokerConfig,
@@ -189,31 +497,44 @@ fn run_commands(
     mut online: HashMap<String, Online>,
 ) -> io::Result<()> {
     while let Some(command) = commands.blocking_recv() {
-        // Reject bad credentials before copying potentially large durable state.
-        // Password borrows and hashing stay on this bounded blocking worker.
-        let mut principal = if let Operation::Connect {
-            client,
-            username,
-            password,
-            ..
-        } = &command.operation
+        let request = match normalize(command.operation) {
+            Ok(request) => request,
+            Err(error) => {
+                let _ = command.reply.send(Err(error));
+                continue;
+            }
+        };
+        if matches!(request, Request::Tick)
+            && !engine
+                .next_expiry_deadline()
+                .is_some_and(|at| at <= SystemClock.now_millis())
         {
+            let _ = command.reply.send(Ok(Reply::Done));
+            continue;
+        }
+        let mut principal = if let Request::Connect(request) = &request {
+            if let Some(reason) = connect_policy(request, &config) {
+                let _ = command.reply.send(Ok(refusal(request, reason)));
+                continue;
+            }
             match config.access_control.authenticate(ConnectInfo {
-                client_id: client,
-                username: username.as_deref(),
-                password: password.as_ref().map(Password::as_bytes),
+                client_id: &request.client,
+                username: request.username.as_deref(),
+                password: request.password.as_ref().map(Password::as_bytes),
             }) {
                 Ok(principal) => Some(principal),
                 Err(error) => {
-                    let _ = command.reply.send(Ok(Reply::Rejected(error.into())));
+                    let reason = match error {
+                        AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
+                        AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
+                    };
+                    let _ = command.reply.send(Ok(refusal(request, reason)));
                     continue;
                 }
             }
         } else {
             None
         };
-        // Every command mutates only a proposed clone. On model/quota errors the
-        // full proposal is discarded; SQL failure additionally stops all service.
         let mut proposal = engine.clone();
         let mut commit_required = true;
         let mut notify_required = false;
@@ -221,76 +542,80 @@ fn run_commands(
         let mut registration = None;
         let mut removal = None;
         let proposed = (|| -> io::Result<Reply> {
-            match command.operation {
-                Operation::Connect {
-                    client,
-                    clean,
-                    will,
-                    username: _,
-                    password: _,
-                    generation,
-                    wake,
-                    cancel,
-                } => {
+            match request {
+                Request::Connect(request) => {
                     let principal = principal
                         .take()
                         .ok_or_else(|| io::Error::other("missing authenticated identity"))?;
-                    let result =
-                        match proposal.connect_authenticated(&client, clean, will, principal) {
-                            Ok(result) => result,
-                            Err(EngineError::NotAuthorized) => {
-                                // A rejected CONNECT cannot commit pruning, Will retry,
-                                // clean reset or cancel an already established client.
-                                commit_required = false;
-                                retry_required = false;
-                                return Ok(Reply::Rejected(ConnectRefusal::NotAuthorized));
-                            }
-                            Err(error) => return Err(io::Error::other(error)),
-                        };
-                    // Security refusal takes precedence over backend capability.
-                    // Any old-Will/reset effects above are only on the proposal;
-                    // rejecting persistence here discards that proposal entirely.
-                    if !clean && config.storage_path.is_none() {
+                    let result = match proposal.connect_with_options(
+                        &request.client,
+                        request.will.clone(),
+                        principal,
+                        request.options.clone(),
+                    ) {
+                        Ok(result) => result,
+                        Err(EngineError::NotAuthorized) => {
+                            commit_required = false;
+                            retry_required = false;
+                            return Ok(refusal(&request, ReasonCode::NOT_AUTHORIZED));
+                        }
+                        Err(EngineError::Mqtt5(reason)) => {
+                            commit_required = false;
+                            retry_required = false;
+                            return Ok(refusal(&request, reason));
+                        }
+                        Err(error) => return Err(model_error(error)),
+                    };
+                    if request.options.version == ProtocolVersion::V311
+                        && !request.clean
+                        && config.storage_path.is_none()
+                    {
                         return Err(io::Error::new(
                             io::ErrorKind::Unsupported,
                             "persistent sessions require --storage-path",
                         ));
                     }
                     registration = Some((
-                        client,
+                        request.client,
                         Online {
-                            generation,
-                            wake,
-                            cancel,
+                            generation: request.generation,
+                            wake: request.wake,
+                            cancel: request.cancel,
+                            close_reason: request.close_reason,
                         },
                     ));
                     notify_required = true;
                     Ok(Reply::Connected(result.session_present))
                 }
-                Operation::Handle {
+                Request::Handle {
                     client,
                     generation,
-                    packet,
+                    frame,
+                    legacy,
                 } => {
                     valid_generation(&online, &client, generation)?;
-                    let replies = proposal.handle(&client, packet).map_err(io::Error::other)?;
+                    let replies = proposal.handle_frame(&client, frame).map_err(model_error)?;
                     notify_required = true;
-                    Ok(Reply::Packets(replies))
+                    Ok(frames_reply(replies, legacy))
                 }
-                Operation::Poll { client, generation } => {
+                Request::Poll {
+                    client,
+                    generation,
+                    legacy,
+                } => {
                     valid_generation(&online, &client, generation)?;
                     let outcome = proposal
-                        .poll_with_changes(&client)
-                        .map_err(io::Error::other)?;
-                    // Revocation can prune state without producing a packet.
+                        .poll_frame_with_changes(&client)
+                        .map_err(model_error)?;
                     commit_required = outcome.changed;
                     notify_required = outcome.changed;
-                    Ok(Reply::Polled(outcome.packet))
+                    Ok(poll_reply(outcome.frame, legacy))
                 }
-                Operation::Disconnect {
+                Request::Disconnect {
                     client,
                     generation,
                     graceful,
+                    expiry,
                 } => {
                     if valid_generation(&online, &client, generation).is_err() {
                         commit_required = false;
@@ -298,21 +623,25 @@ fn run_commands(
                         return Ok(Reply::Done);
                     }
                     proposal
-                        .disconnect_with_reason(&client, graceful)
-                        .map_err(io::Error::other)?;
+                        .disconnect_with_options(&client, graceful, expiry)
+                        .map_err(model_error)?;
                     notify_required = true;
                     removal = Some(client);
+                    Ok(Reply::Done)
+                }
+                Request::Tick => {
+                    commit_required = proposal.expire_sessions().map_err(model_error)?;
+                    notify_required = commit_required;
                     Ok(Reply::Done)
                 }
             }
         })();
         let proposed = proposed.and_then(|reply| {
             if retry_required {
-                let pruned = proposal
-                    .reconcile_authorization()
-                    .map_err(io::Error::other)?;
-                let retried = proposal.retry_wills().map_err(io::Error::other)?;
-                if pruned || retried {
+                let expired = proposal.expire_sessions().map_err(model_error)?;
+                let pruned = proposal.reconcile_authorization().map_err(model_error)?;
+                let retried = proposal.retry_wills().map_err(model_error)?;
+                if expired || pruned || retried {
                     commit_required = true;
                     notify_required = true;
                 }
@@ -320,13 +649,13 @@ fn run_commands(
             Ok(reply)
         });
         let reply = match proposed {
-            Err(error) => Err(error.to_string()),
+            Err(error) => Err(error),
             Ok(reply) => {
                 if commit_required {
                     let bytes = match proposal.snapshot() {
                         Ok(bytes) => bytes,
                         Err(error) => {
-                            let _ = command.reply.send(Err(error.to_string()));
+                            let _ = command.reply.send(Err(model_error(error)));
                             continue;
                         }
                     };
@@ -334,8 +663,14 @@ fn run_commands(
                         && let Err(error) = store.commit(&bytes)
                     {
                         let message = error.to_string();
-                        let _ = command.reply.send(Err(message.clone()));
+                        let _ = command.reply.send(Err(failure(
+                            ReasonCode::SERVER_UNAVAILABLE,
+                            message.clone(),
+                        )));
                         for connection in online.values() {
+                            if let Some(reason) = &connection.close_reason {
+                                let _ = reason.send(Some(ReasonCode::SERVER_UNAVAILABLE));
+                            }
                             let _ = connection.cancel.send(true);
                         }
                         return Err(io::Error::other(message));
@@ -345,6 +680,9 @@ fn run_commands(
                 if let Some((client, connection)) = registration
                     && let Some(previous) = online.insert(client, connection)
                 {
+                    if let Some(reason) = &previous.close_reason {
+                        let _ = reason.send(Some(ReasonCode::SESSION_TAKEN_OVER));
+                    }
                     let _ = previous.cancel.send(true);
                 }
                 if let Some(client) = removal {
@@ -387,6 +725,8 @@ pub(super) async fn serve(
     let mut tasks = JoinSet::new();
     let mut generation = 0u64;
     let mut worker_finished = false;
+    let mut ticks = tokio::time::interval(Duration::from_millis(100));
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let result = loop {
         if *shutdown.borrow() {
             break Ok(());
@@ -399,6 +739,7 @@ pub(super) async fn serve(
                 break match joined { Ok(Err(error)) => Err(error), Err(error) => Err(io::Error::other(error)), Ok(Ok(())) => Err(io::Error::other("durable worker stopped unexpectedly")) };
             }
             Some(joined) = tasks.join_next(), if !tasks.is_empty() => { if let Err(error) = joined { break Err(io::Error::other(error)); } }
+            _ = ticks.tick() => { if let Err(error)=worker.request(Operation::Tick).await {break Err(error);} }
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(value) => value, Err(error) => break Err(error) };
                 let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else { drop(stream); continue; };
@@ -426,20 +767,6 @@ pub(super) async fn serve(
     result
 }
 
-async fn write(
-    writer: &mut OwnedWriteHalf,
-    packet: &Packet,
-    config: &BrokerConfig,
-) -> io::Result<()> {
-    let bytes = encode(packet).map_err(io::Error::other)?;
-    if bytes.len() > config.max_packet_size {
-        return Err(io::Error::other("outgoing packet exceeds limit"));
-    }
-    timeout(config.write_timeout, writer.write_all(&bytes))
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "socket write timed out"))?
-}
-
 async fn connection(
     stream: TcpStream,
     generation: u64,
@@ -448,7 +775,7 @@ async fn connection(
     shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let mut identity = None;
-    let result = connection_loop(
+    let result = network::connection_loop(
         stream,
         generation,
         &worker,
@@ -468,6 +795,7 @@ async fn connection(
     }
     result
 }
+#[cfg(test)]
 fn discard_acknowledged(pending: &mut Option<Packet>, acknowledged: Option<u16>) {
     if let Some(id) = acknowledged {
         let pending_id = match pending.as_ref() {
@@ -477,290 +805,6 @@ fn discard_acknowledged(pending: &mut Option<Packet>, acknowledged: Option<u16>)
         };
         if pending_id == Some(id) {
             *pending = None;
-        }
-    }
-}
-
-async fn connection_loop(
-    stream: TcpStream,
-    generation: u64,
-    worker: &Worker,
-    config: &BrokerConfig,
-    shutdown: watch::Receiver<bool>,
-    identity: &mut Option<String>,
-) -> io::Result<()> {
-    stream.set_nodelay(true)?;
-    let (mut reader, writer) = stream.into_split();
-    let (wake_tx, wake) = watch::channel(0u64);
-    let (cancel_tx, cancel) = watch::channel(false);
-    let (output, outgoing) = mpsc::channel::<Packet>(config.outbound_capacity);
-    let writer_task = spawn_writer(writer, outgoing, config.clone(), cancel_tx.clone());
-    let mut flush_rejection = false;
-    let result = drive_connection(
-        &mut reader,
-        &output,
-        ConnectionContext {
-            generation,
-            worker,
-            config,
-            shutdown,
-            identity,
-            flush_rejection: &mut flush_rejection,
-            wake_tx,
-            wake,
-            cancel_tx,
-            cancel,
-        },
-    )
-    .await;
-    drop(output);
-    finish_writer(writer_task, result, flush_rejection).await
-}
-
-fn spawn_writer(
-    mut writer: OwnedWriteHalf,
-    mut outgoing: mpsc::Receiver<Packet>,
-    config: BrokerConfig,
-    cancel: watch::Sender<bool>,
-) -> tokio::task::JoinHandle<io::Result<()>> {
-    tokio::spawn(async move {
-        while let Some(packet) = outgoing.recv().await {
-            if let Err(error) = write(&mut writer, &packet, &config).await {
-                let _ = cancel.send(true);
-                return Err(error);
-            }
-        }
-        Ok(())
-    })
-}
-
-async fn finish_writer(
-    writer_task: tokio::task::JoinHandle<io::Result<()>>,
-    result: io::Result<()>,
-    flush_rejection: bool,
-) -> io::Result<()> {
-    // A closing connection must not drain an arbitrarily slow queue after
-    // takeover or shutdown. Cancelling a frame is safe because this socket is
-    // closing and that frame will never be restarted on this stream. Durable
-    // unacknowledged exchanges remain in the worker for reconnect replay.
-    if flush_rejection {
-        // Exactly one CONNACK was queued before CONNECT completed.
-        let written = writer_task.await.map_err(io::Error::other)?;
-        result.and(written)
-    } else {
-        writer_task.abort();
-        let _ = writer_task.await;
-        result
-    }
-}
-
-struct ConnectionContext<'a> {
-    generation: u64,
-    worker: &'a Worker,
-    config: &'a BrokerConfig,
-    shutdown: watch::Receiver<bool>,
-    identity: &'a mut Option<String>,
-    flush_rejection: &'a mut bool,
-    wake_tx: watch::Sender<u64>,
-    wake: watch::Receiver<u64>,
-    cancel_tx: watch::Sender<bool>,
-    cancel: watch::Receiver<bool>,
-}
-
-async fn drive_connection(
-    reader: &mut OwnedReadHalf,
-    output: &mpsc::Sender<Packet>,
-    context: ConnectionContext<'_>,
-) -> io::Result<()> {
-    let ConnectionContext {
-        generation,
-        worker,
-        config,
-        mut shutdown,
-        identity,
-        flush_rejection,
-        wake_tx,
-        mut wake,
-        cancel_tx,
-        mut cancel,
-    } = context;
-    let mut connected = false;
-    let mut buffer = Vec::new();
-    let mut scratch = [0u8; 8192];
-    let mut expires = Some(Instant::now() + config.handshake_timeout);
-    let mut keepalive = None;
-    let mut pending = None;
-    let mut needs_poll = false;
-
-    loop {
-        if *shutdown.borrow() || *cancel.borrow() {
-            return Ok(());
-        }
-        if expires.is_some_and(|at| Instant::now() >= at) {
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "MQTT receive deadline exceeded",
-            ));
-        }
-        if let Some((packet, consumed)) = match decode(&buffer, config.max_packet_size) {
-            Ok(value) => value,
-            Err(error) => {
-                if !connected
-                    && matches!(error, ProtocolError::UnsupportedVersion)
-                    && buffer.first() == Some(&0x10)
-                {
-                    output
-                        .send(Packet::ConnAck {
-                            session_present: false,
-                            code: 1,
-                        })
-                        .await
-                        .map_err(io::Error::other)?;
-                    *flush_rejection = true;
-                }
-                return Err(io::Error::other(error));
-            }
-        } {
-            buffer.drain(..consumed);
-            let received = Instant::now();
-            if !connected {
-                let Packet::Connect {
-                    client_id,
-                    clean_session,
-                    keep_alive,
-                    will,
-                    username,
-                    password,
-                } = packet
-                else {
-                    return Err(io::Error::other("CONNECT required first"));
-                };
-                let response = worker
-                    .request(Operation::Connect {
-                        client: client_id.clone(),
-                        clean: clean_session,
-                        will,
-                        username,
-                        password,
-                        generation,
-                        wake: wake_tx.clone(),
-                        cancel: cancel_tx.clone(),
-                    })
-                    .await?;
-                let session_present = match response {
-                    Reply::Connected(present) => present,
-                    Reply::Rejected(reason) => {
-                        output
-                            .send(Packet::ConnAck {
-                                session_present: false,
-                                code: reason.code(),
-                            })
-                            .await
-                            .map_err(io::Error::other)?;
-                        *flush_rejection = true;
-                        return Err(io::Error::new(
-                            io::ErrorKind::PermissionDenied,
-                            "CONNECT refused",
-                        ));
-                    }
-                    _ => return Err(io::Error::other("invalid CONNECT response")),
-                };
-                *identity = Some(client_id);
-                output
-                    .send(Packet::ConnAck {
-                        session_present,
-                        code: 0,
-                    })
-                    .await
-                    .map_err(io::Error::other)?;
-                connected = true;
-                keepalive = if keep_alive == 0 {
-                    None
-                } else {
-                    Some(Duration::from_millis(u64::from(keep_alive) * 1500))
-                };
-            } else {
-                if matches!(packet, Packet::Disconnect) {
-                    let client = identity
-                        .as_ref()
-                        .ok_or_else(|| io::Error::other("missing connection identity"))?
-                        .clone();
-                    let Reply::Done = worker
-                        .request(Operation::Disconnect {
-                            client,
-                            generation,
-                            graceful: true,
-                        })
-                        .await?
-                    else {
-                        return Err(io::Error::other("invalid disconnect response"));
-                    };
-                    *identity = None;
-                    return Ok(());
-                }
-                let client = identity
-                    .as_ref()
-                    .ok_or_else(|| io::Error::other("missing connection identity"))?
-                    .clone();
-                let acknowledged = match &packet {
-                    Packet::PubAck { packet_id }
-                    | Packet::PubRec { packet_id }
-                    | Packet::PubComp { packet_id } => Some(*packet_id),
-                    _ => None,
-                };
-                let Reply::Packets(replies) = worker
-                    .request(Operation::Handle {
-                        client,
-                        generation,
-                        packet,
-                    })
-                    .await?
-                else {
-                    return Err(io::Error::other("invalid packet response"));
-                };
-                discard_acknowledged(&mut pending, acknowledged);
-                for packet in replies {
-                    output.send(packet).await.map_err(io::Error::other)?;
-                }
-            }
-            expires = keepalive.map(|duration| received + duration);
-            needs_poll = true;
-            tokio::task::yield_now().await;
-            continue;
-        }
-        if connected && pending.is_none() && needs_poll {
-            let client = identity
-                .as_ref()
-                .ok_or_else(|| io::Error::other("missing connection identity"))?
-                .clone();
-            let Reply::Polled(packet) = worker
-                .request(Operation::Poll { client, generation })
-                .await?
-            else {
-                return Err(io::Error::other("invalid poll response"));
-            };
-            pending = packet;
-            needs_poll = false;
-        }
-        let remaining = config.max_packet_size.saturating_sub(buffer.len());
-        if remaining == 0 {
-            return Err(io::Error::other("receive buffer limit reached"));
-        }
-        let read_len = remaining.min(scratch.len());
-        tokio::select! {
-            changed = shutdown.changed() => { if changed.is_err() || *shutdown.borrow() { return Ok(()); } }
-            _ = cancel.changed() => return Ok(()),
-            _ = crate::packet_io::deadline(expires) => return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded")),
-            _ = wake.changed(), if connected => { needs_poll = true; }
-            permit = output.reserve(), if pending.is_some() => {
-                permit.map_err(io::Error::other)?.send(pending.take().ok_or_else(|| io::Error::other("missing pending output"))?);
-                needs_poll = true;
-            }
-            read = reader.read(&mut scratch[..read_len]) => {
-                let size = read?;
-                if size == 0 { return Ok(()); }
-                buffer.extend_from_slice(&scratch[..size]);
-            }
         }
     }
 }
@@ -1086,14 +1130,20 @@ mod tests {
             max_packet_size: 2 * 1024 * 1024,
             ..BrokerConfig::default()
         };
-        let writer = spawn_writer(writer, receiver, config, cancel);
+        let (writer, _terminal) = network::test_writer(writer, receiver, config, cancel);
         let payload = vec![42; 1024 * 1024];
-        output.send(publication(&payload, 1)).await.unwrap();
-        output.send(publication(&payload, 2)).await.unwrap();
+        output
+            .send(network::test_output(publication(&payload, 1)))
+            .await
+            .unwrap();
+        output
+            .send(network::test_output(publication(&payload, 2)))
+            .await
+            .unwrap();
         drop(output);
         let closed = timeout(
             Duration::from_millis(300),
-            finish_writer(writer, result, false),
+            network::finish_writer(writer, result, false, Duration::from_secs(30)),
         )
         .await
         .expect("closing a socket must cancel queued writes promptly");
@@ -1286,6 +1336,7 @@ mod tests {
         let online = HashMap::from([(
             "poller".into(),
             Online {
+                close_reason: None,
                 generation: 1,
                 wake,
                 cancel,
@@ -1305,6 +1356,63 @@ mod tests {
         let after = std::str::from_utf8(&bytes).unwrap();
         assert!(after.contains("\"topic\":\"fresh\""));
         assert!(after.contains("\"wills\":[]"));
+    }
+    #[derive(Debug)]
+    struct ManualClock(AtomicU64);
+    impl Clock for ManualClock {
+        fn now_millis(&self) -> u64 {
+            self.0.load(Ordering::SeqCst)
+        }
+    }
+    #[tokio::test]
+    async fn expiry_tick_commits_removal_without_any_client_reconnect() {
+        let db = Database::new();
+        let config = db.config();
+        let clock = Arc::new(ManualClock(AtomicU64::new(0)));
+        let mut engine = SessionEngine::new_with_clock(
+            session_config(&config),
+            config.access_control.clone(),
+            clock.clone(),
+        )
+        .unwrap();
+        engine
+            .connect_with_options(
+                "expires",
+                None,
+                mqtt_auth::Principal::anonymous(),
+                ConnectionOptions {
+                    version: ProtocolVersion::V5,
+                    clean_start: true,
+                    session_expiry_interval: 1,
+                    receive_maximum: 1,
+                    will_properties: Vec::new(),
+                },
+            )
+            .unwrap();
+        engine
+            .disconnect_with_options("expires", true, None)
+            .unwrap();
+        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
+        store.commit(&engine.snapshot().unwrap()).unwrap();
+        clock.0.store(1500, Ordering::SeqCst);
+        let (sender, receiver) = mpsc::channel(1);
+        let worker = Worker { sender };
+        let task = tokio::task::spawn_blocking(move || {
+            run_commands(receiver, config, Some(store), engine, HashMap::new())
+        });
+        assert!(matches!(
+            worker.request(Operation::Tick).await.unwrap(),
+            Reply::Done
+        ));
+        drop(worker);
+        task.await.unwrap().unwrap();
+        let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
+        let bytes = store.load().unwrap().unwrap();
+        assert!(
+            std::str::from_utf8(&bytes)
+                .unwrap()
+                .contains("\"sessions\":[]")
+        );
     }
 }
 
