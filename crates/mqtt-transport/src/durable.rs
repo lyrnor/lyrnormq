@@ -7,7 +7,7 @@ use mqtt_protocol::{
 #[cfg(test)]
 use mqtt_protocol::{ProtocolError, decode, encode};
 use mqtt_session::durable::{
-    Clock, ConnectionOptions, EngineError, SessionConfig, SessionEngine, SystemClock,
+    Clock, ConnectionOptions, Delivery, EngineError, SessionConfig, SessionEngine, SystemClock,
 };
 use mqtt_storage::durable::SqliteStore;
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
@@ -70,14 +70,20 @@ enum Operation {
         cancel: watch::Sender<bool>,
         close_reason: watch::Sender<Option<ReasonCode>>,
     },
-    HandleFrame {
+    HandleFrameAt {
         client: String,
         generation: u64,
         frame: Frame,
+        received_at_millis: u64,
     },
-    PollFrame {
+    PollDelivery {
         client: String,
         generation: u64,
+    },
+    BeginDelivery {
+        client: String,
+        generation: u64,
+        delivery: Delivery,
     },
     DisconnectOptions {
         client: String,
@@ -139,6 +145,7 @@ enum Reply {
     FrameRejected(ReasonCode),
     Frames(Vec<Frame>),
     FramePolled(Option<Box<Frame>>),
+    DeliveryPolled(Option<Box<Delivery>>),
     Connected(bool),
     Rejected(ConnectRefusal),
     #[cfg(test)]
@@ -277,11 +284,22 @@ enum Request {
         generation: u64,
         frame: Frame,
         legacy: bool,
+        received_at_millis: Option<u64>,
     },
+    #[cfg(test)]
     Poll {
         client: String,
         generation: u64,
         legacy: bool,
+    },
+    PollDelivery {
+        client: String,
+        generation: u64,
+    },
+    BeginDelivery {
+        client: String,
+        generation: u64,
+        delivery: Delivery,
     },
     Disconnect {
         client: String,
@@ -383,16 +401,7 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             generation,
             frame: Frame::v311(packet),
             legacy: true,
-        },
-        Operation::HandleFrame {
-            client,
-            generation,
-            frame,
-        } => Request::Handle {
-            client,
-            generation,
-            frame,
-            legacy: false,
+            received_at_millis: None,
         },
         #[cfg(test)]
         Operation::Poll { client, generation } => Request::Poll {
@@ -400,10 +409,29 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             generation,
             legacy: true,
         },
-        Operation::PollFrame { client, generation } => Request::Poll {
+        Operation::HandleFrameAt {
             client,
             generation,
+            frame,
+            received_at_millis,
+        } => Request::Handle {
+            client,
+            generation,
+            frame,
             legacy: false,
+            received_at_millis: Some(received_at_millis),
+        },
+        Operation::PollDelivery { client, generation } => {
+            Request::PollDelivery { client, generation }
+        }
+        Operation::BeginDelivery {
+            client,
+            generation,
+            delivery,
+        } => Request::BeginDelivery {
+            client,
+            generation,
+            delivery,
         },
         Operation::Disconnect {
             client,
@@ -447,13 +475,6 @@ fn connect_policy(request: &ConnectRequest, config: &BrokerConfig) -> Option<Rea
             _ => {}
         }
     }
-    for property in &request.options.will_properties {
-        if matches!(property, Property::MessageExpiryInterval(_))
-            || matches!(property,Property::WillDelayInterval(value) if *value!=0)
-        {
-            return Some(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR);
-        }
-    }
     // Refuse before installing a session when the configured resource cap cannot
     // carry our mandatory capability CONNACK. Never accept then fail its write.
     match mqtt_protocol::encode_frame(&network::connack(ProtocolVersion::V5, false, 0, config)) {
@@ -481,6 +502,7 @@ fn frames_reply(frames: Vec<Frame>, legacy: bool) -> Reply {
     let _ = legacy;
     Reply::Frames(frames)
 }
+#[cfg(test)]
 fn poll_reply(frame: Option<Frame>, legacy: bool) -> Reply {
     #[cfg(test)]
     if legacy {
@@ -592,12 +614,18 @@ fn run_commands(
                     generation,
                     frame,
                     legacy,
+                    received_at_millis,
                 } => {
                     valid_generation(&online, &client, generation)?;
-                    let replies = proposal.handle_frame(&client, frame).map_err(model_error)?;
+                    let replies = match received_at_millis {
+                        Some(received_at) => proposal.handle_frame_at(&client, frame, received_at),
+                        None => proposal.handle_frame(&client, frame),
+                    }
+                    .map_err(model_error)?;
                     notify_required = true;
                     Ok(frames_reply(replies, legacy))
                 }
+                #[cfg(test)]
                 Request::Poll {
                     client,
                     generation,
@@ -610,6 +638,28 @@ fn run_commands(
                     commit_required = outcome.changed;
                     notify_required = outcome.changed;
                     Ok(poll_reply(outcome.frame, legacy))
+                }
+                Request::PollDelivery { client, generation } => {
+                    valid_generation(&online, &client, generation)?;
+                    let outcome = proposal
+                        .poll_delivery_with_changes(&client)
+                        .map_err(model_error)?;
+                    commit_required = outcome.changed;
+                    notify_required = outcome.changed;
+                    Ok(Reply::DeliveryPolled(outcome.delivery.map(Box::new)))
+                }
+                Request::BeginDelivery {
+                    client,
+                    generation,
+                    delivery,
+                } => {
+                    valid_generation(&online, &client, generation)?;
+                    let outcome = proposal
+                        .begin_delivery(&client, delivery)
+                        .map_err(model_error)?;
+                    commit_required = outcome.changed;
+                    notify_required = outcome.changed;
+                    Ok(Reply::FramePolled(outcome.frame.map(Box::new)))
                 }
                 Request::Disconnect {
                     client,

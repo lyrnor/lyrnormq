@@ -5,6 +5,7 @@ use mqtt_protocol::{
     Frame, Packet, Property, ProtocolError, ProtocolVersion, ReasonCode, decode_frame,
     encode_frame, peek_connect_version,
 };
+use mqtt_session::durable::{Clock, Delivery, SystemClock};
 use std::{
     collections::BTreeMap,
     io,
@@ -112,8 +113,16 @@ fn locked(credits: &SharedCredits) -> io::Result<std::sync::MutexGuard<'_, Credi
         .lock()
         .map_err(|_| failure(ReasonCode::SERVER_UNAVAILABLE, "credit ledger unavailable"))
 }
+struct Lease {
+    client: String,
+    generation: u64,
+    worker: Worker,
+    expires_at: Option<u64>,
+    ticket: Option<u64>,
+}
 pub(super) struct Output {
     frame: Frame,
+    lease: Option<Lease>,
     completion: Option<Ticket>,
     written: Option<oneshot::Sender<()>>,
 }
@@ -121,9 +130,55 @@ fn outgoing(frame: Frame, credits: &SharedCredits) -> io::Result<Output> {
     let completion = locked(credits)?.completion(&frame);
     Ok(Output {
         frame,
+        lease: None,
         completion,
         written: None,
     })
+}
+fn delivery_output(delivery: Delivery, client: String, generation: u64, worker: Worker) -> Output {
+    Output {
+        frame: delivery.frame,
+        lease: Some(Lease {
+            client,
+            generation,
+            worker,
+            expires_at: delivery.expires_at,
+            ticket: delivery.ticket,
+        }),
+        completion: None,
+        written: None,
+    }
+}
+async fn begin_output(mut message: Output) -> io::Result<Option<Output>> {
+    let Some(lease) = message.lease.take() else {
+        return Ok(Some(message));
+    };
+    let delivery = Delivery {
+        frame: message.frame,
+        expires_at: lease.expires_at,
+        ticket: lease.ticket,
+    };
+    let Reply::FramePolled(frame) = lease
+        .worker
+        .request(Operation::BeginDelivery {
+            client: lease.client,
+            generation: lease.generation,
+            delivery: delivery.clone(),
+        })
+        .await?
+    else {
+        return Err(io::Error::other("invalid delivery-start response"));
+    };
+    let Some(mut frame) = frame.map(|frame| *frame) else {
+        return Ok(None);
+    };
+    delivery.refresh_remaining(&mut frame, SystemClock.now_millis());
+    Ok(Some(Output {
+        frame,
+        lease: None,
+        completion: message.completion,
+        written: message.written,
+    }))
 }
 fn frame_for(version: ProtocolVersion, packet: Packet) -> Frame {
     match version {
@@ -190,6 +245,12 @@ fn spawn_writer(
                     changed=terminal.changed()=>{if changed.is_err(){return Ok(());}}
                     message=output.recv()=>{
                         let Some(message)=message else{return Ok(());};
+                        let prepared=begin_output(message).await;
+                        // A terminal signal arriving during the blocking worker roundtrip
+                        // still wins before any new frame bytes are started.
+                        let final_frame=terminal.borrow_and_update().clone();
+                        if let Some(frame)=final_frame {write_frame(&mut writer,&frame,&config).await?;return Ok(());}
+                        let Some(message)=prepared? else{continue;};
                         // No select/cancellation inside a frame: terminal output may only
                         // follow a completed frame, never bytes from a partial PUBLISH.
                         write_frame(&mut writer,&message.frame,&config).await?;
@@ -381,20 +442,38 @@ pub(super) fn test_writer(
 pub(super) fn test_output(packet: Packet) -> Output {
     Output {
         frame: Frame::v311(packet),
+        lease: None,
         completion: None,
         written: None,
     }
 }
 
-fn discard_acknowledged(pending: &mut Option<Frame>, acknowledged: Option<u16>) {
-    if let Some(id)=acknowledged && pending.as_ref().is_some_and(|frame|matches!(frame.packet,Packet::Publish {packet_id:Some(actual),..}|Packet::PubRel {packet_id:actual} if actual==id)) {*pending=None;}
+fn discard_acknowledged(pending: &mut Option<Delivery>, acknowledged: Option<u16>) {
+    let Some(id) = acknowledged else {
+        return;
+    };
+    let obsolete = pending
+        .as_ref()
+        .is_some_and(|delivery| match delivery.frame.packet {
+            Packet::Publish {
+                packet_id: Some(actual),
+                ..
+            }
+            | Packet::PubRel { packet_id: actual } => actual == id,
+            _ => false,
+        });
+    if obsolete {
+        *pending = None;
+    }
 }
+
 async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Result<()> {
     let mut buffer = Vec::new();
     let mut scratch = [0u8; 8192];
+    let mut received_at_millis = 0;
     let mut expires = Some(Instant::now() + context.config.handshake_timeout);
     let mut keepalive = None;
-    let mut pending: Option<Frame> = None;
+    let mut pending: Option<Delivery> = None;
     let mut needs_poll = false;
     loop {
         if *context.shutdown.borrow() {
@@ -541,7 +620,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                             None
                         }
                     });
-                    let graceful = frame.reason_code != ReasonCode::DISCONNECT_WITH_WILL_MESSAGE;
+                    let graceful = frame.reason_code == ReasonCode::SUCCESS;
                     let Reply::Done = context
                         .worker
                         .request(Operation::DisconnectOptions {
@@ -575,10 +654,11 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                 };
                 let Reply::Frames(replies) = context
                     .worker
-                    .request(Operation::HandleFrame {
+                    .request(Operation::HandleFrameAt {
                         client,
                         generation: context.generation,
                         frame,
+                        received_at_millis,
                     })
                     .await?
                 else {
@@ -604,9 +684,9 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                 .as_ref()
                 .ok_or_else(|| io::Error::other("missing connection identity"))?
                 .clone();
-            let Reply::FramePolled(frame) = context
+            let Reply::DeliveryPolled(delivery) = context
                 .worker
-                .request(Operation::PollFrame {
+                .request(Operation::PollDelivery {
                     client,
                     generation: context.generation,
                 })
@@ -614,7 +694,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
             else {
                 return Err(io::Error::other("invalid poll response"));
             };
-            pending = frame.map(|frame| *frame);
+            pending = delivery.map(|delivery| *delivery);
             needs_poll = false;
         }
         let remaining = context.config.max_packet_size.saturating_sub(buffer.len());
@@ -631,10 +711,11 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
             _=crate::packet_io::deadline(expires)=>return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded")),
             _=context.wake.changed(),if *context.connected=>{needs_poll=true;}
             permit=context.output.reserve(),if pending.is_some()=>{
-                let frame=pending.take().ok_or_else(||io::Error::other("missing pending output"))?;
-                permit.map_err(io::Error::other)?.send(outgoing(frame,context.credits)?);needs_poll=true;
+                let delivery=pending.take().ok_or_else(||io::Error::other("missing pending output"))?;
+                let client=context.identity.as_ref().ok_or_else(||io::Error::other("missing connection identity"))?.clone();
+                permit.map_err(io::Error::other)?.send(delivery_output(delivery,client,context.generation,context.worker.clone()));needs_poll=true;
             }
-            read=reader.read(&mut scratch[..read_len])=>{let size=read?;if size==0{return Ok(());}buffer.extend_from_slice(&scratch[..size]);}
+            read=reader.read(&mut scratch[..read_len])=>{let size=read?;if size==0{return Ok(());}buffer.extend_from_slice(&scratch[..size]);received_at_millis=SystemClock.now_millis();}
         }
     }
 }
@@ -705,6 +786,7 @@ mod tests {
         let expected = encode_frame(&publication).unwrap();
         output
             .send(Output {
+                lease: None,
                 frame: publication,
                 completion: None,
                 written: None,
@@ -794,6 +876,7 @@ mod tests {
         let (cancel, _) = watch::channel(false);
         output
             .send(Output {
+                lease: None,
                 frame: large_frame(),
                 completion: None,
                 written: None,
@@ -942,5 +1025,371 @@ mod tests {
         assert_eq!(frame.packet, Packet::Disconnect);
         assert_eq!(frame.reason_code, ReasonCode::RECEIVE_MAXIMUM_EXCEEDED);
         super::super::live_tests::stop(stop, task).await;
+    }
+    #[derive(Debug)]
+    struct ManualClock(std::sync::atomic::AtomicU64);
+    impl Clock for ManualClock {
+        fn now_millis(&self) -> u64 {
+            self.0.load(Ordering::SeqCst)
+        }
+    }
+    #[tokio::test]
+    async fn blocked_writer_expires_only_unstarted_delivery_and_keeps_started_replay() {
+        use mqtt_auth::Principal;
+        use mqtt_session::durable::{ConnectionOptions, SessionEngine};
+        use mqtt_storage::durable::SqliteStore;
+        let db = super::super::tests::Database::new();
+        let config = BrokerConfig {
+            storage_path: Some(db.0.clone()),
+            max_packet_size: 2 * 1024 * 1024,
+            outbound_capacity: 4,
+            write_timeout: Duration::from_secs(3),
+            ..BrokerConfig::default()
+        };
+        let initial_time = SystemClock.now_millis();
+        let clock = Arc::new(ManualClock(std::sync::atomic::AtomicU64::new(initial_time)));
+        let mut engine = SessionEngine::new_with_clock(
+            super::super::session_config(&config),
+            config.access_control.clone(),
+            clock.clone(),
+        )
+        .unwrap();
+        for client in ["target", "source"] {
+            engine
+                .connect_with_options(
+                    client,
+                    None,
+                    Principal::anonymous(),
+                    ConnectionOptions {
+                        version: ProtocolVersion::V5,
+                        clean_start: true,
+                        session_expiry_interval: 60,
+                        receive_maximum: 2,
+                        will_properties: vec![],
+                    },
+                )
+                .unwrap();
+        }
+        engine
+            .handle_frame(
+                "target",
+                Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("writer/expiry".into(), 1)],
+                }),
+            )
+            .unwrap();
+        for (id, payload) in [
+            (40, vec![42; 1024 * 1024]),
+            (41, b"must expire before first write".to_vec()),
+        ] {
+            let mut frame = Frame::v5(Packet::Publish {
+                topic: "writer/expiry".into(),
+                payload,
+                qos: 1,
+                packet_id: Some(id),
+                dup: false,
+                retain: false,
+            });
+            frame.properties = vec![Property::MessageExpiryInterval(1)];
+            engine.handle_frame("source", frame).unwrap();
+        }
+        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
+        store.commit(&engine.snapshot().unwrap()).unwrap();
+        let (sender, commands) = mpsc::channel(8);
+        let worker = Worker { sender };
+        let (wake, _) = watch::channel(0);
+        let (cancel, _) = watch::channel(false);
+        let online = std::collections::HashMap::from([(
+            "target".into(),
+            super::super::Online {
+                generation: 1,
+                wake,
+                cancel,
+                close_reason: None,
+            },
+        )]);
+        let worker_config = config.clone();
+        let worker_task = tokio::task::spawn_blocking(move || {
+            super::super::run_commands(commands, worker_config, Some(store), engine, online)
+        });
+        let mut deliveries = Vec::new();
+        for _ in 0..2 {
+            let Reply::DeliveryPolled(Some(delivery)) = worker
+                .request(Operation::PollDelivery {
+                    client: "target".into(),
+                    generation: 1,
+                })
+                .await
+                .unwrap()
+            else {
+                panic!("delivery expected")
+            };
+            deliveries.push(*delivery);
+        }
+        let expected = encode_frame(&deliveries[0].frame).unwrap();
+        let (mut client, writer) = sockets().await;
+        let (output, receiver) = mpsc::channel(3);
+        let (terminal, terminal_rx) = watch::channel(None);
+        let (cancel, _) = watch::channel(false);
+        let credits = Arc::new(Mutex::new(Credits::new(2)));
+        for delivery in deliveries {
+            output
+                .send(delivery_output(
+                    delivery,
+                    "target".into(),
+                    1,
+                    worker.clone(),
+                ))
+                .await
+                .unwrap();
+        }
+        output
+            .send(outgoing(Frame::v5(Packet::PingResp), &credits).unwrap())
+            .await
+            .unwrap();
+        let writer_task = spawn_writer(
+            writer,
+            receiver,
+            terminal_rx,
+            credits,
+            config.clone(),
+            cancel,
+            Arc::new(AtomicBool::new(false)),
+        );
+        let mut first = [0u8; 1];
+        client.read_exact(&mut first).await.unwrap();
+        assert_eq!(first[0], expected[0]);
+        // The first frame has started and is stalled by the small TCP window.
+        // The second has only been reserved; no wall-clock sleeps are necessary.
+        clock.0.store(initial_time + 1500, Ordering::SeqCst);
+        let mut remaining = vec![0; expected.len() - 1];
+        timeout(Duration::from_secs(3), client.read_exact(&mut remaining))
+            .await
+            .unwrap()
+            .unwrap();
+        let mut complete = first.to_vec();
+        complete.extend(remaining);
+        let sent = decode_frame(&complete, config.max_packet_size, Some(ProtocolVersion::V5))
+            .unwrap()
+            .unwrap()
+            .0;
+        assert!(matches!(sent.packet,Packet::Publish{payload,..} if payload==vec![42;1024*1024]));
+        assert!(
+            sent.properties
+                .iter()
+                .any(|p| matches!(p, Property::MessageExpiryInterval(0 | 1)))
+        );
+        assert_eq!(received(&mut client).await.packet, Packet::PingResp);
+        drop(output);
+        writer_task.await.unwrap().unwrap();
+        drop(terminal);
+        super::super::tests::stop(worker, worker_task).await;
+        let store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
+        let bytes = store.load().unwrap().unwrap();
+        let mut restored = SessionEngine::restore_with_clock(
+            super::super::session_config(&config),
+            &bytes,
+            config.access_control.clone(),
+            clock,
+        )
+        .unwrap();
+        restored
+            .connect_with_options(
+                "target",
+                None,
+                Principal::anonymous(),
+                ConnectionOptions {
+                    version: ProtocolVersion::V5,
+                    clean_start: false,
+                    session_expiry_interval: 60,
+                    receive_maximum: 2,
+                    will_properties: vec![],
+                },
+            )
+            .unwrap();
+        let replay = restored
+            .poll_frame_with_changes("target")
+            .unwrap()
+            .frame
+            .unwrap();
+        assert!(matches!(replay.packet, Packet::Publish { dup: true, .. }));
+        assert!(
+            replay
+                .properties
+                .contains(&Property::MessageExpiryInterval(0))
+        );
+        assert!(
+            restored
+                .poll_frame_with_changes("target")
+                .unwrap()
+                .frame
+                .is_none()
+        );
+    }
+    #[tokio::test]
+    async fn nonzero_disconnect_reason_fires_will_while_normal_zero_cancels() {
+        let (address, stop, task) = super::super::live_tests::broker(BrokerConfig::default()).await;
+        let mut observer = TcpStream::connect(address).await.unwrap();
+        let mut observer_connect = connect_frame();
+        if let Packet::Connect { client_id, .. } = &mut observer_connect.packet {
+            *client_id = "will-observer".into();
+        }
+        observer
+            .write_all(&encode_frame(&observer_connect).unwrap())
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(&mut observer).await.packet,
+            Packet::ConnAck { code: 0, .. }
+        ));
+        observer
+            .write_all(
+                &encode_frame(&Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("will/reason".into(), 0)],
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            received(&mut observer).await.packet,
+            Packet::SubAck { .. }
+        ));
+        for reason in [ReasonCode::SUCCESS, ReasonCode::UNSPECIFIED_ERROR] {
+            let mut source = TcpStream::connect(address).await.unwrap();
+            let mut connect = connect_frame();
+            if let Packet::Connect {
+                client_id, will, ..
+            } = &mut connect.packet
+            {
+                *client_id = format!("will-source-{}", reason.value());
+                *will = Some(mqtt_protocol::Will {
+                    topic: "will/reason".into(),
+                    payload: vec![reason.value()],
+                    qos: 0,
+                    retain: false,
+                });
+            }
+            source
+                .write_all(&encode_frame(&connect).unwrap())
+                .await
+                .unwrap();
+            assert!(matches!(
+                received(&mut source).await.packet,
+                Packet::ConnAck { code: 0, .. }
+            ));
+            let mut disconnect = Frame::v5(Packet::Disconnect);
+            disconnect.reason_code = reason;
+            source
+                .write_all(&encode_frame(&disconnect).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(source.read(&mut [0; 1]).await.unwrap(), 0);
+            if reason == ReasonCode::SUCCESS {
+                observer
+                    .write_all(&encode_frame(&Frame::v5(Packet::PingReq)).unwrap())
+                    .await
+                    .unwrap();
+                assert_eq!(received(&mut observer).await.packet, Packet::PingResp);
+            } else {
+                let message = timeout(Duration::from_secs(1), received(&mut observer))
+                    .await
+                    .expect("nonzero disconnect must publish Will");
+                assert!(
+                    matches!(message.packet,Packet::Publish{payload,..} if payload==vec![reason.value()])
+                );
+            }
+        }
+        super::super::live_tests::stop(stop, task).await;
+    }
+    #[tokio::test]
+    async fn ingress_timestamp_survives_worker_residence_before_acknowledgement() {
+        use mqtt_session::durable::{ConnectionOptions, SessionEngine};
+        let config = BrokerConfig::default();
+        let clock = Arc::new(ManualClock(std::sync::atomic::AtomicU64::new(2000)));
+        let mut engine = SessionEngine::new_with_clock(
+            super::super::session_config(&config),
+            config.access_control.clone(),
+            clock,
+        )
+        .unwrap();
+        let mut online = std::collections::HashMap::new();
+        for (client, generation) in [("target", 1), ("source", 2)] {
+            engine
+                .connect_with_options(
+                    client,
+                    None,
+                    mqtt_auth::Principal::anonymous(),
+                    ConnectionOptions {
+                        version: ProtocolVersion::V5,
+                        clean_start: true,
+                        session_expiry_interval: 60,
+                        receive_maximum: 1,
+                        will_properties: vec![],
+                    },
+                )
+                .unwrap();
+            let (wake, _) = watch::channel(0);
+            let (cancel, _) = watch::channel(false);
+            online.insert(
+                client.into(),
+                super::super::Online {
+                    generation,
+                    wake,
+                    cancel,
+                    close_reason: None,
+                },
+            );
+        }
+        engine
+            .handle_frame(
+                "target",
+                Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("ingress".into(), 1)],
+                }),
+            )
+            .unwrap();
+        let (sender, commands) = mpsc::channel(4);
+        let worker = Worker { sender };
+        let task = tokio::task::spawn_blocking(move || {
+            super::super::run_commands(commands, config, None, engine, online)
+        });
+        let mut frame = Frame::v5(Packet::Publish {
+            topic: "ingress".into(),
+            payload: b"already expired in mailbox".to_vec(),
+            qos: 1,
+            packet_id: Some(9),
+            dup: false,
+            retain: false,
+        });
+        frame.properties = vec![Property::MessageExpiryInterval(1)];
+        let Reply::Frames(replies) = worker
+            .request(Operation::HandleFrameAt {
+                client: "source".into(),
+                generation: 2,
+                frame,
+                received_at_millis: 1000,
+            })
+            .await
+            .unwrap()
+        else {
+            panic!("frames expected")
+        };
+        assert_eq!(replies.len(), 1);
+        assert_eq!(replies[0].packet, Packet::PubAck { packet_id: 9 });
+        assert!(matches!(
+            worker
+                .request(Operation::PollDelivery {
+                    client: "target".into(),
+                    generation: 1
+                })
+                .await
+                .unwrap(),
+            Reply::DeliveryPolled(None)
+        ));
+        super::super::tests::stop(worker, task).await;
     }
 }
