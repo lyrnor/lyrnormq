@@ -13,7 +13,8 @@ Commit tested foundation before feature writers start. Quality can independently
 write tests in its own worktree during this prerequisite; Will specialist initially
 performs read-only normative review. After integration create separate feature worktrees:
 - Message specialist owns mqtt-session/src/durable.rs, durable/{mqtt5.rs,expiry.rs,
-  retention.rs,authorization.rs,temporal.rs,records.rs,records/**,message_expiry_tests.rs}
+  retention.rs,authorization.rs,temporal.rs,records.rs,records/**,message_expiry_tests.rs,
+  phase2e_tests.rs}
   and its Cargo.toml/lib.rs if required. No lifecycle.rs edits.
 - Will specialist owns durable/lifecycle.rs, durable/will_delay_tests.rs ONLY. Test
   module declaration lives in lifecycle.rs. No shared record/core/timer edits.
