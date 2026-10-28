@@ -475,3 +475,161 @@ row-level persistence and measured stress/fuzz/latency/memory campaigns remain.
 Snapshot-byte caps do not establish process-memory/disk budgets. Physical power
 loss, hard-link/external DB modifications, production readiness and full MQTT
 conformance are not claimed. Detailed next dependencies are maintained in tasks.md.
+
+
+## Phase2e accepted — initial MQTT5 wire/session implementation (2026-10-28)
+
+The coordinator froze phase2e.md atf813e0b before parallel code work. Four actual
+Codex specialists wrote only owned modules in independent branches/worktrees under
+.worktrees/p2e-{protocol,session,transport,quality}. Protocol, Session and Quality
+started together; Transport used the slot released by Protocol and integrated real
+dependency commits. Protocol later independently reviewed model and production
+network code. Coordinator owns contracts, dependency lock, documentation and final
+integration on integration/phase2e. main was not used for unverified implementation.
+
+| Responsibility | Original commit | Integrated commit |
+| --- | --- | --- |
+| Versioned protocol/Properties/ReasonCode |7c47979|b0c1492|
+| MQTT5 session expiry/quota/metadata/schema4 |55a1d7f|1c7fe1d|
+| Versioned worker/production network/writer |6d9f6cb|fc1df49|
+| Protocol classification regressions/fixes |089ef78|74fef4e|
+| Wire bounds and unavailable subscription features |4625e0a|beedc64|
+| Required deadlines/offline version preflight |0b97ea0|6ea8318|
+| Independent mixed-version TCP/Paho/CI |96639a0|f322be8|
+| SQL-only startup observation barrier |3852331|1471287|
+
+Contract clarifications were made before affected fixes: partial header detection,
+specific typed errors, terminal-frame bounds, normative property/option classification,
+unavailable subscription feature disconnects, cross-version frame-size admission
+and known offline-version preflight. No contract mistake was preserved merely to
+make an implementation pass. Public legacy methods/variants remain; the additive
+Packet::Auth variant requires external exhaustive matches to account for it.
+
+### Implemented scope and reuse
+
+ProtocolVersion/Frame separate connection-version metadata from the existing Packet
+and canonical MQTT311 QoS bytes. All27 standard property identifiers have typed
+wire handling, ordered/repeated UserProperty support, legal context/value/cardinality
+checks and bounded incremental lengths. Typed ReasonCode validates per-packet sets;
+ACK/DISCONNECT/AUTH short forms are supported. Password and AuthenticationData Debug
+are redacted. V5 syntactically permits password without username; local authentication
+still decides whether credentials are acceptable.
+
+One SessionEngine/router/retained store/transactional worker is reused for both
+versions. Clean Start independently resets old session state. Expiry defaults0,
+supports finite seconds orUINT_MAX, and can be changed on DISCONNECT except0→positive.
+Finite offline deadlines use injectable millisecond Clock and persist across reboot.
+Online sessions do not expire. An active-at-crash finite session conservatively gets
+restart-now+interval because the failure instant is unknown; known offline deadlines
+are not refreshed. Timer-only cleanup commits without client traffic.
+
+ReceiveMaximum is connection-local and never persisted. Replay can honor a new
+window smaller than durable pending count; positive PUBREC holds quota through
+PUBCOMP, negative ACK releases the matching stage, and PUBREL/control bypasses
+blocked PUBLISH. Inbound credit IDs/QoS/generation tickets remain until relevant ACK
+write_all completes. Stale callbacks cannot free a reused ID; mixed-QoS ID collisions
+are rejected. Production writer tests verify the actual implementation, not a
+retired cfg(test) copy. A priority terminal signal waits for at most the current
+complete frame, discards queued data, then writes DISCONNECT; total shutdown is
+bounded by two frame write deadlines and never appends after an interrupted frame.
+
+UserProperty/ContentType/PayloadFormatIndicator/ResponseTopic/CorrelationData survive
+incoming QoS2 original ownership, retained update/delete/replay, Will, outgoing
+retransmission, offline queues and restart. Metadata is stripped only for MQTT311
+wire output and retired with its QoS payload/ID. Auth/ACL and principal ownership
+continue to apply across version changes and expiry. MQTT5 positive expiry works
+across disconnects in volatile mode; process durability requires SQLite. The prior
+MQTT311 non-clean/no-SQLite refusal policy remains unchanged.
+
+Business JSON is schema4; SQLite opaque container remains1. Explicit1/2/3 converters
+add empty metadata/infinite persistent expiry and preserve existing owner semantics
+(1/2 anonymous,3 original identity). Session records add session_expiry_interval and
+required nullable expires_at; incoming tuples are(id,canonical_bytes,properties),
+outgoing records add properties, and queued/retained/WillData require properties.
+Runtime version/quota/sent sets are omitted. Unknown/corrupt/incompatible records
+fail startup without resetting; even expired data is validated before pruning.
+
+### Reproduced defects repaired before acceptance
+
+- An early PUBREC before replay polling left a cursor that generated an extra
+  automatic PUBREL; a failing regression preceded cursor retirement.
+- Empty-properties311 messages grew beyond the configured complete-frame cap when
+  wrapped for5:64→65 and Remaining Length boundary129→131 were independently
+  reproduced. Unclean5 resume now refuses0x83 before takeover if queued/replay data
+  cannot fit, preserving old IDs/Will and SQLite311 drain. Recipient preflight,
+  retained replay and final poll prevent oversized admission; known offline5 peers
+  also preflight so volatile queues cannot accumulate undrainable data.
+- Shared/SubscriptionIdentifier capability flags0 require DISCONNECT9E/A1, not a
+  per-filter SUBACK. The model now rejects before installing any filter.
+- Reserved SUBSCRIBE bits require Malformed81, while QoS3/RH3 and semantically bad
+  ResponseTopic require Protocol82; invalid lexical UTF8/NUL/noncharacters remain81.
+  Wrong/unknown property contexts use81; zero TopicAlias uses typed94.
+- Serde's implicit missing Option default accepted omitted expires_at as active and
+  refreshed an offline deadline. Independent failure and owner regressions preceded
+  a required-nullable deserializer; explicit null and legacy migration remain valid.
+
+Independent review/probes also passed finite expiry, negative-ACK release, old
+Released PUBREL bypass, metadata retirement, schema strictness,32 consecutive
+actual-wire ID reuses, inbound quota/duplicate behavior, CONNACK-before-error ordering,
+takeover8E/Will once and idle expiry. No new unresolved implementation defect was
+reported. Initial QA read-order assumptions and TCP-listener readiness assumptions
+were repaired without weakening message or commit requirements. Startup/expiry SQL
+checks now poll boundedly for the committed row state without sending MQTT commands
+that could mask missing timer/boot behavior.
+
+### Actual verification
+
+Environment: Darwin27.0.0 arm64, rustc/cargo1.98.1, edition2024, Python3.14.7,
+paho-mqtt2.1.0. Dependency resolution/build used --offline. Final tested executable
+SHA256:37a73df3a0b703259fa91e1f376b4d852cecf76839056d8fca8522da3b3b7e6c.
+
+- cargo build --workspace --offline: passed.
+- cargo test --workspace --offline:183 passed (auth13,protocol37,router14,session60,
+  storage16,transport37,CLI6).
+- cargo fmt --all -- --check: passed.
+- cargo clippy --workspace --all-targets --offline -- -D warnings: passed.
+- RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --offline: passed.
+- All six lib.rs files audited as docs/module declarations/reexports only.
+
+| Actual TCP/client suite | Volatile | SQLite |
+| --- | --- | --- |
+| mqtt5_blackbox.py |31 passed,11 SQLite-only skips|41 passed,1 volatile-only skip|
+| mqtt5_paho.py |4 passed,1 SQLite-only skip|5 passed|
+| blackbox.py |14 passed|14 passed|
+| qos_blackbox.py |9 passed|9 passed|
+| retained_will_blackbox.py |14 passed,6 inapplicable skips|20 passed|
+| auth_acl_blackbox.py |13 passed,7 inapplicable skips|20 passed|
+| auth_acl_paho.py |2 passed,1 inapplicable skip|3 passed|
+| paho_interop.py |3x3 QoS matrix passed|3x3 QoS matrix passed|
+| retained_will_paho.py |passed|passed|
+| persistence_blackbox.py |not applicable|14 passed|
+| persistence_paho.py |not applicable|offline QoS1/2/SIGKILL passed|
+
+All suites ran against the integrated executable; only the final SQL-readiness
+barrier adjustment changed test code afterward and its two focused cases plus full
+SQLite42-method suite passed again. New MQTT5 tests account for72 passing wire
+method executions plus9 Paho methods, with13 explicit mode-only skips. The reused
+wire suites account for127 more passing executions (199 combined wire executions);
+internal mixed-version QoS combinations and repeated focused runs are not double
+counted as methods. Elapsed suite time is not a performance benchmark.
+
+A real pre-change Phase2d executable generated schema3 authenticated sessions with
+unacknowledged QoS1/AwaitComp/pending inboundQoS2, retained state and active Will.
+After SIGKILL, the new executable upgraded to4, preserved user:alice ownership and
+old IDs/DUP, replayed PUBREL-only AwaitComp, rejected Bob's takeover87, resumed the
+old pending input over5 and replayed retained/crash-Will values over5. Legacy311
+session expiry stayed infinite while the new5 connection selected60seconds. The
+one-off fixture/old binary were cleaned after success.
+
+### Remaining scope
+
+This increment does NOT claim full MQTT5 compatibility. Codec coverage is broader
+than implemented runtime semantics. Client MaximumPacketSize negotiation, assigned
+Client IDs, nondefault NoLocal/RAP/RetainHandling, MessageExpiry, positive WillDelay,
+topic aliases, subscription IDs/shared subscriptions and enhanced AUTH remain
+explicitly refused as documented in README/phase2e.md. MQTT311 conformance edge
+cases, full direction/reason matrices, more client implementations, slow-worker
+response deadlines, CPU/rate isolation, row-level persistence, operational fault/fuzz
+coverage and reproducible throughput/latency/memory baselines remain tasks.md work.
+TLS/WebSocket/admin/cluster remain outside this increment; physical power-loss
+behavior, production readiness and application-side exactly-once are not claimed.

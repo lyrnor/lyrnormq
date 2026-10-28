@@ -1,6 +1,6 @@
 # rmqtt
 
-Rust 2024 / Tokio TCP MQTT3.1.1 broker under development, supporting QoS0/1/2,
+Rust 2024 / Tokio TCP MQTT3.1.1 broker with an initial MQTT5.0 implementation, supporting QoS0/1/2,
 Retained Messages, Last Will and local authentication/ACL, with optional SQLite-backed persistent sessions.
 **Full MQTT conformance and production-readiness are not yet claimed.**
 
@@ -15,8 +15,64 @@ Both modes use the existing bounded SessionEngine/outbox transaction pipeline.
 Without SQLite, clean sessions and global retained/Will state are volatile across
 process death. With SQLite, Clean Session=false retains subscriptions, offline
 QoS1/2 and inflight stages/IDs. Clean Session=true discards the prior session;
-retained messages remain independent of that reset. MQTT5, TLS and WebSocket
-remain unsupported. Default bind is loopback.
+retained messages remain independent of that reset. MQTT5 Clean Start and Session
+Expiry are independent, as described below. TLS and WebSocket remain unsupported.
+Default bind is loopback.
+
+## MQTT5 foundation and version interoperability
+
+The same TCP listener negotiates protocol level4 or5. The normalized Packet/QoS
+state machines and transactional outboxes are shared; a versioned Frame adds
+properties, reasons and subscription wire options. The codec recognizes all standard
+property identifiers/types, rejects wrong contexts/duplicates/illegal values and
+preserves repeated UserProperty order. This is an explicit subset of MQTT5 semantics.
+
+| Implemented semantic | Behavior |
+| --- | --- |
+| Clean Start | Resets old session state independently of the requested expiry |
+| Session Expiry | Default0, finite seconds or0xFFFFFFFF infinite; DISCONNECT may change it except0→positive |
+| Receive Maximum | Per connection; QoS1/2 quota is held through PUBACK/PUBCOMP or negative PUBREC |
+| Reconnect flow | New quota applies to old replay; PUBREL/control progress bypasses blocked PUBLISH |
+| Application properties | UserProperty, ContentType, PayloadFormatIndicator, ResponseTopic and CorrelationData survive retained/Will/QoS/outbox recovery |
+| Reasons | Context-validated ACK/SUBACK/UNSUBACK/CONNACK/DISCONNECT reasons, negative ACK cleanup |
+| Mixed versions | Publish/subscribe QoS0/1/2 routes across versions; properties are stripped only from MQTT311 wire output |
+
+MQTT5 CleanStart=false may resume an existing session and then choose expiry0,
+which removes it at that connection's end. CleanStart=true with positive expiry
+creates a fresh persistent session. MQTT311 wrappers preserve the old CleanSession
+mapping (true→0,false→infinite). MQTT5 positive expiry can survive disconnects in
+volatile mode while the process lives; process durability requires SQLite. MQTT311
+non-clean connections still require SQLite under the existing broker policy.
+
+Offline finite deadlines are persisted in Unix milliseconds and include downtime.
+Online sessions do not expire. If an active finite session is loaded after a crash,
+the exact failure instant is unknown: its deadline starts conservatively at restart
+plus the interval. A known offline deadline is never extended by reboot. An expiry
+timer removes offline subscription/queued/inflight state and frees IDs independently
+of traffic. Retained globals and pending Will intent remain separate. Schema3 owners
+are preserved in schema4; schema1/2 still migrate to anonymous ownership.
+
+The server advertises bounded ReceiveMaximum/MaximumPacketSize, TopicAliasMaximum0,
+SharedSubscriptionAvailable0 and SubscriptionIdentifierAvailable0. Unsupported
+semantics are refused explicitly rather than accepted and discarded:
+
+- Client MaximumPacketSize negotiation: CONNECT refusal0x83; if even the five-byte
+  refusal cannot fit the supplied limit, the connection closes without an oversized reply.
+- Enhanced AUTH/methods: CONNECT0x8C; unsolicited AUTH after basic auth is a protocol error.
+- MessageExpiryInterval and nonzero WillDelayInterval:0x83.
+- Topic Alias:0x94, including zero; Subscription Identifier: DISCONNECT0xA1 (client PUBLISH0x82).
+- Shared filters: DISCONNECT0x9E; nondefault NoLocal/RAP/RetainHandling: SUBACK0x83.
+- Server-assigned Client IDs: not implemented; empty MQTT5 Client ID gets CONNACK0x85.
+
+Complete output frames obey the packet cap too: legacy311 messages can grow when
+bridged to5. An unclean5 resume whose pending/queued output would exceed that cap
+is refused0x83 without changing old state; with SQLite, the owner can reconnect311
+to drain it. Known offline5 recipients are preflighted too, preventing new undrainable
+volatile queues. Routing/retained replay preflights the recipient wire version and atomically rejects
+a publication/replay that cannot fit, rather than poisoning a durable outbox.
+
+These exclusions, full direction/conformance matrices and operational hardening
+remain work. Full MQTT5 compatibility and production-readiness are not claimed.
 
 ## Authentication and ACL
 
@@ -64,8 +120,9 @@ the helper generates standard library defaults (m19456,t2,p1).
 Publishing uses exact-topic permission; a subscription filter must fit within one
 allowed filter. This conservative containment can reject some equivalent or union
 coverage. Root wildcards do not grant `$SYS` access; add explicit system filters.
-Mixed SUBSCRIBE requests return0x80 only for denied filters. Denied PUBLISH closes
-without success acknowledgement; denied connections return CONNACK4/5 before close.
+MQTT311 mixed SUBSCRIBE returns0x80 for denied filters; MQTT5 uses specific reasons
+such as0x87. Denied PUBLISH closes without success acknowledgement; authentication
+refusals use CONNACK4/5 in MQTT311 or0x86/0x87 in MQTT5 before close.
 A forbidden Will rejects CONNECT before takeover or registration.
 
 Session and Will records bind a stable identity. Another user cannot take over or
@@ -123,7 +180,7 @@ ends unless their DISCONNECT was already committed.
 
 ## Persistence and limits
 
-SQLite uses WAL/FULL and schema3 JSON whole-registry transactions. Valid schema1/2
+SQLite uses WAL/FULL and schema4 JSON whole-registry transactions. Valid schema1/2/3
 snapshots are explicitly migrated, preserving IDs/order/subscriptions; the opaque
 SQLite container remains version1. Unknown/corrupt schemas or incompatible lowered
 quotas reject startup instead of dropping data. Atomic state/outbox commits precede
@@ -158,7 +215,7 @@ aliases, externally replacing/renaming/modifying an active DB are unsupported.
 
 Whole-registry cloning/JSON and per-proposal routing-index rebuilding have costs
 that are not benchmarked. Worker transaction waits can delay controls; operational
-fault/stress testing, disk quotas, migrations beyond schema1/2->3, backup/admin and
+fault/stress testing, disk quotas, migrations beyond schema1/2/3->4, backup/admin and
 observability remain work. SIGKILL and SQLITE_FULL tests do not establish physical
 power-loss behavior or application-side exactly-once processing.
 
@@ -173,6 +230,8 @@ python3 tests/blackbox.py
 python3 tests/qos_blackbox.py
 python3 tests/auth_acl_blackbox.py
 python3 tests/auth_acl_paho.py
+python3 tests/mqtt5_blackbox.py
+python3 tests/mqtt5_paho.py
 python3 tests/persistence_blackbox.py
 python3 tests/retained_will_blackbox.py
 python3 -m venv /tmp/rmqtt-client-venv
@@ -187,5 +246,5 @@ basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persis
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
 
-See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2d.md),
+See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2e.md),
 [actual results](docs/progress.md) and [remaining dependencies](docs/tasks.md).

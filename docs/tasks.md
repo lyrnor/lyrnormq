@@ -47,9 +47,12 @@ quota, replay and writer cancellation defects were fixed before acceptance.
 1. Complete broader MQTT3.1.1 conformance/rejection-code/client-ID edge cases and
    client interoperability before claiming full conformance. Authentication/ACL
    is implemented and verified in Phase2d.
-2. Freeze versioned MQTT5 protocol/session contracts before parallel changes:
-   properties, reason codes, Clean Start/session expiry, Receive Maximum, topic
-   aliases/shared subscriptions, Will Delay and AUTH remain unimplemented.
+2. Extend the accepted MQTT5 foundation under new semantic contracts: client
+   MaximumPacketSize negotiation, assigned Client IDs, nondefault subscription
+   options, MessageExpiryInterval, WillDelay, topic aliases, shared subscriptions,
+   Subscription Identifiers and enhanced AUTH remain explicitly unsupported.
+   Typed Properties/ReasonCode, Clean Start/Session Expiry/Receive Maximum and
+   cross-version recovery are implemented in Phase2e.
 3. Add TLS transport before exposing password authentication over untrusted networks;
    remote authentication, per-identity rate limiting and policy reload require
    explicit policy-version/control contracts.
@@ -127,8 +130,39 @@ graph LR
 ```
 
 All writers have separate branches/worktrees. Existing retained store, trie, QoS
-FSMs, storage and transaction/outbox pipeline are reused. No cluster/TLS/MQTT5
-implementation is hidden inside this dependency group. Legacy schemas bind to
+FSMs, storage and transaction/outbox pipeline are reused. This Phase2d group did
+not implement cluster/TLS/MQTT5; Phase2e below adds the first MQTT5 semantics. Legacy schemas bind to
 anonymous; offline administrative reassignment/removal needs a future explicit
 contract. Policy-triggered payload pruning is intentional revocation behavior;
 resource-quota incompatibility/corrupt schema still fail startup without resetting.
+
+## Completed Phase2e dependency group
+
+```mermaid
+graph LR
+  Contract[MQTT5 wire session clock flow and schema4 freeze f813e0b] --> Protocol[Versioned Frame Properties ReasonCode]
+  Contract --> Model[Clean Start expiry metadata and connection quotas]
+  Protocol --> Model
+  Protocol --> Runtime[One shared versioned worker/network]
+  Model --> Runtime
+  Quality[Independent mixed-version TCP/Paho/recovery] --> Gate[Unified review and acceptance]
+  Runtime --> Gate
+```
+
+Protocol, Session and Quality started in isolated worktrees; Protocol's released
+slot enabled Transport. Protocol then independently reviewed model/network while
+owners fixed reproduced defects. No router/storage/auth rewrite was introduced.
+Schema4 explicitly migrates1/2/3, preserving identity and canonical QoS stages.
+Required nullable expiry fields reject omission; known offline deadlines cannot
+be silently refreshed. New metadata participates in state/packet quotas.
+
+Review fixes include exact311→5 envelope growth at packet limits, unavailable
+subscription feature disconnects, precise malformed/protocol reasons, early-PUBREC
+replay cursor retirement, and actual-write inbound credit accounting. Supported
+features/exclusions are in phase2e.md; the next MQTT5 increment must freeze its
+optional-feature semantics and compatibility/migration behavior before coding.
+
+Next verification work includes broader direction/reason conformance, small-packet
+bridging policies, clock rollback/expiry concurrency, slow-client credit reuse and
+terminal-write stress, rolling-version/client matrices and expanded fuzz/fault data.
+No benchmark improvement or full MQTT5 compatibility is claimed.

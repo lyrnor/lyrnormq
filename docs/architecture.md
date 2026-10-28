@@ -1,9 +1,9 @@
-# Architecture — revision5 / Phase2d
+# Architecture — revision6 / Phase2e
 
-TCP MQTT3.1.1 QoS0/1/2, Retained Messages and connection-bound Last Will are
+TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
-SQLite modes. Persistent non-clean sessions require --storage-path. MQTT5,
-TLS and WebSocket remain unsupported. Authentication/ACL uses a bounded local
+SQLite modes. MQTT311 non-clean sessions require --storage-path; MQTT5 positive
+expiry also works across disconnects in volatile memory. TLS and WebSocket remain unsupported. Authentication/ACL uses a bounded local
 policy with pluggable hooks, sharing the transactional session model. Full MQTT conformance
 and production-readiness are not claimed.
 
@@ -11,7 +11,7 @@ and production-readiness are not claimed.
 
 ```mermaid
 graph LR
-  Protocol[mqtt-protocol packets codec and Will] --> Model[mqtt-session QoS and lifecycle]
+  Protocol[mqtt-protocol normalized packets and versioned Frame] --> Model[mqtt-session QoS and lifecycle]
   Router[mqtt-router trie and retained store] --> Model
   Router --> Auth[mqtt-auth bounded policy and identity]
   Auth --> Model
@@ -25,15 +25,15 @@ graph LR
 
 lib.rs contains docs/module declarations/reexports only. Protocol splits packet,
 codec,error; Router has filter,trie,retained; Session has error,identifiers,incoming,
-outgoing,durable plus durable records/lifecycle/retention/authorization helpers;
+outgoing,durable plus records/legacy,lifecycle,retention,authorization,mqtt5,expiry helpers;
 Auth has api,policy,containment,error; Storage has
-model,error,trait,memory,durable; Transport has config,server,packet_io,durable.
+model,error,trait,memory,durable; Transport has config,server,packet_io,durable and the production durable/network module.
 The previous duplicate live state/connection production path was retired; its
 meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2d contract supersedes changed authentication/ownership/schema boundaries; prior contracts
+phase2e contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 and PollOutcome documented in this phase.
@@ -111,14 +111,16 @@ death loses all memory state; SQLite process recovery defers Wills until restart
 
 SQLite WAL/FULL and singleton opaque container schema remain version1, protected
 by the existing permanent canonical `.broker-lock` OS advisory lock. Business JSON
-is now schema3: persistent sessions plus required global retained and wills arrays.
+is now schema4: persistent sessions plus required global retained and wills arrays.
 Each session/Will has a required stable owner identity; passwords/hashes/raw CONNECT are never stored.
-Static owner labels include the non-secret username.
+Static owner labels include the non-secret username. Schema3 owners are preserved;
+1/2 migrate to anonymous. Schema4 adds required message/Will/retained properties,
+per-ID incoming/outgoing metadata, and session_expiry_interval/expires_at fields.
 Queued Message adds retain. Will records are client_id,owner,pending,will(topic,payload,
 qos,retain); retained records are topic,payload,qos and never empty. Valid schema1
 is explicitly decoded with its old DTOs and migrated to empty globals/retain=false;
 old retained wire that schema1 could not store is rejected. Schema2 preserves its
-required globals; both legacy formats migrate to anonymous ownership. Schema3 strictly
+required globals; versions1/2 migrate to anonymous,3 preserves identity. Schema4 strictly
 validates fields, uniqueness, packet IDs/stages/order/topics and restored quotas.
 All restored sessions start offline; online maps/generations/replay cursors are
 runtime-only. Unknown/corrupt records fail startup rather than resetting state.
@@ -189,3 +191,50 @@ Normative credential/denial reference: OASIS MQTT3.1.1 sections3.1.2.8–9,3.1.3
 3.2.2.3,3.3.5 and3.8.4
 (https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html).
 Hash API reference: https://docs.rs/argon2/0.5.3/argon2/.
+
+## Revision6: versioned wire, deadlines and connection quotas
+
+Protocol keeps legacy Packet/Will/encode/decode and adds Frame, Properties, ReasonCode,
+ProtocolVersion and incremental versioned codecs. Transport negotiates once; partial
+peek_connect_version is only for correctly framing a failed CONNECT. Property
+context/value errors have typed classifications, including malformed0x81, protocol0x82
+and specified codes such as zero TopicAlias0x94. AuthenticationData Debug is redacted.
+
+SessionEngine's Clock is injected for deterministic expiry tests. Clean Start resets
+old state independently of session expiry; wrappers map MQTT311 clean flags to0 or
+UINT_MAX. Known offline deadlines are persisted; loaded active finite records start
+a conservative restart-time deadline. Tick requests are bounded; workers cheaply
+skip cloning/commit when no expiry is due. Expiry, ACL pruning, pending Will retry
+and outbox changes use the existing proposal/commit/install boundary.
+
+ReceiveMaximum and runtime protocol version are connection properties, not session
+records. Per-connection sent IDs reserve QoS1/2 credit; positive PUBREC does not
+release it. Reconnect can replay fewer messages than the persisted pending count,
+while PUBREL/control bypasses a blocked replay head. Negative ACK releases matching
+stage, ID, metadata and quota without retry. Inbound network credits last until the
+relevant ACK is actually written, with QoS and generation tickets preventing stale
+completion callbacks from releasing a reused ID.
+
+Application metadata stays alongside canonical MQTT311 QoS wire bytes; all pending
+state machines/routing remain shared. Retained metadata uses a model sidecar paired
+with the existing store, not a competing router. Properties survive QoS2 original
+ownership, replay, offline/retained/Will recovery and are stripped only for311 wire.
+Durable incoming entries are(id,canonical_bytes,properties) triples; outgoing records
+add properties to existing stage, queued/retained/WillData add properties. Legacy
+1/2/3 DTOs explicitly migrate to empty metadata and infinite expiry; current4 fields
+are required. Runtime sent sets/quota/version are omitted from persistence.
+
+Terminal DISCONNECT uses a bounded priority signal: finish at most the in-progress
+frame, discard queued data, then write the terminal frame; timeout closes the socket.
+Never cancel a partial frame then append another one on the same stream. At most
+two frame deadlines bound terminal shutdown. Successful takeover sends old V5 socket
+reason0x8E when writable; stale cleanup cannot affect the new generation.
+
+Supported/excluded property semantics and initial refusal reasons are enumerated
+in phase2e.md/README. Codec coverage of all property types does not mean runtime
+implementation of every optional feature. Topic aliases, subscription IDs/shared
+subscriptions, nondefault subscription options, MessageExpiry/WillDelay, enhanced
+AUTH, client MaximumPacketSize and assigned Client IDs remain explicit exclusions.
+No MQTT5 full-conformance, performance or production claim is made.
+
+MQTT5 normative source: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html.

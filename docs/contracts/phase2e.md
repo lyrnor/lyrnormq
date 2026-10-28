@@ -6,8 +6,8 @@ router, retained store, principal ownership, snapshot transactions and outboxes.
 Keep every lib.rs documentation/module declarations/reexports only.
 
 ## Versioned wire API — protocol owner
-Existing Packet/Will/encode/decode (MQTT311) stay source compatible. Add Packet::Auth
-unit variant; legacy codec rejects AUTH. Add ProtocolError::ProtocolViolation(String)
+Existing Packet variants/fields, Will and encode/decode (MQTT311) are retained.
+Add Packet::Auth unit variant (external exhaustive matches must handle this addition); legacy codec rejects AUTH. Add ProtocolError::ProtocolViolation(String)
 for syntactically framed but semantically invalid protocol input (duplicate singleton
 property, zero ReceiveMaximum etc). PerMQTT5 section2.2.2.2, an unknown property
 identifier or identifier invalid for this packet type is MalformedPacket0x81, as
