@@ -295,7 +295,7 @@ pub(super) fn connack(
             Property::ReceiveMaximum(config.max_inflight.min(u16::MAX as usize) as u16),
             Property::MaximumPacketSize(config.max_packet_size.min(u32::MAX as usize) as u32),
             Property::SharedSubscriptionAvailable(0),
-            Property::SubscriptionIdentifierAvailable(0),
+            Property::SubscriptionIdentifierAvailable(1),
         ];
     }
     frame
@@ -780,6 +780,40 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn phase2h_identifier_capability_preserves_handshake_size_and_other_limits() {
+        let config = BrokerConfig::default();
+        let frame = accepted_connack(ProtocolVersion::V5, false, &config, None);
+        assert!(
+            frame
+                .properties
+                .contains(&Property::SubscriptionIdentifierAvailable(1))
+        );
+        assert!(
+            frame
+                .properties
+                .contains(&Property::SharedSubscriptionAvailable(0))
+        );
+        assert!(frame.properties.contains(&Property::ReceiveMaximum(32)));
+        assert!(
+            frame
+                .properties
+                .contains(&Property::MaximumPacketSize(1_048_576))
+        );
+        assert_eq!(encode_frame(&frame).unwrap().len(), 17);
+        let assigned = accepted_connack(
+            ProtocolVersion::V5,
+            false,
+            &config,
+            Some("r0123456789abcdef012345"),
+        );
+        assert_eq!(encode_frame(&assigned).unwrap().len(), 43);
+        assert!(
+            accepted_connack(ProtocolVersion::V311, false, &config, None)
+                .properties
+                .is_empty()
+        );
+    }
     use super::*;
     #[test]
     fn credits_hold_qos2_until_pubcomp_and_never_release_reused_id_from_stale_ack() {

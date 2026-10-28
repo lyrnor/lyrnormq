@@ -592,3 +592,57 @@ fn response_topic_semantics_are_distinct_from_utf8_lexical_errors() {
         Err(ProtocolError::Malformed(_))
     ));
 }
+
+#[test]
+fn phase2h_all_valid_options_preserve_identifier_varint_boundaries() {
+    for identifier in [
+        1,
+        127,
+        128,
+        16_383,
+        16_384,
+        2_097_151,
+        2_097_152,
+        268_435_455,
+    ] {
+        for qos in 0..=2 {
+            for flags in [0, 4, 8, 12] {
+                for handling in 0..=2 {
+                    let mut frame = Frame::v5(Packet::Subscribe {
+                        packet_id: 1,
+                        filters: vec![("options/+".into(), qos)],
+                    });
+                    frame.properties = vec![Property::SubscriptionIdentifier(identifier)];
+                    frame.subscription_options = vec![qos | flags | (handling << 4)];
+                    let bytes = encode_frame(&frame).unwrap();
+                    let (decoded, consumed) =
+                        decode_frame(&bytes, bytes.len(), Some(ProtocolVersion::V5))
+                            .unwrap()
+                            .unwrap();
+                    assert_eq!(consumed, bytes.len());
+                    assert_eq!(decoded, frame);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn phase2h_repeated_publish_identifiers_preserve_multiplicity_and_user_order() {
+    let mut frame = publish();
+    frame.properties = vec![
+        Property::UserProperty("key".into(), "first".into()),
+        Property::SubscriptionIdentifier(128),
+        Property::SubscriptionIdentifier(128),
+        Property::UserProperty("key".into(), "second".into()),
+        Property::SubscriptionIdentifier(1),
+    ];
+    round_trip(frame);
+    // Repetition is allowed on server PUBLISH, never on SUBSCRIBE, even for
+    // two equal values. Directional client-PUBLISH rejection is runtime policy.
+    let repeated_subscribe = [0x82, 11, 0, 1, 4, 11, 1, 11, 1, 0, 1, b'a', 0];
+    assert!(matches!(
+        decode_frame(&repeated_subscribe, 128, Some(ProtocolVersion::V5)),
+        Err(ProtocolError::ProtocolViolation(_))
+    ));
+}
