@@ -119,6 +119,7 @@ fn metadata() -> Properties {
 /// Convert our current output to an actual old schema3 fixture before further v1/2 downgrade.
 pub(super) fn legacy_schema3(mut json: serde_json::Value) -> serde_json::Value {
     json["schema_version"] = 3.into();
+    json.as_object_mut().unwrap().remove("clock_floor");
     for session in json["sessions"].as_array_mut().unwrap() {
         session
             .as_object_mut()

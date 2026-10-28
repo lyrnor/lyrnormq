@@ -19,6 +19,7 @@ pub(super) struct Message {
 #[serde(deny_unknown_fields)]
 pub(super) struct Envelope {
     pub(super) schema_version: u32,
+    pub(super) clock_floor: u64,
     pub(super) sessions: Vec<SessionRecord>,
     pub(super) retained: Vec<RetainedRecord>,
     pub(super) wills: Vec<WillRecord>,
@@ -139,6 +140,7 @@ pub(super) fn decode(bytes: &[u8]) -> Result<(Envelope, bool), EngineError> {
     Ok((
         Envelope {
             schema_version: 5,
+            clock_floor: 0,
             sessions: old
                 .sessions
                 .into_iter()
@@ -298,6 +300,7 @@ fn migrate_v4(bytes: &[u8]) -> Result<Envelope, EngineError> {
     }
     Ok(Envelope {
         schema_version: 5,
+        clock_floor: 0,
         sessions,
         retained,
         wills,

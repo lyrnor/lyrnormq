@@ -19,6 +19,14 @@ impl Clock for SystemClock {
     }
 }
 impl SessionEngine {
+    /// Observe wall time without allowing a committed proposal to rewind it.
+    /// The floor belongs to this model clone and is persisted in its snapshot.
+    /// Observation alone is not protocol progress: empty polls and timer retries
+    /// stay quiet. Commit the observed floor with real mutations or transmissions.
+    pub fn effective_now(&self) -> u64 {
+        self.clock_floor.observe(self.clock.now_millis())
+    }
+
     /// Earliest actionable deadline, excluding already-started protocol state.
     pub fn next_expiry_deadline(&self) -> Option<u64> {
         self.sessions
@@ -41,7 +49,7 @@ impl SessionEngine {
             .min()
     }
     pub fn expire_messages(&mut self) -> Result<bool, EngineError> {
-        let now = self.clock.now_millis();
+        let now = self.effective_now();
         let mut changed = false;
         for session in self.sessions.values_mut() {
             let before = session.queued.len();
@@ -82,7 +90,7 @@ impl SessionEngine {
         Ok(changed)
     }
     pub fn expire_sessions(&mut self) -> Result<bool, EngineError> {
-        let now = self.clock.now_millis();
+        let now = self.effective_now();
         let before = self.sessions.len();
         self.sessions.retain(|_, session| {
             session.online || !super::temporal::is_expired(session.expires_at, now)

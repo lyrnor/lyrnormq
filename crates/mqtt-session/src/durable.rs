@@ -178,6 +178,7 @@ impl Session {
 pub struct SessionEngine {
     access: Arc<dyn AccessControl>,
     clock: Arc<dyn Clock>,
+    clock_floor: temporal::ClockFloor,
     retained_properties: BTreeMap<String, Properties>,
     retained_expiry: BTreeMap<String, u64>,
     config: SessionConfig,
@@ -249,6 +250,7 @@ impl SessionEngine {
         let engine = Self {
             access,
             clock,
+            clock_floor: temporal::ClockFloor::default(),
             retained_properties: BTreeMap::new(),
             retained_expiry: BTreeMap::new(),
             config,
@@ -286,6 +288,7 @@ impl SessionEngine {
             return Err(EngineError::Capacity);
         }
         let (envelope, legacy) = records::decode(bytes)?;
+        engine.clock_floor = temporal::ClockFloor::new(envelope.clock_floor);
         if envelope.sessions.len() > config.max_sessions
             || envelope.retained.len() > config.max_retained
             || envelope.wills.len() > config.max_sessions
@@ -317,8 +320,7 @@ impl SessionEngine {
             } else {
                 Some(record.expires_at.unwrap_or_else(|| {
                     engine
-                        .clock
-                        .now_millis()
+                        .effective_now()
                         .saturating_add(u64::from(session.expiry) * 1000)
                 }))
             };
@@ -598,6 +600,7 @@ impl SessionEngine {
         }
         Ok(Envelope {
             schema_version: 5,
+            clock_floor: self.clock_floor.get(),
             sessions: records,
             retained: self
                 .retained
@@ -785,7 +788,11 @@ impl SessionEngine {
         properties: Properties,
         received_at_millis: u64,
     ) -> Result<Vec<Packet>, EngineError> {
-        let received_at_millis = received_at_millis.min(self.clock.now_millis());
+        // Receipt timestamps use the raw read clock. Preserve elapsed residence
+        // time while rebasing onto the durable nondecreasing model clock.
+        let raw_now = self.clock.now_millis();
+        let receipt_age = raw_now.saturating_sub(received_at_millis);
+        let received_at_millis = self.effective_now().saturating_sub(receipt_age);
         self.require_online(client_id)?;
         let bytes =
             encode(&packet).map_err(|error| EngineError::InvalidPacket(error.to_string()))?;

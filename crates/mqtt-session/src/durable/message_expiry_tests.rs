@@ -380,3 +380,81 @@ fn nonzero_disconnect_adapter_marks_active_will_pending() {
     e.handle_frame("will", f).unwrap();
     assert!(e.poll_frame_with_changes("sub").unwrap().frame.is_some());
 }
+#[test]
+fn committed_message_ttl_cannot_grow_after_clock_rollback_and_restore() {
+    let (mut e, c) = state();
+    subscribe(&mut e, "a");
+    publish(&mut e, 1, 1, Some(10), false);
+    c.set(5000);
+    let first = e.poll_frame_with_changes("sub").unwrap().frame.unwrap();
+    assert!(
+        first
+            .properties
+            .contains(&Property::MessageExpiryInterval(6))
+    );
+    e.disconnect("sub").unwrap();
+    let bytes = e.snapshot().unwrap();
+    c.set(2000);
+    let mut restored =
+        SessionEngine::restore_with_clock(config(), &bytes, Arc::new(AllowAnonymous), c).unwrap();
+    connect(&mut restored, "sub", false);
+    let replay = restored
+        .poll_frame_with_changes("sub")
+        .unwrap()
+        .frame
+        .unwrap();
+    assert!(matches!(replay.packet, Packet::Publish { dup: true, .. }));
+    assert!(
+        replay
+            .properties
+            .contains(&Property::MessageExpiryInterval(6))
+    );
+}
+#[test]
+fn new_ingress_after_clock_rollback_rebases_raw_receipt_age() {
+    let (mut e, c) = state();
+    c.set(10000);
+    e.expire_sessions().unwrap();
+    c.set(2000);
+    subscribe(&mut e, "a");
+    e.handle_frame_at("pub", publication(1, 1, Some(3), true), 1000)
+        .unwrap();
+    let delivery = e
+        .poll_delivery_with_changes("sub")
+        .unwrap()
+        .delivery
+        .unwrap();
+    assert_eq!(delivery.expires_at, Some(12000));
+    let frame = e.begin_delivery("sub", delivery).unwrap().frame.unwrap();
+    assert!(
+        frame
+            .properties
+            .contains(&Property::MessageExpiryInterval(2))
+    );
+}
+#[test]
+fn discarded_proposal_does_not_advance_original_clock_floor() {
+    let (e, c) = state();
+    let before = e.snapshot().unwrap();
+    let mut proposal = e.clone();
+    c.set(10000);
+    proposal.expire_sessions().unwrap();
+    c.set(1000);
+    assert_eq!(e.snapshot().unwrap(), before);
+    assert_ne!(proposal.snapshot().unwrap(), before);
+}
+
+#[test]
+fn observing_time_without_work_keeps_expiry_and_empty_poll_quiet() {
+    let (mut e, c) = state();
+    c.set(5000);
+    assert!(!e.expire_sessions().unwrap());
+    c.set(6000);
+    let poll = e.poll_delivery_with_changes("sub").unwrap();
+    assert!(poll.delivery.is_none());
+    assert!(!poll.changed);
+    c.set(7000);
+    assert!(!e.retry_wills().unwrap());
+    let snapshot: serde_json::Value = serde_json::from_slice(&e.snapshot().unwrap()).unwrap();
+    assert_eq!(snapshot["clock_floor"], 7000);
+}

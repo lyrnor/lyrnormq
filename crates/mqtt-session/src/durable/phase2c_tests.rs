@@ -241,6 +241,9 @@ fn full_replay_and_retained_store_failures_discard_the_whole_proposal() {
     );
     assert_eq!(state.snapshot().unwrap(), before);
     assert!(state.poll("sub").unwrap().is_none());
+    // The accepted empty poll may observe newer clock metadata. The rejected
+    // proposal must leave that latest committed model byte-for-byte intact.
+    let before = state.snapshot().unwrap();
     let mut proposal = state.clone();
     assert!(
         proposal

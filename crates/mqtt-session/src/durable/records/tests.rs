@@ -73,6 +73,7 @@ fn schema5_new_fields_are_required_even_when_nullable() {
     assert_eq!(valid["schema_version"], 5);
     assert!(restore(&valid).is_ok());
     for (pointer, key) in [
+        ("", "clock_floor"),
         ("/sessions/1/queued/0", "expires_at"),
         ("/sessions/1/outgoing/0", "expires_at"),
         ("/sessions/1/outgoing/0", "started"),
@@ -90,6 +91,15 @@ fn schema5_new_fields_are_required_even_when_nullable() {
                 .is_some()
         );
         assert!(restore(&bad).is_err(), "{pointer}/{key}");
+    }
+    for malformed in [
+        serde_json::Value::Null,
+        serde_json::json!(-1),
+        serde_json::json!("1000"),
+    ] {
+        let mut bad = valid.clone();
+        bad["clock_floor"] = malformed;
+        assert!(restore(&bad).is_err());
     }
     let mut bad = valid.clone();
     bad["sessions"][0]["incoming"][0]
@@ -110,6 +120,7 @@ fn schema5_new_fields_are_required_even_when_nullable() {
 }
 fn downgrade4(mut value: serde_json::Value) -> serde_json::Value {
     value["schema_version"] = 4.into();
+    value.as_object_mut().unwrap().remove("clock_floor");
     for s in value["sessions"].as_array_mut().unwrap() {
         for incoming in s["incoming"].as_array_mut().unwrap() {
             assert_eq!(incoming.as_array().unwrap().len(), 4);
@@ -135,6 +146,8 @@ fn downgrade4(mut value: serde_json::Value) -> serde_json::Value {
 #[test]
 fn schema4_migration_preserves_state_and_rejects_unsupported_legacy_metadata() {
     let old = downgrade4(snapshot());
+    let (decoded, _) = decode(&serde_json::to_vec(&old).unwrap()).unwrap();
+    assert_eq!(decoded.clock_floor, 0);
     let restored = restore(&old).unwrap();
     let next: serde_json::Value = serde_json::from_slice(&restored.snapshot().unwrap()).unwrap();
     assert_eq!(next["schema_version"], 5);

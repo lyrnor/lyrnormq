@@ -2,6 +2,17 @@ use super::*;
 use mqtt_auth::{AuthError, ConnectInfo};
 use mqtt_protocol::Will;
 
+// Failed direct model calls can observe time; application state must remain
+// identical and the proposal-local high-watermark must never move backward.
+fn assert_business_snapshot_unchanged(state: &SessionEngine, before: &[u8]) {
+    let mut before: serde_json::Value = serde_json::from_slice(before).unwrap();
+    let mut after: serde_json::Value = serde_json::from_slice(&state.snapshot().unwrap()).unwrap();
+    assert!(after["clock_floor"].as_u64().unwrap() >= before["clock_floor"].as_u64().unwrap());
+    before.as_object_mut().unwrap().remove("clock_floor");
+    after.as_object_mut().unwrap().remove("clock_floor");
+    assert_eq!(after, before);
+}
+
 #[derive(Debug, Default)]
 struct Policy {
     publish: Vec<&'static str>,
@@ -116,7 +127,7 @@ fn ownership_blocks_live_takeover_and_clean_reset_before_old_will_changes() {
             state.connect_authenticated("same", clean, None, owner("bob")),
             Err(EngineError::NotAuthorized)
         ));
-        assert_eq!(state.snapshot().unwrap(), before);
+        assert_business_snapshot_unchanged(&state, &before);
         assert!(state.sessions["same"].online);
         assert!(!state.wills["same"].pending);
     }
@@ -154,7 +165,7 @@ fn ownership_of_pending_clean_will_survives_without_session_record() {
             state.connect_authenticated("source", clean, None, owner("bob")),
             Err(EngineError::NotAuthorized)
         ));
-        assert_eq!(state.snapshot().unwrap(), before);
+        assert_business_snapshot_unchanged(&state, &before);
     }
     state
         .connect_authenticated("source", true, None, owner("alice"))
@@ -177,7 +188,7 @@ fn denied_new_will_and_client_prefix_do_not_mutate_existing_connection() {
         state.connect_authenticated("same", true, Some(will("denied")), owner("alice")),
         Err(EngineError::NotAuthorized)
     ));
-    assert_eq!(state.snapshot().unwrap(), before);
+    assert_business_snapshot_unchanged(&state, &before);
     assert!(state.sessions["same"].online);
     state.access = Arc::new(Policy {
         clients: vec!["same"],
@@ -187,7 +198,7 @@ fn denied_new_will_and_client_prefix_do_not_mutate_existing_connection() {
         state.connect_authenticated("same", true, None, owner("alice")),
         Err(EngineError::NotAuthorized)
     ));
-    assert_eq!(state.snapshot().unwrap(), before);
+    assert_business_snapshot_unchanged(&state, &before);
 }
 
 #[test]
@@ -212,7 +223,7 @@ fn denied_publish_never_acknowledges_or_updates_deletes_retained_or_qos2() {
                 state.handle("source", packet),
                 Err(EngineError::NotAuthorized)
             ));
-            assert_eq!(state.snapshot().unwrap(), before);
+            assert_business_snapshot_unchanged(&state, &before);
         }
     }
 }
@@ -283,7 +294,7 @@ fn revoked_incoming_qos2_pubrel_retains_original_payload_and_has_no_effect() {
         state.handle("source", Packet::PubRel { packet_id: 9 }),
         Err(EngineError::NotAuthorized)
     ));
-    assert_eq!(state.snapshot().unwrap(), before);
+    assert_business_snapshot_unchanged(&state, &before);
     assert!(state.retained.is_empty());
     assert_eq!(
         state

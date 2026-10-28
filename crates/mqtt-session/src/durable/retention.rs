@@ -4,7 +4,7 @@ impl SessionEngine {
     pub(super) fn publish(&mut self, message: Message) -> Result<(), EngineError> {
         self.validate_message(&message)?;
         self.expire_messages()?;
-        let expired = temporal::is_expired(message.expires_at, self.clock.now_millis());
+        let expired = temporal::is_expired(message.expires_at, self.effective_now());
         if message.retain {
             if message.payload.is_empty() || expired {
                 self.retained_properties.remove(&message.topic);

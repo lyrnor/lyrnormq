@@ -505,9 +505,10 @@ impl SessionEngine {
         delivery: Delivery,
     ) -> Result<FramePollOutcome, EngineError> {
         self.require_online(client_id)?;
+        let previous_floor = self.clock_floor.get();
         let mut changed = self.expire_sessions()?;
         changed |= self.reconcile_authorization()?;
-        let now = self.clock.now_millis();
+        let now = self.effective_now();
         let session = self
             .sessions
             .get_mut(client_id)
@@ -527,7 +528,7 @@ impl SessionEngine {
         else {
             return Ok(FramePollOutcome {
                 frame: Some(delivery.frame),
-                changed,
+                changed: changed || now != previous_floor,
             });
         };
         let mut frame = if *qos == 0 {
@@ -608,7 +609,7 @@ impl SessionEngine {
         self.ensure_bounds()?;
         Ok(FramePollOutcome {
             frame: Some(frame),
-            changed,
+            changed: changed || now != previous_floor,
         })
     }
 }

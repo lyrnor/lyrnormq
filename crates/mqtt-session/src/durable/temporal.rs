@@ -1,6 +1,28 @@
-//! Pure deadline arithmetic shared by message and Will publication paths.
+//! Proposal-local observed time and deadline arithmetic shared by message and Will paths.
 use super::{EngineError, invalid_record};
 use mqtt_protocol::{Properties, Property};
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Clones copy the observed value, never sharing proposal mutations.
+#[derive(Debug, Default)]
+pub(super) struct ClockFloor(AtomicU64);
+impl Clone for ClockFloor {
+    fn clone(&self) -> Self {
+        Self::new(self.get())
+    }
+}
+impl ClockFloor {
+    pub(super) fn new(value: u64) -> Self {
+        Self(AtomicU64::new(value))
+    }
+    pub(super) fn get(&self) -> u64 {
+        self.0.load(Ordering::Relaxed)
+    }
+    pub(super) fn observe(&self, raw: u64) -> u64 {
+        self.0.fetch_max(raw, Ordering::Relaxed).max(raw)
+    }
+}
 
 pub(super) fn expiry_deadline(properties: &Properties, now: u64) -> Option<u64> {
     properties.iter().find_map(|property| match property {
