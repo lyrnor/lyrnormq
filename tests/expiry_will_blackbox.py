@@ -314,6 +314,24 @@ class ExpiryWillBlackbox(unittest.TestCase):
         source = self.client('short-session', clean=False, expiry=60, present=False)
         self.disconnect(source)
 
+    def test_infinite_session_preserves_delay_and_remains_resumable(self):
+        self.start()
+        sub = self.observer()
+        source = self.will_source('infinite-session', delay=1, expiry=0xffffffff)
+        self.abort(source)
+        self.quiet(sub)
+        self.message(sub, 'will/event', b'infinite-session')
+        source = self.client('infinite-session', clean=False, expiry=60, present=True)
+        self.disconnect(source)
+
+    def test_disconnect04_expiry_override_zero_forces_session_end_will(self):
+        self.start()
+        sub = self.observer()
+        source = self.will_source('override-zero', delay=60, expiry=60)
+        self.disconnect(source, reason=0x04, expiry=0)
+        self.message(sub, 'will/event', b'override-zero')
+        self.client('override-zero', clean=False, expiry=60, present=False)
+
     def test_clean_start_true_ends_old_session_and_forces_will_now(self):
         self.start()
         sub = self.observer()
