@@ -64,6 +64,10 @@ V311 Frame metadata must empty; cross-version forwarding deliberately strips wir
 metadata through the model, not by permissive encoder. Fixed flags/IDs/remaining
 length/UTF8/string+binary/property lengths and limits checked before allocations.
 Shared filter syntax may decode; do not apply runtime feature policy in codec.
+Also export peek_connect_version(input:&[u8])->Option<ProtocolVersion>, a bounded
+partial CONNECT-header inspection reusing protocol parsing helpers, so transport
+can frame a V5 failure CONNACK when later properties fail before Frame exists. It
+is not acceptance/validation of the full packet; no transport-side MQTT parsing.
 Test official boundary/context matrices, fragments/concatenation, malicious lengths,
 all property types/reasons, v311 regression and password redaction.
 
@@ -74,6 +78,8 @@ RequestProblemInformation/RequestResponseInformation,TopicAliasMaximum can be ac
 negotiated in this increment: reject supplied CONNECT value with CONNACK0x83 rather
 than ignore a client bound. AuthenticationMethod/Data reject with0x8C (enhanced auth
 not implemented). AUTH after accepted basic CONNECT rejects protocol error.
+A MaximumPacketSize refusal itself must fit the supplied size (minimum V5
+CONNACK is5 bytes); if it cannot, close without an oversized response.
 CONNACK advertises ReceiveMaximum=min(max_inflight,65535),MaximumPacketSize=config limit,
 TopicAliasMaximum=0,SharedSubscriptionAvailable=0,SubscriptionIdentifierAvailable=0;
 normal retained/wildcard availability supported. Respect RequestProblemInformation
