@@ -60,8 +60,11 @@ class Broker:
             probe.bind(('127.0.0.1', 0))
             self.port = probe.getsockname()[1]
         executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
-        self.process = subprocess.Popen([executable, '--listen', f'127.0.0.1:{self.port}'],
-                                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        command = [executable, '--listen', f'127.0.0.1:{self.port}']
+        storage_path = os.environ.get('RMQTT_TEST_STORAGE_PATH')
+        if storage_path:
+            command.extend(['--storage-path', storage_path])
+        self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             if self.process.poll() is not None:

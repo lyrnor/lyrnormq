@@ -18,3 +18,12 @@ jobs:
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/paho_interop.py
       - run: python3 tests/persistence_paho.py
+      - name: Existing client suites with SQLite enabled
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, sys, tempfile
+          for suite in ('blackbox.py', 'qos_blackbox.py', 'paho_interop.py'):
+              with tempfile.TemporaryDirectory(prefix='rmqtt-sqlite-regression-') as directory:
+                  env = dict(os.environ, RMQTT_TEST_STORAGE_PATH=os.path.join(directory, 'sessions.sqlite'))
+                  subprocess.run([sys.executable, 'tests/' + suite], env=env, check=True)
+          PY
