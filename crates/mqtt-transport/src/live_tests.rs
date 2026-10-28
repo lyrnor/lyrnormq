@@ -2,7 +2,6 @@
 use super::*;
 use crate::server::serve;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio::{io::AsyncWriteExt, net::TcpListener, time::timeout};
 
@@ -41,6 +40,7 @@ async fn connected(address: SocketAddr, name: &str) -> TcpStream {
             client_id: name.into(),
             clean_session: true,
             keep_alive: 0,
+            will: None,
         },
     )
     .await;
@@ -484,68 +484,93 @@ async fn qos_is_downgraded_to_publication_and_subscription_minimum() {
 }
 #[tokio::test]
 async fn continuous_qos0_delivery_does_not_starve_ping_reads() {
-    // Drive a connection's real queue without router overflow so it remains
-    // continuously ready; PING reads must compete fairly with socket writes.
+    // Drive the shared worker while a real subscriber reads a continuously
+    // replenished QoS0 stream; control reads must still make progress.
+    let config = BrokerConfig {
+        outbound_capacity: 1024,
+        ..BrokerConfig::default()
+    };
+    let (sender, receiver) = mpsc::channel(config.max_connections);
+    let worker = Worker { sender };
+    let (ready, startup) = oneshot::channel();
+    let worker_config = config.clone();
+    let worker_task =
+        tokio::task::spawn_blocking(move || run_worker(receiver, worker_config, ready));
+    startup.await.unwrap().unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
-    let state = Arc::new(Mutex::new(State::default()));
-    let connection_state = Arc::clone(&state);
+    let connection_worker = worker.clone();
     let (stop_tx, stop_rx) = watch::channel(false);
     let handle = tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
-        connection(
-            stream,
-            1,
-            &connection_state,
-            &BrokerConfig {
-                outbound_capacity: 1024,
-                ..BrokerConfig::default()
-            },
-            stop_rx,
-        )
-        .await
+        connection(stream, 1, connection_worker, config, stop_rx).await
     });
     let mut stream = connected(address, "fairness").await;
-    let sender = {
-        lock(&state)
-            .unwrap()
-            .clients
-            .get(&1)
-            .unwrap()
-            .outgoing
-            .clone()
-    };
-    let message = Arc::new(publication("a", b"x", 0, None));
-    for _ in 0..1024 {
-        sender
-            .try_send(Delivery {
-                publication: Arc::clone(&message),
-                qos: 0,
-            })
-            .unwrap_or_else(|_| panic!("queue unexpectedly full"));
-    }
-    let producer = tokio::spawn(async move {
-        while sender
-            .send(Delivery {
-                publication: Arc::clone(&message),
-                qos: 0,
+    subscribe(&mut stream, "a", 0).await;
+    let (wake, _) = watch::channel(0);
+    let (cancel, _) = watch::channel(false);
+    worker
+        .request(Operation::Connect {
+            client: "producer".into(),
+            clean: true,
+            will: None,
+            generation: 2,
+            wake,
+            cancel,
+        })
+        .await
+        .unwrap();
+    for _ in 0..128 {
+        worker
+            .request(Operation::Handle {
+                client: "producer".into(),
+                generation: 2,
+                packet: publication("a", b"x", 0, None),
             })
             .await
-            .is_ok()
-        {}
+            .unwrap();
+    }
+    let producing = worker.clone();
+    let producer = tokio::spawn(async move {
+        loop {
+            if producing
+                .request(Operation::Handle {
+                    client: "producer".into(),
+                    generation: 2,
+                    packet: publication("a", b"x", 0, None),
+                })
+                .await
+                .is_err()
+            {
+                tokio::task::yield_now().await;
+            }
+        }
     });
     send(&mut stream, Packet::PingReq).await;
     let response = timeout(Duration::from_millis(500), async {
+        let mut received_publication = false;
         loop {
-            if receive(&mut stream).await == Packet::PingResp {
-                break;
+            match receive(&mut stream).await {
+                Packet::PingResp => {
+                    assert!(received_publication);
+                    break;
+                }
+                Packet::Publish { .. } => received_publication = true,
+                packet => panic!("unexpected packet {packet:?}"),
             }
         }
     })
     .await;
     producer.abort();
+    let _ = producer.await;
     stop_tx.send(true).unwrap();
     timeout(Duration::from_secs(2), handle)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    drop(worker);
+    timeout(Duration::from_secs(2), worker_task)
         .await
         .unwrap()
         .unwrap()
@@ -557,6 +582,5 @@ async fn continuous_qos0_delivery_does_not_starve_ping_reads() {
 }
 #[test]
 fn removed_generation_cannot_mutate_routing() {
-    let state = State::default();
-    assert!(active(&state, 1).is_err());
+    assert!(valid_generation(&HashMap::new(), "gone", 1).is_err());
 }

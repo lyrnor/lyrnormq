@@ -5,11 +5,14 @@ use std::time::Duration;
 /// packets; maximum queued payload memory is bounded by capacity × packet size.
 /// Each direction separately retains at most `max_inflight` QoS exchanges, with
 /// each encoded message limited by `max_packet_size`. State is volatile and is
-/// discarded on disconnect unless storage_path enables the SQLite-backed worker.
+/// discarded when a clean session ends. Global retained records survive client
+/// disconnects even without SQLite; without storage_path all state is lost on
+/// process termination. SQLite retains persistent sessions and global records.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
     pub storage_path: Option<std::path::PathBuf>,
     pub max_sessions: usize,
+    pub max_retained: usize,
     pub max_state_bytes: usize,
     pub max_packet_size: usize,
     pub max_connections: usize,
@@ -25,6 +28,7 @@ impl Default for BrokerConfig {
         Self {
             storage_path: None,
             max_sessions: 1024,
+            max_retained: 10_000,
             max_state_bytes: 64 * 1024 * 1024,
             max_packet_size: 1024 * 1024,
             max_connections: 1024,

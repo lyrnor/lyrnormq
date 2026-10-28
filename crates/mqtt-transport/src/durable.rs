@@ -1,6 +1,6 @@
 //! Serialized durable worker: propose, commit, install, then expose packets.
 use crate::BrokerConfig;
-use mqtt_protocol::{Packet, ProtocolError, decode, encode};
+use mqtt_protocol::{Packet, ProtocolError, Will, decode, encode};
 use mqtt_session::durable::{SessionConfig, SessionEngine};
 use mqtt_storage::durable::SqliteStore;
 use std::{collections::HashMap, io, sync::Arc, time::Duration};
@@ -24,6 +24,7 @@ enum Operation {
     Connect {
         client: String,
         clean: bool,
+        will: Option<Will>,
         generation: u64,
         wake: watch::Sender<u64>,
         cancel: watch::Sender<bool>,
@@ -40,6 +41,7 @@ enum Operation {
     Disconnect {
         client: String,
         generation: u64,
+        graceful: bool,
     },
 }
 enum Reply {
@@ -73,6 +75,7 @@ impl Worker {
 fn session_config(config: &BrokerConfig) -> SessionConfig {
     SessionConfig {
         max_sessions: config.max_sessions,
+        max_retained: config.max_retained,
         max_subscriptions: config.max_subscriptions,
         max_queued: config.outbound_capacity,
         max_inflight: config.max_inflight,
@@ -103,24 +106,36 @@ fn notify(online: &HashMap<String, Online>) {
 }
 
 fn run_worker(
-    mut commands: mpsc::Receiver<Command>,
+    commands: mpsc::Receiver<Command>,
     config: BrokerConfig,
     ready: oneshot::Sender<Result<(), String>>,
 ) -> io::Result<()> {
     let startup = (|| {
-        let path = config
+        let mut store = config
             .storage_path
             .as_ref()
-            .ok_or_else(|| io::Error::other("missing database path"))?;
-        let store = SqliteStore::open(path, config.max_state_bytes).map_err(io::Error::other)?;
-        let engine = match store.load().map_err(io::Error::other)? {
+            .map(|path| SqliteStore::open(path, config.max_state_bytes))
+            .transpose()
+            .map_err(io::Error::other)?;
+        let loaded = store
+            .as_ref()
+            .map(SqliteStore::load)
+            .transpose()
+            .map_err(io::Error::other)?
+            .flatten();
+        let mut engine = match loaded {
             Some(bytes) => SessionEngine::restore(session_config(&config), &bytes),
             None => SessionEngine::new(session_config(&config)),
         }
         .map_err(io::Error::other)?;
+        engine.recover_wills().map_err(io::Error::other)?;
+        let snapshot = engine.snapshot().map_err(io::Error::other)?;
+        if let Some(store) = &mut store {
+            store.commit(&snapshot).map_err(io::Error::other)?;
+        }
         Ok::<_, io::Error>((store, engine))
     })();
-    let (mut store, mut engine) = match startup {
+    let (store, engine) = match startup {
         Ok(value) => {
             let _ = ready.send(Ok(()));
             value
@@ -130,13 +145,23 @@ fn run_worker(
             return Err(error);
         }
     };
-    let mut online = HashMap::<String, Online>::new();
+    run_commands(commands, config, store, engine, HashMap::new())
+}
+
+fn run_commands(
+    mut commands: mpsc::Receiver<Command>,
+    config: BrokerConfig,
+    mut store: Option<SqliteStore>,
+    mut engine: SessionEngine,
+    mut online: HashMap<String, Online>,
+) -> io::Result<()> {
     while let Some(command) = commands.blocking_recv() {
         // Every command mutates only a proposed clone. On model/quota errors the
         // full proposal is discarded; SQL failure additionally stops all service.
         let mut proposal = engine.clone();
         let mut commit_required = true;
         let mut notify_required = false;
+        let mut retry_required = true;
         let mut registration = None;
         let mut removal = None;
         let proposed = (|| -> io::Result<Reply> {
@@ -144,11 +169,20 @@ fn run_worker(
                 Operation::Connect {
                     client,
                     clean,
+                    will,
                     generation,
                     wake,
                     cancel,
                 } => {
-                    let result = proposal.connect(&client, clean).map_err(io::Error::other)?;
+                    if !clean && config.storage_path.is_none() {
+                        return Err(io::Error::new(
+                            io::ErrorKind::Unsupported,
+                            "persistent sessions require --storage-path",
+                        ));
+                    }
+                    let result = proposal
+                        .connect_with_will(&client, clean, will)
+                        .map_err(io::Error::other)?;
                     registration = Some((
                         client,
                         Online {
@@ -177,17 +211,32 @@ fn run_worker(
                     commit_required = packet.is_some();
                     Ok(Reply::Polled(packet))
                 }
-                Operation::Disconnect { client, generation } => {
+                Operation::Disconnect {
+                    client,
+                    generation,
+                    graceful,
+                } => {
                     if valid_generation(&online, &client, generation).is_err() {
                         commit_required = false;
+                        retry_required = false;
                         return Ok(Reply::Done);
                     }
-                    proposal.disconnect(&client).map_err(io::Error::other)?;
+                    proposal
+                        .disconnect_with_reason(&client, graceful)
+                        .map_err(io::Error::other)?;
+                    notify_required = true;
                     removal = Some(client);
                     Ok(Reply::Done)
                 }
             }
         })();
+        let proposed = proposed.and_then(|reply| {
+            if retry_required && proposal.retry_wills().map_err(io::Error::other)? {
+                commit_required = true;
+                notify_required = true;
+            }
+            Ok(reply)
+        });
         let reply = match proposed {
             Err(error) => Err(error.to_string()),
             Ok(reply) => {
@@ -199,7 +248,9 @@ fn run_worker(
                             continue;
                         }
                     };
-                    if let Err(error) = store.commit(&bytes) {
+                    if let Some(store) = &mut store
+                        && let Err(error) = store.commit(&bytes)
+                    {
                         let message = error.to_string();
                         let _ = command.reply.send(Err(message.clone()));
                         for connection in online.values() {
@@ -326,7 +377,11 @@ async fn connection(
     .await;
     if let Some(client) = identity {
         let _ = worker
-            .request(Operation::Disconnect { client, generation })
+            .request(Operation::Disconnect {
+                client,
+                generation,
+                graceful: false,
+            })
             .await;
     }
     result
@@ -491,6 +546,7 @@ async fn drive_connection(
                     client_id,
                     clean_session,
                     keep_alive,
+                    will,
                 } = packet
                 else {
                     return Err(io::Error::other("CONNECT required first"));
@@ -500,6 +556,7 @@ async fn drive_connection(
                     .request(Operation::Connect {
                         client: client_id,
                         clean: clean_session,
+                        will,
                         generation,
                         wake: wake_tx.clone(),
                         cancel: cancel_tx.clone(),
@@ -523,6 +580,21 @@ async fn drive_connection(
                 };
             } else {
                 if matches!(packet, Packet::Disconnect) {
+                    let client = identity
+                        .as_ref()
+                        .ok_or_else(|| io::Error::other("missing connection identity"))?
+                        .clone();
+                    let Reply::Done = worker
+                        .request(Operation::Disconnect {
+                            client,
+                            generation,
+                            graceful: true,
+                        })
+                        .await?
+                    else {
+                        return Err(io::Error::other("invalid disconnect response"));
+                    };
+                    *identity = None;
                     return Ok(());
                 }
                 let client = identity
@@ -647,6 +719,7 @@ mod tests {
             .request(Operation::Connect {
                 client: client.into(),
                 clean,
+                will: None,
                 generation,
                 wake,
                 cancel,
@@ -779,6 +852,7 @@ mod tests {
             .request(Operation::Disconnect {
                 client: "same".into(),
                 generation: 1,
+                graceful: false,
             })
             .await
             .unwrap();
@@ -937,4 +1011,196 @@ mod tests {
         )))
         .await;
     }
+    async fn connect_with_will(
+        worker: &Worker,
+        client: &str,
+        generation: u64,
+        will: Option<Will>,
+    ) -> watch::Receiver<bool> {
+        let (wake, _) = watch::channel(0);
+        let (cancel, receiver) = watch::channel(false);
+        assert!(matches!(
+            worker
+                .request(Operation::Connect {
+                    client: client.into(),
+                    clean: true,
+                    will,
+                    generation,
+                    wake,
+                    cancel,
+                })
+                .await
+                .unwrap(),
+            Reply::Connected(false)
+        ));
+        receiver
+    }
+    fn will(topic: &str, payload: &[u8], retain: bool) -> Will {
+        Will {
+            topic: topic.into(),
+            payload: payload.to_vec(),
+            qos: 1,
+            retain,
+        }
+    }
+    #[tokio::test]
+    async fn graceful_will_clear_takeover_and_stale_cleanup_are_committed() {
+        let db = Database::new();
+        let (worker, task) = worker(db.config()).await;
+        connect(&worker, "observer", 1, false).await;
+        subscribe(&worker, "observer", 1).await;
+        connect_with_will(&worker, "owner", 2, Some(will("a", b"normal", false))).await;
+        worker
+            .request(Operation::Disconnect {
+                client: "owner".into(),
+                generation: 2,
+                graceful: true,
+            })
+            .await
+            .unwrap();
+        worker
+            .request(Operation::Disconnect {
+                client: "owner".into(),
+                generation: 2,
+                graceful: false,
+            })
+            .await
+            .unwrap();
+        assert!(poll(&worker, "observer", 1).await.is_none());
+        let old_cancel =
+            connect_with_will(&worker, "owner", 3, Some(will("a", b"old", false))).await;
+        connect_with_will(&worker, "owner", 4, Some(will("a", b"new", false))).await;
+        assert!(*old_cancel.borrow());
+        let Some(Packet::Publish {
+            packet_id: Some(id),
+            payload,
+            retain: false,
+            ..
+        }) = poll(&worker, "observer", 1).await
+        else {
+            panic!("old Will missing");
+        };
+        assert_eq!(payload, b"old");
+        handle(&worker, "observer", 1, Packet::PubAck { packet_id: id })
+            .await
+            .unwrap();
+        worker
+            .request(Operation::Disconnect {
+                client: "owner".into(),
+                generation: 3,
+                graceful: false,
+            })
+            .await
+            .unwrap();
+        assert!(poll(&worker, "observer", 1).await.is_none());
+        worker
+            .request(Operation::Disconnect {
+                client: "owner".into(),
+                generation: 4,
+                graceful: true,
+            })
+            .await
+            .unwrap();
+        assert!(poll(&worker, "observer", 1).await.is_none());
+        stop(worker, task).await;
+    }
+    #[tokio::test]
+    async fn volatile_runtime_refuses_persistent_connect_and_keeps_global_retained() {
+        let (worker, task) = worker(BrokerConfig::default()).await;
+        let (wake, _) = watch::channel(0);
+        let (cancel, _) = watch::channel(false);
+        assert!(
+            worker
+                .request(Operation::Connect {
+                    client: "persistent".into(),
+                    clean: false,
+                    will: None,
+                    generation: 1,
+                    wake,
+                    cancel
+                })
+                .await
+                .is_err()
+        );
+        connect(&worker, "writer", 2, true).await;
+        let mut retained = publication(b"global", 1);
+        if let Packet::Publish { retain, .. } = &mut retained {
+            *retain = true;
+        }
+        handle(&worker, "writer", 2, retained).await.unwrap();
+        worker
+            .request(Operation::Disconnect {
+                client: "writer".into(),
+                generation: 2,
+                graceful: true,
+            })
+            .await
+            .unwrap();
+        connect(&worker, "reader", 3, true).await;
+        subscribe(&worker, "reader", 3).await;
+        assert!(
+            matches!(poll(&worker, "reader", 3).await, Some(Packet::Publish { payload, retain: true, .. }) if payload == b"global")
+        );
+        stop(worker, task).await;
+    }
+    #[tokio::test]
+    async fn empty_poll_commits_and_notifies_pending_will_progress() {
+        let db = Database::new();
+        let config = BrokerConfig {
+            max_retained: 1,
+            ..db.config()
+        };
+        let mut engine = SessionEngine::new(session_config(&config)).unwrap();
+        engine.connect("poller", true).unwrap();
+        let mut hold = publication(b"held", 1);
+        if let Packet::Publish { topic, retain, .. } = &mut hold {
+            *topic = "held".into();
+            *retain = true;
+        }
+        engine.handle("poller", hold).unwrap();
+        engine
+            .connect_with_will("a-first", true, Some(will("fresh", b"retained Will", true)))
+            .unwrap();
+        engine
+            .connect_with_will("z-delete", true, Some(will("held", b"", true)))
+            .unwrap();
+        engine.disconnect_with_reason("a-first", false).unwrap();
+        // One retry pass visits a-first while full, then z-delete frees its slot.
+        // The pending first Will can progress on the next, otherwise-empty poll.
+        engine.disconnect_with_reason("z-delete", false).unwrap();
+        let before = engine.snapshot().unwrap();
+        assert!(std::str::from_utf8(&before).unwrap().contains("a-first"));
+        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
+        store.commit(&before).unwrap();
+        let (sender, receiver) = mpsc::channel(config.max_connections);
+        let worker = Worker { sender };
+        let (wake, mut notified) = watch::channel(0);
+        let (cancel, _) = watch::channel(false);
+        let online = HashMap::from([(
+            "poller".into(),
+            Online {
+                generation: 1,
+                wake,
+                cancel,
+            },
+        )]);
+        let task = tokio::task::spawn_blocking(move || {
+            run_commands(receiver, config, Some(store), engine, online)
+        });
+        assert!(poll(&worker, "poller", 1).await.is_none());
+        timeout(Duration::from_secs(1), notified.changed())
+            .await
+            .unwrap()
+            .unwrap();
+        stop(worker, task).await;
+        let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
+        let bytes = store.load().unwrap().unwrap();
+        let after = std::str::from_utf8(&bytes).unwrap();
+        assert!(after.contains("\"topic\":\"fresh\""));
+        assert!(after.contains("\"wills\":[]"));
+    }
 }
+
+#[cfg(test)]
+#[path = "live_tests.rs"]
+mod live_tests;
