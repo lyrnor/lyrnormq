@@ -5,7 +5,7 @@
 //! reconnect replay. Its proposed transitions require a successful external
 //! transaction commit before network acknowledgements. The SQLite-enabled transport
 //! worker supplies that commit and recovery integration; this crate performs no IO.
-//! MQTT5 expiry, Will, application-side exactly-once processing and physical
+//! MQTT5 expiry, application-side exactly-once processing and physical
 //! power-loss validation are outside these guarantees.
 
 pub mod durable;

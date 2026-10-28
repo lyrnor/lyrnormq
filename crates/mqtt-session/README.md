@@ -89,3 +89,26 @@ is additionally bounded by record counts; the packet allocator has fixed 65,536
 bytes per session. Snapshot staging and engine cloning retain additional bounded
 copies. Whole-record JSON and rebuilding the existing trie for each routed
 proposal are intentionally simple and expensive; no performance claim is made.
+
+## Phase2c Retained and connection Will model
+
+The same SessionEngine now owns the bounded global retained store and connection
+Will records. Retained update/deletion and live recipient outboxes form one
+proposed transaction; incoming QoS2 applies it on PUBREL only. Established delivery
+clears RETAIN, whereas each accepted subscription filter replays retained matches
+with RETAIN set and effective QoS. Replacing an identical subscription replays too.
+
+connect_with_will/disconnect_with_reason distinguish accepted network connection
+lifetime from persistent-session state. Graceful close clears its active Will;
+unexpected close and takeover publish once. Capacity failure keeps a bounded
+pending Will without a partial retained/outbox update. retry_wills returns true
+only when a pending publication makes progress; the runtime must commit that
+progress even when its own poll has no packet. recover_wills marks loaded active
+Wills pending and attempts them before startup becomes ready.
+
+Snapshot payload schema2 strictly requires sessions, retained and wills. It keeps
+Will records for clean origins too. Valid schema1 is explicitly imported with
+empty globals and queued RETAIN=false; newly emitted snapshots always use schema2.
+SQLite container schema stays unchanged. As before, the external worker must
+clone/apply/snapshot/commit/install; model success alone performs no disk IO.
+Will retries and full-registry cloning remain bounded but can be expensive.

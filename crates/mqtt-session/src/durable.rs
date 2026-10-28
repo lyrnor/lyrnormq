@@ -5,8 +5,15 @@
 use crate::outgoing::OutgoingState;
 use crate::{AckAction, AckKind, IncomingQos2, OutgoingQos, SessionError};
 use mqtt_protocol::{Packet, decode, encode};
+use mqtt_router::retained::{RetainedError, RetainedStore};
 use mqtt_router::{Router, validate_filter};
-use serde::{Deserialize, Serialize};
+use records::{
+    Envelope, Message, OutgoingRecord, RetainedRecord, SessionRecord, Stage, WillData, WillRecord,
+};
+
+mod lifecycle;
+mod records;
+mod retention;
 use std::{
     collections::{BTreeMap, VecDeque},
     error::Error,
@@ -18,6 +25,7 @@ use std::{
 #[derive(Clone, Copy, Debug)]
 pub struct SessionConfig {
     pub max_sessions: usize,
+    pub max_retained: usize,
     pub max_subscriptions: usize,
     pub max_queued: usize,
     pub max_inflight: usize,
@@ -34,6 +42,7 @@ pub enum EngineError {
     InvalidPacket(String),
     Qos(SessionError),
     Json(serde_json::Error),
+    Retained(RetainedError),
 }
 impl fmt::Display for EngineError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -46,6 +55,7 @@ impl fmt::Display for EngineError {
             Self::InvalidPacket(s) => write!(f, "invalid session packet: {s}"),
             Self::Qos(error) => error.fmt(f),
             Self::Json(error) => error.fmt(f),
+            Self::Retained(error) => error.fmt(f),
         }
     }
 }
@@ -60,13 +70,6 @@ pub struct ConnectResult {
     pub session_present: bool,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Message {
-    topic: String,
-    payload: Vec<u8>,
-    qos: u8,
-}
 impl Message {
     fn packet(&self, id: Option<u16>, dup: bool) -> Packet {
         Packet::Publish {
@@ -75,7 +78,7 @@ impl Message {
             qos: self.qos,
             packet_id: id,
             dup,
-            retain: false,
+            retain: self.retain,
         }
     }
 }
@@ -106,34 +109,8 @@ impl Session {
 pub struct SessionEngine {
     config: SessionConfig,
     sessions: BTreeMap<String, Session>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Envelope {
-    schema_version: u32,
-    sessions: Vec<SessionRecord>,
-}
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SessionRecord {
-    client_id: String,
-    subscriptions: Vec<(String, u8)>,
-    incoming: Vec<(u16, Vec<u8>)>,
-    outgoing: Vec<OutgoingRecord>,
-    queued: Vec<Message>,
-}
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct OutgoingRecord {
-    packet_id: u16,
-    stage: Stage,
-}
-#[derive(Serialize, Deserialize)]
-enum Stage {
-    Ack(Vec<u8>),
-    Receipt(Vec<u8>),
-    Comp,
+    retained: RetainedStore,
+    wills: BTreeMap<String, WillRecord>,
 }
 
 struct LimitedWriter {
@@ -155,6 +132,9 @@ impl Write for LimitedWriter {
 fn identifier(id: u16) -> Result<NonZeroU16, EngineError> {
     NonZeroU16::new(id).ok_or_else(|| EngineError::InvalidRecord("zero identifier".into()))
 }
+fn is_retained_capacity(error: &RetainedError) -> bool {
+    matches!(error, RetainedError::CapacityExceeded)
+}
 fn invalid_record(message: impl Into<String>) -> EngineError {
     EngineError::InvalidRecord(message.into())
 }
@@ -169,6 +149,7 @@ fn decode_publish(bytes: &[u8], limit: usize) -> Result<Packet, EngineError> {
 impl SessionEngine {
     pub fn new(config: SessionConfig) -> Result<Self, EngineError> {
         if config.max_sessions == 0
+            || config.max_retained == 0
             || config.max_subscriptions == 0
             || config.max_queued == 0
             || !(1..=65535).contains(&config.max_inflight)
@@ -180,6 +161,9 @@ impl SessionEngine {
         let engine = Self {
             config,
             sessions: BTreeMap::new(),
+            retained: RetainedStore::new(config.max_retained, config.max_state_bytes)
+                .map_err(EngineError::Retained)?,
+            wills: BTreeMap::new(),
         };
         engine.ensure_bounds()?;
         Ok(engine)
@@ -192,11 +176,11 @@ impl SessionEngine {
         if bytes.len() > config.max_state_bytes {
             return Err(EngineError::Capacity);
         }
-        let envelope: Envelope = serde_json::from_slice(bytes).map_err(EngineError::Json)?;
-        if envelope.schema_version != 1 {
-            return Err(invalid_record("unsupported schema version"));
-        }
-        if envelope.sessions.len() > config.max_sessions {
+        let (envelope, legacy) = records::decode(bytes)?;
+        if envelope.sessions.len() > config.max_sessions
+            || envelope.retained.len() > config.max_retained
+            || envelope.wills.len() > config.max_sessions
+        {
             return Err(EngineError::Capacity);
         }
         for record in envelope.sessions {
@@ -232,6 +216,9 @@ impl SessionEngine {
             for (id, bytes) in record.incoming {
                 let id = identifier(id)?;
                 let packet = decode_publish(&bytes, config.max_packet_size)?;
+                if legacy && matches!(packet, Packet::Publish { retain: true, .. }) {
+                    return Err(invalid_record("retained input in legacy schema"));
+                }
                 if !matches!(packet,Packet::Publish {qos:2,packet_id:Some(actual),..} if actual==id.get())
                     || session.incoming.pending.contains_key(&id)
                 {
@@ -243,6 +230,15 @@ impl SessionEngine {
                 let id = identifier(record.packet_id)?;
                 if session.outgoing.pending.contains_key(&id) {
                     return Err(invalid_record("duplicate outgoing identifier"));
+                }
+                if legacy
+                    && let Stage::Ack(bytes) | Stage::Receipt(bytes) = &record.stage
+                    && matches!(
+                        decode_publish(bytes, config.max_packet_size)?,
+                        Packet::Publish { retain: true, .. }
+                    )
+                {
+                    return Err(invalid_record("retained output in legacy schema"));
                 }
                 let state = match record.stage {
                     Stage::Ack(message) => {
@@ -278,6 +274,32 @@ impl SessionEngine {
             }
             engine.sessions.insert(record.client_id, session);
         }
+        let mut topics = std::collections::BTreeSet::new();
+        for retained in envelope.retained {
+            if retained.payload.is_empty() || !topics.insert(retained.topic.clone()) {
+                return Err(invalid_record("empty or duplicate retained record"));
+            }
+            engine.validate_message(&Message {
+                topic: retained.topic.clone(),
+                payload: retained.payload.clone(),
+                qos: retained.qos,
+                retain: true,
+            })?;
+            engine
+                .retained
+                .apply(retained.topic, retained.payload, retained.qos)
+                .map_err(EngineError::Retained)?;
+        }
+        for record in envelope.wills {
+            engine.validate_will(&record.client_id, &record.will.to_protocol())?;
+            if engine
+                .wills
+                .insert(record.client_id.clone(), record)
+                .is_some()
+            {
+                return Err(invalid_record("duplicate Will client identifier"));
+            }
+        }
         engine.ensure_bounds()?;
         Ok(engine)
     }
@@ -301,6 +323,7 @@ impl SessionEngine {
             client_id: client.into(),
             clean_session: true,
             keep_alive: 0,
+            will: None,
         })
         .map_err(|error| invalid_record(error.to_string()))?;
         if bytes.len() > self.config.max_packet_size {
@@ -358,8 +381,19 @@ impl SessionEngine {
             });
         }
         Ok(Envelope {
-            schema_version: 1,
+            schema_version: 2,
             sessions: records,
+            retained: self
+                .retained
+                .entries()
+                .into_iter()
+                .map(|message| RetainedRecord {
+                    topic: message.topic,
+                    payload: message.payload,
+                    qos: message.qos,
+                })
+                .collect(),
+            wills: self.wills.values().cloned().collect(),
         })
     }
     fn serialize(&self, persistent_only: bool) -> Result<Vec<u8>, EngineError> {
@@ -385,57 +419,6 @@ impl SessionEngine {
     pub fn snapshot(&self) -> Result<Vec<u8>, EngineError> {
         self.ensure_bounds()?;
         self.serialize(true)
-    }
-    pub fn connect(
-        &mut self,
-        client_id: &str,
-        clean_session: bool,
-    ) -> Result<ConnectResult, EngineError> {
-        self.validate_client(client_id)?;
-        let present = !clean_session
-            && self
-                .sessions
-                .get(client_id)
-                .is_some_and(|session| session.persistent);
-        if !present {
-            if !self.sessions.contains_key(client_id)
-                && self.sessions.len() >= self.config.max_sessions
-            {
-                return Err(EngineError::Capacity);
-            }
-            self.sessions
-                .insert(client_id.into(), Session::new(self.config, !clean_session));
-        }
-        let session = self
-            .sessions
-            .get_mut(client_id)
-            .ok_or(EngineError::UnknownSession)?;
-        session.online = true;
-        session.replay = session.outgoing.order.clone();
-        self.ensure_bounds()?;
-        Ok(ConnectResult {
-            session_present: present,
-        })
-    }
-    pub fn disconnect(&mut self, client_id: &str) -> Result<(), EngineError> {
-        let persistent = self
-            .sessions
-            .get(client_id)
-            .ok_or(EngineError::UnknownSession)?
-            .persistent;
-        if persistent {
-            let session = self
-                .sessions
-                .get_mut(client_id)
-                .ok_or(EngineError::UnknownSession)?;
-            session.online = false;
-            session.replay.clear();
-            // Offline QoS0 storage is optional; deliberately drop it here.
-            session.queued.retain(|message| message.qos != 0);
-        } else {
-            self.sessions.remove(client_id);
-        }
-        self.ensure_bounds()
     }
     fn require_online(&self, client: &str) -> Result<(), EngineError> {
         if self
@@ -482,6 +465,7 @@ impl SessionEngine {
                 topic: message.topic.clone(),
                 payload: message.payload.clone(),
                 qos,
+                retain: false,
             });
         }
         Ok(())
@@ -500,20 +484,29 @@ impl SessionEngine {
                     .sessions
                     .get_mut(client_id)
                     .ok_or(EngineError::UnknownSession)?;
-                let codes = filters
-                    .into_iter()
-                    .map(|(filter, qos)| {
-                        if !validate_filter(&filter)
-                            || (!session.subscriptions.contains_key(&filter)
-                                && session.subscriptions.len() >= self.config.max_subscriptions)
-                        {
-                            128
-                        } else {
-                            session.subscriptions.insert(filter, qos);
-                            qos
+                let mut codes = Vec::new();
+                for (filter, qos) in filters {
+                    if !validate_filter(&filter)
+                        || (!session.subscriptions.contains_key(&filter)
+                            && session.subscriptions.len() >= self.config.max_subscriptions)
+                    {
+                        codes.push(128);
+                        continue;
+                    }
+                    session.subscriptions.insert(filter.clone(), qos);
+                    for retained in self.retained.matching(&filter, qos) {
+                        if session.queued.len() >= self.config.max_queued {
+                            return Err(EngineError::Capacity);
                         }
-                    })
-                    .collect();
+                        session.queued.push_back(Message {
+                            topic: retained.topic,
+                            payload: retained.payload,
+                            qos: retained.qos,
+                            retain: true,
+                        });
+                    }
+                    codes.push(qos);
+                }
                 replies.push(Packet::SubAck { packet_id, codes });
             }
             Packet::Unsubscribe { packet_id, filters } => {
@@ -537,7 +530,7 @@ impl SessionEngine {
                 qos,
                 packet_id,
                 dup,
-                ..
+                retain,
             } => {
                 if qos == 2 {
                     let id = identifier(
@@ -552,10 +545,11 @@ impl SessionEngine {
                         packet_id: id.get(),
                     });
                 } else {
-                    self.route(Message {
+                    self.publish(Message {
                         topic,
                         payload,
                         qos,
+                        retain,
                     })?;
                     if qos == 1 {
                         replies.push(Packet::PubAck {
@@ -578,15 +572,17 @@ impl SessionEngine {
                         topic,
                         payload,
                         qos,
+                        retain,
                         ..
                     } = decode_publish(&bytes, self.config.max_packet_size)?
                     else {
                         return Err(invalid_record("invalid incoming message"));
                     };
-                    self.route(Message {
+                    self.publish(Message {
                         topic,
                         payload,
                         qos,
+                        retain,
                     })?;
                 }
                 replies.push(Packet::PubComp { packet_id });
@@ -677,6 +673,7 @@ mod tests {
     fn config() -> SessionConfig {
         SessionConfig {
             max_sessions: 8,
+            max_retained: 8,
             max_subscriptions: 8,
             max_queued: 4,
             max_inflight: 4,
@@ -938,7 +935,7 @@ mod tests {
         state.poll("sub").unwrap();
         let value: serde_json::Value = serde_json::from_slice(&state.snapshot().unwrap()).unwrap();
         let mut unknown = value.clone();
-        unknown["schema_version"] = 2.into();
+        unknown["schema_version"] = 99.into();
         assert!(SessionEngine::restore(config(), &serde_json::to_vec(&unknown).unwrap()).is_err());
         for mutate in [0, 1, 2, 3, 4] {
             let mut value = value.clone();
@@ -1048,3 +1045,6 @@ mod tests {
         assert!(state.poll("sub").unwrap().is_none());
     }
 }
+
+#[cfg(test)]
+mod phase2c_tests;
