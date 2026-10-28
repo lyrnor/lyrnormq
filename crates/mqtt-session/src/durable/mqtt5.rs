@@ -134,6 +134,17 @@ impl SessionEngine {
         client_id: &str,
         frame: Frame,
     ) -> Result<Vec<Frame>, EngineError> {
+        self.handle_frame_at(client_id, frame, self.clock.now_millis())
+    }
+    /// Handles a frame using its original wall-clock receipt time for publication TTL.
+    /// Future receipt times are clamped to the current clock; existing QoS2 state
+    /// retains the deadline established by the first accepted PUBLISH.
+    pub fn handle_frame_at(
+        &mut self,
+        client_id: &str,
+        frame: Frame,
+        received_at_millis: u64,
+    ) -> Result<Vec<Frame>, EngineError> {
         self.require_online(client_id)?;
         let version = self
             .sessions
@@ -325,12 +336,16 @@ impl SessionEngine {
                         None
                     }
                 });
-                self.disconnect_with_options(client_id, frame.reason_code.value() != 4, expiry)?;
+                self.disconnect_with_options(
+                    client_id,
+                    frame.reason_code == ReasonCode::SUCCESS,
+                    expiry,
+                )?;
                 Ok(Vec::new())
             }
             Packet::Auth => Err(mqtt5_error(0x82)),
             packet => self
-                .handle_packet(client_id, packet, frame.properties)
+                .handle_packet_at(client_id, packet, frame.properties, received_at_millis)
                 .map(|packets| packets.into_iter().map(Frame::v5).collect()),
         }
     }

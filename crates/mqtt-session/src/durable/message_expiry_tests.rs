@@ -313,3 +313,70 @@ fn retained_replay_inherits_remaining_lifetime_and_replacement_clears_deadline()
     publish(&mut e, 0, 3, None, true);
     assert!(e.retained_expiry.is_empty());
 }
+#[test]
+fn ingress_wait_counts_toward_expiry_and_preserves_ack_and_retained_removal() {
+    for qos in [0, 1, 2] {
+        let (mut e, c) = state();
+        publish(&mut e, 0, 9, None, true);
+        subscribe(&mut e, "a");
+        assert!(e.poll_frame_with_changes("sub").unwrap().frame.is_some());
+        c.set(10000);
+        let replies = e
+            .handle_frame_at("pub", publication(qos, 2, Some(1), true), 1000)
+            .unwrap();
+        match qos {
+            0 => assert!(replies.is_empty()),
+            1 => assert!(matches!(replies[0].packet, Packet::PubAck { packet_id: 2 })),
+            2 => {
+                assert!(matches!(replies[0].packet, Packet::PubRec { packet_id: 2 }));
+                assert!(!e.retained.is_empty());
+                release_source(&mut e, 2, 2);
+            }
+            _ => unreachable!(),
+        }
+        assert!(e.retained.is_empty());
+        assert!(e.poll_frame_with_changes("sub").unwrap().frame.is_none());
+    }
+}
+#[test]
+fn ingress_future_timestamp_clamps_and_duplicate_does_not_reset_deadline() {
+    let (mut e, c) = state();
+    e.handle_frame_at("pub", publication(2, 1, Some(2), false), u64::MAX)
+        .unwrap();
+    let id = NonZeroU16::new(1).unwrap();
+    assert_eq!(e.sessions["pub"].incoming_expiry[&id], 3000);
+    c.set(2000);
+    let mut duplicate = publication(2, 1, Some(100), false);
+    if let Packet::Publish { dup, .. } = &mut duplicate.packet {
+        *dup = true;
+    }
+    e.handle_frame_at("pub", duplicate, 1900).unwrap();
+    assert_eq!(e.sessions["pub"].incoming_expiry[&id], 3000);
+}
+#[test]
+fn nonzero_disconnect_adapter_marks_active_will_pending() {
+    let (mut e, _) = state();
+    e.connect_with_options(
+        "will",
+        Some(mqtt_protocol::Will {
+            topic: "a".into(),
+            payload: vec![1],
+            qos: 0,
+            retain: false,
+        }),
+        Principal::anonymous(),
+        ConnectionOptions {
+            version: ProtocolVersion::V5,
+            clean_start: true,
+            session_expiry_interval: 60,
+            receive_maximum: 1,
+            will_properties: vec![],
+        },
+    )
+    .unwrap();
+    subscribe(&mut e, "a");
+    let mut f = Frame::v5(Packet::Disconnect);
+    f.reason_code = ReasonCode::try_from(0x80).unwrap();
+    e.handle_frame("will", f).unwrap();
+    assert!(e.poll_frame_with_changes("sub").unwrap().frame.is_some());
+}

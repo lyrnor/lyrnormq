@@ -776,6 +776,16 @@ impl SessionEngine {
         packet: Packet,
         properties: Properties,
     ) -> Result<Vec<Packet>, EngineError> {
+        self.handle_packet_at(client_id, packet, properties, self.clock.now_millis())
+    }
+    fn handle_packet_at(
+        &mut self,
+        client_id: &str,
+        packet: Packet,
+        properties: Properties,
+        received_at_millis: u64,
+    ) -> Result<Vec<Packet>, EngineError> {
+        let received_at_millis = received_at_millis.min(self.clock.now_millis());
         self.require_online(client_id)?;
         let bytes =
             encode(&packet).map_err(|error| EngineError::InvalidPacket(error.to_string()))?;
@@ -913,7 +923,7 @@ impl SessionEngine {
                     session.incoming.publish(id, &bytes, dup)?;
                     if fresh {
                         if let Some(deadline) =
-                            temporal::expiry_deadline(&properties, self.clock.now_millis())
+                            temporal::expiry_deadline(&properties, received_at_millis)
                         {
                             session.incoming_expiry.insert(id, deadline);
                         }
@@ -924,7 +934,7 @@ impl SessionEngine {
                     });
                 } else {
                     self.publish(Message {
-                        expires_at: temporal::expiry_deadline(&properties, self.clock.now_millis()),
+                        expires_at: temporal::expiry_deadline(&properties, received_at_millis),
                         topic,
                         payload,
                         qos,
