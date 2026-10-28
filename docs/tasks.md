@@ -366,3 +366,27 @@ candidates do not exhaust every normative sentence/table value. Three confirmed
 code mismatches were corrected; Rust348, wire530 and all Paho regressions pass.
 Remaining evidence/interpretation rows, rather than feature availability, drive
 subsequent acceptance. Full conformance remains unclaimed.
+
+
+## Phase2l completed evidence group and remaining acceptance
+
+Source commits9d161cd/871a532 (Protocol),90bba16 (Session),9729e98 (Quality)
+add exact fixtures without a production behavior/API/schema change. Independent
+review corrected an AUTH negative fixture to include the otherwise-required method.
+Matrix evidence reconciles exact rows;44 gaps gain evidence and one client-only
+obligation becomes not-applicable. Current265 verified,16 test-gap,71 not-applicable,
+2 policy exceptions;1275 actual source/test links pass the guard.
+
+Next tasks are the remaining16 rows, not the superseded Phase2k prioritization:
+
+- Protocol-name/version refusal and conditional ClientID85 contexts:3.1.2-1/2,
+  3.1.3-8. Silent refusal is permitted where specified; do not invent a MUST bug.
+- Mixed RAP interpretation3.3.1-12/13 and adversarial ordering4.6.0-5/6.
+- CONNACK reason-context completeness3.2.2-8 and its damaged-label U candidate.
+- UTF-8 optional control-code policy, full property/type/context/direction tables,
+  PFI1 origin/forwarding interpretation, AUTH ReasonString independence and broad
+  application-routing acceptance; overall server conformance remains unproven.
+
+Retain both SHOULD exceptions and the table-sweep limitations. No new confirmed
+implementation mismatch in this round; adding evidence is not a claim of full
+MQTT5 compatibility or production readiness.

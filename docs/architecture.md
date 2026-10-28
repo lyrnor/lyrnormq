@@ -1,4 +1,4 @@
-# Architecture — revision12 / Phase2k
+# Architecture — revision13 / Phase2l
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2k contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2l contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -446,3 +446,18 @@ value. Whole-request syntax validation precedes unsubscribe mutation, preserving
 atomic rejection. Existing worker transactions, schema7, IDs, outbox, clock, alias
 and authenticated-owner state remain the integration boundaries. Failure-first
 regressions and independent TCP tests validate the corrections.
+
+
+## Phase2l packet and property acceptance
+
+The next acceptance group separates sender roles from symmetric wire validation.
+Client allocator obligations are not certified by server allocator tests; server
+identifier allocation/release/recovery and request-response identity each carry their
+own evidence. Property tests use explicit independent ID/context fixtures, not the
+production dispatch table as their oracle. Quality supplies actual TCP termination,
+UTF-8 Topic equality, takeover and recovery probes in both storage modes.
+
+No public API or schema change is implied by a missing test. Confirmed mismatches
+must first receive a failure-first regression and frozen phase2l correction. Matrix
+status changes are reconciled by the coordinator against exact new evidence; old
+scope limitations cannot be hidden by a chapter-level pass assertion.

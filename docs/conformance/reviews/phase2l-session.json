@@ -1,0 +1,103 @@
+{
+  "reviewer": "phase2l-session",
+  "source_commit": "90bba16c86ca57d4951df7e51c6aa08b254b2ae8",
+  "verification": [
+    "cargo test --offline -p mqtt-session: 158 passed; fmt and strict Clippy passed"
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-2.2.1-3",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "The numbered requirement explicitly constrains the Client allocating its own SUBSCRIBE/UNSUBSCRIBE/PUBLISH IDs. This server implementation is not an external-client allocator. Independent namespaces and server ID duties are covered under -4/-5/-6; do not infer a new MUST requiring server detection of all client-side misuse."
+    },
+    {
+      "id": "MQTT-2.2.1-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/identifiers.rs:PacketIdentifiers::allocate",
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack",
+        "crates/mqtt-session/src/durable/records.rs:decode"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/identifiers.rs:identifiers_exhaust_reuse_and_release",
+        "crates/mqtt-session/src/outgoing.rs:outgoing_identifiers_never_reused_until_final_ack",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_4_live_identifiers_survive_restart_until_final_ack",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_wrong_stage_ack_preserves_live_identifier_and_original_state",
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:negative_ack_releases_exchange_metadata_and_connection_quota"
+      ],
+      "note": "Existing exhaustive1..65535 allocator/OutgoingQos tests execute along with new durable restore assertions: live IDs are skipped, PUBREC retains QoS2 ID, PUBCOMP frees it, free IDs may be reused after restart, and wrong-stage ACKs preserve state. Negative PUBREC release uses existing explicit case. This establishes recorded server allocation/release scenarios, not client compliance."
+    },
+    {
+      "id": "MQTT-2.2.1-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable.rs:handle_packet_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_5_and_6_response_identifiers_preserve_boundaries",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_5_incoming_qos2_identifiers_and_original_survive_restore",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_separate_directions_allow_same_id_without_aliasing_exchanges"
+      ],
+      "note": "Actual engine-generated PUBACK/PUBREC/PUBCOMP/PUBREL preserve original IDs at1/32768/65535. Incoming QoS2 original ID/payload survive restore/duplicate PUBLISH and repeated PUBREL replies retain ID. Same numeric ID can be live independently in opposite directions; no cross-namespace retirement."
+    },
+    {
+      "id": "MQTT-2.2.1-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_5_and_6_response_identifiers_preserve_boundaries"
+      ],
+      "note": "SUBACK and UNSUBACK retain request ID at1/32768/65535, with one response and legal success reasons. Request IDs remain independent of concurrently allocated broker publication identifiers."
+    },
+    {
+      "id": "U-3.5.2.2.2-d48486ddb1c1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state"
+      ],
+      "note": "PUBREC diagnostic strings containing success/error/owner-change-looking text and Unicode do not affect responses or full durable snapshot compared with the same reason code without diagnostics. Cases include positive/error legal reasons and unknown PUBREL; this tests diagnostic independence, not every reason/direction combination."
+    },
+    {
+      "id": "U-3.6.2.2.2-d48486ddb1c1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state"
+      ],
+      "note": "PUBREL diagnostic strings containing success/error/owner-change-looking text and Unicode do not affect responses or full durable snapshot compared with the same reason code without diagnostics. Cases include positive/error legal reasons and unknown PUBREL; this tests diagnostic independence, not every reason/direction combination."
+    },
+    {
+      "id": "U-3.7.2.2.2-9ef163f0f102",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state"
+      ],
+      "note": "PUBCOMP diagnostic strings containing success/error/owner-change-looking text and Unicode do not affect responses or full durable snapshot compared with the same reason code without diagnostics. Cases include positive/error legal reasons and unknown PUBREL; this tests diagnostic independence, not every reason/direction combination."
+    },
+    {
+      "id": "U-3.14.2.2.3-166eda9725e0",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable/lifecycle.rs:disconnect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_string_does_not_change_disconnect_expiry_or_will"
+      ],
+      "note": "Diagnostic text does not affect full durable state for normal0 or disconnect-with-Will4 and explicit expiry override30. Actual reason controls Will suppression/publication; exact strings cannot change expiry/owner semantics. AUTH diagnostic handling is outside Session ownership and remains independently reviewed."
+    }
+  ]
+}

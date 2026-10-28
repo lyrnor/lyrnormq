@@ -5,7 +5,11 @@
     "cargo test --offline -p mqtt-protocol: 57 passed",
     "cargo fmt --all -- --check: passed",
     "cargo clippy --offline -p mqtt-protocol --all-targets -- -D warnings: passed",
-    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes."
+    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes.",
+    "cargo test --offline -p mqtt-session: 158 passed; fmt and strict Clippy passed",
+    "Independent clause suite: memory13 passed,1 mode-only skip; SQLite14 passed",
+    "Earlier immutable same-logic candidate full regression557 wire executions/Paho passed; final rebuilt artifact rerun documented separately in progress.md.",
+    "Final immutable artifact8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a: memory245/SQLite312 wire passes (557 total), all Paho suites pass;22/24 suite executions."
   ],
   "clauses": [
     {
@@ -104,7 +108,7 @@
     },
     {
       "id": "MQTT-2.2.1-3",
-      "status": "test-gap",
+      "status": "not-applicable",
       "implementation": [
         "crates/mqtt-protocol/src/v5.rs:decode_frame",
         "crates/mqtt-protocol/src/codec.rs:validate_id"
@@ -112,43 +116,58 @@
       "tests": [
         "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected"
       ],
-      "note": "Codec rejects zero identifiers; the client obligation and cross-command uniqueness require Session/Transport evidence beyond this codec audit."
+      "note": "Coordinator Phase2l exact-row reconciliation: The numbered requirement explicitly constrains the Client allocating its own SUBSCRIBE/UNSUBSCRIBE/PUBLISH IDs. This server implementation is not an external-client allocator. Independent namespaces and server ID duties are covered under -4/-5/-6; do not infer a new MUST requiring server detection of all client-side misuse."
     },
     {
       "id": "MQTT-2.2.1-4",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/v5.rs:encode_frame",
-        "crates/mqtt-protocol/src/codec.rs:validate_id"
+        "crates/mqtt-protocol/src/codec.rs:validate_id",
+        "crates/mqtt-session/src/identifiers.rs:PacketIdentifiers::allocate",
+        "crates/mqtt-session/src/outgoing.rs:OutgoingQos::ack",
+        "crates/mqtt-session/src/durable/records.rs:decode"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/tests.rs:encoder_qos_combinations"
+        "crates/mqtt-protocol/src/tests.rs:encoder_qos_combinations",
+        "crates/mqtt-session/src/identifiers.rs:identifiers_exhaust_reuse_and_release",
+        "crates/mqtt-session/src/outgoing.rs:outgoing_identifiers_never_reused_until_final_ack",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_4_live_identifiers_survive_restart_until_final_ack",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_wrong_stage_ack_preserves_live_identifier_and_original_state",
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:negative_ack_releases_exchange_metadata_and_connection_quota"
       ],
-      "note": "Codec enforces nonzero outgoing IDs; currently-unused assignment belongs to Session PacketIdentifiers, not a stateless encoder."
+      "note": "Coordinator Phase2l exact-row reconciliation: Existing exhaustive1..65535 allocator/OutgoingQos tests execute along with new durable restore assertions: live IDs are skipped, PUBREC retains QoS2 ID, PUBCOMP frees it, free IDs may be reused after restart, and wrong-stage ACKs preserve state. Negative PUBREC release uses existing explicit case. This establishes recorded server allocation/release scenarios, not client compliance."
     },
     {
       "id": "MQTT-2.2.1-5",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/v5.rs:decode_frame",
-        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable.rs:handle_packet_at"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_5_and_6_response_identifiers_preserve_boundaries",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_5_incoming_qos2_identifiers_and_original_survive_restore",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_separate_directions_allow_same_id_without_aliasing_exchanges"
       ],
-      "note": "Wire ID retention is exercised; request/response ID equality needs Session response-generation and recovery evidence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Actual engine-generated PUBACK/PUBREC/PUBCOMP/PUBREL preserve original IDs at1/32768/65535. Incoming QoS2 original ID/payload survive restore/duplicate PUBLISH and repeated PUBREL replies retain ID. Same numeric ID can be live independently in opposite directions; no cross-namespace retirement."
     },
     {
       "id": "MQTT-2.2.1-6",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/v5.rs:decode_frame",
-        "crates/mqtt-protocol/src/v5.rs:encode_frame"
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:all_base_frames_round_trip",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_2_2_1_5_and_6_response_identifiers_preserve_boundaries"
       ],
-      "note": "Wire ID retention is exercised; request/response ID equality needs Session response-generation and recovery evidence."
+      "note": "Coordinator Phase2l exact-row reconciliation: SUBACK and UNSUBACK retain request ID at1/32768/65535, with one response and legal success reasons. Request IDs remain independent of concurrently allocated broker publication identifiers."
     },
     {
       "id": "MQTT-2.2.2-1",
@@ -523,58 +542,73 @@
     },
     {
       "id": "MQTT-3.6.1-1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-protocol/src/v5.rs:check_flags"
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
       ],
-      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
     },
     {
       "id": "MQTT-3.8.1-1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-protocol/src/v5.rs:check_flags"
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
       ],
-      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
     },
     {
       "id": "MQTT-3.10.1-1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-protocol/src/v5.rs:check_flags"
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
       ],
-      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
     },
     {
       "id": "MQTT-3.14.1-1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-protocol/src/v5.rs:check_flags"
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
       ],
-      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
     },
     {
       "id": "MQTT-3.15.1-1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-protocol/src/v5.rs:check_flags"
+        "crates/mqtt-protocol/src/v5.rs:check_flags",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
       ],
-      "note": "All reserved flag bit patterns are unit-verified as Malformed; the clause also requires network termination, which needs Transport wire evidence before promoting the complete row."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
     },
     {
       "id": "MQTT-3.8.3-1",
@@ -704,5 +738,5 @@
       "note": "K3 confirmed stateless codec gap fixed after failing regression: all AUTH forms require AuthenticationMethod, including RL0 and Data-only. Connection negotiation equality remains runtime-owned."
     }
   ],
-  "integrated_evidence_commit": "fc9c950"
+  "integrated_evidence_commit": "9729e98"
 }

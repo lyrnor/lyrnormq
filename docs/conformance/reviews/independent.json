@@ -6,7 +6,10 @@
     "cargo test --offline -p mqtt-router: 21 passed",
     "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
     "RMQTT_BIN=/tmp/rmqtt-p2k-candidate python tests/alias_blackbox.py: 23 passed,2 mode-only skips",
-    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes."
+    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes.",
+    "Independent clause suite: memory13 passed,1 mode-only skip; SQLite14 passed",
+    "Earlier immutable same-logic candidate full regression557 wire executions/Paho passed; final rebuilt artifact rerun documented separately in progress.md.",
+    "Final immutable artifact8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a: memory245/SQLite312 wire passes (557 total), all Paho suites pass;22/24 suite executions."
   ],
   "clauses": [
     {
@@ -665,15 +668,18 @@
     },
     {
       "id": "MQTT-4.7.3-4",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-router/src/filter.rs:matches_topic_filter",
         "crates/mqtt-router/src/trie.rs:matching_qos"
       ],
       "tests": [
-        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges"
+        "crates/mqtt-router/src/filter/tests.rs:wildcard_edges",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_7_3_4_normal_unicode_and_spaces_are_not_normalized",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_7_3_4_shared_unicode_filters_keep_exact_matching",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_7_3_4_retained_unicode_values_are_distinct"
       ],
-      "note": "String and trie equality are byte-preserving and case-sensitive; no normalization call exists. Existing a-vs-A assertion passes, but composed/decomposed Unicode and space-preservation should get dedicated exact-match tests before full clause promotion."
+      "note": "Coordinator Phase2l exact-row reconciliation: Actual composed U+00E9 and decomposed e/U+0301 remain distinct ordinary/shared subscriptions and retained values. Surrounding spaces remain significant ordinary Topic bytes. Output topic and payload equality plus silence barriers expose accidental normalization or extra copies."
     },
     {
       "id": "MQTT-4.8.2-1",
@@ -698,5 +704,5 @@
       "note": "Direct valid/invalid shared grammar tests cover empty group/filter, missing delimiter, forbidden group wildcards, Unicode names and literal nested-looking underlying patterns. Independent Router21 passed."
     }
   ],
-  "integrated_evidence_commit": "fc9c950"
+  "integrated_evidence_commit": "9729e98"
 }

@@ -4,7 +4,9 @@
   "verification": [
     "cargo test --offline -p mqtt-protocol -p mqtt-session -p mqtt-auth -p mqtt-router: 57/151/20/21 passed",
     "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
-    "Five focused existing raw-wire methods passed on immutable candidate: duplicate properties, invalid/duplicate aliases, zero/duplicate MPS and ClientID lengths1..23; review repeats excluded from530 wire total."
+    "Five focused existing raw-wire methods passed on immutable candidate: duplicate properties, invalid/duplicate aliases, zero/duplicate MPS and ClientID lengths1..23; review repeats excluded from530 wire total.",
+    "cargo test --offline -p mqtt-protocol: 66 passed; fmt, strict Clippy/Rustdoc passed",
+    "cargo test --offline -p mqtt-session: 158 passed; fmt and strict Clippy passed"
   ],
   "clauses": [
     {
@@ -92,39 +94,47 @@
     },
     {
       "id": "U-3.1.2.11.5-b407e60d7d59",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.2.11.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.2.11.6-4ea20974caed",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.1.2.11.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.2.11.7-c780a5b3c739",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.1.2.11.7 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.2.11.7-fc239606c5f3",
@@ -135,27 +145,31 @@
     },
     {
       "id": "U-3.1.2.11.9-902579498cf4",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.2.11.9 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.2.11.10-70ef643a854e",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.2.11.10 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.3.1-8b8543f54ad7",
@@ -177,15 +191,17 @@
     },
     {
       "id": "U-3.1.3.2.2-a9110cd668d6",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.3.2.2 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.3.2.3-66862b5ebc79",
@@ -201,63 +217,73 @@
     },
     {
       "id": "U-3.1.3.2.3-4edcb931e96e",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.3.2.3 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.3.2.4-6a3b53c42780",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.3.2.4 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.3.2.5-0b9fb803dbb9",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.3.2.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.3.2.6-03ac6e643c71",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.3.2.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.3.2.7-47216b3ac0a6",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
       ],
-      "note": "Section3.1.3.2.7 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.1.4-e19cef55e75d",
@@ -312,87 +338,105 @@
     },
     {
       "id": "U-3.2.2.3.2-2a7c8122ba88",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.2 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.3-c6a14039a7b9",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.3 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.4-a3e2357d7ca8",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.4 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.5-8a6440e79984",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.6-7ff968510d7e",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.7-00d10e468e15",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.7 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.8-b407e60d7d59",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.8 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.9-49f948215c2e",
@@ -410,15 +454,18 @@
     },
     {
       "id": "U-3.2.2.3.11-3f02217816bc",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.11 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.11-9df3317e4a02",
@@ -438,15 +485,18 @@
     },
     {
       "id": "U-3.2.2.3.12-4100241fc514",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.12 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.12-ed629b1387ce",
@@ -459,15 +509,18 @@
     },
     {
       "id": "U-3.2.2.3.13-eca9b0773ec8",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
       ],
-      "note": "Section3.2.2.3.13 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.13-284c1d97b12b",
@@ -480,15 +533,17 @@
     },
     {
       "id": "U-3.2.2.3.15-761042abe664",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.15 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.15-90e73bdb1669",
@@ -503,39 +558,45 @@
     },
     {
       "id": "U-3.2.2.3.16-5305eac542c8",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.16 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.17-53e750055bb5",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.17 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.2.2.3.18-317102d3229b",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
       ],
-      "note": "Section3.2.2.3.18 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.3.1.3-eb055d053591",
@@ -586,15 +647,17 @@
     },
     {
       "id": "U-3.3.2.3.6-47216b3ac0a6",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:publish_singleton_property_counterexamples"
       ],
-      "note": "Section3.3.2.3.6 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal publish property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.3.2.3.8-285c17c6f78d",
@@ -661,39 +724,42 @@
     },
     {
       "id": "U-3.5.2.2.2-d48486ddb1c1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
         "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state"
       ],
-      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+      "note": "Coordinator Phase2l exact-row reconciliation: PUBREC diagnostic strings containing success/error/owner-change-looking text and Unicode do not affect responses or full durable snapshot compared with the same reason code without diagnostics. Cases include positive/error legal reasons and unknown PUBREL; this tests diagnostic independence, not every reason/direction combination."
     },
     {
       "id": "U-3.6.2.2.2-d48486ddb1c1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
         "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state"
       ],
-      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+      "note": "Coordinator Phase2l exact-row reconciliation: PUBREL diagnostic strings containing success/error/owner-change-looking text and Unicode do not affect responses or full durable snapshot compared with the same reason code without diagnostics. Cases include positive/error legal reasons and unknown PUBREL; this tests diagnostic independence, not every reason/direction combination."
     },
     {
       "id": "U-3.7.2.2.2-9ef163f0f102",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
         "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state"
       ],
-      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+      "note": "Coordinator Phase2l exact-row reconciliation: PUBCOMP diagnostic strings containing success/error/owner-change-looking text and Unicode do not affect responses or full durable snapshot compared with the same reason code without diagnostics. Cases include positive/error legal reasons and unknown PUBREL; this tests diagnostic independence, not every reason/direction combination."
     },
     {
       "id": "U-3.8.2.1.2-90f9f6ef49d9",
@@ -775,39 +841,45 @@
     },
     {
       "id": "U-3.14.2.2.2-2a7c8122ba88",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:disconnect_singleton_property_counterexamples"
       ],
-      "note": "Section3.14.2.2.2 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal disconnect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.14.2.2.3-166eda9725e0",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
-        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager",
+        "crates/mqtt-session/src/durable/lifecycle.rs:disconnect_with_options"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip",
+        "crates/mqtt-session/src/durable/phase2l_tests.rs:mqtt_diagnostic_reason_string_does_not_change_disconnect_expiry_or_will"
       ],
-      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+      "note": "Coordinator Phase2l exact-row reconciliation: Diagnostic text does not affect full durable state for normal0 or disconnect-with-Will4 and explicit expiry override30. Actual reason controls Will suppression/publication; exact strings cannot change expiry/owner semantics. AUTH diagnostic handling is outside Session ownership and remains independently reviewed."
     },
     {
       "id": "U-3.14.2.2.5-5305eac542c8",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:disconnect_singleton_property_counterexamples"
       ],
-      "note": "Section3.14.2.2.5 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal disconnect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.15-f315807fae94",
@@ -825,15 +897,17 @@
     },
     {
       "id": "U-3.15.2.2.3-e318b8fe0ec4",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-protocol/src/properties.rs:read"
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric"
+        "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:auth_singleton_property_counterexamples"
       ],
-      "note": "Section3.15.2.2.3 candidate inspected against shared property context/value/seen-ID validation. The generic tests cover sibling singleton/value cases, but a committed negative fixture for this exact property and packet context is still missing; not promoted from shared-helper presence."
+      "note": "Coordinator Phase2l exact-row reconciliation: Independent literal auth property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
     },
     {
       "id": "U-3.15.2.2.4-166eda9725e0",
@@ -954,5 +1028,6 @@
       "tests": [],
       "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
     }
-  ]
+  ],
+  "integrated_evidence_commit": "90bba16c86ca57d4951df7e51c6aa08b254b2ae8"
 }

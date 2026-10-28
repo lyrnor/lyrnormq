@@ -1,0 +1,172 @@
+{
+  "reviewer": "phase2l-quality",
+  "source_commit": "9729e98",
+  "verification": [
+    "Independent clause suite: memory13 passed,1 mode-only skip; SQLite14 passed",
+    "Earlier immutable same-logic candidate full regression557 wire executions/Paho passed; final rebuilt artifact rerun documented separately in progress.md.",
+    "Final immutable artifact8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a: memory245/SQLite312 wire passes (557 total), all Paho suites pass;22/24 suite executions."
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-2.2.1-3",
+      "status": "not-applicable",
+      "implementation": [],
+      "tests": [],
+      "note": "The exact numbered requirement governs Client allocation, not the broker server. These broker-side raw clients assign compliant IDs; executing them does not certify a client implementation. Server assignment and both-direction separation are assessed separately."
+    },
+    {
+      "id": "MQTT-2.2.1-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/identifiers.rs:PacketIdentifiers"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_4_two_outstanding_server_ids_are_unique",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_independent_direction_same_id_cannot_retire_outgoing"
+      ],
+      "note": "Independent actual wire holds QoS1 and QoS2 deliveries outstanding, verifies nonzero distinct server IDs, and reconnects after same incoming QoS2 identifier completion to prove the original outgoing PUBLISH remains pending with its ID/DUP1; a second outstanding delivery then gets a different ID. Exhaustive allocator wrap is a separate Session unit obligation, not inferred from two wire values."
+    },
+    {
+      "id": "MQTT-2.2.1-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_5_publish_responses_echo_edge_identifiers",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_5_qos2_pubrel_id_and_window_held_through_pubcomp",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_5_wrong_stage_ack_does_not_free_persistent_id",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_5_qos1_and_pubrel_only_ids_survive_sqlite_crash"
+      ],
+      "note": "Independent wire asserts original IDs1/32768/65535 through PUBACK/PUBREC/PUBREL/PUBCOMP, held QoS2 window, unchanged wrong-stage recovery IDs, QoS1 crash PUBLISH replay and PUBREL-only QoS2 recovery. SQLite-only crash case explicitly skipped in memory."
+    },
+    {
+      "id": "MQTT-2.2.1-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_2_2_1_6_suback_unsuback_echo_edge_identifiers"
+      ],
+      "note": "Independent actual SUBACK and UNSUBACK preserve IDs1/32768/65535, multi-filter reason order and one response barrier, including a denied SUBSCRIBE entry and absent UNSUBSCRIBE entry."
+    },
+    {
+      "id": "MQTT-3.6.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
+      ],
+      "note": "Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
+    },
+    {
+      "id": "MQTT-3.8.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
+      ],
+      "note": "Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
+    },
+    {
+      "id": "MQTT-3.10.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
+      ],
+      "note": "Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
+    },
+    {
+      "id": "MQTT-3.14.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
+      ],
+      "note": "Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
+    },
+    {
+      "id": "MQTT-3.15.1-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_reserved_fixed_flags_every_invalid_combination_closes"
+      ],
+      "note": "Independent raw-wire enumeration checks every one of15 invalid low-nibble flag combinations for this packet type after accepted CONNACK, with a valid corresponding body. Each gets MalformedPacket81 and EOF; one bounded method covers75 malformed inputs across five types."
+    },
+    {
+      "id": "MQTT-3.1.4-3",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_1_4_3_takeover_has_8e_and_eof"
+      ],
+      "note": "Actual MQTT5 persistent connection takeover yields SessionPresent1 on new connection, SessionTakenOver8E and EOF on old connection; existing subscription forwards after takeover."
+    },
+    {
+      "id": "MQTT-4.7.3-4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/filter.rs:matches_topic_filter"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_7_3_4_normal_unicode_and_spaces_are_not_normalized",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_7_3_4_shared_unicode_filters_keep_exact_matching",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_7_3_4_retained_unicode_values_are_distinct"
+      ],
+      "note": "Actual composed U+00E9 and decomposed e/U+0301 remain distinct ordinary/shared subscriptions and retained values. Surrounding spaces remain significant ordinary Topic bytes. Output topic and payload equality plus silence barriers expose accidental normalization or extra copies."
+    },
+    {
+      "id": "MQTT-4.12.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_12_0_1_unknown_auth_method_refuses_8c_then_eof"
+      ],
+      "note": "Unknown configured enhanced mechanism is independently rejected with exact CONNACK8C and EOF; following valid PLAIN connection remains healthy."
+    },
+    {
+      "id": "MQTT-3.1.2-1",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_1_2_unknown_protocol_prefix_is_refused_and_closed"
+      ],
+      "note": "Independent unknown-name/version probes confirm refusal plus close, allowing the normative silent-close path. Exact optional response format/version remains under review on a dual311/5 listener; this test does not endorse every nonzero reason or assert a sender-side SHOULD as a receiver MUST."
+    },
+    {
+      "id": "MQTT-3.1.2-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_1_2_unknown_protocol_prefix_is_refused_and_closed"
+      ],
+      "note": "Independent unknown-name/version probes confirm refusal plus close, allowing the normative silent-close path. Exact optional response format/version remains under review on a dual311/5 listener; this test does not endorse every nonzero reason or assert a sender-side SHOULD as a receiver MUST."
+    }
+  ]
+}

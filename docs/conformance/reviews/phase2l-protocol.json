@@ -1,0 +1,475 @@
+{
+  "reviewer": "phase2l-protocol",
+  "source_commit": "9d161cd",
+  "verification": [
+    "cargo test --offline -p mqtt-protocol: 66 passed; fmt, strict Clippy/Rustdoc passed"
+  ],
+  "clauses": [
+    {
+      "id": "U-3.1.2.11.2-2a7c8122ba88",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.3-c6a14039a7b9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.4-7ff968510d7e",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.5-b407e60d7d59",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.6-4ea20974caed",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.7-c780a5b3c739",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.9-902579498cf4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.2.11.10-70ef643a854e",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connect_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.3.2.2-a9110cd668d6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.3.2.3-4edcb931e96e",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.3.2.4-6a3b53c42780",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.3.2.5-0b9fb803dbb9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.3.2.6-03ac6e643c71",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.1.3.2.7-47216b3ac0a6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:will_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal will property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.2-2a7c8122ba88",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.3-c6a14039a7b9",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.4-a3e2357d7ca8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.5-8a6440e79984",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.6-7ff968510d7e",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.7-00d10e468e15",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.8-b407e60d7d59",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.11-3f02217816bc",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.12-4100241fc514",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.13-eca9b0773ec8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples",
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.15-761042abe664",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.16-5305eac542c8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.17-53e750055bb5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.2.2.3.18-317102d3229b",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:connack_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal connack property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.3.2.3.4-9c68182b1133",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:publish_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal publish property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.3.2.3.6-47216b3ac0a6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:publish_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal publish property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.3.2.3.9-a9c3b8cd52b8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:publish_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal publish property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.14.2.2.2-2a7c8122ba88",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:disconnect_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal disconnect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.14.2.2.5-5305eac542c8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:disconnect_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal disconnect property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.15.2.2.2-93da298b901a",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:auth_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal auth property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    },
+    {
+      "id": "U-3.15.2.2.3-e318b8fe0ec4",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/properties.rs:validate"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_conformance_tests.rs:auth_singleton_property_counterexamples"
+      ],
+      "note": "Independent literal auth property fixture asserts positive exact bytes in both directions, duplicate singleton ProtocolError82 on decode and encode. This closes the exact-property/context negative-fixture gap; semantic feature/default/provider policies remain separate obligations, not inferred from the codec."
+    }
+  ]
+}

@@ -56,18 +56,18 @@ their current rows become verified. See `docs/progress.md` for actual final tota
 
 All354 inventoried entries have a first review disposition. This includes252 literal
 numbered entries and102 unnumbered candidates, not354 distinct applicable MUSTs.
-There are954 validated implementation/test references. Scope remains the pinned OS
+There are1275 validated implementation/test references. Scope remains the pinned OS
 source and the recorded scenarios, with no full conformance claim.
 
 | Disposition | Numbered entries | Supplementary candidates | Total |
 | --- | --- | --- | --- |
-| verified within recorded evidence |198|23|221|
-| test-gap / unresolved interpretation |20|41|61|
-| not-applicable / source alias / editorial |34|36|70|
+| verified within recorded evidence |209|56|265|
+| test-gap / unresolved interpretation |8|8|16|
+| not-applicable / source alias / editorial |35|36|71|
 | SHOULD policy-exception |0|2|2|
 
 Three confirmed implementation mismatches were fixed; none of those remains open.
-The61 evidence gaps still block a full conformance conclusion. A screened candidate
+The16 evidence gaps still block a full conformance conclusion. A screened candidate
 is not automatically an executable requirement, and screening does not exhaust all
 unnumbered sentences or property table combinations. Never turn this table into a
 compliance percentage.
@@ -83,6 +83,20 @@ compliance percentage.
 Each correction was frozen in `docs/contracts/phase2k.md` before implementation;
 regressions were captured failing before fixes. Existing clocks, schema7, sessions,
 SQLite/outbox and aliases were reused. `lib.rs` stays declarations/reexports only.
+
+## Phase2l evidence followup
+
+Independent literal fixtures add42 singleton/property packet cells, value/type/
+context negatives and repeatable-property ordering. Session tests cover identifier
+allocation/release/recovery and diagnostic independence. Actual wire tests cover
+all75 invalid reserved-bit combinations for five control types, identifier flows,
+takeover and byte-preserving Unicode/space equality. No new production defect was
+confirmed; production behavior/API/schema are unchanged.
+
+The followup closes44 evidence gaps and reclassifies one client-only obligation,
+reducing61 test gaps to16. This is not45 new protocol features or a compliance
+percentage. Full property/direction tables, PFI policy, refusal contexts, RAP and
+adversarial ordering still need separate acceptance. See tasks.md for exact rows.
 
 ## Keeping the matrix reviewable
 

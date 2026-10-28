@@ -5,7 +5,10 @@
     "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
     "cargo fmt --all -- --check: passed",
     "cargo clippy --offline -p mqtt-transport --all-targets -- -D warnings: passed",
-    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes."
+    "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes.",
+    "Independent clause suite: memory13 passed,1 mode-only skip; SQLite14 passed",
+    "Earlier immutable same-logic candidate full regression557 wire executions/Paho passed; final rebuilt artifact rerun documented separately in progress.md.",
+    "Final immutable artifact8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a: memory245/SQLite312 wire passes (557 total), all Paho suites pass;22/24 suite executions."
   ],
   "clauses": [
     {
@@ -147,14 +150,16 @@
     },
     {
       "id": "MQTT-3.1.4-3",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/durable.rs:run_commands"
+        "crates/mqtt-transport/src/durable.rs:run_commands",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [
-        "crates/mqtt-transport/src/live_tests.rs:takeover_removes_old_subscriptions_and_old_cleanup_is_safe"
+        "crates/mqtt-transport/src/live_tests.rs:takeover_removes_old_subscriptions_and_old_cleanup_is_safe",
+        "tests/clause_boundaries_blackbox.py:test_mqtt_3_1_4_3_takeover_has_8e_and_eof"
       ],
-      "note": "Implementation signals SessionTakenOver8E after commit; live Rust takeover regression exercises311. Existing MQTT5 external takeover coverage needs integration-run attribution before verified here."
+      "note": "Coordinator Phase2l exact-row reconciliation: Actual MQTT5 persistent connection takeover yields SessionPresent1 on new connection, SessionTakenOver8E and EOF on old connection; existing subscription forwards after takeover."
     },
     {
       "id": "MQTT-3.1.4-5",
@@ -468,12 +473,15 @@
     },
     {
       "id": "MQTT-4.12.0-1",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process"
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager::process",
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
       ],
-      "tests": [],
-      "note": "Unknown/disabled method returns8C and handshake refusal closes, inspected. Direct unit manager does not currently execute unsupported-method variant; external enhanced_auth_blackbox.py covers this and must be run on integrated artifact."
+      "tests": [
+        "tests/clause_boundaries_blackbox.py:test_mqtt_4_12_0_1_unknown_auth_method_refuses_8c_then_eof"
+      ],
+      "note": "Coordinator Phase2l exact-row reconciliation: Unknown configured enhanced mechanism is independently rejected with exact CONNACK8C and EOF; following valid PLAIN connection remains healthy."
     },
     {
       "id": "MQTT-4.12.0-2",
@@ -608,5 +616,5 @@
       "note": "Checked malformed/protocol closure and terminal transport behavior in selected packet paths, not proof all malformed grammar combinations are covered. Initial refusal packet context fixed."
     }
   ],
-  "integrated_evidence_commit": "fc9c950"
+  "integrated_evidence_commit": "9729e98"
 }

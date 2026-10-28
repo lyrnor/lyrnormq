@@ -1417,3 +1417,58 @@ refusal contexts, complete malformed-packet termination, RAP/order/Unicode,
 property/table/direction negatives, and deliberate shared-QoS1/secure-transport
 SHOULD decisions. TLS/SCRAM/performance/operations remain separate engineering
 work; adding them does not replace normative acceptance. Clustering stays deferred.
+
+## Phase2l — packet lifecycle and exact property acceptance
+
+Frozen scopec1dd789 preceded isolated Protocol/Session/Quality writers. No new
+production mismatch was confirmed; implementation behavior, public API and schema7
+are unchanged. Tests add evidence rather than new protocol features.
+
+| Owner | Source commit | Actual evidence |
+| --- | --- | --- |
+| Protocol |9d161cd,871a532|9 tests;42 literal singleton/property packet cells, positive exact bytes, duplicate82, values/truncation/context and repeatable-property order|
+| Session |90bba16|7 tests;identifier lifecycle/recovery/response association and PUBREC/PUBREL/PUBCOMP/DISCONNECT ReasonString independence|
+| Quality |9729e98|14 actual TCP methods;75 invalid fixedflag subcases, ID directions/reconnect, takeover8E, Unicode/space equality and refusal contexts|
+
+Independent Session review reran9 property tests and checked required companion
+fields. Its AUTH fixture-isolation finding was corrected: SessionExpiry wrong-context
+input now also contains a valid method so only one variable is invalid. No production
+behavior changed. Client allocator clause2.2.1-3 is explicitly outside broker-only
+acceptance; server allocation and acknowledgment clauses have separate evidence.
+Optional refusal and uncertain direction semantics were not manufactured into bugs.
+
+### Matrix reconciliation
+
+Exact accepted rows close44 evidence gaps and reclassify one client-only obligation.
+The354-entry inventory now has265 verified-within-scope,16 test-gap,71 not-applicable
+and2 SHOULD policy exceptions. Numbered252:209 verified,8 gap,35 not-applicable.
+Supplementary102:56 verified,8 gap,36 not-applicable,2 exceptions. All1275 source/test
+references resolve; no feature/chapter-level pass inference or compliance percentage.
+Broad property/table/direction and payload policies remain open even though individual
+singleton fixtures pass. Remaining exact tasks are in tasks.md; full conformance
+and production readiness remain unclaimed.
+
+### Verification environment and final artifact
+
+Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024, Python3.14.7, Paho2.1.0.
+Final debug binary SHA256:
+8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a.
+The digest differs from Phase2k after test-module source-position changes despite
+no production-logic change. The final rebuilt artifact was retained separately;
+earlier-candidate regression results are not mixed into its reported acceptance.
+
+Rust364 pass: Auth20, Protocol66, Router21, Session158, Storage16, Transport75,
+CLI8. Fmt, strict all-target Clippy, strict Rustdoc and workspace build pass after
+the final fixture correction. Final build bytes match the immutable tested binary.
+Matrix regeneration/reference guard, source-import digest check, Python compilation,
+thin-lib audit and diff checks are part of closing verification. Test durations and
+subcase loops are not reported as measured performance or extra test methods.
+
+Final immutable-artifact full regression passes557 actual wire executions:
+memory245/SQLite312,22/24 suite executions; all Paho suites exit successfully.
+New14-method clause suite: memory13 pass/1 mode-only skip (2.013s),SQLite14 pass
+(2.137s). Existing530 plus27 new wire executions are counted once;75 invalid-flag
+subcases and repeated candidate runs do not inflate the total. CI includes the new
+suite in both modes; hosted CI execution is not claimed. No post-verification Rust
+changes. No new implementation bug found; remaining16 evidence/interpretation gaps
+are explicit and neither SHOULD exception is waived as a MUST.
