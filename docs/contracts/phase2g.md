@@ -93,3 +93,18 @@ no-state on authentication/CONNACK-fit failure, SIGKILL offline/inflight recover
 Will/clean reset/takeover, restart collision handling. Run workspace fmt/Clippy/test/
 rustdoc, old feature regressions and actual clients. Record actual counts and limits;
 no full MQTT5 compatibility or unmeasured performance claims.
+
+## Protocol diagnostic prefix helper (additive freeze)
+Protocol specialist owns mqtt-protocol/** in separate agent/p2g-protocol worktree.
+Add public peek_connect_maximum_packet_size(input:&[u8])->Option<u32>, reexport
+from thin lib.rs. Reuse existing Reader/property parser, no duplicate MQTT decoder.
+Inspect canonical CONNECT header and complete V5 prefix/property block within its
+declared Remaining Length even if later payload is incomplete/malformed. Return
+Some(positive maximum), Some(u32::MAX) if valid properties omit it; None for invalid
+or incomplete prefix/properties, wrong version or other packet type. Never consume
+another coalesced packet to complete this packet's declared property area. This
+helper does not accept a CONNECT or change decode error classification. Network
+uses a known prefix maximum for pre-handshake diagnostic bounds; malformed properties
+remain untrusted and existing typed decode-error behavior is retained when no
+trustworthy maximum is available. Test incomplete prefixes, boundary isolation,
+invalid/duplicate/zero properties and malformed later payload plus tiny maximum.
