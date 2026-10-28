@@ -736,8 +736,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.start()
         observer = self.client('unsupported-observer')
         self.subscribe(observer, [('unsupported/#', 1)])
-        cases = [([(0x27, 65536)], [], 0x83),
-                 ([(0x15, 'unsupported')], [], 0x8c),
+        cases = [([(0x15, 'unsupported')], [], 0x8c),
                  ]
         for index, (values, will_values, code) in enumerate(cases):
             sock = self.raw()
@@ -900,12 +899,14 @@ class Mqtt5Blackbox(unittest.TestCase):
             self.closed(sock)
         boundary = self.raw()
         boundary.sendall(connect5('tiny-five', properties=[(0x27, 5)]))
-        self.connack(boundary, 0x83)
+        self.connack(boundary, 0x95)
         self.closed(boundary)
         empty = self.raw()
         empty.sendall(connect5(''))
-        self.connack(empty, 0x85)
-        self.closed(empty)
+        assigned = [v for k, v in self.connack(empty) if k == 0x12]
+        self.assertEqual(len(assigned), 1)
+        self.assertTrue(assigned[0])
+        self.barrier(empty)
 
     def test_expired_authenticated_owner_releases_id_without_old_payload(self):
         self.broker = AuthBroker(self.directory.name, self.sqlite)

@@ -40,7 +40,7 @@ EXPECTED_METADATA = metadata(publication_properties())
 
 class Client:
     def __init__(self, broker, name, version=5, clean=True, expiry=None, maximum=None,
-                 will=None, username=None, password=None, accepted=True, present=False):
+                 will=None, username=None, password=None, accepted=True, present=False, packet_maximum=None):
         self.version = version
         self.messages = queue.Queue()
         self.subscriptions = queue.Queue()
@@ -89,6 +89,8 @@ class Client:
                 properties.SessionExpiryInterval = expiry
             if maximum is not None:
                 properties.ReceiveMaximum = maximum
+            if packet_maximum is not None:
+                properties.MaximumPacketSize = packet_maximum
             connect_options = dict(clean_start=clean, properties=properties)
         self.value.connect('127.0.0.1', broker.port, keepalive=5, **connect_options)
         self.value.loop_start()
