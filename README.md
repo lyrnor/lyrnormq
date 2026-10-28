@@ -57,16 +57,18 @@ the exact failure instant is unknown: its deadline starts conservatively at rest
 plus the interval. A known offline deadline is never extended by reboot. An expiry
 timer removes offline subscription/queued/inflight state and frees IDs independently
 of traffic. Retained globals and pending Will intent remain separate. Schema3 owners
-are preserved in schema6; schema1/2 still migrate to anonymous ownership.
+are preserved in schema7; schema1/2 still migrate to anonymous ownership.
 
 The server advertises bounded ReceiveMaximum/MaximumPacketSize,
-SharedSubscriptionAvailable0, SubscriptionIdentifierAvailable1 and configured
+SharedSubscriptionAvailable1, SubscriptionIdentifierAvailable1 and configured
 TopicAliasMaximum (default32). Unsupported
 semantics are refused explicitly rather than accepted and discarded:
 
-- Enhanced AUTH/methods: CONNECT0x8C; unsolicited AUTH after basic auth is a protocol error.
+- Disabled/unknown enhanced authentication methods: CONNECT0x8C; unsolicited AUTH
+  after basic authentication is a protocol error. Opt-in PLAIN is described below.
 - Client-origin PUBLISH with Subscription Identifier is rejected0x82.
-- Shared filters: DISCONNECT0x9E.
+- MQTT311 shared subscription creation: SUBACK0x80. MQTT5 malformed shared filters
+  receive SUBACK0x8F; No Local on a shared subscription is a protocol error.
 
 Complete output frames obey the packet cap too: legacy311 messages can grow when
 bridged to5. An unclean5 resume whose pending/queued output would exceed that cap
@@ -108,7 +110,61 @@ full subscription records and a required retained_replay marker, explicitly migr
 versions1..5 with default options/no IDs. MQTT311 wire strips IDs and clears live
 RAP retain while preserving retained-replay RETAIN1; internal metadata survives a
 later MQTT5 resume. All added identifier bytes count in complete-frame size checks,
-peer-specific discard and state quotas. Shared subscriptions remain unsupported.
+peer-specific discard and state quotas. Shared delivery is described below.
+
+## Shared Subscriptions
+
+MQTT5 accepts `$share/{group}/{filter}`. Each complete shared filter defines its own
+round-robin group: one copy goes to one eligible member, independently of other
+groups and ordinary subscriptions. An ordinary and shared match can produce two
+copies to the same client. Wildcards and system Topic isolation apply to the inner
+filter. Shared subscriptions never trigger retained replay. Each selected copy
+captures that entry's QoS, RAP and Subscription Identifier; No Local is forbidden.
+
+Selection prefers eligible online members and skips full queues or recipients whose
+packet limit is too small. QoS1/2 can queue to a persistent offline member when no
+online member fits. QoS0 is never queued offline. ACLs check the underlying filter
+once; publication names and policy grant patterns remain literal.
+
+Membership and selected QoS1/2 copies reuse persistent sessions and transactional
+outboxes. Schema7 explicitly migrates versions1..6. An existing membership can
+resume over MQTT311, whose wire output strips MQTT5 properties; MQTT311 cannot
+create new shared memberships. Last-member departure prunes unstarted group work.
+Started QoS exchanges remain owned by the selected session. QoS2 is never reassigned;
+this broker also keeps QoS1 with that session and does not redistribute it if the
+session ends. This is a deliberate exception to the specification's SHOULD
+recommendation. Group fairness resets after process restart; cluster balancing and
+a group-owned redelivery spool remain future work.
+
+## Enhanced authentication
+
+Enable real SASL PLAIN using the existing Argon2 credential policy:
+
+```sh
+cargo run -p rmqtt -- --auth-policy ./policy.json --enhanced-auth-plain
+```
+
+The MQTT5 client negotiates Authentication Method `PLAIN`, with binary data
+`[authzid] NUL username NUL password`. Supply credentials in CONNECT for direct
+success or omit data and answer the server's AUTH0x18 prompt. Reauthentication uses
+client AUTH0x19, optional AUTH0x18 exchange and server AUTH0x00. Method changes,
+malformed sequences, mismatched identities and invalid credentials fail closed.
+The CONNECT Password field must be absent when using enhanced authentication.
+
+Authentication completes before any session, Will or connection takeover mutation.
+Reauthentication preserves the existing principal, session, QoS and alias state;
+ordinary traffic may continue under that principal while the exchange is pending.
+Exchanges have absolute handshake deadlines, at most8 provider calls, and bounded
+packet/data sizes. Providers run on the existing blocking state worker. The provider
+is disabled unless explicitly configured; basic username/password remains supported.
+Without `--auth-policy`, the existing anonymous policy remains in effect and PLAIN
+does not enforce a credential database.
+
+PLAIN does not encrypt credentials. Use a protected transport; the built-in listener
+is loopback by default and TLS remains future work. SCRAM, delegated authorization,
+SASLprep normalization and remote providers are not implemented. The public provider
+traits allow adding mechanisms under a separate contract. Raw-wire AUTH client
+tests are used where the installed MQTT SDK lacks enhanced AUTH support.
 
 ## Topic Alias
 
@@ -149,7 +205,7 @@ metadata, ticket and credit are retired transactionally. This also applies to ol
 started PUBLISH replay when reconnecting with a smaller maximum; AwaitComp remains
 PUBREL-only. Other recipients and global retained data remain intact. Fitting
 messages continue, and offline data is not constrained by a previous connection's
-maximum. This negotiated maximum is runtime-only; schema6 does not persist it.
+maximum. This negotiated maximum is runtime-only; schema7 does not persist it.
 
 The exact success CONNACK is checked before session/Will/takeover changes. Required
 capabilities, configured TopicAliasMaximum and AssignedClientIdentifier are retained. A too-small limit gets reason0x95 if the
@@ -305,7 +361,7 @@ transactions and full snapshots have unmeasured throughput/latency costs.
 
 ## Persistence and limits
 
-SQLite uses WAL/FULL and schema6 JSON whole-registry transactions. Valid schema1/2/3/4/5
+SQLite uses WAL/FULL and schema7 JSON whole-registry transactions. Valid schema1/2/3/4/5/6
 snapshots are explicitly migrated, preserving IDs/order/subscriptions; the opaque
 SQLite container remains version1. Unknown/corrupt schemas or incompatible lowered
 quotas reject startup instead of dropping data. Atomic state/outbox commits precede
@@ -315,6 +371,7 @@ never PUBLISH; other unresolved publishes keep their IDs and set DUP.
 | CLI flag | Default | Meaning |
 | --- | --- | --- |
 | `--auth-policy` | disabled | Bounded JSON authentication/ACL policy; invalid policy fails startup |
+| `--enhanced-auth-plain` | disabled | Enable MQTT5 PLAIN using the configured access policy |
 | `--listen` | `127.0.0.1:1883` | TCP bind address |
 | `--storage-path` | disabled | SQLite path; parent must exist |
 | `--max-packet-size` | 1048576 | Maximum complete packet bytes |

@@ -1209,3 +1209,115 @@ encoding and memory budgets need measurements before optimization. Existing SQL/
 start-intent and latest-wire-clock boundaries are unchanged. Process SIGKILL is not
 physical power-loss certification. No full MQTT5 conformance or production claim;
 cluster remains deferred.
+
+
+## Phase2j — Shared Subscriptions and Enhanced AUTH
+
+### Contract, isolation and implementation
+
+Frozen phase2j contract3baa63c, literal-pattern ACL clarificationcfc0cfe and QoS0
+incarnation clarificationf459379 preceded implementation. Auth failure packet-context
+clarificationb6b8a50 preceded the independent wire-regression fix. Separate Git
+worktrees/branches owned Shared/Router, Auth, Transport and Quality; coordinator
+owns CLI/docs/integration. Existing protocol properties/Reason Codes, Clock, SQLite
+container1, session/outbox transactions, alias writer and policy verifier are reused.
+
+| Owner | Source commit | Result |
+| --- | --- | --- |
+| Router |ea0e0fe,d621b02|Shared grammar, literal underlying Topic matcher/index|
+| Auth |4a97b78|Bounded enhanced provider API, real PLAIN through Argon2/ACL|
+| Session |4e74209,3b555c8|Schema7, shared scheduling/recipient ownership, lease epochs|
+| Transport |d6bc10b,99f4ea5|Initial AUTH/reauth lifecycle, contextual terminal reasons, network leases|
+| Coordinator |aa206be|Explicit CLI PLAIN configuration after policy load|
+| Quality |b17ac73|Independent shared/AUTH/Paho tests, strict fixtures and CI|
+
+Each full shared filter defines a separate group; ordinary delivery remains a
+separate copy. Selection and cursor changes participate in the existing outbox
+transaction. Tests cover aggregate capacity across copies, online preference,
+offline QoS1/2, peer-size skipping, selected IDs/RAP, no retained replay, V311
+creation denial and resumed memberships, wildcard/$ isolation and literal nested
+$share namespaces. Last-member departure prunes unstarted work; runtime incarnation
+tokens prevent a previously polled QoS0 copy from surviving same-key group recreation.
+
+Selected QoS1/2 messages belong to their recipient session. QoS2 never reassigns.
+QoS1 deliberately also waits for that recipient and does not redistribute after its
+session ends: an explicit SHOULD exception, not a claim of seamless group redelivery.
+Group cursors reset after restart. Schema7 requires nullable group markers on queued/
+outgoing records, validates before pruning, and explicitly migrates schemas1..6.
+
+PLAIN is opt-in via --enhanced-auth-plain, initialized after the existing policy.
+Direct/challenged initial authentication and reauthentication share bounded provider
+traits. No initial session/Will/takeover mutation precedes authentication, exact
+final CONNACK preflight and durable commit. Reauthentication retains the same owner
+and existing aliases/QoS while ordinary traffic continues. Absolute deadlines and
+8-call limits apply independently of AUTH or PING activity. Debug redacts secrets;
+consumed credential buffers use Password cleanup. Generic Frame/receive/write
+buffers are not completely zeroized. PLAIN provides no encryption, SCRAM or SASLprep.
+Without a configured credential policy, existing anonymous behavior is preserved.
+
+### Failure-first and independent evidence
+
+The previous Phase2i executable fails the new real-wire shared capability check
+(SharedAvailable0 versus1) and does not recognize the opt-in AUTH CLI flag. Existing
+Session QoS0 reincarnation test was captured red before the epoch fix and green
+with the implementation. Independent review reran14 Shared and6 AUTH state tests
+and checked strict migrations, per-ID ownership, group pruning, exact packet caps,
+provider deadline checks, generation cleanup and registration after durable commit.
+
+Independent raw AUTH testing found reauth bad credentials used86, which is legal in
+CONNACK but illegal in DISCONNECT. This prevented terminal encoding and caused EOF.
+The frozen correction uses DISCONNECT87 and distinguishes enhanced AUTH deadline87
+from established Keep Alive timeout8D; regression tests precede owner fixes.
+
+A separate coordinator probe used the actual previous executable to create schema6
+SQLite state, then SIGKILL and opened it with the new binary. Real owner identity,
+full subscription options/ID42, outgoing QoS2 packet ID/properties/DUP replay,
+queued QoS1, global retained metadata and Will records survived schema7 migration.
+The resumed MQTT5 client completed PUBREC/PUBREL/PUBCOMP and drained the next QoS1.
+This is actual old-artifact recovery, in addition to synthetic strict DTO fixtures.
+
+
+### Final artifact and verification
+
+Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024, Python3.14.7, Paho MQTT2.1.0.
+Final debug executable SHA256:
+64f8dbd5b1b31c8fabff24d047407622facdbe87a1bfccd978c7ea48cb97fa31.
+The artifact includes CLIaa206be and contextual AUTH fix99f4ea5. No performance
+metrics are inferred from test durations.
+
+Workspace build/test333 passes: Auth20, Protocol52, Router21, Session144, Storage16,
+Transport72, CLI8. Fmt check, strict all-target Clippy and strict Rustdoc pass.
+Independent TCP tests need local-listener permission; the initial sandboxed test
+attempt was blocked by socket permission, and the actual permitted full run passed.
+
+| New independent suite | Memory | SQLite |
+| --- | --- | --- |
+| shared_blackbox.py |17 passed,5 mode-only skips (5.958s)|22 passed (6.838s)|
+| enhanced_auth_blackbox.py |23 passed,2 mode-only skips (1.825s)|25 passed (1.946s)|
+| shared_paho.py |4 passed,1 mode-only skip (1.375s)|5 passed (1.692s)|
+
+Totals87 new wire executions and9 unmodified-Paho executions;8 explicit mode-only
+skips. Definitions/subcases and repeats are not double-counted. AUTH uses a dedicated
+actual MQTT5 socket client because installed Paho2.1 lacks enhanced AUTH support.
+The shared suite uses unmodified Paho; the existing alias suite retains its explicitly
+documented receive-alias adapter. The final artifact independently passes both-mode
+AUTHfailure87/Will and absolute-initial-deadline87 regressions.
+
+The final immutable artifact also passes every reused suite in both modes:
+17 suite executions in memory and19 with SQLite, including persistence-only suites.
+These cover the existing base/QoS/retained-Will/auth-ACL/MQTT5/expiry-negotiation/
+subscription/alias wire and Paho suites. Reused wire executions408 (memory175,
+SQLite233) plus87 new executions total495 passing wire executions. Existing Paho
+QoS matrices, metadata/expiry/recovery and persistence scripts also pass. Repeats
+from the earlier candidate are excluded. Python compilation, thin-lib audit and
+Git diff checks pass. CI is updated; no hosted CI run is claimed.
+
+### Remaining scope
+
+Further SASL mechanisms/credential normalization, auth CPU/rate isolation and TLS/
+WebSocket remain open. QoS1 group-owned redistribution, broader conformance, client/
+fuzz/fault/clock/filesystem campaigns, backup/admin/metrics and measured CPU/memory/
+latency/throughput baselines are in tasks.md. Full snapshots and shared group view/
+trie construction remain bounded but need measurement before optimization. Process
+SIGKILL is not physical power-loss certification. No full MQTT5 compatibility,
+production or cluster claim is made.

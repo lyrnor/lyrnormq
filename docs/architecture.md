@@ -1,4 +1,4 @@
-# Architecture — revision10 / Phase2i
+# Architecture — revision11 / Phase2j
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2i contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2j contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -112,7 +112,7 @@ death loses all memory state; SQLite process recovery defers Wills until restart
 
 SQLite WAL/FULL and singleton opaque container schema remain version1, protected
 by the existing permanent canonical `.broker-lock` OS advisory lock. Business JSON
-is now schema6: persistent sessions plus required global retained and wills arrays.
+is now schema7: persistent sessions plus required global retained and wills arrays.
 Each session/Will has a required stable owner identity; passwords/hashes/raw CONNECT are never stored.
 Static owner labels include the non-secret username. Schema3 owners are preserved;
 1/2 migrate to anonymous. Schema4 adds required message/Will/retained properties,
@@ -122,7 +122,8 @@ fields and envelope clock_floor; version4 migrates with absent message deadlines
 conservatively started outgoing exchanges and delay0 Wills. Required fields cannot
 be omitted; all versions1..4 migrate explicitly without resetting IDs or owners.
 Schema6 adds full subscription records and required queue/outgoing retained_replay
-markers, migrating version5 explicitly. Queued Message adds retain. Will records are client_id,owner,pending,delay_interval,
+markers, migrating version5 explicitly. Schema7 adds required nullable queued/outgoing
+shared group markers, migrating strict version6 explicitly. Queued Message adds retain. Will records are client_id,owner,pending,delay_interval,
 due_at,will(topic,payload,
 qos,retain); retained records are topic,payload,qos and never empty. Valid schema1
 is explicitly decoded with its old DTOs and migrated to empty globals/retain=false;
@@ -240,7 +241,7 @@ reason0x8E when writable; stale cleanup cannot affect the new generation.
 
 Current supported/excluded property semantics are enumerated in phase2i.md/README;
 phase2e.md preserves initial refusal history. Codec coverage of all property types
-does not mean runtime implementation of every optional feature. Shared subscriptions and enhanced AUTH remain explicit exclusions.
+does not mean runtime implementation of every optional feature. Shared subscriptions and enhanced AUTH were exclusions at Phase2e; Phase2j below adds them.
 No MQTT5 full-conformance, performance or production claim is made.
 
 MQTT5 normative source: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html.
@@ -283,7 +284,7 @@ Will TTL begins at successful publication. Known due times persist; active-at-cr
 connections conservatively start delay at restart, capped by restored session end.
 Startup validation, expiry, ACL reconciliation and Will recovery commit before ready.
 
-Current unsupported semantics remain shared subscriptions and enhanced AUTH; Phase2h below adds nondefault options and subscription identifiers. TLS/WebSocket/cluster and full conformance remain future work.
+At Phase2g, shared subscriptions and enhanced AUTH remained unsupported; Phase2h below adds nondefault options and subscription identifiers, and Phase2j adds shared groups and opt-in PLAIN. TLS/WebSocket/cluster and full conformance remain future work.
 
 ## Phase2g connection limits and resolved session keys
 
@@ -380,3 +381,48 @@ Canonical admission/discard policy is unchanged: compression does not salvage a
 previously oversized canonical recipient. Additional map/string/encoding costs are
 unmeasured and not included in the serialized model-byte budget. Paho2.1 receive
 adapter usage is explicit in tests; raw wire checks remain independent evidence.
+
+
+## Phase2j shared delivery and enhanced authentication
+
+The [frozen contract](contracts/phase2j.md) separates group selection from session
+ownership and connection authentication from durable session mutation. Shared and
+Auth specialists implement their isolated modules in parallel; Transport consumes
+those real APIs, and independent Quality tests exercise the integrated executable.
+
+Shared subscription keys retain the full `$share/{name}/{filter}` string. The trie
+indexes the underlying ordinary Topic Filter once; literal `$share/` Topics and ACL
+grants are never recursively unwrapped. Each matching group independently chooses
+one eligible member by runtime round-robin; ordinary subscriptions form a separate
+copy. Online eligible members are preferred, QoS1/2 may queue to persistent offline
+members, and recipient queue/packet limits include every planned copy. Shared
+subscriptions do not trigger retained replay. Only the selected entry contributes
+its QoS, RAP and Subscription Identifier.
+
+Schema7 adds required nullable `shared_subscription` to queued/outgoing records,
+with strict legacy1..6 migration. The marker follows existing session-owned outbox
+transactions and QoS recovery. Last-member removal retires undelivered group copies;
+already-started QoS obligations survive. A runtime group-incarnation token also
+cancels a polled but unsent QoS0 lease, including destroy/recreate of the same group.
+Cursors and incarnation epochs are bounded by live groups and are not persisted.
+QoS2 remains owned by its selected session. This broker deliberately uses the same
+ownership policy for QoS1: it does not redistribute an assigned copy after that
+session ends, an explicit exception to the specification's SHOULD recommendation.
+A group-owned redelivery spool remains future work.
+
+Enhanced provider exchanges run on the existing serialized blocking worker. Pending
+CONNECT state is generation-keyed and bounded, separate from SessionEngine. Initial
+success preflights the exact CONNACK, authenticates the principal and commits the
+existing session/Will/takeover transaction before registration or acceptance.
+Abandoned initial exchanges create no session or Will. Connected reauthentication
+keeps the existing owner and permits ordinary traffic under that owner while it is
+pending; a successful exchange cannot change identity or reset aliases/QoS state.
+Absolute deadlines, round and packet bounds apply independently of AUTH activity.
+Consumed request secrets use the existing zeroizing Password wrapper and are absent
+from durable records; Debug implementations redact authentication data.
+
+The opt-in `--enhanced-auth-plain` mechanism implements real SASL PLAIN through the
+existing credential verifier and ACLs, with direct or server-prompted credentials.
+It adds no encryption and needs a protected transport; TLS is still unimplemented.
+The default provider is disabled. SCRAM, delegated authzid, SASLprep normalization,
+remote providers and auth rate/CPU isolation are not claimed implemented.

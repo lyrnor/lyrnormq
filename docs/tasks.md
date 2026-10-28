@@ -48,7 +48,8 @@ quota, replay and writer cancellation defects were fixed before acceptance.
    client interoperability before claiming full conformance. Authentication/ACL
    is implemented and verified in Phase2d.
 2. Extend the accepted MQTT5 foundation under new semantic contracts:
-   shared subscriptions and enhanced AUTH remain explicitly unsupported.
+   Phase2j adds Shared Subscriptions and opt-in SASL PLAIN enhanced AUTH. Broader
+   conformance, further mechanisms and operational hardening remain open.
    Typed Properties/ReasonCode, Clean Start/Session Expiry/Receive Maximum and
    cross-version recovery are implemented in Phase2e; MessageExpiry and WillDelay
    are implemented in Phase2f. Phase2g adds MaximumPacketSize negotiation and
@@ -220,7 +221,7 @@ schema5, SQLite backend, QoS state machines and outbox/expiry/Will paths are reu
 No schema migration or persistent allocator is introduced. Runtime peer caps reset
 on every connection/restore; assigned keys become ordinary owned session keys.
 
-Next protocol work remains Shared Subscriptions and enhanced AUTH, alongside the earlier
+At Phase2g, the next protocol work was Shared Subscriptions and enhanced AUTH, alongside the earlier
 full-conformance/client-matrix gates. Measure peer-cap scanning/full-encoding and
 snapshot costs before optimizing. Existing SQL/TCP crash ambiguity, clock boundaries
 and operational/performance tasks remain explicit; no cluster work is introduced.
@@ -249,7 +250,7 @@ codec, trie, Clock, SQLite/QoS/outbox, expiry, negotiated caps and ACL/Will path
 reused. Schema6 introduces full subscription records and retained_replay markers;
 explicit1..5 migrations preserve prior state with defaults. Any-eligible-RAP live
 overlap is a documented broker policy, not a normative or Mosquitto precedence claim.
-Remaining protocol work: Shared Subscriptions and enhanced AUTH, plus
+After Phase2h, remaining protocol work included Shared Subscriptions and enhanced AUTH, plus
 broader conformance/client/fuzz/fault verification and operational/performance gates.
 
 ## Completed Phase2i dependency group
@@ -270,6 +271,44 @@ coordinator owns CLI/docs/integration. No Session/storage/schema rewrite. Native
 Paho2.1 does not map incoming aliases, so its alias suite uses a validated explicit
 receive adapter before QoS2 caching, with independent raw-wire assertions. Canonical
 admission limits remain separate from optional alias compression; aliases cannot
-rescue already discarded canonical deliveries. Next semantic work is Shared
+rescue already discarded canonical deliveries. Phase2j below implements Shared
 Subscriptions and enhanced AUTH; conformance/fuzz/fault/performance/operations gates
 remain unchanged. Measure bounded map scans/encoding and alias memory before tuning.
+
+
+## Completed Phase2j dependency group
+
+```mermaid
+graph LR
+  Contract[Shared groups schema7 and enhanced provider freeze] --> Shared[Router helpers and session-owned shared outbox]
+  Contract --> Auth[Real bounded PLAIN provider and literal ACL matcher]
+  Contract --> QA[Independent raw AUTH shared wire and Paho tests]
+  Shared --> Transport[Group leases and AUTH connection lifecycle]
+  Auth --> Transport
+  Transport --> CLI[Opt-in mechanism configuration]
+  CLI --> Gate[Both-mode regression and independent review]
+  QA --> Gate
+```
+
+All writers have explicitly assigned independent Git worktrees. Shared/Router and
+Auth implement their owned paths in parallel; Transport consumes their committed
+APIs. Quality independently tests the executable and maintains strict legacy test
+fixtures. Coordinator freezes interface changes, integrates commits, and owns CLI
+and documentation. Existing SQLite storage and protocol codec are reused.
+
+Remaining work after this integration: a group-owned QoS1 redelivery spool (current
+selected-session policy deliberately omits redistribution after session end), further
+SASL mechanisms such as SCRAM, auth rate/CPU isolation, protected TLS transport and
+all previously listed conformance/fuzz/fault/performance/operations gates. No cluster
+work should precede those single-node correctness and reliability tasks. Runtime
+shared group views/trie reconstruction and full snapshots need measurements before
+optimization; no new throughput or latency claims are made.
+
+
+Phase2j acceptance:333 Rust tests,495 real-wire executions and all reused both-mode
+Paho suites pass on the final artifact;9 new unmodified-Paho executions cover shared
+subscriptions. Strict Fmt/Clippy/Rustdoc, Python compilation and thin-lib checks pass.
+An independent actual-wire regression caught illegal reauth DISCONNECT reason86;
+owner fix99f4ea5 plus absolute-auth-deadline reason87 was failure-first tested and
+revalidated before acceptance. See progress.md for source commits, environment,
+artifact digest, actual old-schema6 executable upgrade and explicit limitations.
