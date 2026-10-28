@@ -422,14 +422,30 @@ pub(super) async fn connection_loop(
         && !failed.load(Ordering::Acquire)
         && !flush
     {
-        let mut frame = Frame::v5(Packet::Disconnect);
-        frame.reason_code = match io_reason(error) {
-            ReasonCode::SERVER_UNAVAILABLE => ReasonCode::SERVER_SHUTTING_DOWN,
-            ReasonCode::UNSUPPORTED_PROTOCOL_VERSION => ReasonCode::PROTOCOL_ERROR,
-            reason => reason,
-        };
-        terminal.send_replace(Some(frame));
-        flush = true;
+        if connected {
+            let mut frame = Frame::v5(Packet::Disconnect);
+            frame.reason_code = match io_reason(error) {
+                ReasonCode::SERVER_UNAVAILABLE => ReasonCode::SERVER_SHUTTING_DOWN,
+                ReasonCode::UNSUPPORTED_PROTOCOL_VERSION => ReasonCode::PROTOCOL_ERROR,
+                reason => reason,
+            };
+            terminal.send_replace(Some(frame));
+            flush = true;
+        } else {
+            // MQTT-3.14.0-1 forbids DISCONNECT before a successful CONNACK.
+            // An incomplete initial AUTH exchange can only refuse with CONNACK
+            // or close silently when the reason/cap cannot encode that refusal.
+            let refusal = connack(ProtocolVersion::V5, false, io_reason(error).value(), config);
+            if encode_frame(&refusal).is_ok_and(|bytes| {
+                bytes.len()
+                    <= config
+                        .max_packet_size
+                        .min(peer_maximum.load(Ordering::Acquire))
+            }) {
+                terminal.send_replace(Some(refusal));
+                flush = true;
+            }
+        }
     }
     drop(output);
     finish_writer(writer, result, flush, config.write_timeout).await

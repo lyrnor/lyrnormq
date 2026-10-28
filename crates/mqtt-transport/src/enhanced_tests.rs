@@ -150,8 +150,13 @@ async fn incomplete_auth_cannot_takeover_existing_connection_or_accept_publish()
     .await;
     // A negotiated AUTH flow reports protocol failure without creating a session.
     let refused = read(&mut pending).await;
-    assert_eq!(refused.packet, Packet::Disconnect);
-    assert_eq!(refused.reason_code, ReasonCode::PROTOCOL_ERROR);
+    assert!(matches!(
+        refused.packet,
+        Packet::ConnAck {
+            session_present: false,
+            code: 0x82
+        }
+    ));
     closed(&mut pending).await;
     write(&mut original, Frame::v5(Packet::PingReq)).await;
     assert_eq!(read(&mut original).await.packet, Packet::PingResp);
@@ -234,8 +239,141 @@ async fn initial_enhanced_deadline_reports_authentication_failure() {
     write(&mut stream, connect("initial-timeout", None)).await;
     assert_eq!(read(&mut stream).await.packet, Packet::Auth);
     let failure = read(&mut stream).await;
+    assert!(matches!(
+        failure.packet,
+        Packet::ConnAck {
+            session_present: false,
+            code: 0x87
+        }
+    ));
+    closed(&mut stream).await;
+    stop(shutdown, task).await;
+}
+
+#[tokio::test]
+async fn mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect() {
+    let mut config = configured();
+    config.handshake_timeout = Duration::from_millis(100);
+    let (address, shutdown, task) = broker(config).await;
+    for scenario in 0..4 {
+        let mut stream = TcpStream::connect(address).await.unwrap();
+        write(
+            &mut stream,
+            connect(&format!("initial-failure-{scenario}"), None),
+        )
+        .await;
+        assert_eq!(read(&mut stream).await.packet, Packet::Auth);
+        let expected = match scenario {
+            0 => {
+                write(&mut stream, Frame::v5(Packet::PingReq)).await;
+                ReasonCode::PROTOCOL_ERROR
+            }
+            1 => {
+                let mut changed = auth(0x18, None);
+                changed.properties = vec![Property::AuthenticationMethod("OTHER".into())];
+                write(&mut stream, changed).await;
+                ReasonCode::PROTOCOL_ERROR
+            }
+            2 => {
+                // Reserved AUTH fixed-header bit: no successful CONNACK was sent.
+                stream.write_all(&[0xf1, 0]).await.unwrap();
+                ReasonCode::MALFORMED_PACKET
+            }
+            _ => ReasonCode::NOT_AUTHORIZED,
+        };
+        let refusal = read(&mut stream).await;
+        assert!(
+            matches!(refusal.packet, Packet::ConnAck { code, session_present: false } if code == expected.value()),
+            "scenario {scenario}: {refusal:?}"
+        );
+        closed(&mut stream).await;
+    }
+    stop(shutdown, task).await;
+}
+
+#[tokio::test]
+async fn mqtt_3_1_2_28_29_problem_and_response_information_choices() {
+    let (address, shutdown, task) = broker(configured()).await;
+    for response in [0, 1] {
+        let mut stream = TcpStream::connect(address).await.unwrap();
+        let mut request = connect(&format!("information-{response}"), None);
+        request.properties.extend([
+            Property::RequestProblemInformation(0),
+            Property::RequestResponseInformation(response),
+        ]);
+        write(&mut stream, request).await;
+        let challenge = read(&mut stream).await;
+        assert_eq!(challenge.packet, Packet::Auth);
+        assert!(
+            challenge
+                .properties
+                .iter()
+                .all(|p| !matches!(p, Property::ReasonString(_) | Property::UserProperty(..)))
+        );
+        write(&mut stream, auth(0x18, Some(b"\0alice\0password"))).await;
+        let accepted = read(&mut stream).await;
+        assert!(matches!(accepted.packet, Packet::ConnAck { code: 0, .. }));
+        // The optional response facility is deliberately omitted for either value.
+        assert!(
+            accepted
+                .properties
+                .iter()
+                .all(|p| !matches!(p, Property::ResponseInformation(_)))
+        );
+        write(
+            &mut stream,
+            Frame::v5(Packet::Subscribe {
+                packet_id: 7,
+                filters: vec![("audit/elsewhere".into(), 0)],
+            }),
+        )
+        .await;
+        let subscribed = read(&mut stream).await;
+        assert!(matches!(
+            subscribed.packet,
+            Packet::SubAck { packet_id: 7, .. }
+        ));
+        assert!(subscribed.properties.is_empty());
+        write(
+            &mut stream,
+            Frame::v5(Packet::Publish {
+                topic: "audit/value".into(),
+                payload: vec![],
+                qos: 1,
+                packet_id: Some(8),
+                dup: false,
+                retain: false,
+            }),
+        )
+        .await;
+        let acknowledged = read(&mut stream).await;
+        assert!(matches!(
+            acknowledged.packet,
+            Packet::PubAck { packet_id: 8 }
+        ));
+        assert!(acknowledged.properties.is_empty());
+        write(&mut stream, Frame::v5(Packet::Disconnect)).await;
+        closed(&mut stream).await;
+    }
+    stop(shutdown, task).await;
+}
+
+#[tokio::test]
+async fn mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_reason() {
+    let (address, shutdown, task) = broker(configured()).await;
+    let mut stream = TcpStream::connect(address).await.unwrap();
+    let mut request = connect("keepalive", Some(b"\0alice\0password"));
+    if let Packet::Connect { keep_alive, .. } = &mut request.packet {
+        *keep_alive = 1;
+    }
+    write(&mut stream, request).await;
+    assert!(matches!(
+        read(&mut stream).await.packet,
+        Packet::ConnAck { code: 0, .. }
+    ));
+    let failure = read(&mut stream).await;
     assert_eq!(failure.packet, Packet::Disconnect);
-    assert_eq!(failure.reason_code, ReasonCode::NOT_AUTHORIZED);
+    assert_eq!(failure.reason_code, ReasonCode::KEEP_ALIVE_TIMEOUT);
     closed(&mut stream).await;
     stop(shutdown, task).await;
 }
