@@ -108,3 +108,16 @@ uses a known prefix maximum for pre-handshake diagnostic bounds; malformed prope
 remain untrusted and existing typed decode-error behavior is retained when no
 trustworthy maximum is available. Test incomplete prefixes, boundary isolation,
 invalid/duplicate/zero properties and malformed later payload plus tiny maximum.
+
+## Admission clarification from independent bounded-queue reproduction
+Poll/Begin safety alone is insufficient: an online peer's guaranteed-oversize copies
+must not fill its queue and reject the source/healthy peers before it polls. Skip
+known oversized candidates before queue-capacity admission; retire preexisting
+oversized online backlog before admitting fitting traffic or retained replay. Apply
+the same rule to each retained copy before retained replay queue limits. Offline
+queues ignore old peer maxima. Preserve global configured resource/version-growth
+preflight and genuine fitting-message backpressure. All pruning/skips belong to the
+existing proposal transaction, retain global retained records and report real Poll
+changes as before. Regression must exercise max_queued=1 without polling small peer,
+healthy peer progress, fitting follow-up after reconnect backlog and multiple large
+retained matches; do not merely increase queues or weaken capacity requirements.
