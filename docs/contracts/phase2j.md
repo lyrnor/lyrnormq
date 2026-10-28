@@ -166,3 +166,13 @@ first new membership allocates a new epoch, so a recreated group cannot revive a
 old unsent lease. QoS1/2 still use authoritative per-ID sidecars/tickets; stale lease
 checks remain. Never serialize Delivery tokens or alias/auth state. Add deterministic
 PollQoS0 -> lastUNSUB -> recreate samegroup -> Begin regression, not only absentgroup.
+
+
+## Authentication failure reason contexts
+Bad credentials during initial authentication use CONNACK86. Reauthentication
+failure uses DISCONNECT87 because86 is not a legal DISCONNECT reason code; encoding
+must never silently discard the terminal error. Both preserve abnormal-disconnect
+Will behavior after establishment. Initial enhanced-authentication and reauthentication
+absolute deadline expiry use87, including network timer expiry before a provider
+continuation; this is not Keep Alive timeout8D. Existing basic handshake/established
+Keep Alive behavior is unchanged. Independent real-wire regression precedes fixes.
