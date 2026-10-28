@@ -206,6 +206,33 @@ class MQTTBlackbox(unittest.TestCase):
         self.assertEqual(receive(sock), (0x20, b'\x00\x01'))
         self.closed(sock)
 
+    def test_invalid_unsubscribe_filter_disconnects(self):
+        sock = self.client('invalid-unsubscribe')
+        sock.sendall(frame(0xa2, b'\x00\x01' + string('a/#/b')))
+        self.closed(sock)
+
+    def test_partial_packet_does_not_refresh_keepalive(self):
+        sock = self.client('partial-keepalive', keepalive=1)
+        # The declared body is 4,096 bytes, much larger than this test sends.
+        # Trickle bytes continuously; only a complete control packet may reset
+        # the server's keepalive timer. A traffic-based timer would never fire.
+        sock.sendall(b'\x30\x80\x20')
+        deadline = time.monotonic() + 3
+        sock.settimeout(.3)
+        while time.monotonic() < deadline:
+            try:
+                if sock.recv(1) == b'':
+                    return
+            except socket.timeout:
+                pass
+            except (ConnectionResetError, BrokenPipeError):
+                return
+            try:
+                sock.sendall(b'x')
+            except (ConnectionResetError, BrokenPipeError):
+                return
+        self.fail('partial packet traffic incorrectly refreshed keepalive')
+
     def test_keepalive_timeout(self):
         sock = self.client('keepalive', keepalive=1)
         sock.settimeout(4)
