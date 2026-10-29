@@ -253,7 +253,7 @@ async fn default_anonymous_policy_refuses_supplied_credentials() {
 }
 
 #[tokio::test]
-async fn empty_poll_commits_revoked_queued_payload_and_notifies() {
+async fn empty_poll_commits_revoked_queued_payload_without_waking_empty_receiver() {
     let db = super::tests::Database::new();
     let (policy, permission) = policy();
     let config = BrokerConfig {
@@ -327,10 +327,9 @@ async fn empty_poll_commits_revoked_queued_payload_and_notifies() {
             .unwrap(),
         Reply::Polled(None)
     ));
-    timeout(Duration::from_secs(1), woke.changed())
-        .await
-        .unwrap()
-        .unwrap();
+    // The revoked payload is committed away even though an empty receiver
+    // no longer gets a delivery wake. Authorization maintenance is not skipped.
+    assert!(!woke.has_changed().unwrap());
     super::tests::stop(worker, task).await;
     let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
     let after = store.load().unwrap().unwrap();

@@ -241,12 +241,18 @@ fn valid_generation(
         ))
     }
 }
-fn notify(online: &HashMap<String, Online>) {
-    for connection in online.values() {
+fn notify(engine: &SessionEngine, online: &HashMap<String, Online>) -> usize {
+    let mut targets = 0;
+    for (client, connection) in online {
+        if !engine.delivery_may_be_ready(client) {
+            continue;
+        }
+        targets += 1;
         connection
             .wake
             .send_modify(|version| *version = version.wrapping_add(1));
     }
+    targets
 }
 
 fn run_worker(
@@ -968,8 +974,8 @@ fn run_commands(
                     online.remove(&client);
                 }
                 if notify_required {
-                    profile.notify(online.len());
-                    notify(&online);
+                    let targets = notify(&engine, &online);
+                    profile.notify(targets);
                 }
                 Ok(reply)
             }
@@ -1596,6 +1602,16 @@ mod tests {
         };
         let mut engine = SessionEngine::new(session_config(&config)).unwrap();
         engine.connect("poller", true).unwrap();
+        // Progress must wake an actual recipient, not an unrelated idle peer.
+        engine
+            .handle(
+                "poller",
+                Packet::Subscribe {
+                    packet_id: 7,
+                    filters: vec![("fresh".into(), 0)],
+                },
+            )
+            .unwrap();
         let mut hold = publication(b"held", 1);
         if let Packet::Publish { topic, retain, .. } = &mut hold {
             *topic = "held".into();
@@ -1637,6 +1653,11 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        assert!(matches!(
+            poll(&worker, "poller", 1).await,
+            Some(Packet::Publish { topic, payload, .. })
+                if topic == "fresh" && payload == b"retained Will"
+        ));
         stop(worker, task).await;
         let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
         let bytes = store.load().unwrap().unwrap();
@@ -1783,7 +1804,9 @@ mod tests {
             run_commands(receiver, config, Some(store), engine, online)
         });
         worker.request(Operation::Tick).await.unwrap();
-        assert!(notified.has_changed().unwrap());
+        // Expiry still commits below, but an unknown idle observer has no
+        // delivery work and must not be woken merely for a removed session.
+        assert!(!notified.has_changed().unwrap());
         notified.borrow_and_update();
         clock.0.store(start + 10_000, Ordering::SeqCst);
         worker.request(Operation::Tick).await.unwrap();
@@ -1864,3 +1887,7 @@ mod enhanced_tests;
 #[cfg(test)]
 #[path = "durable/phase3_tests.rs"]
 mod phase3_tests;
+
+#[cfg(test)]
+#[path = "durable/phase3a_tests.rs"]
+mod phase3a_tests;
