@@ -11,8 +11,12 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - run: cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+      - run: cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path fuzz/Cargo.toml
       - run: cargo build --workspace
       - run: python3 tests/check_conformance_matrix.py
+      - run: python3 tests/acceptance_guard_negative.py
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
       - run: python3 tests/persistence_blackbox.py
@@ -29,6 +33,8 @@ jobs:
       - run: python3 tests/clause_boundaries_blackbox.py
       - run: python3 tests/semantic_boundaries_blackbox.py
       - run: python3 tests/rap_profiles_blackbox.py
+      - run: python3 tests/fault_recovery_blackbox.py
+      - run: python3 tests/ack_reuse_stress.py
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/paho_interop.py
       - run: python3 tests/persistence_paho.py
@@ -44,8 +50,33 @@ jobs:
         run: |
           python3 - <<'PY'
           import os, subprocess, sys, tempfile
-          for suite in ('blackbox.py', 'qos_blackbox.py', 'paho_interop.py', 'retained_will_blackbox.py', 'retained_will_paho.py', 'auth_acl_blackbox.py', 'auth_acl_paho.py', 'mqtt5_blackbox.py', 'mqtt5_paho.py', 'expiry_will_blackbox.py', 'expiry_will_paho.py', 'negotiation_blackbox.py', 'negotiation_paho.py', 'subscription_blackbox.py', 'subscription_paho.py', 'alias_blackbox.py', 'alias_paho.py', 'shared_blackbox.py', 'shared_paho.py', 'enhanced_auth_blackbox.py', 'conformance_blackbox.py', 'clause_boundaries_blackbox.py', 'semantic_boundaries_blackbox.py', 'rap_profiles_blackbox.py'):
+          for suite in ('blackbox.py', 'qos_blackbox.py', 'paho_interop.py', 'retained_will_blackbox.py', 'retained_will_paho.py', 'auth_acl_blackbox.py', 'auth_acl_paho.py', 'mqtt5_blackbox.py', 'mqtt5_paho.py', 'expiry_will_blackbox.py', 'expiry_will_paho.py', 'negotiation_blackbox.py', 'negotiation_paho.py', 'subscription_blackbox.py', 'subscription_paho.py', 'alias_blackbox.py', 'alias_paho.py', 'shared_blackbox.py', 'shared_paho.py', 'enhanced_auth_blackbox.py', 'conformance_blackbox.py', 'clause_boundaries_blackbox.py', 'semantic_boundaries_blackbox.py', 'rap_profiles_blackbox.py', 'fault_recovery_blackbox.py'):
               with tempfile.TemporaryDirectory(prefix='rmqtt-sqlite-regression-') as directory:
                   env = dict(os.environ, RMQTT_TEST_STORAGE_PATH=os.path.join(directory, 'sessions.sqlite'))
                   subprocess.run([sys.executable, 'tests/' + suite], env=env, check=True)
           PY
+
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2026-10-28
+      - run: cargo install cargo-fuzz --version 0.13.2 --locked
+      - run: cargo run --release --locked --manifest-path fuzz/Cargo.toml -- 20000 332593189941
+      - name: Bounded coverage-guided codec and session campaigns
+        env:
+          ASAN_OPTIONS: quarantine_size_mb=64
+        run: |
+          mkdir -p /tmp/rmqtt-fuzz-artifacts
+          cp -R fuzz/corpus /tmp/rmqtt-codec-corpus
+          cp -R fuzz/corpus /tmp/rmqtt-session-corpus
+          cargo fuzz run --fuzz-dir fuzz/libfuzzer codec /tmp/rmqtt-codec-corpus -- -max_total_time=30 -max_len=4096 -timeout=2 -rss_limit_mb=512 -seed=20261029 -artifact_prefix=/tmp/rmqtt-fuzz-artifacts/codec-
+          cargo fuzz run --fuzz-dir fuzz/libfuzzer session /tmp/rmqtt-session-corpus -- -max_total_time=30 -max_len=4096 -timeout=2 -rss_limit_mb=512 -seed=20261030 -artifact_prefix=/tmp/rmqtt-fuzz-artifacts/session-
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-failure-inputs
+          path: /tmp/rmqtt-fuzz-artifacts/

@@ -1,0 +1,13 @@
+[package]
+name = "rmqtt-fuzz-harness"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+mqtt-protocol = { path = "../crates/mqtt-protocol" }
+mqtt-session = { path = "../crates/mqtt-session" }
+mqtt-auth = { path = "../crates/mqtt-auth" }
+serde_json = "1"

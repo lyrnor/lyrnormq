@@ -1,0 +1,4 @@
+/target/
+/libfuzzer/target/
+/libfuzzer/artifacts/
+/libfuzzer/corpus/

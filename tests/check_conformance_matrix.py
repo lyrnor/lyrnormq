@@ -65,6 +65,34 @@ def check(root):
             assert any(item['status'] == 'verified' for item in reviews.get(row['id'], [])), row['id']
         if row['status'] == 'unreviewed':
             assert not row['reviewers'], f'unreviewed row carries a claimed review: {row["id"]}'
+    acceptance_path = base / 'server-acceptance.json'
+    if acceptance_path.exists():
+        acceptance = json.loads(acceptance_path.read_text())
+        assert acceptance['schema_version'] == 1
+        assert acceptance['gate_id'] == 'U-7.1.1-56088afba646'
+        assert isinstance(acceptance['scope'], str) and acceptance['scope']
+        assert acceptance['overall_status'] in {'open', 'passed'}
+        criteria = acceptance['criteria']
+        assert len(criteria) == 6 and {c['id'] for c in criteria} == {f'G{i}' for i in range(1, 7)}
+        for criterion in criteria:
+            assert criterion['required'] is True
+            assert criterion['status'] in {'open', 'passed'}
+            for field in ('requirements', 'limitations'):
+                assert isinstance(criterion[field], list) and criterion[field]
+                assert all(isinstance(value, str) and value for value in criterion[field])
+            assert isinstance(criterion['commands'], list)
+            assert isinstance(criterion['evidence'], list)
+            if criterion['status'] == 'passed':
+                assert criterion['commands'] and criterion['evidence'], criterion['id']
+            assert all(isinstance(value, str) and value for value in criterion['commands'])
+            for value in criterion['evidence']:
+                reference(value)
+        all_passed = all(c['status'] == 'passed' for c in criteria)
+        if acceptance['overall_status'] == 'passed':
+            assert all_passed, 'overall gate cannot pass with an open criterion'
+        gate = next(row for row in rows if row['id'] == acceptance['gate_id'])
+        if gate['status'] == 'verified':
+            assert all_passed and acceptance['overall_status'] == 'passed', 'U7 cannot bypass required criteria'
     subprocess.run([sys.executable, str(base / 'build_matrix.py'), '--check'], check=True, cwd=root)
     print(f'PASS {len(rows)} unique matrix rows; {len(reviews)} reviewed identifiers; {links} source/test links')
 
