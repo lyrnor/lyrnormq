@@ -104,9 +104,10 @@ class Client:
             await asyncio.wait_for(self.writer.drain(), 5)
         except (OSError, TimeoutError):
             pass
-        self.writer.close()
+        writer, self.writer = self.writer, None
+        writer.close()
         try:
-            await asyncio.wait_for(self.writer.wait_closed(), 5)
+            await asyncio.wait_for(writer.wait_closed(), 5)
         except (OSError, TimeoutError):
             pass
 
@@ -127,6 +128,36 @@ async def ramp(arguments, port):
     elapsed = time.monotonic() - started
     connected = [client for client, ok in zip(clients, results) if ok]
     return clients, connected, failures, latencies, elapsed
+
+
+async def one_wave(arguments, port, sampler, process, result, wave):
+    index = wave['index']
+    result['phase'] = f'connect-{index}'
+    clients, connected, failures, latencies, elapsed = await asyncio.wait_for(
+        ramp(arguments, port), arguments.timeout)
+    wave['connect'] = {'requested': arguments.connections, 'connected': len(connected),
+                       'failures': failures, 'elapsed_seconds': elapsed,
+                       'connections_per_second': len(connected) / elapsed if elapsed else None,
+                       'latency': distribution(latencies) if latencies else None}
+    wave['connected'] = await sampler.once(f'connected-{index}')
+    if failures:
+        raise RuntimeError(f'wave {index} connect failures: {failures}')
+    result['phase'] = f'hold-{index}'
+    ping_failures, ping_latencies = {}, []
+    until = time.monotonic() + arguments.hold
+    await asyncio.wait_for(asyncio.gather(*(client.hold(arguments, until, ping_failures, ping_latencies)
+                                            for client in connected)), arguments.hold + arguments.timeout)
+    wave['hold'] = {'seconds': arguments.hold, 'keepalive_seconds': arguments.keepalive,
+                    'failures': ping_failures, 'pings': len(ping_latencies),
+                    'latency': distribution(ping_latencies) if ping_latencies else None}
+    wave['held'] = await sampler.once(f'held-{index}')
+    if process.returncode is not None:
+        raise RuntimeError(f'broker exited {process.returncode} during wave {index}')
+    if ping_failures:
+        raise RuntimeError(f'wave {index} keepalive failures: {ping_failures}')
+    grown = wave['held']['rss_bytes'] - result['idle']['rss_bytes']
+    wave['rss_bytes_per_connection'] = grown / len(connected)
+    return clients
 
 
 async def measure(arguments, binary, directory, result):
@@ -150,31 +181,18 @@ async def measure(arguments, binary, directory, result):
         await ready(process, port)
         sampler = Sampler(process.pid, 1)
         result['idle'] = await sampler.once('idle')
-        result['phase'] = 'connect'
-        clients, connected, failures, latencies, elapsed = await asyncio.wait_for(
-            ramp(arguments, port), arguments.timeout)
-        result['connect'] = {'requested': arguments.connections, 'connected': len(connected),
-                             'failures': failures, 'elapsed_seconds': elapsed,
-                             'connections_per_second': len(connected) / elapsed if elapsed else None,
-                             'latency': distribution(latencies) if latencies else None}
-        result['connected'] = await sampler.once('connected')
-        if failures:
-            raise RuntimeError(f'connect failures: {failures}')
-        result['phase'] = 'hold'
-        ping_failures, ping_latencies = {}, []
-        until = time.monotonic() + arguments.hold
-        await asyncio.wait_for(asyncio.gather(*(client.hold(arguments, until, ping_failures, ping_latencies)
-                                                for client in connected)), arguments.hold + arguments.timeout)
-        result['hold'] = {'seconds': arguments.hold, 'keepalive_seconds': arguments.keepalive,
-                          'failures': ping_failures, 'pings': len(ping_latencies),
-                          'latency': distribution(ping_latencies) if ping_latencies else None}
-        result['held'] = await sampler.once('held')
-        if process.returncode is not None:
-            raise RuntimeError(f'broker exited {process.returncode} during hold')
-        if ping_failures:
-            raise RuntimeError(f'keepalive failures: {ping_failures}')
-        grown = result['held']['rss_bytes'] - result['idle']['rss_bytes']
-        result['rss_bytes_per_connection'] = grown / len(connected)
+        result['waves'] = []
+        for index in range(arguments.waves):
+            wave = {'index': index}
+            result['waves'].append(wave)
+            clients = await one_wave(arguments, port, sampler, process, result, wave)
+            await asyncio.gather(*(client.close() for client in clients), return_exceptions=True)
+            await asyncio.sleep(arguments.settle)
+            wave['closed'] = await sampler.once(f'closed-{index}')
+        first = result['waves'][0]
+        result.update(connect=first['connect'], connected=first['connected'], hold=first['hold'],
+                      held=first['held'], closed=first['closed'],
+                      rss_bytes_per_connection=first['rss_bytes_per_connection'])
         result['phase'] = 'completed'
     finally:
         await asyncio.gather(*(client.close() for client in clients), return_exceptions=True)
@@ -221,6 +239,9 @@ def parse_arguments(argv=None):
                         help='spread clients over 127.0.0.1..N (needs loopback aliases on macOS)')
     parser.add_argument('--connect-timeout', type=float, default=10)
     parser.add_argument('--timeout', type=float, default=1800, help='bound for the ramp phase')
+    parser.add_argument('--waves', type=int, default=1,
+                        help='connect/hold/disconnect rounds against one broker; RSS is sampled after each')
+    parser.add_argument('--settle', type=float, default=5, help='seconds after a wave disconnects before sampling')
     parser.add_argument('--smoke', action='store_true', help='500 unpaced clients, 2s keepalive, 3s hold')
     arguments = parser.parse_args(argv)
     if arguments.smoke:
@@ -231,6 +252,8 @@ def parse_arguments(argv=None):
         parser.error('--rate must be >= 0 and --concurrency 1..65536')
     if not 1 <= arguments.keepalive <= 65535 or arguments.hold < 0:
         parser.error('--keepalive must be 1..65535 and --hold >= 0')
+    if not 1 <= arguments.waves <= 20 or arguments.settle < 0:
+        parser.error('--waves must be 1..20 and --settle >= 0')
     if not 1 <= arguments.source_addresses <= 254:
         parser.error('--source-addresses must be 1..254')
     if arguments.connections > 16000 * arguments.source_addresses:

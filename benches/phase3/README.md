@@ -196,3 +196,18 @@ loopback source address supplies about 16k ephemeral ports, so 100k clients
 need `--source-addresses 7` or more (Linux routes all of 127.0.0.0/8; macOS
 needs `ifconfig lo0 alias` per address and a raised `kern.maxfilesperproc`).
 Cross-host campaigns use emqtt-bench from a separate load generator instead.
+
+`--waves N` repeats connect/hold/disconnect against one broker and samples RSS
+`--settle` seconds after each disconnect. Flat held RSS across waves means freed
+session memory is reused; `closed` RSS shows whether the allocator returns it.
+
+Release builds may select the allocator with `--features jemalloc` or
+`--features mimalloc` (mutually exclusive; default is the platform allocator).
+Cross-compiling jemalloc with zigbuild needs zig's archiver, otherwise the host
+`ar` produces an empty ELF archive and linking fails on `_rjem_*` symbols:
+
+```sh
+printf '#!/bin/sh\nexec zig ar "$@"\n' > /tmp/zigar.sh && chmod +x /tmp/zigar.sh
+AR_x86_64_unknown_linux_musl=/tmp/zigar.sh cargo zigbuild --release --locked \
+  -p rmqtt --target x86_64-unknown-linux-musl --features jemalloc
+```

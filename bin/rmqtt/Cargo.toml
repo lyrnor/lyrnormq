@@ -7,3 +7,9 @@ license.workspace = true
 mqtt-auth = { path = "../../crates/mqtt-auth" }
 mqtt-transport = { path = "../../crates/mqtt-transport" }
 tokio.workspace = true
+tikv-jemallocator = { version = "0.6", optional = true }
+mimalloc = { version = "0.1", optional = true, default-features = false }
+
+[features]
+jemalloc = ["dep:tikv-jemallocator"]
+mimalloc = ["dep:mimalloc"]
