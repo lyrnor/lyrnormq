@@ -573,3 +573,6 @@ mod property_table_tests;
 
 #[cfg(test)]
 mod payload_role_tests;
+
+#[cfg(test)]
+mod acceptance_boundary_tests;
