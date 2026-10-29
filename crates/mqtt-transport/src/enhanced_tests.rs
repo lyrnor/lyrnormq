@@ -377,3 +377,6 @@ async fn mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_reason() {
     closed(&mut stream).await;
     stop(shutdown, task).await;
 }
+
+#[path = "phase2m_tests.rs"]
+mod phase2m_tests;
