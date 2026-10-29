@@ -2,6 +2,35 @@
 use mqtt_auth::{AccessControl, AllowAnonymous};
 use std::{sync::Arc, time::Duration};
 
+/// Protocol family accepted by this listener. This is connection-local policy;
+/// durable sessions can still be resumed by another listener/profile.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ProtocolMode {
+    /// Accept levels4/5 and retain the legacy unsupported-level response.
+    #[default]
+    Both,
+    /// Accept only MQTT3.1.1 and refuse other levels using legacy CONNACK1.
+    V311,
+    /// Accept only MQTT5 and refuse other levels using MQTT5 CONNACK84.
+    V5,
+}
+impl ProtocolMode {
+    pub(crate) fn accepts(self, version: mqtt_protocol::ProtocolVersion) -> bool {
+        matches!(
+            (self, version),
+            (Self::Both, _)
+                | (Self::V311, mqtt_protocol::ProtocolVersion::V311)
+                | (Self::V5, mqtt_protocol::ProtocolVersion::V5)
+        )
+    }
+    pub(crate) fn refusal(self) -> (mqtt_protocol::ProtocolVersion, u8) {
+        match self {
+            Self::Both | Self::V311 => (mqtt_protocol::ProtocolVersion::V311, 1),
+            Self::V5 => (mqtt_protocol::ProtocolVersion::V5, 0x84),
+        }
+    }
+}
+
 /// Limits apply per connection except for `max_connections`. Queue capacity counts
 /// packets; maximum queued payload memory is bounded by capacity × packet size.
 /// Each direction separately retains at most `max_inflight` QoS exchanges, with
@@ -11,6 +40,8 @@ use std::{sync::Arc, time::Duration};
 /// process termination. SQLite retains persistent sessions and global records.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
+    /// Explicit listener negotiation profile; never persisted with a session.
+    pub protocol_mode: ProtocolMode,
     /// Immutable, bounded hooks executed on the serialized blocking worker.
     pub access_control: Arc<dyn AccessControl>,
     /// Optional connection-local enhanced authentication provider.
@@ -34,6 +65,7 @@ pub struct BrokerConfig {
 impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
+            protocol_mode: ProtocolMode::Both,
             access_control: Arc::new(AllowAnonymous),
             enhanced_auth: None,
             storage_path: None,

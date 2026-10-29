@@ -380,3 +380,6 @@ async fn mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_reason() {
 
 #[path = "phase2m_tests.rs"]
 mod phase2m_tests;
+
+#[path = "phase2n_version_tests.rs"]
+mod phase2n_version_tests;

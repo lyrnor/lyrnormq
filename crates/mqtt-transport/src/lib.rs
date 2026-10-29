@@ -4,5 +4,5 @@ mod durable;
 mod packet_io;
 mod server;
 
-pub use config::BrokerConfig;
+pub use config::{BrokerConfig, ProtocolMode};
 pub use server::serve;

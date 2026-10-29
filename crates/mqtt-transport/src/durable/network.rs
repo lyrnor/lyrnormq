@@ -311,6 +311,10 @@ pub(super) fn connack(
     }
     frame
 }
+fn profile_refusal(config: &BrokerConfig) -> Frame {
+    let (version, code) = config.protocol_mode.refusal();
+    connack(version, false, code, config)
+}
 pub(super) fn accepted_connack(
     version: ProtocolVersion,
     present: bool,
@@ -586,14 +590,18 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                     if let Some(version) = peek_connect_version(&buffer) {
                         *context.version = Some(version);
                         if version == ProtocolVersion::V5 {
-                            // A valid CONNECT property prefix can establish a peer
-                            // ceiling even when decoding its later payload failed.
-                            // Invalid/incomplete property blocks remain untrusted.
+                            // Only a known, valid property prefix establishes a
+                            // peer cap, even when this profile rejects the version.
                             if let Some(maximum) = peek_connect_maximum_packet_size(&buffer) {
                                 context
                                     .peer_maximum
                                     .store(maximum as usize, Ordering::Release);
                             }
+                        }
+                        if !context.config.protocol_mode.accepts(version) {
+                            terminal_frame(&context, profile_refusal(context.config));
+                            *context.flush = true;
+                        } else if version == ProtocolVersion::V5 {
                             terminal_frame(
                                 &context,
                                 connack(
@@ -608,10 +616,7 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                     } else if matches!(error, ProtocolError::UnsupportedVersion)
                         && buffer.first() == Some(&0x10)
                     {
-                        terminal_frame(
-                            &context,
-                            connack(ProtocolVersion::V311, false, 1, context.config),
-                        );
+                        terminal_frame(&context, profile_refusal(context.config));
                         *context.flush = true;
                     }
                 }
@@ -697,6 +702,14 @@ async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Resu
                         .peer_alias_maximum
                         .store(usize::from(peer_alias_maximum), Ordering::Release);
                     *context.version = Some(version);
+                    if !context.config.protocol_mode.accepts(version) {
+                        terminal_frame(&context, profile_refusal(context.config));
+                        *context.flush = true;
+                        return Err(failure(
+                            ReasonCode::UNSUPPORTED_PROTOCOL_VERSION,
+                            "protocol rejected by listener profile",
+                        ));
+                    }
                     let response = context
                         .worker
                         .request(Operation::ConnectFrameAt {
