@@ -493,13 +493,7 @@ async fn continuous_qos0_delivery_does_not_starve_ping_reads() {
         outbound_capacity: 1024,
         ..BrokerConfig::default()
     };
-    let (sender, receiver) = mpsc::channel(config.max_connections);
-    let worker = Worker { sender };
-    let (ready, startup) = oneshot::channel();
-    let worker_config = config.clone();
-    let worker_task =
-        tokio::task::spawn_blocking(move || run_worker(receiver, worker_config, ready));
-    startup.await.unwrap().unwrap();
+    let (worker, worker_task) = super::tests::worker(config.clone()).await;
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let connection_worker = worker.clone();
@@ -574,12 +568,7 @@ async fn continuous_qos0_delivery_does_not_starve_ping_reads() {
         .unwrap()
         .unwrap()
         .unwrap();
-    drop(worker);
-    timeout(Duration::from_secs(2), worker_task)
-        .await
-        .unwrap()
-        .unwrap()
-        .unwrap();
+    super::tests::stop(worker, worker_task).await;
     assert!(
         response.is_ok(),
         "continuous queued delivery starved PINGREQ"

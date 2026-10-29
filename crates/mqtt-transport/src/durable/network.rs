@@ -1,4 +1,4 @@
-//! Versioned socket IO; all business mutations remain on the shared worker.
+//! Versioned socket IO; business mutations run on the client's session actor.
 use super::aliases::{InboundAliases, OutboundAliases};
 use super::{Operation, Reply, Worker, WorkerFailure, failure};
 mod authentication;
@@ -1537,7 +1537,6 @@ mod tests {
     async fn blocked_writer_expires_only_unstarted_delivery_and_keeps_started_replay() {
         use mqtt_auth::Principal;
         use mqtt_session::durable::{ConnectionOptions, SessionEngine};
-        use mqtt_storage::durable::SqliteStore;
         let db = super::super::tests::Database::new();
         let config = BrokerConfig {
             storage_path: Some(db.0.clone()),
@@ -1595,10 +1594,6 @@ mod tests {
             frame.properties = vec![Property::MessageExpiryInterval(1)];
             engine.handle_frame("source", frame).unwrap();
         }
-        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
-        store.commit(&engine.snapshot().unwrap()).unwrap();
-        let (sender, commands) = mpsc::channel(8);
-        let worker = Worker { sender };
         let (wake, _) = watch::channel(0);
         let (cancel, _) = watch::channel(false);
         let online = std::collections::HashMap::from([(
@@ -1610,10 +1605,8 @@ mod tests {
                 close_reason: None,
             },
         )]);
-        let worker_config = config.clone();
-        let worker_task = tokio::task::spawn_blocking(move || {
-            super::super::run_commands(commands, worker_config, Some(store), engine, online)
-        });
+        let (worker, worker_task) =
+            super::super::tests::seeded(config.clone(), engine, clock.clone(), online).await;
         let mut deliveries = Vec::new();
         for _ in 0..2 {
             let Reply::DeliveryPolled(Some(delivery)) = worker
@@ -1690,8 +1683,7 @@ mod tests {
         writer_task.await.unwrap().unwrap();
         drop(terminal);
         super::super::tests::stop(worker, worker_task).await;
-        let store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
-        let bytes = store.load().unwrap().unwrap();
+        let bytes = super::super::tests::stored(&db.0, &config).unwrap();
         let mut restored = SessionEngine::restore_with_clock(
             super::super::session_config(&config),
             &bytes,
@@ -1818,7 +1810,7 @@ mod tests {
         let mut engine = SessionEngine::new_with_clock(
             super::super::session_config(&config),
             config.access_control.clone(),
-            clock,
+            clock.clone(),
         )
         .unwrap();
         let mut online = std::collections::HashMap::new();
@@ -1859,11 +1851,7 @@ mod tests {
                 }),
             )
             .unwrap();
-        let (sender, commands) = mpsc::channel(4);
-        let worker = Worker { sender };
-        let task = tokio::task::spawn_blocking(move || {
-            super::super::run_commands(commands, config, None, engine, online)
-        });
+        let (worker, task) = super::super::tests::seeded(config, engine, clock, online).await;
         let mut frame = Frame::v5(Packet::Publish {
             topic: "ingress".into(),
             payload: b"already expired in mailbox".to_vec(),

@@ -19,8 +19,12 @@ async fn full_output_queue_drain_timeout_preserves_unwritten_credits_and_release
             write_timeout: Duration::from_millis(20),
             ..BrokerConfig::default()
         };
-        let (commands, mut stalled_worker) = mpsc::channel(1);
-        let worker = Worker { sender: commands };
+        let (worker, worker_task) = super::super::tests::worker(config.clone()).await;
+        let broker = Arc::clone(&worker.broker);
+        let release = broker.stall("held").await;
+        while broker.queued("held") != 0 {
+            tokio::task::yield_now().await;
+        }
         let (output, receiver) = mpsc::channel(config.outbound_capacity);
         let (terminal, terminal_rx) = watch::channel(None);
         let (cancel, _) = watch::channel(false);
@@ -56,17 +60,15 @@ async fn full_output_queue_drain_timeout_preserves_unwritten_credits_and_release
                 },
                 "held".into(),
                 1,
-                worker,
+                worker.clone(),
             ))
             .await
             .unwrap();
-        // Owning this command is an exact barrier: BeginDelivery is waiting for reply,
-        // rather than a guessed kernel-buffer fill or arbitrary sleeping producer.
-        let held_command = stalled_worker.recv().await.unwrap();
-        assert!(matches!(
-            held_command.operation,
-            Operation::BeginDelivery { .. }
-        ));
+        // The stalled actor's inbox is an exact barrier: BeginDelivery is waiting
+        // for a reply, rather than a guessed kernel-buffer fill or sleeping producer.
+        while broker.queued("held") == 0 {
+            tokio::task::yield_now().await;
+        }
         for id in 1..=2 {
             locked(&credits).unwrap().register(id, 1).unwrap();
             output
@@ -133,17 +135,12 @@ async fn full_output_queue_drain_timeout_preserves_unwritten_credits_and_release
             2,
             "unwritten ACKs never release tickets"
         );
-        assert!(
-            held_command
-                .reply
-                .send(Ok(Reply::FramePolled(None)))
-                .is_err(),
-            "aborted BeginDelivery has no receiver"
-        );
+        drop(release);
         assert!(
             !failed.load(Ordering::Acquire),
             "outer drain deadline aborts task,not a successful socket write"
         );
+        super::super::tests::stop(worker, worker_task).await;
     })
     .await
     .unwrap();

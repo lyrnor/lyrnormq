@@ -296,7 +296,7 @@ async fn empty_poll_commits_revoked_queued_payload_without_waking_empty_receiver
     let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
     store.commit(&before).unwrap();
     drop(store);
-    let (worker, task) = super::tests::worker(config).await;
+    let (worker, task) = super::tests::worker(config.clone()).await;
     let (wake, mut woke) = watch::channel(0);
     let (cancel, _) = watch::channel(false);
     assert!(matches!(
@@ -331,8 +331,7 @@ async fn empty_poll_commits_revoked_queued_payload_without_waking_empty_receiver
     // no longer gets a delivery wake. Authorization maintenance is not skipped.
     assert!(!woke.has_changed().unwrap());
     super::tests::stop(worker, task).await;
-    let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
-    let after = store.load().unwrap().unwrap();
+    let after = super::tests::stored(&db.0, &config).unwrap();
     assert_ne!(before, after);
     assert!(
         std::str::from_utf8(&after)
@@ -374,7 +373,7 @@ async fn rejected_owner_and_password_leave_persistent_snapshot_unchanged() {
     let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
     store.commit(&before).unwrap();
     drop(store);
-    let (worker, task) = super::tests::worker(config).await;
+    let (worker, task) = super::tests::worker(config.clone()).await;
     let (wake, _) = watch::channel(0);
     let (cancel, original_cancelled) = watch::channel(false);
     assert!(matches!(
@@ -436,8 +435,7 @@ async fn rejected_owner_and_password_leave_persistent_snapshot_unchanged() {
         client: "shared".into(), generation: 1, packet: Packet::PingReq,
     }).await.unwrap(), Reply::Packets(packets) if packets == vec![Packet::PingResp]));
     super::tests::stop(worker, task).await;
-    let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
-    let after = store.load().unwrap().unwrap();
+    let after = super::tests::stored(&db.0, &config).unwrap();
     assert_eq!(before, after);
     assert!(
         !after

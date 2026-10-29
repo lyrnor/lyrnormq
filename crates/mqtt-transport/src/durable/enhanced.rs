@@ -1,4 +1,5 @@
-//! Bounded connection-local authentication state, owned by the blocking worker.
+//! Bounded connection-local authentication state; one manager per connection,
+//! driven on the blocking pool.
 use super::*;
 use mqtt_auth::{
     Action, EnhancedAuthError, EnhancedAuthStep, EnhancedConnectInfo, EnhancedExchange, Principal,
@@ -147,22 +148,25 @@ impl Manager {
     pub(super) fn install(&mut self, established: Established) {
         self.established.insert(established.generation, established);
     }
-    pub(super) fn assigned_identifier(&self, engine: &SessionEngine) -> io::Result<String> {
+    pub(super) fn assigned_identifier(&self, in_use: impl Fn(&str) -> bool) -> io::Result<String> {
         super::assigned_identifier_with(
-            engine,
             |id| {
-                self.pending
-                    .values()
-                    .any(|pending| pending.request.client == id)
+                in_use(id)
+                    || self
+                        .pending
+                        .values()
+                        .any(|pending| pending.request.client == id)
             },
             |bytes| getrandom::getrandom(bytes).map_err(|e| io::Error::other(e.to_string())),
         )
     }
+    /// `is_current(client, generation)` reports whether that connection still
+    /// owns the client's session.
     pub(super) fn process(
         &mut self,
         request: Request,
         config: &BrokerConfig,
-        online: &HashMap<String, Online>,
+        is_current: impl Fn(&str, u64) -> bool,
     ) -> io::Result<Processed> {
         match request {
             Request::CancelAuthentication { generation } => {
@@ -275,7 +279,12 @@ impl Manager {
                 let established = self.established.get(&generation).ok_or_else(|| {
                     failure(ReasonCode::PROTOCOL_ERROR, "AUTH without negotiated method")
                 })?;
-                valid_generation(online, &established.client, generation)?;
+                if !is_current(&established.client, generation) {
+                    return Err(failure(
+                        ReasonCode::SESSION_TAKEN_OVER,
+                        "connection superseded",
+                    ));
+                }
                 if method(&frame.properties) != Some(established.method.as_str()) {
                     return Err(failure(
                         ReasonCode::PROTOCOL_ERROR,

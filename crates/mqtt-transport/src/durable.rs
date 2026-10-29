@@ -1,4 +1,6 @@
-//! Serialized durable worker: propose, commit, install, then expose packets.
+//! Per-session durable actors (Phase4): each client identifier is owned by one
+//! tokio task that proposes, commits and installs its own partition before
+//! exposing packets. Connection tasks perform socket IO only.
 use crate::BrokerConfig;
 use mqtt_auth::{AuthError, ConnectInfo};
 use mqtt_protocol::{
@@ -6,13 +8,15 @@ use mqtt_protocol::{
 };
 #[cfg(test)]
 use mqtt_protocol::{ProtocolError, decode, encode};
-#[cfg(test)]
-use mqtt_session::durable::{Clock, SystemClock};
 use mqtt_session::durable::{
-    ConnectionOptions, Delivery, EngineError, SessionConfig, SessionEngine,
+    ConnectionOptions, Delivery, EngineError, SessionConfig, SessionEngine, SystemClock,
 };
-use mqtt_storage::durable::SqliteStore;
-use std::{collections::HashMap, io, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    io,
+    sync::{Arc, Mutex, PoisonError},
+    time::Duration,
+};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::{Semaphore, mpsc, oneshot, watch},
@@ -20,12 +24,19 @@ use tokio::{
     time::MissedTickBehavior,
 };
 
+mod actor;
 mod aliases;
+mod broker;
 mod enhanced;
 mod network;
-mod profiling;
+#[cfg(test)]
+use mqtt_session::durable::Clock;
+#[cfg(test)]
+use mqtt_storage::durable::SqliteStore;
 #[cfg(test)]
 use tokio::time::timeout;
+
+use broker::Broker;
 
 #[derive(Debug)]
 struct WorkerFailure {
@@ -63,11 +74,6 @@ fn model_error(error: EngineError) -> io::Error {
     failure(reason, error.to_string())
 }
 type ResultReply = Result<Reply, io::Error>;
-struct Command {
-    queued_at: Option<std::time::Instant>,
-    operation: Operation,
-    reply: oneshot::Sender<ResultReply>,
-}
 enum Operation {
     ConnectFrameAt {
         frame: Frame,
@@ -114,7 +120,6 @@ enum Operation {
         graceful: bool,
         expiry: Option<u32>,
     },
-    Tick,
     #[cfg(test)]
     Connect {
         client: String,
@@ -142,6 +147,9 @@ enum Operation {
         generation: u64,
         graceful: bool,
     },
+    /// Run every actor's timer work now.
+    #[cfg(test)]
+    Tick,
 }
 #[derive(Clone, Copy, Debug)]
 enum ConnectRefusal {
@@ -193,24 +201,134 @@ struct Online {
     wake: watch::Sender<u64>,
     cancel: watch::Sender<bool>,
 }
+
+/// One connection's handle to the broker. Session requests are routed to the
+/// owning actor; authentication state is connection-local.
 #[derive(Clone)]
 struct Worker {
-    sender: mpsc::Sender<Command>,
+    broker: Arc<Broker>,
+    auth: Arc<Mutex<enhanced::Manager>>,
 }
+
+enum Authenticated {
+    Reply(Reply),
+    Connect {
+        request: Box<ConnectRequest>,
+        principal: mqtt_auth::Principal,
+        established: Option<enhanced::Established>,
+    },
+}
+
 impl Worker {
+    fn new(broker: Arc<Broker>) -> Self {
+        Self {
+            broker,
+            auth: Arc::new(Mutex::new(enhanced::Manager::default())),
+        }
+    }
+
     async fn request(&self, operation: Operation) -> io::Result<Reply> {
-        let (reply, receive) = oneshot::channel();
-        self.sender
-            .send(Command {
-                operation,
-                reply,
-                queued_at: profiling::queue_stamp(),
+        #[cfg(test)]
+        if let Operation::Tick = operation {
+            self.broker.tick_all().await;
+            return Ok(Reply::Done);
+        }
+        let request = normalize(operation)?;
+        let client = match &request {
+            Request::Connect(_)
+            | Request::Authenticate { .. }
+            | Request::CancelAuthentication { .. } => return self.authenticate(request).await,
+            Request::Handle { client, .. }
+            | Request::PollDelivery { client, .. }
+            | Request::BeginDelivery { client, .. }
+            | Request::Disconnect { client, .. } => client.clone(),
+            #[cfg(test)]
+            Request::Poll { client, .. } => client.clone(),
+        };
+        let disconnect = matches!(request, Request::Disconnect { .. });
+        match self.broker.call(&client, false, request, None).await {
+            Err(_) if disconnect => Ok(Reply::Done),
+            result => result,
+        }
+    }
+
+    /// Credential and enhanced-auth hooks may block; they run on the bounded
+    /// blocking pool with the connection-local manager locked only there.
+    async fn authenticate(&self, request: Request) -> io::Result<Reply> {
+        let broker = Arc::clone(&self.broker);
+        let auth = Arc::clone(&self.auth);
+        let step = tokio::task::spawn_blocking(move || -> io::Result<Authenticated> {
+            let mut manager = auth.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut request = request;
+            if let Request::Connect(connect) = &mut request
+                && connect.options.version == ProtocolVersion::V5
+                && connect.client.is_empty()
+            {
+                connect.client = manager.assigned_identifier(|id| broker.contains(id))?;
+                connect.assigned = true;
+            }
+            let config = &broker.config;
+            let mut request = match manager.process(request, config, |client, generation| {
+                broker.is_current(client, generation)
+            })? {
+                enhanced::Processed::Ready(Request::Connect(request)) => request,
+                enhanced::Processed::Ready(_) => {
+                    return Err(io::Error::other("unprocessed authentication command"));
+                }
+                enhanced::Processed::Reply(reply) => return Ok(Authenticated::Reply(reply)),
+            };
+            if let Some(reason) = connect_policy(&request, config) {
+                return Ok(Authenticated::Reply(refusal(&request, reason)));
+            }
+            let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
+                config.access_control.authenticate(ConnectInfo {
+                    client_id: &request.client,
+                    username: request.username.as_deref(),
+                    password: request.password.as_ref().map(Password::as_bytes),
+                })
+            });
+            let principal = match authenticated {
+                Ok(principal) => principal,
+                Err(error) => {
+                    let reason = match error {
+                        AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
+                        AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
+                    };
+                    return Ok(Authenticated::Reply(refusal(&request, reason)));
+                }
+            };
+            let established = request
+                .authentication
+                .is_some()
+                .then(|| enhanced::Established::from_request(&request, principal.clone()));
+            Ok(Authenticated::Connect {
+                request: Box::new(request),
+                principal,
+                established,
             })
-            .await
-            .map_err(|_| io::Error::other("durable worker unavailable"))?;
-        receive
-            .await
-            .map_err(|_| failure(ReasonCode::SERVER_UNAVAILABLE, "durable worker terminated"))?
+        })
+        .await
+        .map_err(io::Error::other)??;
+        let (request, principal, established) = match step {
+            Authenticated::Reply(reply) => return Ok(reply),
+            Authenticated::Connect {
+                request,
+                principal,
+                established,
+            } => (request, principal, established),
+        };
+        let client = request.client.clone();
+        let reply = self
+            .broker
+            .call(&client, true, Request::Connect(*request), Some(principal))
+            .await?;
+        if let (Reply::Authenticated { .. }, Some(established)) = (&reply, established) {
+            self.auth
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .install(established);
+        }
+        Ok(reply)
     }
 }
 fn session_config(config: &BrokerConfig) -> SessionConfig {
@@ -253,58 +371,6 @@ fn notify(engine: &SessionEngine, online: &HashMap<String, Online>) -> usize {
             .send_modify(|version| *version = version.wrapping_add(1));
     }
     targets
-}
-
-fn run_worker(
-    commands: mpsc::Receiver<Command>,
-    config: BrokerConfig,
-    ready: oneshot::Sender<Result<(), String>>,
-) -> io::Result<()> {
-    let startup = (|| {
-        let mut store = config
-            .storage_path
-            .as_ref()
-            .map(|path| SqliteStore::open(path, config.max_state_bytes))
-            .transpose()
-            .map_err(io::Error::other)?;
-        let loaded = store
-            .as_ref()
-            .map(SqliteStore::load)
-            .transpose()
-            .map_err(io::Error::other)?
-            .flatten();
-        let mut engine = match loaded {
-            Some(bytes) => SessionEngine::restore_with_access(
-                session_config(&config),
-                &bytes,
-                Arc::clone(&config.access_control),
-            ),
-            None => SessionEngine::new_with_access(
-                session_config(&config),
-                Arc::clone(&config.access_control),
-            ),
-        }
-        .map_err(io::Error::other)?;
-        engine.expire_sessions().map_err(model_error)?;
-        engine.reconcile_authorization().map_err(model_error)?;
-        engine.recover_wills().map_err(io::Error::other)?;
-        let snapshot = engine.snapshot().map_err(io::Error::other)?;
-        if let Some(store) = &mut store {
-            store.commit(&snapshot).map_err(io::Error::other)?;
-        }
-        Ok::<_, io::Error>((store, engine))
-    })();
-    let (store, engine) = match startup {
-        Ok(value) => {
-            let _ = ready.send(Ok(()));
-            value
-        }
-        Err(error) => {
-            let _ = ready.send(Err(error.to_string()));
-            return Err(error);
-        }
-    };
-    run_commands(commands, config, store, engine, HashMap::new())
 }
 
 struct ConnectRequest {
@@ -362,7 +428,6 @@ enum Request {
         graceful: bool,
         expiry: Option<u32>,
     },
-    Tick,
 }
 fn normalize_connect(
     frame: Frame,
@@ -559,14 +624,13 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             graceful,
             expiry,
         },
-        Operation::Tick => Request::Tick,
+        #[cfg(test)]
+        Operation::Tick => return Err(io::Error::other("tick is not a session request")),
     })
 }
-/// Bounded allocation runs on the blocking state owner; check all surviving
-/// sessions and pending Will intents before the candidate is used for auth.
+/// Allocate an identifier not used by any live actor or caller reservation.
 fn assigned_identifier_with(
-    engine: &SessionEngine,
-    reserved: impl Fn(&str) -> bool,
+    in_use: impl Fn(&str) -> bool,
     mut entropy: impl FnMut(&mut [u8]) -> io::Result<()>,
 ) -> io::Result<String> {
     const HEX: &[u8; 16] = b"0123456789abcdef";
@@ -579,7 +643,7 @@ fn assigned_identifier_with(
             candidate.push(char::from(HEX[usize::from(byte >> 4)]));
             candidate.push(char::from(HEX[usize::from(byte & 15)]));
         }
-        if !engine.client_id_in_use(&candidate) && !reserved(&candidate) {
+        if !in_use(&candidate) {
             return Ok(candidate);
         }
     }
@@ -593,7 +657,7 @@ fn assigned_identifier(
     engine: &SessionEngine,
     entropy: impl FnMut(&mut [u8]) -> io::Result<()>,
 ) -> io::Result<String> {
-    assigned_identifier_with(engine, |_| false, entropy)
+    assigned_identifier_with(|id| engine.client_id_in_use(id), entropy)
 }
 fn connect_policy(request: &ConnectRequest, config: &BrokerConfig) -> Option<ReasonCode> {
     if request.options.version == ProtocolVersion::V311 {
@@ -632,361 +696,15 @@ fn frames_reply(frames: Vec<Frame>, legacy: bool) -> Reply {
 }
 #[cfg(test)]
 fn poll_reply(frame: Option<Frame>, legacy: bool) -> Reply {
-    #[cfg(test)]
     if legacy {
         return Reply::Polled(frame.map(|frame| frame.packet));
     }
-    let _ = legacy;
     Reply::FramePolled(frame.map(Box::new))
 }
-fn run_commands(
-    mut commands: mpsc::Receiver<Command>,
-    config: BrokerConfig,
-    mut store: Option<SqliteStore>,
-    mut engine: SessionEngine,
-    mut online: HashMap<String, Online>,
-) -> io::Result<()> {
-    let profile = profiling::Profile::from_env();
-    let mut authentication = enhanced::Manager::default();
-    while let Some(command) = commands.blocking_recv() {
-        profile.queue_wait(command.queued_at);
-        profile.checkpoint();
-        let mut request_profile = profile.request(&command.operation);
-        let mut request = match normalize(command.operation) {
-            Ok(request) => request,
-            Err(error) => {
-                request_profile.error(&error);
-                let _ = command.reply.send(Err(error));
-                continue;
-            }
-        };
-        if matches!(request, Request::Tick)
-            && !engine
-                .next_expiry_deadline()
-                .is_some_and(|at| at <= engine.effective_now())
-        {
-            request_profile.finish(true);
-            let _ = command.reply.send(Ok(Reply::Done));
-            continue;
-        }
-        if let Request::Connect(request) = &mut request
-            && request.options.version == ProtocolVersion::V5
-            && request.client.is_empty()
-        {
-            match authentication.assigned_identifier(&engine) {
-                Ok(client) => {
-                    request.client = client;
-                    request.assigned = true;
-                }
-                Err(error) => {
-                    request_profile.error(&error);
-                    let _ = command.reply.send(Err(error));
-                    continue;
-                }
-            }
-        }
-        request = match authentication.process(request, &config, &online) {
-            Ok(enhanced::Processed::Ready(request)) => request,
-            Ok(enhanced::Processed::Reply(reply)) => {
-                request_profile.finish(true);
-                let _ = command.reply.send(Ok(reply));
-                continue;
-            }
-            Err(error) => {
-                request_profile.error(&error);
-                let _ = command.reply.send(Err(error));
-                continue;
-            }
-        };
-        let mut principal = if let Request::Connect(request) = &mut request {
-            if let Some(reason) = connect_policy(request, &config) {
-                request_profile.finish(true);
-                let _ = command.reply.send(Ok(refusal(request, reason)));
-                continue;
-            }
-            let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
-                config.access_control.authenticate(ConnectInfo {
-                    client_id: &request.client,
-                    username: request.username.as_deref(),
-                    password: request.password.as_ref().map(Password::as_bytes),
-                })
-            });
-            match authenticated {
-                Ok(principal) => Some(principal),
-                Err(error) => {
-                    let reason = match error {
-                        AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
-                        AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
-                    };
-                    request_profile.finish(true);
-                    let _ = command.reply.send(Ok(refusal(request, reason)));
-                    continue;
-                }
-            }
-        } else {
-            None
-        };
-        if command.reply.is_closed() {
-            continue;
-        }
-        let mut proposal = {
-            let _clone = profile.span(profiling::SpanKind::Clone);
-            engine.clone()
-        };
-        let mut commit_required = true;
-        let mut notify_required = false;
-        let mut retry_required = true;
-        let mut registration = None;
-        let mut auth_registration = None;
-        let mut removal = None;
-        let proposed = (|| -> io::Result<Reply> {
-            match request {
-                Request::Connect(request) => {
-                    let principal = principal
-                        .take()
-                        .ok_or_else(|| io::Error::other("missing authenticated identity"))?;
-                    if request
-                        .deadline
-                        .is_some_and(|at| std::time::Instant::now() >= at)
-                    {
-                        return Err(failure(
-                            ReasonCode::NOT_AUTHORIZED,
-                            "authentication deadline exceeded",
-                        ));
-                    }
-                    let result = match proposal.connect_with_options(
-                        &request.client,
-                        request.will.clone(),
-                        principal.clone(),
-                        request.options.clone(),
-                    ) {
-                        Ok(result) => result,
-                        Err(EngineError::NotAuthorized) => {
-                            commit_required = false;
-                            retry_required = false;
-                            return Ok(refusal(&request, ReasonCode::NOT_AUTHORIZED));
-                        }
-                        Err(EngineError::Mqtt5(reason)) => {
-                            commit_required = false;
-                            retry_required = false;
-                            return Ok(refusal(&request, reason));
-                        }
-                        Err(error) => return Err(model_error(error)),
-                    };
-                    if request.options.version == ProtocolVersion::V311
-                        && !request.clean
-                        && config.storage_path.is_none()
-                    {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Unsupported,
-                            "persistent sessions require --storage-path",
-                        ));
-                    }
-                    let enhanced_frame = if request.authentication.is_some() {
-                        auth_registration =
-                            Some(enhanced::Established::from_request(&request, principal));
-                        Some(enhanced::success_frame(
-                            &request,
-                            result.session_present,
-                            &config,
-                        )?)
-                    } else {
-                        None
-                    };
-                    let assigned = request.assigned.then(|| request.client.clone());
-                    let resolved = request.client.clone();
-                    registration = Some((
-                        request.client,
-                        Online {
-                            generation: request.generation,
-                            wake: request.wake,
-                            cancel: request.cancel,
-                            close_reason: request.close_reason,
-                        },
-                    ));
-                    notify_required = true;
-                    Ok(if let Some(frame) = enhanced_frame {
-                        Reply::Authenticated {
-                            client: resolved,
-                            frame,
-                        }
-                    } else {
-                        match assigned {
-                            Some(client) => Reply::Assigned {
-                                present: result.session_present,
-                                client,
-                            },
-                            None => Reply::Connected(result.session_present),
-                        }
-                    })
-                }
-                Request::Handle {
-                    client,
-                    generation,
-                    frame,
-                    legacy,
-                    received_at_millis,
-                } => {
-                    valid_generation(&online, &client, generation)?;
-                    let replies = match received_at_millis {
-                        Some(received_at) => proposal.handle_frame_at(&client, frame, received_at),
-                        None => proposal.handle_frame(&client, frame),
-                    }
-                    .map_err(model_error)?;
-                    notify_required = true;
-                    Ok(frames_reply(replies, legacy))
-                }
-                #[cfg(test)]
-                Request::Poll {
-                    client,
-                    generation,
-                    legacy,
-                } => {
-                    valid_generation(&online, &client, generation)?;
-                    let outcome = proposal
-                        .poll_frame_with_changes(&client)
-                        .map_err(model_error)?;
-                    commit_required = outcome.changed;
-                    notify_required = outcome.changed;
-                    Ok(poll_reply(outcome.frame, legacy))
-                }
-                Request::PollDelivery { client, generation } => {
-                    profile.poll();
-                    valid_generation(&online, &client, generation)?;
-                    let outcome = proposal
-                        .poll_delivery_with_changes(&client)
-                        .map_err(model_error)?;
-                    commit_required = outcome.changed;
-                    notify_required = outcome.changed;
-                    if outcome.delivery.is_none() {
-                        profile.empty_poll();
-                    }
-                    Ok(Reply::DeliveryPolled(outcome.delivery.map(Box::new)))
-                }
-                Request::BeginDelivery {
-                    client,
-                    generation,
-                    delivery,
-                } => {
-                    valid_generation(&online, &client, generation)?;
-                    let outcome = proposal
-                        .begin_delivery(&client, delivery)
-                        .map_err(model_error)?;
-                    commit_required = outcome.changed;
-                    notify_required = outcome.changed;
-                    Ok(Reply::FramePolled(outcome.frame.map(Box::new)))
-                }
-                Request::Disconnect {
-                    client,
-                    generation,
-                    graceful,
-                    expiry,
-                } => {
-                    if valid_generation(&online, &client, generation).is_err() {
-                        commit_required = false;
-                        retry_required = false;
-                        return Ok(Reply::Done);
-                    }
-                    proposal
-                        .disconnect_with_options(&client, graceful, expiry)
-                        .map_err(model_error)?;
-                    notify_required = true;
-                    removal = Some(client);
-                    Ok(Reply::Done)
-                }
-                Request::Authenticate { .. } | Request::CancelAuthentication { .. } => {
-                    Err(io::Error::other("unprocessed authentication command"))
-                }
-                Request::Tick => {
-                    commit_required = proposal.expire_sessions().map_err(model_error)?;
-                    notify_required = commit_required;
-                    Ok(Reply::Done)
-                }
-            }
-        })();
-        let proposed = proposed.and_then(|reply| {
-            if retry_required {
-                let expired = proposal.expire_sessions().map_err(model_error)?;
-                let pruned = proposal.reconcile_authorization().map_err(model_error)?;
-                let retried = proposal.retry_wills().map_err(model_error)?;
-                if expired || pruned || retried {
-                    commit_required = true;
-                    notify_required = true;
-                }
-            }
-            Ok(reply)
-        });
-        let reply = match proposed {
-            Err(error) => Err(error),
-            Ok(reply) => {
-                if commit_required {
-                    let snapshot_result = {
-                        let mut snapshot = profile.span(profiling::SpanKind::Snapshot);
-                        let result = proposal.snapshot();
-                        if let Ok(bytes) = &result {
-                            snapshot.bytes(bytes.len());
-                        }
-                        result
-                    };
-                    let bytes = match snapshot_result {
-                        Ok(bytes) => bytes,
-                        Err(error) => {
-                            let error = model_error(error);
-                            request_profile.error(&error);
-                            let _ = command.reply.send(Err(error));
-                            continue;
-                        }
-                    };
-                    if let Some(store) = &mut store {
-                        let committed = {
-                            let mut commit = profile.span(profiling::SpanKind::Commit);
-                            commit.bytes(bytes.len());
-                            store.commit(&bytes)
-                        };
-                        if let Err(error) = committed {
-                            let message = error.to_string();
-                            let failure = failure(ReasonCode::SERVER_UNAVAILABLE, message.clone());
-                            request_profile.error(&failure);
-                            let _ = command.reply.send(Err(failure));
-                            for connection in online.values() {
-                                if let Some(reason) = &connection.close_reason {
-                                    let _ = reason.send(Some(ReasonCode::SERVER_UNAVAILABLE));
-                                }
-                                let _ = connection.cancel.send(true);
-                            }
-                            return Err(io::Error::other(message));
-                        }
-                    }
-                    engine = proposal;
-                }
-                if let Some(established) = auth_registration {
-                    authentication.install(established);
-                }
-                if let Some((client, connection)) = registration
-                    && let Some(previous) = online.insert(client, connection)
-                {
-                    if let Some(reason) = &previous.close_reason {
-                        let _ = reason.send(Some(ReasonCode::SESSION_TAKEN_OVER));
-                    }
-                    let _ = previous.cancel.send(true);
-                }
-                if let Some(client) = removal {
-                    online.remove(&client);
-                }
-                if notify_required {
-                    let targets = notify(&engine, &online);
-                    profile.notify(targets);
-                }
-                Ok(reply)
-            }
-        };
-        match &reply {
-            Ok(_) => request_profile.finish(true),
-            Err(error) => request_profile.error(error),
-        }
-        let _ = command.reply.send(reply);
-    }
-    Ok(())
+
+/// Start the broker state, restoring or migrating storage first.
+async fn start(config: BrokerConfig) -> io::Result<Arc<Broker>> {
+    Broker::start(config, Arc::new(SystemClock), None).await
 }
 
 pub(super) async fn serve(
@@ -994,28 +712,13 @@ pub(super) async fn serve(
     config: BrokerConfig,
     mut shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
-    let (sender, receiver) = mpsc::channel(config.max_connections);
-    let worker = Worker { sender };
-    let (ready_tx, ready_rx) = oneshot::channel();
-    let worker_config = config.clone();
-    let mut worker_task =
-        tokio::task::spawn_blocking(move || run_worker(receiver, worker_config, ready_tx));
-    match ready_rx.await {
-        Ok(Ok(())) => {}
-        result => {
-            let _ = worker_task.await;
-            return Err(io::Error::other(match result {
-                Ok(Err(message)) => message,
-                _ => "durable worker startup failed".into(),
-            }));
-        }
-    }
+    let broker = start(config.clone()).await?;
+    let mut fatal = broker.fatal.subscribe();
     let permits = Arc::new(Semaphore::new(config.max_connections));
     let (stop_tx, stop_rx) = watch::channel(false);
     let mut tasks = JoinSet::new();
     let mut generation = 0u64;
-    let mut worker_finished = false;
-    let mut ticks = tokio::time::interval(Duration::from_millis(100));
+    let mut ticks = tokio::time::interval(Duration::from_secs(1));
     ticks.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let result = loop {
         if *shutdown.borrow() {
@@ -1024,17 +727,16 @@ pub(super) async fn serve(
         tokio::select! {
             biased;
             changed = shutdown.changed() => { if changed.is_err() || *shutdown.borrow() { break Ok(()); } }
-            joined = &mut worker_task => {
-                worker_finished = true;
-                break match joined { Ok(Err(error)) => Err(error), Err(error) => Err(io::Error::other(error)), Ok(Ok(())) => Err(io::Error::other("durable worker stopped unexpectedly")) };
+            _ = fatal.changed() => {
+                if let Some(message) = fatal.borrow().clone() { break Err(io::Error::other(message)); }
             }
             Some(joined) = tasks.join_next(), if !tasks.is_empty() => { if let Err(error) = joined { break Err(io::Error::other(error)); } }
-            _ = ticks.tick() => { if let Err(error)=worker.request(Operation::Tick).await {break Err(error);} }
+            _ = ticks.tick() => { if let Err(error) = broker.prune_retained().await { break Err(error); } }
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(value) => value, Err(error) => break Err(error) };
                 let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else { drop(stream); continue; };
                 generation = match generation.checked_add(1) { Some(value) => value, None => break Err(io::Error::other("connection generation exhausted")) };
-                let worker = worker.clone();
+                let worker = Worker::new(Arc::clone(&broker));
                 let config = config.clone();
                 let shutdown = stop_rx.clone();
                 tasks.spawn(async move {
@@ -1050,11 +752,8 @@ pub(super) async fn serve(
             return Err(io::Error::other(error));
         }
     }
-    drop(worker);
-    if !worker_finished {
-        worker_task.await.map_err(io::Error::other)??;
-    }
-    result
+    let stopped = broker.shutdown().await;
+    result.and(stopped)
 }
 
 async fn connection(
@@ -1139,13 +838,77 @@ mod tests {
         }
     }
     pub(super) async fn worker(config: BrokerConfig) -> (Worker, JoinHandle<io::Result<()>>) {
-        let (sender, receiver) = mpsc::channel(config.max_connections);
-        let (ready_tx, ready_rx) = oneshot::channel();
-        let handle = tokio::task::spawn_blocking(move || run_worker(receiver, config, ready_tx));
-        ready_rx.await.unwrap().unwrap();
-        (Worker { sender }, handle)
+        wrap(start(config).await.unwrap())
     }
-    async fn connect(
+    /// Start from a prepared legacy engine and pre-attached online connections,
+    /// as the former worker tests injected them directly.
+    pub(super) async fn seeded(
+        config: BrokerConfig,
+        engine: SessionEngine,
+        clock: Arc<dyn mqtt_session::durable::Clock>,
+        online: HashMap<String, Online>,
+    ) -> (Worker, JoinHandle<io::Result<()>>) {
+        let broker = Broker::start(config, clock, Some(engine)).await.unwrap();
+        for (client, connection) in online {
+            broker.attach(&client, connection).await;
+        }
+        wrap(broker)
+    }
+    fn wrap(broker: Arc<Broker>) -> (Worker, JoinHandle<io::Result<()>>) {
+        let worker = Worker::new(Arc::clone(&broker));
+        let mut fatal = broker.fatal.subscribe();
+        let handle = tokio::spawn(async move {
+            let _ = fatal.wait_for(Option::is_some).await;
+            match fatal.borrow().clone() {
+                Some(message) => Err(io::Error::other(message)),
+                None => Ok(()),
+            }
+        });
+        (worker, handle)
+    }
+    /// The merged schema7 envelope of a stopped broker's database.
+    pub(super) fn stored(path: &std::path::Path, config: &BrokerConfig) -> Option<Vec<u8>> {
+        use mqtt_storage::durable::{Contents, RowLimits, read_contents};
+        let limits = RowLimits {
+            max_row_bytes: config.max_state_bytes,
+            max_sessions: config.max_sessions,
+            max_retained: config.max_retained,
+            max_legacy_bytes: config.max_state_bytes,
+        };
+        match read_contents(path, limits).unwrap() {
+            Contents::Legacy(snapshot) => snapshot,
+            Contents::Rows(rows) => {
+                let session = session_config(config);
+                let partitions = rows
+                    .sessions
+                    .iter()
+                    .map(|(_, bytes)| {
+                        SessionEngine::restore_partition(
+                            session,
+                            bytes,
+                            Arc::new(mqtt_auth::AllowAnonymous),
+                            Arc::new(SystemClock),
+                        )
+                        .unwrap()
+                    })
+                    .collect();
+                let retained = rows
+                    .retained
+                    .iter()
+                    .map(|(_, bytes)| {
+                        mqtt_session::durable::decode_retained_row(session, bytes).unwrap()
+                    })
+                    .collect();
+                Some(
+                    SessionEngine::from_partitions(session, partitions, retained)
+                        .unwrap()
+                        .snapshot()
+                        .unwrap(),
+                )
+            }
+        }
+    }
+    pub(super) async fn connect(
         worker: &Worker,
         client: &str,
         generation: u64,
@@ -1171,7 +934,7 @@ mod tests {
         };
         (present, receive)
     }
-    async fn handle(
+    pub(super) async fn handle(
         worker: &Worker,
         client: &str,
         generation: u64,
@@ -1189,7 +952,7 @@ mod tests {
         };
         Ok(packets)
     }
-    async fn poll(worker: &Worker, client: &str, generation: u64) -> Option<Packet> {
+    pub(super) async fn poll(worker: &Worker, client: &str, generation: u64) -> Option<Packet> {
         let Reply::Polled(packet) = worker
             .request(Operation::Poll {
                 client: client.into(),
@@ -1202,7 +965,7 @@ mod tests {
         };
         packet
     }
-    async fn subscribe(worker: &Worker, client: &str, generation: u64) {
+    pub(super) async fn subscribe(worker: &Worker, client: &str, generation: u64) {
         assert_eq!(
             handle(
                 worker,
@@ -1221,7 +984,7 @@ mod tests {
             }]
         );
     }
-    fn publication(payload: &[u8], id: u16) -> Packet {
+    pub(super) fn publication(payload: &[u8], id: u16) -> Packet {
         Packet::Publish {
             topic: "a".into(),
             payload: payload.to_vec(),
@@ -1232,12 +995,15 @@ mod tests {
         }
     }
     pub(super) async fn stop(worker: Worker, task: JoinHandle<io::Result<()>>) {
+        let broker = Arc::clone(&worker.broker);
         drop(worker);
-        timeout(Duration::from_secs(3), task)
+        timeout(Duration::from_secs(3), broker.shutdown())
             .await
             .unwrap()
-            .unwrap()
             .unwrap();
+        assert_eq!(broker.fatal.borrow().clone(), None);
+        task.abort();
+        let _ = task.await;
     }
     #[tokio::test]
     async fn committed_delivery_reopens_with_same_id_and_dup() {
@@ -1311,7 +1077,7 @@ mod tests {
         stop(worker, task).await;
     }
     #[tokio::test]
-    async fn failed_fanout_proposal_never_installs_partial_queues() {
+    async fn full_recipient_drops_only_its_own_copy() {
         let db = Database::new();
         let (worker, task) = worker(db.config()).await;
         connect(&worker, "b-full", 1, false).await;
@@ -1322,14 +1088,16 @@ mod tests {
             .unwrap();
         connect(&worker, "a-empty", 3, false).await;
         subscribe(&worker, "a-empty", 3).await;
-        // Routing a-empty first then b-full fails. No proposed a-empty delivery
-        // may remain, and the preceding committed b-full message survives.
+        // b-full rejects its copy; a-empty still receives the publication and the
+        // preceding committed b-full message survives.
         assert!(
-            handle(&worker, "pub", 2, publication(b"rejected", 2))
+            handle(&worker, "pub", 2, publication(b"accepted", 2))
                 .await
-                .is_err()
+                .is_ok()
         );
-        assert!(poll(&worker, "a-empty", 3).await.is_none());
+        assert!(
+            matches!(poll(&worker,"a-empty",3).await,Some(Packet::Publish {payload,..}) if payload==b"accepted")
+        );
         assert!(
             matches!(poll(&worker,"b-full",1).await,Some(Packet::Publish {payload,..}) if payload==b"first")
         );
@@ -1630,10 +1398,6 @@ mod tests {
         engine.disconnect_with_reason("z-delete", false).unwrap();
         let before = engine.snapshot().unwrap();
         assert!(std::str::from_utf8(&before).unwrap().contains("a-first"));
-        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
-        store.commit(&before).unwrap();
-        let (sender, receiver) = mpsc::channel(config.max_connections);
-        let worker = Worker { sender };
         let (wake, mut notified) = watch::channel(0);
         let (cancel, _) = watch::channel(false);
         let online = HashMap::from([(
@@ -1645,22 +1409,25 @@ mod tests {
                 cancel,
             },
         )]);
-        let task = tokio::task::spawn_blocking(move || {
-            run_commands(receiver, config, Some(store), engine, online)
-        });
-        assert!(poll(&worker, "poller", 1).await.is_none());
-        timeout(Duration::from_secs(1), notified.changed())
-            .await
-            .unwrap()
-            .unwrap();
+        let (worker, task) = seeded(config.clone(), engine, Arc::new(SystemClock), online).await;
+        // Each Will retries in its own actor until z-delete frees the slot.
+        let delivered = timeout(Duration::from_secs(2), async {
+            loop {
+                if let Some(packet) = poll(&worker, "poller", 1).await {
+                    break packet;
+                }
+                let _ = notified.changed().await;
+            }
+        })
+        .await
+        .unwrap();
         assert!(matches!(
-            poll(&worker, "poller", 1).await,
-            Some(Packet::Publish { topic, payload, .. })
+            delivered,
+            Packet::Publish { topic, payload, .. }
                 if topic == "fresh" && payload == b"retained Will"
         ));
         stop(worker, task).await;
-        let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
-        let bytes = store.load().unwrap().unwrap();
+        let bytes = stored(&db.0, &config).unwrap();
         let after = std::str::from_utf8(&bytes).unwrap();
         assert!(after.contains("\"topic\":\"fresh\""));
         assert!(after.contains("\"wills\":[]"));
@@ -1785,10 +1552,6 @@ mod tests {
         )
         .unwrap();
         assert_eq!(engine.next_expiry_deadline(), Some(start + 1000));
-        let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
-        store.commit(&before).unwrap();
-        let (sender, receiver) = mpsc::channel(1);
-        let worker = Worker { sender };
         let (wake, mut notified) = watch::channel(0);
         let (cancel, _) = watch::channel(false);
         let online = HashMap::from([(
@@ -1800,9 +1563,7 @@ mod tests {
                 cancel,
             },
         )]);
-        let task = tokio::task::spawn_blocking(move || {
-            run_commands(receiver, config, Some(store), engine, online)
-        });
+        let (worker, task) = seeded(config.clone(), engine, clock.clone(), online).await;
         worker.request(Operation::Tick).await.unwrap();
         // Expiry still commits below, but an unknown idle observer has no
         // delivery work and must not be woken merely for a removed session.
@@ -1812,12 +1573,11 @@ mod tests {
         worker.request(Operation::Tick).await.unwrap();
         assert!(!notified.has_changed().unwrap());
         stop(worker, task).await;
-        let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
-        let after = store.load().unwrap().unwrap();
+        let after = stored(&db.0, &config).unwrap();
         let after = std::str::from_utf8(&after).unwrap();
+        // Phase4 persists the floor only inside session/Will rows; the expired
+        // partition deleted its row, so no stale time observation remains.
         assert!(after.contains("\"sessions\":[]"));
-        // A later empty Tick must not commit time observation alone.
-        assert!(after.contains(&format!("\"clock_floor\":{}", start + 1500)));
     }
     #[tokio::test]
     async fn expiry_tick_commits_removal_without_any_client_reconnect() {
@@ -1850,20 +1610,18 @@ mod tests {
             .unwrap();
         let mut store = SqliteStore::open(&db.0, config.max_state_bytes).unwrap();
         store.commit(&engine.snapshot().unwrap()).unwrap();
+        drop(store);
         clock.0.store(1500, Ordering::SeqCst);
-        let (sender, receiver) = mpsc::channel(1);
-        let worker = Worker { sender };
-        let task = tokio::task::spawn_blocking(move || {
-            run_commands(receiver, config, Some(store), engine, HashMap::new())
-        });
+        let broker = Broker::start(config.clone(), clock.clone(), None)
+            .await
+            .unwrap();
+        let (worker, task) = wrap(broker);
         assert!(matches!(
             worker.request(Operation::Tick).await.unwrap(),
             Reply::Done
         ));
-        drop(worker);
-        task.await.unwrap().unwrap();
-        let store = SqliteStore::open(&db.0, 64 * 1024 * 1024).unwrap();
-        let bytes = store.load().unwrap().unwrap();
+        stop(worker, task).await;
+        let bytes = stored(&db.0, &config).unwrap();
         assert!(
             std::str::from_utf8(&bytes)
                 .unwrap()
@@ -1891,3 +1649,7 @@ mod phase3_tests;
 #[cfg(test)]
 #[path = "durable/phase3a_tests.rs"]
 mod phase3a_tests;
+
+#[cfg(test)]
+#[path = "durable/actor_tests.rs"]
+mod actor_tests;

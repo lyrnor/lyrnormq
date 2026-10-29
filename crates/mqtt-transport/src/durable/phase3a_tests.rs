@@ -1,5 +1,5 @@
 //! Notification safety across installed queues, replay, maintenance and network drain.
-use super::tests::{Database, stop};
+use super::tests::{Database, seeded, stop, stored};
 use super::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -226,16 +226,10 @@ async fn will_delay_and_session_expiry_tick_notify_newly_ready_recipient_without
         engine
             .disconnect_with_options("source", false, None)
             .unwrap();
-        let mut store = SqliteStore::open(&database.0, config.max_state_bytes).unwrap();
-        store.commit(&engine.snapshot().unwrap()).unwrap();
         let mut online = HashMap::new();
         let mut ready = register(&mut online, "recipient");
         let idle = register(&mut online, "idle");
-        let (sender, receiver) = mpsc::channel(config.max_connections);
-        let worker = Worker { sender };
-        let task = tokio::task::spawn_blocking(move || {
-            run_commands(receiver, config, Some(store), engine, online)
-        });
+        let (worker, task) = seeded(config.clone(), engine, clock.clone(), online).await;
         assert!(!ready.has_changed().unwrap());
         clock.0.store(1000 + advance, Ordering::SeqCst);
         worker.request(Operation::Tick).await.unwrap();
@@ -258,10 +252,9 @@ async fn will_delay_and_session_expiry_tick_notify_newly_ready_recipient_without
             matches!(&delivery.frame.packet, Packet::Publish { topic, payload, qos: 1, .. } if topic == "will/topic" && payload == &[42])
         );
         stop(worker, task).await;
-        let store = SqliteStore::open(&database.0, 64 * 1024 * 1024).unwrap();
         let mut restored = SessionEngine::restore_with_clock(
             session_config(&database.config()),
-            &store.load().unwrap().unwrap(),
+            &stored(&database.0, &config).unwrap(),
             Arc::new(mqtt_auth::AllowAnonymous),
             clock.clone(),
         )
@@ -274,69 +267,27 @@ async fn will_delay_and_session_expiry_tick_notify_newly_ready_recipient_without
 }
 
 #[tokio::test]
-async fn one_initial_wake_drains_multiple_qos0_frames_through_capacity_one_output() {
+async fn qos0_frames_drain_through_capacity_one_output_without_client_input() {
     use super::live_tests::{receive, send};
     timeout(Duration::from_secs(3), async {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let client = TcpStream::connect(listener.local_addr().unwrap())
+        let mut client = TcpStream::connect(listener.local_addr().unwrap())
             .await
             .unwrap();
         let (server, _) = listener.accept().await.unwrap();
-        let (sender, mut commands) = mpsc::channel::<Command>(1);
-        let worker = Worker { sender };
-        let (shutdown, stopped) = watch::channel(false);
         let config = BrokerConfig {
             outbound_capacity: 1,
             ..BrokerConfig::default()
         };
-        let connection = tokio::spawn(super::connection(server, 1, worker, config, stopped));
-        let polls = Arc::new(AtomicU64::new(0));
-        let observed = polls.clone();
-        let scripted = tokio::spawn(async move {
-            // This scripted source isolates network self-polling, not model queue
-            // admission. The real output channel/writer has exactly one slot.
-            let mut sequence = 0u8;
-            let mut registration = None;
-            while let Some(command) = commands.recv().await {
-                let reply = match command.operation {
-                    Operation::ConnectFrameAt {
-                        wake,
-                        cancel,
-                        close_reason,
-                        ..
-                    } => {
-                        wake.send_modify(|value| *value += 1); // only wake in the entire trace
-                        registration = Some((wake, cancel, close_reason));
-                        Reply::Connected(false)
-                    }
-                    Operation::PollDelivery { .. } => {
-                        observed.fetch_add(1, Ordering::SeqCst);
-                        if sequence == 4 {
-                            Reply::DeliveryPolled(None)
-                        } else {
-                            let frame = Frame::v311(publication("drain", sequence, 0));
-                            sequence += 1;
-                            Reply::DeliveryPolled(Some(Box::new(Delivery {
-                                frame,
-                                expires_at: None,
-                                ticket: None,
-                                shared_subscription: None,
-                            })))
-                        }
-                    }
-                    Operation::BeginDelivery { delivery, .. } => {
-                        Reply::FramePolled(Some(Box::new(delivery.frame)))
-                    }
-                    Operation::CancelAuthentication { .. }
-                    | Operation::Disconnect { .. }
-                    | Operation::DisconnectOptions { .. } => Reply::Done,
-                    _ => panic!("unexpected operation"),
-                };
-                let _ = command.reply.send(Ok(reply));
-            }
-            drop(registration);
-        });
-        let mut client = client;
+        let (worker, task) = super::tests::worker(config.clone()).await;
+        let (shutdown, stopped) = watch::channel(false);
+        let connection = tokio::spawn(super::connection(
+            server,
+            1,
+            worker.clone(),
+            config,
+            stopped,
+        ));
         send(
             &mut client,
             Packet::Connect {
@@ -353,19 +304,56 @@ async fn one_initial_wake_drains_multiple_qos0_frames_through_capacity_one_outpu
             receive(&mut client).await,
             Packet::ConnAck { code: 0, .. }
         ));
+        send(
+            &mut client,
+            Packet::Subscribe {
+                packet_id: 1,
+                filters: vec![("drain".into(), 0)],
+            },
+        )
+        .await;
+        assert!(matches!(
+            receive(&mut client).await,
+            Packet::SubAck { packet_id: 1, .. }
+        ));
+        let (wake, _) = watch::channel(0);
+        let (cancel, _) = watch::channel(false);
+        worker
+            .request(Operation::Connect {
+                client: "publisher".into(),
+                clean: true,
+                will: None,
+                username: None,
+                password: None,
+                generation: 2,
+                wake,
+                cancel,
+            })
+            .await
+            .unwrap();
+        // The client sends nothing more: queued QoS0 frames reach it through the
+        // one-slot output by delivery wakes alone, without PING or other input.
+        for value in 0u8..4 {
+            worker
+                .request(Operation::Handle {
+                    client: "publisher".into(),
+                    generation: 2,
+                    packet: publication("drain", value, 0),
+                })
+                .await
+                .unwrap();
+        }
         for expected in 0u8..4 {
             assert_eq!(
                 receive(&mut client).await,
                 publication("drain", expected, 0)
             );
         }
-        // No PING or further input was used to elicit any of the four frames.
-        assert!(polls.load(Ordering::SeqCst) >= 4);
         send(&mut client, Packet::Disconnect).await;
         drop(client);
         shutdown.send(true).unwrap();
         connection.await.unwrap().unwrap();
-        scripted.await.unwrap();
+        stop(worker, task).await;
     })
     .await
     .unwrap();
@@ -410,11 +398,7 @@ async fn external_qos0_lease_is_still_validated_when_filter_selects_no_notificat
         assert!(!engine.delivery_may_be_ready("recipient"));
         let mut online = HashMap::new();
         let observed = register(&mut online, "recipient");
-        let (sender, receiver) = mpsc::channel(8);
-        let worker = Worker { sender };
-        let task = tokio::task::spawn_blocking(move || {
-            run_commands(receiver, config, None, engine, online)
-        });
+        let (worker, task) = seeded(config, engine, Arc::new(SystemClock), online).await;
         if shared {
             let Reply::Frames(replies) = worker
                 .request(Operation::HandleFrameAt {

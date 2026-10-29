@@ -442,8 +442,7 @@ async fn stale_generation_ack_and_lease_cannot_release_new_owner_qos2_window() {
     assert!(
         matches!(next.frame.packet, Packet::Publish { qos: 1, ref payload, .. } if payload == b"second")
     );
-    drop(worker);
-    task.await.unwrap().unwrap();
+    super::super::tests::stop(worker, task).await;
 }
 
 #[tokio::test]

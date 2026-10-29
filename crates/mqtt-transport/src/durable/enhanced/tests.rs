@@ -1,6 +1,14 @@
 use super::*;
 use mqtt_auth::{EnhancedAuthenticator, PlainAuthenticator};
 
+fn current(online: &HashMap<String, Online>) -> impl Fn(&str, u64) -> bool + '_ {
+    |client, generation| {
+        online
+            .get(client)
+            .is_some_and(|o| o.generation == generation)
+    }
+}
+
 fn connect(generation: u64, data: Option<&[u8]>, maximum: u32) -> Request {
     let mut frame = Frame::v5(Packet::Connect {
         client_id: "auth-client".into(),
@@ -54,7 +62,7 @@ fn initial_plain_direct_challenge_cancel_and_sequence() {
         .process(
             connect(1, Some(b"\0alice\0password"), u32::MAX),
             &config,
-            &online,
+            current(&online),
         )
         .unwrap()
     else {
@@ -69,25 +77,25 @@ fn initial_plain_direct_challenge_cancel_and_sequence() {
     );
     assert!(matches!(
         manager
-            .process(connect(2, None, u32::MAX), &config, &online)
+            .process(connect(2, None, u32::MAX), &config, current(&online))
             .unwrap(),
         Processed::Reply(Reply::AuthContinue(_))
     ));
     assert_eq!(manager.pending.len(), 1);
     assert!(
         manager
-            .process(continuation(2, 0, None), &config, &online)
+            .process(continuation(2, 0, None), &config, current(&online))
             .is_err()
     );
     assert!(manager.pending.is_empty());
     manager
-        .process(connect(3, None, u32::MAX), &config, &online)
+        .process(connect(3, None, u32::MAX), &config, current(&online))
         .unwrap();
     manager
         .process(
             Request::CancelAuthentication { generation: 3 },
             &config,
-            &online,
+            current(&online),
         )
         .unwrap();
     assert!(manager.pending.is_empty());
@@ -96,19 +104,19 @@ fn initial_plain_direct_challenge_cancel_and_sequence() {
             .process(
                 continuation(3, 0x18, Some(b"\0alice\0password")),
                 &config,
-                &online
+                current(&online)
             )
             .is_err()
     );
     manager
-        .process(connect(4, None, u32::MAX), &config, &online)
+        .process(connect(4, None, u32::MAX), &config, current(&online))
         .unwrap();
     assert!(matches!(
         manager
             .process(
                 continuation(4, 0x18, Some(b"\0alice\0password")),
                 &config,
-                &online
+                current(&online)
             )
             .unwrap(),
         Processed::Ready(Request::Connect(_))
@@ -139,23 +147,23 @@ fn round_and_pending_capacity_are_bounded() {
     let mut manager = Manager::default();
     let online = HashMap::new();
     manager
-        .process(connect(1, None, u32::MAX), &config, &online)
+        .process(connect(1, None, u32::MAX), &config, current(&online))
         .unwrap();
     assert!(
         manager
-            .process(connect(2, None, u32::MAX), &config, &online)
+            .process(connect(2, None, u32::MAX), &config, current(&online))
             .is_err()
     );
     for _ in 1..8 {
         assert!(
             manager
-                .process(continuation(1, 0x18, None), &config, &online)
+                .process(continuation(1, 0x18, None), &config, current(&online))
                 .is_ok()
         );
     }
     assert!(
         manager
-            .process(continuation(1, 0x18, None), &config, &online)
+            .process(continuation(1, 0x18, None), &config, current(&online))
             .is_err()
     );
     assert!(manager.pending.is_empty());
@@ -190,7 +198,7 @@ fn deadline_is_checked_after_blocking_provider_returns() {
     let mut manager = Manager::default();
     assert!(
         manager
-            .process(Request::Connect(request), &config, &HashMap::new())
+            .process(Request::Connect(request), &config, |_: &str, _: u64| false)
             .is_err()
     );
     assert!(manager.pending.is_empty());
@@ -201,7 +209,7 @@ fn mandatory_method_success_cap_is_preflighted_before_challenge() {
     let mut manager = Manager::default();
     assert!(matches!(
         manager
-            .process(connect(1, None, 27), &config(), &HashMap::new())
+            .process(connect(1, None, 27), &config(), |_: &str, _: u64| false)
             .unwrap(),
         Processed::Reply(Reply::FrameRejected(ReasonCode::PACKET_TOO_LARGE))
     ));
@@ -249,11 +257,11 @@ fn exact_final_data_cap_and_identity_change_fail_closed() {
     let mut manager = Manager::default();
     let mut online = HashMap::new();
     manager
-        .process(connect(1, None, 40), &config, &online)
+        .process(connect(1, None, 40), &config, current(&online))
         .unwrap();
     assert!(matches!(
         manager
-            .process(continuation(1, 0x18, None), &config, &online)
+            .process(continuation(1, 0x18, None), &config, current(&online))
             .unwrap(),
         Processed::Reply(Reply::FrameRejected(ReasonCode::PACKET_TOO_LARGE))
     ));
@@ -279,11 +287,11 @@ fn exact_final_data_cap_and_identity_change_fail_closed() {
         },
     );
     manager
-        .process(continuation(2, 0x19, None), &config, &online)
+        .process(continuation(2, 0x19, None), &config, current(&online))
         .unwrap();
     assert!(
         manager
-            .process(continuation(2, 0x18, None), &config, &online)
+            .process(continuation(2, 0x18, None), &config, current(&online))
             .is_err()
     );
     assert!(manager.reauth.is_empty());
@@ -295,11 +303,11 @@ fn exact_final_data_cap_and_identity_change_fail_closed() {
         ..config
     };
     manager
-        .process(continuation(2, 0x19, None), &config, &online)
+        .process(continuation(2, 0x19, None), &config, current(&online))
         .unwrap();
     assert!(
         manager
-            .process(continuation(2, 0x18, None), &config, &online)
+            .process(continuation(2, 0x18, None), &config, current(&online))
             .is_err()
     );
     assert_eq!(
@@ -334,7 +342,7 @@ fn stale_generation_and_missing_method_cannot_reauthenticate() {
     );
     assert!(
         manager
-            .process(continuation(1, 0x19, None), &config, &online)
+            .process(continuation(1, 0x19, None), &config, current(&online))
             .is_err()
     );
     online.get_mut("auth-client").unwrap().generation = 1;
@@ -356,7 +364,7 @@ fn stale_generation_and_missing_method_cannot_reauthenticate() {
                     deadline
                 },
                 &config,
-                &online
+                current(&online)
             )
             .is_err()
     );

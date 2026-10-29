@@ -147,21 +147,13 @@ async fn trace(sqlite: bool) {
         poll(&worker, 1).await.is_none(),
         "peer ReceiveMaximum1 blocks more QoS publications"
     );
-    // Admission is atomic/global for the matching fanout, not lossy per-peer eviction.
-    // Repeated rejected proposals must neither append work nor poison independent controls.
+    // Phase4 admission is per recipient: the full queue drops only its own copy,
+    // the publisher is acknowledged, and independent controls stay healthy.
     for _ in 0..32 {
-        let error = handle(&worker, "publisher", 2, publication(99))
+        let replies = handle(&worker, "publisher", 2, publication(99))
             .await
-            .unwrap_err();
-        assert_eq!(
-            error
-                .get_ref()
-                .unwrap()
-                .downcast_ref::<WorkerFailure>()
-                .unwrap()
-                .reason,
-            ReasonCode::QUOTA_EXCEEDED
-        );
+            .unwrap();
+        assert_eq!(replies[0].packet, Packet::PubAck { packet_id: 100 });
         let replies = handle(&worker, "healthy", 3, Packet::PingReq)
             .await
             .unwrap();
@@ -206,7 +198,7 @@ async fn trace(sqlite: bool) {
     }
     assert!(
         poll(&worker, 4).await.is_none(),
-        "rejected work must never be delivered"
+        "dropped copies must never be delivered"
     );
     handle(&worker, "publisher", 2, publication(3))
         .await
