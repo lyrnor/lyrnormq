@@ -70,6 +70,7 @@ impl SessionEngine {
         clients: &[String],
         ordinary: &[(usize, Message)],
         now: u64,
+        only_group: Option<&str>,
     ) -> Result<(Copies, CursorUpdates), EngineError> {
         let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
         for (index, client) in clients.iter().enumerate() {
@@ -84,6 +85,9 @@ impl SessionEngine {
                 continue;
             }
             for filter in session.subscriptions.keys() {
+                if only_group.is_some_and(|group| group != filter) {
+                    continue;
+                }
                 if let Some((_, inner)) = split_shared_filter(filter)
                     && self
                         .access

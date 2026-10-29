@@ -86,7 +86,7 @@ pub(super) fn encode(
     result?;
     Ok(writer.bytes)
 }
-pub(super) fn check_live_bounds(engine: &SessionEngine) -> Result<(), EngineError> {
+pub(super) fn check_live_bounds(engine: &SessionEngine) -> Result<usize, EngineError> {
     let operation = Operation::SerializeLive;
     let _span = profiling::span(operation);
     let projection = Projection::new(engine, false)?;
@@ -96,7 +96,7 @@ pub(super) fn check_live_bounds(engine: &SessionEngine) -> Result<(), EngineErro
     };
     let result = serde_json::to_writer(&mut writer, &projection).map_err(json_error);
     profiling::record_bytes(operation, writer.count);
-    result
+    result.map(|()| writer.count)
 }
 
 #[derive(Serialize)]

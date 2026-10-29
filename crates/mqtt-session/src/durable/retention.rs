@@ -1,5 +1,5 @@
 //! Retained updates share the same proposed transaction as ordinary fanout.
-use super::{EngineError, Message, SessionEngine, temporal};
+use super::{EngineError, Message, Publication, SessionEngine, temporal};
 impl SessionEngine {
     pub(super) fn publish_from(
         &mut self,
@@ -13,6 +13,11 @@ impl SessionEngine {
         self.validate_message(&message)?;
         self.expire_messages()?;
         let expired = temporal::is_expired(message.expires_at, self.effective_now());
+        if self.partition {
+            self.publications
+                .push(Publication::from_message(message, publisher, expired));
+            return Ok(());
+        }
         if message.retain {
             if message.payload.is_empty() || expired {
                 self.retained_properties.remove(&message.topic);

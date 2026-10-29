@@ -19,6 +19,7 @@ mod expiry;
 mod lifecycle;
 mod mqtt5;
 mod ordinary;
+mod partition;
 mod records;
 mod retention;
 mod serialization;
@@ -27,6 +28,9 @@ mod subscriptions;
 mod temporal;
 pub use expiry::{Clock, SystemClock};
 pub use mqtt5::{ConnectionOptions, Delivery, DeliveryPollOutcome, FramePollOutcome};
+pub use partition::{
+    DeliveryScope, Partitions, Publication, RetainedEntry, decode_retained_row, encode_retained_row,
+};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     error::Error,
@@ -198,6 +202,9 @@ pub struct SessionEngine {
     shared_cursors: BTreeMap<String, String>,
     shared_epochs: BTreeMap<String, u64>,
     shared_epoch_sequence: u64,
+    partition: bool,
+    publications: Vec<Publication>,
+    live_bytes: partition::LiveBytes,
 }
 
 impl Clone for SessionEngine {
@@ -216,6 +223,9 @@ impl Clone for SessionEngine {
             shared_cursors: self.shared_cursors.clone(),
             shared_epochs: self.shared_epochs.clone(),
             shared_epoch_sequence: self.shared_epoch_sequence,
+            partition: self.partition,
+            publications: self.publications.clone(),
+            live_bytes: self.live_bytes.clone(),
         }
     }
 }
@@ -282,6 +292,9 @@ impl SessionEngine {
             shared_cursors: BTreeMap::new(),
             shared_epochs: BTreeMap::new(),
             shared_epoch_sequence: 0,
+            partition: false,
+            publications: Vec::new(),
+            live_bytes: partition::LiveBytes::default(),
         };
         engine.ensure_bounds()?;
         Ok(engine)
@@ -631,7 +644,9 @@ impl SessionEngine {
                 return Err(invalid_record("orphan delivery deadline or reservation"));
             }
         }
-        serialization::check_live_bounds(self)
+        let bytes = serialization::check_live_bounds(self)?;
+        self.live_bytes.set(bytes);
+        Ok(())
     }
 
     /// Validate the complete live registry (including clean sessions), then emit
@@ -653,13 +668,27 @@ impl SessionEngine {
         }
     }
     fn route(&mut self, message: Message, publisher: Option<&str>) -> Result<(), EngineError> {
+        self.route_scoped(message, publisher, None).map(|_| ())
+    }
+    /// `scope` None routes every eligible local copy; a partition delivery limits
+    /// it to the ordinary copy or to one already-selected shared group.
+    fn route_scoped(
+        &mut self,
+        message: Message,
+        publisher: Option<&str>,
+        scope: Option<&DeliveryScope>,
+    ) -> Result<usize, EngineError> {
         let _span = profiling::span(Operation::Route);
         self.expire_sessions()?;
         self.validate_message(&message)?;
         let build_span = profiling::span(Operation::RouteBuild);
         let mut router = Router::default();
         let clients: Vec<String> = self.sessions.keys().cloned().collect();
+        let ordinary_scope = !matches!(scope, Some(DeliveryScope::Shared(_)));
         for (index, client) in clients.iter().enumerate() {
+            if !ordinary_scope {
+                break;
+            }
             if let Some(session) = self.sessions.get(client) {
                 if !self
                     .access
@@ -764,8 +793,20 @@ impl SessionEngine {
                 planned += 1;
             }
         }
-        let (shared, cursors) = self.plan_shared_copies(&message, &clients, &admitted, now)?;
+        let only_group = match scope {
+            None => None,
+            Some(DeliveryScope::Ordinary) => Some(None),
+            Some(DeliveryScope::Shared(group)) => Some(Some(group.as_str())),
+        };
+        let (shared, cursors) = match only_group {
+            Some(None) => (Vec::new(), BTreeMap::new()),
+            Some(Some(group)) => {
+                self.plan_shared_copies(&message, &clients, &admitted, now, Some(group))?
+            }
+            None => self.plan_shared_copies(&message, &clients, &admitted, now, None)?,
+        };
         admitted.extend(shared);
+        let count = admitted.len();
         for (index, copy) in admitted {
             let client = clients
                 .get(index)
@@ -777,7 +818,7 @@ impl SessionEngine {
                 .push_back(copy);
         }
         self.shared_cursors.extend(cursors);
-        Ok(())
+        Ok(count)
     }
     pub fn handle(&mut self, client_id: &str, packet: Packet) -> Result<Vec<Packet>, EngineError> {
         self.expire_sessions()?;
