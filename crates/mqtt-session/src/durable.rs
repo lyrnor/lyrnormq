@@ -11,10 +11,7 @@ use mqtt_protocol::{
 };
 use mqtt_router::retained::{RetainedError, RetainedStore};
 use mqtt_router::{Router, split_shared_filter, validate_subscription_filter};
-use records::{
-    Envelope, Message, OutgoingRecord, RetainedRecord, SessionRecord, Stage, SubscriptionRecord,
-    WillData, WillRecord,
-};
+use records::{Message, Stage, SubscriptionRecord, WillData, WillRecord};
 
 mod authorization;
 mod delivery_hint;
@@ -24,6 +21,7 @@ mod mqtt5;
 mod ordinary;
 mod records;
 mod retention;
+mod serialization;
 mod shared;
 mod subscriptions;
 mod temporal;
@@ -33,7 +31,6 @@ use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     error::Error,
     fmt,
-    io::{self, Write},
     num::NonZeroU16,
     sync::Arc,
 };
@@ -223,22 +220,6 @@ impl Clone for SessionEngine {
     }
 }
 
-struct LimitedWriter {
-    bytes: Vec<u8>,
-    limit: usize,
-}
-impl Write for LimitedWriter {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        if bytes.len() > self.limit.saturating_sub(self.bytes.len()) {
-            return Err(io::Error::other("snapshot byte limit exceeded"));
-        }
-        self.bytes.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
 fn identifier(id: u16) -> Result<NonZeroU16, EngineError> {
     NonZeroU16::new(id).ok_or_else(|| EngineError::InvalidRecord("zero identifier".into()))
 }
@@ -628,115 +609,8 @@ impl SessionEngine {
         }
         Ok(())
     }
-    fn records(&self, persistent_only: bool) -> Result<Envelope, EngineError> {
-        let _span = profiling::span(if persistent_only {
-            Operation::RecordsPersistent
-        } else {
-            Operation::RecordsLive
-        });
-        let mut records = Vec::new();
-        for (client_id, session) in &self.sessions {
-            if persistent_only && !session.persistent {
-                continue;
-            }
-            let mut outgoing = Vec::new();
-            for id in &session.outgoing.order {
-                let stage = match session.outgoing.pending.get(id) {
-                    Some(OutgoingState::AwaitingAck { _message }) => Stage::Ack(_message.clone()),
-                    Some(OutgoingState::AwaitingReceipt { _message }) => {
-                        Stage::Receipt(_message.clone())
-                    }
-                    Some(OutgoingState::Released) => Stage::Comp,
-                    None => {
-                        return Err(invalid_record("outgoing order references absent exchange"));
-                    }
-                };
-                outgoing.push(OutgoingRecord {
-                    packet_id: id.get(),
-                    expires_at: session.outgoing_expiry.get(id).copied(),
-                    started: session.outgoing_started.contains(id),
-                    shared_subscription: session.outgoing_shared.get(id).cloned(),
-                    retained_replay: session.outgoing_retained_replay.contains(id),
-                    stage,
-                    properties: session
-                        .outgoing_properties
-                        .get(id)
-                        .cloned()
-                        .unwrap_or_default(),
-                });
-            }
-            records.push(SessionRecord {
-                client_id: client_id.clone(),
-                owner: session.owner.name.clone(),
-                session_expiry_interval: session.expiry,
-                expires_at: session.expires_at,
-                subscriptions: session.subscriptions.values().cloned().collect(),
-                incoming: session
-                    .incoming
-                    .pending
-                    .iter()
-                    .map(|(id, bytes)| {
-                        (
-                            id.get(),
-                            bytes.clone(),
-                            session
-                                .incoming_properties
-                                .get(id)
-                                .cloned()
-                                .unwrap_or_default(),
-                            session.incoming_expiry.get(id).copied(),
-                        )
-                    })
-                    .collect(),
-                outgoing,
-                queued: session.queued.iter().cloned().collect(),
-            });
-        }
-        Ok(Envelope {
-            schema_version: 7,
-            clock_floor: self.clock_floor.get(),
-            sessions: records,
-            retained: self
-                .retained
-                .entries()
-                .into_iter()
-                .map(|message| RetainedRecord {
-                    expires_at: self.retained_expiry.get(&message.topic).copied(),
-                    topic: message.topic.clone(),
-                    payload: message.payload,
-                    qos: message.qos,
-                    properties: self
-                        .retained_properties
-                        .get(&message.topic)
-                        .cloned()
-                        .unwrap_or_default(),
-                })
-                .collect(),
-            wills: self.wills.values().cloned().collect(),
-        })
-    }
     fn serialize(&self, persistent_only: bool) -> Result<Vec<u8>, EngineError> {
-        let operation = if persistent_only {
-            Operation::SerializePersistent
-        } else {
-            Operation::SerializeLive
-        };
-        let _span = profiling::span(operation);
-        let mut writer = LimitedWriter {
-            bytes: Vec::new(),
-            limit: self.config.max_state_bytes,
-        };
-        let result =
-            serde_json::to_writer(&mut writer, &self.records(persistent_only)?).map_err(|error| {
-                if error.is_io() {
-                    EngineError::Capacity
-                } else {
-                    EngineError::Json(error)
-                }
-            });
-        profiling::record_bytes(operation, writer.bytes.len());
-        result?;
-        Ok(writer.bytes)
+        serialization::encode(self, persistent_only)
     }
     fn ensure_bounds(&self) -> Result<(), EngineError> {
         let _span = profiling::span(Operation::Bounds);
@@ -757,7 +631,7 @@ impl SessionEngine {
                 return Err(invalid_record("orphan delivery deadline or reservation"));
             }
         }
-        self.serialize(false).map(|_| ())
+        serialization::check_live_bounds(self)
     }
 
     /// Validate the complete live registry (including clean sessions), then emit
