@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 
+from diagnostics import (Diagnostics, drain_stderr, error_summary, profile_environment, read_profile, stop_broker)
 from metrics import Sampler, distribution, summarize
 from wire import connect, frame, parse_publication, publication, receive, subscribe, validate_ack
 
@@ -106,17 +107,20 @@ def payload(identifier, size):
     return struct.pack('!Q', identifier) + b'P' * (size - 8)
 
 
-async def barrier(subscribers):
+async def barrier(subscribers, diagnostics=None):
     async def one(connection):
         reader, writer = connection
         writer.write(frame(0xc0)); await writer.drain()
-        assert await receive(reader) == (0xd0, b''), 'extra frame before PING barrier'
+        header, body = await receive(reader)
+        if (header, body) != (0xd0, b'') and diagnostics is not None:
+            diagnostics.packet_error('barrier', header, body)
+        assert (header, body) == (0xd0, b''), f'extra frame before PING barrier: {header:#x}/{body.hex()}'
     async with asyncio.TaskGroup() as group:
         for connection in subscribers:
             group.create_task(one(connection))
 
 
-async def phase(workload, subscribers, publishers, messages, payload_size, phase_index, flow_control='ack'):
+async def phase(workload, subscribers, publishers, messages, payload_size, phase_index, flow_control='ack', diagnostics=None):
     assert flow_control in ('ack', 'delivery')
     expected = [set() for _ in subscribers]
     for sequence in range(messages):
@@ -124,6 +128,10 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
             expected[subscriber].add(sequence)
     send_times = [None] * messages
     delivery_latencies, ack_latencies = [], []
+    phase_name = 'warmup' if phase_index == 1 else 'measured'
+    diagnostics = diagnostics or Diagnostics()
+    diagnostics.begin_phase(phase_name, messages, sum(map(len, expected)))
+    counters = diagnostics.phases[phase_name]
     offset = phase_index * 1_000_000
     receipts_remaining = [len(tuple(workload.recipients(sequence))) for sequence in range(messages)]
     delivery_complete = [asyncio.Event() for _ in range(messages)] if flow_control == 'delivery' else None
@@ -134,18 +142,23 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
         while remaining:
             header, body = await receive(reader)
             arrival = time.monotonic_ns()
-            topic, data = parse_publication(header, body)
-            assert len(data) == payload_size
-            identifier = struct.unpack('!Q', data[:8])[0]
-            sequence = identifier - offset
-            assert sequence in remaining, f'unexpected/duplicate delivery {index}:{identifier}'
-            assert topic == workload.topic(sequence) and data == payload(identifier, payload_size)
-            key = (topic, sequence % len(publishers))
-            assert sequence > last_by_topic_publisher.get(key, -1), f'publisher/topic order violation {index}:{key}:{sequence}'
-            last_by_topic_publisher[key] = sequence
-            sent = send_times[sequence]
-            assert sent is not None
+            try:
+                topic, data = parse_publication(header, body)
+                assert len(data) == payload_size
+                identifier = struct.unpack('!Q', data[:8])[0]
+                sequence = identifier - offset
+                assert sequence in remaining, f'unexpected/duplicate delivery {index}:{identifier}'
+                assert topic == workload.topic(sequence) and data == payload(identifier, payload_size)
+                key = (topic, sequence % len(publishers))
+                assert sequence > last_by_topic_publisher.get(key, -1), f'publisher/topic order violation {index}:{key}:{sequence}'
+                last_by_topic_publisher[key] = sequence
+                sent = send_times[sequence]
+                assert sent is not None
+            except Exception:
+                diagnostics.packet_error('delivery', header, body, subscriber=index)
+                raise
             delivery_latencies.append(arrival - sent)
+            counters['received'] += 1
             remaining.remove(sequence)
             receipts_remaining[sequence] -= 1
             assert receipts_remaining[sequence] >= 0
@@ -160,14 +173,25 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
                                  payload(offset + sequence, payload_size))
             sent = time.monotonic_ns()
             send_times[sequence] = sent
+            counters['issued'] += 1
+            counters['expected_receipts_for_issued'] += len(tuple(workload.recipients(sequence)))
+            diagnostics.publishers[str(index)] = dict(publisher=index, sequence=sequence, packet_id=identifier, state='await_ack', sent_monotonic_ns=sent)
             writer.write(packet)
             await writer.drain()
             header, body = await receive(reader)
             arrived = time.monotonic_ns()
-            validate_ack(header, body, identifier)
+            try:
+                validate_ack(header, body, identifier)
+            except Exception:
+                diagnostics.packet_error('ack', header, body, publisher=index, sequence=sequence, packet_id=identifier)
+                raise
+            counters['acknowledged'] += 1
+            counters['expected_receipts_for_acked'] += len(tuple(workload.recipients(sequence)))
             ack_latencies.append(arrived - sent)
             if delivery_complete is not None:
+                diagnostics.publishers[str(index)]['state'] = 'await_delivery'
                 await delivery_complete[sequence].wait()
+            diagnostics.publishers[str(index)]['state'] = 'complete'
 
     start = time.monotonic_ns()
     async with asyncio.TaskGroup() as group:
@@ -180,7 +204,8 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
     assert len(ack_latencies) == messages and len(delivery_latencies) == deliveries
     assert all(timestamp is not None for timestamp in send_times)
     assert receipts_remaining == [0] * messages
-    await barrier(subscribers)
+    diagnostics.stage = phase_name + '_barrier'
+    await barrier(subscribers, diagnostics)
     return {'flow_control': flow_control, 'publisher_gate': 'PUBACK and all expected subscriber receipts'
             if flow_control == 'delivery' else 'PUBACK only; recipient backlog may reach broker admission limits',
             'publications': messages, 'deliveries': deliveries, 'acknowledgements': len(ack_latencies),
@@ -205,7 +230,11 @@ async def ready(process, port):
     raise TimeoutError('broker readiness timeout')
 
 
-async def run_one(arguments, binary, case, storage, repetition):
+async def run_one(arguments, binary, case, storage, repetition, diagnostics=None):
+    diagnostics = diagnostics or Diagnostics()
+    diagnostics.context.update(case=case, storage=storage, repetition=repetition, binary=str(binary),
+                               binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
+                               flow_control=arguments.flow_control, pilot=getattr(arguments, 'pilot', False))
     workload = Workload(case, arguments.smoke)
     with tempfile.TemporaryDirectory(prefix='rmqtt-p3-bench-') as directory:
         with socket.socket() as probe:
@@ -214,16 +243,23 @@ async def run_one(arguments, binary, case, storage, repetition):
                    '--max-connections', '256', '--max-sessions', '256', '--max-subscriptions', '128',
                    '--max-inflight', '64', '--outbound-capacity', str(arguments.outbound_capacity), '--max-packet-size', '8192',
                    '--max-state-bytes', '67108864', '--max-retained', '16', '--topic-alias-maximum', '0',
-                   '--handshake-timeout-ms', '10000', '--write-timeout-ms', '10000']
+                   '--handshake-timeout-ms', '10000', '--write-timeout-ms', str(getattr(arguments, 'broker_write_timeout_ms', 10000))]
         if storage == 'sqlite':
             command += ['--storage-path', str(Path(directory) / 'sessions.sqlite')]
-        connections, process, sampling_task = [], None, None
+        diagnostics.context.update(broker_command=command, topology=workload.description())
+        profile_enabled = getattr(arguments, 'profile', False)
+        profile_path = Path(directory)/'worker-profile.tsv'
+        connections, process, sampling_task, stderr_task = [], None, None, None
+        result = None
+        primary_error = None
         sampler = None
         try:
-            with (Path(directory) / 'stderr.log').open('wb') as stderr:
-                process = await asyncio.create_subprocess_exec(*command, stdout=asyncio.subprocess.DEVNULL, stderr=stderr)
+            process = await asyncio.create_subprocess_exec(*command, stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE, env=profile_environment(profile_enabled, profile_path))
+            stderr_task = asyncio.create_task(drain_stderr(process.stderr, diagnostics))
             await ready(process, port)
             sampler = Sampler(process.pid, arguments.sample_interval)
+            diagnostics.rss_samples = sampler.samples
             await sampler.once('idle')
             for index in range(workload.subscribers):
                 connection = await connect(port, f'subscriber-{index}', arguments.session_expiry_seconds)
@@ -233,27 +269,28 @@ async def run_one(arguments, binary, case, storage, repetition):
             for index in range(workload.publishers):
                 connections.append(await connect(port, f'publisher-{index}', arguments.session_expiry_seconds))
             publishers = connections[len(subscribers):]
-            await barrier(subscribers)
+            diagnostics.stage = 'setup_barrier'
+            await barrier(subscribers, diagnostics)
             await sampler.once('setup')
-            await phase(workload, subscribers, publishers, arguments.warmup, arguments.payload_size, 1, arguments.flow_control)
+            await phase(workload, subscribers, publishers, arguments.warmup, arguments.payload_size, 1, arguments.flow_control, diagnostics)
             before = await sampler.once('pre_measure')
             sampling_task = asyncio.create_task(sampler.run())
-            result = await phase(workload, subscribers, publishers, arguments.messages, arguments.payload_size, 2, arguments.flow_control)
+            result = await phase(workload, subscribers, publishers, arguments.messages, arguments.payload_size, 2, arguments.flow_control, diagnostics)
             sampler.stop.set(); await sampling_task
             after = await sampler.once('end')
             result.update(case=case, storage=storage, repetition=repetition, smoke=arguments.smoke,
                           topology=workload.description(), broker_command=command, payload_bytes=arguments.payload_size,
+                          pilot=getattr(arguments, 'pilot', False),
                           warmup_publications=arguments.warmup, session_expiry_seconds=arguments.session_expiry_seconds,
                           session_note='CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput', memory={'samples': sampler.samples,
                           'sampled_peak_rss_bytes': max(sample['rss_bytes'] for sample in sampler.samples),
                           'note': 'peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark'},
                           cpu_seconds_observed_window=after['cpu_seconds'] - before['cpu_seconds'])
             assert process.returncode is None, 'broker died during run'
-            return result
-        except BaseException:
-            log = Path(directory) / 'stderr.log'
-            if log.exists():
-                print(log.read_text(errors='replace')[-8192:], file=sys.stderr)
+            diagnostics.stage = 'completed'
+        except BaseException as error:
+            primary_error = error
+            diagnostics.context['error_leaves'] = error_summary(error)
             raise
         finally:
             if sampler:
@@ -261,33 +298,69 @@ async def run_one(arguments, binary, case, storage, repetition):
             if sampling_task and not sampling_task.done():
                 sampling_task.cancel()
                 await asyncio.gather(sampling_task, return_exceptions=True)
+            cleanup_errors = []
             for _, writer in connections:
-                writer.close()
+                try:
+                    writer.close()
+                except Exception as error:
+                    cleanup_errors.append(error)
             try:
                 await asyncio.wait_for(asyncio.gather(*(writer.wait_closed() for _, writer in connections),
                                                       return_exceptions=True), 5)
-            except TimeoutError:
-                pass
-            if process and process.returncode is None:
-                process.terminate()
+            except Exception as error:
+                cleanup_errors.append(error)
+            if process:
                 try:
-                    await asyncio.wait_for(process.wait(), 5)
-                except TimeoutError:
-                    process.kill(); await process.wait()
+                    await stop_broker(process)
+                except Exception as error:
+                    cleanup_errors.append(error)
+            if stderr_task:
+                try:
+                    await asyncio.wait_for(stderr_task, 5)
+                except Exception as error:
+                    cleanup_errors.append(error)
+                    stderr_task.cancel()
+                    await asyncio.gather(stderr_task, return_exceptions=True)
+            if cleanup_errors:
+                diagnostics.context['cleanup_errors'] = [leaf for error in cleanup_errors
+                                                         for leaf in error_summary(error)][:16]
+                if primary_error is None:
+                    raise cleanup_errors[0]
+            diagnostics.profile = read_profile(profile_path, profile_enabled)
+            if result is not None:
+                result['profiling'] = diagnostics.profile
+                result['stderr'] = diagnostics.stderr
+                if profile_enabled and (diagnostics.profile['status'] != 'captured' or not diagnostics.profile.get('complete')):
+                    raise RuntimeError('requested profiling report unavailable or invalid: ' + str(diagnostics.profile))
+        return result
 
 
 async def campaign(arguments):
     binary = Path(arguments.binary).resolve(strict=True)
     result = {'schema_version': 1, 'scope': 'bounded loopback baseline; not saturation/WAN/production SLA',
               'environment': environment(binary, arguments), 'parameters': vars(arguments), 'runs': [], 'summary': [],
-              'campaign_status': 'running'}
+              'campaign_status': 'running', 'failures': [],
+              'pilot': getattr(arguments, 'pilot', False)}
     output = Path(arguments.output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + '\n')
     for storage in arguments.storage.split(','):
         for case in arguments.cases.split(','):
             for repetition in range(1, arguments.repetitions + 1):
-                run = await asyncio.wait_for(run_one(arguments, binary, case, storage, repetition), arguments.timeout)
+                diagnostics = Diagnostics()
+                diagnostics.context.update(case=case, storage=storage, repetition=repetition)
+                try:
+                    run = await asyncio.wait_for(run_one(arguments, binary, case, storage, repetition,
+                                                         diagnostics=diagnostics), arguments.timeout)
+                except BaseException as error:
+                    cancelled = isinstance(error, asyncio.CancelledError)
+                    failure = diagnostics.snapshot()
+                    failure['failure'] = dict(kind='cancelled' if cancelled else 'timeout' if isinstance(error, TimeoutError) else 'error',
+                                              leaves=error_summary(error))
+                    result['failures'].append(failure)
+                    result['campaign_status'] = 'cancelled' if cancelled else 'failed'
+                    output.write_text(json.dumps(result, indent=2) + '\n')
+                    raise
                 result['runs'].append(run)
                 result['summary'] = summarize(result['runs'])
                 output.write_text(json.dumps(result, indent=2) + '\n')
@@ -315,6 +388,9 @@ def parse_arguments():
     parser.add_argument('--outbound-capacity', type=int, default=256)
     parser.add_argument('--sample-interval', type=float, default=.05)
     parser.add_argument('--timeout', type=float, default=180)
+    parser.add_argument('--profile', action='store_true', help='opt-in worker/session counters; not formal timing')
+    parser.add_argument('--pilot', action='store_true', help='small campaign with full topology; not formal acceptance')
+    parser.add_argument('--broker-write-timeout-ms', type=int, default=10000)
     parser.add_argument('--smoke', action='store_true', help='small topology; never a formal acceptance run')
     arguments = parser.parse_args()
     assert set(arguments.cases.split(',')) <= {'concurrent', 'hot', 'many'}
@@ -324,7 +400,9 @@ def parse_arguments():
     assert 1 <= arguments.outbound_capacity <= 4096
     assert 1 <= arguments.warmup <= 1000 and 8 <= arguments.payload_size <= 4096
     assert .01 <= arguments.sample_interval <= 1 and 1 <= arguments.timeout <= 600
-    if not arguments.smoke:
+    assert not (arguments.smoke and arguments.pilot)
+    assert 1 <= arguments.broker_write_timeout_ms <= 600000
+    if not arguments.smoke and not arguments.pilot:
         assert arguments.messages >= 2000 and arguments.repetitions >= 3
     return arguments
 

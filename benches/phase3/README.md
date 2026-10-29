@@ -116,3 +116,70 @@ exceed the default; this timeout is a bounded campaign budget, not a latency SLA
 are capped8192 bytes. TaskGroup cancels siblings on failure. Socket cleanup and
 broker termination are bounded. Timed-out/cancelled ps subprocesses are killed and reaped. Smoke switches to four subscribers and at most
 four publishers/four filters each and is explicitly labeled.
+
+## Phase3a failure evidence and profiling pilots
+
+```sh
+# Full original topology, shorter campaign; explicitly NOT formal acceptance.
+python3 benches/phase3/run.py --binary /absolute/path/to/profile-enabled-rmqtt \
+  --artifact-source-revision COMMIT --output /tmp/profile-pilot.json \
+  --pilot --profile --cases hot --storage memory --messages 64 --warmup 8 \
+  --repetitions 1 --session-expiry-seconds 60 --flow-control ack --timeout 60
+python3 benches/phase3/test_diagnostics.py
+```
+
+`--pilot` retains128 clients /32 hot subscribers /4096 filters while allowing a
+small message count/repetition count. `--smoke` still reduces topology. They are
+mutually exclusive; neither is a formal result. Without either switch, the existing
+minimum2000 messages and3 repetitions remain. `--broker-write-timeout-ms` defaults
+to10000 exactly as the existing comparison profile; any diagnostic override is
+recorded in broker argv and must not be mistaken for a runtime optimization.
+
+Every failed or timed-out campaign now saves `campaign_status: failed` and a bounded
+`failures` record, then propagates the original exception. External cancellation is
+recorded as `cancelled` and re-raised. Failed records never enter `runs` or summary
+throughput. Evidence includes case/storage/repetition/flow, executable SHA, broker
+argv, stage (setup/warmup/measured/postphase barrier/completed), per-phase expected
+and partial issued/ACK/validated-receipt counts, each publisher's latest sequence,
+packet ID/state/send timestamp, available RSS samples, errors and stderr. Issued
+means an attempted writer write, not server acceptance; only a validated PUBACK
+increments ACK. Existing successful timing/flow/count definitions remain unchanged.
+
+A fully received invalid ACK or publication retains actual header/body/reason and
+publisher/sequence or subscriber context. Up to16 packet errors retain complete
+body hex (receive frame bound8192); exceptions retain up to16 leaf messages of2048
+characters. EOF before a complete `receive` result retains the exception and waiting
+publisher context; no packet bytes or reason code are invented. Stderr drains
+continuously into a64KiB tail with total/truncation counters. Available RSS samples
+are kept on failure, including idle/setup if timeout occurs before measurement.
+Cleanup errors are secondary when an original failure exists. All budgets remain
+finite; graceful cleanup can add up to the separately bounded socket/process waits
+after the active-case timeout. Temporary DBs/ports are fresh for each run.
+
+`--profile` sets `RMQTT_PROFILE=1` and a per-run temporary profile path. Otherwise
+the child receives explicit `RMQTT_PROFILE=0` and no profile-path variable, so inherited
+shell flags cannot silently instrument a formal run. Shutdown closes client sockets,
+requests SIGINT and waits up to5s for worker flush, then uses a bounded hard kill.
+Profile/stderr are read before removing the temporary directory. Requested profiling
+must yield a valid final report for a successful run; failure records can retain a
+valid checkpoint marked `complete:false`. SIGKILL/checkpoint is not called final.
+
+The bounded1MiB/512-row TSVv1 report contains STATUS/SCOPE/TIMING/OUTCOME/BYTES,
+REQUEST/SPAN/COUNTER, optional ERROR_REASON and exactly one SESSION_JSON object.
+Raw text and parsed counters are saved under `profiling`. Transport counts begin at
+run_commands (setup/warmup/work/cleanup, excluding startup and queue wait); Session
+counters cover the process and can include startup snapshot/restore. Nested elapsed
+spans overlap and must not be added as exclusive CPU percentages. Snapshot bytes
+are successful encoded output; commit bytes are attempted payload, not physical
+disk writes. Profiling itself adds overhead; use uninstrumented same-driver runs
+for formal before/after performance comparisons.
+
+`expected_deliveries` is the entire requested phase plan, not a loss counter.
+`expected_receipts_for_issued` and `expected_receipts_for_acked` separately sum
+recipient counts for attempted writes and observed valid ACKs. Warmup and measured
+phases remain separate. At cancellation these progress totals are concurrent: a
+receipt may precede its PUBACK, pending accepted work may still be queued/inflight,
+and cleanup deliberately interrupts the workload. Subtracting partial receipts
+from any expected value does not prove acknowledged-message loss. No failed-run
+throughput or loss percentage is fabricated. Optional transport queue_wait spans
+cover mailbox-capacity wait plus queue residence and are not actor CPU time.

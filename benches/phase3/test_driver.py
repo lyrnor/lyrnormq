@@ -233,7 +233,7 @@ class CleanupAndStatusTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaisesRegex(RuntimeError, 'injected failure'):
                     await campaign(arguments)
             saved = json.loads(output.read_text())
-            self.assertEqual(saved['campaign_status'], 'running')
+            self.assertEqual(saved['campaign_status'], 'failed')
             self.assertEqual(saved['runs'], [])
 
     async def test_ps_timeout_kills_and_reaps_child(self):
