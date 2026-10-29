@@ -1,3 +1,5 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-fuzz_target!(|data: &[u8]| { rmqtt_fuzz_harness::codec(data); });
+fuzz_target!(|data: &[u8]| {
+    rmqtt_fuzz_harness::codec(data);
+});
