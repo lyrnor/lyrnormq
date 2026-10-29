@@ -23,6 +23,7 @@ use tokio::{
 mod aliases;
 mod enhanced;
 mod network;
+mod profiling;
 #[cfg(test)]
 use tokio::time::timeout;
 
@@ -63,6 +64,7 @@ fn model_error(error: EngineError) -> io::Error {
 }
 type ResultReply = Result<Reply, io::Error>;
 struct Command {
+    queued_at: Option<std::time::Instant>,
     operation: Operation,
     reply: oneshot::Sender<ResultReply>,
 }
@@ -199,7 +201,11 @@ impl Worker {
     async fn request(&self, operation: Operation) -> io::Result<Reply> {
         let (reply, receive) = oneshot::channel();
         self.sender
-            .send(Command { operation, reply })
+            .send(Command {
+                operation,
+                reply,
+                queued_at: profiling::queue_stamp(),
+            })
             .await
             .map_err(|_| io::Error::other("durable worker unavailable"))?;
         receive
@@ -634,11 +640,16 @@ fn run_commands(
     mut engine: SessionEngine,
     mut online: HashMap<String, Online>,
 ) -> io::Result<()> {
+    let profile = profiling::Profile::from_env();
     let mut authentication = enhanced::Manager::default();
     while let Some(command) = commands.blocking_recv() {
+        profile.queue_wait(command.queued_at);
+        profile.checkpoint();
+        let mut request_profile = profile.request(&command.operation);
         let mut request = match normalize(command.operation) {
             Ok(request) => request,
             Err(error) => {
+                request_profile.error(&error);
                 let _ = command.reply.send(Err(error));
                 continue;
             }
@@ -648,6 +659,7 @@ fn run_commands(
                 .next_expiry_deadline()
                 .is_some_and(|at| at <= engine.effective_now())
         {
+            request_profile.finish(true);
             let _ = command.reply.send(Ok(Reply::Done));
             continue;
         }
@@ -661,6 +673,7 @@ fn run_commands(
                     request.assigned = true;
                 }
                 Err(error) => {
+                    request_profile.error(&error);
                     let _ = command.reply.send(Err(error));
                     continue;
                 }
@@ -669,16 +682,19 @@ fn run_commands(
         request = match authentication.process(request, &config, &online) {
             Ok(enhanced::Processed::Ready(request)) => request,
             Ok(enhanced::Processed::Reply(reply)) => {
+                request_profile.finish(true);
                 let _ = command.reply.send(Ok(reply));
                 continue;
             }
             Err(error) => {
+                request_profile.error(&error);
                 let _ = command.reply.send(Err(error));
                 continue;
             }
         };
         let mut principal = if let Request::Connect(request) = &mut request {
             if let Some(reason) = connect_policy(request, &config) {
+                request_profile.finish(true);
                 let _ = command.reply.send(Ok(refusal(request, reason)));
                 continue;
             }
@@ -696,6 +712,7 @@ fn run_commands(
                         AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
                         AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
                     };
+                    request_profile.finish(true);
                     let _ = command.reply.send(Ok(refusal(request, reason)));
                     continue;
                 }
@@ -706,7 +723,10 @@ fn run_commands(
         if command.reply.is_closed() {
             continue;
         }
-        let mut proposal = engine.clone();
+        let mut proposal = {
+            let _clone = profile.span(profiling::SpanKind::Clone);
+            engine.clone()
+        };
         let mut commit_required = true;
         let mut notify_required = false;
         let mut retry_required = true;
@@ -825,12 +845,16 @@ fn run_commands(
                     Ok(poll_reply(outcome.frame, legacy))
                 }
                 Request::PollDelivery { client, generation } => {
+                    profile.poll();
                     valid_generation(&online, &client, generation)?;
                     let outcome = proposal
                         .poll_delivery_with_changes(&client)
                         .map_err(model_error)?;
                     commit_required = outcome.changed;
                     notify_required = outcome.changed;
+                    if outcome.delivery.is_none() {
+                        profile.empty_poll();
+                    }
                     Ok(Reply::DeliveryPolled(outcome.delivery.map(Box::new)))
                 }
                 Request::BeginDelivery {
@@ -890,28 +914,42 @@ fn run_commands(
             Err(error) => Err(error),
             Ok(reply) => {
                 if commit_required {
-                    let bytes = match proposal.snapshot() {
+                    let snapshot_result = {
+                        let mut snapshot = profile.span(profiling::SpanKind::Snapshot);
+                        let result = proposal.snapshot();
+                        if let Ok(bytes) = &result {
+                            snapshot.bytes(bytes.len());
+                        }
+                        result
+                    };
+                    let bytes = match snapshot_result {
                         Ok(bytes) => bytes,
                         Err(error) => {
-                            let _ = command.reply.send(Err(model_error(error)));
+                            let error = model_error(error);
+                            request_profile.error(&error);
+                            let _ = command.reply.send(Err(error));
                             continue;
                         }
                     };
-                    if let Some(store) = &mut store
-                        && let Err(error) = store.commit(&bytes)
-                    {
-                        let message = error.to_string();
-                        let _ = command.reply.send(Err(failure(
-                            ReasonCode::SERVER_UNAVAILABLE,
-                            message.clone(),
-                        )));
-                        for connection in online.values() {
-                            if let Some(reason) = &connection.close_reason {
-                                let _ = reason.send(Some(ReasonCode::SERVER_UNAVAILABLE));
+                    if let Some(store) = &mut store {
+                        let committed = {
+                            let mut commit = profile.span(profiling::SpanKind::Commit);
+                            commit.bytes(bytes.len());
+                            store.commit(&bytes)
+                        };
+                        if let Err(error) = committed {
+                            let message = error.to_string();
+                            let failure = failure(ReasonCode::SERVER_UNAVAILABLE, message.clone());
+                            request_profile.error(&failure);
+                            let _ = command.reply.send(Err(failure));
+                            for connection in online.values() {
+                                if let Some(reason) = &connection.close_reason {
+                                    let _ = reason.send(Some(ReasonCode::SERVER_UNAVAILABLE));
+                                }
+                                let _ = connection.cancel.send(true);
                             }
-                            let _ = connection.cancel.send(true);
+                            return Err(io::Error::other(message));
                         }
-                        return Err(io::Error::other(message));
                     }
                     engine = proposal;
                 }
@@ -930,11 +968,16 @@ fn run_commands(
                     online.remove(&client);
                 }
                 if notify_required {
+                    profile.notify(online.len());
                     notify(&online);
                 }
                 Ok(reply)
             }
         };
+        match &reply {
+            Ok(_) => request_profile.finish(true),
+            Err(error) => request_profile.error(error),
+        }
         let _ = command.reply.send(reply);
     }
     Ok(())
