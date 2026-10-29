@@ -1,10 +1,11 @@
-//! Exact metric implementation is assigned to the isolated metrics worktree.
-use crate::{LoadError, model::RunData};
-use serde::Serialize;
-#[derive(Debug, Serialize)]
-pub struct Report {
-    pub success: bool,
-}
-pub fn summarize(_data: &RunData) -> Result<Report, LoadError> {
-    Err(LoadError::Config("metrics implementation pending".into()))
-}
+//! Exact sample accounting. All durations are integer nanoseconds from one epoch.
+mod distribution;
+mod report;
+mod summarize;
+
+pub use distribution::{Distribution, distribution};
+pub use report::{Accounting, EventCounts, Latencies, Report, Throughput, Timing};
+pub use summarize::summarize;
+
+#[cfg(test)]
+mod tests;
