@@ -46,3 +46,8 @@ Transport diagnostic addition: fixed256 ERROR_REASON code/count counters for act
 worker failure reasons, plus unknown IO error count. No client/payload capture.
 This separates observed quota/storage/protocol errors from deadline-only failures;
 a timeout without a captured packet cannot establish a previous unknown reason.
+
+Optional separate queue_wait span: opt-in Command timestamp before bounded sender
+send; worker receipt records mailbox-capacity wait plus queued wait. Command elapsed
+still excludes this wait. Internal Option<Instant> adds no timestamp when disabled.
+This elapsed queue delay is not CPU time and may overlap other requests' execution.
