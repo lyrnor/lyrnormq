@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Independent MQTT5 subscription options/identifiers with real TCP and recovery."""
-from contextlib import closing
 import copy
 import json
 import socket
-import sqlite3
 import struct
 import unittest
 
@@ -13,6 +11,7 @@ from blackbox import frame, receive, string
 from qos_blackbox import ack
 from auth_acl_blackbox import AuthBroker, PASSWORD
 from schema_compat import schema5_fixture, schema6_fixture
+from state_store import export_bytes, export_state, legacy_blob, write_legacy
 
 
 def identifiers(properties):
@@ -263,9 +262,7 @@ class SubscriptionBlackbox(unittest.TestCase):
         self.sub(sub, [('legacy/#', 2)]);self.publish(pub, 'legacy/live', b'old', 1, properties=wire.METADATA)
         old = self.msg(sub, 'legacy/live', b'old', app=wire.METADATA, complete=False);self.disconnect(sub);self.disconnect(pub)
         self.broker.stop(kill=True)
-        with closing(sqlite3.connect(self.broker.db)) as db:
-            current = json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]);old5 = schema5_fixture(current)
-            db.execute('UPDATE broker_snapshot SET data=?', (json.dumps(old5).encode(),));db.commit()
+        old5 = schema5_fixture(export_state(self.broker.db));write_legacy(self.broker.db, old5)
         self.broker.start();sub = self.client('legacy', clean=False, expiry=60, present=True)
         value = self.msg(sub, 'legacy/live', b'old', app=wire.METADATA, dup=True);self.assertEqual(old[3], value[3])
         data = self.snapshot();self.assertEqual(data['schema_version'], 7)
@@ -275,7 +272,7 @@ class SubscriptionBlackbox(unittest.TestCase):
     def test_sqlite_schema6_missing_or_invalid_subscription_state_fails_closed(self):
         self.require_sqlite();self.start();sub = self.client('strict', expiry=60);self.sub(sub, [('strict', 1)], 241)
         self.disconnect(sub);self.broker.stop()
-        with closing(sqlite3.connect(self.broker.db)) as db:original = db.execute('SELECT data FROM broker_snapshot').fetchone()[0]
+        original = export_bytes(self.broker.db)
         base = schema6_fixture(json.loads(original))
         cases = []
         for field in ('identifier', 'no_local', 'retain_as_published', 'retain_handling'):
@@ -284,10 +281,10 @@ class SubscriptionBlackbox(unittest.TestCase):
             value = copy.deepcopy(base);value['sessions'][0]['subscriptions'][0][field] = invalid;cases.append(value)
         for value in cases:
             damaged = json.dumps(value).encode()
-            with closing(sqlite3.connect(self.broker.db)) as db:db.execute('UPDATE broker_snapshot SET data=?', (damaged,));db.commit()
+            write_legacy(self.broker.db, damaged)
             self.broker.assert_start_fails()
-            with closing(sqlite3.connect(self.broker.db)) as db:self.assertEqual(db.execute('SELECT data FROM broker_snapshot').fetchone()[0], damaged)
-        with closing(sqlite3.connect(self.broker.db)) as db:db.execute('UPDATE broker_snapshot SET data=?', (original,));db.commit()
+            self.assertEqual(legacy_blob(self.broker.db), damaged)
+        write_legacy(self.broker.db, original)
         self.broker.start();sub = self.client('strict', clean=False, expiry=60, present=True);self.barrier(sub)
 
 

@@ -2,7 +2,7 @@
 """Real SQLite writer contention and process-crash ACK barriers.
 
 BEGIN IMMEDIATE establishes an actual external write lock. A bounded socket silence
-observation is combined with the unchanged committed SQL snapshot, then either
+observation is combined with the unchanged committed exported state, then either
 release or SIGKILL. This tests transaction/process recovery, not physical power loss.
 """
 import json
@@ -16,6 +16,7 @@ import unittest
 from blackbox import frame, receive, string
 import mqtt5_blackbox as wire
 from retained_will_blackbox import FeatureBroker
+from state_store import export_bytes
 
 
 class FaultRecoveryBlackbox(unittest.TestCase):
@@ -30,8 +31,7 @@ class FaultRecoveryBlackbox(unittest.TestCase):
         self.broker.start()
 
     def snapshot_bytes(self):
-        with sqlite3.connect(self.broker.db) as db:
-            return db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]
+        return export_bytes(self.broker.db)
 
     def write_lock(self):
         connection = sqlite3.connect(self.broker.db, timeout=1)
@@ -174,8 +174,8 @@ class FaultRecoveryBlackbox(unittest.TestCase):
         before = self.snapshot_bytes()
         lock = self.write_lock()
         source.sendall(wire.publication5('fault/busy', b'must not commit', 1, 96, retain=True))
-        # The real SqliteStore busy timeout is two seconds. No release is made:
-        # this exercises a returned commit error, not merely a delayed success.
+        # The real store busy timeout is two seconds. No release is made: this
+        # exercises a returned commit error, which stops the broker (fail closed).
         source.settimeout(6)
         try:
             header, body = receive(source)

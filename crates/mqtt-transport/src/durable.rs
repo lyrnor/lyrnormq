@@ -56,6 +56,12 @@ fn failure(reason: ReasonCode, message: impl Into<String>) -> io::Error {
         message: message.into(),
     })
 }
+fn reason(error: &io::Error) -> Option<ReasonCode> {
+    error
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<WorkerFailure>())
+        .map(|failure| failure.reason)
+}
 fn model_error(error: EngineError) -> io::Error {
     let reason = match &error {
         EngineError::Mqtt5(reason) => *reason,
@@ -248,7 +254,10 @@ impl Worker {
         };
         let disconnect = matches!(request, Request::Disconnect { .. });
         match self.broker.call(&client, false, request, None).await {
-            Err(_) if disconnect => Ok(Reply::Done),
+            // Only an absent or superseded session is a no-op; model errors stand.
+            Err(error) if disconnect && reason(&error) == Some(ReasonCode::SESSION_TAKEN_OVER) => {
+                Ok(Reply::Done)
+            }
             result => result,
         }
     }
@@ -855,7 +864,7 @@ mod tests {
         }
         wrap(broker)
     }
-    fn wrap(broker: Arc<Broker>) -> (Worker, JoinHandle<io::Result<()>>) {
+    pub(super) fn wrap(broker: Arc<Broker>) -> (Worker, JoinHandle<io::Result<()>>) {
         let worker = Worker::new(Arc::clone(&broker));
         let mut fatal = broker.fatal.subscribe();
         let handle = tokio::spawn(async move {
@@ -1192,7 +1201,7 @@ mod tests {
         )))
         .await;
     }
-    async fn connect_with_will(
+    pub(super) async fn connect_with_will(
         worker: &Worker,
         client: &str,
         generation: u64,
@@ -1218,7 +1227,7 @@ mod tests {
         ));
         receiver
     }
-    fn will(topic: &str, payload: &[u8], retain: bool) -> Will {
+    pub(super) fn will(topic: &str, payload: &[u8], retain: bool) -> Will {
         Will {
             topic: topic.into(),
             payload: payload.to_vec(),

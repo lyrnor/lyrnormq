@@ -196,7 +196,7 @@ pub struct SessionEngine {
     retained_properties: BTreeMap<String, Properties>,
     retained_expiry: BTreeMap<String, u64>,
     config: SessionConfig,
-    sessions: BTreeMap<String, Session>,
+    sessions: BTreeMap<String, Box<Session>>,
     retained: RetainedStore,
     wills: BTreeMap<String, WillRecord>,
     shared_cursors: BTreeMap<String, String>,
@@ -481,8 +481,9 @@ impl SessionEngine {
                 }
                 // Reserve the exact identifier in the existing allocator rather
                 // than allocating a replacement and changing delivery identity.
-                session.outgoing.identifiers.used[usize::from(id.get())] = true;
-                session.outgoing.identifiers.count += 1;
+                if !session.outgoing.identifiers.reserve(id) {
+                    return Err(invalid_record("duplicate outgoing identifier"));
+                }
                 session.outgoing.pending.insert(id, state);
                 session.outgoing.order.push_back(id);
             }
@@ -490,7 +491,7 @@ impl SessionEngine {
                 engine.validate_message(&message)?;
                 session.queued.push_back(message);
             }
-            engine.sessions.insert(record.client_id, session);
+            engine.sessions.insert(record.client_id, Box::new(session));
         }
         let mut topics = std::collections::BTreeSet::new();
         for retained in envelope.retained {

@@ -10,8 +10,41 @@ from unittest import mock
 import unittest
 
 from metrics import cpu_seconds, distribution, summarize, process_sample
-from run import Workload, campaign, environment, phase
+from run import Workload, campaign, environment, parse_arguments, phase
 from wire import frame, string, validate_ack
+import connections
+
+
+class ArgumentTests(unittest.TestCase):
+    def test_retired_profile_flag_is_refused_before_any_launch(self):
+        argv = ['run.py', '--binary', '/nonexistent', '--output', '/nonexistent', '--smoke', '--profile']
+        with mock.patch('sys.argv', argv), mock.patch('sys.stderr', io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as raised:
+                parse_arguments()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn('--profile is retired', stderr.getvalue())
+
+
+class ConnectionArgumentTests(unittest.TestCase):
+    def test_smoke_is_small_unpaced_and_exercises_keepalive(self):
+        arguments = connections.parse_arguments(['--binary', 'b', '--output', 'o', '--smoke'])
+        self.assertEqual((arguments.connections, arguments.rate, arguments.keepalive, arguments.hold), (500, 0, 2, 3))
+
+    def test_loopback_port_budget_requires_enough_source_addresses(self):
+        with mock.patch('sys.stderr', io.StringIO()):
+            with self.assertRaises(SystemExit):
+                connections.parse_arguments(['--binary', 'b', '--output', 'o', '--connections', '100000'])
+        arguments = connections.parse_arguments(['--binary', 'b', '--output', 'o', '--connections', '100000',
+                                                 '--source-addresses', '8'])
+        self.assertEqual(connections.source_address(9, 8), ('127.0.0.2', 0))
+        self.assertIsNone(connections.source_address(9, 1))
+        self.assertEqual(arguments.source_addresses, 8)
+
+    def test_persistent_connect_omits_clean_start_and_carries_expiry(self):
+        clean = connections.connect_packet('c', 60, 0)
+        persistent = connections.connect_packet('c', 60, 30)
+        self.assertEqual(clean[8:12], b'\x05\x02\x00\x3c')
+        self.assertEqual(persistent[8:17], b'\x05\x00\x00\x3c\x05\x11\x00\x00\x00')
 
 
 class MetricsTests(unittest.TestCase):

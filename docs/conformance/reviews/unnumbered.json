@@ -1032,13 +1032,13 @@
       "status": "verified",
       "implementation": [
         "crates/mqtt-auth/src/policy.rs:StaticPolicy",
-        "crates/mqtt-transport/src/durable.rs:run_commands"
+        "crates/mqtt-transport/src/durable.rs:authenticate"
       ],
       "tests": [
         "crates/mqtt-auth/src/policy/tests.rs:authenticate_and_authorize_each_resource_kind",
         "crates/mqtt-transport/src/auth_tests.rs:default_anonymous_policy_refuses_supplied_credentials"
       ],
-      "note": "Without enhanced method, existing CONNECT credentials are passed to configured access policy on blocking worker; configured Argon2/ACL and anonymous credential handling tests independently passed. This does not assert TLS authentication support."
+      "note": "Without enhanced method, existing CONNECT credentials are passed to configured access policy on a per-handshake blocking task; configured Argon2/ACL and anonymous credential handling tests independently passed. This does not assert TLS authentication support."
     },
     {
       "id": "U-4.13.1-4812ad8c5d63",

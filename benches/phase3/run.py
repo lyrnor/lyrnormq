@@ -388,11 +388,13 @@ def parse_arguments():
     parser.add_argument('--outbound-capacity', type=int, default=256)
     parser.add_argument('--sample-interval', type=float, default=.05)
     parser.add_argument('--timeout', type=float, default=180)
-    parser.add_argument('--profile', action='store_true', help='opt-in worker/session counters; not formal timing')
+    parser.add_argument('--profile', action='store_true', help='retired in phase4; always refused')
     parser.add_argument('--pilot', action='store_true', help='small campaign with full topology; not formal acceptance')
     parser.add_argument('--broker-write-timeout-ms', type=int, default=10000)
     parser.add_argument('--smoke', action='store_true', help='small topology; never a formal acceptance run')
     arguments = parser.parse_args()
+    if arguments.profile:
+        parser.error('--profile is retired: phase4 removed the worker that wrote the profile report')
     assert set(arguments.cases.split(',')) <= {'concurrent', 'hot', 'many'}
     assert set(arguments.storage.split(',')) <= {'memory', 'sqlite'}
     assert 1 <= arguments.repetitions <= 5 and 1 <= arguments.messages <= 10000

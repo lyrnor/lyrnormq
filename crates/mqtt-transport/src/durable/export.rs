@@ -1,9 +1,19 @@
 //! Offline inspection: merge a stopped broker's rows into one schema7 envelope.
 use super::{model_error, session_config};
 use crate::BrokerConfig;
-use mqtt_session::durable::{SessionEngine, SystemClock, decode_retained_row};
+use mqtt_session::durable::{Clock, SessionEngine, decode_retained_row};
 use mqtt_storage::durable::{Contents, RowLimits, read_contents};
 use std::{io, sync::Arc};
+
+/// Evaluates restored state at its persisted clock floor, so repeated exports
+/// of unchanged rows are byte-identical.
+#[derive(Debug)]
+struct StoredClock;
+impl Clock for StoredClock {
+    fn now_millis(&self) -> u64 {
+        0
+    }
+}
 
 /// Read `config.storage_path` without taking the broker lock and return the
 /// merged schema7 envelope. A container1 database is returned as stored (`None`
@@ -34,7 +44,7 @@ pub fn export_state(config: &BrokerConfig) -> io::Result<Option<Vec<u8>>> {
                 session,
                 bytes,
                 Arc::new(mqtt_auth::AllowAnonymous),
-                Arc::new(SystemClock),
+                Arc::new(StoredClock),
             )
             .map_err(model_error)
         })

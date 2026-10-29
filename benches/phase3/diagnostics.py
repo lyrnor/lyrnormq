@@ -73,7 +73,7 @@ async def drain_stderr(reader, evidence):
 
 
 async def stop_broker(process):
-    """Try SIGINT for blocking-worker profile flush, then bounded hard cleanup."""
+    """Try SIGINT for a graceful shutdown, then bounded hard cleanup."""
     if process.returncode is not None:
         return
     try:

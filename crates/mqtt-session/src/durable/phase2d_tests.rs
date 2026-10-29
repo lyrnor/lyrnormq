@@ -337,8 +337,18 @@ fn empty_poll_reports_revoked_queued_and_inflight_deletion_and_frees_ids() {
     );
     assert!(session.outgoing.order.is_empty());
     assert_eq!(session.outgoing.identifiers.in_use(), 0);
-    assert!(!session.outgoing.identifiers.used[usize::from(first)]);
-    assert!(!session.outgoing.identifiers.used[usize::from(second)]);
+    assert!(
+        !session
+            .outgoing
+            .identifiers
+            .is_used(NonZeroU16::new(first).unwrap())
+    );
+    assert!(
+        !session
+            .outgoing
+            .identifiers
+            .is_used(NonZeroU16::new(second).unwrap())
+    );
     assert!(!state.poll_with_changes("reader").unwrap().changed);
     let restored = SessionEngine::restore_with_access(
         config(),

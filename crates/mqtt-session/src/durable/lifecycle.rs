@@ -214,11 +214,11 @@ impl SessionEngine {
             }
             self.sessions.insert(
                 client_id.into(),
-                Session::new(
+                Box::new(Session::new(
                     self.config,
                     options.session_expiry_interval != 0,
                     principal.clone(),
-                ),
+                )),
             );
         }
         if let Some(will) = will {

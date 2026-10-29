@@ -18,11 +18,11 @@
         "tests/rap_profiles_blackbox.py:test_mixed_retained_publication_has_per_filter_qos_rap_and_identifier",
         "tests/rap_profiles_blackbox.py:test_repeated_identifiers_stay_one_per_selected_copy",
         "tests/rap_profiles_blackbox.py:test_no_local_filter_is_excluded_before_mixedness",
-        "tests/rap_profiles_blackbox.py:test_all_ordinary_and_shared_copies_count_atomically_against_capacity",
+        "tests/rap_profiles_blackbox.py:test_recipient_copies_are_admitted_per_partition_against_capacity",
         "tests/rap_profiles_blackbox.py:test_sqlite_old_artifact_captured_collapse_survives_upgrade",
         "tests/subscription_paho.py:test_actual_overlap_repeated_ids_highest_qos_and_nl_filtering"
       ],
-      "note": "Frozen N1 policy selects permitted per-subscription copies for live RETAIN1 eligible ordinary mixed-RAP V5 matches; actual QoS/RETAIN/single-ID results, repeated IDs, NL, shared independence, atomic capacity, recovery and native Paho are checked. Does not assert OASIS uniquely mandates this splitting algorithm; old captured deliveries preserve their metadata."
+      "note": "Frozen N1 policy selects permitted per-subscription copies for live RETAIN1 eligible ordinary mixed-RAP V5 matches; actual QoS/RETAIN/single-ID results, repeated IDs, NL, shared independence, per-recipient capacity (phase4 A1), recovery and native Paho are checked. Does not assert OASIS uniquely mandates this splitting algorithm; old captured deliveries preserve their metadata."
     },
     {
       "id": "MQTT-3.3.1-13",
@@ -34,11 +34,11 @@
         "tests/rap_profiles_blackbox.py:test_mixed_retained_publication_has_per_filter_qos_rap_and_identifier",
         "tests/rap_profiles_blackbox.py:test_repeated_identifiers_stay_one_per_selected_copy",
         "tests/rap_profiles_blackbox.py:test_no_local_filter_is_excluded_before_mixedness",
-        "tests/rap_profiles_blackbox.py:test_all_ordinary_and_shared_copies_count_atomically_against_capacity",
+        "tests/rap_profiles_blackbox.py:test_recipient_copies_are_admitted_per_partition_against_capacity",
         "tests/rap_profiles_blackbox.py:test_sqlite_old_artifact_captured_collapse_survives_upgrade",
         "tests/subscription_paho.py:test_actual_overlap_repeated_ids_highest_qos_and_nl_filtering"
       ],
-      "note": "Frozen N1 policy selects permitted per-subscription copies for live RETAIN1 eligible ordinary mixed-RAP V5 matches; actual QoS/RETAIN/single-ID results, repeated IDs, NL, shared independence, atomic capacity, recovery and native Paho are checked. Does not assert OASIS uniquely mandates this splitting algorithm; old captured deliveries preserve their metadata."
+      "note": "Frozen N1 policy selects permitted per-subscription copies for live RETAIN1 eligible ordinary mixed-RAP V5 matches; actual QoS/RETAIN/single-ID results, repeated IDs, NL, shared independence, per-recipient capacity (phase4 A1), recovery and native Paho are checked. Does not assert OASIS uniquely mandates this splitting algorithm; old captured deliveries preserve their metadata."
     },
     {
       "id": "MQTT-3.1.2-2",

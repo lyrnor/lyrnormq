@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Independent MQTT5 shared-group TCP/outbox tests; SIGKILL is process recovery only."""
 import copy
-from contextlib import closing
 import json
-import sqlite3
 import select
 import socket
 import struct
@@ -16,6 +14,7 @@ from qos_blackbox import ack
 from auth_acl_blackbox import AuthBroker, PASSWORD, policy
 import subscription_blackbox as subscription
 from schema_compat import schema6_fixture
+from state_store import export_bytes, export_state, legacy_blob, write_legacy
 
 
 class SharedBlackbox(unittest.TestCase):
@@ -189,9 +188,7 @@ class SharedBlackbox(unittest.TestCase):
         self.require_sqlite();self.start();pub = self.client('source');sub = self.client('legacy6', expiry=60)
         self.sub(sub, [('legacy/#', 10)], 111);self.publish(pub, 'legacy/a', b'old', retain=True)
         old = self.msg(sub, 'legacy/a', b'old', ids=[111], retain=True, complete=False);self.disconnect(sub);self.disconnect(pub);self.broker.stop(kill=True)
-        with closing(sqlite3.connect(self.broker.db)) as db:
-            data = json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0])
-            legacy = schema6_fixture(data);db.execute('UPDATE broker_snapshot SET data=?', (json.dumps(legacy).encode(),));db.commit()
+        write_legacy(self.broker.db, schema6_fixture(export_state(self.broker.db)))
         self.broker.start();sub = self.client('legacy6', clean=False, expiry=60, present=True)
         value = self.msg(sub, 'legacy/a', b'old', ids=[111], retain=True, dup=True);self.assertEqual(value[3], old[3])
         self.barrier(sub);self.assertEqual(self.snapshot()['schema_version'], 7)
@@ -199,7 +196,7 @@ class SharedBlackbox(unittest.TestCase):
     def test_sqlite_schema7_recipient_markers_are_required_and_validated(self):
         self.require_sqlite();self.start();pub = self.client('source');sub = self.client('strict7', expiry=60);self.group(sub);self.disconnect(sub)
         self.publish(pub, 'work/a', b'offline');self.disconnect(pub);self.broker.stop(kill=True)
-        with closing(sqlite3.connect(self.broker.db)) as db:original = db.execute('SELECT data FROM broker_snapshot').fetchone()[0]
+        original = export_bytes(self.broker.db)
         base = json.loads(original);target = next(i for i, s in enumerate(base['sessions']) if s['client_id'] == 'strict7')
         cases = []
         value = copy.deepcopy(base);del value['sessions'][target]['queued'][0]['shared_subscription'];cases.append(value)
@@ -208,10 +205,10 @@ class SharedBlackbox(unittest.TestCase):
         value = copy.deepcopy(base);value['sessions'][target]['subscriptions'][0]['no_local'] = True;cases.append(value)
         for value in cases:
             damaged = json.dumps(value).encode()
-            with closing(sqlite3.connect(self.broker.db)) as db:db.execute('UPDATE broker_snapshot SET data=?', (damaged,));db.commit()
+            write_legacy(self.broker.db, damaged)
             self.broker.assert_start_fails()
-            with closing(sqlite3.connect(self.broker.db)) as db:self.assertEqual(db.execute('SELECT data FROM broker_snapshot').fetchone()[0], damaged)
-        with closing(sqlite3.connect(self.broker.db)) as db:db.execute('UPDATE broker_snapshot SET data=?', (original,));db.commit()
+            self.assertEqual(legacy_blob(self.broker.db), damaged)
+        write_legacy(self.broker.db, original)
         self.broker.start();sub = self.client('strict7', clean=False, expiry=60, present=True);self.msg(sub, 'work/a', b'offline')
 
 

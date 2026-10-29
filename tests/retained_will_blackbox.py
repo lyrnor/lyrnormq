@@ -9,13 +9,13 @@ import json
 import os
 from pathlib import Path
 import socket
-import sqlite3
 import struct
 import tempfile
 import unittest
 
 from blackbox import frame, receive, string
 from schema_compat import schema3_fixture
+from state_store import export_state, legacy_blob, write_legacy
 from persistence_blackbox import PersistentBroker
 from qos_blackbox import ack, parse_publish
 
@@ -310,37 +310,40 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.barrier(observer)
         self.quiet(observer)
 
-    def test_pending_will_retries_when_full_outbox_drains(self):
+    def test_will_to_full_outbox_drops_only_that_copy(self):
+        # Phase4: Wills fan out after commit; a full recipient loses its copy
+        # and the Will is not kept pending, so the client id is free again.
         self.start('--outbound-capacity', '1', '--max-inflight', '1')
         observer = self.client('pending-observer')
         self.subscribe(observer, [('will/pending', 1)])
+        roomy = self.client('pending-roomy')
+        self.subscribe(roomy, [('will/pending', 1)])
         publisher = self.client('pending-publisher')
         self.publish(publisher, 'will/pending', b'inflight', packet_id=1)
         first = parse_publish(receive(observer))
+        self.complete(roomy, parse_publish(receive(roomy)))
         self.publish(publisher, 'will/pending', b'queued', packet_id=2)
-        owner = self.client('pending-owner', will=('will/pending', b'deferred Will', 1, False))
+        self.complete(roomy, parse_publish(receive(roomy)))
+        owner = self.client('pending-owner', will=('will/pending', b'dropped Will', 1, False))
         owner.close()
-        # Same-ID replacement cannot overwrite a Will blocked by the full queue.
-        replacement = self.broker.socket()
-        self.addCleanup(replacement.close)
-        replacement.sendall(connect_packet(
-            'pending-owner', will=('will/pending', b'new forbidden Will', 1, False)))
-        self.closed(replacement)
+        self.delivery(roomy, 'will/pending', b'dropped Will', 1)
+        replacement = self.client('pending-owner')
+        self.disconnect(replacement)
         self.quiet(observer)
         observer.sendall(ack(0x40, first[3]))
         second = parse_publish(receive(observer))
         self.assertEqual(second[:3], ('will/pending', b'queued', 1))
         observer.sendall(ack(0x40, second[3]))
-        self.delivery(observer, 'will/pending', b'deferred Will', 1)
+        self.barrier(observer)
         self.quiet(observer)
 
-    def test_pending_self_will_resumes_without_new_will_and_drains_after_reconnect(self):
+    def test_self_will_to_own_full_outbox_is_dropped_and_not_resurrected(self):
         if not self.sqlite:
             self.skipTest('SQLite persistent session only')
         self.start('--outbound-capacity', '1', '--max-inflight', '1')
         topic = 'will/persistent-self'
         owner = self.client('self-owner', clean=False,
-                            will=(topic, b'original deferred Will', 1, False))
+                            will=(topic, b'original Will', 1, False))
         self.subscribe(owner, [(topic, 1)])
         publisher = self.client('self-publisher')
         self.publish(publisher, topic, b'inflight before disconnect', packet_id=1)
@@ -350,9 +353,8 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.publish(publisher, topic, b'queued before disconnect', packet_id=2)
         owner.close()
 
-        # The existing persistent outbox itself blocks this client's pending
-        # Will. Resuming without a new Will must retain the old intent and let
-        # the recipient drain, including if CONNECT races EOF cleanup.
+        # The full persistent outbox drops this client's own Will copy (Phase4
+        # per-recipient admission); resuming replays only the accepted work.
         resumed = self.client('self-owner', clean=False, present=True)
         replay = parse_publish(receive(resumed))
         self.assertEqual(replay[:4], first[:4])
@@ -362,7 +364,7 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.assertEqual((queued[0], queued[1], queued[2], queued[4], queued[5]),
                          (topic, b'queued before disconnect', 1, False, False))
         resumed.sendall(ack(0x40, queued[3]))
-        self.delivery(resumed, topic, b'original deferred Will', 1)
+        self.barrier(resumed)
         self.quiet(resumed)
         self.disconnect(resumed)
 
@@ -484,24 +486,23 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.publish(publisher, 'migration', b'legacy queue')
         self.disconnect(publisher)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            current = schema3_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]))
-            self.assertEqual(current['schema_version'], 3)
-            self.assertEqual(current.pop('retained'), [])
-            self.assertEqual(current.pop('wills'), [])
-            current['schema_version'] = 1
-            for session in current['sessions']:
-                self.assertEqual(session.pop('owner'), 'anonymous')
-                for message in session['queued']:
-                    self.assertFalse(message.pop('retain'))
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (json.dumps(current).encode(),))
+        current = schema3_fixture(export_state(self.broker.db))
+        self.assertEqual(current['schema_version'], 3)
+        self.assertEqual(current.pop('retained'), [])
+        self.assertEqual(current.pop('wills'), [])
+        current['schema_version'] = 1
+        for session in current['sessions']:
+            self.assertEqual(session.pop('owner'), 'anonymous')
+            for message in session['queued']:
+                self.assertFalse(message.pop('retain'))
+        write_legacy(self.broker.db, current)
         self.broker.start()
         target = self.client('migration-target', clean=False, present=True)
         self.delivery(target, 'migration', b'legacy queue', 1)
-        with sqlite3.connect(self.broker.db) as db:
-            migrated = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
-            self.assertEqual(migrated['schema_version'], 7)
-            self.assertTrue(all(s['owner'] == 'anonymous' for s in migrated['sessions']))
+        self.assertIsNone(legacy_blob(self.broker.db))
+        migrated = export_state(self.broker.db)
+        self.assertEqual(migrated['schema_version'], 7)
+        self.assertTrue(all(s['owner'] == 'anonymous' for s in migrated['sessions']))
 
 
 if __name__ == '__main__':

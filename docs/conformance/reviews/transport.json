@@ -141,7 +141,7 @@
       "id": "MQTT-3.1.4-2",
       "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/durable.rs:run_commands",
+        "crates/mqtt-transport/src/durable.rs:authenticate",
         "crates/mqtt-transport/src/durable/network/authentication.rs:handshake_reply"
       ],
       "tests": [
@@ -154,7 +154,7 @@
       "id": "MQTT-3.1.4-3",
       "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/durable.rs:run_commands",
+        "crates/mqtt-transport/src/durable/actor.rs:install",
         "crates/mqtt-transport/src/durable/network.rs:connection"
       ],
       "tests": [

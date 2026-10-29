@@ -321,7 +321,9 @@ class PersistenceBlackbox(unittest.TestCase):
             resumed.sendall(ack(0x40, packet[3]))
         self.barrier(resumed)
 
-    def test_pubrel_fanout_limit_rolls_back_all_recipients_and_source_state(self):
+    def test_pubrel_fanout_drops_only_the_full_recipient_copy(self):
+        # Phase4 per-recipient admission: PUBCOMP follows once every recipient
+        # has decided; a full queue loses only its own copy.
         self.broker.extra_args = ['--outbound-capacity', '1']
         self.broker.start()
         first = self.client('a-atomic-target')
@@ -334,26 +336,25 @@ class PersistenceBlackbox(unittest.TestCase):
         filler = self.client('filler', clean=True)
         self.incoming(filler, 'fill', b'occupies the queue')
         source = self.client('atomic-source')
-        source.sendall(publish('transaction/item', b'atomic fanout', 2, 7))
+        source.sendall(publish('transaction/item', b'per-recipient fanout', 2, 7))
         self.assertEqual(receive(source), (0x50, b'\x00\x07'))
         source.sendall(ack(0x62, 7))
-        self.closed(source)  # Full second target prevents successful PUBCOMP.
+        self.assertEqual(receive(source), (0x70, b'\x00\x07'))
         self.broker.restart_after_crash()
         first = self.client('a-atomic-target', present=True)
-        self.quiet(first)  # The earlier fanout target must not be partially committed.
+        delivered = parse_publish(receive(first))
+        self.assertEqual(delivered[:3], ('transaction/item', b'per-recipient fanout', 2))
+        self.complete(first, delivered)
         full = self.client('z-full-target', present=True)
         filled = parse_publish(receive(full))
         self.assertEqual(filled[:3], ('fill', b'occupies the queue', 1))
         self.complete(full, filled)
+        self.quiet(full)
         source = self.client('atomic-source', present=True)
         source.sendall(ack(0x62, 7))
         self.assertEqual(receive(source), (0x70, b'\x00\x07'))
-        for target in (first, full):
-            delivered = parse_publish(receive(target))
-            self.assertEqual(delivered[:3], ('transaction/item', b'atomic fanout', 2))
-            self.complete(target, delivered)
 
-    def test_offline_queue_overflow_is_not_acknowledged(self):
+    def test_offline_queue_overflow_drops_only_the_excess_copy(self):
         self.broker.extra_args = ['--outbound-capacity', '2']
         self.broker.start()
         sub = self.client('full-queue')
@@ -362,8 +363,7 @@ class PersistenceBlackbox(unittest.TestCase):
         publisher = self.client('full-publisher', clean=True)
         self.incoming(publisher, 'full', b'one', packet_id=1)
         self.incoming(publisher, 'full', b'two', packet_id=2)
-        publisher.sendall(publish('full', b'excess', 1, 3))
-        self.closed(publisher)  # Any PUBACK here fails the test.
+        self.incoming(publisher, 'full', b'excess', packet_id=3)
         self.broker.restart_after_crash()
         resumed = self.client('full-queue', present=True)
         messages = [parse_publish(receive(resumed)), parse_publish(receive(resumed))]
@@ -402,28 +402,19 @@ class PersistenceBlackbox(unittest.TestCase):
         self.broker.assert_start_fails()
 
     def snapshot_blob(self):
-        """Discover a BLOB cell for corruption tests, without fixing table names."""
+        """The single per-session row BLOB (container2) used for corruption tests."""
         with sqlite3.connect(self.broker.db) as db:
-            tables = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
-            found = []
-            for (table,) in tables:
-                quoted = '"' + table.replace('"', '""') + '"'
-                for column in db.execute(f'PRAGMA table_info({quoted})'):
-                    if column[2].upper() == 'BLOB':
-                        col = '"' + column[1].replace('"', '""') + '"'
-                        value = db.execute(f'SELECT {col} FROM {quoted}').fetchone()
-                        if value and value[0] is not None:
-                            found.append((quoted, col, bytes(value[0])))
-            self.assertEqual(len(found), 1, 'expected one opaque durable snapshot BLOB')
-            return found[0]
+            rows = db.execute('SELECT rowid, data FROM sessions').fetchall()
+        self.assertEqual(len(rows), 1, 'expected one persistent session row')
+        return '"sessions"', '"data"', rows[0][0], bytes(rows[0][1])
 
     def test_corrupt_snapshot_is_rejected_instead_of_reset(self):
         self.broker.start()
         self.client('corruption-session')
         self.broker.stop()
-        table, column, _ = self.snapshot_blob()
+        table, column, rowid, _ = self.snapshot_blob()
         with sqlite3.connect(self.broker.db) as db:
-            db.execute(f'UPDATE {table} SET {column}=?', (b'not a session snapshot',))
+            db.execute(f'UPDATE {table} SET {column}=? WHERE rowid=?', (b'not a session snapshot', rowid))
         self.broker.assert_start_fails()
 
     def test_killed_uncommitted_sql_transaction_preserves_previous_snapshot(self):
@@ -431,15 +422,15 @@ class PersistenceBlackbox(unittest.TestCase):
         sock = self.client('sql-rollback')
         self.subscribe(sock, 'rollback')
         self.broker.stop()
-        table, column, prior = self.snapshot_blob()
+        table, column, rowid, prior = self.snapshot_blob()
         child_code = '''import signal, sqlite3, sys
 conn = sqlite3.connect(sys.argv[1])
 conn.execute('BEGIN IMMEDIATE')
-conn.execute('UPDATE ' + sys.argv[2] + ' SET ' + sys.argv[3] + '=?', (b'uncommitted corruption',))
+conn.execute('UPDATE ' + sys.argv[2] + ' SET ' + sys.argv[3] + '=? WHERE rowid=?', (b'uncommitted corruption', int(sys.argv[4])))
 print('UPDATED', flush=True)
 signal.pause()
 '''
-        child = subprocess.Popen([sys.executable, '-c', child_code, str(self.broker.db), table, column],
+        child = subprocess.Popen([sys.executable, '-c', child_code, str(self.broker.db), table, column, str(rowid)],
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             self.assertEqual(child.stdout.readline(), 'UPDATED\n')
@@ -451,7 +442,7 @@ signal.pause()
                 child.wait()
             child.stdout.close()
             child.stderr.close()
-        self.assertEqual(self.snapshot_blob()[2], prior)
+        self.assertEqual(self.snapshot_blob()[3], prior)
         self.broker.start()
         resumed = self.client('sql-rollback', present=True)
         publisher = self.client('rollback-publisher', clean=True)

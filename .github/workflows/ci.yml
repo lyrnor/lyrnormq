@@ -20,6 +20,8 @@ jobs:
       - run: python3 tests/acceptance_guard_negative.py
       - run: python3 benches/phase3/test_driver.py
       - run: python3 benches/phase3/test_diagnostics.py
+      - run: python3 benches/phase3/connections.py --binary target/debug/rmqtt --output /tmp/rmqtt-connections-memory.json --smoke
+      - run: python3 benches/phase3/connections.py --binary target/debug/rmqtt --output /tmp/rmqtt-connections-sqlite.json --smoke --storage sqlite --session-expiry 60
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
       - run: python3 tests/persistence_blackbox.py

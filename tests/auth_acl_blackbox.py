@@ -10,7 +10,6 @@ import json
 import os
 from pathlib import Path
 import socket
-import sqlite3
 import struct
 import tempfile
 import time
@@ -18,6 +17,7 @@ import unittest
 
 from blackbox import frame, receive, string
 from schema_compat import schema3_fixture
+from state_store import export_state, write_legacy
 from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import FeatureBroker, publication
 
@@ -77,8 +77,7 @@ class AuthBroker(FeatureBroker):
         return command
 
     def snapshot(self):
-        with sqlite3.connect(self.db) as db:
-            return json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
+        return export_state(self.db)
 
 
 class AuthAclBlackbox(unittest.TestCase):
@@ -528,17 +527,23 @@ class AuthAclBlackbox(unittest.TestCase):
         self.assertEqual(self.session('awaitcomp-reader')['outgoing'], [])
         self.quiet(restored)
 
-    def test_pending_will_without_session_keeps_owner_binding(self):
+    def test_pending_delayed_will_keeps_owner_binding(self):
+        # Phase4 no longer defers Wills behind full queues. A Will Delay
+        # Interval keeps the Will pending only while the session survives,
+        # because session end publishes the Will (MQTT 5 3.1.3.2.2).
         self.require_sqlite()
-        self.start('--outbound-capacity', '1', '--max-inflight', '1')
+        self.start()
         observer = self.client('pending-recipient', 'admin')
         self.subscribe(observer, [('allowed/pending', 1)])
-        publisher = self.client('pending-writer', 'admin')
-        self.publish(publisher, 'allowed/pending', b'inflight', packet_id=1)
-        first = parse_publish(receive(observer))
-        self.publish(publisher, 'allowed/pending', b'queued', packet_id=2)
-        source = self.client('pending-source',
-                             will=('allowed/pending', b'owned pending Will', 1, False))
+        data = b'owned pending Will'
+        payload = (string('pending-source') + bytes([5, 0x18]) + struct.pack('!I', 2)
+                   + string('allowed/pending') + struct.pack('!H', len(data)) + data
+                   + string('alice') + struct.pack('!H', len(PASSWORD)) + PASSWORD)
+        source = self.raw()
+        source.sendall(frame(0x10, string('MQTT') + bytes([5, 2 | 4 | 8 | 128 | 64]) + b'\x00\x1e'
+                             + bytes([5, 0x11]) + struct.pack('!I', 10) + payload))
+        header, body = receive(source)
+        self.assertEqual((header, body[:2]), (0x20, b'\x00\x00'))
         source.close()
         deadline = time.monotonic() + 5
         while True:
@@ -550,13 +555,9 @@ class AuthAclBlackbox(unittest.TestCase):
                 self.fail('did not observe committed pending Will')
             time.sleep(.01)
         self.assertEqual(pending['owner'], 'user:alice')
-        self.assertFalse(any(s['client_id'] == 'pending-source' for s in state['sessions']))
         self.refused('pending-source', 5, user='bob')
-        observer.sendall(ack(0x40, first[3]))
-        second = parse_publish(receive(observer))
-        self.assertEqual(second[:3], ('allowed/pending', b'queued', 1))
-        observer.sendall(ack(0x40, second[3]))
-        self.delivery(observer, 'allowed/pending', b'owned pending Will', 1)
+        observer.settimeout(5)
+        self.delivery(observer, 'allowed/pending', data, 1)
         self.quiet(observer)
 
     def test_schema2_migration_binds_anonymous_and_never_first_authenticated_claimant(self):
@@ -570,13 +571,12 @@ class AuthAclBlackbox(unittest.TestCase):
         self.publish(publisher, 'allowed/legacy', b'legacy retained and offline', retain=True)
         self.disconnect(publisher)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            value = schema3_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]))
-            self.assertEqual(value['schema_version'], 3)
-            value['schema_version'] = 2
-            for record in value['sessions'] + value['wills']:
-                self.assertEqual(record.pop('owner'), 'anonymous')
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (json.dumps(value).encode(),))
+        value = schema3_fixture(export_state(self.broker.db))
+        self.assertEqual(value['schema_version'], 3)
+        value['schema_version'] = 2
+        for record in value['sessions'] + value['wills']:
+            self.assertEqual(record.pop('owner'), 'anonymous')
+        write_legacy(self.broker.db, value)
         self.broker.start()
         legacy = self.client('legacy-owned', user=None, password=None, clean=False, present=True)
         self.delivery(legacy, 'allowed/legacy', b'legacy retained and offline', 1)

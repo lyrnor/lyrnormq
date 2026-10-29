@@ -107,6 +107,8 @@ struct Restored {
     store: Option<RowStore>,
     partitions: Vec<(String, SessionEngine, Option<Vec<u8>>)>,
     retained: Vec<RetainedEntry>,
+    /// Committed by the restore rows; dispatched once every actor exists.
+    publications: Vec<Publication>,
 }
 
 fn storage_error(error: impl std::fmt::Display) -> io::Error {
@@ -228,6 +230,7 @@ fn restore(
         .unwrap_or(0);
     let mut changes = Vec::new();
     let mut recovered = Vec::with_capacity(partitions.len());
+    let mut publications = Vec::new();
     for (client, mut engine, row) in partitions {
         engine.observe_clock_floor(floor);
         if !seeded {
@@ -235,6 +238,7 @@ fn restore(
             engine.reconcile_authorization().map_err(model_error)?;
             engine.recover_wills().map_err(io::Error::other)?;
         }
+        publications.extend(engine.take_publications());
         let current = if store.is_some() && engine.has_persistent_state() {
             Some(engine.snapshot().map_err(io::Error::other)?)
         } else {
@@ -259,6 +263,7 @@ fn restore(
         store,
         partitions: recovered,
         retained,
+        publications,
     })
 }
 
@@ -316,10 +321,24 @@ impl Broker {
             alive: Mutex::new(Some(alive)),
             finished: tokio::sync::Mutex::new(finished),
         });
+        // Index every restored subscription before any actor runs its first
+        // tick, so recovered Wills route to subscribers spawned later.
+        for (client, engine, _) in &restored.partitions {
+            if let Some(filters) = engine.subscription_filters().remove(client) {
+                broker.index.replace(client, &filters);
+            }
+        }
         for (client, engine, row) in restored.partitions {
             let mut shard = broker.registry.shard(&client);
             let handle = broker.spawn_actor(&client, engine, row)?;
             shard.insert(client, handle);
+        }
+        for publication in restored.publications {
+            let _ = broker.apply_retained(&publication).await;
+            if let Some(fanout) = broker.dispatch(Arc::new(publication), false) {
+                let completing = Arc::clone(&broker);
+                tokio::spawn(async move { completing.complete(fanout).await });
+            }
         }
         Ok(broker)
     }
@@ -580,23 +599,37 @@ impl Broker {
             .retained_order
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        self.retained
-            .apply(
-                entry.topic,
-                entry.payload,
-                entry.qos,
-                RetainedMeta {
-                    properties: entry.properties,
-                    expires_at: entry.expires_at,
-                },
-            )
-            .map_err(|error| model_error(EngineError::Retained(error)))?;
-        match (&self.storage, permit, row) {
-            (Some(storage), Some(permit), Some(row)) => {
-                Ok(Some(storage.submit(permit, vec![row])?))
-            }
-            _ => Ok(None),
+        // Expired entries must not hold capacity until the periodic prune.
+        let mut changes = Vec::new();
+        if self.retained.len() >= self.config.max_retained {
+            let now = self.clock.now_millis();
+            changes.extend(
+                self.retained
+                    .prune(|meta| meta.expires_at.is_none_or(|at| at > now))
+                    .into_iter()
+                    .map(RowChange::DeleteRetained),
+            );
         }
+        let applied = self.retained.apply(
+            entry.topic,
+            entry.payload,
+            entry.qos,
+            RetainedMeta {
+                properties: entry.properties,
+                expires_at: entry.expires_at,
+            },
+        );
+        if applied.is_ok() {
+            changes.extend(row);
+        }
+        let outcome = match (&self.storage, permit) {
+            (Some(storage), Some(permit)) if !changes.is_empty() => {
+                Some(storage.submit(permit, changes)?)
+            }
+            _ => None,
+        };
+        applied.map_err(|error| model_error(EngineError::Retained(error)))?;
+        Ok(outcome)
     }
 
     /// Wait for a retained row queued by [`Self::apply_retained`].

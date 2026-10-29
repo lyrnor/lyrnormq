@@ -129,17 +129,22 @@ pub(super) struct Output {
     completion: Option<Ticket>,
     written: Option<oneshot::Sender<()>>,
 }
-fn outgoing(frame: Frame, credits: &SharedCredits) -> io::Result<Output> {
+fn outgoing(frame: Frame, credits: &SharedCredits) -> io::Result<Box<Output>> {
     let completion = locked(credits)?.completion(&frame);
-    Ok(Output {
+    Ok(Box::new(Output {
         frame,
         lease: None,
         completion,
         written: None,
-    })
+    }))
 }
-fn delivery_output(delivery: Delivery, client: String, generation: u64, worker: Worker) -> Output {
-    Output {
+fn delivery_output(
+    delivery: Delivery,
+    client: String,
+    generation: u64,
+    worker: Worker,
+) -> Box<Output> {
+    Box::new(Output {
         frame: delivery.frame,
         lease: Some(Lease {
             client,
@@ -151,9 +156,9 @@ fn delivery_output(delivery: Delivery, client: String, generation: u64, worker: 
         }),
         completion: None,
         written: None,
-    }
+    })
 }
-async fn begin_output(mut message: Output) -> io::Result<Option<Output>> {
+async fn begin_output(mut message: Box<Output>) -> io::Result<Option<Box<Output>>> {
     let Some(lease) = message.lease.take() else {
         return Ok(Some(message));
     };
@@ -178,12 +183,12 @@ async fn begin_output(mut message: Output) -> io::Result<Option<Output>> {
         return Ok(None);
     };
     delivery.refresh_remaining(&mut frame, SystemClock.now_millis());
-    Ok(Some(Output {
+    Ok(Some(Box::new(Output {
         frame,
         lease: None,
         completion: message.completion,
         written: message.written,
-    }))
+    })))
 }
 fn frame_for(version: ProtocolVersion, packet: Packet) -> Frame {
     match version {
@@ -236,7 +241,7 @@ struct WriterLimits {
 }
 fn spawn_writer(
     mut writer: OwnedWriteHalf,
-    mut output: mpsc::Receiver<Output>,
+    mut output: mpsc::Receiver<Box<Output>>,
     mut terminal: watch::Receiver<Option<Frame>>,
     credits: SharedCredits,
     limits: WriterLimits,
@@ -339,7 +344,7 @@ struct Context<'a> {
     version: &'a mut Option<ProtocolVersion>,
     connected: &'a mut bool,
     authenticating: &'a mut bool,
-    output: &'a mpsc::Sender<Output>,
+    output: &'a mpsc::Sender<Box<Output>>,
     terminal: &'a watch::Sender<Option<Frame>>,
     credits: &'a SharedCredits,
     peer_maximum: &'a Arc<AtomicUsize>,
@@ -484,7 +489,7 @@ pub(super) async fn finish_writer(
 #[cfg(test)]
 pub(super) fn test_writer(
     writer: OwnedWriteHalf,
-    output: mpsc::Receiver<Output>,
+    output: mpsc::Receiver<Box<Output>>,
     config: BrokerConfig,
     cancel: watch::Sender<bool>,
 ) -> (
@@ -511,13 +516,13 @@ pub(super) fn test_writer(
     )
 }
 #[cfg(test)]
-pub(super) fn test_output(packet: Packet) -> Output {
-    Output {
+pub(super) fn test_output(packet: Packet) -> Box<Output> {
+    Box::new(Output {
         frame: Frame::v311(packet),
         lease: None,
         completion: None,
         written: None,
-    }
+    })
 }
 
 fn discard_acknowledged(pending: &mut Option<Delivery>, acknowledged: Option<u16>) {
@@ -986,12 +991,12 @@ mod tests {
         let publication = large_frame();
         let expected = encode_frame(&publication).unwrap();
         output
-            .send(Output {
+            .send(Box::new(Output {
                 lease: None,
                 frame: publication,
                 completion: None,
                 written: None,
-            })
+            }))
             .await
             .unwrap();
         output
@@ -1084,12 +1089,12 @@ mod tests {
         let (output, receiver) = mpsc::channel(1);
         let (cancel, _) = watch::channel(false);
         output
-            .send(Output {
+            .send(Box::new(Output {
                 lease: None,
                 frame: large_frame(),
                 completion: None,
                 written: None,
-            })
+            }))
             .await
             .unwrap();
         let (task, terminal) = test_writer(writer, receiver, config, cancel);

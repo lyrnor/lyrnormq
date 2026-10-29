@@ -68,10 +68,11 @@ class Phase3Reliability(unittest.TestCase):
             time.sleep(min(.01, max(0, deadline - time.monotonic())))
         self.fail('connection permit was not released within 3 seconds')
 
-    def rejected_publication(self, name, payload):
+    def dropped_publication(self, name, payload):
+        # Phase4 per-recipient admission: the full reader loses only its copy.
         source = self.client(name)
         source.sendall(wire.publication5('pressure/value', payload, qos=1, packet_id=7))
-        self.terminal(source, 0x97)
+        wire.parse_ack5(receive(source), 0x40, 7)
         source.close()
 
     def healthy_pair(self):
@@ -133,7 +134,7 @@ class Phase3Reliability(unittest.TestCase):
         slow, _, _ = self.pressure_pair()
         healthy_source, observer = self.healthy_pair()
         for index in range(4):
-            self.rejected_publication(f'overflow-{index}', f'rejected-{index}'.encode())
+            self.dropped_publication(f'overflow-{index}', f'dropped-{index}'.encode())
             self.assert_window_bound('slow-reader')
             self.healthy_progress(healthy_source, observer, index)
         # Reconnect/takeover while the old peer has never read either PUBLISH.
@@ -144,7 +145,7 @@ class Phase3Reliability(unittest.TestCase):
         self.message(resumed, 'pressure/value', b'after-drain')
         self.barrier(resumed)
 
-    def test_full_slow_window_rejects_atomic_fanout_but_controls_and_independent_topic_progress(self):
+    def test_full_slow_window_drops_its_copy_while_controls_and_other_recipients_progress(self):
         self.start()
         slow = self.client('slow-window', expiry=600, maximum=1)
         self.subscribe(slow, [('pressure/value', 1)])
@@ -158,9 +159,9 @@ class Phase3Reliability(unittest.TestCase):
                 first = self.message(slow, 'pressure/value', value, complete=False)
         self.assert_window_bound('slow-window')
         for index in range(4):
-            self.rejected_publication(f'atomic-overflow-{index}', f'rejected-{index}'.encode())
-            # PINGRESP must be next: a rejected cross-recipient publication must
-            # not have leaked to the otherwise writable fanout recipient.
+            self.dropped_publication(f'atomic-overflow-{index}', f'dropped-{index}'.encode())
+            # The writable recipient still gets its copy; the full one does not.
+            self.message(observer, 'pressure/value', f'dropped-{index}'.encode(), qos=0)
             self.barrier(observer)
             self.barrier(slow)
             self.healthy_progress(source, observer, index)
@@ -200,7 +201,7 @@ class Phase3Reliability(unittest.TestCase):
         self.require_sqlite()
         self.start()
         slow, _, first = self.pressure_pair('crash-slow', read_first=True)
-        self.rejected_publication('crash-overflow', b'must-not-recover')
+        self.dropped_publication('crash-overflow', b'must-not-recover')
         self.assert_window_bound('crash-slow')
         self.broker.restart_after_crash()
         slow.close()

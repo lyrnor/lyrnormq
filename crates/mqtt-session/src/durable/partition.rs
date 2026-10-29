@@ -147,7 +147,8 @@ impl SessionEngine {
     pub fn into_partitions(self) -> Result<Partitions, EngineError> {
         let clock_floor = self.clock_floor.get();
         let retained = self.retained_entries();
-        let mut owners: BTreeMap<String, (Option<Session>, Option<WillRecord>)> = BTreeMap::new();
+        let mut owners: BTreeMap<String, (Option<Box<Session>>, Option<WillRecord>)> =
+            BTreeMap::new();
         for (client, session) in self.sessions {
             owners.entry(client).or_default().0 = Some(session);
         }

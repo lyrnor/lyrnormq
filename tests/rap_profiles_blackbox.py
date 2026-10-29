@@ -89,18 +89,25 @@ class RapProfilesBlackbox(unittest.TestCase):
         self.publish(pub, 'mixed/value', b'three', retain=True)
         self.copies(target, 'mixed/value', b'three', [(1, False, (11,)), (1, True, (22,)), (1, True, (33,))]);self.quiet(target)
 
-    def test_all_ordinary_and_shared_copies_count_atomically_against_capacity(self):
+    def test_recipient_copies_are_admitted_per_partition_against_capacity(self):
+        # Phase4: a recipient's ordinary copies are one atomic delivery; the
+        # shared copy is a separate delivery. Overflow drops only those copies,
+        # the publisher is acknowledged and the retained value is stored.
         for shared in (False, True):
             with self.subTest(shared=shared):
                 self.start('--outbound-capacity', '2' if shared else '1')
                 pub = self.client('source');target = self.client('target');self.mixed(target)
                 if shared:self.sub(target, [('$share/g/mixed/#', 0x21)], 33, packet_id=3)
-                pub.sendall(wire.publication5('mixed/value', b'rollback', 1, 91, retain=True))
-                self.terminal(pub, 0x97);self.quiet(target)
-                replay = self.client('replay');self.sub(replay, [('mixed/#', 1)]);self.quiet(replay)
+                pub.sendall(wire.publication5('mixed/value', b'stored', 1, 91, retain=True))
+                wire.parse_ack5(receive(pub), 0x40, 91)
+                if shared:
+                    self.copies(target, 'mixed/value', b'stored', [(1, False, (11,)), (1, True, (22,))])
+                self.quiet(target)
+                replay = self.client('replay');self.sub(replay, [('mixed/#', 1)])
+                self.msg(replay, 'mixed/value', b'stored', retain=True);self.quiet(replay)
                 self.broker.stop()
 
-    def test_preexisting_queue_plus_mixed_shared_capacity_is_cross_recipient_atomic(self):
+    def test_preexisting_queue_drops_only_the_overflowing_shared_copy(self):
         self.start('--outbound-capacity', '3');pub = self.client('source')
         witness = self.client('a-witness');self.sub(witness, [('mixed/#', 1)], 44)
         blocked = self.client('z-blocked', expiry=60, maximum=1);self.mixed(blocked)
@@ -109,11 +116,15 @@ class RapProfilesBlackbox(unittest.TestCase):
         self.msg(witness, 'mixed/value', b'old', 1, [44])
         first = self.msg(blocked, 'mixed/value', b'old', 1, [11, 22], complete=False)
         self.quiet(blocked)
-        pub.sendall(wire.publication5('mixed/value', b'rollback', 1, 92, retain=True))
-        self.terminal(pub, 0x97);self.quiet(witness);self.quiet(blocked)
+        pub.sendall(wire.publication5('mixed/value', b'new', 1, 92, retain=True))
+        wire.parse_ack5(receive(pub), 0x40, 92)
+        self.msg(witness, 'mixed/value', b'new', 1, [44]);self.quiet(witness)
         self.complete(blocked, first)
-        self.msg(blocked, 'mixed/value', b'old', 1, [33]);self.quiet(blocked)
-        replay = self.client('replay');self.sub(replay, [('mixed/#', 1)]);self.quiet(replay)
+        self.msg(blocked, 'mixed/value', b'old', 1, [33])
+        self.msg(blocked, 'mixed/value', b'new', 1, [11])
+        self.msg(blocked, 'mixed/value', b'new', 1, [22], retain=True);self.quiet(blocked)
+        replay = self.client('replay');self.sub(replay, [('mixed/#', 1)])
+        self.msg(replay, 'mixed/value', b'new', retain=True);self.quiet(replay)
 
     def test_receive_maximum_and_captured_metadata_survive_unsubscribe(self):
         self.start();pub = self.client('source');target = self.client('target', expiry=60, maximum=1)

@@ -1,5 +1,8 @@
 //! Phase4 session-actor lifecycle, capacity and fan-out regressions.
-use super::tests::{Database, connect, handle, poll, publication, stop, stored, subscribe, worker};
+use super::tests::{
+    Database, connect, connect_with_will, handle, poll, publication, stop, stored, subscribe, will,
+    worker,
+};
 use super::*;
 
 async fn eventually(mut condition: impl FnMut() -> bool) {
@@ -63,6 +66,40 @@ async fn persistent_actor_survives_disconnect_and_keeps_queue() {
     stop(worker, task).await;
     let exported = stored(&db.0, &config).unwrap();
     assert!(std::str::from_utf8(&exported).unwrap().contains("keeper"));
+}
+
+#[tokio::test]
+async fn active_will_left_by_an_unclean_stop_is_published_on_restart() {
+    let db = Database::new();
+    let config = db.config();
+    let (first, task) = worker(config.clone()).await;
+    connect(&first, "target", 1, false).await;
+    subscribe(&first, "target", 1).await;
+    first
+        .request(Operation::Disconnect {
+            client: "target".into(),
+            generation: 1,
+            graceful: true,
+        })
+        .await
+        .unwrap();
+    connect_with_will(&first, "owner", 2, Some(will("a", b"crash", false))).await;
+    // Stopping actors never publishes Wills, so the rows match a crash.
+    stop(first, task).await;
+    let (second, task) = worker(config).await;
+    connect(&second, "target", 3, false).await;
+    let delivered = timeout(Duration::from_secs(2), async {
+        loop {
+            if let Some(packet) = poll(&second, "target", 3).await {
+                break packet;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(matches!(delivered, Packet::Publish { payload, .. } if payload == b"crash"));
+    stop(second, task).await;
 }
 
 #[tokio::test]
@@ -186,6 +223,100 @@ async fn shared_group_qos1_delivers_exactly_one_copy_per_publication() {
         }
     }
     assert_eq!(copies, 4, "each publication reaches exactly one member");
+    stop(worker, task).await;
+}
+
+#[derive(Debug)]
+struct ManualClock(std::sync::atomic::AtomicU64);
+impl mqtt_session::durable::Clock for ManualClock {
+    fn now_millis(&self) -> u64 {
+        self.0.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+#[tokio::test]
+async fn expired_retained_entry_frees_capacity_before_the_periodic_prune() {
+    let config = BrokerConfig {
+        max_retained: 1,
+        ..BrokerConfig::default()
+    };
+    let clock = Arc::new(ManualClock(std::sync::atomic::AtomicU64::new(10_000)));
+    let broker = Broker::start(config, clock.clone(), None).await.unwrap();
+    let (worker, task) = super::tests::wrap(broker);
+    connect_v5(&worker, "source", 1).await;
+    let retained = |topic: &str, id: u16, expiry: u32| {
+        let mut frame = Frame::v5(Packet::Publish {
+            topic: topic.into(),
+            payload: vec![1],
+            qos: 1,
+            packet_id: Some(id),
+            dup: false,
+            retain: true,
+        });
+        frame.properties = vec![Property::MessageExpiryInterval(expiry)];
+        frame
+    };
+    let publish = |frame: Frame| {
+        let worker = worker.clone();
+        async move {
+            let Reply::Frames(frames) = worker
+                .request(Operation::HandleFrameAt {
+                    client: "source".into(),
+                    generation: 1,
+                    frame,
+                    received_at_millis: 10_000,
+                })
+                .await
+                .unwrap()
+            else {
+                panic!("frames expected")
+            };
+            frames
+        }
+    };
+    let first = publish(retained("first", 1, 1)).await;
+    assert_eq!(first[0].packet, Packet::PubAck { packet_id: 1 });
+    clock.0.store(12_000, std::sync::atomic::Ordering::SeqCst);
+    let second = publish(retained("second", 2, 60)).await;
+    assert_eq!(second[0].packet, Packet::PubAck { packet_id: 2 });
+    assert_eq!(second[0].reason_code, ReasonCode::SUCCESS);
+    stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn disconnect_protocol_error_is_reported_but_unknown_client_is_done() {
+    let (worker, task) = worker(BrokerConfig::default()).await;
+    connect_v5(&worker, "zero", 1).await;
+    // Session expiry 0 at CONNECT cannot become positive at DISCONNECT.
+    let Err(error) = worker
+        .request(Operation::DisconnectOptions {
+            client: "zero".into(),
+            generation: 1,
+            graceful: true,
+            expiry: Some(1),
+        })
+        .await
+    else {
+        panic!("protocol error expected")
+    };
+    assert_eq!(
+        error
+            .get_ref()
+            .and_then(|inner| inner.downcast_ref::<WorkerFailure>())
+            .map(|failure| failure.reason),
+        Some(ReasonCode::PROTOCOL_ERROR)
+    );
+    assert!(matches!(
+        worker
+            .request(Operation::Disconnect {
+                client: "never-connected".into(),
+                generation: 9,
+                graceful: true,
+            })
+            .await
+            .unwrap(),
+        Reply::Done
+    ));
     stop(worker, task).await;
 }
 

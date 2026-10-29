@@ -5,12 +5,10 @@ RMQTT_TEST_STORAGE_PATH selects SQLite; every method owns a fresh DB. Barriers a
 ACKs, confirmed output, or committed snapshots. Bounded silence is only an unwanted
 output observation. SIGKILL tests do not simulate physical power failure.
 """
-from contextlib import closing
 import json
 import os
 from pathlib import Path
 import socket
-import sqlite3
 import struct
 import tempfile
 import time
@@ -21,6 +19,7 @@ from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import FeatureBroker
 from auth_acl_blackbox import AuthBroker, PASSWORD, connect_packet as auth311
 from schema_compat import schema3_fixture, schema4_fixture, default_subscription
+from state_store import export_bytes, export_state, legacy_blob, write_legacy
 
 
 def varint(value):
@@ -328,12 +327,11 @@ class Mqtt5Blackbox(unittest.TestCase):
             self.skipTest('SQLite process persistence only')
 
     def snapshot(self):
-        with closing(sqlite3.connect(self.broker.db)) as db:
-            return json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
+        return export_state(self.broker.db)
 
     def wait_snapshot(self, predicate, timeout=3):
-        # TCP connect readiness does not imply that the startup worker has committed.
-        # Observe SQL only: no MQTT request can lazily expire/reconcile state for us.
+        # TCP connect readiness does not imply that startup restore has committed.
+        # Observe stored rows only: no MQTT request can lazily expire/reconcile state for us.
         deadline = time.monotonic() + timeout
         value = self.snapshot()
         while not predicate(value) and time.monotonic() < deadline:
@@ -770,7 +768,7 @@ class Mqtt5Blackbox(unittest.TestCase):
                 self.barrier(reset)
                 self.quiet(reset)
 
-    def test_offline_last_v5_recipient_is_preflighted_before_legacy_source_ack(self):
+    def test_offline_oversize_v5_copy_is_dropped_and_legacy_source_acknowledged(self):
         from retained_will_blackbox import publication
         self.start('--max-packet-size', '64')
         target = self.client('offline-v5-size', expiry=60)
@@ -780,7 +778,8 @@ class Mqtt5Blackbox(unittest.TestCase):
         wire = publication('a', b'v' * 57, 1, 9)
         self.assertEqual(len(wire), 64)
         source.sendall(wire)
-        self.closed(source)
+        # Phase4 per-recipient admission: only the oversize copy is dropped.
+        self.assertEqual(receive(source), (0x40, b'\x00\x09'))
         if self.sqlite:
             record = next(s for s in self.snapshot()['sessions'] if s['client_id'] == 'offline-v5-size')
             self.assertEqual(record['queued'], [])
@@ -848,7 +847,7 @@ class Mqtt5Blackbox(unittest.TestCase):
                 self.disconnect(resumed, version=4)
                 self.client('replay-size', clean=False, expiry=30, present=True)
 
-    def test_oversize_v5_delivery_and_retained_replay_abort_without_partial_effects(self):
+    def test_oversize_v5_copy_drops_alone_and_retained_replay_aborts_subscribe(self):
         from retained_will_blackbox import publication
         self.start('--max-packet-size', '64')
         legacy = self.client('atomic-old', version=4)
@@ -857,13 +856,15 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.subscribe(modern, [('s', 1)])
         source = self.client('atomic-source', version=4)
         source.sendall(publication('s', b'z' * 57, 1, 9, True))
-        self.closed(source)
-        self.quiet(legacy)
+        # Phase4 per-recipient admission: the v3.1.1 copy fits, the v5 copy is
+        # dropped, the source is acknowledged and the retained value is stored.
+        self.assertEqual(receive(source), (0x40, b'\x00\x09'))
+        self.message(legacy, 's', b'z' * 57, version=4)
         self.quiet(modern)
         replay = self.client('atomic-replay')
-        self.subscribe(replay, [('s', 1)])
-        self.quiet(replay)
-        for sock, version in ((legacy, 4), (modern, 5), (replay, 5)):
+        replay.sendall(frame(0x82, b'\0\1' + props() + string('s') + b'\1'))
+        self.terminal(replay, 0x97)
+        for sock, version in ((legacy, 4), (modern, 5)):
             self.disconnect(sock, version)
         store = self.client('store-source', version=4)
         self.publish(store, 's', b'z' * 57, retain=True, version=4)
@@ -1090,10 +1091,7 @@ class Mqtt5Blackbox(unittest.TestCase):
         source.sendall(publication('legacy/pending', b'old pending', 2, 72))
         self.assertEqual(receive(source), (0x50, struct.pack('!H', 72)))
         self.broker.stop(kill=True)
-        with sqlite3.connect(self.broker.db) as db:
-            current = json.loads(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0])
-            legacy = schema3_fixture(current)
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (json.dumps(legacy).encode(),))
+        write_legacy(self.broker.db, schema3_fixture(export_state(self.broker.db)))
         self.broker.start()
         target = self.client('legacy-target', clean=False, expiry=30, present=True)
         replay = self.message(target, 'legacy/retained', b'old inflight', dup=True)
@@ -1113,17 +1111,15 @@ class Mqtt5Blackbox(unittest.TestCase):
         self.subscribe(target, [('required/#', 1)])
         self.disconnect(target)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            original = db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0]
-            current = schema4_fixture(json.loads(original))
-            record = next(s for s in current['sessions'] if s['client_id'] == 'required-deadline')
-            self.assertIsNotNone(record.pop('expires_at'))
-            corrupt = json.dumps(current).encode()
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (corrupt,))
+        original = export_bytes(self.broker.db)
+        current = schema4_fixture(json.loads(original))
+        record = next(s for s in current['sessions'] if s['client_id'] == 'required-deadline')
+        self.assertIsNotNone(record.pop('expires_at'))
+        corrupt = json.dumps(current).encode()
+        write_legacy(self.broker.db, corrupt)
         self.broker.assert_start_fails()
-        with sqlite3.connect(self.broker.db) as db:
-            self.assertEqual(db.execute('SELECT data FROM broker_snapshot WHERE id=1').fetchone()[0], corrupt)
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (original,))
+        self.assertEqual(legacy_blob(self.broker.db), corrupt)
+        write_legacy(self.broker.db, original)
         self.broker.start()
         self.client('required-deadline', clean=False, expiry=30, present=True)
 

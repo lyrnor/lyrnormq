@@ -82,7 +82,7 @@
       "implementation": [
         "crates/mqtt-transport/src/durable/network.rs:drive",
         "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
-        "crates/mqtt-transport/src/durable.rs:run_commands"
+        "crates/mqtt-transport/src/durable/actor.rs:request"
       ],
       "tests": [
         "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
@@ -193,13 +193,13 @@
       "status": "verified",
       "implementation": [
         "crates/mqtt-transport/src/durable.rs:valid_generation",
-        "crates/mqtt-transport/src/durable.rs:run_commands",
+        "crates/mqtt-transport/src/durable/actor.rs:request",
         "crates/mqtt-session/src/durable/mqtt5.rs:begin_delivery"
       ],
       "tests": [
         "crates/mqtt-transport/src/phase2o_transport_tests.rs:stale_generation_ack_and_lease_cannot_release_new_owner_qos2_window"
       ],
-      "note": "Deterministic serialized actor trace: begin outgoing QoS2, queue QoS1, takeover/resume, reject stale PUBREC and BeginDelivery, ignore stale Disconnect, preserve replay ID/DUP, reject stale PUBCOMP after current PUBREC, hold ReceiveMaximum1 through valid current PUBCOMP, then expose next QoS1. Generation and outbox state are checked together, not solely enum transitions. This memory-worker trace is supplemented by Quality crash/SQLite evidence, not a physical-power-loss claim.",
+      "note": "Deterministic serialized actor trace: begin outgoing QoS2, queue QoS1, takeover/resume, reject stale PUBREC and BeginDelivery, ignore stale Disconnect, preserve replay ID/DUP, reject stale PUBCOMP after current PUBREC, hold ReceiveMaximum1 through valid current PUBCOMP, then expose next QoS1. Generation and outbox state are checked together, not solely enum transitions. This in-memory session-actor trace is supplemented by Quality crash/SQLite evidence, not a physical-power-loss claim.",
       "source_paragraphs": []
     },
     {
@@ -541,7 +541,7 @@
       "implementation": [
         "crates/mqtt-transport/src/durable/network.rs:drive",
         "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
-        "crates/mqtt-transport/src/durable.rs:run_commands"
+        "crates/mqtt-transport/src/durable/actor.rs:request"
       ],
       "tests": [
         "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"

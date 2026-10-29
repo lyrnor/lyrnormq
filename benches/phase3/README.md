@@ -117,13 +117,13 @@ are capped8192 bytes. TaskGroup cancels siblings on failure. Socket cleanup and
 broker termination are bounded. Timed-out/cancelled ps subprocesses are killed and reaped. Smoke switches to four subscribers and at most
 four publishers/four filters each and is explicitly labeled.
 
-## Phase3a failure evidence and profiling pilots
+## Phase3a failure evidence and pilots
 
 ```sh
 # Full original topology, shorter campaign; explicitly NOT formal acceptance.
-python3 benches/phase3/run.py --binary /absolute/path/to/profile-enabled-rmqtt \
-  --artifact-source-revision COMMIT --output /tmp/profile-pilot.json \
-  --pilot --profile --cases hot --storage memory --messages 64 --warmup 8 \
+python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
+  --artifact-source-revision COMMIT --output /tmp/pilot.json \
+  --pilot --cases hot --storage memory --messages 64 --warmup 8 \
   --repetitions 1 --session-expiry-seconds 60 --flow-control ack --timeout 60
 python3 benches/phase3/test_diagnostics.py
 ```
@@ -156,23 +156,12 @@ Cleanup errors are secondary when an original failure exists. All budgets remain
 finite; graceful cleanup can add up to the separately bounded socket/process waits
 after the active-case timeout. Temporary DBs/ports are fresh for each run.
 
-`--profile` sets `RMQTT_PROFILE=1` and a per-run temporary profile path. Otherwise
-the child receives explicit `RMQTT_PROFILE=0` and no profile-path variable, so inherited
-shell flags cannot silently instrument a formal run. Shutdown closes client sockets,
-requests SIGINT and waits up to5s for worker flush, then uses a bounded hard kill.
-Profile/stderr are read before removing the temporary directory. Requested profiling
-must yield a valid final report for a successful run; failure records can retain a
-valid checkpoint marked `complete:false`. SIGKILL/checkpoint is not called final.
-
-The bounded1MiB/512-row TSVv1 report contains STATUS/SCOPE/TIMING/OUTCOME/BYTES,
-REQUEST/SPAN/COUNTER, optional ERROR_REASON and exactly one SESSION_JSON object.
-Raw text and parsed counters are saved under `profiling`. Transport counts begin at
-run_commands (setup/warmup/work/cleanup, excluding startup and queue wait); Session
-counters cover the process and can include startup snapshot/restore. Nested elapsed
-spans overlap and must not be added as exclusive CPU percentages. Snapshot bytes
-are successful encoded output; commit bytes are attempted payload, not physical
-disk writes. Profiling itself adds overhead; use uninstrumented same-driver runs
-for formal before/after performance comparisons.
+`--profile` is retired (docs/contracts/phase4.md): the worker that wrote the
+TSV profile report no longer exists, so the flag is refused before any launch.
+The child always receives explicit `RMQTT_PROFILE=0` and no profile-path
+variable, so inherited shell flags cannot silently instrument a formal run.
+Shutdown closes client sockets, requests SIGINT and waits up to5s, then uses a
+bounded hard kill. Stderr is read before removing the temporary directory.
 
 `expected_deliveries` is the entire requested phase plan, not a loss counter.
 `expected_receipts_for_issued` and `expected_receipts_for_acked` separately sum
@@ -183,3 +172,27 @@ and cleanup deliberately interrupts the workload. Subtracting partial receipts
 from any expected value does not prove acknowledged-message loss. No failed-run
 throughput or loss percentage is fabricated. Optional transport queue_wait spans
 cover mailbox-capacity wait plus queue residence and are not actor CPU time.
+
+## Phase4 connection scale
+
+```sh
+python3 benches/phase3/connections.py --binary /absolute/path/to/rmqtt \
+  --output /tmp/conn10k.json --connections 10000 --rate 100 --keepalive 60 --hold 120
+# CI smoke: 500 unpaced clients, 2s keepalive, 3s hold.
+python3 benches/phase3/connections.py --binary target/debug/rmqtt --output /tmp/smoke.json --smoke
+```
+
+Each client opens its own MQTT5 connection (Clean Start, or Session Expiry with
+`--session-expiry`), waits for a success CONNACK, then sends PINGREQ every half
+keepalive until the hold ends and requires each PINGRESP within one keepalive.
+`--rate 0` connects without pacing, bounded by `--concurrency` outstanding
+handshakes. Any refused or timed-out CONNECT, PING timeout or early EOF fails the
+run; failures are counted by kind and no rate or latency is reported for a
+failed phase. `rss_bytes_per_connection` is (held RSS - idle RSS) / connections
+from `ps` samples, not an allocator peak.
+
+The script raises its own descriptor soft limit; the broker inherits it. One
+loopback source address supplies about 16k ephemeral ports, so 100k clients
+need `--source-addresses 7` or more (Linux routes all of 127.0.0.0/8; macOS
+needs `ifconfig lo0 alias` per address and a raised `kern.maxfilesperproc`).
+Cross-host campaigns use emqtt-bench from a separate load generator instead.

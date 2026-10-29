@@ -9,7 +9,6 @@ import hashlib
 import json
 import os
 import socket
-import sqlite3
 import struct
 import time
 import unittest
@@ -19,6 +18,7 @@ from blackbox import frame, receive
 from qos_blackbox import ack
 from auth_acl_blackbox import AuthBroker, PASSWORD
 from schema_compat import schema4_fixture, default_subscription
+from state_store import export_bytes, export_state, legacy_blob, write_legacy
 
 
 class ExpiryWillBlackbox(unittest.TestCase):
@@ -544,9 +544,7 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.publish(pub, 'legacy4', b'unlimited')
         self.disconnect(pub)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            value = schema4_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]))
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (json.dumps(value).encode(),))
+        write_legacy(self.broker.db, schema4_fixture(export_state(self.broker.db)))
         self.broker.start()
         target = self.client('legacy4-target', clean=False, expiry=60, present=True)
         self.message(target, 'legacy4', b'unlimited')
@@ -559,29 +557,25 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.publish(pub, 'legacy4-corrupt', b'old unlimited', retain=True)
         self.disconnect(pub)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            value = schema4_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]))
-            value['retained'][0]['properties'] = [{'MessageExpiryInterval': 60}]
-            damaged = json.dumps(value).encode()
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (damaged,))
+        value = schema4_fixture(export_state(self.broker.db))
+        value['retained'][0]['properties'] = [{'MessageExpiryInterval': 60}]
+        damaged = json.dumps(value).encode()
+        write_legacy(self.broker.db, damaged)
         self.broker.assert_start_fails()
-        with sqlite3.connect(self.broker.db) as db:
-            self.assertEqual(bytes(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]), damaged)
+        self.assertEqual(legacy_blob(self.broker.db), damaged)
 
     def test_legacy_schema4_will_cannot_smuggle_new_relative_message_ttl(self):
         self.require_sqlite()
         self.start()
         self.will_source('legacy4-will', delay=0, retain=True)
         self.broker.stop(kill=True)
-        with sqlite3.connect(self.broker.db) as db:
-            value = schema4_fixture(json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]))
-            self.assertEqual(len(value['wills']), 1)
-            value['wills'][0]['will']['properties'] = [{'MessageExpiryInterval': 60}]
-            damaged = json.dumps(value).encode()
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (damaged,))
+        value = schema4_fixture(export_state(self.broker.db))
+        self.assertEqual(len(value['wills']), 1)
+        value['wills'][0]['will']['properties'] = [{'MessageExpiryInterval': 60}]
+        damaged = json.dumps(value).encode()
+        write_legacy(self.broker.db, damaged)
         self.broker.assert_start_fails()
-        with sqlite3.connect(self.broker.db) as db:
-            self.assertEqual(bytes(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]), damaged)
+        self.assertEqual(legacy_blob(self.broker.db), damaged)
 
     def test_missing_schema5_clock_floor_rejects_startup_without_reset(self):
         self.require_sqlite()
@@ -590,17 +584,14 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.publish(pub, 'clock-floor/value', b'persist', retain=True)
         self.disconnect(pub)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            value = json.loads(db.execute('SELECT data FROM broker_snapshot').fetchone()[0])
+        value = export_state(self.broker.db)
         self.assertEqual(value['schema_version'], 7)
         self.assertIn('clock_floor', value)
         value.pop('clock_floor')
         damaged = json.dumps(value).encode()
-        with sqlite3.connect(self.broker.db) as db:
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (damaged,))
+        write_legacy(self.broker.db, damaged)
         self.broker.assert_start_fails()
-        with sqlite3.connect(self.broker.db) as db:
-            self.assertEqual(bytes(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]), damaged)
+        self.assertEqual(legacy_blob(self.broker.db), damaged)
 
     def test_missing_new_nullable_deadlines_reject_startup_without_reset(self):
         self.require_sqlite()
@@ -609,16 +600,13 @@ class ExpiryWillBlackbox(unittest.TestCase):
         self.publish(pub, 'strict-retain', b'timed', retain=True, properties=[(2, 60)])
         self.disconnect(pub)
         self.broker.stop()
-        with sqlite3.connect(self.broker.db) as db:
-            original = bytes(db.execute('SELECT data FROM broker_snapshot').fetchone()[0])
+        original = export_bytes(self.broker.db)
         value = json.loads(original)
         value['retained'][0].pop('expires_at')
         damaged = json.dumps(value).encode()
-        with sqlite3.connect(self.broker.db) as db:
-            db.execute('UPDATE broker_snapshot SET data=? WHERE id=1', (damaged,))
+        write_legacy(self.broker.db, damaged)
         self.broker.assert_start_fails()
-        with sqlite3.connect(self.broker.db) as db:
-            self.assertEqual(bytes(db.execute('SELECT data FROM broker_snapshot').fetchone()[0]), damaged)
+        self.assertEqual(legacy_blob(self.broker.db), damaged)
 
 
 # Reuse helpers without importing/inheriting the previous 42 test methods.
