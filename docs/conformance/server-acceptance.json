@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "gate_id": "U-7.1.1-56088afba646",
+  "scope": "Pinned MQTT5 OS TCP server, explicit V5 profile; default Both compatibility and two SHOULD exceptions remain qualified. This is finite project acceptance, not certification.",
+  "overall_status": "open",
+  "criteria": [
+    {
+      "id": "G1",
+      "title": "Source completeness",
+      "required": true,
+      "status": "open",
+      "requirements": [
+        "Review authoritative paragraphs/tables and resolve every applicable unnumbered obligation or leave G1 open."
+      ],
+      "evidence": [],
+      "commands": [],
+      "limitations": [
+        "Pending actual evidence."
+      ]
+    },
+    {
+      "id": "G2",
+      "title": "Endpoint directions",
+      "required": true,
+      "status": "open",
+      "requirements": [
+        "Review both endpoint roles and exercise legal/invalid packet/property/reason contexts."
+      ],
+      "evidence": [],
+      "commands": [],
+      "limitations": [
+        "Pending actual evidence."
+      ]
+    },
+    {
+      "id": "G3",
+      "title": "Cross-layer transitions",
+      "required": true,
+      "status": "open",
+      "requirements": [
+        "Verify generation/session/QoS/admission/flow/expiry boundaries with durable outcomes."
+      ],
+      "evidence": [],
+      "commands": [],
+      "limitations": [
+        "Pending actual evidence."
+      ]
+    },
+    {
+      "id": "G4",
+      "title": "Fault recovery",
+      "required": true,
+      "status": "open",
+      "requirements": [
+        "Run actual SQLite failure/contention and crash-restart barriers against acknowledged state."
+      ],
+      "evidence": [],
+      "commands": [],
+      "limitations": [
+        "Pending actual evidence."
+      ]
+    },
+    {
+      "id": "G5",
+      "title": "Fuzz campaigns",
+      "required": true,
+      "status": "open",
+      "requirements": [
+        "Run deterministic mutation and coverage-guided targets with exact budgets and no unresolved crashes."
+      ],
+      "evidence": [],
+      "commands": [],
+      "limitations": [
+        "Pending actual evidence."
+      ]
+    },
+    {
+      "id": "G6",
+      "title": "Unified closure",
+      "required": true,
+      "status": "open",
+      "requirements": [
+        "Pass Rust and client regression, independent review and inventory/reference guards on the final artifact."
+      ],
+      "evidence": [],
+      "commands": [],
+      "limitations": [
+        "Pending actual evidence."
+      ]
+    }
+  ]
+}
