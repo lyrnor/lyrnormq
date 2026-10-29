@@ -1,0 +1,509 @@
+{
+  "schema_version": 1,
+  "scope": "bounded loopback baseline; not saturation/WAN/production SLA",
+  "environment": {
+    "os": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "uname": [
+      "Darwin",
+      "rendeMacBook-Air.local",
+      "27.0.0",
+      "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+      "arm64",
+      "arm"
+    ],
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-apple-darwin\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "cpu_logical": 10,
+    "cpu_model": "Apple M4",
+    "ram_bytes": "17179869184",
+    "ram_note": "bytes; unavailable result retains the command failure reason",
+    "fd_soft_hard": [
+      1048575,
+      9223372036854775807
+    ],
+    "binary": "/private/tmp/rmqtt-p3a-profile-baseline",
+    "binary_sha256": "a6861ff38e011dcbce5d2d58524993305ae00878abcedd3fc5ffe6eb3dc5c897",
+    "driver_source_revision": "b90a5d96a4c9b8fffc09ccca8b31ad9024852ecc",
+    "artifact_source_revision": "3917025",
+    "build_profile": "release",
+    "command": [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "benches/phase3/run.py",
+      "--binary",
+      "/tmp/rmqtt-p3a-profile-baseline",
+      "--artifact-source-revision",
+      "3917025",
+      "--output",
+      "/tmp/rmqtt-p3a-ack-cap8.json",
+      "--pilot",
+      "--profile",
+      "--session-expiry-seconds",
+      "60",
+      "--messages",
+      "256",
+      "--warmup",
+      "8",
+      "--repetitions",
+      "1",
+      "--payload-size",
+      "256",
+      "--flow-control",
+      "ack",
+      "--cases",
+      "hot",
+      "--storage",
+      "memory",
+      "--outbound-capacity",
+      "8",
+      "--timeout",
+      "30"
+    ],
+    "clock": "time.monotonic_ns, one host for send and receive",
+    "percentiles": "nearest rank ceil(p*N), no dropped samples; milliseconds",
+    "rss_method": "broker PID only: ps rss KiB *1024, sampled peak only; client RSS excluded",
+    "cpu_method": "ps process cumulative time; end minus pre-measure sample, not utilization",
+    "sample_interval_seconds": 0.05,
+    "sampling_note": "nominal wait after each ps call; raw timestamps show actual spacing",
+    "storage": "memory volatile or fresh SQLite WAL/synchronous FULL via broker; no power-loss claim"
+  },
+  "parameters": {
+    "binary": "/tmp/rmqtt-p3a-profile-baseline",
+    "output": "/tmp/rmqtt-p3a-ack-cap8.json",
+    "artifact_source_revision": "3917025",
+    "build_profile": "release",
+    "cases": "hot",
+    "storage": "memory",
+    "repetitions": 1,
+    "messages": 256,
+    "warmup": 8,
+    "payload_size": 256,
+    "session_expiry_seconds": 60,
+    "flow_control": "ack",
+    "outbound_capacity": 8,
+    "sample_interval": 0.05,
+    "timeout": 30.0,
+    "profile": true,
+    "pilot": true,
+    "broker_write_timeout_ms": 10000,
+    "smoke": false
+  },
+  "runs": [],
+  "summary": [],
+  "campaign_status": "failed",
+  "failures": [
+    {
+      "context": {
+        "case": "hot",
+        "storage": "memory",
+        "repetition": 1,
+        "binary": "/private/tmp/rmqtt-p3a-profile-baseline",
+        "binary_sha256": "a6861ff38e011dcbce5d2d58524993305ae00878abcedd3fc5ffe6eb3dc5c897",
+        "flow_control": "ack",
+        "pilot": true,
+        "broker_command": [
+          "/private/tmp/rmqtt-p3a-profile-baseline",
+          "--listen",
+          "127.0.0.1:60950",
+          "--protocol",
+          "5",
+          "--max-connections",
+          "256",
+          "--max-sessions",
+          "256",
+          "--max-subscriptions",
+          "128",
+          "--max-inflight",
+          "64",
+          "--outbound-capacity",
+          "8",
+          "--max-packet-size",
+          "8192",
+          "--max-state-bytes",
+          "67108864",
+          "--max-retained",
+          "16",
+          "--topic-alias-maximum",
+          "0",
+          "--handshake-timeout-ms",
+          "10000",
+          "--write-timeout-ms",
+          "10000"
+        ],
+        "topology": {
+          "publishers": 8,
+          "subscribers": 32,
+          "simultaneous_connected_clients": 40,
+          "subscriptions": 32,
+          "filters_per_subscriber": 1,
+          "distribution": "single shared hot topic",
+          "ingress_qos": 1,
+          "subscription_qos": 0,
+          "outstanding_per_publisher": 1
+        },
+        "error_leaves": [
+          {
+            "type": "AssertionError",
+            "message": "expected PUBACK id=16; actual header=0xe0 body=97 reason=0x97"
+          }
+        ]
+      },
+      "stage": "measured",
+      "phases": {
+        "warmup": {
+          "expected_publications": 8,
+          "expected_acknowledgements": 8,
+          "expected_deliveries": 256,
+          "expected_receipts_for_issued": 256,
+          "expected_receipts_for_acked": 256,
+          "issued": 8,
+          "acknowledged": 8,
+          "received": 256
+        },
+        "measured": {
+          "expected_publications": 256,
+          "expected_acknowledgements": 256,
+          "expected_deliveries": 8192,
+          "expected_receipts_for_issued": 640,
+          "expected_receipts_for_acked": 384,
+          "issued": 20,
+          "acknowledged": 12,
+          "received": 96
+        }
+      },
+      "publishers": {
+        "0": {
+          "publisher": 0,
+          "sequence": 16,
+          "packet_id": 17,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640814923333
+        },
+        "1": {
+          "publisher": 1,
+          "sequence": 9,
+          "packet_id": 10,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640543670583
+        },
+        "2": {
+          "publisher": 2,
+          "sequence": 18,
+          "packet_id": 19,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640713623666
+        },
+        "3": {
+          "publisher": 3,
+          "sequence": 11,
+          "packet_id": 12,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640545081625
+        },
+        "4": {
+          "publisher": 4,
+          "sequence": 20,
+          "packet_id": 21,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640818123541
+        },
+        "5": {
+          "publisher": 5,
+          "sequence": 21,
+          "packet_id": 22,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640935649083
+        },
+        "6": {
+          "publisher": 6,
+          "sequence": 14,
+          "packet_id": 15,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640550469291
+        },
+        "7": {
+          "publisher": 7,
+          "sequence": 15,
+          "packet_id": 16,
+          "state": "await_ack",
+          "sent_monotonic_ns": 257640552238708
+        }
+      },
+      "errors": [
+        {
+          "kind": "ack",
+          "stage": "measured",
+          "header": 224,
+          "body_hex": "97",
+          "reason": 151,
+          "publisher": 7,
+          "sequence": 15,
+          "packet_id": 16
+        }
+      ],
+      "elapsed_seconds": 1.270067208,
+      "rss_samples": [
+        {
+          "stage": "idle",
+          "monotonic_ns": 257639926409583,
+          "rss_bytes": 3719168,
+          "cpu_seconds": 0.0
+        },
+        {
+          "stage": "setup",
+          "monotonic_ns": 257640027785916,
+          "rss_bytes": 12402688,
+          "cpu_seconds": 0.12
+        },
+        {
+          "stage": "pre_measure",
+          "monotonic_ns": 257640540962208,
+          "rss_bytes": 13778944,
+          "cpu_seconds": 0.64
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640544126750,
+          "rss_bytes": 13828096,
+          "cpu_seconds": 0.64
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640598385666,
+          "rss_bytes": 13893632,
+          "cpu_seconds": 0.69
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640651775833,
+          "rss_bytes": 13893632,
+          "cpu_seconds": 0.75
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640705161916,
+          "rss_bytes": 13893632,
+          "cpu_seconds": 0.8
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640759014500,
+          "rss_bytes": 13893632,
+          "cpu_seconds": 0.86
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640812638166,
+          "rss_bytes": 13893632,
+          "cpu_seconds": 0.91
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640866298000,
+          "rss_bytes": 13942784,
+          "cpu_seconds": 0.96
+        },
+        {
+          "stage": "active",
+          "monotonic_ns": 257640920067916,
+          "rss_bytes": 13942784,
+          "cpu_seconds": 1.02
+        }
+      ],
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:60950\n",
+        "total_bytes": 35,
+        "truncated": false
+      },
+      "profile": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t3119374\t40\t0\t0\nREQUEST\tpublish\t23\t27765001\t21\t2\t0\nREQUEST\tsubscribe\t32\t1931623\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t64\t10002959\t64\t0\t0\nREQUEST\tpoll\t2417\t732767720\t2417\t0\t0\nREQUEST\tbegin\t406\t424491460\t406\t0\t0\nREQUEST\tdisconnect\t40\t32662250\t40\t0\t0\nREQUEST\ttick\t11\t26042\t11\t0\t0\nREQUEST\tother\t41\t23581\t41\t0\t0\nSPAN\tproposal_clone\t3022\t142444359\t0\nSPAN\tsnapshot\t909\t370932796\t128538854\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t3074\t75092873202\t0\nCOUNTER\tpoll_delivery\t2417\nCOUNTER\tempty_poll_delivery\t1979\nCOUNTER\tnotifications\t909\nCOUNTER\tnotification_targets\t34008\nCOUNTER\terror_unknown\t0\nERROR_REASON\t97\t2\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":3022,\"total_ns\":142279825,\"bytes\":0},{\"name\":\"records_live\",\"count\":7884,\"total_ns\":36761657,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":910,\"total_ns\":6388822,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":7884,\"total_ns\":865540864,\"bytes\":594433308},{\"name\":\"serialize_persistent\",\"count\":910,\"total_ns\":185268931,\"bytes\":128538941},{\"name\":\"bounds\",\"count\":7884,\"total_ns\":868863407,\"bytes\":0},{\"name\":\"route\",\"count\":23,\"total_ns\":872169,\"bytes\":0},{\"name\":\"route_build\",\"count\":23,\"total_ns\":252412,\"bytes\":0},{\"name\":\"authorization\",\"count\":5931,\"total_ns\":489579138,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 3022,
+              "total_ns": 142279825,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 7884,
+              "total_ns": 36761657,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 910,
+              "total_ns": 6388822,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 7884,
+              "total_ns": 865540864,
+              "bytes": 594433308
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 910,
+              "total_ns": 185268931,
+              "bytes": 128538941
+            },
+            {
+              "name": "bounds",
+              "count": 7884,
+              "total_ns": 868863407,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 23,
+              "total_ns": 872169,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 23,
+              "total_ns": 252412,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 5931,
+              "total_ns": 489579138,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 40,
+            "total_ns": 3119374,
+            "ok": 40,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 23,
+            "total_ns": 27765001,
+            "ok": 21,
+            "error": 2,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 32,
+            "total_ns": 1931623,
+            "ok": 32,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 64,
+            "total_ns": 10002959,
+            "ok": 64,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 2417,
+            "total_ns": 732767720,
+            "ok": 2417,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 406,
+            "total_ns": 424491460,
+            "ok": 406,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 40,
+            "total_ns": 32662250,
+            "ok": 40,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 11,
+            "total_ns": 26042,
+            "ok": 11,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 41,
+            "total_ns": 23581,
+            "ok": 41,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 3022,
+            "total_ns": 142444359,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 909,
+            "total_ns": 370932796,
+            "bytes": 128538854
+          },
+          "sqlite_commit": {
+            "count": 0,
+            "total_ns": 0,
+            "bytes": 0
+          },
+          "queue_wait": {
+            "count": 3074,
+            "total_ns": 75092873202,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 2417,
+          "empty_poll_delivery": 1979,
+          "notifications": 909,
+          "notification_targets": 34008,
+          "error_unknown": 0
+        },
+        "error_reasons": {
+          "97": 2
+        },
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "failure": {
+        "kind": "error",
+        "leaves": [
+          {
+            "type": "AssertionError",
+            "message": "expected PUBACK id=16; actual header=0xe0 body=97 reason=0x97"
+          }
+        ]
+      }
+    }
+  ],
+  "pilot": true
+}

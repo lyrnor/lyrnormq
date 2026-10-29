@@ -1,0 +1,5208 @@
+{
+  "schema_version": 1,
+  "scope": "bounded loopback baseline; not saturation/WAN/production SLA",
+  "environment": {
+    "os": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "uname": [
+      "Darwin",
+      "rendeMacBook-Air.local",
+      "27.0.0",
+      "Darwin Kernel Version 27.0.0: Tue Aug 11 21:02:57 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T8132",
+      "arm64",
+      "arm"
+    ],
+    "python": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-apple-darwin\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "cpu_logical": 10,
+    "cpu_model": "Apple M4",
+    "ram_bytes": "17179869184",
+    "ram_note": "bytes; unavailable result retains the command failure reason",
+    "fd_soft_hard": [
+      1048575,
+      9223372036854775807
+    ],
+    "binary": "/private/tmp/rmqtt-p3a-profile-baseline",
+    "binary_sha256": "a6861ff38e011dcbce5d2d58524993305ae00878abcedd3fc5ffe6eb3dc5c897",
+    "driver_source_revision": "ee409753acb7dd9ec2259cb2674447de3386d3db",
+    "artifact_source_revision": "3917025",
+    "build_profile": "release",
+    "command": [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "benches/phase3/run.py",
+      "--binary",
+      "/tmp/rmqtt-p3a-profile-baseline",
+      "--artifact-source-revision",
+      "3917025",
+      "--output",
+      "/tmp/rmqtt-p3a-profile-pilots.json",
+      "--pilot",
+      "--profile",
+      "--session-expiry-seconds",
+      "60",
+      "--messages",
+      "64",
+      "--warmup",
+      "8",
+      "--repetitions",
+      "1",
+      "--payload-size",
+      "256",
+      "--flow-control",
+      "delivery",
+      "--cases",
+      "concurrent,hot,many",
+      "--storage",
+      "memory,sqlite",
+      "--timeout",
+      "120"
+    ],
+    "clock": "time.monotonic_ns, one host for send and receive",
+    "percentiles": "nearest rank ceil(p*N), no dropped samples; milliseconds",
+    "rss_method": "broker PID only: ps rss KiB *1024, sampled peak only; client RSS excluded",
+    "cpu_method": "ps process cumulative time; end minus pre-measure sample, not utilization",
+    "sample_interval_seconds": 0.05,
+    "sampling_note": "nominal wait after each ps call; raw timestamps show actual spacing",
+    "storage": "memory volatile or fresh SQLite WAL/synchronous FULL via broker; no power-loss claim"
+  },
+  "parameters": {
+    "binary": "/tmp/rmqtt-p3a-profile-baseline",
+    "output": "/tmp/rmqtt-p3a-profile-pilots.json",
+    "artifact_source_revision": "3917025",
+    "build_profile": "release",
+    "cases": "concurrent,hot,many",
+    "storage": "memory,sqlite",
+    "repetitions": 1,
+    "messages": 64,
+    "warmup": 8,
+    "payload_size": 256,
+    "session_expiry_seconds": 60,
+    "flow_control": "delivery",
+    "outbound_capacity": 256,
+    "sample_interval": 0.05,
+    "timeout": 120.0,
+    "profile": true,
+    "pilot": true,
+    "broker_write_timeout_ms": 10000,
+    "smoke": false
+  },
+  "runs": [
+    {
+      "flow_control": "delivery",
+      "publisher_gate": "PUBACK and all expected subscriber receipts",
+      "publications": 64,
+      "deliveries": 64,
+      "acknowledgements": 64,
+      "duration_seconds": 0.196633541,
+      "ingress_messages_per_second": 325.4785509863752,
+      "egress_deliveries_per_second": 325.4785509863752,
+      "delivery_latency": {
+        "samples": 64,
+        "p50_ms": 169.711333,
+        "p95_ms": 191.7815,
+        "p99_ms": 193.793792,
+        "max_ms": 193.793792
+      },
+      "ack_latency": {
+        "samples": 64,
+        "p50_ms": 53.376791,
+        "p95_ms": 77.899958,
+        "p99_ms": 80.805458,
+        "max_ms": 80.805458
+      },
+      "measurement_start_monotonic_ns": 256889625819000,
+      "measurement_end_monotonic_ns": 256889822452541,
+      "correctness": "every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames",
+      "case": "concurrent",
+      "storage": "memory",
+      "repetition": 1,
+      "smoke": false,
+      "topology": {
+        "publishers": 64,
+        "subscribers": 64,
+        "simultaneous_connected_clients": 128,
+        "subscriptions": 64,
+        "filters_per_subscriber": 1,
+        "distribution": "round-robin subscriber; filter index=floor(sequence/subscribers) mod filters_per_subscriber",
+        "ingress_qos": 1,
+        "subscription_qos": 0,
+        "outstanding_per_publisher": 1
+      },
+      "broker_command": [
+        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "--listen",
+        "127.0.0.1:59501",
+        "--protocol",
+        "5",
+        "--max-connections",
+        "256",
+        "--max-sessions",
+        "256",
+        "--max-subscriptions",
+        "128",
+        "--max-inflight",
+        "64",
+        "--outbound-capacity",
+        "256",
+        "--max-packet-size",
+        "8192",
+        "--max-state-bytes",
+        "67108864",
+        "--max-retained",
+        "16",
+        "--topic-alias-maximum",
+        "0",
+        "--handshake-timeout-ms",
+        "10000",
+        "--write-timeout-ms",
+        "10000"
+      ],
+      "payload_bytes": 256,
+      "pilot": true,
+      "warmup_publications": 8,
+      "session_expiry_seconds": 60,
+      "session_note": "CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput",
+      "memory": {
+        "samples": [
+          {
+            "stage": "idle",
+            "monotonic_ns": 256886928418416,
+            "rss_bytes": 3751936,
+            "cpu_seconds": 0.0
+          },
+          {
+            "stage": "setup",
+            "monotonic_ns": 256888811807625,
+            "rss_bytes": 28590080,
+            "cpu_seconds": 1.96
+          },
+          {
+            "stage": "pre_measure",
+            "monotonic_ns": 256889625745958,
+            "rss_bytes": 29278208,
+            "cpu_seconds": 2.79
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889629577500,
+            "rss_bytes": 29294592,
+            "cpu_seconds": 2.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889683101791,
+            "rss_bytes": 29523968,
+            "cpu_seconds": 2.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889739778791,
+            "rss_bytes": 29589504,
+            "cpu_seconds": 2.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889793558666,
+            "rss_bytes": 29622272,
+            "cpu_seconds": 2.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889848554791,
+            "rss_bytes": 29622272,
+            "cpu_seconds": 3.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889905485625,
+            "rss_bytes": 40747008,
+            "cpu_seconds": 3.08
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256889961506416,
+            "rss_bytes": 41861120,
+            "cpu_seconds": 3.13
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256890020031375,
+            "rss_bytes": 44679168,
+            "cpu_seconds": 3.19
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256890099835208,
+            "rss_bytes": 44679168,
+            "cpu_seconds": 3.24
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256890154849708,
+            "rss_bytes": 44679168,
+            "cpu_seconds": 3.3
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256890210070208,
+            "rss_bytes": 44679168,
+            "cpu_seconds": 3.35
+          },
+          {
+            "stage": "end",
+            "monotonic_ns": 256890250416666,
+            "rss_bytes": 44679168,
+            "cpu_seconds": 3.4
+          }
+        ],
+        "sampled_peak_rss_bytes": 44679168,
+        "note": "peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark"
+      },
+      "cpu_seconds_observed_window": 0.6099999999999999,
+      "profiling": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t128\t26121456\t128\t0\t0\nREQUEST\tpublish\t72\t53241625\t72\t0\t0\nREQUEST\tsubscribe\t64\t6715128\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t117692713\t192\t0\t0\nREQUEST\tpoll\t14627\t3115819554\t14627\t0\t0\nREQUEST\tbegin\t72\t31056000\t72\t0\t0\nREQUEST\tdisconnect\t128\t50595244\t128\t0\t0\nREQUEST\ttick\t34\t99959\t34\t0\t0\nREQUEST\tother\t129\t39044\t129\t0\t0\nSPAN\tproposal_clone\t15283\t1848056749\t0\nSPAN\tsnapshot\t714\t75643747\t21094720\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t15446\t276918173058\t0\nCOUNTER\tpoll_delivery\t14627\nCOUNTER\tempty_poll_delivery\t14555\nCOUNTER\tnotifications\t714\nCOUNTER\tnotification_targets\t68896\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":15283,\"total_ns\":1847223178,\"bytes\":0},{\"name\":\"records_live\",\"count\":31692,\"total_ns\":175564811,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":715,\"total_ns\":4567389,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":31692,\"total_ns\":1075068984,\"bytes\":703510135},{\"name\":\"serialize_persistent\",\"count\":715,\"total_ns\":42579380,\"bytes\":21094807},{\"name\":\"bounds\",\"count\":31692,\"total_ns\":1105748494,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":3424175,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":2204625,\"bytes\":0},{\"name\":\"authorization\",\"count\":30247,\"total_ns\":1141567085,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 15283,
+              "total_ns": 1847223178,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 31692,
+              "total_ns": 175564811,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 715,
+              "total_ns": 4567389,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 31692,
+              "total_ns": 1075068984,
+              "bytes": 703510135
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 715,
+              "total_ns": 42579380,
+              "bytes": 21094807
+            },
+            {
+              "name": "bounds",
+              "count": 31692,
+              "total_ns": 1105748494,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 72,
+              "total_ns": 3424175,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 72,
+              "total_ns": 2204625,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 30247,
+              "total_ns": 1141567085,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 128,
+            "total_ns": 26121456,
+            "ok": 128,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 72,
+            "total_ns": 53241625,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 64,
+            "total_ns": 6715128,
+            "ok": 64,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 192,
+            "total_ns": 117692713,
+            "ok": 192,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 14627,
+            "total_ns": 3115819554,
+            "ok": 14627,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 72,
+            "total_ns": 31056000,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 128,
+            "total_ns": 50595244,
+            "ok": 128,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 34,
+            "total_ns": 99959,
+            "ok": 34,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 129,
+            "total_ns": 39044,
+            "ok": 129,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 15283,
+            "total_ns": 1848056749,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 714,
+            "total_ns": 75643747,
+            "bytes": 21094720
+          },
+          "sqlite_commit": {
+            "count": 0,
+            "total_ns": 0,
+            "bytes": 0
+          },
+          "queue_wait": {
+            "count": 15446,
+            "total_ns": 276918173058,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 14627,
+          "empty_poll_delivery": 14555,
+          "notifications": 714,
+          "notification_targets": 68896,
+          "error_unknown": 0
+        },
+        "error_reasons": {},
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:59501\n",
+        "total_bytes": 35,
+        "truncated": false
+      }
+    },
+    {
+      "flow_control": "delivery",
+      "publisher_gate": "PUBACK and all expected subscriber receipts",
+      "publications": 64,
+      "deliveries": 2048,
+      "acknowledgements": 64,
+      "duration_seconds": 3.706278542,
+      "ingress_messages_per_second": 17.267995180271587,
+      "egress_deliveries_per_second": 552.5758457686908,
+      "delivery_latency": {
+        "samples": 2048,
+        "p50_ms": 438.773292,
+        "p95_ms": 634.70525,
+        "p99_ms": 728.827125,
+        "max_ms": 748.578083
+      },
+      "ack_latency": {
+        "samples": 64,
+        "p50_ms": 119.1415,
+        "p95_ms": 335.719334,
+        "p99_ms": 415.442167,
+        "max_ms": 415.442167
+      },
+      "measurement_start_monotonic_ns": 256890990081333,
+      "measurement_end_monotonic_ns": 256894696359875,
+      "correctness": "every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames",
+      "case": "hot",
+      "storage": "memory",
+      "repetition": 1,
+      "smoke": false,
+      "topology": {
+        "publishers": 8,
+        "subscribers": 32,
+        "simultaneous_connected_clients": 40,
+        "subscriptions": 32,
+        "filters_per_subscriber": 1,
+        "distribution": "single shared hot topic",
+        "ingress_qos": 1,
+        "subscription_qos": 0,
+        "outstanding_per_publisher": 1
+      },
+      "broker_command": [
+        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "--listen",
+        "127.0.0.1:59636",
+        "--protocol",
+        "5",
+        "--max-connections",
+        "256",
+        "--max-sessions",
+        "256",
+        "--max-subscriptions",
+        "128",
+        "--max-inflight",
+        "64",
+        "--outbound-capacity",
+        "256",
+        "--max-packet-size",
+        "8192",
+        "--max-state-bytes",
+        "67108864",
+        "--max-retained",
+        "16",
+        "--topic-alias-maximum",
+        "0",
+        "--handshake-timeout-ms",
+        "10000",
+        "--write-timeout-ms",
+        "10000"
+      ],
+      "payload_bytes": 256,
+      "pilot": true,
+      "warmup_publications": 8,
+      "session_expiry_seconds": 60,
+      "session_note": "CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput",
+      "memory": {
+        "samples": [
+          {
+            "stage": "idle",
+            "monotonic_ns": 256890371307875,
+            "rss_bytes": 3719168,
+            "cpu_seconds": 0.0
+          },
+          {
+            "stage": "setup",
+            "monotonic_ns": 256890467982250,
+            "rss_bytes": 11714560,
+            "cpu_seconds": 0.11
+          },
+          {
+            "stage": "pre_measure",
+            "monotonic_ns": 256890989970291,
+            "rss_bytes": 13172736,
+            "cpu_seconds": 0.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256890992956041,
+            "rss_bytes": 13172736,
+            "cpu_seconds": 0.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891047069166,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 0.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891100557541,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 0.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891153792916,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 0.81
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891207139791,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 0.86
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891260979208,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 0.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891314271541,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 0.97
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891367861083,
+            "rss_bytes": 13221888,
+            "cpu_seconds": 1.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891421321708,
+            "rss_bytes": 13680640,
+            "cpu_seconds": 1.08
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891474554416,
+            "rss_bytes": 13697024,
+            "cpu_seconds": 1.13
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891527883500,
+            "rss_bytes": 13697024,
+            "cpu_seconds": 1.18
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891581053125,
+            "rss_bytes": 13697024,
+            "cpu_seconds": 1.24
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891634876000,
+            "rss_bytes": 13697024,
+            "cpu_seconds": 1.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891689474791,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.35
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891743065583,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.4
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891796358125,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.45
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891852438708,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891905834958,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.56
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256891959169625,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892012562291,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.66
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892065892916,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.72
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892120179708,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.77
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892173582250,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.83
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892227043208,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892280463791,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.94
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892333369291,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 1.99
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892386597416,
+            "rss_bytes": 18644992,
+            "cpu_seconds": 2.04
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892439608500,
+            "rss_bytes": 18677760,
+            "cpu_seconds": 2.1
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892492763500,
+            "rss_bytes": 18972672,
+            "cpu_seconds": 2.15
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892546015791,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.2
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892599012416,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.26
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892652239958,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.31
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892705277041,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.37
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892758297541,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.42
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892811274500,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.47
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892864428666,
+            "rss_bytes": 19120128,
+            "cpu_seconds": 2.53
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892917936833,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.58
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256892971889333,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893025230541,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.69
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893078602291,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.74
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893131852666,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893185154208,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893238582208,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893292075875,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 2.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893345098583,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893398242875,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.07
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893451615208,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893504605083,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.18
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893557777083,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893610860375,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893663665375,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.34
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893716893458,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.39
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893770205916,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.45
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893823438583,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893877059333,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.56
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893930495583,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256893983641041,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.66
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894037177500,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.72
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894100121958,
+            "rss_bytes": 21266432,
+            "cpu_seconds": 3.77
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894154015833,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 3.83
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894207131208,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 3.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894260469666,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 3.93
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894313370708,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 3.99
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894366417083,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.04
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894419572166,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.1
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894472892458,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.15
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894526388000,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.21
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894580131791,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.26
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894633696458,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.32
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256894687492125,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.37
+          },
+          {
+            "stage": "end",
+            "monotonic_ns": 256894729239666,
+            "rss_bytes": 24756224,
+            "cpu_seconds": 4.42
+          }
+        ],
+        "sampled_peak_rss_bytes": 24756224,
+        "note": "peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark"
+      },
+      "cpu_seconds_observed_window": 3.78,
+      "profiling": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t2834584\t40\t0\t0\nREQUEST\tpublish\t72\t73728166\t72\t0\t0\nREQUEST\tsubscribe\t32\t1819124\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t96\t14285127\t96\t0\t0\nREQUEST\tpoll\t5136\t2515216054\t5136\t0\t0\nREQUEST\tbegin\t2304\t1747697540\t2304\t0\t0\nREQUEST\tdisconnect\t40\t5290958\t40\t0\t0\nREQUEST\ttick\t44\t120417\t44\t0\t0\nREQUEST\tother\t41\t8582\t41\t0\t0\nSPAN\tproposal_clone\t7720\t418043390\t0\nSPAN\tsnapshot\t3829\t1264280516\t418271556\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t7805\t301118529619\t0\nCOUNTER\tpoll_delivery\t5136\nCOUNTER\tempty_poll_delivery\t2832\nCOUNTER\tnotifications\t3829\nCOUNTER\tnotification_targets\t150808\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":7720,\"total_ns\":417625021,\"bytes\":0},{\"name\":\"records_live\",\"count\":24049,\"total_ns\":129750126,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":3830,\"total_ns\":23615737,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":24049,\"total_ns\":3186509526,\"bytes\":2105598064},{\"name\":\"serialize_persistent\",\"count\":3830,\"total_ns\":633023260,\"bytes\":418271643},{\"name\":\"bounds\",\"count\":24049,\"total_ns\":3197641970,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":2816915,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":758498,\"bytes\":0},{\"name\":\"authorization\",\"count\":15329,\"total_ns\":1812132405,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 7720,
+              "total_ns": 417625021,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 24049,
+              "total_ns": 129750126,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 3830,
+              "total_ns": 23615737,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 24049,
+              "total_ns": 3186509526,
+              "bytes": 2105598064
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 3830,
+              "total_ns": 633023260,
+              "bytes": 418271643
+            },
+            {
+              "name": "bounds",
+              "count": 24049,
+              "total_ns": 3197641970,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 72,
+              "total_ns": 2816915,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 72,
+              "total_ns": 758498,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 15329,
+              "total_ns": 1812132405,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 40,
+            "total_ns": 2834584,
+            "ok": 40,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 72,
+            "total_ns": 73728166,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 32,
+            "total_ns": 1819124,
+            "ok": 32,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 96,
+            "total_ns": 14285127,
+            "ok": 96,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 5136,
+            "total_ns": 2515216054,
+            "ok": 5136,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 2304,
+            "total_ns": 1747697540,
+            "ok": 2304,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 40,
+            "total_ns": 5290958,
+            "ok": 40,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 44,
+            "total_ns": 120417,
+            "ok": 44,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 41,
+            "total_ns": 8582,
+            "ok": 41,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 7720,
+            "total_ns": 418043390,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 3829,
+            "total_ns": 1264280516,
+            "bytes": 418271556
+          },
+          "sqlite_commit": {
+            "count": 0,
+            "total_ns": 0,
+            "bytes": 0
+          },
+          "queue_wait": {
+            "count": 7805,
+            "total_ns": 301118529619,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 5136,
+          "empty_poll_delivery": 2832,
+          "notifications": 3829,
+          "notification_targets": 150808,
+          "error_unknown": 0
+        },
+        "error_reasons": {},
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:59636\n",
+        "total_bytes": 35,
+        "truncated": false
+      }
+    },
+    {
+      "flow_control": "delivery",
+      "publisher_gate": "PUBACK and all expected subscriber receipts",
+      "publications": 64,
+      "deliveries": 64,
+      "acknowledgements": 64,
+      "duration_seconds": 8.11995575,
+      "ingress_messages_per_second": 7.881816351031223,
+      "egress_deliveries_per_second": 7.881816351031223,
+      "delivery_latency": {
+        "samples": 64,
+        "p50_ms": 744.3935,
+        "p95_ms": 1840.819208,
+        "p99_ms": 2863.464083,
+        "max_ms": 2863.464083
+      },
+      "ack_latency": {
+        "samples": 64,
+        "p50_ms": 464.16725,
+        "p95_ms": 1657.683958,
+        "p99_ms": 2579.069208,
+        "max_ms": 2579.069208
+      },
+      "measurement_start_monotonic_ns": 256903386249083,
+      "measurement_end_monotonic_ns": 256911506204833,
+      "correctness": "every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames",
+      "case": "many",
+      "storage": "memory",
+      "repetition": 1,
+      "smoke": false,
+      "topology": {
+        "publishers": 8,
+        "subscribers": 64,
+        "simultaneous_connected_clients": 72,
+        "subscriptions": 4096,
+        "filters_per_subscriber": 64,
+        "distribution": "round-robin subscriber; filter index=floor(sequence/subscribers) mod filters_per_subscriber",
+        "ingress_qos": 1,
+        "subscription_qos": 0,
+        "outstanding_per_publisher": 1
+      },
+      "broker_command": [
+        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "--listen",
+        "127.0.0.1:59685",
+        "--protocol",
+        "5",
+        "--max-connections",
+        "256",
+        "--max-sessions",
+        "256",
+        "--max-subscriptions",
+        "128",
+        "--max-inflight",
+        "64",
+        "--outbound-capacity",
+        "256",
+        "--max-packet-size",
+        "8192",
+        "--max-state-bytes",
+        "67108864",
+        "--max-retained",
+        "16",
+        "--topic-alias-maximum",
+        "0",
+        "--handshake-timeout-ms",
+        "10000",
+        "--write-timeout-ms",
+        "10000"
+      ],
+      "payload_bytes": 256,
+      "pilot": true,
+      "warmup_publications": 8,
+      "session_expiry_seconds": 60,
+      "session_note": "CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput",
+      "memory": {
+        "samples": [
+          {
+            "stage": "idle",
+            "monotonic_ns": 256894768739958,
+            "rss_bytes": 3702784,
+            "cpu_seconds": 0.0
+          },
+          {
+            "stage": "setup",
+            "monotonic_ns": 256901705573625,
+            "rss_bytes": 23003136,
+            "cpu_seconds": 6.92
+          },
+          {
+            "stage": "pre_measure",
+            "monotonic_ns": 256903386195916,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903389047708,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903443347541,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.66
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903497469708,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.72
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903551478541,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.77
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903605567125,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.83
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903659723750,
+            "rss_bytes": 24281088,
+            "cpu_seconds": 8.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903713836708,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 8.94
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903767937916,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 8.99
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903821419458,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 9.04
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903875473250,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 9.1
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903929548458,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 9.15
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256903983671166,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 9.21
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256904037645708,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 9.26
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256904091307958,
+            "rss_bytes": 24297472,
+            "cpu_seconds": 9.31
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256904145803333,
+            "rss_bytes": 24313856,
+            "cpu_seconds": 9.37
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256904250760208,
+            "rss_bytes": 24313856,
+            "cpu_seconds": 9.39
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905091844666,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.15
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905159894708,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.21
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905248170541,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905312362791,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.35
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905412640250,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.44
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905498602000,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905568538708,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.58
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905646148875,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.65
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905796914416,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905857784666,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905911620791,
+            "rss_bytes": 35717120,
+            "cpu_seconds": 10.9
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256905965605375,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 10.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906019529166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906073562291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906127846000,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906180811166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906234883666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906288712375,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.28
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906342658875,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.34
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906396709583,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.39
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906450180083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.44
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906504149083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906558101791,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.55
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906611891666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906665766125,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.66
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906719693541,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.71
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906772726333,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.76
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906826739916,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.82
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906881141833,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906935386083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.93
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256906989076750,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 11.98
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907043020083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.04
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907096931291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.09
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907150450291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.15
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907204374083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.2
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907257490291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.25
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907311271916,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.31
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907365182958,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.36
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907419371000,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.42
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907473005833,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.47
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907526617541,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907580501916,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.58
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907634335000,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.63
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907688196458,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.69
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907741257291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.74
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907795116166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.79
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907848068875,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907901623750,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.9
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256907955642541,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 12.95
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908010181125,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908064237083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908118462791,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908172592125,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908226397416,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908280410625,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.28
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908334503666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.33
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908388702916,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.39
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908442668000,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.44
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908496515916,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908550409958,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.55
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908603665000,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.6
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908656564750,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.66
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908710396708,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.71
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908764109041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.77
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908817934041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.82
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908871583583,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.87
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908925088750,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.93
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256908979237041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 13.98
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909033126958,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.03
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909087146625,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.09
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909152104458,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.13
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909207922333,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.18
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909261695208,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909315822041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909369783666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.34
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909423976083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.4
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909478088708,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.45
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909531394666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.51
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909585554375,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.56
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909639782500,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909693742666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.67
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909746901416,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.72
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909800713416,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.78
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909854550458,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.83
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909908202083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256909961562833,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.94
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910015614958,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 14.99
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910068564208,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.05
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910122762250,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.1
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910176763166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.15
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910230644541,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.21
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910284581458,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.26
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910338455250,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.31
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910392492416,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.37
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910446331958,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.42
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910499879083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.48
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910553635500,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.53
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910607664208,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910661589750,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910714658083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.69
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910767659375,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910821538333,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910875339708,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910929478458,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256910983324833,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 15.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911037300958,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911091245416,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.07
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911145357666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911199082208,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.18
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911253148750,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911307134125,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911361203375,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.34
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911415190083,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.4
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911469193875,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.45
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911523150208,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911577073500,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.56
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911631008291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911685302625,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.67
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911738580041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.72
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911791522500,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.77
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911845542625,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.83
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911899706333,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256911954425166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.94
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912008747916,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 16.99
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912062808625,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.05
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912116812791,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.1
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912170823041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.16
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912224860041,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.21
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912278951500,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.26
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912332917125,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.32
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912386818333,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.37
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912440584250,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.43
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912494126875,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.48
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912548081291,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.53
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912601464166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912655317708,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912709135000,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912763024666,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912817063791,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912871394458,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.86
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912925577125,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256912979806875,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 17.97
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256913033926166,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 18.02
+          },
+          {
+            "stage": "end",
+            "monotonic_ns": 256913071798500,
+            "rss_bytes": 35733504,
+            "cpu_seconds": 18.06
+          }
+        ],
+        "sampled_peak_rss_bytes": 35733504,
+        "note": "peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark"
+      },
+      "cpu_seconds_observed_window": 9.45,
+      "profiling": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t72\t123978754\t72\t0\t0\nREQUEST\tpublish\t72\t443650210\t72\t0\t0\nREQUEST\tsubscribe\t64\t102961831\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t744130666\t192\t0\t0\nREQUEST\tpoll\t9576\t16703140336\t9576\t0\t0\nREQUEST\tbegin\t72\t308284375\t72\t0\t0\nREQUEST\tdisconnect\t72\t225893370\t72\t0\t0\nREQUEST\ttick\t137\t371217\t137\t0\t0\nREQUEST\tother\t73\t20620\t73\t0\t0\nSPAN\tproposal_clone\t10120\t1829271988\t0\nSPAN\tsnapshot\t616\t726063979\t279202747\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t10330\t1019203979580\t0\nCOUNTER\tpoll_delivery\t9576\nCOUNTER\tempty_poll_delivery\t9504\nCOUNTER\tnotifications\t616\nCOUNTER\tnotification_targets\t36640\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":10120,\"total_ns\":1828648632,\"bytes\":0},{\"name\":\"records_live\",\"count\":21268,\"total_ns\":1260943387,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":617,\"total_ns\":37853869,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":21268,\"total_ns\":12001151616,\"bytes\":9180264982},{\"name\":\"serialize_persistent\",\"count\":617,\"total_ns\":362972293,\"bytes\":279202834},{\"name\":\"bounds\",\"count\":21268,\"total_ns\":12017706690,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":131973127,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":108795423,\"bytes\":0},{\"name\":\"authorization\",\"count\":20033,\"total_ns\":13270414197,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 10120,
+              "total_ns": 1828648632,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 21268,
+              "total_ns": 1260943387,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 617,
+              "total_ns": 37853869,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 21268,
+              "total_ns": 12001151616,
+              "bytes": 9180264982
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 617,
+              "total_ns": 362972293,
+              "bytes": 279202834
+            },
+            {
+              "name": "bounds",
+              "count": 21268,
+              "total_ns": 12017706690,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 72,
+              "total_ns": 131973127,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 72,
+              "total_ns": 108795423,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 20033,
+              "total_ns": 13270414197,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 72,
+            "total_ns": 123978754,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 72,
+            "total_ns": 443650210,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 64,
+            "total_ns": 102961831,
+            "ok": 64,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 192,
+            "total_ns": 744130666,
+            "ok": 192,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 9576,
+            "total_ns": 16703140336,
+            "ok": 9576,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 72,
+            "total_ns": 308284375,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 72,
+            "total_ns": 225893370,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 137,
+            "total_ns": 371217,
+            "ok": 137,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 73,
+            "total_ns": 20620,
+            "ok": 73,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 10120,
+            "total_ns": 1829271988,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 616,
+            "total_ns": 726063979,
+            "bytes": 279202747
+          },
+          "sqlite_commit": {
+            "count": 0,
+            "total_ns": 0,
+            "bytes": 0
+          },
+          "queue_wait": {
+            "count": 10330,
+            "total_ns": 1019203979580,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 9576,
+          "empty_poll_delivery": 9504,
+          "notifications": 616,
+          "notification_targets": 36640,
+          "error_unknown": 0
+        },
+        "error_reasons": {},
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:59685\n",
+        "total_bytes": 35,
+        "truncated": false
+      }
+    },
+    {
+      "flow_control": "delivery",
+      "publisher_gate": "PUBACK and all expected subscriber receipts",
+      "publications": 64,
+      "deliveries": 64,
+      "acknowledgements": 64,
+      "duration_seconds": 0.585121125,
+      "ingress_messages_per_second": 109.3790623266251,
+      "egress_deliveries_per_second": 109.3790623266251,
+      "delivery_latency": {
+        "samples": 64,
+        "p50_ms": 192.205625,
+        "p95_ms": 382.643875,
+        "p99_ms": 582.814917,
+        "max_ms": 582.814917
+      },
+      "ack_latency": {
+        "samples": 64,
+        "p50_ms": 92.446042,
+        "p95_ms": 336.547166,
+        "p99_ms": 507.937833,
+        "max_ms": 507.937833
+      },
+      "measurement_start_monotonic_ns": 256915922852333,
+      "measurement_end_monotonic_ns": 256916507973458,
+      "correctness": "every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames",
+      "case": "concurrent",
+      "storage": "sqlite",
+      "repetition": 1,
+      "smoke": false,
+      "topology": {
+        "publishers": 64,
+        "subscribers": 64,
+        "simultaneous_connected_clients": 128,
+        "subscriptions": 64,
+        "filters_per_subscriber": 1,
+        "distribution": "round-robin subscriber; filter index=floor(sequence/subscribers) mod filters_per_subscriber",
+        "ingress_qos": 1,
+        "subscription_qos": 0,
+        "outstanding_per_publisher": 1
+      },
+      "broker_command": [
+        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "--listen",
+        "127.0.0.1:59781",
+        "--protocol",
+        "5",
+        "--max-connections",
+        "256",
+        "--max-sessions",
+        "256",
+        "--max-subscriptions",
+        "128",
+        "--max-inflight",
+        "64",
+        "--outbound-capacity",
+        "256",
+        "--max-packet-size",
+        "8192",
+        "--max-state-bytes",
+        "67108864",
+        "--max-retained",
+        "16",
+        "--topic-alias-maximum",
+        "0",
+        "--handshake-timeout-ms",
+        "10000",
+        "--write-timeout-ms",
+        "10000",
+        "--storage-path",
+        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-p3-bench-it8kcbwa/sessions.sqlite"
+      ],
+      "payload_bytes": 256,
+      "pilot": true,
+      "warmup_publications": 8,
+      "session_expiry_seconds": 60,
+      "session_note": "CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput",
+      "memory": {
+        "samples": [
+          {
+            "stage": "idle",
+            "monotonic_ns": 256913465504500,
+            "rss_bytes": 5357568,
+            "cpu_seconds": 0.0
+          },
+          {
+            "stage": "setup",
+            "monotonic_ns": 256915353442833,
+            "rss_bytes": 29360128,
+            "cpu_seconds": 1.94
+          },
+          {
+            "stage": "pre_measure",
+            "monotonic_ns": 256915922780708,
+            "rss_bytes": 29982720,
+            "cpu_seconds": 2.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256915925773125,
+            "rss_bytes": 29982720,
+            "cpu_seconds": 2.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256915979495833,
+            "rss_bytes": 30048256,
+            "cpu_seconds": 2.58
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916032824291,
+            "rss_bytes": 30097408,
+            "cpu_seconds": 2.63
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916086451791,
+            "rss_bytes": 30097408,
+            "cpu_seconds": 2.69
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916140176291,
+            "rss_bytes": 30113792,
+            "cpu_seconds": 2.74
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916194136416,
+            "rss_bytes": 30113792,
+            "cpu_seconds": 2.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916247883083,
+            "rss_bytes": 30113792,
+            "cpu_seconds": 2.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916301757750,
+            "rss_bytes": 30113792,
+            "cpu_seconds": 2.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916356474875,
+            "rss_bytes": 30113792,
+            "cpu_seconds": 2.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916411179000,
+            "rss_bytes": 30113792,
+            "cpu_seconds": 3.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916465693416,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.07
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916520260541,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.13
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916573582458,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.18
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916627113041,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.24
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916681744250,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916736276708,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.35
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916790535500,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.4
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916844404625,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.46
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256916899371875,
+            "rss_bytes": 30130176,
+            "cpu_seconds": 3.51
+          },
+          {
+            "stage": "end",
+            "monotonic_ns": 256916941273708,
+            "rss_bytes": 31571968,
+            "cpu_seconds": 3.56
+          }
+        ],
+        "sampled_peak_rss_bytes": 31571968,
+        "note": "peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark"
+      },
+      "cpu_seconds_observed_window": 1.04,
+      "profiling": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t128\t40860255\t128\t0\t0\nREQUEST\tpublish\t72\t49232495\t72\t0\t0\nREQUEST\tsubscribe\t64\t12171170\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t94807378\t192\t0\t0\nREQUEST\tpoll\t15434\t3257032901\t15434\t0\t0\nREQUEST\tbegin\t72\t35030373\t72\t0\t0\nREQUEST\tdisconnect\t128\t65521456\t128\t0\t0\nREQUEST\ttick\t35\t92081\t35\t0\t0\nREQUEST\tother\t129\t38413\t129\t0\t0\nSPAN\tproposal_clone\t16090\t1890469262\t0\nSPAN\tsnapshot\t718\t57838504\t18877943\nSPAN\tsqlite_commit\t718\t54169832\t18877943\nSPAN\tqueue_wait\t16254\t298140905328\t0\nCOUNTER\tpoll_delivery\t15434\nCOUNTER\tempty_poll_delivery\t15362\nCOUNTER\tnotifications\t718\nCOUNTER\tnotification_targets\t69408\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":16090,\"total_ns\":1889638135,\"bytes\":0},{\"name\":\"records_live\",\"count\":33310,\"total_ns\":184227740,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":719,\"total_ns\":4355586,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":33310,\"total_ns\":1137850659,\"bytes\":745094093},{\"name\":\"serialize_persistent\",\"count\":719,\"total_ns\":28427627,\"bytes\":18878030},{\"name\":\"bounds\",\"count\":33310,\"total_ns\":1170381576,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":3579376,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":2314127,\"bytes\":0},{\"name\":\"authorization\",\"count\":31861,\"total_ns\":1218035688,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 16090,
+              "total_ns": 1889638135,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 33310,
+              "total_ns": 184227740,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 719,
+              "total_ns": 4355586,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 33310,
+              "total_ns": 1137850659,
+              "bytes": 745094093
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 719,
+              "total_ns": 28427627,
+              "bytes": 18878030
+            },
+            {
+              "name": "bounds",
+              "count": 33310,
+              "total_ns": 1170381576,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 72,
+              "total_ns": 3579376,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 72,
+              "total_ns": 2314127,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 31861,
+              "total_ns": 1218035688,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 128,
+            "total_ns": 40860255,
+            "ok": 128,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 72,
+            "total_ns": 49232495,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 64,
+            "total_ns": 12171170,
+            "ok": 64,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 192,
+            "total_ns": 94807378,
+            "ok": 192,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 15434,
+            "total_ns": 3257032901,
+            "ok": 15434,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 72,
+            "total_ns": 35030373,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 128,
+            "total_ns": 65521456,
+            "ok": 128,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 35,
+            "total_ns": 92081,
+            "ok": 35,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 129,
+            "total_ns": 38413,
+            "ok": 129,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 16090,
+            "total_ns": 1890469262,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 718,
+            "total_ns": 57838504,
+            "bytes": 18877943
+          },
+          "sqlite_commit": {
+            "count": 718,
+            "total_ns": 54169832,
+            "bytes": 18877943
+          },
+          "queue_wait": {
+            "count": 16254,
+            "total_ns": 298140905328,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 15434,
+          "empty_poll_delivery": 15362,
+          "notifications": 718,
+          "notification_targets": 69408,
+          "error_unknown": 0
+        },
+        "error_reasons": {},
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:59781\n",
+        "total_bytes": 35,
+        "truncated": false
+      }
+    },
+    {
+      "flow_control": "delivery",
+      "publisher_gate": "PUBACK and all expected subscriber receipts",
+      "publications": 64,
+      "deliveries": 2048,
+      "acknowledgements": 64,
+      "duration_seconds": 4.420962833,
+      "ingress_messages_per_second": 14.476484516512107,
+      "egress_deliveries_per_second": 463.2475045283874,
+      "delivery_latency": {
+        "samples": 2048,
+        "p50_ms": 529.058167,
+        "p95_ms": 802.1285,
+        "p99_ms": 1093.27075,
+        "max_ms": 1137.524875
+      },
+      "ack_latency": {
+        "samples": 64,
+        "p50_ms": 102.860542,
+        "p95_ms": 399.133916,
+        "p99_ms": 669.504708,
+        "max_ms": 669.504708
+      },
+      "measurement_start_monotonic_ns": 256917763278750,
+      "measurement_end_monotonic_ns": 256922184241583,
+      "correctness": "every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames",
+      "case": "hot",
+      "storage": "sqlite",
+      "repetition": 1,
+      "smoke": false,
+      "topology": {
+        "publishers": 8,
+        "subscribers": 32,
+        "simultaneous_connected_clients": 40,
+        "subscriptions": 32,
+        "filters_per_subscriber": 1,
+        "distribution": "single shared hot topic",
+        "ingress_qos": 1,
+        "subscription_qos": 0,
+        "outstanding_per_publisher": 1
+      },
+      "broker_command": [
+        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "--listen",
+        "127.0.0.1:59920",
+        "--protocol",
+        "5",
+        "--max-connections",
+        "256",
+        "--max-sessions",
+        "256",
+        "--max-subscriptions",
+        "128",
+        "--max-inflight",
+        "64",
+        "--outbound-capacity",
+        "256",
+        "--max-packet-size",
+        "8192",
+        "--max-state-bytes",
+        "67108864",
+        "--max-retained",
+        "16",
+        "--topic-alias-maximum",
+        "0",
+        "--handshake-timeout-ms",
+        "10000",
+        "--write-timeout-ms",
+        "10000",
+        "--storage-path",
+        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-p3-bench-z809ahml/sessions.sqlite"
+      ],
+      "payload_bytes": 256,
+      "pilot": true,
+      "warmup_publications": 8,
+      "session_expiry_seconds": 60,
+      "session_note": "CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput",
+      "memory": {
+        "samples": [
+          {
+            "stage": "idle",
+            "monotonic_ns": 256917077244583,
+            "rss_bytes": 5373952,
+            "cpu_seconds": 0.0
+          },
+          {
+            "stage": "setup",
+            "monotonic_ns": 256917175609625,
+            "rss_bytes": 13451264,
+            "cpu_seconds": 0.11
+          },
+          {
+            "stage": "pre_measure",
+            "monotonic_ns": 256917763177625,
+            "rss_bytes": 17268736,
+            "cpu_seconds": 0.69
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256917765990833,
+            "rss_bytes": 17268736,
+            "cpu_seconds": 0.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256917820224791,
+            "rss_bytes": 17301504,
+            "cpu_seconds": 0.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256917873580458,
+            "rss_bytes": 17301504,
+            "cpu_seconds": 0.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256917927061625,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 0.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256917980182250,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 0.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918033331916,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 0.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918086607125,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 1.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918139966416,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 1.07
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918193123833,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 1.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918246267583,
+            "rss_bytes": 17317888,
+            "cpu_seconds": 1.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918299313916,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.22
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918352481458,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.28
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918405609208,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.33
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918458587958,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.38
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918512489750,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.43
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918565645083,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.49
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918618643958,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.54
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918671592916,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918724697750,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918777706083,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918830802666,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918883789875,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918936889416,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256918990015875,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.9
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919043116833,
+            "rss_bytes": 17334272,
+            "cpu_seconds": 1.95
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919097273500,
+            "rss_bytes": 18104320,
+            "cpu_seconds": 2.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919151639958,
+            "rss_bytes": 19496960,
+            "cpu_seconds": 2.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919205097250,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.11
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919258606083,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919311871083,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.22
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919365288541,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.27
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919418604875,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.33
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919471584875,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.38
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919524886208,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.43
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919577865666,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.48
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919631134958,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.54
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919684390625,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919737728958,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919791210375,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919844561250,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919898303541,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256919951596541,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920005439583,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920058997125,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 2.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920112616416,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920166174750,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920219227541,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.11
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920272523958,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920325909708,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.22
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920379445333,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.27
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920432674500,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.33
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920485739125,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.38
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920539123250,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.43
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920592200333,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.48
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920645402333,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.54
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920698497333,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920751815791,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920804959083,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920858040916,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920911381666,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256920964442666,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921017551291,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.9
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921070844458,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 3.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921124147208,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921177257625,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921230462083,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.11
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921283690208,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921337020375,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.22
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921390176416,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.27
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921443202333,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.32
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921496278916,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.38
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921549428750,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.43
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921602392958,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.48
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921655473166,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.53
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921708694208,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921761699041,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.64
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921815801541,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.68
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921868919625,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.73
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921921929083,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.78
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256921975083333,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.84
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256922028099208,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.89
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256922080959583,
+            "rss_bytes": 19939328,
+            "cpu_seconds": 4.94
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256922135312708,
+            "rss_bytes": 19955712,
+            "cpu_seconds": 5.0
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256922188491125,
+            "rss_bytes": 19955712,
+            "cpu_seconds": 5.05
+          },
+          {
+            "stage": "end",
+            "monotonic_ns": 256922209394166,
+            "rss_bytes": 19955712,
+            "cpu_seconds": 5.07
+          }
+        ],
+        "sampled_peak_rss_bytes": 19955712,
+        "note": "peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark"
+      },
+      "cpu_seconds_observed_window": 4.380000000000001,
+      "profiling": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t6141127\t40\t0\t0\nREQUEST\tpublish\t72\t91668793\t72\t0\t0\nREQUEST\tsubscribe\t32\t4507367\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t96\t15794914\t96\t0\t0\nREQUEST\tpoll\t5253\t2997463553\t5253\t0\t0\nREQUEST\tbegin\t2304\t2015067523\t2304\t0\t0\nREQUEST\tdisconnect\t40\t7232708\t40\t0\t0\nREQUEST\ttick\t52\t131417\t52\t0\t0\nREQUEST\tother\t41\t8463\t41\t0\t0\nSPAN\tproposal_clone\t7837\t407967069\t0\nSPAN\tsnapshot\t4239\t1437659851\t497202029\nSPAN\tsqlite_commit\t4239\t550143290\t497202029\nSPAN\tqueue_wait\t7930\t355870164379\t0\nCOUNTER\tpoll_delivery\t5253\nCOUNTER\tempty_poll_delivery\t2949\nCOUNTER\tnotifications\t4239\nCOUNTER\tnotification_targets\t167208\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":7837,\"total_ns\":407575482,\"bytes\":0},{\"name\":\"records_live\",\"count\":24693,\"total_ns\":134927618,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":4240,\"total_ns\":26539687,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":24693,\"total_ns\":3338338523,\"bytes\":2289977403},{\"name\":\"serialize_persistent\",\"count\":4240,\"total_ns\":718138200,\"bytes\":497202116},{\"name\":\"bounds\",\"count\":24693,\"total_ns\":3349898930,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":2825794,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":745258,\"bytes\":0},{\"name\":\"authorization\",\"count\":15563,\"total_ns\":1857286277,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 7837,
+              "total_ns": 407575482,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 24693,
+              "total_ns": 134927618,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 4240,
+              "total_ns": 26539687,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 24693,
+              "total_ns": 3338338523,
+              "bytes": 2289977403
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 4240,
+              "total_ns": 718138200,
+              "bytes": 497202116
+            },
+            {
+              "name": "bounds",
+              "count": 24693,
+              "total_ns": 3349898930,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 72,
+              "total_ns": 2825794,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 72,
+              "total_ns": 745258,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 15563,
+              "total_ns": 1857286277,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 40,
+            "total_ns": 6141127,
+            "ok": 40,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 72,
+            "total_ns": 91668793,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 32,
+            "total_ns": 4507367,
+            "ok": 32,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 96,
+            "total_ns": 15794914,
+            "ok": 96,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 5253,
+            "total_ns": 2997463553,
+            "ok": 5253,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 2304,
+            "total_ns": 2015067523,
+            "ok": 2304,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 40,
+            "total_ns": 7232708,
+            "ok": 40,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 52,
+            "total_ns": 131417,
+            "ok": 52,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 41,
+            "total_ns": 8463,
+            "ok": 41,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 7837,
+            "total_ns": 407967069,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 4239,
+            "total_ns": 1437659851,
+            "bytes": 497202029
+          },
+          "sqlite_commit": {
+            "count": 4239,
+            "total_ns": 550143290,
+            "bytes": 497202029
+          },
+          "queue_wait": {
+            "count": 7930,
+            "total_ns": 355870164379,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 5253,
+          "empty_poll_delivery": 2949,
+          "notifications": 4239,
+          "notification_targets": 167208,
+          "error_unknown": 0
+        },
+        "error_reasons": {},
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:59920\n",
+        "total_bytes": 35,
+        "truncated": false
+      }
+    },
+    {
+      "flow_control": "delivery",
+      "publisher_gate": "PUBACK and all expected subscriber receipts",
+      "publications": 64,
+      "deliveries": 64,
+      "acknowledgements": 64,
+      "duration_seconds": 6.8529925,
+      "ingress_messages_per_second": 9.338985851801239,
+      "egress_deliveries_per_second": 9.338985851801239,
+      "delivery_latency": {
+        "samples": 64,
+        "p50_ms": 576.451375,
+        "p95_ms": 1346.491917,
+        "p99_ms": 2595.8115,
+        "max_ms": 2595.8115
+      },
+      "ack_latency": {
+        "samples": 64,
+        "p50_ms": 316.139667,
+        "p95_ms": 1183.082375,
+        "p99_ms": 2331.079667,
+        "max_ms": 2331.079667
+      },
+      "measurement_start_monotonic_ns": 256931463964375,
+      "measurement_end_monotonic_ns": 256938316956875,
+      "correctness": "every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames",
+      "case": "many",
+      "storage": "sqlite",
+      "repetition": 1,
+      "smoke": false,
+      "topology": {
+        "publishers": 8,
+        "subscribers": 64,
+        "simultaneous_connected_clients": 72,
+        "subscriptions": 4096,
+        "filters_per_subscriber": 64,
+        "distribution": "round-robin subscriber; filter index=floor(sequence/subscribers) mod filters_per_subscriber",
+        "ingress_qos": 1,
+        "subscription_qos": 0,
+        "outstanding_per_publisher": 1
+      },
+      "broker_command": [
+        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "--listen",
+        "127.0.0.1:59969",
+        "--protocol",
+        "5",
+        "--max-connections",
+        "256",
+        "--max-sessions",
+        "256",
+        "--max-subscriptions",
+        "128",
+        "--max-inflight",
+        "64",
+        "--outbound-capacity",
+        "256",
+        "--max-packet-size",
+        "8192",
+        "--max-state-bytes",
+        "67108864",
+        "--max-retained",
+        "16",
+        "--topic-alias-maximum",
+        "0",
+        "--handshake-timeout-ms",
+        "10000",
+        "--write-timeout-ms",
+        "10000",
+        "--storage-path",
+        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-p3-bench-f93n4usn/sessions.sqlite"
+      ],
+      "payload_bytes": 256,
+      "pilot": true,
+      "warmup_publications": 8,
+      "session_expiry_seconds": 60,
+      "session_note": "CleanStart1; zero expiry is clean routing, positive expiry retains sessions; QoS0 live delivery is not offline durability throughput",
+      "memory": {
+        "samples": [
+          {
+            "stage": "idle",
+            "monotonic_ns": 256922261454958,
+            "rss_bytes": 5423104,
+            "cpu_seconds": 0.0
+          },
+          {
+            "stage": "setup",
+            "monotonic_ns": 256929340311375,
+            "rss_bytes": 28262400,
+            "cpu_seconds": 7.06
+          },
+          {
+            "stage": "pre_measure",
+            "monotonic_ns": 256931463903875,
+            "rss_bytes": 29720576,
+            "cpu_seconds": 9.19
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931466633875,
+            "rss_bytes": 29720576,
+            "cpu_seconds": 9.19
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931521065916,
+            "rss_bytes": 29720576,
+            "cpu_seconds": 9.25
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931575052500,
+            "rss_bytes": 29720576,
+            "cpu_seconds": 9.3
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931629388041,
+            "rss_bytes": 29720576,
+            "cpu_seconds": 9.36
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931683543291,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.41
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931737763458,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.46
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931791651041,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931846853208,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.57
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931901325833,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.63
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256931955633333,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.68
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932009880083,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.74
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932063943791,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.79
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932118034125,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932171643083,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.9
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932225642625,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 9.95
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932278984000,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932333222708,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932387345416,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.11
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932441600750,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932495832500,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.22
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932549986291,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.28
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932604094583,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.33
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932658026250,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.39
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932711966125,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.44
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932765409291,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.49
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932818950375,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.55
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932873189000,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.6
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932927488333,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.65
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256932981832208,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.71
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933035915291,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.76
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933089899875,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.82
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933143940666,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.87
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933198084958,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.92
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933251624375,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 10.98
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933304928750,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.03
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933359306291,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.09
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933413320583,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.14
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933467353583,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.19
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933521401541,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.25
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933576121166,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.3
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933630380166,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.36
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933684559833,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.41
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933738642791,
+            "rss_bytes": 29753344,
+            "cpu_seconds": 11.47
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933792981083,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933847156041,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.58
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933901268833,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.63
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256933955699000,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.68
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934010115750,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.74
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934064810666,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.79
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934118981916,
+            "rss_bytes": 29769728,
+            "cpu_seconds": 11.85
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934173081708,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 11.9
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934227266333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 11.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934281462458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.01
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934335448875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934389480750,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934443657291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.17
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934497253333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934551269208,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.28
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934604903333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.33
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934659170958,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.39
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934713282125,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.44
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934767369666,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934821524625,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.55
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934875576291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.6
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934929900416,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.66
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256934983976625,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.71
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935038093041,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.77
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935092336666,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.82
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935146636875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.88
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935199876250,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.93
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935253920041,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 12.98
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935307843708,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.04
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935361825458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.09
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935415788875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.14
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935469716416,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.2
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935523334041,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.25
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935577641000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.31
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935631914666,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.36
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935686199250,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.41
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935740464791,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.47
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935795838833,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.52
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935849894458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.58
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935903480875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.63
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256935957812333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.69
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936017649958,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.75
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936072398791,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.8
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936126467625,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.86
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936179835041,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.91
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936234040458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 13.96
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936288203333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936342251416,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.07
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936396005958,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.12
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936450125875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.18
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936503536041,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.23
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936557639666,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936611687000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.34
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936665980291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.4
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936720398291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.45
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936774786541,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.5
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936829246583,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.56
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936883663000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.61
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936937892166,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.67
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256936993438833,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.72
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937047779708,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.78
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937101892208,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.83
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937156198625,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.89
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937212151833,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 14.94
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937266455958,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.0
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937320570541,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.05
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937374750583,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.1
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937428851000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.16
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937482744291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.21
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937537031916,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.27
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937591078083,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.32
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937645199708,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.38
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937699334541,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.43
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937753410333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.48
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937807443458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.54
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937861550875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.59
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937915895416,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.65
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256937969995833,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.7
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938024174125,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.76
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938077505958,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.81
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938131648208,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.86
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938185784000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.92
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938239216333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 15.97
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938293390000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.02
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938347533875,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.08
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938401496291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.13
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938455564250,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.19
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938509533291,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.24
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938563384541,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.29
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938617155458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.35
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938670485333,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.4
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938724526000,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.46
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938778580708,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.51
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938832561458,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.57
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938886082250,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.62
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938940151625,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.67
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256938994152625,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.73
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939048330666,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.78
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939102947500,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.84
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939157089833,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.89
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939211465208,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 16.95
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939265763833,
+            "rss_bytes": 29212672,
+            "cpu_seconds": 17.0
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939410909500,
+            "rss_bytes": 32309248,
+            "cpu_seconds": 17.06
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939628338416,
+            "rss_bytes": 32309248,
+            "cpu_seconds": 17.25
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256939995669416,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 17.57
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256940107357666,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 17.67
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256940172091875,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 17.73
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256940256891875,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 17.79
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256940318701750,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 17.84
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256940417019208,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 17.92
+          },
+          {
+            "stage": "active",
+            "monotonic_ns": 256940513988541,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 18.01
+          },
+          {
+            "stage": "end",
+            "monotonic_ns": 256940595202625,
+            "rss_bytes": 37830656,
+            "cpu_seconds": 18.08
+          }
+        ],
+        "sampled_peak_rss_bytes": 37830656,
+        "note": "peak over idle/setup/premeasure/periodic/end ps samples, not true process high-water mark"
+      },
+      "cpu_seconds_observed_window": 8.889999999999999,
+      "profiling": {
+        "enabled": true,
+        "status": "captured",
+        "format": "TSVv1",
+        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t72\t168506752\t72\t0\t0\nREQUEST\tpublish\t72\t459393996\t72\t0\t0\nREQUEST\tsubscribe\t64\t131697206\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t793839426\t192\t0\t0\nREQUEST\tpoll\t9508\t16819401709\t9508\t0\t0\nREQUEST\tbegin\t72\t290399997\t72\t0\t0\nREQUEST\tdisconnect\t72\t451111912\t72\t0\t0\nREQUEST\ttick\t137\t601926\t137\t0\t0\nREQUEST\tother\t73\t41080\t73\t0\t0\nSPAN\tproposal_clone\t10052\t1952584123\t0\nSPAN\tsnapshot\t616\t754507792\t279231869\nSPAN\tsqlite_commit\t616\t306803588\t279231869\nSPAN\tqueue_wait\t10262\t1040953179995\t0\nCOUNTER\tpoll_delivery\t9508\nCOUNTER\tempty_poll_delivery\t9436\nCOUNTER\tnotifications\t616\nCOUNTER\tnotification_targets\t36640\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":10052,\"total_ns\":1951927457,\"bytes\":0},{\"name\":\"records_live\",\"count\":21132,\"total_ns\":1267889909,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":617,\"total_ns\":41688284,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":21132,\"total_ns\":11957117948,\"bytes\":9113511432},{\"name\":\"serialize_persistent\",\"count\":617,\"total_ns\":381075173,\"bytes\":279231956},{\"name\":\"bounds\",\"count\":21132,\"total_ns\":11974167511,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":121381584,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":101176710,\"bytes\":0},{\"name\":\"authorization\",\"count\":19897,\"total_ns\":13225367426,\"bytes\":0}]}\n",
+        "session": {
+          "enabled": true,
+          "inclusive": true,
+          "operations": [
+            {
+              "name": "clone",
+              "count": 10052,
+              "total_ns": 1951927457,
+              "bytes": 0
+            },
+            {
+              "name": "records_live",
+              "count": 21132,
+              "total_ns": 1267889909,
+              "bytes": 0
+            },
+            {
+              "name": "records_persistent",
+              "count": 617,
+              "total_ns": 41688284,
+              "bytes": 0
+            },
+            {
+              "name": "serialize_live",
+              "count": 21132,
+              "total_ns": 11957117948,
+              "bytes": 9113511432
+            },
+            {
+              "name": "serialize_persistent",
+              "count": 617,
+              "total_ns": 381075173,
+              "bytes": 279231956
+            },
+            {
+              "name": "bounds",
+              "count": 21132,
+              "total_ns": 11974167511,
+              "bytes": 0
+            },
+            {
+              "name": "route",
+              "count": 72,
+              "total_ns": 121381584,
+              "bytes": 0
+            },
+            {
+              "name": "route_build",
+              "count": 72,
+              "total_ns": 101176710,
+              "bytes": 0
+            },
+            {
+              "name": "authorization",
+              "count": 19897,
+              "total_ns": 13225367426,
+              "bytes": 0
+            }
+          ]
+        },
+        "requests": {
+          "connect": {
+            "count": 72,
+            "total_ns": 168506752,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "publish": {
+            "count": 72,
+            "total_ns": 459393996,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "subscribe": {
+            "count": 64,
+            "total_ns": 131697206,
+            "ok": 64,
+            "error": 0,
+            "aborted": 0
+          },
+          "ack": {
+            "count": 0,
+            "total_ns": 0,
+            "ok": 0,
+            "error": 0,
+            "aborted": 0
+          },
+          "ping": {
+            "count": 192,
+            "total_ns": 793839426,
+            "ok": 192,
+            "error": 0,
+            "aborted": 0
+          },
+          "poll": {
+            "count": 9508,
+            "total_ns": 16819401709,
+            "ok": 9508,
+            "error": 0,
+            "aborted": 0
+          },
+          "begin": {
+            "count": 72,
+            "total_ns": 290399997,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "disconnect": {
+            "count": 72,
+            "total_ns": 451111912,
+            "ok": 72,
+            "error": 0,
+            "aborted": 0
+          },
+          "tick": {
+            "count": 137,
+            "total_ns": 601926,
+            "ok": 137,
+            "error": 0,
+            "aborted": 0
+          },
+          "other": {
+            "count": 73,
+            "total_ns": 41080,
+            "ok": 73,
+            "error": 0,
+            "aborted": 0
+          }
+        },
+        "spans": {
+          "proposal_clone": {
+            "count": 10052,
+            "total_ns": 1952584123,
+            "bytes": 0
+          },
+          "snapshot": {
+            "count": 616,
+            "total_ns": 754507792,
+            "bytes": 279231869
+          },
+          "sqlite_commit": {
+            "count": 616,
+            "total_ns": 306803588,
+            "bytes": 279231869
+          },
+          "queue_wait": {
+            "count": 10262,
+            "total_ns": 1040953179995,
+            "bytes": 0
+          }
+        },
+        "counters": {
+          "poll_delivery": 9508,
+          "empty_poll_delivery": 9436,
+          "notifications": 616,
+          "notification_targets": 36640,
+          "error_unknown": 0
+        },
+        "error_reasons": {},
+        "metadata": {
+          "STATUS": "final",
+          "SCOPE": "worker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans",
+          "TIMING": "request_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue",
+          "OUTCOME": "io_result_not_mqtt_acceptance_subscribe_includes_unsubscribe",
+          "BYTES": "successful_snapshot_output_and_commit_attempt_payload_not_disk_io"
+        },
+        "complete": true,
+        "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
+      },
+      "stderr": {
+        "text": "rmqtt listening on 127.0.0.1:59969\n",
+        "total_bytes": 35,
+        "truncated": false
+      }
+    }
+  ],
+  "summary": [
+    {
+      "case": "concurrent",
+      "storage": "memory",
+      "flow_control": "delivery",
+      "repetitions": 1,
+      "ingress_messages_per_second": {
+        "median": 325.4785509863752,
+        "min": 325.4785509863752,
+        "max": 325.4785509863752
+      },
+      "egress_deliveries_per_second": {
+        "median": 325.4785509863752,
+        "min": 325.4785509863752,
+        "max": 325.4785509863752
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 169.711333,
+          "min": 169.711333,
+          "max": 169.711333
+        },
+        "p95_ms": {
+          "median": 191.7815,
+          "min": 191.7815,
+          "max": 191.7815
+        },
+        "p99_ms": {
+          "median": 193.793792,
+          "min": 193.793792,
+          "max": 193.793792
+        },
+        "max_ms": {
+          "median": 193.793792,
+          "min": 193.793792,
+          "max": 193.793792
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 53.376791,
+          "min": 53.376791,
+          "max": 53.376791
+        },
+        "p95_ms": {
+          "median": 77.899958,
+          "min": 77.899958,
+          "max": 77.899958
+        },
+        "p99_ms": {
+          "median": 80.805458,
+          "min": 80.805458,
+          "max": 80.805458
+        },
+        "max_ms": {
+          "median": 80.805458,
+          "min": 80.805458,
+          "max": 80.805458
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 44679168,
+        "min": 44679168,
+        "max": 44679168
+      }
+    },
+    {
+      "case": "hot",
+      "storage": "memory",
+      "flow_control": "delivery",
+      "repetitions": 1,
+      "ingress_messages_per_second": {
+        "median": 17.267995180271587,
+        "min": 17.267995180271587,
+        "max": 17.267995180271587
+      },
+      "egress_deliveries_per_second": {
+        "median": 552.5758457686908,
+        "min": 552.5758457686908,
+        "max": 552.5758457686908
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 438.773292,
+          "min": 438.773292,
+          "max": 438.773292
+        },
+        "p95_ms": {
+          "median": 634.70525,
+          "min": 634.70525,
+          "max": 634.70525
+        },
+        "p99_ms": {
+          "median": 728.827125,
+          "min": 728.827125,
+          "max": 728.827125
+        },
+        "max_ms": {
+          "median": 748.578083,
+          "min": 748.578083,
+          "max": 748.578083
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 119.1415,
+          "min": 119.1415,
+          "max": 119.1415
+        },
+        "p95_ms": {
+          "median": 335.719334,
+          "min": 335.719334,
+          "max": 335.719334
+        },
+        "p99_ms": {
+          "median": 415.442167,
+          "min": 415.442167,
+          "max": 415.442167
+        },
+        "max_ms": {
+          "median": 415.442167,
+          "min": 415.442167,
+          "max": 415.442167
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 24756224,
+        "min": 24756224,
+        "max": 24756224
+      }
+    },
+    {
+      "case": "many",
+      "storage": "memory",
+      "flow_control": "delivery",
+      "repetitions": 1,
+      "ingress_messages_per_second": {
+        "median": 7.881816351031223,
+        "min": 7.881816351031223,
+        "max": 7.881816351031223
+      },
+      "egress_deliveries_per_second": {
+        "median": 7.881816351031223,
+        "min": 7.881816351031223,
+        "max": 7.881816351031223
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 744.3935,
+          "min": 744.3935,
+          "max": 744.3935
+        },
+        "p95_ms": {
+          "median": 1840.819208,
+          "min": 1840.819208,
+          "max": 1840.819208
+        },
+        "p99_ms": {
+          "median": 2863.464083,
+          "min": 2863.464083,
+          "max": 2863.464083
+        },
+        "max_ms": {
+          "median": 2863.464083,
+          "min": 2863.464083,
+          "max": 2863.464083
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 464.16725,
+          "min": 464.16725,
+          "max": 464.16725
+        },
+        "p95_ms": {
+          "median": 1657.683958,
+          "min": 1657.683958,
+          "max": 1657.683958
+        },
+        "p99_ms": {
+          "median": 2579.069208,
+          "min": 2579.069208,
+          "max": 2579.069208
+        },
+        "max_ms": {
+          "median": 2579.069208,
+          "min": 2579.069208,
+          "max": 2579.069208
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 35733504,
+        "min": 35733504,
+        "max": 35733504
+      }
+    },
+    {
+      "case": "concurrent",
+      "storage": "sqlite",
+      "flow_control": "delivery",
+      "repetitions": 1,
+      "ingress_messages_per_second": {
+        "median": 109.3790623266251,
+        "min": 109.3790623266251,
+        "max": 109.3790623266251
+      },
+      "egress_deliveries_per_second": {
+        "median": 109.3790623266251,
+        "min": 109.3790623266251,
+        "max": 109.3790623266251
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 192.205625,
+          "min": 192.205625,
+          "max": 192.205625
+        },
+        "p95_ms": {
+          "median": 382.643875,
+          "min": 382.643875,
+          "max": 382.643875
+        },
+        "p99_ms": {
+          "median": 582.814917,
+          "min": 582.814917,
+          "max": 582.814917
+        },
+        "max_ms": {
+          "median": 582.814917,
+          "min": 582.814917,
+          "max": 582.814917
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 92.446042,
+          "min": 92.446042,
+          "max": 92.446042
+        },
+        "p95_ms": {
+          "median": 336.547166,
+          "min": 336.547166,
+          "max": 336.547166
+        },
+        "p99_ms": {
+          "median": 507.937833,
+          "min": 507.937833,
+          "max": 507.937833
+        },
+        "max_ms": {
+          "median": 507.937833,
+          "min": 507.937833,
+          "max": 507.937833
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 31571968,
+        "min": 31571968,
+        "max": 31571968
+      }
+    },
+    {
+      "case": "hot",
+      "storage": "sqlite",
+      "flow_control": "delivery",
+      "repetitions": 1,
+      "ingress_messages_per_second": {
+        "median": 14.476484516512107,
+        "min": 14.476484516512107,
+        "max": 14.476484516512107
+      },
+      "egress_deliveries_per_second": {
+        "median": 463.2475045283874,
+        "min": 463.2475045283874,
+        "max": 463.2475045283874
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 529.058167,
+          "min": 529.058167,
+          "max": 529.058167
+        },
+        "p95_ms": {
+          "median": 802.1285,
+          "min": 802.1285,
+          "max": 802.1285
+        },
+        "p99_ms": {
+          "median": 1093.27075,
+          "min": 1093.27075,
+          "max": 1093.27075
+        },
+        "max_ms": {
+          "median": 1137.524875,
+          "min": 1137.524875,
+          "max": 1137.524875
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 102.860542,
+          "min": 102.860542,
+          "max": 102.860542
+        },
+        "p95_ms": {
+          "median": 399.133916,
+          "min": 399.133916,
+          "max": 399.133916
+        },
+        "p99_ms": {
+          "median": 669.504708,
+          "min": 669.504708,
+          "max": 669.504708
+        },
+        "max_ms": {
+          "median": 669.504708,
+          "min": 669.504708,
+          "max": 669.504708
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 19955712,
+        "min": 19955712,
+        "max": 19955712
+      }
+    },
+    {
+      "case": "many",
+      "storage": "sqlite",
+      "flow_control": "delivery",
+      "repetitions": 1,
+      "ingress_messages_per_second": {
+        "median": 9.338985851801239,
+        "min": 9.338985851801239,
+        "max": 9.338985851801239
+      },
+      "egress_deliveries_per_second": {
+        "median": 9.338985851801239,
+        "min": 9.338985851801239,
+        "max": 9.338985851801239
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 576.451375,
+          "min": 576.451375,
+          "max": 576.451375
+        },
+        "p95_ms": {
+          "median": 1346.491917,
+          "min": 1346.491917,
+          "max": 1346.491917
+        },
+        "p99_ms": {
+          "median": 2595.8115,
+          "min": 2595.8115,
+          "max": 2595.8115
+        },
+        "max_ms": {
+          "median": 2595.8115,
+          "min": 2595.8115,
+          "max": 2595.8115
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 316.139667,
+          "min": 316.139667,
+          "max": 316.139667
+        },
+        "p95_ms": {
+          "median": 1183.082375,
+          "min": 1183.082375,
+          "max": 1183.082375
+        },
+        "p99_ms": {
+          "median": 2331.079667,
+          "min": 2331.079667,
+          "max": 2331.079667
+        },
+        "max_ms": {
+          "median": 2331.079667,
+          "min": 2331.079667,
+          "max": 2331.079667
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 37830656,
+        "min": 37830656,
+        "max": 37830656
+      }
+    }
+  ],
+  "campaign_status": "passed",
+  "failures": [],
+  "pilot": true
+}
