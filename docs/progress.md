@@ -1630,3 +1630,101 @@ assessment of applicable unmarked tables/directions/cross-layer MUSTs and broade
 client/corpus/fault evidence is still required by project acceptance. Those evidence
 campaigns are not new MQTT MUSTs. Explicit V5 profile scope and both existing SHOULD
 exceptions remain visible. No full MQTT5/production claim or cluster work follows.
+
+
+## Phase2o — whole-server scoped acceptance (2026-10-29)
+
+### Frozen criteria, isolated implementation and review
+
+Contract phase2o decomposed U7 into G1 source completeness, G2 endpoint direction,
+G3 cross-layer transitions, G4 actual fault recovery, G5 real Fuzz and G6 integration.
+Each writer used an independent worktree/branch. Coordinator owns docs/integration.
+Protocol source commits ded821f/427cac0 integrated as c95c5a1/d0852aa; Transport
+66983cf/485677c as5a1d3d9/6003ebb; Quality20a2238/0e62821/ca6eef3 as
+75e11c3/9b01beb/aa8d594. Contract4cd40fd preceded implementation. Source review
+ba4c5d2 reconciles independent ledgers. Dependency copies were not reintegrated.
+
+No confirmed new production MUST defect was found. Test-only modules exercise all
+256 CONNECT flag bytes and reason-byte tables, exact ACK Reason String duplication
+and repeatable User Property ordering, server-only packet types in four receive
+states, requested diagnostic isolation, legal server0x00 PUBACK/PUBREC output and
+stale-generation QoS2 leases/ReceiveMaximum. PUBACK/PUBREC0x10 is an optional server
+sender code; no false receiver-rejection rule was imposed on external client data.
+Existing runtime APIs, session/outbox/schema7/container1 are unchanged. lib.rs stays thin.
+
+Official DOCX SHA256 a567582f279f53b300956282b760db95f66e5096d3ca8412321cf1e8403ac58b
+supplements the pinned HTML. Reproducible extraction finds285 keyword/error
+paragraphs+58 body tables=343 source entries, all explicitly reviewed,1436 code/test
+links. Five table dependencies were reconciled against27 endpoint property roles.
+The semantic review includes constraints in paragraphs that also contain numbered
+MUSTs; source indexing alone is not proof of conformance. Offline CI refuses a missing
+decision/review, and six isolated-copy negative tests verify gate anti-bypass behavior.
+
+### Actual final verification
+
+Darwin27 arm64, Rust/Cargo1.98.1 stable, Rust2024, Python3.14.7, Paho2.1.0.
+Final immutable debug executable SHA256:
+e98f5c599a804b08e04c6d08f590b4eb304cf90adc292f66babbe4edf1ddc23d.
+
+Final integrated Rust413 passed:Auth20,Protocol78,Router21,Session180,Storage16,
+Transport89,CLI9. Workspace Fmt,strict all-target Clippy,strict Rustdoc pass. Both
+standalone Fuzz workspaces pass format; stable harness3 tests and strict Clippy pass.
+An independent final format check caught a codec wrapper formatting omission; its
+format-only fix and standalone-workspace CI check are integrated in aa8d594.
+
+The same executable passed629 unique raw-wire unittest executions(memory275/
+SQLite354). Full regression first had628, then the new SQLite busy-error method
+was added and the entire fault suite rerun against the unchanged artifact; union629
+excludes repeats. All Paho2.1 suites passed:67 separate unittest methods plus script
+assertions. Existing previous-artifact upgrade passed locally where its saved binary
+exists; fresh CI explicitly skips that one optional-artifact case. Hosted CI not run.
+
+The fault suite passed9 SQL cases(5.361s); memory1 passed/8 SQL-only skips. It uses
+real BEGIN IMMEDIATE contention, actual SQLite busy_timeout error returns, unchanged
+committed snapshots and socket observation/positive ACK barriers, SIGKILL and restart.
+It covers precommit SUBACK/PUBREC/PUBCOMP/PUBREL rejection/replay, committed PUBREL-only
+resume and acknowledged queued/retained/outbox/Packet ID preservation. Independent
+review reran the original8 SQL cases successfully. No fallback-to-memory ACK occurred.
+These are process recovery results, not hardware power-loss or exact-instruction failpoints.
+
+Immediate ID reuse with server ReceiveMaximum1 passed4000 QoS1+2000 QoS2 events
+across8 clients,without PING barriers(4.887s); an independent4-client40000 QoS1-cycle
+probe also passed. These finite scheduling probes found no reproducible ACK callback
+race and are excluded from unittest and throughput counts.
+
+### Reproducible Fuzz evidence and scoped closure
+
+Stable seeded mutation:20000 runs,seed332593189941,1146707 input bytes,no crash.
+41 checked-in hand seeds are reconstructible; initial canonical manifest SHA256
+2cad8ce831e93378b627fbb1615dea8dc58329f2d1266831c75d3be337f457bd.
+Actual cargo-fuzz0.13.2/nightly-2026-10-29 was installed only in temporary tooling
+directories; the global default and production toolchain remain stable. Rustc nightly
+commit date2026-10-28 differs from the pinned distribution date2026-10-29.
+
+Two independent fresh corpus directories containing only the41 seeds ran concurrently.
+Codec:2128810 executions/31s,cov1958,features4441,RSS224MB,seed20261029.
+Legacy+V5 session:2160/31s,cov5260,features29694,RSS175MB,seed20261030.
+Both exit0/no crash; each max_total_time30,max_len4096,timeout2,rss_limit_mb512,
+ASAN quarantine64MB. Cold results supersede warm corpus counters for reproducibility.
+Scheduling affects guided execution counts; these counters are not benchmarks or
+protocol coverage percentages. See fuzz/README.md for runnable commands and oracles.
+
+Codec validates bounds, consumption, deterministic decode and semantic round trips.
+Session validates bounded legacy/V5 traces, proposal discard, controlled-time expiry,
+QoS/reconnect and snapshot fixed points; a seed test proves actual mixed-RAP QoS2
+deliveries start. Pure model targets do not implement network aliases, provider AUTH,
+KeepAlive scheduling or arbitrary actor interleavings; separate wire tests cover those.
+
+G1..G6 passed with no unresolved confirmed defect. Matrix354 reviewed rows now:
+278 verified,74 not-applicable,2 SHOULD policy exceptions,0 test-gap; numbered252
+remain216 verified/36 NA,supplementary102 become62 verified/38 NA/2 exceptions.
+The343 source entries are a separate completeness ledger, not extra distinct MUSTs.
+This closes the frozen finite project gate, not official certification, universal
+MQTT5 correctness or production readiness. Explicit V5 TCP scope, default Both
+unknown-version qualification and both SHOULD exceptions remain. Next:longer
+independent-client/fuzz/fault campaigns, measured resource/latency baselines and
+production hardening; TLS/WebSocket require new scoped audits.
+
+Independent final read-only closure review found no blocker and reconciled343/1436
+source evidence and354/1719 matrix evidence. Historical routing notes were clarified
+to distinguish their Phase2n open gate from Phase2o scoped closure.

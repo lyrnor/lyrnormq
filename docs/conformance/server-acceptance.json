@@ -2,91 +2,150 @@
   "schema_version": 1,
   "gate_id": "U-7.1.1-56088afba646",
   "scope": "Pinned MQTT5 OS TCP server, explicit V5 profile; default Both compatibility and two SHOULD exceptions remain qualified. This is finite project acceptance, not certification.",
-  "overall_status": "open",
+  "overall_status": "passed",
   "criteria": [
     {
       "id": "G1",
       "title": "Source completeness",
       "required": true,
-      "status": "open",
+      "status": "passed",
       "requirements": [
         "Review authoritative paragraphs/tables and resolve every applicable unnumbered obligation or leave G1 open."
       ],
-      "evidence": [],
-      "commands": [],
+      "evidence": [
+        "docs/conformance/import_authoritative.py:inventory",
+        "docs/conformance/check_authoritative.py:check",
+        "docs/conformance/authoritative-review.json:entries"
+      ],
+      "commands": [
+        "python3 docs/conformance/import_authoritative.py /tmp/rmqtt-mqtt5-os.docx --check:authoritative digest and inventory reproduced",
+        "python3 docs/conformance/check_authoritative.py:343 dispositions,1436 code/test links passed",
+        "Independent source review:285 keyword/error paragraphs plus58 body tables, including mixed numbered/unnumbered constraints; five endpoint table dependencies reconciled."
+      ],
       "limitations": [
-        "Pending actual evidence."
+        "Pinned2019OS DOCX/HTML, assessed TCP server roles; client/producer/editorial/conditional exclusions are explicit.",
+        "Semantic source review is human-reviewed evidence, not a proof from a keyword extractor."
       ]
     },
     {
       "id": "G2",
       "title": "Endpoint directions",
       "required": true,
-      "status": "open",
+      "status": "passed",
       "requirements": [
         "Review both endpoint roles and exercise legal/invalid packet/property/reason contexts."
       ],
-      "evidence": [],
-      "commands": [],
+      "evidence": [
+        "docs/conformance/endpoint-review.json:property_roles",
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states",
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:puback_and_pubrec_use_legal_server_success_without_claiming_client_role_validation"
+      ],
+      "commands": [
+        "Transport89 tests passed, including16 server-only packet/receive-state variants, real control-property isolation and sender-output tests.",
+        "Reviewed27 property roles and source Direction/SentBy tables; no unsupported recipient rejection requirement inferred from sender duties."
+      ],
       "limitations": [
-        "Pending actual evidence."
+        "Symmetric codec tests do not certify endpoint role by themselves.",
+        "PUBACK/PUBREC0x10 external-client sender duties are not falsely asserted as receiver-rejection behavior."
       ]
     },
     {
       "id": "G3",
       "title": "Cross-layer transitions",
       "required": true,
-      "status": "open",
+      "status": "passed",
       "requirements": [
         "Verify generation/session/QoS/admission/flow/expiry boundaries with durable outcomes."
       ],
-      "evidence": [],
-      "commands": [],
+      "evidence": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:stale_generation_ack_and_lease_cannot_release_new_owner_qos2_window",
+        "tests/alias_blackbox.py:test_reconnect_and_takeover_reset_inbound_map",
+        "tests/ack_reuse_stress.py:main"
+      ],
+      "commands": [
+        "Final same-artifact full wire regression includes alias reset/takeover and lifecycle tests in both modes.",
+        "Actual8-client immediate-ID-reuse probe:4000 QoS1+2000 QoS2 events passed; separate4-client40000 QoS1 cycles passed.",
+        "New deterministic actor trace plus prior write-ticket tests validate generation, QoS stage and ReceiveMaximum boundaries."
+      ],
       "limitations": [
-        "Pending actual evidence."
+        "Finite traces and pressure probes do not exhaust OS interleavings.",
+        "No theoretical ACK callback race was reproduced; no speculative production fix was applied."
       ]
     },
     {
       "id": "G4",
       "title": "Fault recovery",
       "required": true,
-      "status": "open",
+      "status": "passed",
       "requirements": [
         "Run actual SQLite failure/contention and crash-restart barriers against acknowledged state."
       ],
-      "evidence": [],
-      "commands": [],
+      "evidence": [
+        "tests/fault_recovery_blackbox.py:test_external_write_lock_blocks_puback_and_retained_outbox_until_release",
+        "tests/fault_recovery_blackbox.py:test_sqlite_busy_failure_never_falls_back_to_acknowledged_memory",
+        "tests/fault_recovery_blackbox.py:test_crash_before_pubcomp_commit_retains_incoming_qos2_original",
+        "tests/fault_recovery_blackbox.py:test_after_committed_pubrel_crash_resumes_pubrel_without_publish"
+      ],
+      "commands": [
+        "ActualSQLite fault suite:9 passed SQL(5.361s); memory1 passed/8 SQL-only skips.",
+        "Independent reviewer reran original8 SQL cases:all passed2.971s; later busy-error case also passed on final artifact."
+      ],
       "limitations": [
-        "Pending actual evidence."
+        "Real SQL locks and SIGKILL exercise commit barriers and process recovery, not physical power loss/fsync hardware.",
+        "No internal arbitrary-instruction crash failpoint; bounded negative socket observation is combined with actual lock and positive ACK/replay barriers."
       ]
     },
     {
       "id": "G5",
       "title": "Fuzz campaigns",
       "required": true,
-      "status": "open",
+      "status": "passed",
       "requirements": [
         "Run deterministic mutation and coverage-guided targets with exact budgets and no unresolved crashes."
       ],
-      "evidence": [],
-      "commands": [],
+      "evidence": [
+        "fuzz/src/harness.rs:codec",
+        "fuzz/src/harness.rs:session",
+        "fuzz/src/v5_harness.rs:session_v5",
+        "fuzz/src/seed_tests.rs:checked_in_corpus_matches_reproducible_hand_seeds"
+      ],
+      "commands": [
+        "Stable deterministic mutation:20000 runs,seed332593189941,1146707 input bytes;3 harness tests and strict Clippy passed.",
+        "cargo-fuzz0.13.2/nightly-2026-10-29 actual cold campaigns,41 checked-in seeds per separate fresh directory:codec2128810 executions/31s,cov1958,features4441,RSS224MB,seed20261029;session2160/31s,cov5260,features29694,RSS175MB,seed20261030;both exit0/no crash.",
+        "Each target:max_total_time30,max_len4096,timeout2,rss_limit_mb512;ASAN quarantine64MB. Initial canonical seed manifest SHA256:2cad8ce831e93378b627fbb1615dea8dc58329f2d1266831c75d3be337f457bd."
+      ],
       "limitations": [
-        "Pending actual evidence."
+        "Finite instrumented campaigns, not protocol coverage percentages or benchmarks. Concurrent wall-clock campaigns have scheduling-dependent execution counts.",
+        "Model oracles do not implement network aliases, provider AUTH, KeepAlive scheduling or arbitrary actor concurrency; independent wire tests cover these paths.",
+        "Only isolated test tooling uses nightly; production and default toolchain remain stable."
       ]
     },
     {
       "id": "G6",
       "title": "Unified closure",
       "required": true,
-      "status": "open",
+      "status": "passed",
       "requirements": [
         "Pass Rust and client regression, independent review and inventory/reference guards on the final artifact."
       ],
-      "evidence": [],
-      "commands": [],
+      "evidence": [
+        "tests/check_conformance_matrix.py:check",
+        "tests/acceptance_guard_negative.py:AcceptanceGuardTampering",
+        "docs/conformance/check_authoritative.py:check",
+        "tests/fault_recovery_blackbox.py:test_after_ack_crash_preserves_queued_retained_batch_and_packet_ids"
+      ],
+      "commands": [
+        "Final integrated cargo test --workspace --offline:413 passed(Auth20,Protocol78,Router21,Session180,Storage16,Transport89,CLI9).",
+        "cargo fmt --all -- --check;cargo clippy --workspace --all-targets --offline -- -D warnings;RUSTDOCFLAGS=-Dwarnings cargo doc --workspace --no-deps --offline:passed;both standalone fuzz workspaces fmt passed,stable harness3 tests and strict Clippy passed.",
+        "Same immutable executable e98f5c599a804b08e04c6d08f590b4eb304cf90adc292f66babbe4edf1ddc23d:629 unique blackbox unittest executions(memory275/SQLite354),all Paho2.1.0 suites passed(67 separate unittest methods plus script assertions).",
+        "Independent source/endpoint and fault/harness review completed with no unresolved confirmed production MUST defect;source inventory reproducibility and offline reference guards passed;6 tampering tests passed."
+      ],
       "limitations": [
-        "Pending actual evidence."
+        "Finite scoped project acceptance of pinned OS TCP server with explicit V5 endpoint; not universal compatibility, official certification or production readiness.",
+        "Default Both unknown-version fallback qualification and two SHOULD exceptions(shared QoS1 redistribution,secure transport) remain visible.",
+        "SIGKILL is process recovery,not hardware power-loss certification;hosted CI was configured but not executed."
       ]
     }
-  ]
+  ],
+  "assessed_artifact_sha256": "e98f5c599a804b08e04c6d08f590b4eb304cf90adc292f66babbe4edf1ddc23d"
 }

@@ -56,21 +56,21 @@ their current rows become verified. See `docs/progress.md` for actual final tota
 
 All354 inventoried entries have a first review disposition. This includes252 literal
 numbered entries and102 unnumbered candidates, not354 distinct applicable MUSTs.
-There are1690 validated implementation/test references. Scope remains the pinned OS
+There are1719 validated implementation/test references. Scope remains the pinned OS
 source and the recorded scenarios, with no full conformance claim.
 
 | Disposition | Numbered entries | Supplementary candidates | Total |
 | --- | --- | --- | --- |
-| verified within recorded evidence |216|61|277|
-| test-gap / unresolved interpretation |0|1|1|
+| verified within recorded evidence |216|62|278|
+| test-gap / unresolved interpretation |0|0|0|
 | not-applicable / source alias / editorial |36|38|74|
 | SHOULD policy-exception |0|2|2|
 
 Three confirmed implementation mismatches were fixed; none of those remains open.
-The overall server acceptance gate still blocks a full conformance conclusion. A screened candidate
-is not automatically an executable requirement, and screening does not exhaust all
-unnumbered sentences or property table combinations. Never turn this table into a
-compliance percentage.
+The finite project acceptance gate G1..G6 passed in Phase2o. A screened candidate
+is not automatically an executable requirement. Source review, endpoint roles and
+actual campaigns are separately recorded below; they do not establish exhaustive
+input correctness or official certification. Never turn this table into a compliance percentage.
 
 ## Confirmed defects corrected in Phase2k
 
@@ -172,3 +172,35 @@ termination remains a documented SHOULD exception, not seamless group redelivery
 Secure transport is absent; PLAIN is not encryption. Additional SASL mechanisms,
 TLS/WebSocket, broad Fuzz/fault/client campaigns and measured performance/operational
 hardening remain separate tasks. None alone proves or disproves MQTT5 conformance.
+
+
+## Phase2o whole-server project acceptance
+
+[Six frozen criteria](../contracts/phase2o.md) are passed in
+[server-acceptance.json](server-acceptance.json). U7 now records this bounded
+project acceptance, with zero inventoried test-gap rows. This is not a full MQTT5
+compatibility or production-readiness declaration. Explicit V5 TCP scope, default
+Both unknown-level qualification and the two SHOULD policy exceptions remain.
+
+The independently imported official DOCX adds a separate completeness ledger:
+285 keyword/error paragraphs and58 body tables,343 exact dispositions with1436
+code/test links. This is a source inventory, not343 additional independent MUSTs.
+[Importer](import_authoritative.py), [inventory](authoritative-inventory.json),
+[semantic review](authoritative-review.json), [endpoint roles](endpoint-review.json)
+and [offline checker](check_authoritative.py) preserve source hashes and applicability.
+The seven literal unnumbered MUSTs and constraints sharing paragraphs with numbered
+requirements were reviewed; five endpoint table dependencies were reconciled.
+A keyword extractor alone is not a semantic proof.
+
+Final evidence: Rust413,629 unique raw-wire unittest executions in memory/SQLite,
+all Paho2.1 suites (67 separate unittest methods plus script assertions),9 SQL fault
+cases,20,000 deterministic mutations and two actual cold guided Fuzz campaigns.
+See [Fuzz budgets/results](../../fuzz/README.md) and [progress](../progress.md).
+Real SQLite busy errors and SIGKILL validate commit/replay boundaries, not physical
+power-loss safety. Finite traces do not exhaust concurrent schedules. No confirmed
+production defect was found in this phase, so runtime/schema/API were preserved.
+
+CI now rejects missing source decisions/review files, duplicate criteria, evidence
+omissions and attempts to mark U7 verified with open criteria. Six negative tests
+exercise those failures against isolated copies of the real metadata. Hosted CI
+was configured but not run during this local acceptance.

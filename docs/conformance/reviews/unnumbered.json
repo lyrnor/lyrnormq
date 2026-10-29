@@ -1004,7 +1004,7 @@
         "crates/mqtt-router/src/trie/tests.rs:subscription_matches_agree_with_reference_and_do_not_scan_reverse_index",
         "crates/mqtt-router/src/trie/tests.rs:subscription_matches_isolate_system_topics_and_empty_levels"
       ],
-      "note": "Coordinator Phase2n exact-boundary reconciliation: Candidate is the routing-model explanation plus MAY choices for predefined/dynamic resources and ACL. It does not add a demand to prove every possible filter/ACL/timing combination. Existing dynamic routing and optional ACL choices were inspected and Router21/Session165 executed: matching subscriptions, system/empty levels, ordinary/shared separation and denied retained/live paths are covered within recorded scenarios. This bounded verified decision is consistent with other matrix rows; it is not an exhaustive conformance/fault/performance claim. Overall7.1.1 remains unresolved."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: Candidate is the routing-model explanation plus MAY choices for predefined/dynamic resources and ACL. It does not add a demand to prove every possible filter/ACL/timing combination. Existing dynamic routing and optional ACL choices were inspected and Router21/Session165 executed: matching subscriptions, system/empty levels, ordinary/shared separation and denied retained/live paths are covered within recorded scenarios. This bounded verified decision is consistent with other matrix rows; it is not an exhaustive conformance/fault/performance claim. At Phase2n, overall7.1.1 remained unresolved; Phase2o subsequently passed its frozen G1..G6 finite project gate (server-acceptance.json), retaining the stated scope limitations."
     },
     {
       "id": "U-4.11-18bf2d99126c",

@@ -1,6 +1,6 @@
-# Architecture — revision15 / Phase2n
+# Architecture — revision16 / Phase2o
 
-TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
+TCP MQTT3.1.1 and the recorded MQTT5 server scope, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
 SQLite modes. MQTT311 non-clean sessions require --storage-path; MQTT5 positive
 expiry also works across disconnects in volatile memory. TLS and WebSocket remain unsupported. Authentication/ACL uses a bounded local
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2n contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2o contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -504,3 +504,24 @@ legacy fallback while explicit V5 emits minimal84 and explicit V311 emits legacy
 Config is not persisted; existing sessions can recover across endpoint profiles.
 The matrix validates the explicit V5 profile's response rule and keeps Both's
 compatibility boundary visible. Full server conformance remains a separate gate.
+
+
+## Phase2o acceptance evidence boundaries
+
+The frozen G1..G6 contract adds no runtime API or durable schema change. Protocol,
+Transport and Quality writers used separate worktrees/branches; integration retained
+existing session/outbox transactions. New tests close reason/context, reserved flag,
+packet-direction, control-property isolation and generation/write-ticket evidence.
+No confirmed runtime defect was found. lib.rs remains documentation/modules/exports.
+
+Pinned HTML evidence is supplemented by authoritative DOCX paragraph/table review
+and a separate endpoint role ledger. Offline guards bind G1 to exact reviewed IDs
+and code/test symbols; U7 cannot pass with an open required gate. Source extraction
+is a reproducible index, while semantic applicability remains explicit review.
+
+Actual SQL locks, returned busy errors and process kills verify before/after-commit
+recovery. Stable mutation and isolated nightly libFuzzer workspaces test codec and
+bounded legacy/V5 recovery traces with controlled time. They introduce no production
+nightly requirement. Network alias/provider AUTH/KeepAlive/concurrent scheduling are
+validated separately from the pure model. This finite project acceptance does not
+remove profile qualifications, SHOULD exceptions or hardware/power-loss limits.

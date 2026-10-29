@@ -1,11 +1,11 @@
 # rmqtt
 
-Rust 2024 / Tokio TCP MQTT3.1.1 broker with an initial MQTT5.0 implementation, supporting QoS0/1/2,
+Rust 2024 / Tokio TCP MQTT3.1.1 broker with an MQTT5.0 server implementation within the recorded TCP scope, supporting QoS0/1/2,
 Retained Messages, Last Will and local authentication/ACL, with optional SQLite-backed persistent sessions.
 **Full MQTT conformance and production-readiness are not yet claimed.**
 
 See the [MQTT5 clause/evidence matrix](docs/conformance/README.md) for normative
-coverage, confirmed corrections, unreviewed requirements and test gaps. Feature
+coverage, confirmed corrections, scoped acceptance and remaining limitations. Feature
 availability below is not a substitute for that assessment.
 
 ```sh
@@ -472,7 +472,7 @@ basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persis
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
 
-See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2i.md),
+See [architecture](docs/architecture.md), [current contracts](docs/contracts/phase2o.md),
 [actual results](docs/progress.md) and [remaining dependencies](docs/tasks.md).
 
 The Topic Alias Paho2.1 test uses an explicitly scoped receive adapter because that
@@ -480,3 +480,10 @@ library does not resolve incoming aliases before its QoS2 cache. Real Paho still
 performs socket IO and QoS handshakes; raw Wire tests independently validate alias
 encoding/mappings. Native clients must implement receive mapping when advertising
 a nonzero TopicAliasMaximum. Default Paho alias maximum0 needs no adapter.
+
+
+Phase2o's six scoped acceptance gates passed: authoritative source/endpoint review,
+cross-layer transitions, real SQL/process failures, bounded Fuzz and unified client
+regression. See [gate evidence](docs/conformance/server-acceptance.json) and
+[Fuzz reproduction](fuzz/README.md). Passing these finite gates does not claim
+official MQTT certification, exhaustive input correctness or production readiness.

@@ -439,3 +439,38 @@ Keep explicit V5 profile qualification and Both's unknown-level compatibility
 boundary. Existing shared-QoS1 redistribution and secure-transport SHOULD exceptions
 remain; optional TLS/WebSocket/SCRAM absence alone is not an MQTT5 MUST violation.
 No full compatibility/production claim is made; cluster remains deferred.
+
+
+## Phase2o completed acceptance and next dependencies
+
+G1..G6 are passed under docs/contracts/phase2o.md. Independent Protocol, Transport
+and Quality worktrees produced reviewed commits; no confirmed new runtime defect
+required a fix. Runtime APIs and schema7/container1 remain unchanged.
+
+- G1:343 authoritative paragraph/table dispositions, exact IDs/digests/1436 links;
+  five endpoint table dependencies reconciled, including unnumbered same-paragraph constraints.
+- G2:27 property roles, sender/receiver reason tables, four receive states and actual
+  output/property isolation; no recipient rule invented from a sender-only duty.
+- G3:generation/takeover/lease traces, dual-mode alias/session recovery, immediate
+  Packet ID reuse pressure probes without a PING barrier. No confirmed race.
+- G4:9 SQL fault cases including actual busy-error return, rollback and pre/postcommit
+  SIGKILL recovery; volatile healthy-control case also passed.
+- G5:41 reconstructible hand seeds,3 oracle tests,20,000 stable mutations and actual
+  codec/session cold coverage-guided runs, exact budgets in fuzz/README.md.
+- G6:Rust413,wire629,all Paho suites,strict format/Clippy/Rustdoc,source and six
+  metadata-tampering guards passed. Matrix278 verified/74 NA/2 SHOULD exceptions/0 gap.
+
+Remaining work is explicit rather than an unnamed MQTT5 completion claim:
+
+1. Phase3 independent client matrix, longer reproducible fuzz campaigns, additional
+   randomized storage/actor schedules and retained crash artifacts; finite campaigns
+   cannot certify all possible inputs/interleavings.
+2. Reproducible connection/hot-topic/subscription/slow-client resource and latency
+   baselines before performance claims. Current ACK/Fuzz counts are not benchmarks.
+3. Harden production operations/deployment and consider TLS/WebSocket only with
+   new contracts and conditional transport/source audits. TLS remains absent.
+4. Revisit shared QoS1 redistribution SHOULD policy if required; the recorded session-end
+   policy exception stays visible. Default Both unknown-version fallback remains qualified.
+
+These followups do not reopen the completed finite acceptance criteria or claim
+hardware power-loss safety, hosted CI results, official certification or clustering.
