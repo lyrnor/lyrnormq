@@ -40,6 +40,34 @@ class Phase3Reliability(unittest.TestCase):
         self.addCleanup(sock.close)
         return sock
 
+    def resume_after_capacity_release(self, name):
+        # Socket EOF precedes worker Disconnect completion and permit release.
+        # Retry only pre-CONNACK admission EOF/reset, within one fixed deadline.
+        deadline = time.monotonic() + 3
+        packet = wire.connect5(name, clean=False, properties=[(0x11, 600), (0x21, 1)])
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            sock = socket.create_connection(('127.0.0.1', self.broker.port),
+                                            timeout=remaining)
+            self.addCleanup(sock.close)
+            try:
+                sock.sendall(packet)
+                prefix = sock.recv(1, socket.MSG_PEEK)
+            except (ConnectionResetError, BrokenPipeError):
+                prefix = b''
+            if prefix:
+                # Once any response starts, validate normally. Invalid/truncated
+                # CONNACK, refusal codes and timeouts are failures, not retries.
+                sock.settimeout(max(.001, deadline - time.monotonic()))
+                self.connack(sock, present=True)
+                sock.settimeout(3)
+                return sock
+            sock.close()
+            time.sleep(min(.01, max(0, deadline - time.monotonic())))
+        self.fail('connection permit was not released within 3 seconds')
+
     def rejected_publication(self, name, payload):
         source = self.client(name)
         source.sendall(wire.publication5('pressure/value', payload, qos=1, packet_id=7))
@@ -163,7 +191,7 @@ class Phase3Reliability(unittest.TestCase):
         self.message(slow, 'pressure/value', b'pending', complete=False)
         self.closed(slow)
         slow.close()
-        resumed = self.client('capacity-slow', clean=False, expiry=600, maximum=1, present=True)
+        resumed = self.resume_after_capacity_release('capacity-slow')
         self.message(resumed, 'pressure/value', b'pending', dup=True)
         self.barrier(resumed)
         self.barrier(control)
