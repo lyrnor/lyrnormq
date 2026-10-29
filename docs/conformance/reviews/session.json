@@ -7,7 +7,10 @@
     "cargo clippy --offline -p mqtt-session --all-targets -- -D warnings: passed",
     "cargo test --offline -p mqtt-session:165 passed; fmt/strict Clippy passed",
     "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
-    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed.",
+    "cargo test --offline -p mqtt-session:180 passed; fmt, strict Clippy and Rustdoc passed",
+    "Failure-first mixed-RAP counterexample /tmp/rmqtt-p2n-rap-red.log followed frozen N1 permitted multi-copy policy.",
+    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
   ],
   "clauses": [
     {
@@ -276,12 +279,13 @@
     },
     {
       "id": "MQTT-3.3.1-12",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable.rs:SessionEngine::route",
         "crates/mqtt-session/src/durable.rs:publish_from",
         "crates/mqtt-session/src/durable/shared.rs:plan_shared_copies",
-        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable/ordinary.rs:Matches::choices"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy",
@@ -289,18 +293,23 @@
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
         "crates/mqtt-session/src/durable/phase2m_tests.rs:retained_replay_remains_retained_for_both_rap_choices_without_shared_replay",
         "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
-        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:mixed_rap_retained_live_copies_respect_each_subscription_and_identifier",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:no_local_filter_is_removed_before_mixed_rap_detection",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:subscribe_acl_filter_is_removed_before_mixed_rap_detection",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:v311_recipient_retains_existing_ordinary_collapse_policy"
       ],
-      "note": "Coordinator Phase2m exact-row reconciliation: Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: Phase2n chooses permitted per-subscription multiple copies only for new live sourceRETAIN1/recipientV5/mixed ordinary RAP. Each RAP0 contribution has RETAIN0 and its own identifier; eligibility precedes mixedness. Homogeneous/nonretained/311 and pre-existing captured copies retain their documented contracts. This is a conservative policy satisfying each entry, not a claim the specification uniquely mandates splitting."
     },
     {
       "id": "MQTT-3.3.1-13",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable.rs:SessionEngine::route",
         "crates/mqtt-session/src/durable.rs:publish_from",
         "crates/mqtt-session/src/durable/shared.rs:plan_shared_copies",
-        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable/ordinary.rs:Matches::choices"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy",
@@ -308,9 +317,13 @@
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
         "crates/mqtt-session/src/durable/phase2m_tests.rs:retained_replay_remains_retained_for_both_rap_choices_without_shared_replay",
         "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
-        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:mixed_rap_retained_live_copies_respect_each_subscription_and_identifier",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:mixed_rap_copy_metadata_survives_offline_restore_and_subscription_replacement",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:new_captured_pair_survives_v311_then_v5_resume_without_retagging",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:captured_single_copy_is_not_split_or_retagged_after_options_become_mixed"
       ],
-      "note": "Coordinator Phase2m exact-row reconciliation: Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: RAP1 contribution preserves the original live retain flag independently of RAP0. New captured per-entry flags/IDs survive offline queue, recovery and version bridging. Already-captured single-copy metadata is not retroactively split or rewritten. Retained subscription replay remains its prior separate behavior."
     },
     {
       "id": "MQTT-3.3.2-3",
@@ -1084,5 +1097,5 @@
       "note": "Healthy due Will publishes at timer boundary, and startup retries deferred failures. Resource-blocked Will intent waits for capacity; this delay remains explicit, with no claim of real-time scheduling."
     }
   ],
-  "integrated_evidence_commit": "31c3ca7"
+  "integrated_evidence_commit": "7149a63b968742d9899c89f21375b5586f725c6f"
 }

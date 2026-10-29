@@ -4,42 +4,59 @@
   "verification": [
     "cargo test --offline -p mqtt-session:165 passed; fmt/strict Clippy passed",
     "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
-    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed.",
+    "cargo test --offline -p mqtt-session:180 passed; fmt, strict Clippy and Rustdoc passed",
+    "Failure-first mixed-RAP counterexample /tmp/rmqtt-p2n-rap-red.log followed frozen N1 permitted multi-copy policy.",
+    "cargo test --offline -p mqtt-protocol:74 passed; fmt, strict Clippy and Rustdoc passed",
+    "Independent Router21/Session165 tests passed; published OS3.1.3.2.3/3.3.2.3.2/3.3.2-4/5.4.9 reviewed for producer-versus-forwarder applicability.",
+    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
   ],
   "clauses": [
     {
       "id": "MQTT-3.3.1-12",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable.rs:publish_from",
         "crates/mqtt-session/src/durable/shared.rs:plan_shared_copies",
-        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable/ordinary.rs:Matches::choices",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_single_and_mixed_ordinary_policy_matrix_preserves_source_and_ids",
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
         "crates/mqtt-session/src/durable/phase2m_tests.rs:retained_replay_remains_retained_for_both_rap_choices_without_shared_replay",
         "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
-        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:mixed_rap_retained_live_copies_respect_each_subscription_and_identifier",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:no_local_filter_is_removed_before_mixed_rap_detection",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:subscribe_acl_filter_is_removed_before_mixed_rap_detection",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:v311_recipient_retains_existing_ordinary_collapse_policy"
       ],
-      "note": "Coordinator Phase2m exact-row reconciliation: Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: Phase2n chooses permitted per-subscription multiple copies only for new live sourceRETAIN1/recipientV5/mixed ordinary RAP. Each RAP0 contribution has RETAIN0 and its own identifier; eligibility precedes mixedness. Homogeneous/nonretained/311 and pre-existing captured copies retain their documented contracts. This is a conservative policy satisfying each entry, not a claim the specification uniquely mandates splitting."
     },
     {
       "id": "MQTT-3.3.1-13",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable.rs:publish_from",
         "crates/mqtt-session/src/durable/shared.rs:plan_shared_copies",
-        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-session/src/durable/ordinary.rs:Matches::choices",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_single_and_mixed_ordinary_policy_matrix_preserves_source_and_ids",
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
         "crates/mqtt-session/src/durable/phase2m_tests.rs:retained_replay_remains_retained_for_both_rap_choices_without_shared_replay",
         "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
-        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:mixed_rap_retained_live_copies_respect_each_subscription_and_identifier",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:mixed_rap_copy_metadata_survives_offline_restore_and_subscription_replacement",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:new_captured_pair_survives_v311_then_v5_resume_without_retagging",
+        "crates/mqtt-session/src/durable/phase2n_rap_tests.rs:captured_single_copy_is_not_split_or_retagged_after_options_become_mixed"
       ],
-      "note": "Coordinator Phase2m exact-row reconciliation: Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: RAP1 contribution preserves the original live retain flag independently of RAP0. New captured per-entry flags/IDs survive offline queue, recovery and version bridging. Already-captured single-copy metadata is not retroactively split or rewritten. Retained subscription replay remains its prior separate behavior."
     },
     {
       "id": "MQTT-4.6.0-5",
@@ -73,48 +90,69 @@
     },
     {
       "id": "U-3.1.3.2.3-66862b5ebc79",
-      "status": "test-gap",
+      "status": "not-applicable",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:validate_properties",
         "crates/mqtt-session/src/durable/lifecycle.rs:retry_wills",
         "crates/mqtt-session/src/durable.rs:publish_from",
-        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2m_tests.rs:pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will",
         "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_publish_and_retained_bytes",
-        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes"
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:pfi_utf8_payload_uses_rfc3629_not_mqtt_string_codepoint_restrictions",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:optional_receiver_validation_does_not_make_codec_a_payload_producer",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:payload_nul_does_not_relax_the_separate_topic_name_rule"
       ],
-      "note": "Coordinator Phase2m exact-row reconciliation: Actual PFI1 arbitrary non-UTF8 input is forwarded unchanged for live, retained and client-supplied Will data under optional no-validation policy. Origin-sender vs broker-forwarder interpretation remains explicit; not automatically green."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: Exact candidate paragraph constrains the originating payload producer. This broker does not author application payload bytes: PUBLISH and CONNECT Will data originate at clients (Will Binary Data defined in3.1.3.4). Server validation is explicitly optional in3.1.3.2.3/3.3.2.3.2;3.3.2-4 requires unchanged PFI on forwarding and5.4.9 explicitly anticipates a Server not validating while a subscribing Client does. Current no-validation/byte-preserving receiver-forwarder policy is tested; these tests do not certify malformed producer data as well-formed. Future broker-authored payload feature or opt-in validation requires a fresh producer/receiver audit."
     },
     {
       "id": "U-3.3.2.3.2-d089a3edde54",
-      "status": "test-gap",
+      "status": "not-applicable",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:validate_properties",
         "crates/mqtt-session/src/durable/lifecycle.rs:retry_wills",
         "crates/mqtt-session/src/durable.rs:publish_from",
-        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2m_tests.rs:pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will",
         "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_publish_and_retained_bytes",
-        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes"
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:pfi_utf8_payload_uses_rfc3629_not_mqtt_string_codepoint_restrictions",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:optional_receiver_validation_does_not_make_codec_a_payload_producer",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:payload_nul_does_not_relax_the_separate_topic_name_rule"
       ],
-      "note": "Coordinator Phase2m exact-row reconciliation: Actual PFI1 arbitrary non-UTF8 input is forwarded unchanged for live, retained and client-supplied Will data under optional no-validation policy. Origin-sender vs broker-forwarder interpretation remains explicit; not automatically green."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: Exact candidate paragraph constrains the originating payload producer. This broker does not author application payload bytes: PUBLISH and CONNECT Will data originate at clients (Will Binary Data defined in3.1.3.4). Server validation is explicitly optional in3.1.3.2.3/3.3.2.3.2;3.3.2-4 requires unchanged PFI on forwarding and5.4.9 explicitly anticipates a Server not validating while a subscribing Client does. Current no-validation/byte-preserving receiver-forwarder policy is tested; these tests do not certify malformed producer data as well-formed. Future broker-authored payload feature or opt-in validation requires a fresh producer/receiver audit."
     },
     {
       "id": "U-4.7.3-bd9cb090bad8",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-session/src/durable.rs:publish_from"
+        "crates/mqtt-session/src/durable.rs:publish_from",
+        "crates/mqtt-router/src/trie.rs:Router::matching_subscriptions",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
-        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_interleaved_sources_preserve_same_source_qos_order_across_recovery"
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_interleaved_sources_preserve_same_source_qos_order_across_recovery",
+        "crates/mqtt-router/src/trie/tests.rs:subscription_matches_agree_with_reference_and_do_not_scan_reverse_index",
+        "crates/mqtt-router/src/trie/tests.rs:subscription_matches_isolate_system_topics_and_empty_levels",
+        "crates/mqtt-session/src/durable/phase2d_tests.rs:subscribe_partial_denial_and_retained_receive_checks_are_independent",
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_group_and_ordinary_copies_are_independent"
       ],
-      "note": "Independent matching/routing cases now include ordinary versus two shared groups and interleaved recovery, but the explanatory broad matching paragraph is not established for every filter/ACL/timing combination by these finite tests."
+      "note": "Coordinator Phase2n exact-boundary reconciliation: Candidate is the routing-model explanation plus MAY choices for predefined/dynamic resources and ACL. It does not add a demand to prove every possible filter/ACL/timing combination. Existing dynamic routing and optional ACL choices were inspected and Router21/Session165 executed: matching subscriptions, system/empty levels, ordinary/shared separation and denied retained/live paths are covered within recorded scenarios. This bounded verified decision is consistent with other matrix rows; it is not an exhaustive conformance/fault/performance claim. Overall7.1.1 remains unresolved."
     }
   ],
-  "integrated_evidence_commit": "31c3ca7"
+  "integrated_evidence_commit": "3ec2245"
 }

@@ -1,0 +1,30 @@
+{
+  "reviewer": "phase2n-version",
+  "source_commit": "e6235ec",
+  "verification": [
+    "cargo test --offline -p mqtt-transport:85 passed; fmt, strict Clippy and Rustdoc passed",
+    "Failure-first explicit-profile API/behavior regressions captured before N3 implementation; known/unknown levels, caps, state isolation and SQLite311-to5 recovery passed.",
+    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.1.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/config.rs:ProtocolMode",
+        "crates/mqtt-transport/src/config.rs:accepts",
+        "crates/mqtt-transport/src/config.rs:refusal",
+        "crates/mqtt-transport/src/durable/network.rs:profile_refusal",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2n_version_tests.rs:explicit_protocol_profiles_select_acceptance_and_refusal_wire_family",
+        "crates/mqtt-transport/src/phase2n_version_tests.rs:rejected_known_protocol_profile_respects_known_peer_packet_caps",
+        "crates/mqtt-transport/src/phase2n_version_tests.rs:rejected_profile_is_gated_before_authentication_takeover_and_will_registration",
+        "crates/mqtt-transport/src/phase2n_version_tests.rs:unknown_version_refusal_does_not_takeover_publish_pipeline_or_fire_will",
+        "crates/mqtt-transport/src/phase2n_version_tests.rs:durable_session_can_resume_after_listener_profile_changes_from_311_to_5"
+      ],
+      "note": "Explicit V5 listener profile accepts level5 and sends minimal CONNACK84+EOF for rejected known4 and unknown0/3/6/255; wrong names remain silent. V311 profile selects legacyCONNACK1; Both default preserves levels4/5 and legacy unknown-level compatibility. The verified MQTT5 interpretation is scoped to the explicit V5 profile, not a claim that arbitrary unknown bytes reveal an intended protocol or that Both universally satisfies both refusal formats. Known valid MQTT5 peer ceilings and local limits constrain complete responses; unknown payload grammar is never guessed. Actual wire gates precede authentication/session/Will/takeover and SQLite recovery crosses311\u21925 profiles without schema change."
+    }
+  ]
+}

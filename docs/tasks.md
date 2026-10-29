@@ -417,3 +417,25 @@ Remaining acceptance order:
 Seven is the number of remaining inventoried assessment rows, not a certified count
 of every possible MQTT5 defect. Existing shared-QoS1/secure-transport SHOULD choices,
 Fuzz/fault/performance/operations and deferred cluster tasks remain separate.
+
+
+## Phase2n completed semantic boundaries and remaining overall gate
+
+Frozen db3f375 selected unambiguous permitted mixed-RAP copies, separated producer
+PFI promises from receiver MAY-validation, and added explicit listener profiles.
+Session7149a63 implements N1, Protocol3ec2245 adds payload-role vectors, Transport
+e6235ec implements N3, CLIc3764cf exposes --protocol, Quality8d53584 supplies actual
+wire/Paho/upgrade/restore and updated old mixed-policy assertions.
+
+Current277 verified,1 test-gap,74 not-applicable,2 SHOULD exceptions;1690 source/test
+references validate. The six specific boundary rows are resolved with explicit role
+and profile scopes. The remaining U-7.1.1-56088afba646 is overall server acceptance.
+It requires independent completeness review of applicable unnumbered/table/endpoint
+and cross-layer MUSTs beyond the heuristic inventory and finite recorded scenarios.
+Broader corpus/client/fault/Fuzz work is planned evidence, not a new MQTT MUST.
+
+Do not simply change that gate to green because the other inventoried rows passed.
+Keep explicit V5 profile qualification and Both's unknown-level compatibility
+boundary. Existing shared-QoS1 redistribution and secure-transport SHOULD exceptions
+remain; optional TLS/WebSocket/SCRAM absence alone is not an MQTT5 MUST violation.
+No full compatibility/production claim is made; cluster remains deferred.

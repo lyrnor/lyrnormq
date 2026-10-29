@@ -56,18 +56,18 @@ their current rows become verified. See `docs/progress.md` for actual final tota
 
 All354 inventoried entries have a first review disposition. This includes252 literal
 numbered entries and102 unnumbered candidates, not354 distinct applicable MUSTs.
-There are1472 validated implementation/test references. Scope remains the pinned OS
+There are1690 validated implementation/test references. Scope remains the pinned OS
 source and the recorded scenarios, with no full conformance claim.
 
 | Disposition | Numbered entries | Supplementary candidates | Total |
 | --- | --- | --- | --- |
-| verified within recorded evidence |213|60|273|
-| test-gap / unresolved interpretation |3|4|7|
-| not-applicable / source alias / editorial |36|36|72|
+| verified within recorded evidence |216|61|277|
+| test-gap / unresolved interpretation |0|1|1|
+| not-applicable / source alias / editorial |36|38|74|
 | SHOULD policy-exception |0|2|2|
 
 Three confirmed implementation mismatches were fixed; none of those remains open.
-The7 evidence gaps still block a full conformance conclusion. A screened candidate
+The overall server acceptance gate still blocks a full conformance conclusion. A screened candidate
 is not automatically an executable requirement, and screening does not exhaust all
 unnumbered sentences or property table combinations. Never turn this table into a
 compliance percentage.
@@ -112,9 +112,40 @@ ClientID rejection is conditional under the current accept-all-valid-ID policy.
 Wrong protocol names already close silently; the old matrix had conflated that
 path with unsupported levels. Unknown levels preserve the MQTT311 refusal rule,
 so the MQTT5-specific pre-negotiation interpretation remains explicit. No production
-change was needed. The remaining7 rows concern unknown-version context, mixed RAP,
+change was needed. At that stage,7 rows remained: unknown-version context, mixed RAP,
 PFI origin/forwarding, broad routing evidence and overall conformance. They are
 inventoried gaps, not a claim that all other unmarked requirements are exhaustive.
+
+## Phase2n resolved interpretations and behavior
+
+The six specific boundary rows now have dispositions; the remaining row is the
+whole-server acceptance gate U-7.1.1-56088afba646. This is not a declaration of
+complete MQTT5 conformance or an exhaustive inventory of every unmarked obligation.
+
+- Mixed RAP: for new live RETAIN1 publications and V5 recipients with eligible
+  ordinary RAP0/RAP1 overlaps, one copy per matching subscription preserves that
+  entry's grant, flag and optional identifier. This uses3.3.4's permitted multiple-
+  copy path; it does not claim the standard uniquely specifies this algorithm.
+  Homogeneous/nonretained/311/shared/replay behavior and captured old work remain.
+- PFI: the two producer-assertion candidates are not-applicable to this broker as
+  origin producer. The client supplies PUBLISH/Will bytes; forwarding preserves
+  them and PFI. Optional no-validation is supported by3.1.3.2.3,3.3.2.3.2/3.3.2-4
+  and the deployment explicitly discussed in5.4.9. Malformed client data is not
+  certified as valid UTF8. Existing forwarder obligations retain positive tests.
+- Unknown versions: `--protocol 5` gives explicit V5 semantics; `--protocol 3.1.1`
+  gives explicit legacy semantics. Default Both preserves compatibility. The
+  version row is verified for explicit V5; this does not infer protocol intent from
+  unknown bytes or certify Both's fallback as universally MQTT5-specific.
+- The broad matching paragraph describes dynamic-resource/ACL choices, not an
+  additional universal-proof mandate. Existing bounded independent matcher, ACL
+  and routing evidence verifies the implemented choices without claiming all inputs.
+
+Schema7 stays unchanged. Actual old-artifact upgrade preserves old combined
+inflight/queued metadata and applies splitting only to new fanout. The dedicated
+upgrade test needs `/tmp/rmqtt-p2n-baseline`; it passed locally with the previous
+real executable. A fresh CI host without that executable explicitly skips this
+one SQLite case; the rest of the new suite is mandatory in its applicable mode.
+Hosted CI execution is not claimed. Frozen decisions are in contracts/phase2n.md.
 
 ## Keeping the matrix reviewable
 
@@ -134,9 +165,9 @@ staleness offline; it does not substitute for reviewing the normative meaning.
 
 ## Remaining acceptance work
 
-The current catalogue is screened. Prioritize the remaining explicit test gaps and
-unresolved interpretations, then the exhaustive unnumbered/table sweep. Explicit open interpretations include mixed-RAP overlap
-and adversarial/interleaved ordering. Shared QoS1 redistribution after selected-session
+The current catalogue is screened. The remaining whole-server gate requires an
+independent completeness assessment of applicable unnumbered/table/direction and
+cross-layer obligations, plus broader independent client/fault/corpus evidence. Shared QoS1 redistribution after selected-session
 termination remains a documented SHOULD exception, not seamless group redelivery.
 Secure transport is absent; PLAIN is not encryption. Additional SASL mechanisms,
 TLS/WebSocket, broad Fuzz/fault/client campaigns and measured performance/operational

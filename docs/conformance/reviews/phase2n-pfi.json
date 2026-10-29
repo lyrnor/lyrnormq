@@ -1,0 +1,61 @@
+{
+  "reviewer": "phase2n-pfi",
+  "source_commit": "3ec2245",
+  "verification": [
+    "cargo test --offline -p mqtt-protocol:74 passed; fmt, strict Clippy and Rustdoc passed",
+    "Independent Router21/Session165 tests passed; published OS3.1.3.2.3/3.3.2.3.2/3.3.2-4/5.4.9 reviewed for producer-versus-forwarder applicability.",
+    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
+  ],
+  "clauses": [
+    {
+      "id": "U-3.1.3.2.3-66862b5ebc79",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:pfi_utf8_payload_uses_rfc3629_not_mqtt_string_codepoint_restrictions",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:optional_receiver_validation_does_not_make_codec_a_payload_producer",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:payload_nul_does_not_relax_the_separate_topic_name_rule",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will"
+      ],
+      "note": "Exact candidate paragraph constrains the originating payload producer. This broker does not author application payload bytes: PUBLISH and CONNECT Will data originate at clients (Will Binary Data defined in3.1.3.4). Server validation is explicitly optional in3.1.3.2.3/3.3.2.3.2;3.3.2-4 requires unchanged PFI on forwarding and5.4.9 explicitly anticipates a Server not validating while a subscribing Client does. Current no-validation/byte-preserving receiver-forwarder policy is tested; these tests do not certify malformed producer data as well-formed. Future broker-authored payload feature or opt-in validation requires a fresh producer/receiver audit."
+    },
+    {
+      "id": "U-3.3.2.3.2-d089a3edde54",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable/lifecycle.rs:SessionEngine::connect_with_options"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:pfi_utf8_payload_uses_rfc3629_not_mqtt_string_codepoint_restrictions",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:optional_receiver_validation_does_not_make_codec_a_payload_producer",
+        "crates/mqtt-protocol/src/v5/payload_role_tests.rs:payload_nul_does_not_relax_the_separate_topic_name_rule",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will"
+      ],
+      "note": "Exact candidate paragraph constrains the originating payload producer. This broker does not author application payload bytes: PUBLISH and CONNECT Will data originate at clients (Will Binary Data defined in3.1.3.4). Server validation is explicitly optional in3.1.3.2.3/3.3.2.3.2;3.3.2-4 requires unchanged PFI on forwarding and5.4.9 explicitly anticipates a Server not validating while a subscribing Client does. Current no-validation/byte-preserving receiver-forwarder policy is tested; these tests do not certify malformed producer data as well-formed. Future broker-authored payload feature or opt-in validation requires a fresh producer/receiver audit."
+    },
+    {
+      "id": "U-4.7.3-bd9cb090bad8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-router/src/trie.rs:Router::matching_subscriptions",
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable/subscriptions.rs:SessionEngine::subscribe_entry"
+      ],
+      "tests": [
+        "crates/mqtt-router/src/trie/tests.rs:subscription_matches_agree_with_reference_and_do_not_scan_reverse_index",
+        "crates/mqtt-router/src/trie/tests.rs:subscription_matches_isolate_system_topics_and_empty_levels",
+        "crates/mqtt-session/src/durable/phase2d_tests.rs:subscribe_partial_denial_and_retained_receive_checks_are_independent",
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_group_and_ordinary_copies_are_independent"
+      ],
+      "note": "Candidate is the routing-model explanation plus MAY choices for predefined/dynamic resources and ACL. It does not add a demand to prove every possible filter/ACL/timing combination. Existing dynamic routing and optional ACL choices were inspected and Router21/Session165 executed: matching subscriptions, system/empty levels, ordinary/shared separation and denied retained/live paths are covered within recorded scenarios. This bounded verified decision is consistent with other matrix rows; it is not an exhaustive conformance/fault/performance claim. Overall7.1.1 remains unresolved."
+    }
+  ]
+}

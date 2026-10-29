@@ -93,7 +93,7 @@
       "status": "test-gap",
       "implementation": [],
       "tests": [],
-      "note": "Overall server conformance cannot be established while rows remain unreviewed or lack evidence. No full conformance claim."
+      "note": "Overall server-conformance acceptance remains open: the pinned identifier/heuristic inventory and finite scenarios are not an independent completeness assessment of all unnumbered tables, endpoint directions and cross-layer MUSTs. Explicit V5 profile qualification and both SHOULD exceptions remain visible. Wider corpus/client/fault/Fuzz work is project evidence, not an invented MQTT MUST."
     },
     {
       "id": "U-7.1.2-c62966e0c8e9",

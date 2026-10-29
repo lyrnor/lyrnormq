@@ -1540,3 +1540,93 @@ Source importer reproduces the pinned digest/inventory; matrix guard/regeneratio
 Python compilation, thin-lib audit and diff checks pass. CI includes new both-mode
 suite; hosted CI run is not claimed. Production architecture, schema7, outbox and
 existing SHOULD policy exceptions remain; cluster work stays deferred.
+
+## Phase2n — resolved RAP/PFI/version boundaries and implemented behavior
+
+2026-10-29. Contractdb3f375 froze role/profile interpretations and public interfaces
+before production changes. Real specialists wrote Session, Protocol and Transport
+in separate Git worktrees/branches; released PFI slot enabled independent Quality.
+Coordinator owns CLI/docs/matrix/integration. Independent PFI reviewer then audited
+N1/N3 and reran Session180 and profile5 actual tests; no blocking defect was found.
+Its pre-existing-queue and mirrored malformed-profile suggestions became two new
+actual wire cases, both passing in memory and SQLite.
+
+| Owner | Source commit | Result |
+| --- | --- | --- |
+| Session |7149a63|N1 mixed-RAP per-subscription copies;15 new tests|
+| Protocol |3ec2245|PFI producer/forwarder boundary;3 exact-byte tests|
+| Transport |e6235ec|ProtocolMode Both/V311/V5 and pre-worker refusal;5 actual TCP tests|
+| Coordinator |c3764cf|--protocol both/3.1.1/5;CLI acceptance test|
+| Quality |8d53584|20 wire methods, actual upgrade, native Paho and CI updates|
+
+### Decisions and material behavior
+
+Mixed ordinary RAP could not express two requested RETAIN choices in its previous
+single copy. Failure-first tests captured old [(R1,IDs11+22)] versus the frozen
+[(R0,ID11),(R1,ID22)] policy. N1 deliberately chooses the multiple-copy path allowed
+by3.3.4-2, preserving each entry's grant/flag/identifier. This is a conservative
+resolution satisfying both RAP branches, not a claim OASIS uniquely mandates this
+algorithm. It changes NEW live RETAIN1 fanout to V5 with mixed eligible RAP values;
+other collapsed cases, shared selection and retained replay keep their behavior.
+Every ordinary/shared copy counts in atomic queue admission, with existing caps,
+expiry, ReceiveMaximum and QoS2 idempotence. Source red log is retained in the local
+verification artifacts. Old captured schema7 outboxes are not rewritten.
+
+PFI's producer promise is separate from optional receiver validation. Client supplies
+PUBLISH and Will payloads;3.3.2-4 forwards PFI unaltered, Will BinaryData is described
+in3.1.3.4, and5.4.9 expressly anticipates Server not validating while Client does.
+No validation mandate was invented from producer text, and malformed client data
+was not declared valid UTF8. The two producer-only candidate rows become not-
+applicable to this broker's origin role, with positive forwarding/framing evidence.
+Broad U4.7.3 describes the implemented routing model and optional dynamic/ACL choices;
+bounded independent evidence is appropriate, not an impossible all-input proof.
+
+Explicit protocol profiles resolve the deployable unknown-version boundary without
+regressing default dual-protocol behavior. V5 profile only accepts5 and rejects
+other levels with minimalV5CONNACK84; V311 only accepts4 and replieslegacy1 otherwise.
+Both remains default and preserves legacy fallback. Mode gate precedes auth,
+assignment, session/Will changes and takeover; peer/local caps and malformed-prefix
+handling are tested. Unknown payload grammar is never guessed. This verifies
+3.1.2-2 for explicit V5 profile; Both's compatibility boundary stays documented.
+Public BrokerConfig gains runtime protocol_mode; schema7/container1 stay unchanged.
+
+### Actual verification and immutable artifact
+
+Darwin27 arm64, Rust/Cargo1.98.1 stable, Rust2024, Python3.14.7, Paho2.1.0.
+Final debug executable SHA256:
+52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a.
+
+Rust405 passed:Auth20,Protocol74,Router21,Session180,Storage16,Transport85,CLI9.
+Workspace build,Fmt,strict all-target Clippy and strict Rustdoc pass. Independent
+N1/N3 review found no blocking issue. Same immutable executable passes619 actual
+wire executions(memory274/SQLite345),24/26 suite executions, all reused Paho cases.
+New20-method suite:memory17 pass/3 SQL-only skips(4.934s),SQLite20 pass(5.557s).
+Existing582 plus37 new executions are counted once; subcases and repeats are not
+inflated or presented as performance results. The mixed native Paho test now checks
+each separate QoS/RAP/ID. Raw test dispatch handles legal interleaved QoS2 PUBLISH
+and PUBREL; that was a client fixture assumption, not a broker defect.
+
+Actual previous executable seeded collapsed outgoing QoS2 and queued QoS1 with
+IDs[11,22]/RETAIN1. SIGKILL/new startup replays the original packet ID/DUP/captured
+metadata unchanged, then new live publishes split by subscription. Both-mode tests
+also verify existing queue occupancy+ordinary/shared+second-recipient rollback,
+profile state isolation, strictV5 malformedlevel4 refusal, aliases, exact20-byte caps,
+expiry/NoLocal/ACL and profile-switch V5→311→V5 recovery. This is process-crash
+verification, not physical power-loss certification.
+
+CI includes the new suite and amended old mixed-RAP assertions in both modes.
+Actual old-artifact upgrade needs /tmp/rmqtt-p2n-baseline and passed locally in SQL;
+fresh CI without that executable explicitly skips that one SQL method. All other
+new applicable cases are mandatory. Hosted CI was not run/claimed.
+
+### Matrix result and remaining gate
+
+354 entries reviewed,1690 valid source/test links. Current277 verified,1 test-gap,
+74 not-applicable,2 SHOULD exceptions. Numbered252:216 verified/36 not-applicable;
+supplementary102:61 verified/1 gate/38 not-applicable/2 exceptions. Six specific
+boundary rows are resolved; the one remaining U7 whole-server acceptance gate is
+not automatically satisfied by the other inventory rows. An independent completeness
+assessment of applicable unmarked tables/directions/cross-layer MUSTs and broader
+client/corpus/fault evidence is still required by project acceptance. Those evidence
+campaigns are not new MQTT MUSTs. Explicit V5 profile scope and both existing SHOULD
+exceptions remain visible. No full MQTT5/production claim or cluster work follows.

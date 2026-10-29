@@ -25,7 +25,7 @@ Default bind is loopback.
 
 ## MQTT5 foundation and version interoperability
 
-The same TCP listener negotiates protocol level4 or5. The normalized Packet/QoS
+The default `--protocol both` TCP listener negotiates protocol level4 or5. The normalized Packet/QoS
 state machines and transactional outboxes are shared; a versioned Frame adds
 properties, reasons and subscription wire options. The codec recognizes all standard
 property identifiers/types, rejects wrong contexts/duplicates/illegal values and
@@ -84,15 +84,41 @@ a publication/replay that cannot fit, rather than poisoning a durable outbox.
 These exclusions, full direction/conformance matrices and operational hardening
 remain work. Full MQTT5 compatibility and production-readiness are not claimed.
 
+## Explicit protocol endpoints
+
+`--protocol both` is the default and preserves existing MQTT311/MQTT5 behavior,
+including the legacy refusal for an unsupported level before version agreement.
+Use `--protocol 5` for an explicit MQTT5 endpoint: only level5 is accepted, and
+other levels receive a minimal MQTT5 CONNACK84 and EOF. Use `--protocol 3.1.1` for
+an explicit legacy endpoint accepting level4 and rejecting other levels with
+CONNACK1. Wrong protocol names close as malformed. Profile rejection precedes
+credentials, ID assignment, session changes, Will registration and takeover.
+
+```sh
+cargo run -p rmqtt -- --protocol 5 --listen 127.0.0.1:1883
+```
+
+Profiles are runtime listener configuration, not durable session state. A session
+can resume after a profile change/restart using the existing cross-version rules.
+The explicit V5 profile resolves the MQTT5 unknown-level response interpretation;
+Both's pre-negotiation compatibility policy is documented separately and is not
+claimed as universal MQTT5 proof. Known peer and local packet caps still apply.
+
 ## Subscription options and identifiers
 
 Each MQTT5 subscription stores its QoS, No Local, Retain As Published, Retain
 Handling and optional identifier. No Local removes self-origin live matches,
 including QoS2 completion and Will, before eligible QoS/identifier aggregation.
-Another eligible matching subscription may still deliver. Live routing sends one
-copy per recipient at the highest eligible grant, capped by source QoS. If eligible
-subscriptions mix RAP values, this broker preserves the original retain flag when
-any eligible match requests it; this is an explicit overlap policy.
+Another eligible matching subscription may still deliver. Homogeneous RAP and
+nonretained live publications use one copy per recipient at the highest eligible
+grant, capped by source QoS. When a retained live publication matches both RAP0 and
+RAP1 ordinary subscriptions for an MQTT5 recipient, the broker sends one copy per
+eligible subscription: each has its own granted QoS, RETAIN choice and optional
+identifier. Thus applications may receive multiple copies for that overlap. This
+selects the permitted multiple-copy path rather than forcing one mixed RETAIN bit.
+No Local/ACL filtering happens before deciding whether the matches are mixed.
+Shared selections stay independent; recipient311 keeps its existing collapsed wire
+behavior. Every copy counts against queue, inflight and packet limits.
 
 RH0 replays retained values on every accepted subscription, RH1 only for a new
 exact filter, and RH2 suppresses subscription-triggered replay. Retained replay
@@ -102,14 +128,17 @@ Denied entries leave prior subscription state intact.
 
 Identifiers1..268435455 apply to every accepted filter in that SUBSCRIBE. Replacing
 with no identifier clears the old one; unsubscribe/session reset removes the full
-record. One identifier per eligible matching filter is attached to live output,
-including repeated equal values from different filters. Retained replay carries
+record. Collapsed live output includes one identifier per eligible matching filter,
+including repeated equal values from different filters. A mixed-RAP split copy
+includes only its particular subscription's identifier, if present. Retained replay carries
 only its triggering subscription's identifier. Application property order remains
 unchanged. IDs are recipient metadata, never stored in the global retained value
 or accepted from client-origin PUBLISH/Will.
 
 Queued/outgoing copies capture their identifiers and retain choice at fanout;
-replacing/unsubscribing later does not rewrite accepted deliveries. Schema6 persists
+replacing/unsubscribing later does not rewrite accepted deliveries. Previously
+accepted schema7 copies also replay their captured flags/IDs across this upgrade;
+the new mixed-RAP policy applies to new fanout, not retroactive outbox rewriting. Schema6 persists
 full subscription records and a required retained_replay marker, explicitly migrating
 versions1..5 with default options/no IDs. MQTT311 wire strips IDs and clears live
 RAP retain while preserving retained-replay RETAIN1; internal metadata survives a
@@ -377,6 +406,7 @@ never PUBLISH; other unresolved publishes keep their IDs and set DUP.
 | `--auth-policy` | disabled | Bounded JSON authentication/ACL policy; invalid policy fails startup |
 | `--enhanced-auth-plain` | disabled | Enable MQTT5 PLAIN using the configured access policy |
 | `--listen` | `127.0.0.1:1883` | TCP bind address |
+| `--protocol` | `both` | Listener profile: `both`, `3.1.1` or `5` |
 | `--storage-path` | disabled | SQLite path; parent must exist |
 | `--max-packet-size` | 1048576 | Maximum complete packet bytes |
 | `--max-connections` | 1024 | Accepted concurrent connections |

@@ -1,4 +1,4 @@
-# Architecture — revision14 / Phase2m
+# Architecture — revision15 / Phase2n
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2m contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2n contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -477,3 +477,30 @@ examining both specifications would regress a different conformance obligation.
 Mixed ordinary RAP collapse and PFI sender-versus-forwarder interpretation remain
 explicit rather than waived as MUST exceptions. Independent tests document current
 policies without converting those interpretive gaps to verified rows.
+
+
+## Phase2n resolved semantic boundaries
+
+Frozen N1 selects per-subscription ordinary copies only for new retained live
+publications with mixed eligible RAP values and a V5 recipient. Private ordinary
+projection follows ACL/No Local eligibility; queue admission reserves every ordinary
+copy before shared selection. Each split copy carries one subscription's QoS/flag/ID;
+homogeneous/nonretained/311 and global retained replay keep existing semantics.
+Schema7 and old accepted outbox metadata are preserved. This policy chooses the
+specification's multiple-copy option without asserting it is the unique permitted
+algorithm. Existing outbox/expiry/QoS/alias/ReceiveMaximum paths are reused.
+
+Frozen N2 distinguishes producer PFI1 promises from optional receiver validation;
+client-origin PUBLISH/Will bytes and PFI pass through unchanged. Published OS5.4.9
+explicitly anticipates an unvalidating Server and validating Client. Codec framing
+does not certify malformed producer bytes as well-formed data. Payload UTF8 is
+RFC3629 data, not the stricter MQTT encoded-string rule. No broker-authored payload
+feature is introduced.
+
+Frozen N3 adds ProtocolMode Both/V311/V5 to runtime BrokerConfig and --protocol to
+CLI. Gate rejection precedes worker Connect and state mutation; known prefix caps
+constrain responses, unsupported layouts are never guessed. Both preserves its
+legacy fallback while explicit V5 emits minimal84 and explicit V311 emits legacy1.
+Config is not persisted; existing sessions can recover across endpoint profiles.
+The matrix validates the explicit V5 profile's response rule and keeps Both's
+compatibility boundary visible. Full server conformance remains a separate gate.
