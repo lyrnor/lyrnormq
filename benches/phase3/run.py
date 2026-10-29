@@ -111,6 +111,7 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
 
     async def consume(index, reader):
         remaining = set(expected[index])
+        last_by_topic_publisher = {}
         while remaining:
             header, body = await receive(reader)
             arrival = time.monotonic_ns()
@@ -120,6 +121,9 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
             sequence = identifier - offset
             assert sequence in remaining, f'unexpected/duplicate delivery {index}:{identifier}'
             assert topic == workload.topic(sequence) and data == payload(identifier, payload_size)
+            key = (topic, sequence % len(publishers))
+            assert sequence > last_by_topic_publisher.get(key, -1), f'publisher/topic order violation {index}:{key}:{sequence}'
+            last_by_topic_publisher[key] = sequence
             sent = send_times[sequence]
             assert sent is not None
             delivery_latencies.append(arrival - sent)
@@ -157,7 +161,7 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
             'egress_deliveries_per_second': deliveries * 1e9 / (end - start),
             'delivery_latency': distribution(delivery_latencies), 'ack_latency': distribution(ack_latencies),
             'measurement_start_monotonic_ns': start, 'measurement_end_monotonic_ns': end,
-            'correctness': 'every expected subscriber/sequence/payload/topic checked once; all PUBACKs validated; postphase PING barriers reject extra preceding frames'}
+            'correctness': 'every expected subscriber/sequence/payload/topic checked once and publisher/topic ordered; all PUBACKs validated; postphase PING barriers reject extra preceding frames'}
 
 
 async def ready(process, port):
@@ -251,6 +255,7 @@ async def campaign(arguments):
               'campaign_status': 'running'}
     output = Path(arguments.output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2) + '\n')
     for storage in arguments.storage.split(','):
         for case in arguments.cases.split(','):
             for repetition in range(1, arguments.repetitions + 1):

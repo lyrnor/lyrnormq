@@ -24,7 +24,8 @@ SQLite path), requested artifact source revision, artifact SHA256, driver revisi
 host/toolchain/FD details, memory/CPU sample timestamps, exact event counts,
 latency distributions and median/min/max across repetitions. A final
 `campaign_status: passed` is written only after all requested runs complete.
-An interrupted campaign retains its completed run records with `running` status,
+The empty `running` record is written before the first case, replacing any stale
+success at the same path. An interrupted campaign retains completed run records with `running` status,
 so it must not be presented as complete. OS metadata commands unavailable in a
 sandbox record a reason; supply independently obtained CPU/RAM details in the
 accompanying report. Do not infer the artifact source revision from the driver.
@@ -49,13 +50,16 @@ QoS0 live traffic still does not measure offline QoS1/2 durability. SQLite's exi
 WAL/FULL configuration is retained; this is not a power-loss test.
 
 Each payload encodes a unique phase/sequence plus exact padding. Every expected
-subscriber checks the topic and complete payload exactly once; duplicate, wrong,
+subscriber checks the topic and complete payload exactly once, plus monotonic
+sequence for each (topic,publisher) stream; no cross-publisher/topic order is assumed; duplicate, wrong,
 missing or unexpected publications fail. All ACK identifiers/reasons are checked.
 A postphase PING barrier rejects extra preceding frames. No latency sampling or
 silent success on a socket write: every delivery and ACK contributes to a bounded
 in-memory list. Individual latency lists are reduced after each phase; the JSON
 preserves per-run exact counts and distributions rather than individual latency
-values. The smoke unit tests inject a duplicate to verify failure propagation.
+values. The unit tests inject duplicates and same-publisher/topic reordering to verify
+failure propagation, verify stale-success invalidation, and check ps child cleanup
+on cancellation/timeout.
 
 The throughput interval starts immediately before measured receiver/producer tasks
 are scheduled and ends after their expected delivery and ACK counts are complete;
@@ -79,5 +83,5 @@ Configured bounds and timeouts appear in each result. Formal CLI runs require
 at least2000 measured publications and three repetitions; max10000 publications,
 maxfive repetitions, payload at most4096 bytes, default180s per case. Reader frames
 are capped8192 bytes. TaskGroup cancels siblings on failure. Socket cleanup and
-broker termination are bounded. Smoke switches to four subscribers and at most
+broker termination are bounded. Timed-out/cancelled ps subprocesses are killed and reaped. Smoke switches to four subscribers and at most
 four publishers/four filters each and is explicitly labeled.

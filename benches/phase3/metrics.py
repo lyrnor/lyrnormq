@@ -30,7 +30,15 @@ async def process_sample(pid, stage):
     process = await asyncio.create_subprocess_exec('ps', '-o', 'rss=,time=', '-p', str(pid),
                                                  stdout=asyncio.subprocess.PIPE,
                                                  stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await asyncio.wait_for(process.communicate(), 3)
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), 3)
+    finally:
+        if process.returncode is None:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+            await process.wait()
     assert process.returncode == 0, stderr.decode()
     rss, cpu = stdout.decode().split()
     return {'stage': stage, 'monotonic_ns': time.monotonic_ns(), 'rss_bytes': int(rss) * 1024,

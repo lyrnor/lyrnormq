@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Accounting tests plus synthetic streams; real TCP smoke is a separate command."""
 import asyncio
-import struct
+import json
+from pathlib import Path
+from types import SimpleNamespace
+import tempfile
+from unittest import mock
 import unittest
 
-from metrics import cpu_seconds, distribution, summarize
-from run import Workload, payload, phase
+from metrics import cpu_seconds, distribution, summarize, process_sample
+from run import Workload, campaign, phase
 from wire import frame, string
 
 
@@ -44,10 +48,11 @@ class MetricsTests(unittest.TestCase):
 
 
 class SyntheticWriter:
-    def __init__(self, reader, workload, subscriber_readers=None, duplicate=False):
+    def __init__(self, reader, workload, subscriber_readers=None, duplicate=False, reorder=False):
         self.reader, self.workload = reader, workload
         self.subscriber_readers = subscriber_readers
         self.duplicate = duplicate
+        self.reorder, self.held = reorder, None
 
     def write(self, packet):
         if packet == b'\xc0\x00':
@@ -68,6 +73,14 @@ class SyntheticWriter:
         sequence = identifier - 2_000_000
         self.reader.feed_data(frame(0x40, packet_id))
         outbound = frame(0x30, string(topic) + b'\x00' + data)
+        if self.reorder:
+            if self.held is None:
+                self.held = outbound
+                return
+            for index in self.workload.recipients(sequence):
+                self.subscriber_readers[index].feed_data(outbound + self.held)
+            self.held = None
+            return
         for index in self.workload.recipients(sequence):
             self.subscriber_readers[index].feed_data(outbound)
             if self.duplicate:
@@ -78,14 +91,14 @@ class SyntheticWriter:
 
 
 class AccountingTests(unittest.IsolatedAsyncioTestCase):
-    def setup_streams(self, case, duplicate=False):
+    def setup_streams(self, case, duplicate=False, reorder=False):
         workload = Workload(case, True)
         readers = [asyncio.StreamReader() for _ in range(workload.subscribers)]
         subscribers = [(reader, SyntheticWriter(reader, workload)) for reader in readers]
         publishers = []
         for _ in range(workload.publishers):
             reader = asyncio.StreamReader()
-            publishers.append((reader, SyntheticWriter(reader, workload, readers, duplicate)))
+            publishers.append((reader, SyntheticWriter(reader, workload, readers, duplicate, reorder)))
         return workload, subscribers, publishers
 
     async def test_fanout_counts_every_delivery_and_ack_sample(self):
@@ -103,10 +116,65 @@ class AccountingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['deliveries'], 33)
         self.assertEqual(result['delivery_latency']['samples'], 33)
 
+    async def test_same_topic_publisher_reordering_fails(self):
+        workload, subscribers, publishers = self.setup_streams('hot', reorder=True)
+        with self.assertRaises(ExceptionGroup) as raised:
+            await asyncio.wait_for(phase(workload, subscribers, publishers, 20, 256, 2), 2)
+        self.assertIn('order', str(raised.exception.exceptions))
+
     async def test_duplicate_is_failure_not_silently_dropped_sample(self):
         workload, subscribers, publishers = self.setup_streams('hot', duplicate=True)
         with self.assertRaises(ExceptionGroup):
             await asyncio.wait_for(phase(workload, subscribers, publishers, 17, 256, 2), 2)
+
+
+class CleanupAndStatusTests(unittest.IsolatedAsyncioTestCase):
+    async def test_first_case_failure_overwrites_stale_success(self):
+        with tempfile.TemporaryDirectory(prefix='rmqtt-bench-status-') as directory:
+            binary = Path(directory) / 'broker'
+            binary.write_bytes(b'fake binary, no launch')
+            output = Path(directory) / 'result.json'
+            output.write_text(json.dumps({'campaign_status': 'passed', 'runs': ['stale']}))
+            arguments = SimpleNamespace(binary=str(binary), output=str(output), storage='memory',
+                                        cases='concurrent', repetitions=1, timeout=1)
+            with mock.patch('run.environment', return_value={}), mock.patch('run.run_one',
+                    new=mock.AsyncMock(side_effect=RuntimeError('injected failure'))):
+                with self.assertRaisesRegex(RuntimeError, 'injected failure'):
+                    await campaign(arguments)
+            saved = json.loads(output.read_text())
+            self.assertEqual(saved['campaign_status'], 'running')
+            self.assertEqual(saved['runs'], [])
+
+    async def test_ps_timeout_kills_and_reaps_child(self):
+        process = mock.Mock(returncode=None)
+        process.communicate = mock.AsyncMock()
+        process.wait = mock.AsyncMock()
+        async def timed_out(awaitable, timeout):
+            awaitable.close()
+            raise TimeoutError('injected timeout')
+        with mock.patch('metrics.asyncio.create_subprocess_exec', new=mock.AsyncMock(return_value=process)), \
+                mock.patch('metrics.asyncio.wait_for', side_effect=timed_out):
+            with self.assertRaises(TimeoutError):
+                await process_sample(123, 'active')
+        process.kill.assert_called_once()
+        process.wait.assert_awaited_once()
+
+    async def test_ps_cancellation_kills_and_reaps_child(self):
+        started = asyncio.Event()
+        process = mock.Mock(returncode=None)
+        async def blocked():
+            started.set()
+            await asyncio.Event().wait()
+        process.communicate = blocked
+        process.wait = mock.AsyncMock()
+        with mock.patch('metrics.asyncio.create_subprocess_exec', new=mock.AsyncMock(return_value=process)):
+            task = asyncio.create_task(process_sample(123, 'active'))
+            await asyncio.wait_for(started.wait(), 1)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+        process.kill.assert_called_once()
+        process.wait.assert_awaited_once()
 
 
 if __name__ == '__main__':
