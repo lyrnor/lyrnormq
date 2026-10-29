@@ -13,9 +13,9 @@ instrumented baseline; uninstrumented old/new formal campaigns stay comparable.
 
 Session owns mqtt-session::profiling public module: fixed Operation enum covering
 Clone, RecordsLive, RecordsPersistent, SerializeLive, SerializePersistent, Bounds,
-Route, Authorization; span(Operation)->Span RAII; report_json()->Result<String,
-serde_json::Error>. Fixed atomic count/nanoseconds/bytes statistics; explicit byte
-recording helper for serialization. Span disabled is a no-op. Manual Clone may
+Route, RouteBuild, Authorization; span(Operation)->Span RAII; report_json()->Result<String,
+serde_json::Error>. Fixed atomic count/nanoseconds/bytes statistics; explicit record_bytes(Operation,usize) helper for serialization.
+RouteBuild measures only Router construction/subscription indexing within Route. Span disabled is a no-op. Manual Clone may
 replace derive only to time identical field clones; no copy-on-write or cache yet.
 Instrument records/serialization/bounds/route/authorization without skipping work.
 
