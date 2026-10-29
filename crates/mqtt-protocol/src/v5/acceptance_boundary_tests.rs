@@ -167,3 +167,68 @@ fn connect_flag_matrix_correlates_will_fields_and_independent_v5_credentials() {
         }
     }
 }
+
+fn literal_ack_properties(kind: u8, properties: &[u8]) -> Vec<u8> {
+    let mut body = vec![0, 7];
+    if matches!(kind, 4..=7) {
+        body.push(0); // Explicit success before Properties on publish ACKs.
+    }
+    body.push(u8::try_from(properties.len()).unwrap());
+    body.extend_from_slice(properties);
+    if matches!(kind, 9 | 11) {
+        body.push(0); // One successful reason after Properties on subscription ACKs.
+    }
+    let mut bytes = vec![
+        (kind << 4) | if kind == 6 { 2 } else { 0 },
+        u8::try_from(body.len()).unwrap(),
+    ];
+    bytes.extend(body);
+    bytes
+}
+
+#[test]
+fn all_six_ack_contexts_reject_duplicate_reason_string_after_valid_singleton() {
+    for kind in [4, 5, 6, 7, 9, 11] {
+        let mut frame = reason_frame(kind, 0).unwrap();
+        frame.properties = vec![Property::ReasonString("s".into())];
+        let literal = literal_ack_properties(kind, b"\x1f\x00\x01s");
+        assert_eq!(encode_frame(&frame).unwrap(), literal);
+        assert_eq!(
+            decode_frame(&literal, 1024, Some(ProtocolVersion::V5)).unwrap(),
+            Some((frame.clone(), literal.len()))
+        );
+        frame.properties.push(Property::ReasonString("t".into()));
+        assert!(
+            matches!(
+                encode_frame(&frame),
+                Err(ProtocolError::ProtocolViolation(_))
+            ),
+            "kind={kind}"
+        );
+        let duplicate = literal_ack_properties(kind, b"\x1f\x00\x01s\x1f\x00\x01t");
+        assert!(
+            matches!(
+                decode_frame(&duplicate, 1024, Some(ProtocolVersion::V5)),
+                Err(ProtocolError::ProtocolViolation(_))
+            ),
+            "kind={kind}"
+        );
+    }
+}
+
+#[test]
+fn all_six_ack_contexts_preserve_repeatable_user_pairs_as_opaque_ordered_data() {
+    for kind in [4, 5, 6, 7, 9, 11] {
+        let mut frame = reason_frame(kind, 0).unwrap();
+        frame.properties = vec![
+            Property::UserProperty("k".into(), "a".into()),
+            Property::UserProperty("k".into(), "b".into()),
+        ];
+        let literal = literal_ack_properties(kind, b"\x26\x00\x01k\x00\x01a\x26\x00\x01k\x00\x01b");
+        assert_eq!(encode_frame(&frame).unwrap(), literal);
+        assert_eq!(
+            decode_frame(&literal, 1024, Some(ProtocolVersion::V5)).unwrap(),
+            Some((frame, literal.len()))
+        );
+    }
+}
