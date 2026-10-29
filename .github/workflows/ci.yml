@@ -18,6 +18,7 @@ jobs:
       - run: cargo build --workspace
       - run: python3 tests/check_conformance_matrix.py
       - run: python3 tests/acceptance_guard_negative.py
+      - run: python3 benches/phase3/test_driver.py
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
       - run: python3 tests/persistence_blackbox.py
