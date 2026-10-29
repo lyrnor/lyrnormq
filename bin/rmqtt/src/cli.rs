@@ -1,7 +1,7 @@
-use mqtt_transport::BrokerConfig;
+use mqtt_transport::{BrokerConfig, ProtocolMode};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
+pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
 
 pub struct Options {
     pub address: String,
@@ -43,6 +43,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         if !matches!(
             option.as_str(),
             "--listen"
+                | "--protocol"
                 | "--auth-policy"
                 | "--storage-path"
                 | "--max-sessions"
@@ -64,6 +65,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
         if option == "--listen" {
             options.address = value;
+            continue;
+        }
+        if option == "--protocol" {
+            options.config.protocol_mode = match value.as_str() {
+                "both" => ProtocolMode::Both,
+                "3.1.1" => ProtocolMode::V311,
+                "5" => ProtocolMode::V5,
+                _ => return Err(invalid("--protocol must be both, 3.1.1 or 5")),
+            };
             continue;
         }
         if option == "--auth-policy" {
@@ -213,6 +223,36 @@ mod tests {
             options.auth_policy,
             Some(PathBuf::from("/does/not/exist.json"))
         );
+    }
+
+    #[test]
+    fn protocol_profile_defaults_to_both_and_requires_an_explicit_valid_value() {
+        assert_eq!(
+            parse(args(&[])).unwrap().unwrap().config.protocol_mode,
+            ProtocolMode::Both
+        );
+        for (value, expected) in [
+            ("both", ProtocolMode::Both),
+            ("3.1.1", ProtocolMode::V311),
+            ("5", ProtocolMode::V5),
+        ] {
+            assert_eq!(
+                parse(args(&["--protocol", value]))
+                    .unwrap()
+                    .unwrap()
+                    .config
+                    .protocol_mode,
+                expected
+            );
+        }
+        for values in [
+            vec!["--protocol"],
+            vec!["--protocol", ""],
+            vec!["--protocol", "6"],
+            vec!["--protocol", "mqtt5"],
+        ] {
+            assert!(parse(args(&values)).is_err());
+        }
     }
 
     #[test]
