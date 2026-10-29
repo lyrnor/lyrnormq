@@ -143,22 +143,33 @@ fn rap_single_and_mixed_ordinary_policy_matrix_preserves_source_and_ids() {
                     22,
                 );
                 publish(&mut e, "pub", 1, 9, b"live", source_retain);
-                let out = next(&mut e, "sub");
-                assert_eq!(data(&out).3, source_retain && (rap_a || rap_b));
-                let mut ids: Vec<_> = out
-                    .properties
-                    .iter()
-                    .filter_map(|p| {
-                        if let Property::SubscriptionIdentifier(n) = p {
-                            Some(*n)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                ids.sort_unstable();
-                assert_eq!(ids, vec![11, 22]);
-                ack(&mut e, "sub", &out);
+                let split = source_retain && rap_a != rap_b;
+                let mut actual = Vec::new();
+                for _ in 0..if split { 2 } else { 1 } {
+                    let out = next(&mut e, "sub");
+                    let mut ids: Vec<_> = out
+                        .properties
+                        .iter()
+                        .filter_map(|p| {
+                            if let Property::SubscriptionIdentifier(n) = p {
+                                Some(*n)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    ids.sort_unstable();
+                    actual.push((data(&out).3, ids));
+                    ack(&mut e, "sub", &out);
+                }
+                let mut expected = if split {
+                    vec![(rap_a, vec![11]), (rap_b, vec![22])]
+                } else {
+                    vec![(source_retain && (rap_a || rap_b), vec![11, 22])]
+                };
+                actual.sort();
+                expected.sort();
+                assert_eq!(actual, expected);
                 assert!(e.poll_frame_with_changes("sub").unwrap().frame.is_none());
             }
         }

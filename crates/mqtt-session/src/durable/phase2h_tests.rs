@@ -177,17 +177,19 @@ fn overlap_aggregates_eligible_qos_rap_and_duplicate_identifiers() {
     subscribe(&mut e, "a", "+/x", 9, Some(7));
     subscribe(&mut e, "a", "a/+", 1, Some(7));
     publish(&mut e, "a", true);
-    let f = next(&mut e, "a");
-    assert!(matches!(
-        f.packet,
-        Packet::Publish {
-            qos: 1,
-            retain: true,
-            ..
-        }
-    ));
-    assert_eq!(identifiers(&f), vec![7, 7]);
-    ack(&mut e, "a", &f);
+    let mut retains = Vec::new();
+    for _ in 0..2 {
+        let f = next(&mut e, "a");
+        let Packet::Publish { qos, retain, .. } = f.packet else {
+            panic!("PUBLISH")
+        };
+        assert_eq!(qos, 1);
+        assert_eq!(identifiers(&f), vec![7]);
+        retains.push(retain);
+        ack(&mut e, "a", &f);
+    }
+    retains.sort_unstable();
+    assert_eq!(retains, vec![false, true]);
     assert!(e.poll_frame_with_changes("a").unwrap().frame.is_none());
 }
 #[test]

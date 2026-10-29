@@ -19,6 +19,7 @@ mod authorization;
 mod expiry;
 mod lifecycle;
 mod mqtt5;
+mod ordinary;
 mod records;
 mod retention;
 mod shared;
@@ -767,7 +768,7 @@ impl SessionEngine {
                 }
             }
         }
-        let mut eligible: BTreeMap<u64, (u8, bool, Vec<u32>)> = BTreeMap::new();
+        let mut eligible: BTreeMap<u64, ordinary::Matches> = BTreeMap::new();
         for (index, filter, grant) in router.matching_subscriptions(&message.topic) {
             let client = clients
                 .get(index as usize)
@@ -783,16 +784,14 @@ impl SessionEngine {
             if sub.no_local && publisher == Some(client.as_str()) {
                 continue;
             }
-            let entry = eligible.entry(index).or_insert((0, false, Vec::new()));
-            entry.0 = entry.0.max(grant);
-            entry.1 |= sub.retain_as_published;
-            if let Some(id) = sub.identifier {
-                entry.2.push(id);
-            }
+            eligible
+                .entry(index)
+                .or_default()
+                .push(grant, sub.retain_as_published, sub.identifier);
         }
         let now = self.effective_now();
         let mut admitted = Vec::new();
-        for (index, (grant, rap, ids)) in eligible {
+        for (index, matches) in eligible {
             let client = clients
                 .get(index as usize)
                 .ok_or_else(|| invalid_record("router returned absent client"))?;
@@ -806,37 +805,51 @@ impl SessionEngine {
             {
                 continue;
             }
-            let qos = message.qos.min(grant);
-            if !target.online && qos == 0 {
-                continue;
+            let mut planned = 0usize;
+            for choice in matches.choices(target.version, message.retain) {
+                let qos = message.qos.min(choice.qos);
+                if !target.online && qos == 0 {
+                    continue;
+                }
+                let mut copy = Message {
+                    topic: message.topic.clone(),
+                    payload: message.payload.clone(),
+                    qos,
+                    retain: choice.retain,
+                    shared_subscription: None,
+                    retained_replay: false,
+                    expires_at: message.expires_at,
+                    properties: message.properties.clone(),
+                };
+                copy.properties.extend(
+                    choice
+                        .identifiers
+                        .into_iter()
+                        .map(Property::SubscriptionIdentifier),
+                );
+                let packet = copy.packet((qos != 0).then_some(1), false);
+                mqtt5::check_delivery_size(
+                    self.config.max_packet_size,
+                    target.version,
+                    &packet,
+                    &copy.properties,
+                )?;
+                mqtt5::discard_oversized(target, now, self.config.max_packet_size)?;
+                if mqtt5::exceeds_peer_limit(
+                    target,
+                    &packet,
+                    &copy.properties,
+                    copy.expires_at,
+                    now,
+                )? {
+                    continue;
+                }
+                if target.queued.len().saturating_add(planned) >= self.config.max_queued {
+                    return Err(EngineError::Capacity);
+                }
+                admitted.push((index as usize, copy));
+                planned += 1;
             }
-            let mut copy = Message {
-                topic: message.topic.clone(),
-                payload: message.payload.clone(),
-                qos,
-                retain: message.retain && rap,
-                shared_subscription: None,
-                retained_replay: false,
-                expires_at: message.expires_at,
-                properties: message.properties.clone(),
-            };
-            copy.properties
-                .extend(ids.into_iter().map(Property::SubscriptionIdentifier));
-            let packet = copy.packet((qos != 0).then_some(1), false);
-            mqtt5::check_delivery_size(
-                self.config.max_packet_size,
-                target.version,
-                &packet,
-                &copy.properties,
-            )?;
-            mqtt5::discard_oversized(target, now, self.config.max_packet_size)?;
-            if mqtt5::exceeds_peer_limit(target, &packet, &copy.properties, copy.expires_at, now)? {
-                continue;
-            }
-            if target.queued.len() >= self.config.max_queued {
-                return Err(EngineError::Capacity);
-            }
-            admitted.push((index as usize, copy));
         }
         let (shared, cursors) = self.plan_shared_copies(&message, &clients, &admitted, now)?;
         admitted.extend(shared);
@@ -1500,3 +1513,6 @@ mod phase2l_tests;
 
 #[cfg(test)]
 mod phase2m_tests;
+
+#[cfg(test)]
+mod phase2n_rap_tests;
