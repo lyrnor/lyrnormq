@@ -1,8 +1,10 @@
-//! Synchronous, exclusive-owner SQLite storage for one atomic broker snapshot.
+//! Synchronous, exclusive-owner SQLite storage.
 //!
-//! Calls perform blocking disk IO. Async callers must use a bounded blocking
-//! worker, and install proposed session memory only after [`SqliteStore::commit`]
-//! succeeds. Snapshot contents belong to the versioned session schema.
+//! Container1 ([`SqliteStore`]) holds one atomic broker snapshot; container2
+//! ([`RowStore`]) holds one row per persistent session partition and retained
+//! topic and is written by the group-committing [`StorageService`]. Calls perform
+//! blocking disk IO and must run on a blocking thread. Row contents belong to the
+//! versioned session schema.
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior};
 use std::{
     error::Error,
@@ -12,6 +14,12 @@ use std::{
     path::Path,
     time::Duration,
 };
+
+mod rows;
+mod service;
+
+pub use rows::{Contents, RowChange, RowLimits, RowStore, Rows, read_contents};
+pub use service::{Completion, StorageService, SubmitError};
 
 const SCHEMA_VERSION: i64 = 1;
 const APPLICATION_ID: i64 = 0x524d5154;
@@ -81,91 +89,19 @@ impl SqliteStore {
         if max_snapshot_bytes == 0 {
             return Err(DurableError::InvalidLimit);
         }
-        let normalized = match path.canonicalize() {
-            Ok(path) => path,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                // A dangling symlink has no canonical target yet. Falling back
-                // to its name would give it a different ownership lock from the
-                // target after SQLite creates that file. Reject before any IO
-                // that could create the target or a sidecar under an alias.
-                match path.symlink_metadata() {
-                    Ok(metadata) if metadata.file_type().is_symlink() => {
-                        return Err(io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            "database path must not be a dangling symlink",
-                        )
-                        .into());
-                    }
-                    Ok(_) => return Err(error.into()),
-                    Err(metadata_error) if metadata_error.kind() == io::ErrorKind::NotFound => {}
-                    Err(metadata_error) => return Err(metadata_error.into()),
-                }
-                let parent = path
-                    .parent()
-                    .filter(|parent| !parent.as_os_str().is_empty())
-                    .unwrap_or_else(|| Path::new("."));
-                let name = path.file_name().ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "database filename required")
-                })?;
-                parent.canonicalize()?.join(name)
-            }
-            Err(error) => return Err(error.into()),
-        };
-        let mut lock_path = normalized.as_os_str().to_os_string();
-        lock_path.push(".broker-lock");
-        let ownership = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(Path::new(&lock_path))?;
-        match ownership.try_lock() {
-            Ok(()) => {}
-            Err(TryLockError::WouldBlock) => return Err(DurableError::Locked),
-            Err(TryLockError::Error(error)) => return Err(DurableError::Io(error)),
-        }
-        let mut connection = Connection::open(&normalized)?;
-        connection.busy_timeout(Duration::from_secs(2))?;
+        let (mut connection, ownership) = acquire(path)?;
         // Validate before changing journal mode or writing any schema metadata.
-        let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-        let application: i64 =
-            connection.query_row("PRAGMA application_id", [], |row| row.get(0))?;
-        let objects: i64 = connection.query_row(
-            "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
-            [],
-            |row| row.get(0),
-        )?;
-        let fresh = version == 0 && application == 0 && objects == 0;
-        if !fresh {
-            if version != SCHEMA_VERSION || application != APPLICATION_ID || objects != 1 {
+        let fresh = match header(&connection)? {
+            Header::Fresh => true,
+            Header::Legacy => {
+                validate_legacy(&connection)?;
+                false
+            }
+            Header::Rows | Header::Unknown => {
                 return Err(DurableError::Schema("database header or object set".into()));
             }
-            let table: Option<(String, String)> = connection
-                .query_row(
-                    "SELECT type, sql FROM sqlite_schema WHERE name = 'broker_snapshot'",
-                    [],
-                    |row| Ok((row.get(0)?, row.get(1)?)),
-                )
-                .optional()?;
-            if table
-                .as_ref()
-                .map(|(kind, sql)| (kind.as_str(), sql.as_str()))
-                != Some(("table", CREATE_TABLE))
-            {
-                return Err(DurableError::Schema("snapshot table definition".into()));
-            }
-        }
-        let mode: String = connection.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
-        if !mode.eq_ignore_ascii_case("wal") {
-            return Err(DurableError::Schema("WAL mode was not established".into()));
-        }
-        connection.pragma_update(None, "synchronous", "FULL")?;
-        let synchronous: i64 = connection.query_row("PRAGMA synchronous", [], |row| row.get(0))?;
-        if synchronous != 2 {
-            return Err(DurableError::Schema(
-                "FULL synchronization was not established".into(),
-            ));
-        }
+        };
+        configure(&connection)?;
         if fresh {
             let transaction =
                 connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -174,18 +110,7 @@ impl SqliteStore {
             transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             transaction.commit()?;
         }
-        let check: String = connection.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
-        if check != "ok" {
-            return Err(DurableError::Schema(check));
-        }
-        let invalid_rows: i64 = connection.query_row(
-            "SELECT count(*) FROM broker_snapshot WHERE id != 1 OR schema_version != 1 OR typeof(data) != 'blob'",
-            [],
-            |row| row.get(0),
-        )?;
-        if invalid_rows != 0 {
-            return Err(DurableError::Schema("invalid snapshot row".into()));
-        }
+        validate_legacy_rows(&connection)?;
         let store = Self {
             connection,
             _ownership: ownership,
@@ -197,38 +122,13 @@ impl SqliteStore {
     }
 
     fn checked_length(&self) -> Result<Option<usize>, DurableError> {
-        let length: Option<i64> = self
-            .connection
-            .query_row(
-                "SELECT length(data) FROM broker_snapshot WHERE id = 1",
-                [],
-                |row| row.get(0),
-            )
-            .optional()?;
-        length
-            .map(|value| {
-                let value = usize::try_from(value)
-                    .map_err(|_| DurableError::Schema("negative snapshot length".into()))?;
-                if value > self.max_snapshot_bytes {
-                    return Err(DurableError::SnapshotTooLarge);
-                }
-                Ok(value)
-            })
-            .transpose()
+        legacy_length(&self.connection, self.max_snapshot_bytes)
     }
 
     /// Query length before allocating a BLOB. The lifetime ownership lock excludes
     /// cooperating writers, so no other broker can change it between queries.
     pub fn load(&self) -> Result<Option<Vec<u8>>, DurableError> {
-        if self.checked_length()?.is_none() {
-            return Ok(None);
-        }
-        Ok(self
-            .connection
-            .query_row("SELECT data FROM broker_snapshot WHERE id = 1", [], |row| {
-                row.get(0)
-            })
-            .optional()?)
+        load_legacy(&self.connection, self.max_snapshot_bytes)
     }
 
     /// Atomically replace the complete persistent session/outbox registry.
@@ -252,6 +152,166 @@ impl SqliteStore {
     }
 }
 
+enum Header {
+    Fresh,
+    Legacy,
+    Rows,
+    Unknown,
+}
+
+/// Classify by header and object count only; table definitions are checked by
+/// the matching validator before any write.
+fn header(connection: &Connection) -> Result<Header, DurableError> {
+    let version: i64 = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let application: i64 = connection.query_row("PRAGMA application_id", [], |row| row.get(0))?;
+    let objects: i64 = connection.query_row(
+        "SELECT count(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(match (version, application, objects) {
+        (0, 0, 0) => Header::Fresh,
+        (SCHEMA_VERSION, APPLICATION_ID, 1) => Header::Legacy,
+        (rows::ROW_SCHEMA_VERSION, APPLICATION_ID, 3) => Header::Rows,
+        _ => Header::Unknown,
+    })
+}
+
+fn table_sql(connection: &Connection, name: &str) -> Result<Option<String>, DurableError> {
+    let table: Option<(String, String)> = connection
+        .query_row(
+            "SELECT type, sql FROM sqlite_schema WHERE name = ?1",
+            [name],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    Ok(table.and_then(|(kind, sql)| (kind == "table").then_some(sql)))
+}
+
+fn validate_legacy(connection: &Connection) -> Result<(), DurableError> {
+    if table_sql(connection, "broker_snapshot")?.as_deref() != Some(CREATE_TABLE) {
+        return Err(DurableError::Schema("snapshot table definition".into()));
+    }
+    Ok(())
+}
+
+fn validate_legacy_rows(connection: &Connection) -> Result<(), DurableError> {
+    quick_check(connection)?;
+    let invalid_rows: i64 = connection.query_row(
+        "SELECT count(*) FROM broker_snapshot WHERE id != 1 OR schema_version != 1 OR typeof(data) != 'blob'",
+        [],
+        |row| row.get(0),
+    )?;
+    if invalid_rows != 0 {
+        return Err(DurableError::Schema("invalid snapshot row".into()));
+    }
+    Ok(())
+}
+
+fn quick_check(connection: &Connection) -> Result<(), DurableError> {
+    let check: String = connection.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
+    if check != "ok" {
+        return Err(DurableError::Schema(check));
+    }
+    Ok(())
+}
+
+fn legacy_length(connection: &Connection, max_bytes: usize) -> Result<Option<usize>, DurableError> {
+    let length: Option<i64> = connection
+        .query_row(
+            "SELECT length(data) FROM broker_snapshot WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    length
+        .map(|value| {
+            let value = usize::try_from(value)
+                .map_err(|_| DurableError::Schema("negative snapshot length".into()))?;
+            if value > max_bytes {
+                return Err(DurableError::SnapshotTooLarge);
+            }
+            Ok(value)
+        })
+        .transpose()
+}
+
+fn load_legacy(connection: &Connection, max_bytes: usize) -> Result<Option<Vec<u8>>, DurableError> {
+    if legacy_length(connection, max_bytes)?.is_none() {
+        return Ok(None);
+    }
+    Ok(connection
+        .query_row("SELECT data FROM broker_snapshot WHERE id = 1", [], |row| {
+            row.get(0)
+        })
+        .optional()?)
+}
+
+fn configure(connection: &Connection) -> Result<(), DurableError> {
+    let mode: String = connection.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
+    if !mode.eq_ignore_ascii_case("wal") {
+        return Err(DurableError::Schema("WAL mode was not established".into()));
+    }
+    connection.pragma_update(None, "synchronous", "FULL")?;
+    let synchronous: i64 = connection.query_row("PRAGMA synchronous", [], |row| row.get(0))?;
+    if synchronous != 2 {
+        return Err(DurableError::Schema(
+            "FULL synchronization was not established".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Canonicalize, take the nonblocking sidecar ownership lock, then open SQLite.
+fn acquire(path: &Path) -> Result<(Connection, File), DurableError> {
+    let normalized = match path.canonicalize() {
+        Ok(path) => path,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            // A dangling symlink has no canonical target yet. Falling back
+            // to its name would give it a different ownership lock from the
+            // target after SQLite creates that file. Reject before any IO
+            // that could create the target or a sidecar under an alias.
+            match path.symlink_metadata() {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "database path must not be a dangling symlink",
+                    )
+                    .into());
+                }
+                Ok(_) => return Err(error.into()),
+                Err(metadata_error) if metadata_error.kind() == io::ErrorKind::NotFound => {}
+                Err(metadata_error) => return Err(metadata_error.into()),
+            }
+            let parent = path
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            let name = path.file_name().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "database filename required")
+            })?;
+            parent.canonicalize()?.join(name)
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let mut lock_path = normalized.as_os_str().to_os_string();
+    lock_path.push(".broker-lock");
+    let ownership = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(Path::new(&lock_path))?;
+    match ownership.try_lock() {
+        Ok(()) => {}
+        Err(TryLockError::WouldBlock) => return Err(DurableError::Locked),
+        Err(TryLockError::Error(error)) => return Err(DurableError::Io(error)),
+    }
+    let connection = Connection::open(&normalized)?;
+    connection.busy_timeout(Duration::from_secs(2))?;
+    Ok((connection, ownership))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,10 +324,10 @@ mod tests {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     // The crash helper forks/execs. Serialize these file tests so its transient
     // inherited lock descriptors cannot delay another test's immediate reopen.
-    static FILE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    struct TempDb(PathBuf);
+    pub(super) static FILE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    pub(super) struct TempDb(pub(super) PathBuf);
     impl TempDb {
-        fn new() -> Self {
+        pub(super) fn new() -> Self {
             let directory = std::env::temp_dir().join(format!(
                 "rmqtt-sqlite-{}-{}",
                 std::process::id(),
