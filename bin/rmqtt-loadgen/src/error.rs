@@ -23,5 +23,13 @@ impl fmt::Display for LoadError {
     }
 }
 impl Error for LoadError {}
-impl From<std::io::Error> for LoadError { fn from(e:std::io::Error)->Self {Self::Io(e)} }
-impl From<mqtt_protocol::ProtocolError> for LoadError { fn from(e:mqtt_protocol::ProtocolError)->Self {Self::Protocol(e)} }
+impl From<std::io::Error> for LoadError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+impl From<mqtt_protocol::ProtocolError> for LoadError {
+    fn from(e: mqtt_protocol::ProtocolError) -> Self {
+        Self::Protocol(e)
+    }
+}
