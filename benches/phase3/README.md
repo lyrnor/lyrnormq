@@ -15,7 +15,8 @@ python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
 # Formal: six cases (three workloads x two storage modes), each repeated three times.
 python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
   --artifact-source-revision COMMIT --build-profile release \
-  --output /tmp/rmqtt-p3-baseline.json --messages 4096 --warmup 128 --repetitions 3
+  --output /tmp/rmqtt-p3-baseline.json --messages 4096 --warmup 128 --repetitions 3 \
+  --session-expiry-seconds 60 --flow-control delivery --outbound-capacity 256
 ```
 
 The driver works from any current directory when invoked through its file path.
@@ -37,15 +38,24 @@ accompanying report. Do not infer the artifact source revision from the driver.
 | many |8|64|4096|64 exact filters per subscriber;4096 publications hit every filter once|
 
 All cases use256-byte payloads by default, QoS1 ingress and QoS0 subscription grants,
-with at most one unacknowledged PUBLISH per publisher. Topics/filters have no
+with at most one unacknowledged PUBLISH per publisher. Formal controlled-load
+measurements explicitly use `--flow-control delivery`: each publisher also waits
+for all expected subscriber receipts before sending its next PUBLISH. An individual
+publication Event is set only after every validated expected delivery, so no
+fanout latency samples are discarded. `--flow-control ack` remains the compatibility
+default and waits only for PUBACK; it can accumulate QoS0 recipient queues until
+configured admission limits reject new work. These are different offered-load
+policies, not a runtime optimization or comparable before/after speedup. Every run
+and summary records its flow-control policy. Resource rejection fails a no-loss
+measurement and preserves exact header/body/reason/expected-ID diagnostics. Topics/filters have no
 wildcards; this isolates the installed-subscription count from wildcard fanout.
 Subscription SUBACK and subscriber PING barriers precede warmup; warmup messages
 are separate and excluded from measured distributions. The broker is fresh for
 every repetition, including a new SQLite database. Clean Start is true. Session
 Expiry defaults to0: this is **clean-session routing in each storage configuration**,
 not a benchmark of acknowledged offline durable messages or per-message fsync.
-The optional `--session-expiry-seconds 60` creates persistent-session routing
-instead; report it separately and use the same value for both storage modes.
+The frozen formal profile explicitly uses `--session-expiry-seconds 60` for
+persistent-session routing; report it separately and use the same value for both storage modes.
 QoS0 live traffic still does not measure offline QoS1/2 durability. SQLite's existing
 WAL/FULL configuration is retained; this is not a power-loss test.
 
@@ -78,6 +88,22 @@ command, so actual intervals are in raw timestamps. Peak means maximum observed
 sample, including setup, not the allocator/kernel process high-water mark. CPU time
 is cumulative `ps time` end minus premeasure, a slightly wider window than throughput;
 its resolution may produce zero for short smoke runs. Client memory is excluded.
+
+Configured bounds and timeouts appear in each result. `--outbound-capacity` defaults
+to256 and accepts1..4096. For example, a smoke ACK-only hot test with capacity1
+reproduced an actual DISCONNECT header0xe0/body97/reason0x97 Quota Exceeded
+in memory mode; this diagnostic does not establish the cause of an earlier run
+whose packet bytes were not retained. Reproduce with:
+
+```sh
+python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
+  --output /tmp/rmqtt-cap1.json --smoke --cases hot --storage memory \
+  --messages 64 --warmup 8 --repetitions 1 --session-expiry-seconds 60 \
+  --flow-control ack --outbound-capacity 1
+```
+
+This deliberately overloaded command may exit nonzero; do not report it as a
+successful throughput campaign. Scheduling can affect which publication is rejected.
 
 Configured bounds and timeouts appear in each result. Formal CLI runs require
 at least2000 measured publications and three repetitions; max10000 publications,

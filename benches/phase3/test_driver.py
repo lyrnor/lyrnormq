@@ -10,7 +10,7 @@ import unittest
 
 from metrics import cpu_seconds, distribution, summarize, process_sample
 from run import Workload, campaign, phase
-from wire import frame, string
+from wire import frame, string, validate_ack
 
 
 class MetricsTests(unittest.TestCase):
@@ -21,6 +21,20 @@ class MetricsTests(unittest.TestCase):
             distribution([])
         with self.assertRaises(AssertionError):
             distribution([-1])
+
+    def test_ack_failures_preserve_actual_packet_diagnostics(self):
+        for header, body in ((0xe0, bytes.fromhex('9700')),
+                             (0x40, bytes.fromhex('00019700')),
+                             (0x40, bytes.fromhex('0002')), (0x40, b'')):
+            with self.subTest(header=header, body=body):
+                with self.assertRaises(AssertionError) as raised:
+                    validate_ack(header, body, 1)
+                message = str(raised.exception)
+                self.assertIn(f'header=0x{header:02x}', message)
+                self.assertIn(f'body={body.hex()}', message)
+                self.assertIn('id=1', message)
+                if 0x97 in body:
+                    self.assertIn('reason=0x97', message)
 
     def test_cpu_formats(self):
         self.assertEqual(cpu_seconds('03:04.50'), 184.5)
@@ -53,12 +67,15 @@ class SyntheticWriter:
         self.subscriber_readers = subscriber_readers
         self.duplicate = duplicate
         self.reorder, self.held = reorder, None
+        self.deferred = None
+        self.publication_writes = 0
 
     def write(self, packet):
         if packet == b'\xc0\x00':
             self.reader.feed_data(b'\xd0\x00')
             return
         assert packet[0] == 0x32
+        self.publication_writes += 1
         at = 1
         while packet[at] & 128:
             at += 1
@@ -73,6 +90,9 @@ class SyntheticWriter:
         sequence = identifier - 2_000_000
         self.reader.feed_data(frame(0x40, packet_id))
         outbound = frame(0x30, string(topic) + b'\x00' + data)
+        if self.deferred is not None:
+            self.deferred.append((outbound, tuple(self.workload.recipients(sequence))))
+            return
         if self.reorder:
             if self.held is None:
                 self.held = outbound
@@ -115,6 +135,45 @@ class AccountingTests(unittest.IsolatedAsyncioTestCase):
         result = await asyncio.wait_for(phase(workload, subscribers, publishers, 33, 256, 2), 2)
         self.assertEqual(result['deliveries'], 33)
         self.assertEqual(result['delivery_latency']['samples'], 33)
+
+    async def test_delivery_gate_waits_for_ack_and_every_expected_recipient(self):
+        workload, subscribers, publishers = self.setup_streams('hot')
+        for _, writer in publishers:
+            writer.deferred = []
+        task = asyncio.create_task(phase(workload, subscribers, publishers, 6, 256, 2,
+                                         flow_control='delivery'))
+        async def until(predicate):
+            while not predicate():
+                await asyncio.sleep(0)
+        try:
+            await asyncio.wait_for(until(lambda: all(writer.deferred for _, writer in publishers)), 1)
+            for _ in range(10):
+                await asyncio.sleep(0)
+            self.assertEqual([writer.publication_writes for _, writer in publishers], [1, 1])
+            writer = publishers[0][1]
+            packet, recipients = writer.deferred.pop(0)
+            for recipient in recipients[:-1]:
+                subscribers[recipient][0].feed_data(packet)
+            for _ in range(10):
+                await asyncio.sleep(0)
+            self.assertEqual(writer.publication_writes, 1, 'one missing subscriber must keep gate closed')
+            subscribers[recipients[-1]][0].feed_data(packet)
+            await asyncio.wait_for(until(lambda: writer.publication_writes == 2), 1)
+            self.assertEqual(publishers[1][1].publication_writes, 1)
+            for _, writer in publishers:
+                held = writer.deferred
+                writer.deferred = None
+                for packet, recipients in held:
+                    for recipient in recipients:
+                        subscribers[recipient][0].feed_data(packet)
+            result = await asyncio.wait_for(task, 1)
+            self.assertEqual(result['flow_control'], 'delivery')
+            self.assertEqual(result['publications'], 6)
+            self.assertEqual(result['deliveries'], 24)
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     async def test_same_topic_publisher_reordering_fails(self):
         workload, subscribers, publishers = self.setup_streams('hot', reorder=True)

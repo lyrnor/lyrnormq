@@ -68,10 +68,10 @@ class Sampler:
 def summarize(runs):
     groups = {}
     for run in runs:
-        groups.setdefault((run['case'], run['storage']), []).append(run)
+        groups.setdefault((run['case'], run['storage'], run.get('flow_control', 'ack')), []).append(run)
     summary = []
-    for (case, storage), group in groups.items():
-        record = {'case': case, 'storage': storage, 'repetitions': len(group)}
+    for (case, storage, flow_control), group in groups.items():
+        record = {'case': case, 'storage': storage, 'flow_control': flow_control, 'repetitions': len(group)}
         for name in ('ingress_messages_per_second', 'egress_deliveries_per_second'):
             values = [item[name] for item in group]
             record[name] = {'median': statistics.median(values), 'min': min(values), 'max': max(values)}

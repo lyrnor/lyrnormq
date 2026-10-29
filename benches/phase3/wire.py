@@ -69,6 +69,11 @@ def parse_publication(header, body):
 
 
 def validate_ack(header, body, identifier):
-    assert header == 0x40 and len(body) >= 2
-    assert int.from_bytes(body[:2], 'big') == identifier
-    assert len(body) == 2 or body[2] == 0, body
+    diagnostic = f'expected PUBACK id={identifier}; actual header=0x{header:02x} body={body.hex()}'
+    if header == 0xe0:
+        diagnostic += f' reason=0x{body[0] if body else 0:02x}'
+    elif header == 0x40 and len(body) >= 3:
+        diagnostic += f' reason=0x{body[2]:02x}'
+    assert header == 0x40 and len(body) >= 2, diagnostic
+    assert int.from_bytes(body[:2], 'big') == identifier, diagnostic
+    assert len(body) == 2 or body[2] == 0, diagnostic

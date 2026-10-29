@@ -100,7 +100,8 @@ async def barrier(subscribers):
             group.create_task(one(connection))
 
 
-async def phase(workload, subscribers, publishers, messages, payload_size, phase_index):
+async def phase(workload, subscribers, publishers, messages, payload_size, phase_index, flow_control='ack'):
+    assert flow_control in ('ack', 'delivery')
     expected = [set() for _ in subscribers]
     for sequence in range(messages):
         for subscriber in workload.recipients(sequence):
@@ -108,6 +109,8 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
     send_times = [None] * messages
     delivery_latencies, ack_latencies = [], []
     offset = phase_index * 1_000_000
+    receipts_remaining = [len(tuple(workload.recipients(sequence))) for sequence in range(messages)]
+    delivery_complete = [asyncio.Event() for _ in range(messages)] if flow_control == 'delivery' else None
 
     async def consume(index, reader):
         remaining = set(expected[index])
@@ -128,6 +131,10 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
             assert sent is not None
             delivery_latencies.append(arrival - sent)
             remaining.remove(sequence)
+            receipts_remaining[sequence] -= 1
+            assert receipts_remaining[sequence] >= 0
+            if delivery_complete is not None and receipts_remaining[sequence] == 0:
+                delivery_complete[sequence].set()
 
     async def produce(index, connection):
         reader, writer = connection
@@ -143,6 +150,8 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
             arrived = time.monotonic_ns()
             validate_ack(header, body, identifier)
             ack_latencies.append(arrived - sent)
+            if delivery_complete is not None:
+                await delivery_complete[sequence].wait()
 
     start = time.monotonic_ns()
     async with asyncio.TaskGroup() as group:
@@ -154,8 +163,11 @@ async def phase(workload, subscribers, publishers, messages, payload_size, phase
     deliveries = sum(map(len, expected))
     assert len(ack_latencies) == messages and len(delivery_latencies) == deliveries
     assert all(timestamp is not None for timestamp in send_times)
+    assert receipts_remaining == [0] * messages
     await barrier(subscribers)
-    return {'publications': messages, 'deliveries': deliveries, 'acknowledgements': len(ack_latencies),
+    return {'flow_control': flow_control, 'publisher_gate': 'PUBACK and all expected subscriber receipts'
+            if flow_control == 'delivery' else 'PUBACK only; recipient backlog may reach broker admission limits',
+            'publications': messages, 'deliveries': deliveries, 'acknowledgements': len(ack_latencies),
             'duration_seconds': (end - start) / 1e9,
             'ingress_messages_per_second': messages * 1e9 / (end - start),
             'egress_deliveries_per_second': deliveries * 1e9 / (end - start),
@@ -184,7 +196,7 @@ async def run_one(arguments, binary, case, storage, repetition):
             probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
         command = [str(binary), '--listen', f'127.0.0.1:{port}', '--protocol', '5',
                    '--max-connections', '256', '--max-sessions', '256', '--max-subscriptions', '128',
-                   '--max-inflight', '64', '--outbound-capacity', '256', '--max-packet-size', '8192',
+                   '--max-inflight', '64', '--outbound-capacity', str(arguments.outbound_capacity), '--max-packet-size', '8192',
                    '--max-state-bytes', '67108864', '--max-retained', '16', '--topic-alias-maximum', '0',
                    '--handshake-timeout-ms', '10000', '--write-timeout-ms', '10000']
         if storage == 'sqlite':
@@ -207,10 +219,10 @@ async def run_one(arguments, binary, case, storage, repetition):
             publishers = connections[len(subscribers):]
             await barrier(subscribers)
             await sampler.once('setup')
-            await phase(workload, subscribers, publishers, arguments.warmup, arguments.payload_size, 1)
+            await phase(workload, subscribers, publishers, arguments.warmup, arguments.payload_size, 1, arguments.flow_control)
             before = await sampler.once('pre_measure')
             sampling_task = asyncio.create_task(sampler.run())
-            result = await phase(workload, subscribers, publishers, arguments.messages, arguments.payload_size, 2)
+            result = await phase(workload, subscribers, publishers, arguments.messages, arguments.payload_size, 2, arguments.flow_control)
             sampler.stop.set(); await sampling_task
             after = await sampler.once('end')
             result.update(case=case, storage=storage, repetition=repetition, smoke=arguments.smoke,
@@ -283,6 +295,8 @@ def parse_arguments():
     parser.add_argument('--warmup', type=int, default=128)
     parser.add_argument('--payload-size', type=int, default=256)
     parser.add_argument('--session-expiry-seconds', type=int, default=0)
+    parser.add_argument('--flow-control', choices=('ack', 'delivery'), default='ack')
+    parser.add_argument('--outbound-capacity', type=int, default=256)
     parser.add_argument('--sample-interval', type=float, default=.05)
     parser.add_argument('--timeout', type=float, default=180)
     parser.add_argument('--smoke', action='store_true', help='small topology; never a formal acceptance run')
@@ -291,6 +305,7 @@ def parse_arguments():
     assert set(arguments.storage.split(',')) <= {'memory', 'sqlite'}
     assert 1 <= arguments.repetitions <= 5 and 1 <= arguments.messages <= 10000
     assert 0 <= arguments.session_expiry_seconds <= 86400
+    assert 1 <= arguments.outbound_capacity <= 4096
     assert 1 <= arguments.warmup <= 1000 and 8 <= arguments.payload_size <= 4096
     assert .01 <= arguments.sample_interval <= 1 and 1 <= arguments.timeout <= 600
     if not arguments.smoke:
