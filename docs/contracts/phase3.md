@@ -76,3 +76,20 @@ Ingress remains QoS1, subscriber grant QoS0: do not claim outbound QoS1/2 throug
 Use4096 measured publications per case, three repetitions,256-byte application
 payloads; preserve per-case broker arguments and exact distribution. Driver default
 expiry0 may remain for explicit clean-routing comparisons; label it separately.
+
+## Controlled-load profile and overload separation
+
+The initial ACK-gated hot run exited on an unexpected non-PUBACK response after
+three concurrent-memory repetitions. Preserve the failed attempt and diagnose the
+exact response; do not summarize that partial campaign as passed. QoS1 ingress ACK
+can precede QoS0 fanout completion, so ACK-only closed-loop producers can accumulate
+recipient queues and reach configured admission limits. This is an offered-load
+stress scenario, separate from a no-loss routing baseline.
+
+Add explicit flow-control=ack|delivery. Formal sustainable baseline uses delivery:
+per publisher, the next publication waits for both its valid PUBACK and all expected
+subscriber receipts. At most one not-fully-completed publication per publisher.
+Keep all earlier topology/count/QoS/durability settings and record flow control in
+every result. ACK-only mode remains reproducible for overload diagnosis; resource
+rejection is a failed no-loss measurement, not a successful throughput run. Do not
+claim a runtime speedup by comparing these different offered-load policies.
