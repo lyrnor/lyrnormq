@@ -66,3 +66,13 @@ or root docs. Any conflict/defect is coordinated before cross-module changes.
 
 Acceptance is a bounded Phase3 baseline, not long-duration soak, official protocol
 certification, hardware power-loss safety, production SLA, TLS or cluster readiness.
+
+## Frozen local measurement profile (before formal campaigns)
+
+Formal baseline commands set session-expiry-seconds=60 for all clients in both
+storage modes. This makes SQLite retain actual sessions/subscriptions and queued
+work, rather than describing a clean-session-only routing test as durable throughput.
+Ingress remains QoS1, subscriber grant QoS0: do not claim outbound QoS1/2 throughput.
+Use4096 measured publications per case, three repetitions,256-byte application
+payloads; preserve per-case broker arguments and exact distribution. Driver default
+expiry0 may remain for explicit clean-routing comparisons; label it separately.
