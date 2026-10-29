@@ -487,3 +487,9 @@ cross-layer transitions, real SQL/process failures, bounded Fuzz and unified cli
 regression. See [gate evidence](docs/conformance/server-acceptance.json) and
 [Fuzz reproduction](fuzz/README.md). Passing these finite gates does not claim
 official MQTT certification, exhaustive input correctness or production readiness.
+
+
+Phase3 adds reproducible local load drivers and bounded slow-consumer/recovery
+tests. See [performance methods and evidence](docs/performance/README.md) and
+[Phase3 contract](docs/contracts/phase3.md). ACK-only stress and receipt-feedback
+baselines use different offered loads and are reported separately.

@@ -1728,3 +1728,92 @@ production hardening; TLS/WebSocket require new scoped audits.
 Independent final read-only closure review found no blocker and reconciled343/1436
 source evidence and354/1719 matrix evidence. Historical routing notes were clarified
 to distinguish their Phase2n open gate from Phase2o scoped closure.
+
+
+## Phase3 — local performance/reliability baseline (2026-10-29)
+
+Frozen phase3 contract preceded three isolated writers:load codex/p3-load,
+transport codex/p3-transport,and quality codex/p3-reliability. Runtime APIs,
+schema7/container1 and lib.rs structure remain unchanged. No confirmed production
+protocol defect was found. Scope is a local baseline, not full performance hardening.
+
+Source/integration commits:transport9c59707->b702874;quality218612a->4aceb90,
+895e4d8->8544246,629a693->6b9e02b;load41242a6->3f44fb6,
+bc7360c->b1e871f,f1e6d3c->9b3771b. Contract e2f8562; positive-session profile
+a2be508; completion-feedback/overload separation6ebc96e. Every writer used its
+assigned worktree/branch and ownership; no shared-root Cargo changes.
+
+Integration passed Rust416(Auth20/Protocol78/Router21/Session180/Storage16/
+Transport92/CLI9),workspace Fmt/strict Clippy/strict Rustdoc,driver14 tests,
+selected release-wire135 executions with21 explicit skips (7 new Phase3 TCP
+executions included). Repeated checks are not double-counted. Real SQL fault9 and
+volatile control1 pass. Reused Fuzz:3 oracle tests,20000 stable mutations with seed
+332593189941 and1146707 bytes;actual cold guided codec2289643 and session2317
+executions,each31s,zero crash. Each uses41 committed seeds,max_total_time30,
+max_len4096,timeout2,RSS512MB,ASAN quarantine64MB,seeds20261029/20261030.
+Isolated nightly-2026-10-29/cargo-fuzz0.13.2 leaves default/production stable.
+Source/matrix343/1436 and354/1719 guards plus6 anti-bypass tests pass. Hosted CI
+was configured,not run. Existing protocol matrix remains278 verified/74 NA/2 SHOULD
+exceptions; performance measurements are not additional normative MUST rows.
+
+Deterministic pressure traces cover full output queues,uncompleted credits,worker
+barriers,termination deadlines,ReceiveMaximum1,global atomic rejection,healthy
+controls,takeover/old-generation ACK rejection,DUP recovery and renewed admission.
+Real TCP complements them with nonreading peers,capacity release and full-window
+SQL SIGKILL recovery. No OS socket-buffer saturation or hard RSS bound is claimed.
+
+Independent review corrected measurement/fixture defects before final runs:EOF is
+not a permit-release barrier;startup must replace stale passed output with running;
+ps processes must be killed/reaped on cancellation/timeout;ordered streams need
+per(topic,publisher) checks;ACK failures need actual response bytes. Four earlier
+driver regressions failed before correction. New completion-feedback tests confirm
+all expected receipts plus valid PUBACK gate the next publication and propagate
+consumer/ACK failures. Server resource/protocol behavior was not changed.
+
+### Actual measurement and negative evidence
+
+All18 completion-gated runs passed:three workloads x memory/SQLite x3 repetitions,
+4096 publications each,128 separate warmup,256-byte payloads,SessionExpiry60,
+QoS1 ingress/QoS0 grants,at most one not-fully-completed publication per publisher.
+128-client concurrency,32-subscriber hot topic and4096 installed filters are covered.
+Totals73728 measured publications/ACKs and835584 validated receipts. Artifact SHA256
+2682740440920644a6d424fc790eed62c381a9a4999522547343b710dd040eee.
+Darwin27 arm64,AppleM4/Mac16,12,10 logical CPUs,16GiB,Rust/Cargo1.98.1 stable,
+Python3.14.7. Campaigns ran serially after competing project tests/builds finished.
+
+memory/concurrent:median ingress215.46/s,egress215.46/s,p99 delivery751.69ms,sampled peak RSS47.08MiB.
+memory/hot:median ingress17.21/s,egress550.56/s,p99 delivery912.17ms,sampled peak RSS23.94MiB.
+memory/many:median ingress9.87/s,egress9.87/s,p99 delivery2164.01ms,sampled peak RSS31.70MiB.
+sqlite/concurrent:median ingress217.01/s,egress217.01/s,p99 delivery757.78ms,sampled peak RSS42.33MiB.
+sqlite/hot:median ingress14.25/s,egress455.91/s,p99 delivery1245.37ms,sampled peak RSS26.03MiB.
+sqlite/many:median ingress9.81/s,egress9.81/s,p99 delivery2220.36ms,sampled peak RSS33.47MiB.
+
+See docs/performance/phase3-2026-10-29.md for all per-run ranges,p50/p95/p99/max,
+ACK latency,CPU time,RSS stages,commands and compressed raw samples. These are
+closed-loop same-host baselines,not saturation/WAN capacity or a production SLA.
+Peak RSS is sampled;CPU window is wider than throughput;thermal/background activity
+is not controlled. No hardware power-loss or long-duration-soak claim follows.
+
+ACK-only offered-load attempts remain negative evidence:initial hot run had an
+unclassified non-PUBACK reply;its original bytes were not captured. Same-configuration
+replay hit600s without reproducing that response. Independent cap1 smoke produced
+legal e0/97 quota rejection;it does not explain the initial unknown reply. Both failed
+attempts are preserved and excluded from passed throughput. Completion feedback
+changes offered load,not runtime speed. ACK-only hot stress has no successful full
+throughput figure here and its original response remains an investigation item.
+
+Static review candidates are whole-engine clones,repeated live/persistent JSON,
+per-publication Router rebuilds,broadcast-induced empty polls and full-BLOB commits.
+Next:profile actual actor counts/CPU/commit bytes first,then freeze optimizations
+that preserve authorization,admission,ACK,expiry and recovery. Current low throughput
+exposes scalability work;this baseline does not conclude high-performance readiness.
+
+Postmeasurement metadata-only followup: Linux CPU model no longer uses architecture
+as its label; two failing fixture subcases were reproduced before the fix. Darwin
+sysctl and measured workload/timing logic are unchanged. Source a8a2b53 is integrated
+as 3f77761; final14 driver tests pass. Formal examples specify600s.
+
+Independent final accounting review recomputed all18 run counts,throughput/latency/
+RSS/CPU tables and archive hashes without rerunning loads;no blocker found. Failed
+ACK-only evidence remains separate and explicitly unresolved. Final source guards,
+six anti-bypass cases and seven thin-lib audits pass.

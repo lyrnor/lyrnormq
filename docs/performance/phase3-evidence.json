@@ -1,0 +1,423 @@
+{
+  "schema_version": 1,
+  "scope": "bounded local Phase3 controlled baseline, not complete performance hardening",
+  "controlled_campaign_status": "passed",
+  "runs": 18,
+  "artifact_sha256": "2682740440920644a6d424fc790eed62c381a9a4999522547343b710dd040eee",
+  "raw_archive_sha256": "b0ba5a6c8a232cedec368bed0f5f379870adf7942a766c516de0d09497ab3dd1",
+  "raw_json_sha256": "f715125afc2d7fe7103457b5d9a0d1296f77d6383746bb5aaad8095ca683f994",
+  "ack_only_hot_status": "unresolved original response; separate600s timeout",
+  "summary": [
+    {
+      "case": "concurrent",
+      "storage": "memory",
+      "flow_control": "delivery",
+      "repetitions": 3,
+      "ingress_messages_per_second": {
+        "median": 215.45668278832954,
+        "min": 194.62892588781392,
+        "max": 224.16690232878133
+      },
+      "egress_deliveries_per_second": {
+        "median": 215.45668278832954,
+        "min": 194.62892588781392,
+        "max": 224.16690232878133
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 213.346416,
+          "min": 209.459583,
+          "max": 252.794083
+        },
+        "p95_ms": {
+          "median": 518.252333,
+          "min": 512.296375,
+          "max": 644.5105
+        },
+        "p99_ms": {
+          "median": 751.693709,
+          "min": 716.581167,
+          "max": 1116.788958
+        },
+        "max_ms": {
+          "median": 1482.667667,
+          "min": 1183.265667,
+          "max": 2087.266958
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 141.896666,
+          "min": 134.606625,
+          "max": 157.684333
+        },
+        "p95_ms": {
+          "median": 441.134042,
+          "min": 430.680208,
+          "max": 507.034458
+        },
+        "p99_ms": {
+          "median": 668.633333,
+          "min": 631.053083,
+          "max": 898.328792
+        },
+        "max_ms": {
+          "median": 1396.559583,
+          "min": 1104.104875,
+          "max": 1967.365584
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 49364992,
+        "min": 42139648,
+        "max": 54837248
+      }
+    },
+    {
+      "case": "hot",
+      "storage": "memory",
+      "flow_control": "delivery",
+      "repetitions": 3,
+      "ingress_messages_per_second": {
+        "median": 17.205005939387146,
+        "min": 17.204029052673746,
+        "max": 17.580650093542843
+      },
+      "egress_deliveries_per_second": {
+        "median": 550.5601900603887,
+        "min": 550.5289296855599,
+        "max": 562.580802993371
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 423.472625,
+          "min": 423.007959,
+          "max": 429.309166
+        },
+        "p95_ms": {
+          "median": 724.116083,
+          "min": 714.203458,
+          "max": 749.635958
+        },
+        "p99_ms": {
+          "median": 912.165792,
+          "min": 887.919959,
+          "max": 991.106792
+        },
+        "max_ms": {
+          "median": 1503.252458,
+          "min": 1379.393584,
+          "max": 1716.47575
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 125.241541,
+          "min": 123.252458,
+          "max": 130.938875
+        },
+        "p95_ms": {
+          "median": 406.182916,
+          "min": 390.549167,
+          "max": 426.662375
+        },
+        "p99_ms": {
+          "median": 623.322833,
+          "min": 583.023584,
+          "max": 625.760542
+        },
+        "max_ms": {
+          "median": 1170.984208,
+          "min": 1129.982667,
+          "max": 1260.899125
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 25100288,
+        "min": 23986176,
+        "max": 25100288
+      }
+    },
+    {
+      "case": "many",
+      "storage": "memory",
+      "flow_control": "delivery",
+      "repetitions": 3,
+      "ingress_messages_per_second": {
+        "median": 9.865176407136452,
+        "min": 9.852624108031874,
+        "max": 10.20988318967301
+      },
+      "egress_deliveries_per_second": {
+        "median": 9.865176407136452,
+        "min": 9.852624108031874,
+        "max": 10.20988318967301
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 669.982958,
+          "min": 660.253667,
+          "max": 677.720792
+        },
+        "p95_ms": {
+          "median": 1557.636208,
+          "min": 1491.373,
+          "max": 1563.455125
+        },
+        "p99_ms": {
+          "median": 2164.006583,
+          "min": 2128.439291,
+          "max": 2242.372834
+        },
+        "max_ms": {
+          "median": 3939.995917,
+          "min": 3699.041334,
+          "max": 4308.6065
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 426.412666,
+          "min": 410.738833,
+          "max": 430.555334
+        },
+        "p95_ms": {
+          "median": 1326.703583,
+          "min": 1246.03825,
+          "max": 1328.490375
+        },
+        "p99_ms": {
+          "median": 1940.552584,
+          "min": 1880.659875,
+          "max": 2002.84725
+        },
+        "max_ms": {
+          "median": 3619.922833,
+          "min": 3494.806542,
+          "max": 4027.270416
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 33243136,
+        "min": 33226752,
+        "max": 35848192
+      }
+    },
+    {
+      "case": "concurrent",
+      "storage": "sqlite",
+      "flow_control": "delivery",
+      "repetitions": 3,
+      "ingress_messages_per_second": {
+        "median": 217.01069349919928,
+        "min": 214.7550021302,
+        "max": 220.3174095599656
+      },
+      "egress_deliveries_per_second": {
+        "median": 217.01069349919928,
+        "min": 214.7550021302,
+        "max": 220.3174095599656
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 218.268792,
+          "min": 215.162958,
+          "max": 222.947875
+        },
+        "p95_ms": {
+          "median": 523.136959,
+          "min": 522.600709,
+          "max": 546.6505
+        },
+        "p99_ms": {
+          "median": 757.782708,
+          "min": 751.083792,
+          "max": 771.497459
+        },
+        "max_ms": {
+          "median": 1400.080917,
+          "min": 1303.790375,
+          "max": 1484.060708
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 140.855792,
+          "min": 138.834833,
+          "max": 143.854416
+        },
+        "p95_ms": {
+          "median": 445.132916,
+          "min": 442.407417,
+          "max": 456.904625
+        },
+        "p99_ms": {
+          "median": 687.509625,
+          "min": 660.622666,
+          "max": 688.561958
+        },
+        "max_ms": {
+          "median": 1350.173084,
+          "min": 1205.402458,
+          "max": 1402.95525
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 44384256,
+        "min": 34963456,
+        "max": 48037888
+      }
+    },
+    {
+      "case": "hot",
+      "storage": "sqlite",
+      "flow_control": "delivery",
+      "repetitions": 3,
+      "ingress_messages_per_second": {
+        "median": 14.247101181452573,
+        "min": 14.018633180095142,
+        "max": 15.059519706923657
+      },
+      "egress_deliveries_per_second": {
+        "median": 455.9072378064823,
+        "min": 448.59626176304454,
+        "max": 481.90463062155703
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 511.543375,
+          "min": 481.77625,
+          "max": 518.731334
+        },
+        "p95_ms": {
+          "median": 923.121083,
+          "min": 891.634916,
+          "max": 932.187125
+        },
+        "p99_ms": {
+          "median": 1245.371458,
+          "min": 1238.586458,
+          "max": 1248.003125
+        },
+        "max_ms": {
+          "median": 2052.2795,
+          "min": 1805.189209,
+          "max": 2067.759
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 144.197541,
+          "min": 133.1385,
+          "max": 144.582916
+        },
+        "p95_ms": {
+          "median": 499.63425,
+          "min": 492.162167,
+          "max": 507.036
+        },
+        "p99_ms": {
+          "median": 792.198875,
+          "min": 734.682541,
+          "max": 802.423542
+        },
+        "max_ms": {
+          "median": 1503.392209,
+          "min": 1287.423041,
+          "max": 1751.723458
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 27295744,
+        "min": 27279360,
+        "max": 27295744
+      }
+    },
+    {
+      "case": "many",
+      "storage": "sqlite",
+      "flow_control": "delivery",
+      "repetitions": 3,
+      "ingress_messages_per_second": {
+        "median": 9.813301339066845,
+        "min": 9.379176818525496,
+        "max": 10.087837708277414
+      },
+      "egress_deliveries_per_second": {
+        "median": 9.813301339066845,
+        "min": 9.379176818525496,
+        "max": 10.087837708277414
+      },
+      "delivery_latency": {
+        "p50_ms": {
+          "median": 691.295542,
+          "min": 664.942917,
+          "max": 705.0375
+        },
+        "p95_ms": {
+          "median": 1545.304833,
+          "min": 1531.260291,
+          "max": 1605.004333
+        },
+        "p99_ms": {
+          "median": 2220.358666,
+          "min": 2104.148,
+          "max": 2245.288
+        },
+        "max_ms": {
+          "median": 3441.452542,
+          "min": 3413.46325,
+          "max": 3649.680792
+        }
+      },
+      "ack_latency": {
+        "p50_ms": {
+          "median": 434.577708,
+          "min": 423.810542,
+          "max": 448.891833
+        },
+        "p95_ms": {
+          "median": 1297.498834,
+          "min": 1283.035084,
+          "max": 1352.437583
+        },
+        "p99_ms": {
+          "median": 1971.984,
+          "min": 1860.8225,
+          "max": 2000.191083
+        },
+        "max_ms": {
+          "median": 3160.263209,
+          "min": 3093.661459,
+          "max": 3373.491709
+        }
+      },
+      "sampled_peak_rss_bytes": {
+        "median": 35094528,
+        "min": 34586624,
+        "max": 35700736
+      }
+    }
+  ],
+  "limitations": [
+    "Closed-loop feedback changes offered load; no runtime speedup claim.",
+    "Unknown original response not explained by independent quota reproduction.",
+    "No sustained ACK-only hot throughput or saturation/WAN/production SLA claim."
+  ],
+  "integration_verification": {
+    "rust_workspace_tests": 416,
+    "driver_unit_tests": 14,
+    "selected_wire_executions": 135,
+    "explicit_wire_skips": 21,
+    "new_phase3_wire_executions": 7,
+    "fault_sql_cases": 9,
+    "fault_memory_cases": 1,
+    "stable_fuzz_mutations": 20000,
+    "guided_codec_executions": 2289643,
+    "guided_session_executions": 2317,
+    "independent_accounting_review": "passed: all counts, tables, quantile ordering, CPU windows, RSS samples, hashes and scope reconciled",
+    "postmeasurement_metadata_source_commit": "a8a2b53",
+    "postmeasurement_metadata_integration_commit": "3f77761",
+    "hosted_ci_executed": false
+  }
+}

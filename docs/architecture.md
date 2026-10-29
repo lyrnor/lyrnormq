@@ -1,4 +1,4 @@
-# Architecture — revision16 / Phase2o
+# Architecture — revision17 / Phase3 baseline
 
 TCP MQTT3.1.1 and the recorded MQTT5 server scope, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -525,3 +525,33 @@ bounded legacy/V5 recovery traces with controlled time. They introduce no produc
 nightly requirement. Network alias/provider AUTH/KeepAlive/concurrent scheduling are
 validated separately from the pure model. This finite project acceptance does not
 remove profile qualifications, SHOULD exceptions or hardware/power-loss limits.
+
+
+## Phase3 measurement and resource boundaries
+
+Phase3 freezes local benchmark/reliability acceptance without a runtime API or schema
+change. Load driver, transport tests and TCP/CI tests were implemented in three
+independent Git worktrees and integrated after review. All lib.rs files retain their
+declaration/export structure. The production serialized-worker/outbox model is reused.
+
+The baseline distinguishes ACK-only offered-load stress from completion-gated
+routing: a QoS1 ingress ACK can precede all QoS0 fanout writes. Recipient queues may
+fill under ACK-only load, and the existing policy atomically rejects the whole fanout
+proposal with quota failure. This does not promise fairness to other recipients on
+the same topic. Independent healthy-topic/control liveness is tested separately.
+Completion-gated producers bound each publisher to one not-fully-received publication;
+all waiting is included in timing. This is experimental client feedback, not a new
+MQTT feature or evidence of a runtime optimization.
+
+Current worker requests deep-clone the live engine and repeatedly validate serialized
+state. Publishing rebuilds the ordinary routing index from registered subscriptions;
+watch broadcasts may create empty delivery polls. Persistent commits replace the full
+snapshot BLOB; memory mode also pays bounds/snapshot serialization. These static
+paths are profiling candidates, not measured CPU percentages. QoS0 writes do not
+have a third CompleteDelivery actor transaction. Changes to caching/notification/
+copy-on-write/journaling must first preserve frozen authorization, expiry, atomic
+admission and ACK/recovery contracts.
+
+See docs/performance/ for actual per-run data, failed stress attempts, sampling
+limits and reproduction. A local baseline does not establish saturation capacity,
+long-duration reliability, a production SLA or hardware power-loss safety.

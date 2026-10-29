@@ -474,3 +474,28 @@ Remaining work is explicit rather than an unnamed MQTT5 completion claim:
 
 These followups do not reopen the completed finite acceptance criteria or claim
 hardware power-loss safety, hosted CI results, official certification or clustering.
+
+
+## Phase3 baseline delivered; scalability/hardening remains
+
+Completed:freeze contract;three isolated writers;128-client/32-subscriber-hot/
+4096-filter load driver;bounded internal and real TCP pressure/slow-reader/capacity
+recovery tests;18 serial dual-storage completion-gated measurements;actual reused
+fault/Fuzz and integration gates. See docs/performance/phase3-2026-10-29.md and
+phase3-evidence.json. Runtime/schema/lib.rs structure unchanged.
+
+Next ordered tasks:
+
+1. Instrument/profile actor requests,empty polls,clone/serialization CPU,snapshot
+   bytes and commit latency. Preserve both failed ACK-only stress attempts and
+   investigate the original unclassified reply;capture partial failure metrics.
+2. Freeze optimization contracts before caching route indexes,changing notification
+   scope,copy-on-write or persistence. Re-run exactly comparable profiles to assess
+   changes;different offered-load modes do not establish speedup. Current baseline
+   is slow and does not establish high-performance/production readiness.
+3. Extend longer soak/larger and multi-host generators,wildcard/shared distributions,
+   outbound QoS1/2,concurrent failures and slow-peer mixes. Define production resource
+   and latency targets before broader acceptance. Current local finite gates do not
+   exhaust schedules or certify hardware power loss.
+4. Keep Phase2o explicit-V5/Both qualifications and SHOULD exceptions visible. TLS,
+   WebSocket and clustering remain separate contracts after single-node hardening.

@@ -1,0 +1,48 @@
+{"case": "concurrent", "deliveries": 4096, "duration_seconds": 16.04270825, "ingress_messages_per_second": 255.31848713885324, "publications": 4096, "repetition": 1, "storage": "memory"}
+{"case": "concurrent", "deliveries": 4096, "duration_seconds": 15.953715, "ingress_messages_per_second": 256.7427085164803, "publications": 4096, "repetition": 2, "storage": "memory"}
+{"case": "concurrent", "deliveries": 4096, "duration_seconds": 16.477442042, "ingress_messages_per_second": 248.58227324117084, "publications": 4096, "repetition": 3, "storage": "memory"}
+rmqtt listening on 127.0.0.1:64695
+
+  + Exception Group Traceback (most recent call last):
+  |   File "/Volumes/data/rmqtt/benches/phase3/run.py", line 302, in <module>
+  |     asyncio.run(campaign(parse_arguments()))
+  |     ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 205, in run
+  |     return runner.run(main)
+  |            ~~~~~~~~~~^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 128, in run
+  |     return self._loop.run_until_complete(task)
+  |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+  |     return future.result()
+  |            ~~~~~~~~~~~~~^^
+  |   File "/Volumes/data/rmqtt/benches/phase3/run.py", line 262, in campaign
+  |     run = await asyncio.wait_for(run_one(arguments, binary, case, storage, repetition), arguments.timeout)
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/tasks.py", line 488, in wait_for
+  |     return await fut
+  |            ^^^^^^^^^
+  |   File "/Volumes/data/rmqtt/benches/phase3/run.py", line 213, in run_one
+  |     result = await phase(workload, subscribers, publishers, arguments.messages, arguments.payload_size, 2)
+  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Volumes/data/rmqtt/benches/phase3/run.py", line 148, in phase
+  |     async with asyncio.TaskGroup() as group:
+  |                ~~~~~~~~~~~~~~~~~^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/taskgroups.py", line 72, in __aexit__
+  |     return await self._aexit(et, exc)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/taskgroups.py", line 174, in _aexit
+  |     raise BaseExceptionGroup(
+  |     ...<2 lines>...
+  |     ) from None
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/Volumes/data/rmqtt/benches/phase3/run.py", line 144, in produce
+    |     validate_ack(header, body, identifier)
+    |     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Volumes/data/rmqtt/benches/phase3/wire.py", line 72, in validate_ack
+    |     assert header == 0x40 and len(body) >= 2
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    | AssertionError
+    +------------------------------------
