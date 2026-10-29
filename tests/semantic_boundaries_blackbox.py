@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Finite real-wire acceptance for remaining MQTT5 semantic boundaries.
 
-Policy observations do not settle mixed-RAP/PFI normative interpretations. Unknown
+Mixed-RAP now uses per-filter copies under the Phase2n contract; PFI remains a producer assertion with optional broker validation. Unknown
 versions retain the multi-version listener's MQTT311 refusal policy; they are not
 claimed as a negotiated MQTT5 exchange. SIGKILL covers process recovery only.
 """
@@ -111,10 +111,11 @@ class SemanticBoundariesBlackbox(unittest.TestCase):
         self.start();pub = self.basic('publisher');sub = self.basic('overlap')
         self.subscribe(sub, [('allowed/#', 1), ('allowed/value', 9)], properties=[(0x0b, 12)])
         self.publish(pub, 'allowed/value', b'live', retain=True)
-        value = wire.parse5(receive(sub))
-        self.assertEqual(value[:3], ('allowed/value', b'live', 1));self.assertTrue(value[5])
-        self.assertEqual([v for k, v in value[6] if k == 11], [12, 12]);self.complete(sub, value)
-        self.quiet(sub)
+        choices = []
+        for _ in range(2):
+            value = wire.parse5(receive(sub));self.assertEqual(value[:3], ('allowed/value', b'live', 1))
+            choices.append((value[5], [v for k, v in value[6] if k == 11]));self.complete(sub, value)
+        self.assertCountEqual(choices, [(False, [12]), (True, [12])]);self.quiet(sub)
         replay = self.basic('retained-replay')
         self.subscribe(replay, [('allowed/value', 1)])
         self.message(replay, 'allowed/value', b'live', retain=True)

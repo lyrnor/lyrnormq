@@ -77,7 +77,9 @@ class SubscriptionPaho(unittest.TestCase):
         sub.options([('paho/overlap/#', 0, False, False, 0), ('paho/overlap/+', 2, False, True, 0)], 31)
         sub.options([('paho/overlap/value', 1, False, False, 0)], 32)
         pub.publish('paho/overlap/value', b'one', 2, True)
-        sub.expected('paho/overlap/value', b'one', 2, [31, 31, 32], True, True);sub.quiet()
+        values = [sub.messages.get(timeout=5) for _ in range(3)]
+        self.assertTrue(all(value[:2] == ('paho/overlap/value', b'one') and value[4] == EXPECTED_METADATA for value in values))
+        self.assertCountEqual([(v[2], v[3], v[5]) for v in values], [(0, False, [31]), (2, True, [31]), (1, False, [32])]);sub.quiet()
         own = self.client('paho-filtered')
         own.options([('paho/self/#', 2, True, True, 0)], 33)
         own.options([('paho/self/+', 0, False, False, 0)], 34)

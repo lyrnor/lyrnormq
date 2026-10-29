@@ -75,12 +75,23 @@ class SubscriptionBlackbox(unittest.TestCase):
         self.msg(plain, 'rap/value', b'', ids=[21]);self.msg(kept, 'rap/value', b'', ids=[22], retain=True)
         fresh = self.client('rap-fresh');self.sub(fresh, [('rap/#', 1)]);self.quiet(fresh)
 
-    def test_overlap_deduplicates_with_max_qos_repeated_ids_and_any_rap(self):
+    def test_mixed_rap_overlap_has_per_filter_qos_and_repeated_ids(self):
         self.start();pub = self.client('overlap-source');sub = self.client('overlap-target')
         self.sub(sub, [('overlap/#', 0), ('overlap/+', 10)], 17)
         self.sub(sub, [('overlap/value', 1)], 18, packet_id=2)
         self.publish(pub, 'overlap/value', b'one', 2, properties=wire.METADATA, retain=True)
-        self.msg(sub, 'overlap/value', b'one', 2, [17, 17, 18], True, wire.METADATA);self.quiet(sub)
+        values = [];receipts = set()
+        while len(values) < 3 or receipts:
+            packet = receive(sub)
+            if packet[0] >> 4 == 6:
+                identifier = wire.parse_ack5(packet, 0x62)
+                self.assertIn(identifier, receipts);receipts.remove(identifier);sub.sendall(ack(0x70, identifier));continue
+            value = wire.parse5(packet);self.assertEqual(value[:2], ('overlap/value', b'one'))
+            self.assertEqual([(k, v) for k, v in value[6] if k != 11], wire.METADATA)
+            values.append((value[2], value[5], identifiers(value[6])))
+            if value[2] == 1:sub.sendall(ack(0x40, value[3]))
+            elif value[2] == 2:receipts.add(value[3]);sub.sendall(ack(0x50, value[3]))
+        self.assertCountEqual(values, [(0, False, [17]), (2, True, [17]), (1, False, [18])]);self.quiet(sub)
 
     def test_identifier_replacement_absence_and_unsubscribe(self):
         self.start();pub = self.client('replace-source');sub = self.client('replace-target')

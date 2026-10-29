@@ -28,6 +28,7 @@ jobs:
       - run: python3 tests/conformance_blackbox.py
       - run: python3 tests/clause_boundaries_blackbox.py
       - run: python3 tests/semantic_boundaries_blackbox.py
+      - run: python3 tests/rap_profiles_blackbox.py
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/paho_interop.py
       - run: python3 tests/persistence_paho.py
@@ -43,7 +44,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import os, subprocess, sys, tempfile
-          for suite in ('blackbox.py', 'qos_blackbox.py', 'paho_interop.py', 'retained_will_blackbox.py', 'retained_will_paho.py', 'auth_acl_blackbox.py', 'auth_acl_paho.py', 'mqtt5_blackbox.py', 'mqtt5_paho.py', 'expiry_will_blackbox.py', 'expiry_will_paho.py', 'negotiation_blackbox.py', 'negotiation_paho.py', 'subscription_blackbox.py', 'subscription_paho.py', 'alias_blackbox.py', 'alias_paho.py', 'shared_blackbox.py', 'shared_paho.py', 'enhanced_auth_blackbox.py', 'conformance_blackbox.py', 'clause_boundaries_blackbox.py', 'semantic_boundaries_blackbox.py'):
+          for suite in ('blackbox.py', 'qos_blackbox.py', 'paho_interop.py', 'retained_will_blackbox.py', 'retained_will_paho.py', 'auth_acl_blackbox.py', 'auth_acl_paho.py', 'mqtt5_blackbox.py', 'mqtt5_paho.py', 'expiry_will_blackbox.py', 'expiry_will_paho.py', 'negotiation_blackbox.py', 'negotiation_paho.py', 'subscription_blackbox.py', 'subscription_paho.py', 'alias_blackbox.py', 'alias_paho.py', 'shared_blackbox.py', 'shared_paho.py', 'enhanced_auth_blackbox.py', 'conformance_blackbox.py', 'clause_boundaries_blackbox.py', 'semantic_boundaries_blackbox.py', 'rap_profiles_blackbox.py'):
               with tempfile.TemporaryDirectory(prefix='rmqtt-sqlite-regression-') as directory:
                   env = dict(os.environ, RMQTT_TEST_STORAGE_PATH=os.path.join(directory, 'sessions.sqlite'))
                   subprocess.run([sys.executable, 'tests/' + suite], env=env, check=True)
