@@ -1,0 +1,586 @@
+{
+  "reviewer": "transport",
+  "source_url": "https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.docx",
+  "source_docx_sha256": "a567582f279f53b300956282b760db95f66e5096d3ca8412321cf1e8403ac58b",
+  "source_commit": "485677ca121176e53b14cb415a3af777f0fcba07",
+  "verification": [
+    "cargo test --offline -p mqtt-transport:89 passed (local TCP permitted); 4 new tests,85 existing.",
+    "cargo fmt --all:passed; cargo clippy --offline -p mqtt-transport --all-targets -- -D warnings:passed; RUSTDOCFLAGS=-Dwarnings cargo doc --offline -p mqtt-transport --no-deps:passed; git diff --check:passed.",
+    "New targeted matrix:16 packet-type/state variants, actual diagnostic/QoS2 flow and deterministic generation/outbox/ReceiveMaximum trace. Initial sandbox bind denial was not counted as a protocol failure; permitted rerun passed.",
+    "Final same-artifact full client regression passed existing alias_blackbox.py in both modes, including test_reconnect_and_takeover_reset_inbound_map. Supplemental actual 8-client immediate same-ID reuse stress:4000 QoS1+2000 QoS2 publications passed; no confirmed micro-scheduling defect. This does not exclude every OS interleaving."
+  ],
+  "requirements": [
+    {
+      "id": "G2_PACKET_TYPE_ROLES",
+      "normative_refs": [
+        "Table2-2",
+        "MQTT-3.1.0-1",
+        "MQTT-4.13.1-1"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states"
+      ],
+      "note": "All four server-only types CONNACK/SUBACK/UNSUBACK/PINGRESP are injected in initial/auth-pending/connected/reauth-pending states. Initial unversioned input closes; initial AUTH returns failed CONNACK82; established states return DISCONNECT82. Pipelined PING is discarded. S2C output role assertions inspect every observed frame. This is a 16-case finite state/type matrix, not every invalid byte stream.",
+      "source_paragraphs": []
+    },
+    {
+      "id": "G2_AUTH_REASON_DIRECTION",
+      "normative_refs": [
+        "Table3-11",
+        "MQTT-3.15.2-1",
+        "MQTT-4.12.0-5"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:process"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states",
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data",
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id"
+      ],
+      "note": "Server AUTH constructors only choose18 continuation or00 completion. Actual observed AUTH output is checked against this literal role set; client00 while reauth pending is rejected82. Client19 initiation and18 continuation remain supported; initial successful exchange finishes with CONNACK. Tests use the actual PLAIN exchange and a deterministic local credential policy, not an Argon2 performance assertion.",
+      "source_paragraphs": []
+    },
+    {
+      "id": "G2_DISCONNECT_SERVER_EXPIRY_FORBIDDEN",
+      "normative_refs": [
+        "MQTT-3.14.2-2"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states",
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "Reviewed all production server DISCONNECT constructors: fresh Frame::v5(Packet::Disconnect) with no copied received properties; SessionExpiry is only extracted for client-origin disconnect handling. All observed server terminal frames in the new traces assert no SessionExpiry and no client-only Will-request code04. Generic symmetric codec acceptance of a client-only property is not itself a broker emitter defect.",
+      "source_paragraphs": [
+        {
+          "paragraph_index": 4401,
+          "paragraph_sha256": "713ea7c0110c398dc27da44e1762196a783dbbe64e7627c6e126459595c5662f"
+        }
+      ]
+    },
+    {
+      "id": "G2_PROBLEM_INFORMATION_SUPPRESSION",
+      "normative_refs": [
+        "MQTT-3.1.2-29"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-transport/src/durable.rs:run_commands"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "RequestProblemInformation0 is not an instruction to remove forwarded application UserProperty. Actual QoS2 PUBREC/PUBCOMP carry no ReasonString/UserProperty, while subscriber PUBLISH retains the original application property. CONNECT and PUBREL diagnostic markers are not echoed into application data. Production control/AUTH constructors never copy CONNECT/received diagnostic properties; no generated optional diagnostic feature is configured.",
+      "source_paragraphs": [
+        {
+          "paragraph_index": 1815,
+          "paragraph_sha256": "19840ba50dae628fd980cc88207f8d6053765a121b9a5336d4e639f68e7a8fb9"
+        }
+      ]
+    },
+    {
+      "id": "G2_RESPONSE_INFORMATION_ABSENCE",
+      "normative_refs": [
+        "MQTT-3.1.2-28"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "Actual RequestResponseInformation0 CONNECT receives no ResponseInformation. The broker does not generate this optional property even when requested; the MAY branch is not claimed implemented.",
+      "source_paragraphs": [
+        {
+          "paragraph_index": 1802,
+          "paragraph_sha256": "f713b8ff7af955169eb61df028c7e4b2561a26c61a5c53240a4115785fdefbfe"
+        }
+      ]
+    },
+    {
+      "id": "G2_CLIENT_PUBLISH_SUBID_FORBIDDEN",
+      "normative_refs": [
+        "MQTT-3.3.4-6"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_properties"
+      ],
+      "tests": [
+        "crates/mqtt-session/src/durable/phase2k_tests.rs:mqtt_3_3_4_6_client_subscription_identifier_cannot_mutate_queues"
+      ],
+      "note": "PUBLISH is bidirectional but SubscriptionIdentifier is broker-owned recipient metadata. The connection worker/model path rejects client-injected identifiers before routing/outbox changes. The role-agnostic codec must still support legitimate server PUBLISH properties; this requirement cannot be reduced to Table2-4 packet position.",
+      "source_paragraphs": [
+        {
+          "paragraph_index": 2845,
+          "paragraph_sha256": "4324d8ce90c24ccbf954c067053fdd3cbca626f8183589620ed99f23762ea850"
+        }
+      ]
+    },
+    {
+      "id": "G2_DISCONNECT_SENTBY_TABLE",
+      "normative_refs": [
+        "Table3-10",
+        "MQTT-3.14.2-1"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states",
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "Server emission never uses client-only04; observed server reasons82 and existing guarded constructors are valid server codes. A client sending a server-only DISCONNECT reason violates a sender-role rule, but this implementation closes on receipt and does not interpret ServerReference as a redirect. No unspecified mandatory negative-echo behavior is invented for an already terminating client packet. Full receiver-side direction diagnostics remain distinct from sender legality.",
+      "source_paragraphs": []
+    },
+    {
+      "id": "G3_PREAUTH_TERMINAL_ORDER",
+      "normative_refs": [
+        "MQTT-3.2.0-1",
+        "MQTT-3.2.0-2",
+        "MQTT-3.14.0-1",
+        "MQTT-3.14.4-1"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states"
+      ],
+      "note": "Auth-pending violations emit one failed CONNACK, never premature server DISCONNECT; connected violations emit terminal DISCONNECT. EOF immediately follows and the pipelined control is not processed. Initial packets that never negotiate a version close without guessing a CONNACK format.",
+      "source_paragraphs": [
+        {
+          "paragraph_index": 4191,
+          "paragraph_sha256": "fd7624b62b2dfc1bdf9603b6788cf37425cc1f3b2edeebb95af30fa504ff849d"
+        }
+      ]
+    },
+    {
+      "id": "G3_GENERATION_AND_QOS_CREDIT",
+      "normative_refs": [
+        "MQTT-3.1.4-3",
+        "MQTT-4.9.0-2",
+        "MQTT-4.3.3-1",
+        "Phase2b outbox transaction contract"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable.rs:valid_generation",
+        "crates/mqtt-transport/src/durable.rs:run_commands",
+        "crates/mqtt-session/src/durable/mqtt5.rs:begin_delivery"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:stale_generation_ack_and_lease_cannot_release_new_owner_qos2_window"
+      ],
+      "note": "Deterministic serialized actor trace: begin outgoing QoS2, queue QoS1, takeover/resume, reject stale PUBREC and BeginDelivery, ignore stale Disconnect, preserve replay ID/DUP, reject stale PUBCOMP after current PUBREC, hold ReceiveMaximum1 through valid current PUBCOMP, then expose next QoS1. Generation and outbox state are checked together, not solely enum transitions. This memory-worker trace is supplemented by Quality crash/SQLite evidence, not a physical-power-loss claim.",
+      "source_paragraphs": []
+    },
+    {
+      "id": "G3_ACK_WRITE_CREDIT_BOUNDARY",
+      "normative_refs": [
+        "MQTT-4.9.0-2",
+        "MQTT-4.9.0-1"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:Credits::completion",
+        "crates/mqtt-transport/src/durable/network.rs:Credits::complete"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/durable/network.rs:credits_hold_qos2_until_pubcomp_and_never_release_reused_id_from_stale_ack",
+        "crates/mqtt-transport/src/durable/network.rs:actual_ack_write_releases_ticket",
+        "crates/mqtt-transport/src/durable/network.rs:terminal_finishes_current_frame_then_discards_queue_and_unwritten_ack_credit"
+      ],
+      "note": "Existing actual socket/write-ticket tests are reused and rerun in the full crate: QoS2 credit is not released by positive PUBREC; an unwritten ACK does not release inbound credit; stale serials cannot release a reused ID. New actor trace independently checks the model/connection generation side.",
+      "source_paragraphs": []
+    },
+    {
+      "id": "G3_ALIAS_CONNECTION_LIFETIME",
+      "normative_refs": [
+        "MQTT-3.3.2-7"
+      ],
+      "role": "server",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/aliases.rs:InboundAliases"
+      ],
+      "tests": [
+        "tests/alias_blackbox.py:test_reconnect_and_takeover_reset_inbound_map"
+      ],
+      "note": "Coordinator final-artifact reconciliation: existing alias reconnect/takeover reset method passed as part of the immutable e98f5c... full both-mode suite; source maps remain per-connection and no alias state is persisted.",
+      "source_paragraphs": []
+    }
+  ],
+  "property_roles": [
+    {
+      "property_id": 1,
+      "name": "PayloadFormatIndicator",
+      "role_contexts": [
+        "Will:C2S",
+        "PUBLISH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 2,
+      "name": "MessageExpiryInterval",
+      "role_contexts": [
+        "Will:C2S",
+        "PUBLISH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 3,
+      "name": "ContentType",
+      "role_contexts": [
+        "Will:C2S",
+        "PUBLISH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 8,
+      "name": "ResponseTopic",
+      "role_contexts": [
+        "Will:C2S",
+        "PUBLISH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 9,
+      "name": "CorrelationData",
+      "role_contexts": [
+        "Will:C2S",
+        "PUBLISH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 11,
+      "name": "SubscriptionIdentifier",
+      "role_contexts": [
+        "SUBSCRIBE:C2S",
+        "PUBLISH:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 17,
+      "name": "SessionExpiryInterval",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "CONNACK:S2C",
+        "DISCONNECT:C2S"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 18,
+      "name": "AssignedClientIdentifier",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 19,
+      "name": "ServerKeepAlive",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 21,
+      "name": "AuthenticationMethod",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "CONNACK:S2C",
+        "AUTH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 22,
+      "name": "AuthenticationData",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "CONNACK:S2C",
+        "AUTH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 23,
+      "name": "RequestProblemInformation",
+      "role_contexts": [
+        "CONNECT:C2S"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 24,
+      "name": "WillDelayInterval",
+      "role_contexts": [
+        "Will:C2S"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 25,
+      "name": "RequestResponseInformation",
+      "role_contexts": [
+        "CONNECT:C2S"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 26,
+      "name": "ResponseInformation",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 28,
+      "name": "ServerReference",
+      "role_contexts": [
+        "CONNACK:S2C",
+        "DISCONNECT:server-use prose"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 31,
+      "name": "ReasonString",
+      "role_contexts": [
+        "CONNACK:S2C",
+        "PUBACK:both",
+        "PUBREC:both",
+        "PUBREL:both",
+        "PUBCOMP:both",
+        "SUBACK:S2C",
+        "UNSUBACK:S2C",
+        "DISCONNECT:both",
+        "AUTH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 33,
+      "name": "ReceiveMaximum",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 34,
+      "name": "TopicAliasMaximum",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 35,
+      "name": "TopicAlias",
+      "role_contexts": [
+        "PUBLISH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 36,
+      "name": "MaximumQoS",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 37,
+      "name": "RetainAvailable",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 38,
+      "name": "UserProperty",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "Will:C2S",
+        "CONNACK:S2C",
+        "PUBLISH:both",
+        "PUBACK:both",
+        "PUBREC:both",
+        "PUBREL:both",
+        "PUBCOMP:both",
+        "SUBSCRIBE:C2S",
+        "SUBACK:S2C",
+        "UNSUBSCRIBE:C2S",
+        "UNSUBACK:S2C",
+        "DISCONNECT:both",
+        "AUTH:both"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 39,
+      "name": "MaximumPacketSize",
+      "role_contexts": [
+        "CONNECT:C2S",
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 40,
+      "name": "WildcardSubscriptionAvailable",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 41,
+      "name": "SubscriptionIdentifierAvailable",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    },
+    {
+      "property_id": 42,
+      "name": "SharedSubscriptionAvailable",
+      "role_contexts": [
+        "CONNACK:S2C"
+      ],
+      "status": "reviewed",
+      "note": "Packet-role gate plus symmetric property-position validation applies; endpoint-specific exceptions are separately recorded above. ServerReference server-use prose is not converted into a nonexistent explicit client-MUSTNOT."
+    }
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.14.2-2",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states",
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "Reviewed all production server DISCONNECT constructors: fresh Frame::v5(Packet::Disconnect) with no copied received properties; SessionExpiry is only extracted for client-origin disconnect handling. All observed server terminal frames in the new traces assert no SessionExpiry and no client-only Will-request code04. Generic symmetric codec acceptance of a client-only property is not itself a broker emitter defect."
+    },
+    {
+      "id": "MQTT-3.1.2-29",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-transport/src/durable/enhanced.rs:auth_frame",
+        "crates/mqtt-transport/src/durable.rs:run_commands"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "RequestProblemInformation0 is not an instruction to remove forwarded application UserProperty. Actual QoS2 PUBREC/PUBCOMP carry no ReasonString/UserProperty, while subscriber PUBLISH retains the original application property. CONNECT and PUBREL diagnostic markers are not echoed into application data. Production control/AUTH constructors never copy CONNECT/received diagnostic properties; no generated optional diagnostic feature is configured."
+    },
+    {
+      "id": "MQTT-3.1.2-28",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:request_problem_zero_does_not_suppress_application_properties_or_echo_control_data"
+      ],
+      "note": "Actual RequestResponseInformation0 CONNECT receives no ResponseInformation. The broker does not generate this optional property even when requested; the MAY branch is not claimed implemented."
+    },
+    {
+      "id": "MQTT-3.14.0-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection_loop",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2o_transport_tests.rs:server_only_types_are_rejected_in_all_four_receive_states"
+      ],
+      "note": "Auth-pending violations emit one failed CONNACK, never premature server DISCONNECT; connected violations emit terminal DISCONNECT. EOF immediately follows and the pipelined control is not processed. Initial packets that never negotiate a version close without guessing a CONNACK format."
+    }
+  ],
+  "direction_table_resolution": {
+    "path": "/tmp/rmqtt-p2o-direction-tables.json",
+    "tables": [
+      "DOCX-T5",
+      "DOCX-T25",
+      "DOCX-T28",
+      "DOCX-T50",
+      "DOCX-T53"
+    ],
+    "scope": "Five delegated authoritative tables: packet syntax evidence remains Protocol-owned; endpoint dispositions concern this broker obligations, not arbitrary external client correctness or every possible malformed byte trace."
+  }
+}
