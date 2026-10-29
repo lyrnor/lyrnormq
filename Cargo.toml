@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "bin/rmqtt"]
+members = ["crates/*", "bin/rmqtt", "bin/rmqtt-loadgen"]
 resolver = "3"
 [workspace.package]
 version = "0.1.0"
