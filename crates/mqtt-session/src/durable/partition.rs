@@ -181,6 +181,38 @@ impl SessionEngine {
         })
     }
 
+    /// Merge partitions and retained entries into one legacy engine, the
+    /// inverse of [`Self::into_partitions`], for inspection and export.
+    pub fn from_partitions(
+        config: SessionConfig,
+        partitions: Vec<SessionEngine>,
+        retained: Vec<RetainedEntry>,
+    ) -> Result<Self, EngineError> {
+        let mut merged = Self::new(config)?;
+        for partition in partitions {
+            merged.clock_floor.observe(partition.clock_floor.get());
+            for (client, session) in partition.sessions {
+                if merged.sessions.insert(client, session).is_some() {
+                    return Err(invalid_record("duplicate client across partitions"));
+                }
+            }
+            for (client, will) in partition.wills {
+                if merged.wills.insert(client, will).is_some() {
+                    return Err(invalid_record("duplicate Will across partitions"));
+                }
+            }
+            for (group, cursor) in partition.shared_cursors {
+                merged.shared_cursors.entry(group).or_insert(cursor);
+            }
+        }
+        for group in merged.active_shared_groups() {
+            merged.ensure_shared_epoch(&group)?;
+        }
+        merged.stage_retained(retained)?;
+        merged.ensure_bounds()?;
+        Ok(merged)
+    }
+
     pub fn is_partition(&self) -> bool {
         self.partition
     }
@@ -242,7 +274,7 @@ impl SessionEngine {
             .map_err(EngineError::Retained)?;
         self.retained_properties.clear();
         self.retained_expiry.clear();
-        Ok(())
+        self.ensure_bounds()
     }
     pub fn retained_entries(&self) -> Vec<RetainedEntry> {
         self.retained

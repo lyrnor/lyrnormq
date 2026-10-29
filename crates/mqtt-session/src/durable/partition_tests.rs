@@ -320,12 +320,24 @@ fn legacy_engine_splits_into_restorable_partitions() {
         .unwrap();
     legacy.disconnect_with_reason("a", false).unwrap();
     let floor = legacy.clock_floor();
+    let legacy_snapshot = legacy.snapshot().unwrap();
     let split = legacy.into_partitions().unwrap();
     assert_eq!(split.clock_floor, floor);
     assert_eq!(split.retained.len(), 1);
     assert_eq!(split.retained[0].payload, b"keep");
     let ids: Vec<_> = split.clients.iter().map(|(id, _)| id.as_str()).collect();
     assert_eq!(ids, ["a", "b", "pub"]);
+    let merged = SessionEngine::from_partitions(
+        config(8),
+        split
+            .clients
+            .iter()
+            .map(|(_, engine)| engine.clone())
+            .collect(),
+        split.retained.clone(),
+    )
+    .unwrap();
+    assert_eq!(merged.snapshot().unwrap(), legacy_snapshot);
     for (id, engine) in split.clients {
         assert!(engine.is_partition());
         assert!(engine.retained_entries().is_empty());
