@@ -65,6 +65,7 @@ def check(root):
             assert any(item['status'] == 'verified' for item in reviews.get(row['id'], [])), row['id']
         if row['status'] == 'unreviewed':
             assert not row['reviewers'], f'unreviewed row carries a claimed review: {row["id"]}'
+    authoritative_required = False
     acceptance_path = base / 'server-acceptance.json'
     if acceptance_path.exists():
         acceptance = json.loads(acceptance_path.read_text())
@@ -87,12 +88,21 @@ def check(root):
             assert all(isinstance(value, str) and value for value in criterion['commands'])
             for value in criterion['evidence']:
                 reference(value)
+        authoritative_required = any(c['id'] == 'G1' and c['status'] == 'passed' for c in criteria)
         all_passed = all(c['status'] == 'passed' for c in criteria)
         if acceptance['overall_status'] == 'passed':
             assert all_passed, 'overall gate cannot pass with an open criterion'
         gate = next(row for row in rows if row['id'] == acceptance['gate_id'])
         if gate['status'] == 'verified':
             assert all_passed and acceptance['overall_status'] == 'passed', 'U7 cannot bypass required criteria'
+    authoritative_inventory = base / 'authoritative-inventory.json'
+    if authoritative_required or authoritative_inventory.exists():
+        for name in ('authoritative-inventory.json', 'authoritative-review.json', 'check_authoritative.py'):
+            assert (base / name).is_file(), f'G1 authoritative evidence missing: {name}'
+        result = subprocess.run([sys.executable, str(base / 'check_authoritative.py')],
+                                capture_output=True, text=True, cwd=root)
+        assert result.returncode == 0, 'authoritative completeness check failed:\n' + result.stderr
+        print(result.stdout, end='')
     subprocess.run([sys.executable, str(base / 'build_matrix.py'), '--check'], check=True, cwd=root)
     print(f'PASS {len(rows)} unique matrix rows; {len(reviews)} reviewed identifiers; {links} source/test links')
 

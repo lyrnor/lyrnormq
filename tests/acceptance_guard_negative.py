@@ -53,6 +53,24 @@ class AcceptanceGuardTampering(unittest.TestCase):
         self.acceptance['criteria'].append(self.acceptance['criteria'][0].copy())
         self.rejected('AssertionError')
 
+    def claim_g1_passed(self):
+        criterion = next(c for c in self.acceptance['criteria'] if c['id'] == 'G1')
+        criterion.update(status='passed', commands=['python3 docs/conformance/check_authoritative.py'],
+                         evidence=['docs/conformance/check_authoritative.py:check'])
+
+    def test_passed_g1_requires_every_authoritative_decision(self):
+        self.claim_g1_passed()
+        path = self.root / 'docs/conformance/authoritative-review.json'
+        review = json.loads(path.read_text())
+        review['entries'].pop()
+        path.write_text(json.dumps(review))
+        self.rejected('authoritative completeness check failed')
+
+    def test_passed_g1_requires_authoritative_review_file(self):
+        self.claim_g1_passed()
+        (self.root / 'docs/conformance/authoritative-review.json').unlink()
+        self.rejected('G1 authoritative evidence missing: authoritative-review.json')
+
     def test_matrix_verified_u7_cannot_bypass_open_acceptance(self):
         self.acceptance['overall_status'] = 'open'
         self.acceptance['criteria'][0]['status'] = 'open'
