@@ -570,3 +570,6 @@ mod property_conformance_tests;
 
 #[cfg(test)]
 mod property_table_tests;
+
+#[cfg(test)]
+mod payload_role_tests;
