@@ -17,6 +17,7 @@ use records::{
 };
 
 mod authorization;
+mod delivery_hint;
 mod expiry;
 mod lifecycle;
 mod mqtt5;
