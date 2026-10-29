@@ -41,3 +41,8 @@ Dependencies: session profiling API -> transport compilation integration; qualit
 can implement diagnostics in parallel. Coordinator freezes optimization contract
 ONLY after measured evidence and ACK-only diagnostic outcome, then assigns separate
 optimization ownership/worktrees. No speculation is promoted to a confirmed bug.
+
+Transport diagnostic addition: fixed256 ERROR_REASON code/count counters for actual
+worker failure reasons, plus unknown IO error count. No client/payload capture.
+This separates observed quota/storage/protocol errors from deadline-only failures;
+a timeout without a captured packet cannot establish a previous unknown reason.
