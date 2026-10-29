@@ -1817,3 +1817,7 @@ mod auth_tests;
 #[cfg(test)]
 #[path = "enhanced_tests.rs"]
 mod enhanced_tests;
+
+#[cfg(test)]
+#[path = "durable/phase3_tests.rs"]
+mod phase3_tests;

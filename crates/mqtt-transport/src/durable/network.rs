@@ -2113,3 +2113,7 @@ mod tests {
         task.await.unwrap().unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "network/phase3_tests.rs"]
+mod phase3_tests;
