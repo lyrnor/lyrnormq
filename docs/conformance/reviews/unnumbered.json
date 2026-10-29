@@ -6,33 +6,49 @@
     "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
     "Five focused existing raw-wire methods passed on immutable candidate: duplicate properties, invalid/duplicate aliases, zero/duplicate MPS and ClientID lengths1..23; review repeats excluded from530 wire total.",
     "cargo test --offline -p mqtt-protocol: 66 passed; fmt, strict Clippy/Rustdoc passed",
-    "cargo test --offline -p mqtt-session: 158 passed; fmt and strict Clippy passed"
+    "cargo test --offline -p mqtt-session: 158 passed; fmt and strict Clippy passed",
+    "cargo test --offline -p mqtt-protocol:71 passed; fmt/strict Clippy/Rustdoc passed",
+    "cargo test --offline -p mqtt-session:165 passed; fmt/strict Clippy passed",
+    "cargo test --offline -p mqtt-transport:80 passed; fmt/strict Clippy passed",
+    "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
   ],
   "clauses": [
     {
       "id": "U-1.5.4-9af9517981ff",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-protocol/src/codec.rs:valid_utf8"
+        "crates/mqtt-protocol/src/codec.rs:valid_utf8",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected"
+        "crates/mqtt-protocol/src/v5/conformance_tests.rs:utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:utf8_receiver_policy_accepts_optional_controls_and_rejects_noncharacters",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:utf8_mandatory_invalid_scalars_nul_and_byte_preserving_bom_are_separate"
       ],
-      "note": "Lexical validator rejects NUL/noncharacters but permits other control-code ranges; receiver rejection of disallowed points is optional. An explicit codepoint-set acceptance/rejection policy and committed matrix is absent, so this is not a mandatory UTF-8 failure assertion."
+      "note": "Coordinator Phase2m exact-row reconciliation: Explicit shared lexical receiver policy: all64 non-NUL C0/C1 controls accepted, all66 Unicode noncharacters rejected (32 FDD0..FDEF plus two per17 planes). These are optional receiver choices under section1.5.4, not invented mandatory-invalid Unicode. NUL and invalid UTF-8 scalar/surrogate/overlong/above-Unicode sequences reject as Malformed. BOM survives at beginning/middle, composed/decomposed and whitespace strings preserve bytes. Positive encode/decode and negative results are asserted on real PUBLISH ContentType wire metadata; this does not certify a remote sender obeys SHOULD-NOT data guidance."
     },
     {
       "id": "U-2.2.2.2-808be0207bdd",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
         "crates/mqtt-protocol/src/properties.rs:read",
-        "crates/mqtt-protocol/src/wire.rs:Reader"
+        "crates/mqtt-protocol/src/wire.rs:Reader",
+        "crates/mqtt-protocol/src/properties.rs:permitted",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame"
       ],
       "tests": [
         "crates/mqtt-protocol/src/v5/tests.rs:singleton_context_and_value_validation_is_symmetric",
-        "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected"
+        "crates/mqtt-protocol/src/v5/tests.rs:malicious_lengths_headers_and_noncanonical_integers_rejected",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:table_2_4_all_property_packet_columns_are_checked_in_both_wire_directions",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:table_2_4_each_wire_type_rejects_a_truncated_value_in_every_allowed_column",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:table_2_4_unassigned_and_multibyte_property_identifiers_are_malformed"
       ],
-      "note": "Unknown/misplaced identifiers and truncated typed fields are rejected as Malformed; actual focused wire property-error method also passed. Complete property-ID/type/context cross-product coverage remains missing."
+      "note": "Coordinator Phase2m exact-row reconciliation: Independent Table2-4 literal oracle enumerates all27 property IDs across16 columns (Will plus15 control types):64 allowed and368 forbidden cells. Positive public encode bytes and decode model equality, misplaced encode/decode rejection, and isolated property reader/writer checks agree. Every allowed cell rejects truncated typed values. Unassigned IDs0..127 plus128/16384/268435455 reject as Malformed across all columns. Companion AuthenticationMethod supplied when required, avoiding unrelated failures. This closes the finite property-ID/wire-type/packet-context evidence gap; arbitrary-input fuzzing, runtime endpoint-role directions, value semantics and feature policies are separate obligations, not certified by this table."
     },
     {
       "id": "U-2.4-e30c3f2f8f2f",
@@ -208,12 +224,19 @@
       "status": "test-gap",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-session/src/durable/mqtt5.rs:validate_delivery_properties"
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_delivery_properties",
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_properties",
+        "crates/mqtt-session/src/durable/lifecycle.rs:retry_wills",
+        "crates/mqtt-session/src/durable.rs:publish_from",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
       ],
       "tests": [
-        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will",
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_publish_and_retained_bytes",
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes"
       ],
-      "note": "PFI value/property preservation is implemented, but the broker does not inspect arbitrary payload UTF-8. The specification permits server payload validation rather than mandating it; exact origin/forwarded-Will interpretation and explicit invalid-PFI1 payload policy tests remain open, not asserted as a confirmed MUST defect."
+      "note": "Coordinator Phase2m exact-row reconciliation: Actual PFI1 arbitrary non-UTF8 input is forwarded unchanged for live, retained and client-supplied Will data under optional no-validation policy. Origin-sender vs broker-forwarder interpretation remains explicit; not automatically green."
     },
     {
       "id": "U-3.1.3.2.3-4edcb931e96e",
@@ -326,15 +349,18 @@
     },
     {
       "id": "U-3.2.2.2-692726813b8b",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-protocol/src/reason.rs:valid_reason",
-        "crates/mqtt-transport/src/durable/network.rs:accepted_connack"
+        "crates/mqtt-transport/src/durable/network.rs:accepted_connack",
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions"
+        "crates/mqtt-protocol/src/v5/tests.rs:reason_codes_are_checked_per_packet_in_both_directions",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason"
       ],
-      "note": "Body normative statement exists despite malformed printed label. Codec rejects an illegal CONNACK reason and server constructors use legal values, but exhaustive actual runtime reason-context cases remain missing; aligns with MQTT-3.2.2-8 source-anomaly row."
+      "note": "Coordinator Phase2m exact-row reconciliation: Coordinator integrated review: literal legal-code set plus real constructor/encode/decode covers all256 inputs; illegal inputs cannot be emitted by the V5 encoder. This does not imply constructor sanitization or all runtime branch mappings. Wire cases independently cover common legal refusal outputs; untrusted-version legacy handling remains in3.1.2-2."
     },
     {
       "id": "U-3.2.2.3.2-2a7c8122ba88",
@@ -626,12 +652,19 @@
       "status": "test-gap",
       "implementation": [
         "crates/mqtt-protocol/src/properties.rs:validate",
-        "crates/mqtt-session/src/durable/mqtt5.rs:validate_delivery_properties"
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_delivery_properties",
+        "crates/mqtt-session/src/durable/mqtt5.rs:validate_properties",
+        "crates/mqtt-session/src/durable/lifecycle.rs:retry_wills",
+        "crates/mqtt-session/src/durable.rs:publish_from",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
       ],
       "tests": [
-        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay"
+        "crates/mqtt-session/src/durable/phase2e_tests.rs:metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will",
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_publish_and_retained_bytes",
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes"
       ],
-      "note": "PFI value/property preservation is implemented, but the broker does not inspect arbitrary payload UTF-8. The specification permits server payload validation rather than mandating it; exact origin/forwarded-Will interpretation and explicit invalid-PFI1 payload policy tests remain open, not asserted as a confirmed MUST defect."
+      "note": "Coordinator Phase2m exact-row reconciliation: Actual PFI1 arbitrary non-UTF8 input is forwarded unchanged for live, retained and client-supplied Will data under optional no-validation policy. Origin-sender vs broker-forwarder interpretation remains explicit; not automatically green."
     },
     {
       "id": "U-3.3.2.3.4-9c68182b1133",
@@ -911,15 +944,18 @@
     },
     {
       "id": "U-3.15.2.2.4-166eda9725e0",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
         "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at",
-        "crates/mqtt-transport/src/durable/enhanced.rs:Manager"
+        "crates/mqtt-transport/src/durable/enhanced.rs:Manager",
+        "crates/mqtt-transport/src/durable/enhanced.rs:process",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
       ],
       "tests": [
-        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip"
+        "crates/mqtt-protocol/src/v5/tests.rs:every_property_type_and_context_round_trip",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_15_2_2_4_auth_diagnostic_text_cannot_override_exchange_outcomes"
       ],
-      "note": "ReasonString is typed UTF-8 metadata and no application parsing path was found. No dedicated assertion proves arbitrary diagnostic strings cannot alter each relevant ACK/DISCONNECT/AUTH semantic result; retain as test evidence gap rather than infer from non-use."
+      "note": "Coordinator Phase2m exact-row reconciliation: Real TCP PLAIN with existing StaticPolicy Argon2 credentials receives arbitrary error-like/JSON/Unicode/empty ReasonString at initial and reauth steps. Valid credentials succeed regardless of text, Ping remains live, and fake-success text cannot override bad credentials (initialCONNACK86/establishedDISCONNECT87). No state transition parses the diagnostic."
     },
     {
       "id": "U-4.2-7ae3da4cdd1f",
@@ -937,13 +973,16 @@
       "status": "test-gap",
       "implementation": [
         "crates/mqtt-session/src/durable.rs:route",
-        "crates/mqtt-session/src/durable/authorization.rs:require_access"
+        "crates/mqtt-session/src/durable/authorization.rs:require_access",
+        "crates/mqtt-session/src/durable.rs:publish_from"
       ],
       "tests": [
         "crates/mqtt-session/src/durable/phase2d_tests.rs:subscribe_partial_denial_and_retained_receive_checks_are_independent",
-        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_group_and_ordinary_copies_are_independent"
+        "crates/mqtt-session/src/durable/phase2j_tests.rs:shared_group_and_ordinary_copies_are_independent",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_interleaved_sources_preserve_same_source_qos_order_across_recovery"
       ],
-      "note": "Dynamic topic/trie matching and per-owner ACL filtering inspected, with ordinary/shared/retained cases passing. This broad explanatory paragraph is not a proof of the complete application-message matching/order space; preserve a bounded routing evidence gap."
+      "note": "Coordinator Phase2m exact-row reconciliation: Independent matching/routing cases now include ordinary versus two shared groups and interleaved recovery, but the explanatory broad matching paragraph is not established for every filter/ACL/timing combination by these finite tests."
     },
     {
       "id": "U-4.11-18bf2d99126c",
@@ -1029,5 +1068,5 @@
       "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
     }
   ],
-  "integrated_evidence_commit": "90bba16c86ca57d4951df7e51c6aa08b254b2ae8"
+  "integrated_evidence_commit": "31c3ca7"
 }

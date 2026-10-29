@@ -390,3 +390,30 @@ Next tasks are the remaining16 rows, not the superseded Phase2k prioritization:
 Retain both SHOULD exceptions and the table-sweep limitations. No new confirmed
 implementation mismatch in this round; adding evidence is not a claim of full
 MQTT5 compatibility or production readiness.
+
+
+## Phase2m completed group and remaining seven inventoried rows
+
+Full property-position/UTF8 receiver-policy tests, ordered recovery, accepted-ID
+policy, legal CONNACK output and AUTH diagnostic independence add exact evidence.
+Eight gaps gain scoped evidence and one becomes conditionally not-applicable:
+current273 verified,7 test-gap,72 not-applicable,2 SHOULD exceptions. No production
+bug was confirmed or behavior/API/schema changed. Wrong-name/unknown-version paths
+were distinct already; their older conflated audit note has been corrected.
+
+Remaining acceptance order:
+
+1. `MQTT-3.1.2-2`: establish the dual-protocol pre-negotiation interpretation without
+   breaking MQTT311's unsupported-level refusal. Do not turn a MAY into a MUST.
+2. `MQTT-3.3.1-12/13`: settle mixed ordinary RAP collapse against the normative
+   forwarding requirements before changing any-eligible-RAP policy.
+3. PFI1 Will/Publish origin-versus-forwarder semantics: U-3.1.3.2.3-66862b5ebc79 and
+   U-3.3.2.3.2-d089a3edde54. Current optional no-validation forwarding is tested;
+   that alone does not certify every sender obligation.
+4. Broad application matching U-4.7.3-bd9cb090bad8 and overall server conformance
+   U-7.1.1-56088afba646: explicit wider routing/property/direction/value/fault/client
+   acceptance beyond the heuristic inventory and finite fixtures.
+
+Seven is the number of remaining inventoried assessment rows, not a certified count
+of every possible MQTT5 defect. Existing shared-QoS1/secure-transport SHOULD choices,
+Fuzz/fault/performance/operations and deferred cluster tasks remain separate.

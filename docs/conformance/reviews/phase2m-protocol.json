@@ -1,0 +1,41 @@
+{
+  "reviewer": "phase2m-protocol",
+  "source_commit": "c042ef111fc13509769f5107befd3595ac5f9717",
+  "verification": [
+    "cargo test --offline -p mqtt-protocol:71 passed; fmt/strict Clippy/Rustdoc passed",
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
+  ],
+  "clauses": [
+    {
+      "id": "U-2.2.2.2-808be0207bdd",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/properties.rs:permitted",
+        "crates/mqtt-protocol/src/properties.rs:read",
+        "crates/mqtt-protocol/src/properties.rs:write",
+        "crates/mqtt-protocol/src/v5.rs:encode_frame",
+        "crates/mqtt-protocol/src/v5.rs:decode_frame"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:table_2_4_all_property_packet_columns_are_checked_in_both_wire_directions",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:table_2_4_each_wire_type_rejects_a_truncated_value_in_every_allowed_column",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:table_2_4_unassigned_and_multibyte_property_identifiers_are_malformed"
+      ],
+      "note": "Independent Table2-4 literal oracle enumerates all27 property IDs across16 columns (Will plus15 control types):64 allowed and368 forbidden cells. Positive public encode bytes and decode model equality, misplaced encode/decode rejection, and isolated property reader/writer checks agree. Every allowed cell rejects truncated typed values. Unassigned IDs0..127 plus128/16384/268435455 reject as Malformed across all columns. Companion AuthenticationMethod supplied when required, avoiding unrelated failures. This closes the finite property-ID/wire-type/packet-context evidence gap; arbitrary-input fuzzing, runtime endpoint-role directions, value semantics and feature policies are separate obligations, not certified by this table."
+    },
+    {
+      "id": "U-1.5.4-9af9517981ff",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/codec.rs:valid_utf8",
+        "crates/mqtt-protocol/src/codec.rs:validate_string",
+        "crates/mqtt-protocol/src/wire.rs:Reader::string"
+      ],
+      "tests": [
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:utf8_receiver_policy_accepts_optional_controls_and_rejects_noncharacters",
+        "crates/mqtt-protocol/src/v5/property_table_tests.rs:utf8_mandatory_invalid_scalars_nul_and_byte_preserving_bom_are_separate"
+      ],
+      "note": "Explicit shared lexical receiver policy: all64 non-NUL C0/C1 controls accepted, all66 Unicode noncharacters rejected (32 FDD0..FDEF plus two per17 planes). These are optional receiver choices under section1.5.4, not invented mandatory-invalid Unicode. NUL and invalid UTF-8 scalar/surrogate/overlong/above-Unicode sequences reject as Malformed. BOM survives at beginning/middle, composed/decomposed and whitespace strings preserve bytes. Positive encode/decode and negative results are asserted on real PUBLISH ContentType wire metadata; this does not certify a remote sender obeys SHOULD-NOT data guidance."
+    }
+  ]
+}

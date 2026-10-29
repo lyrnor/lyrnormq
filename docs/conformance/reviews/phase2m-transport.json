@@ -1,0 +1,87 @@
+{
+  "reviewer": "phase2m-transport",
+  "source_commit": "d310a7b",
+  "verification": [
+    "cargo test --offline -p mqtt-transport:80 passed; fmt/strict Clippy passed",
+    "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.1.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-protocol/src/v5.rs:decode_frame",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_1_2_1_wrong_protocol_names_close_silently_without_version_guessing"
+      ],
+      "note": "Exact code inspection corrects the old conflated observation: bad protocol names are Malformed, not UnsupportedVersion, and close silently without CONNACK in actual level4/5 byte fixtures. No protocol name is accepted by guessing from the version byte."
+    },
+    {
+      "id": "MQTT-3.1.2-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:drive",
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:unsupported_levels_preserve_legacy_refusal_and_valid_versions_remain_usable",
+        "tests/semantic_boundaries_blackbox.py:test_supported_versions_and_unknown_version_legacy_refusal_policy"
+      ],
+      "note": "Coordinator Phase2m exact-row reconciliation: Actual supported4/5 connections succeed; unknown levels0/3/6/255 receive legacyCONNACK1 then EOF. This pins MQTT311 listener policy but does not resolve untrusted-version MQTT5-specific refusal interpretation."
+    },
+    {
+      "id": "MQTT-3.1.3-8",
+      "status": "not-applicable",
+      "implementation": [
+        "crates/mqtt-session/src/durable.rs:validate_client",
+        "crates/mqtt-transport/src/durable.rs:assigned_identifier_with"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_1_3_8_no_extra_client_identifier_exclusion_policy_is_configured"
+      ],
+      "note": "Conditional ClientID policy refusal is not used: valid strings, including spaces/non-ASCII and65535bytes within configured resources, are accepted; emptyV5 IDs are assigned. Malformed UTF8/control-string failures and resource/ACL denials have separate contexts. No additional ID grammar restriction is invented merely to trigger85."
+    },
+    {
+      "id": "MQTT-3.2.2-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-protocol/src/reason.rs:valid_reason"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_15_2_2_4_auth_diagnostic_text_cannot_override_exchange_outcomes"
+      ],
+      "note": "Coordinator integrated review: literal legal-code set plus real constructor/encode/decode covers all256 inputs; illegal inputs cannot be emitted by the V5 encoder. This does not imply constructor sanitization or all runtime branch mappings. Wire cases independently cover common legal refusal outputs; untrusted-version legacy handling remains in3.1.2-2."
+    },
+    {
+      "id": "U-3.2.2.2-692726813b8b",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason"
+      ],
+      "note": "Coordinator integrated review: literal legal-code set plus real constructor/encode/decode covers all256 inputs; illegal inputs cannot be emitted by the V5 encoder. This does not imply constructor sanitization or all runtime branch mappings. Wire cases independently cover common legal refusal outputs; untrusted-version legacy handling remains in3.1.2-2."
+    },
+    {
+      "id": "U-3.15.2.2.4-166eda9725e0",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:process",
+        "crates/mqtt-transport/src/durable/network.rs:drive"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_15_2_2_4_auth_diagnostic_text_cannot_override_exchange_outcomes"
+      ],
+      "note": "Real TCP PLAIN with existing StaticPolicy Argon2 credentials receives arbitrary error-like/JSON/Unicode/empty ReasonString at initial and reauth steps. Valid credentials succeed regardless of text, Ping remains live, and fake-success text cannot override bad credentials (initialCONNACK86/establishedDISCONNECT87). No state transition parses the diagnostic."
+    }
+  ],
+  "integrated_evidence_commit": "31c3ca7"
+}

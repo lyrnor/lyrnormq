@@ -8,7 +8,9 @@
     "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes.",
     "Independent clause suite: memory13 passed,1 mode-only skip; SQLite14 passed",
     "Earlier immutable same-logic candidate full regression557 wire executions/Paho passed; final rebuilt artifact rerun documented separately in progress.md.",
-    "Final immutable artifact8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a: memory245/SQLite312 wire passes (557 total), all Paho suites pass;22/24 suite executions."
+    "Final immutable artifact8ad4dfa524bcaa3edc90a6625730edbb1523b7049c7cbd524a59d5f52056604a: memory245/SQLite312 wire passes (557 total), all Paho suites pass;22/24 suite executions.",
+    "cargo test --offline -p mqtt-transport:80 passed; fmt/strict Clippy passed",
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
   ],
   "clauses": [
     {
@@ -286,10 +288,17 @@
     },
     {
       "id": "MQTT-3.2.2-8",
-      "status": "test-gap",
-      "implementation": [],
-      "tests": [],
-      "note": "Coordinator source correction: the body CONNACK reason-code statement exists with malformed literal label T-3.2.2-8]; AppendixB supplies the normal ID. Dedicated complete runtime reason-context evidence remains a test gap; do not infer an absent requirement."
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-protocol/src/reason.rs:valid_reason"
+      ],
+      "tests": [
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_15_2_2_4_auth_diagnostic_text_cannot_override_exchange_outcomes"
+      ],
+      "note": "Coordinator Phase2m exact-row reconciliation: Coordinator integrated review: literal legal-code set plus real constructor/encode/decode covers all256 inputs; illegal inputs cannot be emitted by the V5 encoder. This does not imply constructor sanitization or all runtime branch mappings. Wire cases independently cover common legal refusal outputs; untrusted-version legacy handling remains in3.1.2-2."
     },
     {
       "id": "MQTT-3.2.2-9",
@@ -616,5 +625,5 @@
       "note": "Checked malformed/protocol closure and terminal transport behavior in selected packet paths, not proof all malformed grammar combinations are covered. Initial refusal packet context fixed."
     }
   ],
-  "integrated_evidence_commit": "9729e98"
+  "integrated_evidence_commit": "d310a7b"
 }

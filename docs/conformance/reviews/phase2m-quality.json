@@ -1,0 +1,148 @@
+{
+  "reviewer": "phase2m-quality",
+  "source_commit": "31c3ca7",
+  "verification": [
+    "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
+  ],
+  "clauses": [
+    {
+      "id": "MQTT-3.1.2-1",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_wrong_protocol_name_with_level5_silently_closes"
+      ],
+      "note": "Independent actual V5-form wrong-name inputs close without any response; a later valid connection works. Corrects previous name/version conflation, not a new production fix."
+    },
+    {
+      "id": "MQTT-3.1.2-2",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_supported_versions_and_unknown_version_legacy_refusal_policy"
+      ],
+      "note": "Actual supported4/5 connections succeed; unknown levels0/3/6/255 receive legacyCONNACK1 then EOF. This pins MQTT311 listener policy but does not resolve untrusted-version MQTT5-specific refusal interpretation."
+    },
+    {
+      "id": "MQTT-3.2.2-8",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection",
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-protocol/src/reason.rs:valid_reason"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_runtime_connack_failure_reasons_are_legal_zero_present_and_close",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_15_2_2_4_auth_diagnostic_text_cannot_override_exchange_outcomes"
+      ],
+      "note": "Coordinator integrated review: literal legal-code set plus real constructor/encode/decode covers all256 inputs; illegal inputs cannot be emitted by the V5 encoder. This does not imply constructor sanitization or all runtime branch mappings. Wire cases independently cover common legal refusal outputs; untrusted-version legacy handling remains in3.1.2-2."
+    },
+    {
+      "id": "U-3.2.2.2-692726813b8b",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/network.rs:connection",
+        "crates/mqtt-transport/src/durable/network.rs:connack",
+        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_runtime_connack_failure_reasons_are_legal_zero_present_and_close",
+        "crates/mqtt-transport/src/phase2m_tests.rs:mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason"
+      ],
+      "note": "Coordinator integrated review: literal legal-code set plus real constructor/encode/decode covers all256 inputs; illegal inputs cannot be emitted by the V5 encoder. This does not imply constructor sanitization or all runtime branch mappings. Wire cases independently cover common legal refusal outputs; untrusted-version legacy handling remains in3.1.2-2."
+    },
+    {
+      "id": "U-3.15.2.2.4-166eda9725e0",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-transport/src/durable/enhanced.rs:process"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_auth_reason_string_cannot_change_initial_acceptance",
+        "tests/semantic_boundaries_blackbox.py:test_auth_reason_string_cannot_change_reauth_or_session_owner",
+        "tests/semantic_boundaries_blackbox.py:test_auth_reason_string_does_not_rescue_wrong_credentials"
+      ],
+      "note": "Actual PLAIN challenge/continuation and reauth ignore misleading diagnostic text, keep subscriptions/owner/SessionPresent and reject wrong credentials even when text says Success."
+    },
+    {
+      "id": "MQTT-4.6.0-5",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_ordered_normal_topics_preserve_qos1_source_identifier_wrap",
+        "tests/semantic_boundaries_blackbox.py:test_ordered_qos2_pending_pubrel_recovery_precedes_later_messages",
+        "tests/semantic_boundaries_blackbox.py:test_sqlite_ordered_offline_queue_survives_process_restart"
+      ],
+      "note": "Actual conforming sender flows on the same ordinary Topic/QoS preserve order through nonmonotonic source IDs, reconnect, PUBREL-only recovery and SQLite offline restart. Misbehaving client PUBREL order is not certified by these cases."
+    },
+    {
+      "id": "MQTT-4.6.0-6",
+      "status": "verified",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_ordered_normal_topics_preserve_qos1_source_identifier_wrap",
+        "tests/semantic_boundaries_blackbox.py:test_ordered_qos2_pending_pubrel_recovery_precedes_later_messages"
+      ],
+      "note": "Default ordinary subscriptions use ordered delivery without special administrative configuration; tests retain per-Topic/per-QoS scope, not a global inter-publisher order claim."
+    },
+    {
+      "id": "MQTT-3.3.1-12",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
+      ],
+      "note": "Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
+    },
+    {
+      "id": "MQTT-3.3.1-13",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
+      ],
+      "note": "Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
+    },
+    {
+      "id": "U-3.1.3.2.3-66862b5ebc79",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_publish_and_retained_bytes",
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes"
+      ],
+      "note": "Actual PFI1 arbitrary non-UTF8 input is forwarded unchanged for live, retained and client-supplied Will data under optional no-validation policy. Origin-sender vs broker-forwarder interpretation remains explicit; not automatically green."
+    },
+    {
+      "id": "U-3.3.2.3.2-d089a3edde54",
+      "status": "test-gap",
+      "implementation": [
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
+      ],
+      "tests": [
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_publish_and_retained_bytes",
+        "tests/semantic_boundaries_blackbox.py:test_pfi1_no_validation_policy_preserves_abnormal_will_bytes"
+      ],
+      "note": "Actual PFI1 arbitrary non-UTF8 input is forwarded unchanged for live, retained and client-supplied Will data under optional no-validation policy. Origin-sender vs broker-forwarder interpretation remains explicit; not automatically green."
+    }
+  ]
+}

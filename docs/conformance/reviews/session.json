@@ -4,7 +4,10 @@
   "verification": [
     "cargo test --offline -p mqtt-session: 151 passed",
     "cargo fmt --all -- --check: passed",
-    "cargo clippy --offline -p mqtt-session --all-targets -- -D warnings: passed"
+    "cargo clippy --offline -p mqtt-session --all-targets -- -D warnings: passed",
+    "cargo test --offline -p mqtt-session:165 passed; fmt/strict Clippy passed",
+    "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
+    "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed."
   ],
   "clauses": [
     {
@@ -275,23 +278,39 @@
       "id": "MQTT-3.3.1-12",
       "status": "test-gap",
       "implementation": [
-        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable.rs:publish_from",
+        "crates/mqtt-session/src/durable/shared.rs:plan_shared_copies",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
       ],
       "tests": [
-        "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy"
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_single_and_mixed_ordinary_policy_matrix_preserves_source_and_ids",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:retained_replay_remains_retained_for_both_rap_choices_without_shared_replay",
+        "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
       ],
-      "note": "Single-entry RAP path and any-eligible-RAP overlap policy are implemented. The named test asserts preserved retain; an independent mixed-RAP clause interpretation is still required before marking the entire clause verified."
+      "note": "Coordinator Phase2m exact-row reconciliation: Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
     },
     {
       "id": "MQTT-3.3.1-13",
       "status": "test-gap",
       "implementation": [
-        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable.rs:publish_from",
+        "crates/mqtt-session/src/durable/shared.rs:plan_shared_copies",
+        "crates/mqtt-session/src/durable/mqtt5.rs:handle_frame_at"
       ],
       "tests": [
-        "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy"
+        "crates/mqtt-session/src/durable/phase2h_tests.rs:rap_and_identifier_live_copy",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_single_and_mixed_ordinary_policy_matrix_preserves_source_and_ids",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:rap_shared_and_ordinary_copies_keep_each_subscription_choice",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:retained_replay_remains_retained_for_both_rap_choices_without_shared_replay",
+        "tests/semantic_boundaries_blackbox.py:test_mixed_rap_overlap_policy_and_retained_replay_are_distinct",
+        "tests/semantic_boundaries_blackbox.py:test_shared_rap_entries_keep_separate_captured_choices"
       ],
-      "note": "Single-entry RAP path and any-eligible-RAP overlap policy are implemented. The named test asserts preserved retain; an independent mixed-RAP clause interpretation is still required before marking the entire clause verified."
+      "note": "Coordinator Phase2m exact-row reconciliation: Actual any-eligible-RAP ordinary overlap policy, separate shared copies and retained-replay RETAIN1 pass. These policy observations do not resolve normative mixed ordinary-RAP interpretation."
     },
     {
       "id": "MQTT-3.3.2-3",
@@ -955,25 +974,37 @@
     },
     {
       "id": "MQTT-4.6.0-5",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable.rs:snapshot",
+        "crates/mqtt-session/src/durable/lifecycle.rs:connect_with_options",
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery_with_changes"
       ],
       "tests": [
-        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order"
+        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_order_survives_identifier_wrap_restore_and_receive_maximum_one",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_interleaved_sources_preserve_same_source_qos_order_across_recovery",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_pubrel_resume_does_not_reorder_later_publish_payloads"
       ],
-      "note": "Per-session FIFO and reconnect replay preserve order for conforming source flows; no explicit adversarial PUBREL-order/interleaved recovery ordering test currently establishes the entire clause."
+      "note": "Coordinator Phase2m exact-row reconciliation: Scoped ordered-topic evidence for normal subscriptions: real allocator wraps65535->1 while transmission/recovery order remains first->second, ReceiveMaximum1 blocks later PUBLISH, incoming QoS2 restores with nonnumeric IDs, independent publishers interleave without reversing each source/QoS sequence, PUBREL-only stages bypass quota without overtaking later payloads. Source PUBREL follows PUBREC order as required by4.6.0-4; no tolerance claim for a client violating that rule."
     },
     {
       "id": "MQTT-4.6.0-6",
-      "status": "test-gap",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-session/src/durable.rs:SessionEngine::route"
+        "crates/mqtt-session/src/durable.rs:SessionEngine::route",
+        "crates/mqtt-session/src/durable.rs:snapshot",
+        "crates/mqtt-session/src/durable/lifecycle.rs:connect_with_options",
+        "crates/mqtt-session/src/durable/mqtt5.rs:poll_delivery_with_changes"
       ],
       "tests": [
-        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order"
+        "crates/mqtt-session/src/durable.rs:tests::outgoing_qos_replay_preserves_stages_ids_and_send_order",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_order_survives_identifier_wrap_restore_and_receive_maximum_one",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_interleaved_sources_preserve_same_source_qos_order_across_recovery",
+        "crates/mqtt-session/src/durable/phase2m_tests.rs:mqtt_4_6_pubrel_resume_does_not_reorder_later_publish_payloads"
       ],
-      "note": "Per-session FIFO and reconnect replay preserve order for conforming source flows; no explicit adversarial PUBREL-order/interleaved recovery ordering test currently establishes the entire clause."
+      "note": "Coordinator Phase2m exact-row reconciliation: Scoped ordered-topic evidence for normal subscriptions: real allocator wraps65535->1 while transmission/recovery order remains first->second, ReceiveMaximum1 blocks later PUBLISH, incoming QoS2 restores with nonnumeric IDs, independent publishers interleave without reversing each source/QoS sequence, PUBREL-only stages bypass quota without overtaking later payloads. Source PUBREL follows PUBREC order as required by4.6.0-4; no tolerance claim for a client violating that rule."
     },
     {
       "id": "MQTT-4.8.2-3",
@@ -1052,5 +1083,6 @@
       ],
       "note": "Healthy due Will publishes at timer boundary, and startup retries deferred failures. Resource-blocked Will intent waits for capacity; this delay remains explicit, with no claim of real-time scheduling."
     }
-  ]
+  ],
+  "integrated_evidence_commit": "31c3ca7"
 }

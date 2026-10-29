@@ -56,18 +56,18 @@ their current rows become verified. See `docs/progress.md` for actual final tota
 
 All354 inventoried entries have a first review disposition. This includes252 literal
 numbered entries and102 unnumbered candidates, not354 distinct applicable MUSTs.
-There are1275 validated implementation/test references. Scope remains the pinned OS
+There are1472 validated implementation/test references. Scope remains the pinned OS
 source and the recorded scenarios, with no full conformance claim.
 
 | Disposition | Numbered entries | Supplementary candidates | Total |
 | --- | --- | --- | --- |
-| verified within recorded evidence |209|56|265|
-| test-gap / unresolved interpretation |8|8|16|
-| not-applicable / source alias / editorial |35|36|71|
+| verified within recorded evidence |213|60|273|
+| test-gap / unresolved interpretation |3|4|7|
+| not-applicable / source alias / editorial |36|36|72|
 | SHOULD policy-exception |0|2|2|
 
 Three confirmed implementation mismatches were fixed; none of those remains open.
-The16 evidence gaps still block a full conformance conclusion. A screened candidate
+The7 evidence gaps still block a full conformance conclusion. A screened candidate
 is not automatically an executable requirement, and screening does not exhaust all
 unnumbered sentences or property table combinations. Never turn this table into a
 compliance percentage.
@@ -97,6 +97,24 @@ The followup closes44 evidence gaps and reclassifies one client-only obligation,
 reducing61 test gaps to16. This is not45 new protocol features or a compliance
 percentage. Full property/direction tables, PFI policy, refusal contexts, RAP and
 adversarial ordering still need separate acceptance. See tasks.md for exact rows.
+
+## Phase2m evidence followup
+
+The independent Table2-4 oracle covers27 property IDs across16 columns (Will and
+15 packet types):432 cells,64 allowed and368 prohibited. Exact encoding/decoding,
+typed truncation and104 unassigned identifiers supplement the position table.
+Unicode policy explicitly distinguishes mandatory invalid strings from optional
+control/noncharacter rejection. These tests do not certify endpoint direction or
+all possible values merely because packet-position syntax passed.
+
+Ordering, legal CONNACK output and AUTH diagnostic evidence close additional rows;
+ClientID rejection is conditional under the current accept-all-valid-ID policy.
+Wrong protocol names already close silently; the old matrix had conflated that
+path with unsupported levels. Unknown levels preserve the MQTT311 refusal rule,
+so the MQTT5-specific pre-negotiation interpretation remains explicit. No production
+change was needed. The remaining7 rows concern unknown-version context, mixed RAP,
+PFI origin/forwarding, broad routing evidence and overall conformance. They are
+inventoried gaps, not a claim that all other unmarked requirements are exhaustive.
 
 ## Keeping the matrix reviewable
 

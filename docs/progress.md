@@ -1472,3 +1472,71 @@ subcases and repeated candidate runs do not inflate the total. CI includes the n
 suite in both modes; hosted CI execution is not claimed. No post-verification Rust
 changes. No new implementation bug found; remaining16 evidence/interpretation gaps
 are explicit and neither SHOULD exception is waived as a MUST.
+
+## Phase2m — remaining interpretations and property-position evidence
+
+Scopeb0d7b3a preceded isolated Protocol, Session, Transport and Quality worktrees.
+No production defect or behavior/API/schema change was confirmed. In particular,
+wrong protocol names already close silently; only unsupported versions enter the
+legacy refusal path. The previous conflated observation was corrected after exact
+code and actual wire inspection. MQTT311 unsupported-level handling was checked
+against its official3.1.2-2, preventing a speculative change from regressing it.
+MQTT5's pre-negotiation unknown-version interpretation remains explicit.
+
+| Owner | Source commit | Evidence |
+| --- | --- | --- |
+| Protocol |c042ef1|5 tests;independent Table2-4 oracle, UTF8 receiver policy|
+| Session |01ac387|7 tests;order/recovery/RAP and PFI policy|
+| Transport |d310a7b|5 actual/constructor tests;refusal/ID policy/CONNACK legality/AUTH diagnostics|
+| Quality |31c3ca7|13 independent real-wire methods and CI integration|
+
+The property-position oracle covers27 IDs across Will plus15 packet columns:
+432 cells,64 allowed and368 prohibited; exact public bytes/roundtrip, typed truncation
+and104 unassigned VBI identifiers supplement the table. Optional64 control-code
+acceptance/66 noncharacter rejections are distinguished from mandatory invalid UTF8
+and NUL rules. No endpoint-direction or entire value-space certification follows
+from packet-position tests alone.
+
+New ordered-flow evidence includes PacketID65535→1, reconnect/restore, ReceiveMax1,
+interleaved QoS1/2 and PUBREL-only resume. Current mixed-RAP collapse and PFI
+no-validation policies are now tested in ordinary/shared/retained/Will cases, but
+normative interpretation remains unresolved. Policy cases were not marked as MUST
+proof. ClientID grammar refusal is unused under the current valid-string acceptance
+policy; malformed strings, resource and ACL failures have separate contexts.
+
+Independent read-only review reran the five Protocol table tests and the numeric
+CONNACK test. It checked literal oracles and required companion fields. The latter
+proves all256 numeric inputs cross the real constructor/encode/decode boundary and
+illegal values cannot be emitted by the V5 encoder. It does not claim that the
+constructor sanitizes arbitrary input or that all branch-to-reason mappings were
+exhausted. Real wire cases independently check86/87/8C/95 and close behavior.
+
+### Matrix and remaining scope
+
+Eight evidence gaps gain scoped verification; one becomes conditionally
+not-applicable. The354 entries now comprise273 verified,7 test-gap,72 not-applicable
+and2 SHOULD exceptions. Numbered252:213 verified/3 gap/36 not-applicable.
+Supplementary102:60 verified/4 gap/36 not-applicable/2 exceptions. All1472 source/
+test references resolve. There is no compliance percentage or full compatibility
+claim; heuristic inventory and finite tests do not exhaust every normative input.
+Remaining rows are unknown-version context, mixed RAP2, PFI2, broad application
+matching and overall conformance. Exact next tasks are in tasks.md.
+
+### Final actual verification
+
+2026-10-29, Darwin27 arm64, Rust/Cargo1.98.1 stable, edition2024,
+Python3.14.7/Paho2.1.0. Immutable debug executable SHA256:
+b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34.
+
+Rust381 pass: Auth20,Protocol71,Router21,Session165,Storage16,Transport80,CLI8.
+Fmt, strict all-target Clippy, strict Rustdoc and workspace build pass. Same final
+artifact582 wire executions pass (memory257/SQLite325),23/25 suite executions;
+all Paho scripts/methods exit0. New13-method suite:memory12 pass/1 explicit mode-only
+skip (0.782s),SQLite13 pass (0.938s). Existing557 plus25 new executions are counted
+once. Table loops/reviews/repeats are not inflated into extra test counts or
+performance figures. The executable matches the immutable final-client artifact.
+
+Source importer reproduces the pinned digest/inventory; matrix guard/regeneration,
+Python compilation, thin-lib audit and diff checks pass. CI includes new both-mode
+suite; hosted CI run is not claimed. Production architecture, schema7, outbox and
+existing SHOULD policy exceptions remain; cluster work stays deferred.

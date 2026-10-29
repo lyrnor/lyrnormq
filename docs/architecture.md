@@ -1,4 +1,4 @@
-# Architecture — revision13 / Phase2l
+# Architecture — revision14 / Phase2m
 
 TCP MQTT3.1.1 and an initial MQTT5 subset, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and
@@ -33,7 +33,7 @@ meaningful regressions now exercise the shared runtime.
 
 Each writer specialist uses an isolated Git worktree/branch. Coordinator owns
 contracts, CLI, architecture/progress and final cherry-pick integration. Current
-phase2l contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
+phase2m contract supersedes changed wire/session/flow/expiry/schema boundaries; prior contracts
 and progress preserve history. Public import paths stay stable except the additive
 CONNECT credentials/Password, access_control config, identity/policy constructors
 PollOutcome, stamped-ingress and Delivery preparation/begin APIs documented in the
@@ -461,3 +461,19 @@ No public API or schema change is implied by a missing test. Confirmed mismatche
 must first receive a failure-first regression and frozen phase2l correction. Matrix
 status changes are reconciled by the coordinator against exact new evidence; old
 scope limitations cannot be hidden by a chapter-level pass assertion.
+
+
+## Phase2m interpretive boundaries
+
+The acceptance table now distinguishes packet-position syntax, endpoint direction,
+branch-specific behavior and publisher-origin payload semantics. A stateless codec
+can validate property positions and legal CONNACK values; that does not prove every
+runtime reason mapping or origin's PFI1 data is correct. The immutable executable
+still uses the existing session/outbox and schema7; only focused tests were added.
+
+Wrong protocol names enter the Malformed path and already close silently. Unknown
+levels use the pre-negotiation MQTT311 fallback; changing that fallback without
+examining both specifications would regress a different conformance obligation.
+Mixed ordinary RAP collapse and PFI sender-versus-forwarder interpretation remain
+explicit rather than waived as MUST exceptions. Independent tests document current
+policies without converting those interpretive gaps to verified rows.
