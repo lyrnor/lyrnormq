@@ -555,3 +555,16 @@ admission and ACK/recovery contracts.
 See docs/performance/ for actual per-run data, failed stress attempts, sampling
 limits and reproduction. A local baseline does not establish saturation capacity,
 long-duration reliability, a production SLA or hardware power-loss safety.
+
+
+## Phase4: per-session actors
+
+The [Phase4 contract](contracts/phase4.md) retires the single blocking worker. Each
+client identifier is owned by one tokio actor holding a one-client SessionEngine
+partition; connection tasks keep socket IO and forward requests to their actor.
+Publications leave the partition as values: the publishing actor updates the shared
+retained store, matches the incremental SubscriptionIndex and sends per-recipient
+deliveries that each recipient commits independently. Client QoS1/2 acknowledgements
+wait for recipient commits; a full recipient drops only its own copy. SQLite stores
+one row per persistent partition and per retained topic (container2), written by a
+group-committing storage thread; container1 snapshots migrate atomically at startup.
