@@ -1497,3 +1497,6 @@ mod phase2k_tests;
 
 #[cfg(test)]
 mod phase2l_tests;
+
+#[cfg(test)]
+mod phase2m_tests;
