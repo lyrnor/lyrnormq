@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Accounting tests plus synthetic streams; real TCP smoke is a separate command."""
 import asyncio
+import io
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,11 +10,42 @@ from unittest import mock
 import unittest
 
 from metrics import cpu_seconds, distribution, summarize, process_sample
-from run import Workload, campaign, phase
+from run import Workload, campaign, environment, phase
 from wire import frame, string, validate_ack
 
 
 class MetricsTests(unittest.TestCase):
+    def test_linux_cpu_metadata_uses_model_name_or_explicit_unavailability(self):
+        model = 'Intel(R) Xeon(R) Fixture CPU @ 3.00GHz'
+        fixtures = (
+            ('processor\t: 0\nmodel name\t: ' + model + '\n', model),
+            ('processor\t: 0\nCPU architecture\t: 8\n', None),
+        )
+        with tempfile.TemporaryDirectory(prefix='rmqtt-bench-cpu-metadata-') as directory:
+            binary = Path(directory) / 'broker'
+            binary.write_bytes(b'fixture; no process launch')
+            arguments = SimpleNamespace(artifact_source_revision='fixture',
+                                        build_profile='release', sample_interval=.05)
+            actual_open = Path.open
+            for cpuinfo, expected in fixtures:
+                def open_for_metadata(path, *args, **kwargs):
+                    if path == Path('/proc/cpuinfo'):
+                        return io.StringIO(cpuinfo)
+                    return actual_open(path, *args, **kwargs)
+                with self.subTest(cpuinfo=cpuinfo), \
+                        mock.patch('run.sys.platform', 'linux'), \
+                        mock.patch('run.os.sysconf', return_value=4096), \
+                        mock.patch('run.Path.open', autospec=True, side_effect=open_for_metadata), \
+                        mock.patch('run.captured', side_effect=lambda command:
+                                   'x86_64' if command == ['uname', '-m'] else 'fixture'):
+                    value = environment(binary, arguments)['cpu_model']
+                    if expected is not None:
+                        self.assertEqual(value, expected)
+                    else:
+                        self.assertIsInstance(value, dict)
+                        self.assertTrue(value.get('unavailable'))
+                    self.assertNotEqual(value, 'x86_64', 'architecture is not a CPU model')
+
     def test_nearest_rank_uses_all_samples(self):
         result = distribution([4_000_000, 1_000_000, 3_000_000, 2_000_000])
         self.assertEqual(result, dict(samples=4, p50_ms=2, p95_ms=4, p99_ms=4, max_ms=4))

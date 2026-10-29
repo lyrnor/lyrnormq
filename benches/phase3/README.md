@@ -16,7 +16,7 @@ python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
 python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
   --artifact-source-revision COMMIT --build-profile release \
   --output /tmp/rmqtt-p3-baseline.json --messages 4096 --warmup 128 --repetitions 3 \
-  --session-expiry-seconds 60 --flow-control delivery --outbound-capacity 256
+  --session-expiry-seconds 60 --flow-control delivery --outbound-capacity 256 --timeout 600
 ```
 
 The driver works from any current directory when invoked through its file path.
@@ -29,7 +29,10 @@ The empty `running` record is written before the first case, replacing any stale
 success at the same path. An interrupted campaign retains completed run records with `running` status,
 so it must not be presented as complete. OS metadata commands unavailable in a
 sandbox record a reason; supply independently obtained CPU/RAM details in the
-accompanying report. Do not infer the artifact source revision from the driver.
+accompanying report. Linux CPU model comes from a bounded65536-character
+/proc/cpuinfo read; absent/unreadable model names have an explicit unavailable
+reason. Architecture is recorded separately and never labeled as a CPU model.
+Do not infer the artifact source revision from the driver.
 
 | Case | Publishers | Subscribers | Installed filters | Measured routing |
 | --- | ---: | ---: | ---: | --- |
@@ -107,7 +110,9 @@ successful throughput campaign. Scheduling can affect which publication is rejec
 
 Configured bounds and timeouts appear in each result. Formal CLI runs require
 at least2000 measured publications and three repetitions; max10000 publications,
-maxfive repetitions, payload at most4096 bytes, default180s per case. Reader frames
+maxfive repetitions, payload at most4096 bytes, default180s per case. The formal
+command explicitly allows600s because persistent full-snapshot workloads can
+exceed the default; this timeout is a bounded campaign budget, not a latency SLA. Reader frames
 are capped8192 bytes. TaskGroup cancels siblings on failure. Socket cleanup and
 broker termination are bounded. Timed-out/cancelled ps subprocesses are killed and reaped. Smoke switches to four subscribers and at most
 four publishers/four filters each and is explicitly labeled.

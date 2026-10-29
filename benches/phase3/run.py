@@ -32,11 +32,27 @@ def captured(command):
         return {'unavailable': (getattr(error, 'stderr', None) or str(error)).strip()}
 
 
+def cpu_model():
+    if sys.platform == 'darwin':
+        return captured(['sysctl', '-n', 'machdep.cpu.brand_string'])
+    if sys.platform.startswith('linux'):
+        try:
+            with Path('/proc/cpuinfo').open(encoding='utf-8', errors='replace') as cpuinfo:
+                text = cpuinfo.read(65536)
+        except OSError as error:
+            return {'unavailable': f'cannot read /proc/cpuinfo: {error}'}
+        for line in text.splitlines():
+            key, _, value = line.partition(':')
+            if key.strip().casefold() == 'model name' and value.strip():
+                return value.strip()
+        return {'unavailable': 'no model name in first65536 characters of /proc/cpuinfo; architecture is recorded separately'}
+    return {'unavailable': f'CPU model lookup unsupported on {sys.platform}; architecture is recorded separately'}
+
+
 def environment(binary, arguments):
     return {'os': platform.platform(), 'uname': list(platform.uname()), 'python': sys.version,
             'rustc': captured(['rustc', '-Vv']), 'cargo': captured(['cargo', '-V']),
-            'cpu_logical': os.cpu_count(), 'cpu_model': captured(['sysctl', '-n', 'machdep.cpu.brand_string'])
-            if sys.platform == 'darwin' else captured(['uname', '-m']),
+            'cpu_logical': os.cpu_count(), 'cpu_model': cpu_model(),
             'ram_bytes': captured(['sysctl', '-n', 'hw.memsize']) if sys.platform == 'darwin'
             else os.sysconf('SC_PHYS_PAGES') * os.sysconf('SC_PAGE_SIZE'),
             'ram_note': 'bytes; unavailable result retains the command failure reason',
