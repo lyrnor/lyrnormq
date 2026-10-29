@@ -445,3 +445,54 @@ async fn stale_generation_ack_and_lease_cannot_release_new_owner_qos2_window() {
     drop(worker);
     task.await.unwrap().unwrap();
 }
+
+#[tokio::test]
+async fn puback_and_pubrec_use_legal_server_success_without_claiming_client_role_validation() {
+    let (address, shutdown, task) = broker(configured()).await;
+    let mut publisher = TcpStream::connect(address).await.unwrap();
+    write(
+        &mut publisher,
+        connect("ack-role", Some(b"\0alice\0password")),
+    )
+    .await;
+    assert!(matches!(
+        checked(&mut publisher).await.packet,
+        Packet::ConnAck { code: 0, .. }
+    ));
+    for qos in [1, 2] {
+        let id = 100 + u16::from(qos);
+        write(
+            &mut publisher,
+            Frame::v5(Packet::Publish {
+                topic: "no-subscribers/a".into(),
+                payload: b"data".to_vec(),
+                qos,
+                packet_id: Some(id),
+                dup: false,
+                retain: false,
+            }),
+        )
+        .await;
+        let ack = checked(&mut publisher).await;
+        assert_eq!(
+            ack.packet,
+            if qos == 1 {
+                Packet::PubAck { packet_id: id }
+            } else {
+                Packet::PubRec { packet_id: id }
+            }
+        );
+        // Table3-4/3-5 permit the server to report0x10 for no subscribers, but
+        // success0 remains valid. The broker does not manufacture a negative ACK.
+        assert_eq!(ack.reason_code, ReasonCode::SUCCESS);
+        if qos == 2 {
+            write(&mut publisher, Frame::v5(Packet::PubRel { packet_id: id })).await;
+            let complete = checked(&mut publisher).await;
+            assert_eq!(complete.packet, Packet::PubComp { packet_id: id });
+            assert_eq!(complete.reason_code, ReasonCode::SUCCESS);
+        }
+    }
+    write(&mut publisher, Frame::v5(Packet::Disconnect)).await;
+    closed(&mut publisher).await;
+    stop(shutdown, task).await;
+}
