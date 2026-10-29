@@ -1,0 +1,302 @@
+mod support;
+use rmqtt_loadgen::{
+    LoadError, engine,
+    model::{RunConfig, RunData, Version},
+};
+use std::{sync::atomic::Ordering, time::Duration};
+use support::{Fault, Peer, Scenario};
+use tokio::time::timeout;
+
+fn config(address: std::net::SocketAddr, version: Version, qos: u8) -> RunConfig {
+    RunConfig {
+        address,
+        version,
+        qos,
+        pairs: 1,
+        payload_bytes: 128,
+        rate: 0,
+        duration_ms: 100,
+        warmup_ms: 0,
+        drain_timeout_ms: 500,
+        connect_timeout_ms: 500,
+        io_timeout_ms: 300,
+        inflight: 1,
+        max_messages: 100_000,
+        max_packet_bytes: 65536,
+    }
+}
+async fn run(
+    scenario: Scenario,
+    version: Version,
+    qos: u8,
+    change: impl FnOnce(&mut RunConfig),
+) -> (Result<RunData, LoadError>, Vec<String>, usize) {
+    let peer = Peer::start(scenario).await;
+    let mut c = config(peer.address, version, qos);
+    change(&mut c);
+    let result = timeout(Duration::from_secs(5), engine::run(c))
+        .await
+        .expect("load generator exceeded bounded test deadline");
+    let count = peer.observed.publications.load(Ordering::SeqCst);
+    assert!(
+        peer.observed
+            .payload_lengths
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|n| *n == 128)
+    );
+    let errors = peer.finish().await;
+    (result, errors, count)
+}
+fn failure(result: Result<RunData, LoadError>) {
+    let data = result.expect("a measured failure must preserve partial RunData");
+    assert!(
+        !data.failures.is_empty() || data.pairs.iter().any(|p| p.error.is_some()),
+        "fault was silently reported as success"
+    );
+    assert!(!data.pairs.is_empty(), "failed pair state was discarded");
+}
+
+fn successful(result: Result<RunData, LoadError>, errors: Vec<String>) -> RunData {
+    assert!(errors.is_empty(), "independent peer: {errors:?}");
+    let data = result.expect("engine failed valid MQTT flow");
+    assert!(data.failures.is_empty(), "{:?}", data.failures);
+    assert!(
+        data.pairs.iter().all(|p| p.error.is_none()),
+        "{:?}",
+        data.pairs
+    );
+    data
+}
+
+#[tokio::test]
+async fn both_versions_all_qos_actual_delivery_and_final_confirmation() {
+    for version in [Version::V311, Version::V5] {
+        for qos in 0..=2 {
+            let (result, errors, count) = run(Scenario::default(), version, qos, |_| {}).await;
+            let data = successful(result, errors);
+            let p = &data.pairs[0];
+            assert!(count > 0);
+            assert!(!p.samples.is_empty());
+            assert_eq!(p.counters.attempted, p.counters.write_completed);
+            assert_eq!(p.counters.attempted, p.counters.delivered_unique);
+            assert_eq!(p.counters.attempted, p.counters.completed);
+            assert_eq!(p.samples.len() as u64, p.counters.attempted);
+            for s in &p.samples {
+                assert!(s.send_started_ns >= s.scheduled_ns);
+                assert!(s.delivery_ns.is_some());
+                assert!(s.write_completed_ns.is_some());
+                assert!(s.completed_ns >= s.delivery_ns);
+                if qos == 0 {
+                    assert_eq!(s.ack_ns, None);
+                } else {
+                    assert!(s.ack_ns.is_some());
+                    assert!(s.completed_ns >= s.ack_ns);
+                }
+            }
+            match qos {
+                0 => {
+                    assert_eq!(p.counters.puback_received, 0);
+                    assert_eq!(p.counters.pubrec_received, 0);
+                    assert_eq!(p.counters.pubcomp_received, 0);
+                }
+                1 => assert_eq!(p.counters.puback_received, p.counters.attempted),
+                2 => {
+                    assert_eq!(p.counters.pubrec_received, p.counters.attempted);
+                    assert_eq!(p.counters.pubcomp_received, p.counters.attempted);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn qos2_pubrec_is_not_source_completion() {
+    let scenario = Scenario {
+        source_comp_delay: Duration::from_millis(70),
+        ..Scenario::default()
+    };
+    let (result, errors, _) = run(scenario, Version::V5, 2, |c| c.duration_ms = 40).await;
+    let data = successful(result, errors);
+    let p = &data.pairs[0];
+    assert_eq!(p.counters.attempted, 1);
+    let s = &p.samples[0];
+    assert!(
+        s.ack_ns.unwrap() - s.delivery_ns.unwrap() >= 40_000_000,
+        "ack latency counted PUBREC rather than delayed PUBCOMP"
+    );
+    assert!(s.ack_ns.unwrap() > data.measured_end_ns);
+    assert_eq!(p.counters.pubcomp_received, 1);
+}
+
+#[tokio::test]
+async fn qos2_delivery_waits_for_subscriber_pubrel() {
+    let scenario = Scenario {
+        subscriber_rel_delay: Duration::from_millis(70),
+        ..Scenario::default()
+    };
+    let (result, errors, _) = run(scenario, Version::V5, 2, |c| c.duration_ms = 40).await;
+    let data = successful(result, errors);
+    let p = &data.pairs[0];
+    assert_eq!(p.counters.attempted, 1);
+    let s = &p.samples[0];
+    assert!(
+        s.delivery_ns.unwrap() - s.send_started_ns >= 50_000_000,
+        "delivery counted initial QoS2 PUBLISH rather than PUBREL"
+    );
+    assert!(s.delivery_ns.unwrap() > s.ack_ns.unwrap());
+}
+
+#[tokio::test]
+async fn qos0_credit_waits_for_delivery_and_late_sample_survives_drain() {
+    let scenario = Scenario {
+        delivery_delay: Duration::from_millis(100),
+        ..Scenario::default()
+    };
+    let (result, errors, _) = run(scenario, Version::V311, 0, |c| c.duration_ms = 40).await;
+    let data = successful(result, errors);
+    let p = &data.pairs[0];
+    assert_eq!(p.counters.attempted, 1);
+    assert_eq!(p.counters.delivered_unique, 1);
+    assert!(p.samples[0].delivery_ns.unwrap() > data.measured_end_ns);
+    assert_eq!(p.samples[0].ack_ns, None);
+}
+
+#[tokio::test]
+async fn duplicate_qos1_publish_is_acknowledged_but_not_new_delivery() {
+    let scenario = Scenario {
+        duplicate_delivery: true,
+        source_comp_delay: Duration::ZERO,
+        ..Scenario::default()
+    };
+    let (result, errors, _) = run(scenario, Version::V5, 1, |_| {}).await;
+    let data = successful(result, errors);
+    let p = &data.pairs[0];
+    assert!(p.counters.duplicates > 0);
+    assert_eq!(p.counters.delivered_unique, p.counters.attempted);
+    assert_eq!(p.samples.len() as u64, p.counters.delivered_unique);
+}
+
+#[tokio::test]
+async fn wrong_ack_identifier_is_never_success() {
+    let (result, _, _) = run(
+        Scenario {
+            fault: Fault::WrongAck,
+            ..Scenario::default()
+        },
+        Version::V5,
+        1,
+        |_| {},
+    )
+    .await;
+    if let Ok(data) = &result {
+        assert_eq!(data.pairs[0].counters.puback_received, 0);
+        assert!(data.pairs[0].samples.iter().all(|s| s.ack_ns.is_none()));
+    }
+    failure(result);
+}
+#[tokio::test]
+async fn negative_mqtt5_ack_is_not_positive_confirmation() {
+    let (result, _, _) = run(
+        Scenario {
+            fault: Fault::RejectAck,
+            ..Scenario::default()
+        },
+        Version::V5,
+        1,
+        |_| {},
+    )
+    .await;
+    if let Ok(data) = &result {
+        assert_eq!(data.pairs[0].counters.puback_received, 0);
+    }
+    failure(result);
+}
+#[tokio::test]
+async fn abrupt_source_disconnect_cannot_complete_attempt() {
+    let (result, _, _) = run(
+        Scenario {
+            fault: Fault::DropSource,
+            ..Scenario::default()
+        },
+        Version::V311,
+        1,
+        |_| {},
+    )
+    .await;
+    failure(result);
+}
+#[tokio::test]
+async fn stalled_ack_is_bounded_and_incomplete_sample_is_retained() {
+    let (result, _, count) = run(
+        Scenario {
+            fault: Fault::StallSource,
+            ..Scenario::default()
+        },
+        Version::V5,
+        1,
+        |c| {
+            c.duration_ms = 40;
+            c.drain_timeout_ms = 80;
+            c.io_timeout_ms = 80;
+        },
+    )
+    .await;
+    assert_eq!(count, 1);
+    if let Ok(data) = &result {
+        assert_eq!(data.pairs[0].samples.len(), 1);
+        assert!(data.pairs[0].samples[0].completed_ns.is_none());
+    }
+    failure(result);
+}
+#[tokio::test]
+async fn corrupt_payload_is_not_an_application_delivery() {
+    let (result, _, _) = run(
+        Scenario {
+            fault: Fault::CorruptPayload,
+            ..Scenario::default()
+        },
+        Version::V5,
+        0,
+        |_| {},
+    )
+    .await;
+    if let Ok(data) = &result {
+        assert_eq!(data.pairs[0].counters.delivered_unique, 0);
+    }
+    failure(result);
+}
+#[tokio::test]
+async fn exhausted_sample_budget_is_explicit() {
+    let (result, _, count) = run(Scenario::default(), Version::V5, 0, |c| c.max_messages = 1).await;
+    assert_eq!(count, 1);
+    if let Ok(data) = &result {
+        assert!(data.pairs[0].samples.len() <= 1);
+    }
+    failure(result);
+}
+#[tokio::test]
+async fn fixed_rate_retains_lag_and_unsent_deadlines() {
+    let scenario = Scenario {
+        delivery_delay: Duration::from_millis(25),
+        ..Scenario::default()
+    };
+    let (result, errors, _) = run(scenario, Version::V5, 0, |c| {
+        c.duration_ms = 100;
+        c.rate = 1000;
+    })
+    .await;
+    assert!(errors.is_empty(), "{errors:?}");
+    let data = result.expect("rate-pressure result should retain raw observations");
+    let p = &data.pairs[0];
+    assert_eq!(p.counters.scheduled, 100);
+    assert!(p.counters.attempted < p.counters.scheduled);
+    assert!(
+        p.samples
+            .iter()
+            .any(|s| s.send_started_ns - s.scheduled_ns >= 10_000_000),
+        "late intended deadlines reset to now"
+    );
+}
