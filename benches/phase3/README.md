@@ -1,0 +1,83 @@
+# Phase3 local routing baselines
+
+This is a bounded asyncio raw MQTT5 driver, not a saturation benchmark or production
+SLA. Broker and Python clients share a loopback host. Run performance campaigns
+serially after other builds/tests finish; save the immutable executable and result.
+No third-party Python package is required. Python assertions must stay enabled.
+
+```sh
+cargo build --release --locked -p rmqtt
+python3 benches/phase3/test_driver.py
+# Smoke: small topology, two storage modes, exact counts; NOT a formal baseline.
+python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
+  --artifact-source-revision COMMIT --output /tmp/rmqtt-p3-smoke.json \
+  --smoke --messages 32 --warmup 8 --repetitions 1
+# Formal: six cases (three workloads x two storage modes), each repeated three times.
+python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
+  --artifact-source-revision COMMIT --build-profile release \
+  --output /tmp/rmqtt-p3-baseline.json --messages 4096 --warmup 128 --repetitions 3
+```
+
+The driver works from any current directory when invoked through its file path.
+The output contains every per-run result, all broker arguments (including temporary
+SQLite path), requested artifact source revision, artifact SHA256, driver revision,
+host/toolchain/FD details, memory/CPU sample timestamps, exact event counts,
+latency distributions and median/min/max across repetitions. A final
+`campaign_status: passed` is written only after all requested runs complete.
+An interrupted campaign retains its completed run records with `running` status,
+so it must not be presented as complete. OS metadata commands unavailable in a
+sandbox record a reason; supply independently obtained CPU/RAM details in the
+accompanying report. Do not infer the artifact source revision from the driver.
+
+| Case | Publishers | Subscribers | Installed filters | Measured routing |
+| --- | ---: | ---: | ---: | --- |
+| concurrent |64|64|64|one subscriber per publication, round robin;128 TCP clients simultaneously connected|
+| hot |8|32|32|all32 subscribers receive every publication on one exact topic|
+| many |8|64|4096|64 exact filters per subscriber;4096 publications hit every filter once|
+
+All cases use256-byte payloads by default, QoS1 ingress and QoS0 subscription grants,
+with at most one unacknowledged PUBLISH per publisher. Topics/filters have no
+wildcards; this isolates the installed-subscription count from wildcard fanout.
+Subscription SUBACK and subscriber PING barriers precede warmup; warmup messages
+are separate and excluded from measured distributions. The broker is fresh for
+every repetition, including a new SQLite database. Clean Start is true. Session
+Expiry defaults to0: this is **clean-session routing in each storage configuration**,
+not a benchmark of acknowledged offline durable messages or per-message fsync.
+The optional `--session-expiry-seconds 60` creates persistent-session routing
+instead; report it separately and use the same value for both storage modes.
+QoS0 live traffic still does not measure offline QoS1/2 durability. SQLite's existing
+WAL/FULL configuration is retained; this is not a power-loss test.
+
+Each payload encodes a unique phase/sequence plus exact padding. Every expected
+subscriber checks the topic and complete payload exactly once; duplicate, wrong,
+missing or unexpected publications fail. All ACK identifiers/reasons are checked.
+A postphase PING barrier rejects extra preceding frames. No latency sampling or
+silent success on a socket write: every delivery and ACK contributes to a bounded
+in-memory list. Individual latency lists are reduced after each phase; the JSON
+preserves per-run exact counts and distributions rather than individual latency
+values. The smoke unit tests inject a duplicate to verify failure propagation.
+
+The throughput interval starts immediately before measured receiver/producer tasks
+are scheduled and ends after their expected delivery and ACK counts are complete;
+final PING and process sampling are excluded. Ingress messages/s and egress fanout
+deliveries/s are separate. Latency starts at `monotonic_ns` immediately before the
+publisher writes and ends at receipt of the complete frame, using the same host
+clock. ACK latency is separate. Percentiles use nearest rank `ceil(p*N)` and retain
+all samples. This is closed-loop load: client scheduling, Python parsing, ACK gating
+and loopback IO affect the result; it does not expose open-loop coordinated-omission
+corrected latency or a maximum broker capacity claim.
+
+Broker-only RSS uses `ps -o rss=,time= -p PID`: reported KiB multiplied by1024,
+at idle, fully connected/subscribed setup, after warmup, periodically during measured
+work and at end. The nominal default50ms interval is a wait after each sampling
+command, so actual intervals are in raw timestamps. Peak means maximum observed
+sample, including setup, not the allocator/kernel process high-water mark. CPU time
+is cumulative `ps time` end minus premeasure, a slightly wider window than throughput;
+its resolution may produce zero for short smoke runs. Client memory is excluded.
+
+Configured bounds and timeouts appear in each result. Formal CLI runs require
+at least2000 measured publications and three repetitions; max10000 publications,
+maxfive repetitions, payload at most4096 bytes, default180s per case. Reader frames
+are capped8192 bytes. TaskGroup cancels siblings on failure. Socket cleanup and
+broker termination are bounded. Smoke switches to four subscribers and at most
+four publishers/four filters each and is explicitly labeled.
