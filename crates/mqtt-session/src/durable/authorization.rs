@@ -1,6 +1,7 @@
 //! Authorization belongs to the same proposal as routing and outbox mutations.
 use super::{EngineError, SessionEngine, decode_publish, invalid_record};
 use crate::outgoing::OutgoingState;
+use crate::profiling::{self, Operation};
 use mqtt_auth::{Action, Principal};
 use mqtt_protocol::Packet;
 
@@ -43,6 +44,7 @@ impl SessionEngine {
     /// for a fresh Publish check at PUBREL; Released outgoing states contain no
     /// payload and may finish the already accepted PUBREL/PUBCOMP handshake.
     pub fn reconcile_authorization(&mut self) -> Result<bool, EngineError> {
+        let _span = profiling::span(Operation::Authorization);
         let mut changed = self.prune_wills();
         let access = &self.access;
         for (client_id, session) in &mut self.sessions {

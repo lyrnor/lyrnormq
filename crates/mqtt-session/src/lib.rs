@@ -13,6 +13,7 @@ mod error;
 mod identifiers;
 mod incoming;
 mod outgoing;
+pub mod profiling;
 
 pub use error::SessionError;
 pub use identifiers::PacketIdentifiers;

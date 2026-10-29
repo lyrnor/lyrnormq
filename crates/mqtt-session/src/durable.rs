@@ -3,6 +3,7 @@
 //! then install the clone and send its packets. Discard a proposal on any error.
 //! Neither method success nor serialized bytes alone establish durability.
 use crate::outgoing::OutgoingState;
+use crate::profiling::{self, Operation};
 use crate::{AckAction, AckKind, IncomingQos2, OutgoingQos, SessionError};
 use mqtt_auth::{AccessControl, Action, AllowAnonymous, Principal};
 use mqtt_protocol::{
@@ -186,7 +187,6 @@ impl Session {
         }
     }
 }
-#[derive(Clone)]
 pub struct SessionEngine {
     access: Arc<dyn AccessControl>,
     clock: Arc<dyn Clock>,
@@ -200,6 +200,26 @@ pub struct SessionEngine {
     shared_cursors: BTreeMap<String, String>,
     shared_epochs: BTreeMap<String, u64>,
     shared_epoch_sequence: u64,
+}
+
+impl Clone for SessionEngine {
+    fn clone(&self) -> Self {
+        let _span = profiling::span(Operation::Clone);
+        Self {
+            access: self.access.clone(),
+            clock: self.clock.clone(),
+            clock_floor: self.clock_floor.clone(),
+            retained_properties: self.retained_properties.clone(),
+            retained_expiry: self.retained_expiry.clone(),
+            config: self.config,
+            sessions: self.sessions.clone(),
+            retained: self.retained.clone(),
+            wills: self.wills.clone(),
+            shared_cursors: self.shared_cursors.clone(),
+            shared_epochs: self.shared_epochs.clone(),
+            shared_epoch_sequence: self.shared_epoch_sequence,
+        }
+    }
 }
 
 struct LimitedWriter {
@@ -608,6 +628,11 @@ impl SessionEngine {
         Ok(())
     }
     fn records(&self, persistent_only: bool) -> Result<Envelope, EngineError> {
+        let _span = profiling::span(if persistent_only {
+            Operation::RecordsPersistent
+        } else {
+            Operation::RecordsLive
+        });
         let mut records = Vec::new();
         for (client_id, session) in &self.sessions {
             if persistent_only && !session.persistent {
@@ -690,20 +715,30 @@ impl SessionEngine {
         })
     }
     fn serialize(&self, persistent_only: bool) -> Result<Vec<u8>, EngineError> {
+        let operation = if persistent_only {
+            Operation::SerializePersistent
+        } else {
+            Operation::SerializeLive
+        };
+        let _span = profiling::span(operation);
         let mut writer = LimitedWriter {
             bytes: Vec::new(),
             limit: self.config.max_state_bytes,
         };
-        serde_json::to_writer(&mut writer, &self.records(persistent_only)?).map_err(|error| {
-            if error.is_io() {
-                EngineError::Capacity
-            } else {
-                EngineError::Json(error)
-            }
-        })?;
+        let result =
+            serde_json::to_writer(&mut writer, &self.records(persistent_only)?).map_err(|error| {
+                if error.is_io() {
+                    EngineError::Capacity
+                } else {
+                    EngineError::Json(error)
+                }
+            });
+        profiling::record_bytes(operation, writer.bytes.len());
+        result?;
         Ok(writer.bytes)
     }
     fn ensure_bounds(&self) -> Result<(), EngineError> {
+        let _span = profiling::span(Operation::Bounds);
         for session in self.sessions.values() {
             if session
                 .incoming_expiry
@@ -743,8 +778,10 @@ impl SessionEngine {
         }
     }
     fn route(&mut self, message: Message, publisher: Option<&str>) -> Result<(), EngineError> {
+        let _span = profiling::span(Operation::Route);
         self.expire_sessions()?;
         self.validate_message(&message)?;
+        let build_span = profiling::span(Operation::RouteBuild);
         let mut router = Router::default();
         let clients: Vec<String> = self.sessions.keys().cloned().collect();
         for (index, client) in clients.iter().enumerate() {
@@ -768,6 +805,7 @@ impl SessionEngine {
                 }
             }
         }
+        drop(build_span);
         let mut eligible: BTreeMap<u64, ordinary::Matches> = BTreeMap::new();
         for (index, filter, grant) in router.matching_subscriptions(&message.topic) {
             let client = clients
