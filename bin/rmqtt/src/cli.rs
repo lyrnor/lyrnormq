@@ -1,12 +1,14 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [--listen ADDRESS] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
 
 pub struct Options {
     pub address: String,
     pub auth_policy: Option<PathBuf>,
     pub enhanced_auth_plain: bool,
+    /// Print the merged stored state of a stopped broker instead of serving.
+    pub export_state: bool,
     pub config: BrokerConfig,
 }
 
@@ -30,9 +32,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         address: "127.0.0.1:1883".into(),
         auth_policy: None,
         enhanced_auth_plain: false,
+        export_state: false,
         config: BrokerConfig::default(),
     };
+    let mut first = true;
     while let Some(option) = args.next() {
+        if std::mem::take(&mut first) && option == "export-state" {
+            options.export_state = true;
+            continue;
+        }
         if option == "--help" || option == "-h" {
             return Ok(None);
         }
@@ -127,6 +135,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             }
             _ => return Err(invalid("unrecognized numeric option")),
         }
+    }
+    if options.export_state && options.config.storage_path.is_none() {
+        return Err(invalid("export-state requires --storage-path"));
     }
     Ok(Some(options))
 }
@@ -296,5 +307,16 @@ mod tests {
             BrokerConfig::default().max_packet_size
         );
         assert!(parse(args(&["--help"])).unwrap().is_none());
+    }
+    #[test]
+    fn export_state_is_a_leading_subcommand_requiring_storage() {
+        assert!(!parse(args(&[])).unwrap().unwrap().export_state);
+        assert!(parse(args(&["export-state"])).is_err());
+        assert!(parse(args(&["--storage-path", "x", "export-state"])).is_err());
+        let options = parse(args(&["export-state", "--storage-path", "state.db"]))
+            .unwrap()
+            .unwrap();
+        assert!(options.export_state);
+        assert_eq!(options.config.storage_path, Some(PathBuf::from("state.db")));
     }
 }

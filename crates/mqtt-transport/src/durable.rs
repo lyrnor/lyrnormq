@@ -28,6 +28,7 @@ mod actor;
 mod aliases;
 mod broker;
 mod enhanced;
+pub(crate) mod export;
 mod network;
 #[cfg(test)]
 use mqtt_session::durable::Clock;
@@ -868,45 +869,11 @@ mod tests {
     }
     /// The merged schema7 envelope of a stopped broker's database.
     pub(super) fn stored(path: &std::path::Path, config: &BrokerConfig) -> Option<Vec<u8>> {
-        use mqtt_storage::durable::{Contents, RowLimits, read_contents};
-        let limits = RowLimits {
-            max_row_bytes: config.max_state_bytes,
-            max_sessions: config.max_sessions,
-            max_retained: config.max_retained,
-            max_legacy_bytes: config.max_state_bytes,
+        let config = BrokerConfig {
+            storage_path: Some(path.to_path_buf()),
+            ..config.clone()
         };
-        match read_contents(path, limits).unwrap() {
-            Contents::Legacy(snapshot) => snapshot,
-            Contents::Rows(rows) => {
-                let session = session_config(config);
-                let partitions = rows
-                    .sessions
-                    .iter()
-                    .map(|(_, bytes)| {
-                        SessionEngine::restore_partition(
-                            session,
-                            bytes,
-                            Arc::new(mqtt_auth::AllowAnonymous),
-                            Arc::new(SystemClock),
-                        )
-                        .unwrap()
-                    })
-                    .collect();
-                let retained = rows
-                    .retained
-                    .iter()
-                    .map(|(_, bytes)| {
-                        mqtt_session::durable::decode_retained_row(session, bytes).unwrap()
-                    })
-                    .collect();
-                Some(
-                    SessionEngine::from_partitions(session, partitions, retained)
-                        .unwrap()
-                        .snapshot()
-                        .unwrap(),
-                )
-            }
-        }
+        export::export_state(&config).unwrap()
     }
     pub(super) async fn connect(
         worker: &Worker,

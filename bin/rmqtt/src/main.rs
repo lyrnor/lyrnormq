@@ -1,8 +1,8 @@
 mod auth_policy;
 mod cli;
 
-use mqtt_transport::serve;
-use std::error::Error;
+use mqtt_transport::{export_state, serve};
+use std::{error::Error, io::Write};
 use tokio::{net::TcpListener, sync::watch};
 
 #[tokio::main]
@@ -11,6 +11,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("{}", cli::USAGE);
         return Ok(());
     };
+    if options.export_state {
+        let config = options.config;
+        let state = tokio::task::spawn_blocking(move || export_state(&config)).await??;
+        if let Some(bytes) = state {
+            let mut stdout = std::io::stdout().lock();
+            stdout.write_all(&bytes)?;
+            stdout.write_all(b"\n")?;
+        }
+        return Ok(());
+    }
     if let Some(path) = options.auth_policy {
         let policy = tokio::task::spawn_blocking(move || auth_policy::load(&path)).await??;
         options.config.access_control = std::sync::Arc::new(policy);
