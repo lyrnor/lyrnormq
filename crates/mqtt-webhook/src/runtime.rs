@@ -1,17 +1,18 @@
 use crate::{
     Config, PublicConfig, RuntimeError,
-    config::Validated,
+    config::{MAX_CONFIG, Validated},
     counters::{ActionCounters, Budget, Counters, Status},
     dispatcher::{self, Work},
     persistence,
     worker::{self, Generation},
 };
 use mqtt_rules::{CompiledRule, Event, Rule};
+use mqtt_storage::configuration::ConfigStore;
 use mqtt_transport::PublicationObserver;
 use std::{
     collections::BTreeMap,
     fmt, io,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{
         Arc, Mutex, PoisonError, RwLock, Weak,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -43,7 +44,7 @@ impl Snapshot {
     }
 }
 pub(crate) struct Inner {
-    path: PathBuf,
+    store: Arc<Mutex<Option<ConfigStore>>>,
     pub snapshot: RwLock<Arc<Snapshot>>,
     senders: Vec<SyncSender<Work>>,
     pub counters: Arc<Counters>,
@@ -212,19 +213,22 @@ fn build_snapshot(
     })
 }
 impl Runtime {
+    /// Open the configuration SQLite database. Missing databases start empty.
     pub async fn open(path: PathBuf) -> io::Result<Arc<Self>> {
-        let (path, validated, client) = tokio::task::spawn_blocking(move || {
-            let path = if path.is_absolute() {
-                path
-            } else {
-                std::env::current_dir()
-                    .map_err(|_| RuntimeError::Storage)?
-                    .join(path)
+        let (store, validated, client) = tokio::task::spawn_blocking(move || {
+            let mut store =
+                ConfigStore::open(&path, MAX_CONFIG).map_err(|_| RuntimeError::Storage)?;
+            let bytes = store.load().map_err(|_| RuntimeError::Storage)?;
+            let config = match bytes.as_deref() {
+                Some(bytes) => persistence::decode(bytes)?,
+                None => Config::default(),
             };
-            let config = persistence::read(&path)?;
             let validated = config.validate()?;
             let client = make_client()?;
-            Ok::<_, RuntimeError>((path, validated, client))
+            if bytes.is_none() {
+                persistence::write(&mut store, &validated.config)?;
+            }
+            Ok::<_, RuntimeError>((store, validated, client))
         })
         .await
         .map_err(|_| io::Error::other("rule runtime initialization failed"))?
@@ -242,7 +246,7 @@ impl Runtime {
                 .as_nanos()
         );
         let inner = Arc::new(Inner {
-            path,
+            store: Arc::new(Mutex::new(Some(store))),
             snapshot: RwLock::new(snapshot),
             senders,
             counters: Arc::new(Counters::default()),
@@ -327,21 +331,20 @@ impl Runtime {
         }
     }
     pub async fn replace(&self, config: Config) -> Result<PublicConfig, RuntimeError> {
-        self.replace_using(config, persistence::sync_directory)
-            .await
+        self.replace_using(config, persistence::write).await
     }
     #[cfg(test)]
-    pub(crate) async fn replace_test_sync(
+    pub(crate) async fn replace_test_write(
         &self,
         config: Config,
-        sync: fn(&Path) -> io::Result<()>,
+        write: fn(&mut ConfigStore, &Config) -> Result<(), RuntimeError>,
     ) -> Result<PublicConfig, RuntimeError> {
-        self.replace_using(config, sync).await
+        self.replace_using(config, write).await
     }
     async fn replace_using(
         &self,
         mut config: Config,
-        sync: fn(&Path) -> io::Result<()>,
+        write: fn(&mut ConfigStore, &Config) -> Result<(), RuntimeError>,
     ) -> Result<PublicConfig, RuntimeError> {
         if self.inner.stopped.load(Ordering::Acquire) {
             return Err(RuntimeError::Stopped);
@@ -363,25 +366,33 @@ impl Runtime {
                 .config
                 .clone();
             config.restore_redacted(&previous)?;
-            let path = inner.path.clone();
-            let (validated, client, publication) = tokio::task::spawn_blocking(move || {
-                let validated = config.validate()?;
-                let client = make_client()?;
-                let publication = persistence::write_with_sync(&path, &validated.config, sync)?;
-                Ok::<_, RuntimeError>((validated, client, publication))
+            let store = Arc::clone(&inner.store);
+            let saved = tokio::task::spawn_blocking(move || {
+                // Validation failures do not change storage or stop a healthy runtime.
+                let validated = config.validate().map_err(|error| (error, false))?;
+                let client = make_client().map_err(|error| (error, false))?;
+                let mut guard = store.lock().map_err(|_| (RuntimeError::Storage, true))?;
+                let store = guard.as_mut().ok_or((RuntimeError::Storage, true))?;
+                write(store, &validated.config).map_err(|error| (error, true))?;
+                Ok::<_, (RuntimeError, bool)>((validated, client))
             })
-            .await
-            .map_err(|_| RuntimeError::Storage)??;
+            .await;
+            let (validated, client) = match saved {
+                Ok(Ok(result)) => result,
+                Ok(Err((error, false))) => return Err(error),
+                Ok(Err((error, true))) => {
+                    stop_after_storage_error(&inner);
+                    return Err(error);
+                }
+                Err(_) => {
+                    stop_after_storage_error(&inner);
+                    return Err(RuntimeError::Storage);
+                }
+            };
             if inner.stopped.load(Ordering::Acquire) {
                 return Err(RuntimeError::Stopped);
             }
             let next = build_snapshot(validated, &client, &inner.outbound);
-            let published_not_synced = publication == persistence::Publication::PublishedNotSynced;
-            if published_not_synced {
-                inner.stopped.store(true, Ordering::Release);
-                inner.counters.errors.fetch_add(1, Ordering::Relaxed);
-                next.generation.cancel();
-            }
             let public = next.config.public();
             let previous = std::mem::replace(
                 &mut *inner
@@ -391,9 +402,6 @@ impl Runtime {
                 next,
             );
             previous.generation.finish().await;
-            if published_not_synced {
-                return Err(RuntimeError::Storage);
-            }
             Ok(public)
         })
         .await
@@ -432,38 +440,58 @@ impl Runtime {
         .map_err(|_| RuntimeError::InvalidSql)?
     }
     pub async fn shutdown(&self) {
-        self.inner.stopped.store(true, Ordering::Release);
-        let generation = Arc::clone(
-            &self
-                .inner
-                .snapshot
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .generation,
-        );
-        generation.finish().await;
-        let threads = std::mem::take(
-            &mut *self
-                .inner
-                .threads
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner),
-        );
-        if !threads.is_empty() {
-            let _ = tokio::time::timeout(
-                Duration::from_secs(3),
-                tokio::task::spawn_blocking(move || {
-                    for thread in threads {
-                        let _ = thread.join();
-                    }
-                }),
-            )
-            .await;
-        }
+        let inner = Arc::clone(&self.inner);
+        // Cleanup continues even if the management/shutdown caller is cancelled.
+        let _ = tokio::spawn(async move { shutdown_inner(inner).await }).await;
     }
+}
+async fn shutdown_inner(inner: Arc<Inner>) {
+    inner.stopped.store(true, Ordering::Release);
+    // A cancelled HTTP caller may still own a config mutation. Wait until its
+    // commit/publish path ends before releasing database ownership.
+    let _permit = inner.mutation.acquire().await;
+    let generation = Arc::clone(
+        &inner
+            .snapshot
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .generation,
+    );
+    generation.finish().await;
+    let threads =
+        std::mem::take(&mut *inner.threads.lock().unwrap_or_else(PoisonError::into_inner));
+    let store = Arc::clone(&inner.store);
+    let _ = tokio::time::timeout(
+        Duration::from_secs(3),
+        tokio::task::spawn_blocking(move || {
+            // SQLite close and ownership release run on the blocking pool.
+            drop(store.lock().unwrap_or_else(PoisonError::into_inner).take());
+            for thread in threads {
+                let _ = thread.join();
+            }
+        }),
+    )
+    .await;
+}
+
+fn stop_after_storage_error(inner: &Inner) {
+    inner.stopped.store(true, Ordering::Release);
+    inner.counters.errors.fetch_add(1, Ordering::Relaxed);
+    inner
+        .snapshot
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .generation
+        .cancel();
 }
 impl Drop for Runtime {
     fn drop(&mut self) {
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            let store = Arc::clone(&self.inner.store);
+            handle.spawn_blocking(move || {
+                drop(store.lock().unwrap_or_else(PoisonError::into_inner).take());
+            });
+        }
         self.inner.stopped.store(true, Ordering::Release);
         self.inner
             .snapshot

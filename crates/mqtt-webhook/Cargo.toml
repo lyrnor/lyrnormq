@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+mqtt-storage = { path = "../mqtt-storage" }
 mqtt-rules = { path = "../mqtt-rules" }
 mqtt-transport = { path = "../mqtt-transport" }
 tokio.workspace = true

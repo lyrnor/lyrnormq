@@ -25,7 +25,7 @@ impl Fixture {
         Self(path)
     }
     fn path(&self) -> PathBuf {
-        self.0.join("rules.json")
+        self.0.join("rules.sqlite")
     }
 }
 impl Drop for Fixture {
@@ -164,9 +164,10 @@ async fn persists_configuration_redacts_and_preserves_headers_on_roundtrip() {
     assert_eq!(public.connectors[0].headers["Authorization"], "[redacted]");
     runtime.replace(public).await.unwrap();
     assert!(
-        std::fs::read_to_string(f.path())
+        std::fs::read(f.path())
             .unwrap()
-            .contains("Bearer test-secret")
+            .windows(b"Bearer test-secret".len())
+            .any(|window| window == b"Bearer test-secret")
     );
     assert!(
         !serde_json::to_string(&runtime.configuration().await)
@@ -365,7 +366,7 @@ async fn test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work()
 }
 #[cfg(unix)]
 #[tokio::test]
-async fn rejects_configuration_symlink_and_invalid_startup_json() {
+async fn rejects_configuration_symlink_and_non_sqlite_file() {
     let f = Fixture::new();
     std::fs::write(f.path(), "not json").unwrap();
     assert!(Runtime::open(f.path()).await.is_err());
@@ -482,21 +483,26 @@ async fn reconfiguration_cancels_old_generation_and_counts_abandoned_events() {
 }
 
 #[tokio::test]
-async fn post_rename_directory_sync_failure_publishes_view_and_stops_runtime() {
-    fn fail_sync(_: &std::path::Path) -> std::io::Result<()> {
-        Err(std::io::Error::other("injected directory sync failure"))
+async fn uncertain_sqlite_write_failure_stops_runtime_and_restores_actual_commit() {
+    fn committed_then_failed(
+        store: &mut mqtt_storage::configuration::ConfigStore,
+        config: &Config,
+    ) -> Result<(), RuntimeError> {
+        crate::persistence::write(store, config)?;
+        Err(RuntimeError::Storage)
     }
     let f = Fixture::new();
     let runtime = Runtime::open(f.path()).await.unwrap();
     let config = config("http://127.0.0.1:1/hook".into());
     assert!(matches!(
-        runtime.replace_test_sync(config, fail_sync).await,
+        runtime
+            .replace_test_write(config, committed_then_failed)
+            .await,
         Err(RuntimeError::Storage)
     ));
     assert!(!runtime.status().await.running);
-    assert_eq!(runtime.configuration().await.rules[0].id, "hot");
-    let disk: Config = serde_json::from_slice(&std::fs::read(f.path()).unwrap()).unwrap();
-    assert_eq!(disk.rules[0].id, "hot");
+    // No unconfirmed configuration is published to the stopped process.
+    assert!(runtime.configuration().await.rules.is_empty());
     let before = runtime.status().await.received;
     runtime.observer().observe(
         "devices/a/telemetry",
@@ -511,6 +517,66 @@ async fn post_rename_directory_sync_failure_publishes_view_and_stops_runtime() {
         Err(RuntimeError::Stopped)
     ));
     runtime.shutdown().await;
+    let restored = Runtime::open(f.path()).await.unwrap();
+    assert_eq!(restored.configuration().await.rules[0].id, "hot");
+    restored.shutdown().await;
+}
+
+#[tokio::test]
+async fn rejected_configuration_does_not_commit_or_stop_runtime() {
+    let f = Fixture::new();
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut invalid = config("http://127.0.0.1:1/hook".into());
+    invalid.rules[0].sql = "DELETE FROM anything".into();
+    assert!(runtime.replace(invalid).await.is_err());
+    assert!(runtime.status().await.running);
+    assert!(runtime.configuration().await.rules.is_empty());
+    runtime.shutdown().await;
+    let restored = Runtime::open(f.path()).await.unwrap();
+    assert!(restored.configuration().await.rules.is_empty());
+    restored.shutdown().await;
+}
+
+#[tokio::test]
+async fn default_configuration_is_real_sqlite_and_releases_ownership() {
+    let f = Fixture::new();
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    assert!(runtime.configuration().await.rules.is_empty());
+    assert_eq!(
+        &std::fs::read(f.path()).unwrap()[..16],
+        b"SQLite format 3\0"
+    );
+    assert!(Runtime::open(f.path()).await.is_err());
+    runtime.shutdown().await;
+    let restored = Runtime::open(f.path()).await.unwrap();
+    assert!(restored.status().await.running);
+    restored.shutdown().await;
+}
+
+#[tokio::test]
+async fn failed_sqlite_write_preserves_previous_committed_configuration() {
+    fn failed(
+        _store: &mut mqtt_storage::configuration::ConfigStore,
+        _config: &Config,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::Storage)
+    }
+    let f = Fixture::new();
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    runtime
+        .replace(config("http://127.0.0.1:1/hook".into()))
+        .await
+        .unwrap();
+    assert!(matches!(
+        runtime.replace_test_write(Config::default(), failed).await,
+        Err(RuntimeError::Storage)
+    ));
+    assert!(!runtime.status().await.running);
+    assert_eq!(runtime.configuration().await.rules[0].id, "hot");
+    runtime.shutdown().await;
+    let restored = Runtime::open(f.path()).await.unwrap();
+    assert_eq!(restored.configuration().await.rules[0].id, "hot");
+    restored.shutdown().await;
 }
 
 #[tokio::test]
@@ -573,4 +639,69 @@ async fn replacing_configuration_releases_old_keepalive_connection_pool() {
     runtime.replace(Config::default()).await.unwrap();
     assert_eq!(server.await.unwrap(), 0);
     runtime.shutdown().await;
+}
+
+#[tokio::test]
+async fn invalid_saved_sqlite_configuration_fails_without_overwriting_payload() {
+    use mqtt_storage::configuration::ConfigStore;
+    let f = Fixture::new();
+    {
+        let mut store = ConfigStore::open(&f.path(), 65536).unwrap();
+        store.save(b"invalid configuration").unwrap();
+    }
+    assert!(Runtime::open(f.path()).await.is_err());
+    let store = ConfigStore::open(&f.path(), 65536).unwrap();
+    assert_eq!(store.load().unwrap().unwrap(), b"invalid configuration");
+}
+
+#[tokio::test]
+async fn cancelled_update_and_shutdown_callers_do_not_leave_database_locked() {
+    use std::sync::{Arc, atomic::AtomicBool};
+    static STARTED: AtomicBool = AtomicBool::new(false);
+    fn slow_write(
+        store: &mut mqtt_storage::configuration::ConfigStore,
+        config: &Config,
+    ) -> Result<(), RuntimeError> {
+        STARTED.store(true, Ordering::Release);
+        std::thread::sleep(Duration::from_millis(150));
+        crate::persistence::write(store, config)
+    }
+    let f = Fixture::new();
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let update_runtime = Arc::clone(&runtime);
+    let update = tokio::spawn(async move {
+        update_runtime
+            .replace_test_write(config("http://127.0.0.1:1/hook".into()), slow_write)
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !STARTED.load(Ordering::Acquire) {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    update.abort();
+    let shutdown_runtime = Arc::clone(&runtime);
+    let shutdown = tokio::spawn(async move { shutdown_runtime.shutdown().await });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while runtime.status().await.running {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    shutdown.abort();
+    let restored = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if let Ok(restored) = Runtime::open(f.path()).await {
+                break restored;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(restored.configuration().await.rules[0].id, "hot");
+    restored.shutdown().await;
 }
