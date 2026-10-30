@@ -7,6 +7,7 @@ No throughput/security-certification claim; SIGKILL is not a power-loss test.
 """
 import socket
 import ssl
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -274,6 +275,37 @@ class AdmissionMutualTLS(unittest.TestCase):
                 self.source_ack(sub,0x62,message[3],version)
                 sub.sendall(ack(0x70,message[3]));self.barrier(sub);self.quiet(sub)
                 self.disconnect(sub);broker.stop()
+
+    def test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect(self):
+        for version in (4,5):
+            with self.subTest(mqtt=version):
+                broker=self.broker(extra=['--auth-rate-per-second','0','--max-handshakes','1',
+                                         '--handshake-timeout-ms','100'],persistent=True)
+                observer=self.client(broker,'late-connect-observer',version)
+                self.subscribe(observer,'late-connect/will',0,version)
+                # Warm an existing persistent partition; no new actor startup is
+                # needed inside the narrow cancelled-commit window.
+                original=self.client(broker,'late-connect',version,clean=False)
+                self.disconnect(original)
+                self.barrier(observer)
+                lock=sqlite3.connect(str(broker.directory)+'/sessions.sqlite',timeout=1)
+                try:
+                    lock.execute('BEGIN IMMEDIATE')  # Actual external storage-write exclusion.
+                    late=broker.socket();self.addCleanup(late.close);late.settimeout(1.5)
+                    will=('late-connect/will',b'late-generation-cleaned',1,False)
+                    late.sendall(connect5('late-connect',clean=False,properties=[(0x11,60)],will=will)
+                                 if version==5 else tls.connect_packet('late-connect',clean=False,will=will))
+                    self.assertEqual(late.recv(1),b'',
+                                     'locked CONNECT must not emit successful CONNACK after its deadline')
+                finally:
+                    lock.rollback();lock.close()
+                # Timeout is not rollback of a transaction already in commit.
+                # Before ANY reconnect can lazily clean the old generation,
+                # its committed Will must arrive from late-generation cleanup.
+                self.delivery(observer,'late-connect/will',b'late-generation-cleaned',0,version)
+                resumed=self.client(broker,'late-connect',version,clean=False,present=True)
+                self.barrier(resumed)  # Also proves the sole handshake permit recovered.
+                self.disconnect(resumed);self.disconnect(observer);broker.stop()
 
 
 if __name__=='__main__':unittest.main(verbosity=2)
