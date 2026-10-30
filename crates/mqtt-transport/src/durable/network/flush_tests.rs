@@ -117,3 +117,49 @@ async fn terminal_close_skips_queued_business_and_bounds_shutdown() {
         drop(terminal);
     }
 }
+
+#[tokio::test]
+async fn management_counts_only_successfully_flushed_output_frames() {
+    let management = crate::management::ManagementHandle::new();
+    let config = BrokerConfig {
+        management: Some(management.clone()),
+        write_timeout: Duration::from_millis(10),
+        ..BrokerConfig::default()
+    };
+    let broker = crate::durable::start(config.clone()).await.unwrap();
+    let frame = Frame::v5(Packet::Publish {
+        topic: "counters".into(),
+        payload: b"real-frame".to_vec(),
+        qos: 0,
+        packet_id: None,
+        dup: false,
+        retain: false,
+    });
+    let size = encode_frame(&frame).unwrap().len() as u64;
+    write_frame(&mut tokio::io::sink(), &frame, &config, usize::MAX)
+        .await
+        .unwrap();
+    let before = management.overview().await.unwrap();
+    assert_eq!(before.messages_out_total, 1);
+    assert_eq!(before.bytes_out_total, size);
+    assert!(
+        write_frame(&mut FlushStall, &frame, &config, usize::MAX)
+            .await
+            .is_err()
+    );
+    let after = management.overview().await.unwrap();
+    assert_eq!(after.messages_out_total, 1);
+    assert_eq!(after.bytes_out_total, size);
+    write_frame(
+        &mut tokio::io::sink(),
+        &Frame::v5(Packet::PingResp),
+        &config,
+        usize::MAX,
+    )
+    .await
+    .unwrap();
+    let after = management.overview().await.unwrap();
+    assert_eq!(after.messages_out_total, 1);
+    assert_eq!(after.bytes_out_total, size + 2);
+    broker.shutdown().await.unwrap();
+}

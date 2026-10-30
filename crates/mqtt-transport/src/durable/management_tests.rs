@@ -71,3 +71,50 @@ async fn installed_sessions_subscriptions_retained_and_restart_are_observed() {
     );
     stop(worker, task).await;
 }
+
+#[derive(Debug)]
+struct ManualClock(std::sync::atomic::AtomicU64);
+impl mqtt_session::durable::Clock for ManualClock {
+    fn now_millis(&self) -> u64 {
+        self.0.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
+#[tokio::test]
+async fn retained_reads_hide_expiry_without_copying_or_mutating_payloads() {
+    let clock = Arc::new(ManualClock(std::sync::atomic::AtomicU64::new(10_000)));
+    let management = ManagementHandle::new();
+    let broker = Broker::start(
+        BrokerConfig {
+            management: Some(management.clone()),
+            ..BrokerConfig::default()
+        },
+        clock.clone(),
+        None,
+    )
+    .await
+    .unwrap();
+    let publication = mqtt_session::durable::Publication {
+        topic: "expiry".into(),
+        payload: vec![1; 512_000],
+        qos: 1,
+        retain: true,
+        properties: vec![Property::MessageExpiryInterval(1)],
+        expires_at: Some(11_000),
+        publisher: None,
+        expired: false,
+    };
+    let committed = broker.apply_retained(&publication).await.unwrap();
+    broker.retained_durable(committed).await.unwrap();
+    let page = management.retained(Query::default()).await.unwrap();
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0].payload_bytes, 512_000);
+    clock.0.store(11_000, std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(
+        management.retained(Query::default()).await.unwrap().total,
+        0
+    );
+    assert_eq!(management.overview().await.unwrap().retained_messages, 0);
+    // A read neither prunes the shared store nor mutates its timers.
+    assert_eq!(broker.retained.len(), 1);
+    broker.shutdown().await.unwrap();
+}
