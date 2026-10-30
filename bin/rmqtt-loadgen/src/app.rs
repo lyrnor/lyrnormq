@@ -7,20 +7,48 @@ pub fn execute(args: impl IntoIterator<Item = String>) -> Result<bool, LoadError
         println!("{}", config::USAGE);
         return Ok(true);
     };
+    let started = SystemTime::now();
     // Reserve both outputs before opening network connections. Existing files are never replaced.
     let mut report_file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&options.output)?;
-    let raw_file = options
+    let raw_file = match options
         .raw
         .as_ref()
         .map(|path| OpenOptions::new().write(true).create_new(true).open(path))
-        .transpose()?;
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .transpose()
+    {
+        Ok(file) => file,
+        Err(error) => {
+            let error = LoadError::Io(error);
+            output::write_failure(
+                &mut report_file,
+                "output_reservation",
+                &error,
+                &options.config,
+                &output::environment(started),
+            )?;
+            return Err(error);
+        }
+    };
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()?;
-    let started = SystemTime::now();
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            let error = LoadError::Io(error);
+            output::write_failure(
+                &mut report_file,
+                "runtime_initialization",
+                &error,
+                &options.config,
+                &output::environment(started),
+            )?;
+            return Err(error);
+        }
+    };
     eprintln!(
         "rmqtt-loadgen: {} pairs / {} TCP connections; QoS{}; {} bytes; {}",
         options.config.pairs,

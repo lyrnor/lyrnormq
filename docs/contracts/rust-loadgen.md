@@ -14,7 +14,9 @@ barrier before global warmup/measurement. TCP_NODELAY,clean sessions,KeepAlive0,
 no authentication/TLS/shared/retained/aliases/reconnect/retransmit initially;unexpected
 or rejected frames fail explicitly. QoS matches on both ends. Positive PUBACK=Q1
 source completion;PUBREC is Q2 intermediate only,PUBREL->PUBCOMP completes source.
-SubscriberQ2 delivery recorded only on PUBREL;duplicate protocol frames idempotent.
+SubscriberQ2 delivery recorded only on PUBREL;duplicate subscriber deliveries and
+current QoS2 retransmission phases are idempotent. Unexpected/stale final ACKs
+without an outstanding transaction fail closed;this is not a reconnecting client.
 Never reuse outstanding packet IDs. Per-pair bounded inflight and I/O/deadlines.
 
 Payload exactly configured bytes,minimum48. Magic8,run_id u64,pair u32,flags u32,

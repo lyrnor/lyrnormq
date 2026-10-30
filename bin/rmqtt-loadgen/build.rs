@@ -9,8 +9,12 @@ fn git(args: &[&str]) -> Option<String> {
 fn main() {
     let revision = git(&["rev-parse", "HEAD"]).unwrap_or_else(|| "unknown".into());
     println!("cargo:rustc-env=LOADGEN_GIT_REVISION={revision}");
-    for key in ["HEAD", "refs/heads/codex/rust-loadgen"] {
-        if let Some(path) = git(&["rev-parse", "--git-path", key]) {
+    let mut keys = vec!["HEAD".to_owned()];
+    if let Some(reference) = git(&["symbolic-ref", "-q", "HEAD"]) {
+        keys.push(reference);
+    }
+    for key in keys {
+        if let Some(path) = git(&["rev-parse", "--git-path", &key]) {
             println!("cargo:rerun-if-changed={path}");
         }
     }
