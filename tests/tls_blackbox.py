@@ -247,6 +247,20 @@ class TLSWire(unittest.TestCase):
         self.barrier(healthy)
         self.disconnect(healthy)
 
+    def test_mqtt_disconnect_completes_verified_tls_close_notify(self):
+        # No queued application traffic is drained here: unwrap must observe
+        # the server's actual TLS alert, rather than accepting a ragged EOF.
+        for tls in (ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3):
+            for version in (4, 5):
+                with self.subTest(tls=tls.name, mqtt=version):
+                    sock = self.client(self.broker, f'close-notify-{tls.name}-{version}',
+                                       version, tls=tls)
+                    self.barrier(sock)
+                    sock.sendall(frame(0xe0))
+                    # Unlike the ungraceful-Will case, EOF/SSL errors must fail.
+                    plain = sock.unwrap()
+                    plain.close()
+
     def test_plaintext_mqtt_is_not_accepted_on_tls_listener(self):
         with self.broker.raw() as raw:
             raw.sendall(connect_packet('plain-on-tls'))
