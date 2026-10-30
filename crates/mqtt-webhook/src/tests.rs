@@ -512,3 +512,65 @@ async fn post_rename_directory_sync_failure_publishes_view_and_stops_runtime() {
     ));
     runtime.shutdown().await;
 }
+
+#[tokio::test]
+async fn replacing_configuration_releases_old_keepalive_connection_pool() {
+    let f = Fixture::new();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/hook", listener.local_addr().unwrap());
+    let (responded, ready) = tokio::sync::oneshot::channel();
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut bytes = Vec::new();
+        let mut end = None;
+        loop {
+            let mut chunk = [0u8; 4096];
+            let n = stream.read(&mut chunk).await.unwrap();
+            assert!(n > 0);
+            bytes.extend_from_slice(&chunk[..n]);
+            if end.is_none()
+                && let Some(index) = bytes.windows(4).position(|w| w == b"\r\n\r\n")
+            {
+                let headers = String::from_utf8_lossy(&bytes[..index]);
+                let length = headers
+                    .lines()
+                    .find_map(|line| {
+                        line.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(str::trim)
+                            .and_then(|v| v.parse::<usize>().ok())
+                    })
+                    .unwrap_or(0);
+                end = Some(index + 4 + length);
+            }
+            if end.is_some_and(|end| bytes.len() >= end) {
+                break;
+            }
+            assert!(bytes.len() < 2 * 1024 * 1024);
+        }
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n")
+            .await
+            .unwrap();
+        let _ = responded.send(());
+        let mut byte = [0u8; 1];
+        tokio::time::timeout(Duration::from_secs(2), stream.read(&mut byte))
+            .await
+            .expect("old generation retained idle connection")
+            .unwrap()
+    });
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    runtime.replace(config(url)).await.unwrap();
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"temperature":90}"#,
+        "device-a",
+        0,
+        false,
+    );
+    ready.await.unwrap();
+    delivered(&runtime, 1).await;
+    runtime.replace(Config::default()).await.unwrap();
+    assert_eq!(server.await.unwrap(), 0);
+    runtime.shutdown().await;
+}

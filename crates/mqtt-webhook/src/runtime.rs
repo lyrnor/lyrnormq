@@ -53,7 +53,6 @@ pub(crate) struct Inner {
     mutation: Arc<Semaphore>,
     tests: Arc<Semaphore>,
     outbound: Arc<Semaphore>,
-    client: reqwest::Client,
     threads: Mutex<Vec<std::thread::JoinHandle<()>>>,
 }
 pub struct Runtime {
@@ -149,6 +148,16 @@ impl PublicationObserver for Observer {
         let _ = inner.senders[shard].try_send(work);
     }
 }
+fn make_client() -> Result<reqwest::Client, RuntimeError> {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
+        .pool_max_idle_per_host(1)
+        .pool_idle_timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|_| RuntimeError::InvalidConfig)
+}
 fn build_snapshot(
     validated: Validated,
     client: &reqwest::Client,
@@ -214,14 +223,7 @@ impl Runtime {
             };
             let config = persistence::read(&path)?;
             let validated = config.validate()?;
-            let client = reqwest::Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
-                .no_proxy()
-                .pool_max_idle_per_host(1)
-                .pool_idle_timeout(Duration::from_secs(30))
-                .connect_timeout(Duration::from_secs(10))
-                .build()
-                .map_err(|_| RuntimeError::InvalidConfig)?;
+            let client = make_client()?;
             Ok::<_, RuntimeError>((path, validated, client))
         })
         .await
@@ -250,7 +252,6 @@ impl Runtime {
             mutation: Arc::new(Semaphore::new(1)),
             tests: Arc::new(Semaphore::new(3)),
             outbound,
-            client,
             threads: Mutex::new(Vec::new()),
         });
         for (index, receiver) in receivers.into_iter().enumerate() {
@@ -363,17 +364,18 @@ impl Runtime {
                 .clone();
             config.restore_redacted(&previous)?;
             let path = inner.path.clone();
-            let (validated, publication) = tokio::task::spawn_blocking(move || {
+            let (validated, client, publication) = tokio::task::spawn_blocking(move || {
                 let validated = config.validate()?;
+                let client = make_client()?;
                 let publication = persistence::write_with_sync(&path, &validated.config, sync)?;
-                Ok::<_, RuntimeError>((validated, publication))
+                Ok::<_, RuntimeError>((validated, client, publication))
             })
             .await
             .map_err(|_| RuntimeError::Storage)??;
             if inner.stopped.load(Ordering::Acquire) {
                 return Err(RuntimeError::Stopped);
             }
-            let next = build_snapshot(validated, &inner.client, &inner.outbound);
+            let next = build_snapshot(validated, &client, &inner.outbound);
             let published_not_synced = publication == persistence::Publication::PublishedNotSynced;
             if published_not_synced {
                 inner.stopped.store(true, Ordering::Release);
