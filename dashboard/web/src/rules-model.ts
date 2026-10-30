@@ -3,19 +3,13 @@ export interface RuleDefinition {
   name: string;
   sql: string;
   enabled: boolean;
-  action_ids: string[];
+  outbound_ids: string[];
 }
-export interface WebhookConnector {
-  id: string;
-  name: string;
+export interface WebhookConfig {
   url: string;
   headers: Record<string, string>;
 }
-export interface WebhookAction {
-  id: string;
-  name: string;
-  connector_id: string;
-  enabled: boolean;
+export interface DeliveryPolicy {
   batch_size: number;
   batch_wait_ms: number;
   queue_capacity: number;
@@ -23,12 +17,21 @@ export interface WebhookAction {
   max_attempts: number;
   retry_base_ms: number;
 }
+export interface Outbound {
+  id: string;
+  name: string;
+  enabled: boolean;
+  type: "webhook";
+  config: WebhookConfig;
+  delivery: DeliveryPolicy;
+}
 export interface RulesConfig {
-  connectors: WebhookConnector[];
-  actions: WebhookAction[];
+  schema_version: 2;
+  outbounds: Outbound[];
   rules: RuleDefinition[];
 }
-export interface ActionStatus {
+export interface OutboundStatus {
+  type: string;
   id: string;
   queued: number;
   delivered: number;
@@ -46,7 +49,7 @@ export interface RulesStatus {
   matched: number;
   dropped: number;
   errors: number;
-  actions: ActionStatus[];
+  outbounds: OutboundStatus[];
 }
 export interface RuleEvent {
   topic: string;
@@ -57,17 +60,20 @@ export interface RuleEvent {
   timestamp_ms: number;
 }
 export const SQL_EXAMPLE = `SELECT client_id, topic AS source_topic, payload.temperature AS temperature\nFROM "devices/+/telemetry"\nWHERE payload.temperature >= 80`;
-export const defaultAction = (): WebhookAction => ({
+export const defaultOutbound = (): Outbound => ({
   id: "",
   name: "",
-  connector_id: "",
   enabled: true,
-  batch_size: 100,
-  batch_wait_ms: 50,
-  queue_capacity: 256,
-  timeout_ms: 3000,
-  max_attempts: 3,
-  retry_base_ms: 200,
+  type: "webhook",
+  config: { url: "", headers: {} },
+  delivery: {
+    batch_size: 100,
+    batch_wait_ms: 50,
+    queue_capacity: 256,
+    timeout_ms: 3000,
+    max_attempts: 3,
+    retry_base_ms: 200,
+  },
 });
 const encoder = new TextEncoder();
 export function validateIdentity(id: string, name: string): string | null {
@@ -82,9 +88,7 @@ export function validateSql(sql: string): string | null {
     ? "SQL 不能为空，且最多 8 KiB"
     : null;
 }
-export function validateConnector(connector: WebhookConnector): string | null {
-  const identity = validateIdentity(connector.id, connector.name);
-  if (identity) return identity;
+export function validateWebhook(connector: WebhookConfig): string | null {
   try {
     const url = new URL(connector.url);
     if (
@@ -131,14 +135,13 @@ export function validateConnector(connector: WebhookConnector): string | null {
   }
   return null;
 }
-export function validateAction(
-  action: WebhookAction,
-  config: RulesConfig,
-): string | null {
-  const identity = validateIdentity(action.id, action.name);
+export function validateOutbound(outbound: Outbound): string | null {
+  const identity = validateIdentity(outbound.id, outbound.name);
   if (identity) return identity;
-  if (!config.connectors.some((c) => c.id === action.connector_id))
-    return "请选择已有的 Webhook 连接器";
+  if (outbound.type !== "webhook") return "暂不支持此出站类型";
+  const destination = validateWebhook(outbound.config);
+  if (destination) return destination;
+  const action = outbound.delivery;
   const bounds: [number, number, number, string][] = [
     [action.batch_size, 1, 500, "批量条数"],
     [action.batch_wait_ms, 0, 1000, "批量等待"],
@@ -153,20 +156,15 @@ export function validateAction(
   return null;
 }
 export function deletionError(
-  kind: "connectors" | "actions" | "rules",
+  kind: "outbounds" | "rules",
   id: string,
   config: RulesConfig,
 ): string | null {
   if (
-    kind === "connectors" &&
-    config.actions.some((action) => action.connector_id === id)
+    kind === "outbounds" &&
+    config.rules.some((rule) => rule.outbound_ids.includes(id))
   )
-    return "连接器仍被出站动作引用，请先删除或修改相应动作";
-  if (
-    kind === "actions" &&
-    config.rules.some((rule) => rule.action_ids.includes(id))
-  )
-    return "动作仍被规则引用，请先解除绑定";
+    return "出站仍被规则引用，请先解除绑定";
   return null;
 }
 export function testEvent(

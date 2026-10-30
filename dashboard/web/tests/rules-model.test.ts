@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  defaultAction,
+  defaultOutbound,
   deletionError,
   testEvent,
-  validateAction,
-  validateConnector,
+  validateOutbound,
+  validateWebhook,
   validateIdentity,
   validateSql,
   type RulesConfig,
@@ -16,21 +16,21 @@ const connector = {
   headers: { Authorization: "[redacted]" },
 };
 const action = {
-  ...defaultAction(),
+  ...defaultOutbound(),
   id: "send",
   name: "Send",
-  connector_id: "hook",
+  config: { url: connector.url, headers: connector.headers },
 };
 const config: RulesConfig = {
-  connectors: [connector],
-  actions: [action],
+  schema_version: 2,
+  outbounds: [action],
   rules: [
     {
       id: "hot",
       name: "High temp",
       sql: 'SELECT * FROM "devices/#"',
       enabled: true,
-      action_ids: ["send"],
+      outbound_ids: ["send"],
     },
   ],
 };
@@ -44,7 +44,7 @@ describe("rule form contract validation", () => {
     expect(validateSql(" ")).not.toBeNull();
   });
   it("requires allowed URL shape and keeps redacted credentials roundtrippable", () => {
-    expect(validateConnector(connector)).toBeNull();
+    expect(validateWebhook(connector)).toBeNull();
     for (const url of [
       "file:///tmp/secret",
       "https://a:b@example.com",
@@ -52,7 +52,7 @@ describe("rule form contract validation", () => {
       "https://example.com/#secret",
       "not-url",
     ])
-      expect(validateConnector({ ...connector, url })).not.toBeNull();
+      expect(validateWebhook({ ...connector, url })).not.toBeNull();
   });
   it("rejects header injection, system fields and case-insensitive duplicates", () => {
     for (const headers of [
@@ -62,18 +62,18 @@ describe("rule form contract validation", () => {
       { Bad: "x", bad: "y" },
       { "not valid": "x" },
     ] as Record<string, string>[])
-      expect(validateConnector({ ...connector, headers })).not.toBeNull();
+      expect(validateWebhook({ ...connector, headers })).not.toBeNull();
     expect(
-      validateConnector({
+      validateWebhook({
         ...connector,
         headers: { Authorization: "new-secret" },
       }),
     ).toBeNull();
   });
   it("checks action references and all resource limits", () => {
-    expect(validateAction(action, config)).toBeNull();
+    expect(validateOutbound(action)).toBeNull();
     expect(
-      validateAction({ ...action, connector_id: "missing" }, config),
+      validateOutbound({ ...action, type: "unknown" as "webhook" }),
     ).not.toBeNull();
     for (const patch of [
       { batch_size: 501 },
@@ -83,11 +83,15 @@ describe("rule form contract validation", () => {
       { max_attempts: 6 },
       { retry_base_ms: NaN },
     ])
-      expect(validateAction({ ...action, ...patch }, config)).not.toBeNull();
+      expect(
+        validateOutbound({
+          ...action,
+          delivery: { ...action.delivery, ...patch },
+        }),
+      ).not.toBeNull();
   });
   it("blocks deletion of referenced actions and connectors", () => {
-    expect(deletionError("connectors", "hook", config)).toContain("引用");
-    expect(deletionError("actions", "send", config)).toContain("绑定");
+    expect(deletionError("outbounds", "send", config)).toContain("绑定");
     expect(deletionError("rules", "hot", config)).toBeNull();
   });
   it("encodes a distinct sample event as UTF8 bytes without requiring JSON", () => {

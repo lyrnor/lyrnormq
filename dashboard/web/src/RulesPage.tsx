@@ -25,24 +25,22 @@ import {
 import { bytes } from "./model";
 import {
   SQL_EXAMPLE,
-  defaultAction,
+  defaultOutbound,
   deletionError,
   testEvent,
-  validateAction,
-  validateConnector,
+  validateOutbound,
   validateIdentity,
   validateSql,
   type RuleDefinition,
   type RulesConfig,
   type RulesStatus,
-  type WebhookAction,
-  type WebhookConnector,
+  type Outbound,
 } from "./rules-model";
 
-type Kind = "rules" | "connectors" | "actions";
-type Item = RuleDefinition | WebhookConnector | WebhookAction;
+type Kind = "rules" | "outbounds";
+type Item = RuleDefinition | Outbound;
 type Editing = { kind: Kind; value: Item; fresh: boolean };
-const names = { rules: "规则", connectors: "连接器", actions: "出站动作" };
+const names = { rules: "规则", outbounds: "出站" };
 const textarea =
   "min-h-28 w-full rounded-md border bg-card p-3 font-mono text-xs leading-relaxed outline-offset-4 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 const note =
@@ -117,6 +115,13 @@ export function RulesPage({
         api<RulesStatus>("/api/v1/rules/status", token, controller.signal),
       ]);
       if (!controller.signal.aborted) {
+        if (
+          next.schema_version !== 2 ||
+          !Array.isArray(next.outbounds) ||
+          next.outbounds.some((outbound) => outbound.type !== "webhook")
+        ) {
+          throw new ApiError(422, "当前配置暂不受支持，请更新页面后重试");
+        }
         setConfig(next);
         setStatus(metrics);
         setDisabled(false);
@@ -188,9 +193,7 @@ export function RulesPage({
       );
       if (controller.signal.aborted) return false;
       setConfig(stored);
-      setNotice(
-        "配置已保存并应用。更改会替换运行版本，旧版本积压可能被取消并计数。",
-      );
+      setNotice("配置已保存并应用。");
       return true;
     } catch (cause) {
       if (!controller.signal.aborted) onError(cause);
@@ -203,10 +206,14 @@ export function RulesPage({
   function create() {
     const value =
       tab === "rules"
-        ? { id: "", name: "", sql: SQL_EXAMPLE, enabled: true, action_ids: [] }
-        : tab === "connectors"
-          ? { id: "", name: "", url: "", headers: {} }
-          : defaultAction();
+        ? {
+            id: "",
+            name: "",
+            sql: SQL_EXAMPLE,
+            enabled: true,
+            outbound_ids: [],
+          }
+        : defaultOutbound();
     setEdit({ kind: tab, value, fresh: true });
     setNotice(null);
   }
@@ -229,7 +236,7 @@ export function RulesPage({
         "保存未确认，请刷新配置核对；检查 SQL、参数范围、引用关系或存储状态后重试",
       );
   }
-  async function toggle(kind: "rules" | "actions", id: string) {
+  async function toggle(kind: "rules" | "outbounds", id: string) {
     if (config)
       await save({
         ...config,
@@ -261,7 +268,10 @@ export function RulesPage({
         <Button
           size="sm"
           variant="ghost"
-          disabled={busy}
+          disabled={
+            busy ||
+            (kind === "outbounds" && (item as Outbound).type !== "webhook")
+          }
           aria-label={`编辑 ${item.id}`}
           onClick={() => setEdit({ kind, value: item, fresh: false })}
         >
@@ -294,7 +304,7 @@ export function RulesPage({
         <div>
           <h2 className="text-lg font-semibold">规则引擎</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            筛选消息、提取数据，并发送到指定的 Webhook。
+            筛选消息、提取数据，并发送到指定目标。
           </p>
         </div>
         <Button
@@ -368,8 +378,7 @@ export function RulesPage({
               disabled={
                 busy ||
                 stopped ||
-                config[tab].length >=
-                  (tab === "rules" ? 128 : tab === "actions" ? 64 : 32)
+                config[tab].length >= (tab === "rules" ? 128 : 64)
               }
               onClick={create}
             >
@@ -381,7 +390,7 @@ export function RulesPage({
             className="flex flex-wrap gap-2 px-5 pt-4"
             aria-label="规则管理分类"
           >
-            {(["rules", "connectors", "actions"] as Kind[]).map((kind) => (
+            {(["rules", "outbounds"] as Kind[]).map((kind) => (
               <Button
                 key={kind}
                 size="sm"
@@ -399,13 +408,9 @@ export function RulesPage({
                 <TableRow>
                   <TableHead>ID / 名称</TableHead>
                   <TableHead>
-                    {tab === "rules"
-                      ? "SQL / 动作绑定"
-                      : tab === "connectors"
-                        ? "Webhook 地址"
-                        : "连接器 / 发送策略"}
+                    {tab === "rules" ? "SQL / 绑定出站" : "类型 / 目标地址"}
                   </TableHead>
-                  {tab !== "connectors" && <TableHead>状态</TableHead>}
+                  <TableHead>状态</TableHead>
                   <TableHead className="text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -427,7 +432,7 @@ export function RulesPage({
                           {rule.sql}
                         </pre>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          动作：{rule.action_ids.join("、") || "未绑定"}
+                          出站：{rule.outbound_ids.join("、") || "未绑定"}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -458,33 +463,8 @@ export function RulesPage({
                       </TableCell>
                     </TableRow>
                   ))}
-                {tab === "connectors" &&
-                  config.connectors.map((connector) => (
-                    <TableRow key={connector.id}>
-                      <TableCell>
-                        <b className="text-xs font-medium">{connector.name}</b>
-                        <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                          {connector.id}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="max-w-sm truncate font-mono text-xs">
-                          {connector.url}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {Object.keys(connector.headers).length} 个请求头 ·
-                          值已隐藏
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {controls("connectors", connector)}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {tab === "actions" &&
-                  config.actions.map((action) => (
+                {tab === "outbounds" &&
+                  config.outbounds.map((action) => (
                     <TableRow key={action.id}>
                       <TableCell>
                         <b className="text-xs font-medium">{action.name}</b>
@@ -494,12 +474,14 @@ export function RulesPage({
                       </TableCell>
                       <TableCell>
                         <p className="font-mono text-xs">
-                          {action.connector_id}
+                          {action.type === "webhook"
+                            ? `Webhook · ${action.config.url}`
+                            : "暂不支持的出站类型"}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          每批 {action.batch_size} 条 / 等待{" "}
-                          {action.batch_wait_ms} ms · 最多 {action.max_attempts}{" "}
-                          次尝试
+                          每批 {action.delivery.batch_size} 条 / 等待{" "}
+                          {action.delivery.batch_wait_ms} ms · 最多{" "}
+                          {action.delivery.max_attempts} 次尝试
                         </p>
                       </TableCell>
                       <TableCell>
@@ -512,12 +494,14 @@ export function RulesPage({
                           <Button
                             size="sm"
                             variant="ghost"
-                            disabled={busy || stopped}
-                            onClick={() => void toggle("actions", action.id)}
+                            disabled={
+                              busy || stopped || action.type !== "webhook"
+                            }
+                            onClick={() => void toggle("outbounds", action.id)}
                           >
                             {action.enabled ? "停用" : "启用"}
                           </Button>
-                          {controls("actions", action)}
+                          {controls("outbounds", action)}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -526,7 +510,7 @@ export function RulesPage({
             </Table>
             {config[tab].length === 0 && (
               <Empty>
-                暂无{names[tab]}。先创建连接器和出站动作，再绑定 SQL 规则。
+                暂无{names[tab]}。创建出站后，可在规则中选择消息发送目标。
               </Empty>
             )}
           </div>
@@ -540,14 +524,14 @@ export function RulesPage({
               测试 SQL
             </Button>
             <p className="text-[11px] text-muted-foreground">
-              仅计算匹配与输出，不发出 Webhook。
+              仅预览处理结果，不发送消息。
             </p>
           </div>
         </Panel>
       )}
       {status && (
         <Panel
-          title="出站动作执行状态"
+          title="出站执行状态"
           extra={
             <span className="text-[10px] text-muted-foreground">
               {sampledAt
@@ -561,7 +545,7 @@ export function RulesPage({
               <TableHeader>
                 <TableRow>
                   {[
-                    "动作 ID",
+                    "出站 ID",
                     "排队",
                     "已发送",
                     "失败",
@@ -574,7 +558,7 @@ export function RulesPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {status.actions.map((action) => (
+                {status.outbounds.map((action) => (
                   <TableRow key={action.id}>
                     <TableCell className="font-mono text-xs">
                       {action.id}
@@ -595,7 +579,7 @@ export function RulesPage({
                 ))}
               </TableBody>
             </Table>
-            {status.actions.length === 0 && <Empty>暂无动作执行统计</Empty>}
+            {status.outbounds.length === 0 && <Empty>暂无出站执行统计</Empty>}
           </div>
           <p className="px-5 pb-4 text-[11px] leading-relaxed text-muted-foreground">
             统计单位为消息条数，重试次数按参与重试的消息计算；服务重启后统计重新开始。
@@ -681,8 +665,8 @@ function Editor({
     [error, setError] = useState<string | null>(null);
   const [headers, setHeaders] = useState(() =>
     Object.entries(
-      edit.kind === "connectors"
-        ? (edit.value as WebhookConnector).headers
+      edit.kind === "outbounds" && (edit.value as Outbound).type === "webhook"
+        ? (edit.value as Outbound).config.headers
         : {},
     ).map(([key, value]) => ({ key, value })),
   );
@@ -699,10 +683,13 @@ function Editor({
       const rule = draft as RuleDefinition;
       issue = issue || validateSql(rule.sql);
       if (
-        rule.action_ids.some((id) => !config.actions.some((a) => a.id === id))
+        rule.outbound_ids.some(
+          (id) => !config.outbounds.some((a) => a.id === id),
+        )
       )
-        issue = "存在无效动作引用";
-    } else if (edit.kind === "connectors") {
+        issue = "存在无效出站引用";
+    } else {
+      const outbound = draft as Outbound;
       if (
         new Set(headers.map((h) => h.key.toLowerCase())).size !== headers.length
       ) {
@@ -710,11 +697,14 @@ function Editor({
         return;
       }
       next = {
-        ...draft,
-        headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
-      } as WebhookConnector;
-      issue = validateConnector(next as WebhookConnector);
-    } else issue = validateAction(draft as WebhookAction, config);
+        ...outbound,
+        config: {
+          ...outbound.config,
+          headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
+        },
+      };
+      issue = issue || validateOutbound(next as Outbound);
+    }
     if (issue) {
       setError(issue);
       return;
@@ -726,8 +716,7 @@ function Editor({
     }
   }
   const rule = draft as RuleDefinition,
-    connector = draft as WebhookConnector,
-    action = draft as WebhookAction;
+    action = draft as Outbound;
   return (
     <Drawer
       title={`${edit.fresh ? "新建" : "编辑"}${names[edit.kind]}`}
@@ -754,17 +743,15 @@ function Editor({
             required
           />
         </Field>
-        {edit.kind !== "connectors" && (
-          <label className="flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={Boolean(rule.enabled)}
-              onChange={(e) => patch({ enabled: e.target.checked })}
-              disabled={busy}
-            />
-            启用
-          </label>
-        )}
+        <label className="flex items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={Boolean(rule.enabled)}
+            onChange={(e) => patch({ enabled: e.target.checked })}
+            disabled={busy}
+          />
+          启用
+        </label>
         {edit.kind === "rules" && (
           <>
             <Field label="SQL">
@@ -779,18 +766,18 @@ function Editor({
               />
             </Field>
             <fieldset className="space-y-2">
-              <legend className="mb-2 text-xs font-medium">绑定出站动作</legend>
-              {config.actions.map((a) => (
+              <legend className="mb-2 text-xs font-medium">绑定出站</legend>
+              {config.outbounds.map((a) => (
                 <label key={a.id} className="flex items-center gap-2 text-xs">
                   <input
                     type="checkbox"
-                    checked={rule.action_ids.includes(a.id)}
+                    checked={rule.outbound_ids.includes(a.id)}
                     disabled={busy}
                     onChange={(e) =>
                       patch({
-                        action_ids: e.target.checked
-                          ? [...rule.action_ids, a.id]
-                          : rule.action_ids.filter((id) => id !== a.id),
+                        outbound_ids: e.target.checked
+                          ? [...rule.outbound_ids, a.id]
+                          : rule.outbound_ids.filter((id) => id !== a.id),
                       })
                     }
                   />
@@ -801,21 +788,40 @@ function Editor({
                   {!a.enabled && <span>（已停用）</span>}
                 </label>
               ))}
-              {config.actions.length === 0 && (
+              {config.outbounds.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  尚无动作。可先保存规则，但不会产生 Webhook。
+                  尚无出站。可先保存规则，稍后绑定发送目标。
                 </p>
               )}
             </fieldset>
           </>
         )}
-        {edit.kind === "connectors" && (
+        {edit.kind === "outbounds" && (
           <>
+            <Field label="出站类型">
+              <NativeSelect
+                value={action.type}
+                disabled={busy || !edit.fresh}
+                onChange={(event) => {
+                  if (event.target.value === "webhook")
+                    patch({ type: "webhook" });
+                }}
+              >
+                <NativeSelectOption value="webhook">Webhook</NativeSelectOption>
+                {action.type !== "webhook" && (
+                  <NativeSelectOption value={action.type}>
+                    暂不支持的出站类型
+                  </NativeSelectOption>
+                )}
+              </NativeSelect>
+            </Field>
             <Field label="Webhook URL">
               <Input
                 type="url"
-                value={connector.url}
-                onChange={(e) => patch({ url: e.target.value })}
+                value={action.config.url}
+                onChange={(e) =>
+                  patch({ config: { ...action.config, url: e.target.value } })
+                }
                 disabled={busy}
                 required
                 placeholder="https://example.com/webhook"
@@ -886,23 +892,8 @@ function Editor({
             </div>
           </>
         )}
-        {edit.kind === "actions" && (
+        {edit.kind === "outbounds" && (
           <>
-            <Field label="Webhook 连接器">
-              <NativeSelect
-                value={action.connector_id}
-                disabled={busy}
-                onChange={(e) => patch({ connector_id: e.target.value })}
-                required
-              >
-                <NativeSelectOption value="">请选择</NativeSelectOption>
-                {config.connectors.map((c) => (
-                  <NativeSelectOption key={c.id} value={c.id}>
-                    {c.name} ({c.id})
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
             {(
               [
                 ["batch_size", "批量条数", 1, 500],
@@ -916,7 +907,11 @@ function Editor({
               <Field key={key} label={label}>
                 <Input
                   type="number"
-                  value={Number.isNaN(action[key]) ? "" : action[key]}
+                  value={
+                    Number.isNaN(action.delivery[key])
+                      ? ""
+                      : action.delivery[key]
+                  }
                   min={min}
                   max={max}
                   step={1}
@@ -924,8 +919,11 @@ function Editor({
                   disabled={busy}
                   onChange={(e) =>
                     patch({
-                      [key]:
-                        e.target.value === "" ? NaN : Number(e.target.value),
+                      delivery: {
+                        ...action.delivery,
+                        [key]:
+                          e.target.value === "" ? NaN : Number(e.target.value),
+                      },
                     })
                   }
                 />
@@ -1020,7 +1018,7 @@ function SqlTest({
   return (
     <Drawer
       title="测试 SQL"
-      subtitle="使用样例预览处理结果，不会发送到 Webhook"
+      subtitle="使用样例预览处理结果，不会发送到出站目标"
       onClose={close}
     >
       <form className="space-y-4" onSubmit={(event) => void run(event)}>

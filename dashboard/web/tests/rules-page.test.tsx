@@ -11,28 +11,24 @@ import {
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { RulesPage } from "../src/RulesPage";
 import { api, ApiError } from "../src/api";
-import { defaultAction, type RulesConfig } from "../src/rules-model";
+import { defaultOutbound, type RulesConfig } from "../src/rules-model";
 vi.mock("../src/api", async (original) => ({
   ...(await original<typeof import("../src/api")>()),
   api: vi.fn(),
 }));
 const request = vi.mocked(api);
-const empty: RulesConfig = { connectors: [], actions: [], rules: [] };
+const empty: RulesConfig = { schema_version: 2, outbounds: [], rules: [] };
 const populated: RulesConfig = {
-  connectors: [
+  schema_version: 2,
+  outbounds: [
     {
-      id: "hook",
-      name: "Alarm service",
-      url: "https://example.com/alarm",
-      headers: { Authorization: "[redacted]" },
-    },
-  ],
-  actions: [
-    {
-      ...defaultAction(),
+      ...defaultOutbound(),
       id: "send",
       name: "Send alarm",
-      connector_id: "hook",
+      config: {
+        url: "https://example.com/alarm",
+        headers: { Authorization: "[redacted]" },
+      },
     },
   ],
   rules: [
@@ -41,7 +37,7 @@ const populated: RulesConfig = {
       name: "High temperature",
       sql: 'SELECT payload.temperature FROM "devices/#" WHERE payload.temperature > 80',
       enabled: true,
-      action_ids: ["send"],
+      outbound_ids: ["send"],
     },
   ],
 };
@@ -54,9 +50,10 @@ const status = {
   matched: 8,
   dropped: 1,
   errors: 0,
-  actions: [
+  outbounds: [
     {
       id: "send",
+      type: "webhook",
       queued: 2,
       delivered: 6,
       failed: 0,
@@ -106,13 +103,13 @@ describe("live rule and Webhook management", () => {
     expect(screen.queryByText(/outbox|Best effort|有界异步旁路/)).toBeNull();
     expect(screen.queryByText(/delivery_id|--rules-config/)).toBeNull();
   });
-  it("creates connector with password inputs, never writes credentials into storage", async () => {
+  it("creates outbound with password inputs, never writes credentials into storage", async () => {
     server();
     const persist = vi.spyOn(Storage.prototype, "setItem");
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "连接器 0" }));
-    fireEvent.click(screen.getByRole("button", { name: "新建连接器" }));
+    fireEvent.click(screen.getByRole("button", { name: "出站 0" }));
+    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
     fireEvent.change(screen.getByLabelText("ID"), {
       target: { value: "hook" },
     });
@@ -135,17 +132,18 @@ describe("live rule and Webhook management", () => {
       ([, , , options]) => options?.method === "PUT",
     );
     expect(
-      (call?.[3]?.body as RulesConfig).connectors[0].headers.Authorization,
+      (call?.[3]?.body as RulesConfig).outbounds[0].config.headers
+        .Authorization,
     ).toBe("Bearer private-value");
     expect(persist).not.toHaveBeenCalled();
     expect(screen.queryByText("Bearer private-value")).toBeNull();
   });
-  it("preserves redacted secrets and rejects deleting referenced connector", async () => {
+  it("preserves redacted secrets and rejects deleting referenced outbound", async () => {
     server(populated);
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "连接器 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "编辑 hook" }));
+    fireEvent.click(screen.getByRole("button", { name: "出站 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑 send" }));
     expect(
       (screen.getByLabelText("请求头值 1") as HTMLInputElement).value,
     ).toBe("[redacted]");
@@ -159,29 +157,29 @@ describe("live rule and Webhook management", () => {
         request.mock.calls.find(
           ([, , , options]) => options?.method === "PUT",
         )?.[3]?.body as RulesConfig
-      ).connectors[0].headers.Authorization,
+      ).outbounds[0].config.headers.Authorization,
     ).toBe("[redacted]");
-    fireEvent.click(screen.getByRole("button", { name: "删除 hook" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除 send" }));
     expect(screen.getByRole("alert").textContent).toContain("引用");
     expect(
       (screen.getByRole("button", { name: "确认删除" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
   });
-  it("creates action and rule with exact references then disables rule", async () => {
-    server({ ...empty, connectors: populated.connectors });
+  it("creates outbound and rule with exact references then disables rule", async () => {
+    server();
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "出站动作 0" }));
-    fireEvent.click(screen.getByRole("button", { name: "新建出站动作" }));
+    fireEvent.click(screen.getByRole("button", { name: "出站 0" }));
+    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
     fireEvent.change(screen.getByLabelText("ID"), {
       target: { value: "send" },
     });
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Send" },
     });
-    fireEvent.change(screen.getByLabelText("Webhook 连接器"), {
-      target: { value: "hook" },
+    fireEvent.change(screen.getByLabelText("Webhook URL"), {
+      target: { value: "https://example.com/hook" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -203,8 +201,20 @@ describe("live rule and Webhook management", () => {
     );
     expect(writes).toHaveLength(3);
     const cfg = writes[2][3]?.body as RulesConfig;
-    expect(cfg.rules[0].action_ids).toEqual(["send"]);
+    expect(cfg.rules[0].outbound_ids).toEqual(["send"]);
     expect(cfg.rules[0].enabled).toBe(false);
+  });
+  it("rejects unknown outbound types without interpreting them as Webhook", async () => {
+    server({
+      ...empty,
+      outbounds: [{ ...defaultOutbound(), type: "kafka" }],
+    } as unknown as RulesConfig);
+    render(<RulesPage token="token" expired={expired} />);
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("暂不受支持"),
+    );
+    expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
+    expect(request.mock.calls.every((call) => !call[3])).toBe(true);
   });
   it("SQL dry run only calls test endpoint and escapes output", async () => {
     server();

@@ -385,7 +385,7 @@ function Console({
               route === "overview"
                 ? "了解 Broker 的连接、消息流量与运行状态。"
                 : route === "rules"
-                  ? "管理消息处理规则、Webhook 连接器和出站动作。"
+                  ? "管理消息处理规则、出站目标。"
                   : "当前实例的真实运行数据与只读配置。"
             }
           >
