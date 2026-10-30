@@ -257,3 +257,22 @@ fn omitted_sequence_rejected_even_if_counters_were_also_decremented() {
     let data = run(vec![sample(17, 150), sample(19, 160)]);
     assert!(summarize(&data).is_err());
 }
+
+#[test]
+fn aggregate_writes_cannot_mask_events_on_an_unwritten_record() {
+    let mut data = run(vec![sample(0, 150), sample(1, 160)]);
+    data.pairs[0].samples[0].write_completed_ns = None;
+    data.pairs[0].samples[0].completed_ns = None;
+    data.pairs[0].samples[1].delivery_ns = None;
+    data.pairs[0].samples[1].completed_ns = None;
+    data.pairs[0].counters.write_completed = 1;
+    data.pairs[0].counters.delivered_unique = 1;
+    data.pairs[0].counters.completed = 0;
+    assert!(summarize(&data).is_err());
+    data.config.qos = 1;
+    data.pairs[0].samples[0].delivery_ns = None;
+    data.pairs[0].samples[0].ack_ns = Some(150);
+    data.pairs[0].counters.delivered_unique = 0;
+    data.pairs[0].counters.puback_received = 1;
+    assert!(summarize(&data).is_err());
+}

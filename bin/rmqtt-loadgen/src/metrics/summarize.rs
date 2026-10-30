@@ -96,6 +96,14 @@ fn validate_sample(sample: &Sample, data: &RunData) -> Result<(), LoadError> {
     if sample.send_started_ns > data.finished_ns {
         return Err(invalid("sample send exceeds run finish"));
     }
+    // The paired actor reads delivery/source events only after send() has fully
+    // completed. Validate each record, so another sample's write cannot mask an
+    // impossible acknowledgement or delivery in aggregate counters.
+    if sample.write_completed_ns.is_none()
+        && (sample.ack_ns.is_some() || sample.delivery_ns.is_some())
+    {
+        return Err(invalid("acknowledgement or delivery without full write"));
+    }
     if data.config.qos == 0 && sample.ack_ns.is_some() {
         return Err(invalid("QoS0 cannot have a source acknowledgement"));
     }
