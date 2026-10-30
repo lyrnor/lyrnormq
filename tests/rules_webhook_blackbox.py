@@ -438,7 +438,10 @@ class RulesWebhook(unittest.TestCase):
         self.rules_path.write_text('{invalid')
         process = subprocess.run(args + ['--rules-config', str(self.rules_path)], capture_output=True, timeout=5, cwd=self.root)
         self.assertNotEqual(process.returncode, 0)
-        self.rules_path.write_text(json.dumps({'connectors': [], 'actions': [], 'rules': []}))
+        self.rules_path.unlink()
+        self.start()
+        self.broker.stop()
+        self.assertEqual(self.stored_config(), {'connectors': [], 'actions': [], 'rules': []})
         assets = self.root / 'assets'
         assets.mkdir()
         (assets / 'index.html').write_text('<div>test</div>')
