@@ -568,3 +568,20 @@ deliveries that each recipient commits independently. Client QoS1/2 acknowledgem
 wait for recipient commits; a full recipient drops only its own copy. SQLite stores
 one row per persistent partition and per retained topic (container2), written by a
 group-committing storage thread; container1 snapshots migrate atomically at startup.
+
+## Phase4b/4c: bounded hot paths and TLS
+
+[Phase4b](contracts/phase4b.md) permits conservative upper bounds to avoid exact
+Serde sizing when limits provably fit, and avoids subscription index updates for
+transactions that cannot change filters. Proposals remain deep clones; persistent
+row commit and per-recipient admission semantics are unchanged.
+
+[Phase4c](contracts/phase4c-tls.md) adds one optional TLS listener using Rustls and
+Tokio. TCP and TLS share MQTT framing, authentication, session actors, outbox and
+cleanup. Plain TCP retains owned socket halves; TLS uses split encrypted IO with
+explicit flush inside write deadlines. Connection permits cover TLS handshake,
+which has its own deadline and shutdown cancellation before any MQTT state exists.
+Identity files are bounded startup-only IO on the blocking pool. No durable schema
+change, shared dual listeners, client certificate authentication or certificate
+reload is introduced. Cluster work is deferred by user; the cluster document is a
+proposal only.

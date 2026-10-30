@@ -38,6 +38,9 @@ session, outbox, admission, expiry, Will and storage semantics remain unchanged.
   does not guarantee encrypted bytes reached the socket. Handle TLS EOF/errors
   through existing ungraceful MQTT cleanup; TLS close_notify without MQTT
   DISCONNECT is still ungraceful for Will semantics.
+- Normal MQTT DISCONNECT over TLS completes a bounded TLS close_notify without
+  draining queued application messages. Keep plaintext writer-abort behavior and
+  MQTT terminal-frame ordering unchanged. Abrupt socket/IO failures may abort.
 - Keep packet limits on decoded MQTT bytes, independent of TLS record sizes.
   Existing bounded queues, write deadlines, receive maximum and Keep Alive apply.
 

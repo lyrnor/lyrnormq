@@ -1,8 +1,9 @@
 mod allocator;
 mod auth_policy;
 mod cli;
+mod tls_identity;
 
-use mqtt_transport::{export_state, serve};
+use mqtt_transport::{export_state, serve, serve_tls};
 use std::{error::Error, io::Write};
 use tokio::{net::TcpListener, sync::watch};
 
@@ -31,14 +32,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
             mqtt_auth::PlainAuthenticator::new(options.config.access_control.clone()),
         ));
     }
+    let tls = match (options.tls_cert, options.tls_key) {
+        (Some(cert), Some(key)) => {
+            Some(tokio::task::spawn_blocking(move || tls_identity::load(&cert, &key)).await??)
+        }
+        (None, None) => None,
+        _ => return Err("TLS requires both certificate and key".into()),
+    };
     let listener = TcpListener::bind(&options.address).await?;
-    eprintln!("rmqtt listening on {}", listener.local_addr()?);
+    let transport = if tls.is_some() { "TLS" } else { "TCP" };
+    eprintln!(
+        "rmqtt listening on {} ({transport})",
+        listener.local_addr()?
+    );
     let (tx, rx) = watch::channel(false);
     tokio::spawn(async move {
         if tokio::signal::ctrl_c().await.is_ok() {
             let _ = tx.send(true);
         }
     });
-    serve(listener, options.config, rx).await?;
+    if let Some(tls) = tls {
+        serve_tls(listener, options.config, tls, rx).await?;
+    } else {
+        serve(listener, options.config, rx).await?;
+    }
     Ok(())
 }

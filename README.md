@@ -20,8 +20,32 @@ Without SQLite, clean sessions and global retained/Will state are volatile acros
 process death. With SQLite, Clean Session=false retains subscriptions, offline
 QoS1/2 and inflight stages/IDs. Clean Session=true discards the prior session;
 retained messages remain independent of that reset. MQTT5 Clean Start and Session
-Expiry are independent, as described below. TLS and WebSocket remain unsupported.
+Expiry are independent, as described below. Optional TLS is described below;
+WebSocket remains unsupported.
 Default bind is loopback.
+
+## TLS listener
+
+```sh
+cargo run -p rmqtt -- --listen 0.0.0.0:8883 \
+  --tls-cert ./server-chain.pem --tls-key ./server-key.pem \
+  --storage-path ./sessions.sqlite
+```
+
+Supply both PEM paths to select TLS instead of plaintext on this listener. Clients
+must trust the issuing CA and verify the server hostname; do not disable certificate
+verification. TLS1.2/1.3 use Rustls with the ring provider. The certificate chain
+must be nonempty and match exactly one unencrypted private key; each file is bounded
+to 1 MiB and read once before binding. Protect the private key with file permissions.
+TLS does not replace the existing authentication/ACL policy.
+
+TLS handshakes count toward `--max-connections` and have
+`--handshake-timeout-ms`; MQTT CONNECT has its own separate handshake deadline.
+MQTT packet limits, Keep Alive, QoS and durable recovery use the same implementation
+as plaintext. One process serves one listener: simultaneous plain/TLS listeners
+sharing state, mTLS, certificate reload and WebSocket are not implemented. Do not
+start two processes against the same SQLite database. See the
+[TLS contract](docs/contracts/phase4c-tls.md) for lifecycle and acceptance scope.
 
 ## MQTT5 foundation and version interoperability
 
@@ -194,7 +218,7 @@ Without `--auth-policy`, the existing anonymous policy remains in effect and PLA
 does not enforce a credential database.
 
 PLAIN does not encrypt credentials. Use a protected transport; the built-in listener
-is loopback by default and TLS remains future work. SCRAM, delegated authorization,
+is loopback by default; enable the TLS listener for encryption. SCRAM, delegated authorization,
 SASLprep normalization and remote providers are not implemented. The public provider
 traits allow adding mechanisms under a separate contract. Raw-wire AUTH client
 tests are used where the installed MQTT SDK lacks enhanced AUTH support.
@@ -324,8 +348,9 @@ payload-free handshake. Retained reads and Will publication are reauthorized;
 revoked Wills are suppressed atomically. `BrokerConfig.access_control` and
 `mqtt_auth::AccessControl` support embedded custom bounded policies.
 
-TCP is currently unencrypted: authentication does not provide wire confidentiality.
-TLS, remote providers, reload and authentication rate limiting remain unimplemented.
+Plain TCP is unencrypted: authentication does not provide wire confidentiality.
+Enable TLS for wire encryption. Remote providers, reload and authentication rate
+limiting remain unimplemented.
 Argon2 runs on the bounded blocking worker; authentication bursts and global ACL
 reconciliation can delay other traffic. No security/performance certification is claimed.
 

@@ -169,9 +169,13 @@ The current catalogue is screened. The remaining whole-server gate requires an
 independent completeness assessment of applicable unnumbered/table/direction and
 cross-layer obligations, plus broader independent client/fault/corpus evidence. Shared QoS1 redistribution after selected-session
 termination remains a documented SHOULD exception, not seamless group redelivery.
-Secure transport is absent; PLAIN is not encryption. Additional SASL mechanisms,
-TLS/WebSocket, broad Fuzz/fault/client campaigns and measured performance/operational
-hardening remain separate tasks. None alone proves or disproves MQTT5 conformance.
+The original Phase2o assessment covered plaintext TCP; PLAIN is not encryption.
+Phase4c subsequently adds optional TLS1.2/1.3 with separate transport acceptance
+under [its contract](../contracts/phase4c-tls.md). The historical TCP evidence and
+row dispositions do not certify the new encrypted transport. Additional SASL
+mechanisms, WebSocket, broad Fuzz/fault/client campaigns and measured performance/
+operational hardening remain separate tasks. None alone proves or disproves MQTT5
+conformance.
 
 
 ## Phase2o whole-server project acceptance

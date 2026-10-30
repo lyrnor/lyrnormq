@@ -1,10 +1,12 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
 
 pub struct Options {
     pub address: String,
+    pub tls_cert: Option<PathBuf>,
+    pub tls_key: Option<PathBuf>,
     pub auth_policy: Option<PathBuf>,
     pub enhanced_auth_plain: bool,
     /// Print the merged stored state of a stopped broker instead of serving.
@@ -30,6 +32,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut args = args.into_iter();
     let mut options = Options {
         address: "127.0.0.1:1883".into(),
+        tls_cert: None,
+        tls_key: None,
         auth_policy: None,
         enhanced_auth_plain: false,
         export_state: false,
@@ -51,6 +55,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         if !matches!(
             option.as_str(),
             "--listen"
+                | "--tls-cert"
+                | "--tls-key"
                 | "--protocol"
                 | "--auth-policy"
                 | "--storage-path"
@@ -73,6 +79,18 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
         if option == "--listen" {
             options.address = value;
+            continue;
+        }
+        if option == "--tls-cert" || option == "--tls-key" {
+            let slot = if option == "--tls-cert" {
+                &mut options.tls_cert
+            } else {
+                &mut options.tls_key
+            };
+            if value.is_empty() || slot.is_some() {
+                return Err(invalid(format!("{option} requires one nonempty path")));
+            }
+            *slot = Some(PathBuf::from(value));
             continue;
         }
         if option == "--protocol" {
@@ -136,6 +154,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             _ => return Err(invalid("unrecognized numeric option")),
         }
     }
+    if options.tls_cert.is_some() != options.tls_key.is_some() {
+        return Err(invalid(
+            "--tls-cert and --tls-key must be supplied together",
+        ));
+    }
+    if options.export_state && options.tls_cert.is_some() {
+        return Err(invalid("TLS options cannot be used with export-state"));
+    }
     if options.export_state && options.config.storage_path.is_none() {
         return Err(invalid("export-state requires --storage-path"));
     }
@@ -148,6 +174,38 @@ mod tests {
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).into()).collect()
+    }
+
+    #[test]
+    fn tls_identity_requires_one_complete_pair_without_reading_files() {
+        let plain = parse(args(&[])).unwrap().unwrap();
+        assert!(plain.tls_cert.is_none() && plain.tls_key.is_none());
+        let tls = parse(args(&["--tls-cert", "cert.pem", "--tls-key", "key.pem"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(tls.tls_cert, Some(PathBuf::from("cert.pem")));
+        assert_eq!(tls.tls_key, Some(PathBuf::from("key.pem")));
+        assert_eq!(tls.address, plain.address);
+        for values in [
+            vec!["--tls-cert", "cert.pem"],
+            vec!["--tls-key", "key.pem"],
+            vec!["--tls-cert"],
+            vec!["--tls-cert", "", "--tls-key", "key.pem"],
+            vec!["--tls-cert", "cert.pem", "--tls-key", ""],
+            vec!["--tls-cert", "a", "--tls-cert", "b", "--tls-key", "c"],
+            vec!["--tls-cert", "a", "--tls-key", "b", "--tls-key", "c"],
+            vec![
+                "export-state",
+                "--storage-path",
+                "state.db",
+                "--tls-cert",
+                "a",
+                "--tls-key",
+                "b",
+            ],
+        ] {
+            assert!(parse(args(&values)).is_err(), "{values:?}");
+        }
     }
 
     #[test]
