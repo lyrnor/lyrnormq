@@ -510,3 +510,11 @@ Next ordered tasks:
 - [ ] Separate future profiling of client scheduling and broker service time;never
   compare closed-loop results to the earlier unlimited emqtt workload as a pure
   broker improvement. No server capacity conclusion from these correctness smokes.
+
+### Rust load generator server acceptance completed
+
+- [x] New instance identity confirmed by user;strict pinned SSH host verification.
+- [x] Static Linux tool deployed to47.117.6.20,new privateIP172.30.139.132.
+- [x] Three5000connection QoS profiles with exact raw percentile oracle passed.
+- [ ] Separate longer fixed-rate/saturation studies and generator/broker resource
+  profiling remain future tasks;no such capacity/SLO claims from short acceptance.

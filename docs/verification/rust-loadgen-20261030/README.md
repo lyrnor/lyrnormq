@@ -25,7 +25,40 @@ was missed. The verification accepts that truthful accounting,not the load as a
 passed fixed-rate gate. No unsent messages or failed protocol cases were hidden.
 
 Linux amd64 musl staticrelease was cross-built locally;SHA256 inmanifest. These
-are correctness checks,not an official capacity/latency baseline. Current live
-server verification has not completed because47.117.6.20'sSSH host key changed;
-server identity confirmation was requested before accepting a new host key.
-The old known_hosts record was not removed and verification was not disabled.
+are correctness checks,not an official capacity/latency baseline. The identity gate
+was resolved when the user confirmed47.117.6.20 is a new instance. New ED25519 key
+was pinned in a task-local known-hosts file;StrictHostKeyChecking remained enabled,
+and the old global known_hosts was not modified.
+
+## Actual new-server acceptance
+
+New generator:47.117.6.20/private172.30.139.132,8logicalCPUs,16GB-class RAM,
+Ubuntu26.04.1x86-64. Binary`/opt/rmqtt-loadgen/rmqtt-loadgen`,locally cross-built,
+SHA256 in manifest. Old generator was4cores/private172.30.139.131;do not compare
+these results to earlier emqtt runs as a pure broker speedup.
+
+All three QoS runs used2500pairs=5000connections,128bytes,closed-loop inflight1,
+warmup1s/offering5s. Every measured record fully wrote,uniquely delivered and
+completed its required source protocol;QoS2 only PUBCOMP counted final. All six
+raw sample latency series were independently recomputed on server;deliveryp99
+rechecked again locally. Zero duplicates/missing/failed measured records. Broker
+PID2100933 unchanged,no restarts,active with0test connections after completion.
+
+|QoS|Measured cohort samples|Offering-window delivery TPS|Delivery p50ms|p95ms|p99ms|Late deliveries|
+|---|---:|---:|---:|---:|---:|---:|
+|0|246454|48790.80|8.206|148.402|270.025|2500|
+|1|148181|29162.60|12.133|210.383|389.771|2368|
+|2|97451|18991.20|162.315|322.044|462.671|2495|
+
+TPS above excludes events outside the5s offering interval;p99 covers the entire
+measured publication cohort,including events completed during bounded drain. These
+are different explicit views,not a shorter denominator for late events. Ns is a
+software timestamp unit,not physical1ns accuracy. This is a short functionality
+acceptance,not saturated maximum throughput,long-duration stability or broker-only
+service latency. No new broker CPU/RSS measurements were invented;systemd's memory
+peak also includes the Python verifier and is not labeled as broker/tool memory.
+
+[Remote reports and verifier](remote-verification.json),[full raw archive](remote-acceptance-raw.tar.gz),
+[verifier source](remote-verifier.py). Archive SHA256 matches both endpoints and is
+recorded in manifest. No private keys are included. Reports remain on the server
+under`/var/log/rmqtt-loadgen/acceptance-20261030`.

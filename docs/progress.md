@@ -1839,3 +1839,15 @@ known_hosts entries;identity confirmation requested. Do not disable strict host
 checking or count this remote validation as passed. Tool usage and metric definitions
 are in `bin/rmqtt-loadgen/README.md`. Future:connect-only profiles,TLS/auth and
 multi-host synchronized-clock support;these are not advertised as implemented.
+
+### Rust load generator new-server gate resolved
+
+User confirmed47.117.6.20 is a new instance;new ED25519 fingerprint pinned with
+strict checking,global old host records unchanged. New generator is8cores/16GB,
+private172.30.139.132. Linux static release deployed`/opt/rmqtt-loadgen/rmqtt-loadgen`.
+Three actual5000connection QoS0/1/2 correctness runs passed(1s warmup/5s offering,
+closed-loop window1);all six raw percentile series independently recomputed,delivery
+p99 rechecked locally. Counts fully reconcile;brokerPID2100933 unchanged,no restarts,
+test connections cleared. Full reports/raw/hash/limitations in
+`docs/verification/rust-loadgen-20261030/`. Not a maximum-throughput comparison with
+old4core emqtt generator or unlimited offered load.

@@ -23,9 +23,64 @@
     "status": "cross-compiled ELF x86-64 statically linked stripped"
   },
   "remote_verification": {
-    "status": "pending host identity confirmation",
+    "status": "passed",
     "server": "47.117.6.20",
-    "reported_ed25519_fingerprint": "SHA256:6JHJR1nEhZ1MI2g6lJZegyIkTtQvyXoKAroual9PC/8"
+    "private_ip": "172.30.139.132",
+    "logical_cpus": 8,
+    "ram": "16GB class (~15GiB reported)",
+    "os": "Ubuntu26.04.1 x86_64",
+    "identity_gate": "user confirmed a new instance;pinned new ED25519 fingerprint and kept StrictHostKeyChecking=yes;old global known_hosts untouched",
+    "ed25519_fingerprint": "SHA256:6JHJR1nEhZ1MI2g6lJZegyIkTtQvyXoKAroual9PC/8",
+    "binary_path": "/opt/rmqtt-loadgen/rmqtt-loadgen",
+    "result_directory": "/var/log/rmqtt-loadgen/acceptance-20261030",
+    "binary_sha256": "00cc0c8fed39e228472b8176c258705fb8f37079e2f1e124faef7b609f1696b4",
+    "broker": "172.30.139.129:1883",
+    "broker_public": "101.132.237.211",
+    "broker_sha256": "9af2bc7319eabc366e5e06512ed24f5b013407b5eff5c4ece14f4b5bfb423e59",
+    "broker_pid_unchanged": 2100933,
+    "broker_restarts_during_acceptance": 0,
+    "connections_after_acceptance": 0,
+    "scope": "three5000connection short correctness acceptance runs;closed-loop window1;1s warmup+5s offering,not maximum throughput or a60s baseline",
+    "rows": [
+      {
+        "qos": 0,
+        "measured_messages": 246454,
+        "offering_window_delivery_tps": 48790.8,
+        "late_delivery_count": 2500,
+        "p50_send_to_delivery_ms": 8.206373,
+        "p95_send_to_delivery_ms": 148.401889,
+        "p99_send_to_delivery_ms": 270.025282,
+        "raw_all_series_verified_on_server": true,
+        "raw_p99_verified_again_locally": true
+      },
+      {
+        "qos": 1,
+        "measured_messages": 148181,
+        "offering_window_delivery_tps": 29162.6,
+        "late_delivery_count": 2368,
+        "p50_send_to_delivery_ms": 12.133034,
+        "p95_send_to_delivery_ms": 210.383421,
+        "p99_send_to_delivery_ms": 389.770906,
+        "raw_all_series_verified_on_server": true,
+        "raw_p99_verified_again_locally": true
+      },
+      {
+        "qos": 2,
+        "measured_messages": 97451,
+        "offering_window_delivery_tps": 18991.2,
+        "late_delivery_count": 2495,
+        "p50_send_to_delivery_ms": 162.315483,
+        "p95_send_to_delivery_ms": 322.043777,
+        "p99_send_to_delivery_ms": 462.671343,
+        "raw_all_series_verified_on_server": true,
+        "raw_p99_verified_again_locally": true
+      }
+    ],
+    "raw_archive": {
+      "path": "remote-acceptance-raw.tar.gz",
+      "sha256": "c7befbb1ea170f1e045cec1a8d7620683f18a8d9e2aae82990e002d4e79a69f2",
+      "bytes": 16376429
+    }
   },
   "local_real_scope": "small correctness acceptance,not max throughput; fixed-rate deadlines intentionally reported not_sent when timer misses cutoff"
 }
