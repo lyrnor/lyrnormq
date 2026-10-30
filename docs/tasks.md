@@ -518,3 +518,21 @@ Next ordered tasks:
 - [x] Three5000connection QoS profiles with exact raw percentile oracle passed.
 - [ ] Separate longer fixed-rate/saturation studies and generator/broker resource
   profiling remain future tasks;no such capacity/SLO claims from short acceptance.
+
+## Cluster architecture review — 2026-10-30
+
+- [x] Reviewed current Phase4/Phase4b at `89293dc` with independent read-only
+  transport/session and routing/quality agents. User selected high-frequency,
+  many point-to-point Topics as the primary workload.
+- [x] Recorded proposal, ownership/fencing, routing visibility, durable forwarding,
+  alternatives and test dependencies in [cluster proposal](cluster/architecture-proposal.md).
+- [ ] C0: freeze numerical SLO/failure model/ACK contract and rebuild the current
+  single-node baseline; older benchmark binaries are not this revision's baseline.
+- [ ] C1/C2: shard fencing, deterministic commands, replicated commit and recovery.
+- [ ] C3/C4: cross-shard durable forwarding, subscription barrier, complete routing,
+  retained/Will/shared semantics and migration fault tests.
+- [ ] C5: measure then optimize routing hops/cache/batching and scaling efficiency.
+
+This is a reviewed architecture proposal, not a frozen cluster implementation
+contract, deployed cluster or measured capacity result. Existing runtime and
+durable schema remain unchanged.
