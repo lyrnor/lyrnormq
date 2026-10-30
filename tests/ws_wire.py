@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import os
+import ssl
 import struct
 
 from blackbox import exact
@@ -127,8 +128,19 @@ class WebSocket:
             if opcode == 8:
                 assert len(payload) != 1, 'invalid server close payload'
                 self.close_code = struct.unpack('!H', payload[:2])[0] if payload else None
+                if payload:
+                    assert self.close_code in (1000, 1001, 1002, 1003, 1007, 1008,
+                                               1009, 1010, 1011, 1012, 1013, 1014) or 3000 <= self.close_code <= 4999
+                    payload[2:].decode('utf8')
                 if not self.close_sent:
-                    self.send_frame(payload, 8)
+                    try:
+                        self.send_frame(payload, 8)
+                    except (BrokenPipeError, ConnectionResetError, ssl.SSLEOFError):
+                        # A protocol-error close may terminate transport before
+                        # our echo. The received error code remains mandatory;
+                        # normal-close failures are never hidden by this oracle.
+                        if self.close_code not in (1002, 1003, 1009):
+                            raise
                 self.closed = True
             elif opcode == 9:
                 self.send_frame(payload, 10)

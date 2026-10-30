@@ -28,6 +28,11 @@ class BytesSocket:
         return self.data.read(count)
 
 
+class ResetAfterCloseSocket(BytesSocket):
+    def sendall(self, data):
+        raise BrokenPipeError('fixture: peer already closed after its close frame')
+
+
 class WebSocketOracle(unittest.TestCase):
     def test_rfc6455_known_accept_and_mask(self):
         self.assertEqual(accept_key('dGhlIHNhbXBsZSBub25jZQ=='), 's3pPLMBiTxaQ9kYGzzhZRbK+xOo=')
@@ -47,6 +52,14 @@ class WebSocketOracle(unittest.TestCase):
         self.assertEqual(fragmented.message_sizes, [2])
         status, headers, pending = response(BytesSocket(b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n\x82\x01a'))
         self.assertEqual((status, headers, pending), (101, {'upgrade':['websocket']}, b'\x82\x01a'))
+
+    def test_received_error_close_remains_observable_after_echo_reset(self):
+        error = WebSocket(ResetAfterCloseSocket(b'\x88\x02\x03\xea'))
+        self.assertEqual(error.recv(1), b'')
+        self.assertEqual(error.close_code, 1002)
+        normal = WebSocket(ResetAfterCloseSocket(b'\x88\x02\x03\xe8'))
+        with self.assertRaises(BrokenPipeError):
+            normal.recv(1)
 
 
 class WebSocketBlackbox(unittest.TestCase):
@@ -282,7 +295,18 @@ class WebSocketBlackbox(unittest.TestCase):
                 except (OSError,EOFError):
                     if time.monotonic()>deadline:raise
             self.addCleanup(mqtt_idle.close);mqtt_idle.settimeout(2)
-            self.assertEqual(mqtt_idle.recv(1),b'')
+            began = time.monotonic()
+            try:
+                self.assertEqual(mqtt_idle.recv(1),b'')
+            except (EOFError, ConnectionResetError):
+                pass  # No MQTT CONNECT/session: require bounded closure, not normal DISCONNECT semantics.
+            self.assertLess(time.monotonic()-began,1.5)
+            deadline = time.monotonic()+2
+            while True:
+                try:healthy=self.client(broker,'after-mqtt-handshake-timeout');break
+                except (OSError,EOFError):
+                    if time.monotonic()>deadline:raise
+            self.barrier(healthy);self.disconnect(healthy)
             broker.stop()
             pending = WebSocketBroker(self.identities,secure,extra=['--handshake-timeout-ms','10000']).start()
             self.addCleanup(pending.stop)
