@@ -14,7 +14,7 @@ Bound queries/concurrency (at most8 outstanding management queries, fail fast Wo
 
 ## HTTP/CLI contract (coordinator)
 
-CLI `--admin-listen IP:PORT --admin-token-file PATH [--dashboard-dir PATH]`, complete pair mandatory; only numeric loopback addresses allowed. Disabled by default. Reject duplicates/empty/incomplete/export-state combinations. Token file regular <=4096 bytes, trimmed ASCII token32..256 bytes, visible ASCII except whitespace; load on blocking pool before bind, never log/return token. API `Authorization: Bearer TOKEN` for every /api route, no query/cookie fallback, no CORS, no mutation endpoints; API responses Cache-Control:no-store. Constant-time token comparison. Body/URI/header/time/connection/query bounds; all errors redact internals. Existing MQTT auth separate from administrator token. Remote access via SSH tunnel or authenticated TLS reverse proxy, never expose plain HTTP externally.
+CLI `--admin-listen IP:PORT --admin-token-file PATH [--dashboard-dir PATH]`, complete pair mandatory; only numeric loopback addresses allowed. Disabled by default. Reject duplicates/empty/incomplete/export-state combinations. Token file regular <=4096 bytes, trimmed ASCII token32..256 bytes, visible ASCII except whitespace; load on blocking pool before accepting connections, never log/return token. API `Authorization: Bearer TOKEN` for every /api route, no query/cookie fallback, no CORS, no mutation endpoints; API responses Cache-Control:no-store. Constant-time token comparison. Body/URI/header/time/connection/query bounds; all errors redact internals. Existing MQTT auth separate from administrator token. Remote access via SSH tunnel or authenticated TLS reverse proxy, never expose plain HTTP externally.
 
 GET /api/v1/overview => Overview plus `sampled_at_millis:u64`, `instance` {version,listen,transport,protocol,storage,tls,mtls,auth_policy,enhanced_auth}, `resources` {cpu_percent:null,rss_bytes:null}, `capabilities` {events:false,resource_metrics:false,mutations:false}. GET /api/v1/sessions, /subscriptions, /retained => typed Page per query. GET /api/v1/session?client_id=... => SessionView or404. GET /api/v1/configuration => {instance,limits:{max_connections,max_sessions,max_packet_size,max_subscriptions,max_retained,max_inflight,outbound_capacity,max_handshakes,max_auth_tasks,auth_rate_per_second,auth_burst,handshake_timeout_ms,write_timeout_ms,topic_alias_maximum}}. No token, hashes, keys, certificate/auth/storage paths or policy contents. HTTP errors {error:{code,message}} status400 invalid request,401 unauthorized,404 absent,405 method,429 query capacity or503 not ready/unavailable. No events endpoint yet; UI must say unavailable. Unknown API routes never fall through to HTML.
 
@@ -31,3 +31,45 @@ React + TypeScript + Vite; lock dependencies. Match light design, desktop/sideba
 3. Frontend agent owns dashboard/web/** only; reads design but does not alter it. Independent branch/worktree, commit tests/build.
 4. Quality agent owns tests/dashboard* only; independent blackbox HTTP+raw MQTT tests, no implementation changes, commit tests. Depends only on frozen CLI/API until integration.
 5. Coordinator integrates telemetry then HTTP/CLI, frontend then quality; reviews all diffs, fixes through owning agents where possible. fmt, clippy --all-targets -- -D warnings, workspace tests, real MQTT311/5 QoS0/1/2 mutations observed via API, retained update/delete, subscriptions, graceful/abnormal disconnect and SQLite restart recovery; negative token/query/path/method tests. Real browser verify login/search/details/errors/responsive with live broker and save screenshot. No performance/deployment/complete dashboard admin claims without evidence.
+
+### Frozen metadata traversal addendum
+
+Telemetry ownership additionally includes `crates/mqtt-router/src/concurrent.rs` for a payload-free retained metadata visitor (topic, QoS, payload length and borrowed metadata). It must hold only the existing synchronous shard guard during each non-await callback and never clone payloads or change routing behavior. This avoids a second retained index and unbounded payload copying for management reads.
+The visitor addendum also covers `crates/mqtt-router/src/retained.rs`, whose private retained records back ConcurrentRetained; add only the read-only metadata traversal needed by the wrapper, with no payload copies or altered routing semantics.
+
+### Frozen recovered-negotiation clarification
+
+Existing durable schema does not persist negotiated protocol or Receive Maximum.
+For an offline session recovered at process startup, expose `protocol: "unknown"`
+and `receive_maximum: null` until reconnect; SessionView.receive_maximum is therefore
+`Option<u16>`. Never relabel the model's restore defaults as a previously negotiated
+MQTT3.1.1 session. Known protocol filters exclude unknown; empty filter includes it.
+No durable schema change is authorized. UI must render unknown/not available.
+
+### Frozen static-secret containment
+
+Reject startup if any loaded dashboard asset equals the trimmed administrator token
+(including a token stored inside the asset root or a hard-link alias under an asset
+extension). Never publish a management secret as an unauthenticated static asset.
+Also reject any dashboard asset that aliases configured token, TLS certificate/key,
+client CA, auth policy, or existing storage file (including hard links under a .js
+name). Accept only known static build asset extensions; do not serve arbitrary
+configuration/database files from a misconfigured asset directory.
+
+### Frozen busy/error and inflight clarification
+
+Expose public `mqtt_transport::management::ManagementError::{Busy,Unavailable}`
+as the inner error of io::ErrorKind::WouldBlock. Implement Error+Display; HTTP
+maps Busy to429 and Unavailable to503 without string parsing. `SessionView.inflight`
+counts outbound QoS exchanges only, not incoming QoS2 records; label it accordingly.
+
+### Frontend UI foundation — user amendment
+
+Use Tailwind CSS (Vite integration) for layout/responsiveness and shadcn/ui source
+components for reusable controls. Replace the large handwritten stylesheet rather
+than wrapping it with another styling layer. Keep only theme tokens/base styles and
+small genuinely custom chart/brand rules. Preserve frozen API, memory-only auth,
+query cancellation, all real-data/unsupported states and tests. Add accessible
+standard Button/Card/Input/Badge/Table/Sheet or Dialog/Tabs/NativeSelect primitives
+as appropriate; retain same light visual direction. No backend/CSP weakening for UI
+library convenience. Frontend owner continues isolated dashboard/web/** worktree.

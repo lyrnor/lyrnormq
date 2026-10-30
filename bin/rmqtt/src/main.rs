@@ -1,3 +1,4 @@
+mod admin;
 mod allocator;
 mod auth_policy;
 mod cli;
@@ -23,7 +24,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         return Ok(());
     }
-    if let Some(path) = options.auth_policy {
+    if let Some(path) = options.auth_policy.clone() {
         let policy = tokio::task::spawn_blocking(move || auth_policy::load(&path)).await??;
         options.config.access_control = std::sync::Arc::new(policy);
     }
@@ -32,9 +33,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             mqtt_auth::PlainAuthenticator::new(options.config.access_control.clone()),
         ));
     }
-    let tls = match (options.tls_cert, options.tls_key) {
+    let tls = match (options.tls_cert.clone(), options.tls_key.clone()) {
         (Some(cert), Some(key)) => {
-            let client_ca = options.tls_client_ca;
+            let client_ca = options.tls_client_ca.clone();
             Some(
                 tokio::task::spawn_blocking(move || {
                     tls_identity::load_with_client_ca(&cert, &key, client_ca.as_deref())
@@ -45,7 +46,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (None, None) => None,
         _ => return Err("TLS requires both certificate and key".into()),
     };
+    // Load bounded token/assets before accepting connections. Binding port zero
+    // first lets the dashboard report the actual MQTT endpoint.
     let listener = TcpListener::bind(&options.address).await?;
+    let admin = if let Some(address) = options.admin_listen {
+        let handle = mqtt_transport::management::ManagementHandle::new();
+        options.config.management = Some(handle.clone());
+        let listen = listener.local_addr()?.to_string();
+        let (returned, state) = tokio::task::spawn_blocking(move || {
+            let state = admin::prepare(&options, listen, handle)?;
+            Ok::<_, std::io::Error>((options, state))
+        })
+        .await??;
+        options = returned;
+        let listener = TcpListener::bind(address).await?;
+        eprintln!(
+            "rmqtt management on {} (loopback, bearer authentication)",
+            listener.local_addr()?
+        );
+        Some((listener, state))
+    } else {
+        None
+    };
     let transport = match (options.websocket, tls.is_some()) {
         (false, false) => "TCP",
         (false, true) => "TLS",
@@ -57,18 +79,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
         listener.local_addr()?
     );
     let (tx, rx) = watch::channel(false);
+    let signal_tx = tx.clone();
     tokio::spawn(async move {
         if tokio::signal::ctrl_c().await.is_ok() {
-            let _ = tx.send(true);
+            let _ = signal_tx.send(true);
         }
     });
-    match (options.websocket, tls) {
-        (false, None) => serve(listener, options.config, rx).await?,
-        (false, Some(tls)) => serve_tls(listener, options.config, tls, rx).await?,
-        (true, None) => serve_ws(listener, options.config, options.websocket_options, rx).await?,
-        (true, Some(tls)) => {
-            serve_wss(listener, options.config, tls, options.websocket_options, rx).await?
+    let mqtt_rx = rx.clone();
+    let broker = async move {
+        match (options.websocket, tls) {
+            (false, None) => serve(listener, options.config, mqtt_rx).await,
+            (false, Some(tls)) => serve_tls(listener, options.config, tls, mqtt_rx).await,
+            (true, None) => {
+                serve_ws(listener, options.config, options.websocket_options, mqtt_rx).await
+            }
+            (true, Some(tls)) => {
+                serve_wss(
+                    listener,
+                    options.config,
+                    tls,
+                    options.websocket_options,
+                    mqtt_rx,
+                )
+                .await
+            }
         }
-    }
+    };
+    let has_admin = admin.is_some();
+    let management = async move {
+        match admin {
+            Some((listener, state)) => admin::serve(listener, state, rx).await,
+            None => std::future::pending::<std::io::Result<()>>().await,
+        }
+    };
+    tokio::pin!(broker, management);
+    let (broker_finished, result) = tokio::select! {
+        result=&mut broker=>(true,result),
+        result=&mut management=>(false,result),
+    };
+    let _ = tx.send(true);
+    let other = if broker_finished {
+        if has_admin { management.await } else { Ok(()) }
+    } else {
+        broker.await
+    };
+    result?;
+    other?;
     Ok(())
 }

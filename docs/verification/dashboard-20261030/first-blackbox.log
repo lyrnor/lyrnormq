@@ -1,0 +1,84 @@
+test_api_authentication_errors_and_secret_redaction (__main__.DashboardBlackbox.test_api_authentication_errors_and_secret_redaction) ... ok
+test_bounded_queries_methods_unknown_paths_and_static_files (__main__.DashboardBlackbox.test_bounded_queries_methods_unknown_paths_and_static_files) ... ok
+test_dual_version_qos_wire_activity_observed_without_mock_data (__main__.DashboardBlackbox.test_dual_version_qos_wire_activity_observed_without_mock_data) ... ok
+test_graceful_abnormal_disconnect_and_clean_session_removal (__main__.DashboardBlackbox.test_graceful_abnormal_disconnect_and_clean_session_removal) ... ERROR
+test_http_resource_bounds_preserve_established_mqtt_liveness (__main__.DashboardBlackbox.test_http_resource_bounds_preserve_established_mqtt_liveness) ... ok
+test_retained_update_delete_and_expiry_metadata (__main__.DashboardBlackbox.test_retained_update_delete_and_expiry_metadata) ... ok
+test_session_pagination_filters_unicode_and_untrusted_strings (__main__.DashboardBlackbox.test_session_pagination_filters_unicode_and_untrusted_strings) ... ERROR
+test_sqlite_crash_restores_offline_queue_and_inflight_packet_identifier (__main__.DashboardBlackbox.test_sqlite_crash_restores_offline_queue_and_inflight_packet_identifier) ... ok
+test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash (__main__.DashboardBlackbox.test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash) ... ok
+test_admin_bind_failure_fails_process_without_leaking_token (__main__.DashboardStartupValidation.test_admin_bind_failure_fails_process_without_leaking_token) ... ok
+test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets (__main__.DashboardStartupValidation.test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets) ... FAIL
+test_rejects_incomplete_duplicate_nonloopback_and_export_combinations (__main__.DashboardStartupValidation.test_rejects_incomplete_duplicate_nonloopback_and_export_combinations) ... ok
+test_rejects_invalid_token_files_and_explicit_invalid_assets (__main__.DashboardStartupValidation.test_rejects_invalid_token_files_and_explicit_invalid_assets) ... ok
+test_rejects_management_secret_exposed_as_unauthenticated_static_asset (__main__.DashboardStartupValidation.test_rejects_management_secret_exposed_as_unauthenticated_static_asset) ... ok
+
+======================================================================
+ERROR: test_graceful_abnormal_disconnect_and_clean_session_removal (__main__.DashboardBlackbox.test_graceful_abnormal_disconnect_and_clean_session_removal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 400, in test_graceful_abnormal_disconnect_and_clean_session_removal
+    abnormal = self.client('abnormal', version=4, persistent=True)
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 159, in client
+    header, data = receive(sock)
+                   ~~~~~~~^^^^^^
+  File "/private/tmp/rmqtt-dashboard-quality/tests/blackbox.py", line 47, in receive
+    header = exact(sock, 1)[0]
+             ~~~~~^^^^^^^^^
+  File "/private/tmp/rmqtt-dashboard-quality/tests/blackbox.py", line 41, in exact
+    raise EOFError('connection closed')
+EOFError: connection closed
+
+======================================================================
+ERROR: test_session_pagination_filters_unicode_and_untrusted_strings (__main__.DashboardBlackbox.test_session_pagination_filters_unicode_and_untrusted_strings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 334, in test_session_pagination_filters_unicode_and_untrusted_strings
+    sockets.append(self.client(name, version=4 if i == 0 else 5, persistent=True))
+                   ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 159, in client
+    header, data = receive(sock)
+                   ~~~~~~~^^^^^^
+  File "/private/tmp/rmqtt-dashboard-quality/tests/blackbox.py", line 47, in receive
+    header = exact(sock, 1)[0]
+             ~~~~~^^^^^^^^^
+  File "/private/tmp/rmqtt-dashboard-quality/tests/blackbox.py", line 41, in exact
+    raise EOFError('connection closed')
+EOFError: connection closed
+
+======================================================================
+FAIL: test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets (__main__.DashboardStartupValidation.test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 502, in rejected
+    stdout, stderr = process.communicate(timeout=5)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 2154, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 1268, in _check_timeout
+    raise TimeoutExpired(
+    ...<2 lines>...
+            stderr=b''.join(stderr_seq) if stderr_seq else None)
+subprocess.TimeoutExpired: Command '['/Volumes/data/rmqtt/target/debug/rmqtt', '--listen', '127.0.0.1:0', '--admin-listen', '127.0.0.1:61741', '--admin-token-file', '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-dashboard-startup-dnwks93h/secret.token', '--auth-policy', '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-dashboard-startup-dnwks93h/credentials.json', '--dashboard-dir', '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-dashboard-startup-dnwks93h/web']' timed out after 5 seconds
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 590, in test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets
+    self.rejected(self.admin() + ['--auth-policy', str(policy_path),
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 '--dashboard-dir', str(assets)])
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-dashboard-quality/tests/dashboard_blackbox.py", line 506, in rejected
+    self.fail(f'invalid configuration accepted: {args}')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: invalid configuration accepted: ['--admin-listen', '127.0.0.1:61741', '--admin-token-file', '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-dashboard-startup-dnwks93h/secret.token', '--auth-policy', '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-dashboard-startup-dnwks93h/credentials.json', '--dashboard-dir', '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-dashboard-startup-dnwks93h/web']
+
+----------------------------------------------------------------------
+Ran 14 tests in 6.679s
+
+FAILED (failures=1, errors=2)

@@ -613,3 +613,21 @@ certificate verifier using a bounded startup trust bundle. TLS/WSS share the sam
 trust policy; MQTT authentication and ACL remain independent. No certificate-name
 principal mapping or schema change is introduced. Metrics, health, certificate
 reload, shared multi-listener and performance acceptance remain outside this phase.
+
+## Phase4f: read-only Dashboard
+
+[The frozen Dashboard contract](contracts/phase4f-dashboard.md) adds an opt-in
+loopback HTTP management plane beside the existing single MQTT listener. Its
+management handle is attached to that exact broker instance. Views project only
+committed session/subscription metadata and retained metadata; no durable export,
+message payloads, credentials or alternate storage readers are exposed. Wire
+PUBLISH/byte counters reset at process start and do not imply application delivery
+or deduplication. Queries are bounded and eventually consistent across actors.
+
+The React application is served from a bounded startup-loaded static bundle and
+uses same-origin authenticated read-only APIs. The administrator token is separate
+from MQTT credentials and kept in browser memory. Configuration is read-only;
+resource metrics, event history and rule execution are explicitly unavailable.
+The service is disabled unless both management CLI flags are present; remote access
+requires a tunnel or a properly secured reverse proxy. No MQTT TLS/auth policy,
+ACK/outbox transaction, durable schema or multiple-MQTT-listener change is implied.

@@ -1,10 +1,13 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH]";
 
 pub struct Options {
     pub address: String,
+    pub admin_listen: Option<std::net::SocketAddr>,
+    pub admin_token_file: Option<PathBuf>,
+    pub dashboard_dir: Option<PathBuf>,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
     pub tls_client_ca: Option<PathBuf>,
@@ -35,6 +38,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut args = args.into_iter();
     let mut options = Options {
         address: "127.0.0.1:1883".into(),
+        admin_listen: None,
+        admin_token_file: None,
+        dashboard_dir: None,
         tls_cert: None,
         tls_key: None,
         tls_client_ca: None,
@@ -71,6 +77,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         if !matches!(
             option.as_str(),
             "--listen"
+                | "--admin-listen"
+                | "--admin-token-file"
+                | "--dashboard-dir"
                 | "--tls-cert"
                 | "--tls-key"
                 | "--tls-client-ca"
@@ -100,6 +109,31 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         let value = args
             .next()
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
+        match option.as_str() {
+            "--admin-listen" => {
+                let address: std::net::SocketAddr = value
+                    .parse()
+                    .map_err(|_| invalid("--admin-listen requires a numeric loopback IP:PORT"))?;
+                if !address.ip().is_loopback() || options.admin_listen.replace(address).is_some() {
+                    return Err(invalid("--admin-listen requires one loopback IP:PORT"));
+                }
+                continue;
+            }
+            "--admin-token-file" | "--dashboard-dir" => {
+                let target = if option == "--admin-token-file" {
+                    &mut options.admin_token_file
+                } else {
+                    &mut options.dashboard_dir
+                };
+                if value.is_empty() || target.replace(PathBuf::from(value)).is_some() {
+                    return Err(invalid(
+                        "management paths must be nonempty and specified once",
+                    ));
+                }
+                continue;
+            }
+            _ => {}
+        }
         let admission_index = match option.as_str() {
             "--max-handshakes" => Some(0),
             "--max-auth-tasks" => Some(1),
@@ -269,6 +303,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     if options.export_state && options.config.storage_path.is_none() {
         return Err(invalid("export-state requires --storage-path"));
     }
+    if options.admin_listen.is_some() != options.admin_token_file.is_some()
+        || (options.dashboard_dir.is_some() && options.admin_listen.is_none())
+        || (options.export_state && options.admin_listen.is_some())
+    {
+        return Err(invalid(
+            "management requires --admin-listen and --admin-token-file, and cannot combine with export-state",
+        ));
+    }
     Ok(Some(options))
 }
 
@@ -278,6 +320,81 @@ mod tests {
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).into()).collect()
+    }
+
+    #[test]
+    fn management_is_opt_in_loopback_and_requires_complete_options() {
+        assert!(parse(args(&[])).unwrap().unwrap().admin_listen.is_none());
+        let good = [
+            "--admin-listen",
+            "127.0.0.1:0",
+            "--admin-token-file",
+            "token",
+        ];
+        assert!(
+            parse(args(&good))
+                .unwrap()
+                .unwrap()
+                .admin_listen
+                .unwrap()
+                .ip()
+                .is_loopback()
+        );
+        for values in [
+            vec![
+                "--admin-listen",
+                "0.0.0.0:8080",
+                "--admin-token-file",
+                "token",
+            ],
+            vec![
+                "--admin-listen",
+                "localhost:8080",
+                "--admin-token-file",
+                "token",
+            ],
+            vec!["--admin-listen", "127.0.0.1:8080"],
+            vec!["--admin-token-file", "token"],
+            vec!["--dashboard-dir", "dist"],
+            vec!["--admin-listen", "127.0.0.1:0", "--admin-token-file", ""],
+            vec![
+                "--admin-listen",
+                "127.0.0.1:0",
+                "--admin-listen",
+                "127.0.0.1:1",
+                "--admin-token-file",
+                "token",
+            ],
+            vec![
+                "--admin-listen",
+                "127.0.0.1:0",
+                "--admin-token-file",
+                "a",
+                "--admin-token-file",
+                "b",
+            ],
+            vec![
+                "--admin-listen",
+                "127.0.0.1:0",
+                "--admin-token-file",
+                "a",
+                "--dashboard-dir",
+                "a",
+                "--dashboard-dir",
+                "b",
+            ],
+            vec![
+                "export-state",
+                "--storage-path",
+                "s",
+                "--admin-listen",
+                "127.0.0.1:0",
+                "--admin-token-file",
+                "token",
+            ],
+        ] {
+            assert!(parse(args(&values)).is_err(), "{values:?}");
+        }
     }
 
     #[test]

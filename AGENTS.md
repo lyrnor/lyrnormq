@@ -11,3 +11,9 @@ stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
 Authentication admission and mandatory client certificates follow
 docs/contracts/phase4e-admission-mtls.md. Metrics/health/reload/multi-listener and
 performance acceptance are outside that phase's explicitly limited user scope.
+
+Read-only management and React Dashboard additionally follow
+`docs/contracts/phase4f-dashboard.md`. Dashboard owner owns dashboard/web/**;
+coordinator owns management HTTP/CLI in bin/rmqtt. Do not reintroduce prototype
+sample data into the real UI, expose credentials/payloads, or mutate sessions
+through read endpoints. Preserve bounded metadata queries and MQTT hot paths.
