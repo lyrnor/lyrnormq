@@ -345,6 +345,34 @@ class DashboardBlackbox(unittest.TestCase):
         self.assertEqual(self.page('sessions', state='online')['total'], 3)
         self.assertEqual(self.page('sessions', state='offline')['items'][0]['client_id'], 'z-last')
 
+    def test_http_resource_bounds_preserve_established_mqtt_liveness(self):
+        broker = self.start()
+        healthy = self.client('mqtt-during-admin-overload')
+        code, _, _ = broker.request('/api/v1/sessions?search=' + 'x' * 4096)
+        self.assertEqual(code, 414)
+        code, _, _ = broker.request('/api/v1/overview', method='GET', body='unexpected')
+        self.assertEqual(code, 400)
+        self.barrier(healthy)
+        stalled = []
+        try:
+            for _ in range(64):
+                sock = socket.create_connection(('127.0.0.1', broker.admin), timeout=3)
+                sock.sendall(b'GET /api/v1/overview HTTP/1.1\r\nHost: localhost\r\n')
+                stalled.append(sock)
+            # The bounded connection set rejects another incomplete request.
+            with socket.create_connection(('127.0.0.1', broker.admin), timeout=3) as excess:
+                excess.settimeout(3)
+                excess.sendall(b'GET /api/v1/overview HTTP/1.1\r\nHost: localhost\r\n')
+                try:
+                    self.assertEqual(excess.recv(1), b'')
+                except ConnectionResetError:
+                    pass
+            self.barrier(healthy)
+        finally:
+            for sock in stalled:
+                sock.close()
+        eventually(lambda: self.broker.data('/api/v1/overview')['online_sessions'] == 1)
+
     def test_retained_update_delete_and_expiry_metadata(self):
         self.start()
         source = self.client('retained-source')
