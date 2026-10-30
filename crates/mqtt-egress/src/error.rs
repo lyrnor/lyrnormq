@@ -11,7 +11,7 @@ pub enum RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Self::InvalidConfig => "invalid rule or Webhook configuration",
+            Self::InvalidConfig => "invalid rule or outbound configuration",
             Self::InvalidSql => "invalid or unsupported rule SQL",
             Self::Busy => "rule configuration update is busy",
             Self::Storage => "rule configuration storage failed",
