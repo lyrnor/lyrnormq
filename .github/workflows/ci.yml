@@ -22,6 +22,10 @@ jobs:
       - run: python3 benches/phase3/test_diagnostics.py
       - run: python3 benches/phase3/connections.py --binary target/debug/rmqtt --output /tmp/rmqtt-connections-memory.json --smoke
       - run: python3 benches/phase3/connections.py --binary target/debug/rmqtt --output /tmp/rmqtt-connections-sqlite.json --smoke --storage sqlite --session-expiry 60
+      - name: Independent TLS and MQTT wire acceptance
+        run: |
+          openssl version
+          python3 tests/tls_blackbox.py
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
       - run: python3 tests/persistence_blackbox.py
