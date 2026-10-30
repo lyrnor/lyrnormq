@@ -146,7 +146,7 @@ function Login({
           刷新页面后需重新登录。请使用管理员提供的访问令牌。
         </div>
         <small className="mt-7 block text-center text-[10px] tracking-wider text-muted-foreground">
-          Rust · Tokio · rustls
+          rmqtt 管理控制台
         </small>
       </section>
     </div>
@@ -324,7 +324,7 @@ function Console({
           <span className="mt-1 size-1.5 shrink-0 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
           <div>
             rmqtt <b>{o?.instance.version ?? "—"}</b>
-            <small>Rust · Tokio · rustls</small>
+            <small>rmqtt 管理控制台</small>
           </div>
           <span className="ml-auto rounded border px-1 py-0.5 text-[9px]">
             会话只读
@@ -623,7 +623,7 @@ function Console({
                   />
                   <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                     字节计数不含 TCP / TLS / WebSocket
-                    封装。读取为最终一致视图；统计包含重传，不等同业务去重消息数。延迟指标尚未采集。
+                    封装。统计包含重传，不等同业务去重消息数。延迟指标尚未采集。
                   </div>
                 </div>
               </Panel>
@@ -990,7 +990,7 @@ function Console({
           <span>rmqtt console / 单节点 MQTT Broker</span>
           <span>
             {live.updated
-              ? `最近成功采样 ${new Date(live.updated).toLocaleTimeString()} · 最终一致视图`
+              ? `最近成功采样 ${new Date(live.updated).toLocaleTimeString()}`
               : "等待采样"}{" "}
             · 会话只读 / 规则配置可管理
           </span>
