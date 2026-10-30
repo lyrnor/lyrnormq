@@ -9,6 +9,8 @@ mod error;
 mod memory;
 mod model;
 mod store;
+#[cfg(test)]
+mod test_support;
 
 pub use error::StorageError;
 pub use memory::MemoryStorage;

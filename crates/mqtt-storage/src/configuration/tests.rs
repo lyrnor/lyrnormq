@@ -4,24 +4,31 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
-struct Fixture(PathBuf);
+struct Fixture {
+    directory: PathBuf,
+    _serial: std::sync::MutexGuard<'static, ()>,
+}
 impl Fixture {
     fn new() -> Self {
+        let serial = crate::test_support::FILE_TESTS.lock().unwrap();
         let path = std::env::temp_dir().join(format!(
             "rmqtt-config-store-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::create_dir(&path).unwrap();
-        Self(path)
+        Self {
+            directory: path,
+            _serial: serial,
+        }
     }
     fn path(&self) -> PathBuf {
-        self.0.join("rules.sqlite")
+        self.directory.join("rules.sqlite")
     }
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        let _ = std::fs::remove_dir_all(&self.directory);
     }
 }
 
@@ -71,7 +78,7 @@ fn exclusive_canonical_owner_releases_on_drop() {
     let f = Fixture::new();
     let store = ConfigStore::open(&f.path(), 64).unwrap();
     assert!(matches!(
-        ConfigStore::open(&f.0.join(".").join("rules.sqlite"), 64),
+        ConfigStore::open(&f.directory.join(".").join("rules.sqlite"), 64),
         Err(ConfigStoreError::Locked)
     ));
     drop(store);
@@ -136,7 +143,7 @@ fn rejects_zero_limit_directory_and_invalid_blob_rows() {
         Err(ConfigStoreError::InvalidLimit)
     ));
     assert!(!f.path().exists());
-    assert!(ConfigStore::open(&f.0, 64).is_err());
+    assert!(ConfigStore::open(&f.directory, 64).is_err());
     {
         let store = ConfigStore::open(&f.path(), 64).unwrap();
         store.connection.execute_batch("PRAGMA ignore_check_constraints=ON; INSERT INTO rule_configuration VALUES(2, 'text');").unwrap();
@@ -149,8 +156,8 @@ fn rejects_zero_limit_directory_and_invalid_blob_rows() {
 fn rejects_database_and_lock_symlinks_without_touching_target() {
     for name in ["rules.sqlite", "rules.sqlite.config-lock"] {
         let f = Fixture::new();
-        let target = f.0.join("target");
-        std::os::unix::fs::symlink(&target, f.0.join(name)).unwrap();
+        let target = f.directory.join("target");
+        std::os::unix::fs::symlink(&target, f.directory.join(name)).unwrap();
         assert!(ConfigStore::open(&f.path(), 64).is_err());
         assert!(!target.exists());
     }
@@ -247,4 +254,13 @@ fn process_kill_recovers_committed_row_and_rolls_back_uncommitted_row() {
         let store = ConfigStore::open(&f.path(), 64).unwrap();
         assert_eq!(store.load().unwrap(), Some(b"committed".to_vec()));
     }
+}
+
+#[test]
+fn fixture_serializes_with_durable_crash_helpers() {
+    let _fixture = Fixture::new();
+    assert!(matches!(
+        crate::test_support::FILE_TESTS.try_lock(),
+        Err(std::sync::TryLockError::WouldBlock)
+    ));
 }

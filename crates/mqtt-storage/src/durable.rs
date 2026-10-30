@@ -322,9 +322,7 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
     };
     static NEXT: AtomicU64 = AtomicU64::new(0);
-    // The crash helper forks/execs. Serialize these file tests so its transient
-    // inherited lock descriptors cannot delay another test's immediate reopen.
-    pub(super) static FILE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    pub(super) use crate::test_support::FILE_TESTS;
     pub(super) struct TempDb(pub(super) PathBuf);
     impl TempDb {
         pub(super) fn new() -> Self {
