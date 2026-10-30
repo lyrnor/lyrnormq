@@ -2125,3 +2125,16 @@ then the full workspace passed. Initial failure and correction evidence retained
 Evidence: docs/verification/unified-outbounds-20261030/README.md. No actual user
 broker restarted, deployment or new performance claim. Native Kafka/PostgreSQL/Redis
 adapters and durable message delivery remain future work.
+
+
+### Dashboard component dropdown fix (2026-10-30)
+
+Native OS select menus were replaced in outbound type and MQTT version filtering
+with a reusable existing-Radix UI single-choice menu, Tailwind styled, full-width
+where appropriate. Native-dialog-contained portals preserve top-layer visibility;
+nonmodal menus do not inject scroll-lock CSS or weaken CSP. A reproduced Escape
+regression is fixed by honoring defaultPrevented in Drawer keyboard handling.
+54 frontend tests, TS/Vite/format, 620 Rust tests, workspace strict Clippy and native
+release build passed. Real browser pointer/keyboard/Escape/outside-click, desktop
+and390px mobile widths, protocol filtering, zero CSP/console errors verified.
+Evidence: docs/verification/select-component-20261030/README.md.

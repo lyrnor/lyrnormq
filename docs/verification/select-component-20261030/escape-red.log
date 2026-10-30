@@ -1,0 +1,53 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --run tests/single-select.test.tsx
+
+
+ RUN  v3.2.7 /private/tmp/rmqtt-select-fix/dashboard/web
+
+ ❯ tests/single-select.test.tsx (3 tests | 1 failed) 99ms
+   × styled single selection > renders a menu in the native dialog top layer and consumes Escape before closing the dialog 69ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array []
+
+
+Number of calls: 1
+
+   ✓ styled single selection > selects through keyboard and restores the trigger without submitting its form 28ms
+   ✓ styled single selection > keeps a disabled selector closed 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/single-select.test.tsx > styled single selection > renders a menu in the native dialog top layer and consumes Escape before closing the dialog
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array []
+
+
+Number of calls: 1
+
+ ❯ tests/single-select.test.tsx:25:23
+     23|     fireEvent.keyDown(item, { key: "Escape" });
+     24|     await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+     25|     expect(close).not.toHaveBeenCalled();
+       |                       ^
+     26|     fireEvent.keyDown(trigger, { key: "Escape" });
+     27|     expect(close).toHaveBeenCalledOnce();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  17:34:07
+   Duration  861ms (transform 40ms, setup 6ms, collect 240ms, tests 99ms, environment 348ms, prepare 40ms)
+

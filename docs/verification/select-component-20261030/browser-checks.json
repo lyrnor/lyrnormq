@@ -1,0 +1,21 @@
+{
+  "geometry": {
+    "triggerWidth": 392,
+    "menuWidth": 392,
+    "menuBelowTrigger": true,
+    "insideDialog": true,
+    "hitVisible": true,
+    "nativeSelects": 0
+  },
+  "mobile": {
+    "width": 390,
+    "document": 390,
+    "menu": 342,
+    "trigger": 342
+  },
+  "cspViolations": [],
+  "consoleErrors": [],
+  "keyboard": true,
+  "outsideClick": true,
+  "protocolFilter": true
+}
