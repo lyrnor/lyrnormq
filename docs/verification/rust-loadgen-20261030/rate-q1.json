@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "success": false,
+  "run_id": 1793325574679045911,
+  "config": {
+    "address": "127.0.0.1:52870",
+    "version": "V5",
+    "qos": 1,
+    "pairs": 8,
+    "payload_bytes": 128,
+    "rate": 800,
+    "duration_ms": 500,
+    "warmup_ms": 50,
+    "drain_timeout_ms": 10000,
+    "connect_timeout_ms": 30000,
+    "io_timeout_ms": 10000,
+    "inflight": 2,
+    "max_messages": 100000,
+    "max_packet_bytes": 65536
+  },
+  "mode": "absolute_rate",
+  "load_semantics": "absolute-rate intended deadlines; bounded inflight can delay writes; scheduling lag and not-sent messages retained",
+  "source_completion_definition": "positive PUBACK received for the published packet identifier",
+  "delivery_definition": "validated unique subscriber application delivery; QoS2 recorded at PUBREL; duplicates excluded",
+  "throughput_definition": "offering-window event timestamps in [start,end); cohort-through-drain includes late events using finish-start denominator; never sum ingress and egress",
+  "clock": "one-process std::time::Instant epoch",
+  "percentile_method": "exact nearest rank ceil(q*N), integer nanoseconds, no interpolation",
+  "timestamp_unit": "nanoseconds",
+  "timing": {
+    "measured_start_ns": 51216792,
+    "measured_end_ns": 551216792,
+    "finished_ns": 552057750,
+    "offering_window_ns": 500000000,
+    "observed_cohort_horizon_ns": 500840958,
+    "drain_elapsed_ns": 840958
+  },
+  "accounting": {
+    "counters": {
+      "scheduled": 400,
+      "attempted": 399,
+      "write_completed": 399,
+      "puback_received": 399,
+      "pubrec_received": 0,
+      "pubcomp_received": 0,
+      "delivered_unique": 399,
+      "duplicates": 0,
+      "unexpected": 0,
+      "invalid_payload": 0,
+      "completed": 399
+    },
+    "samples_retained": 399,
+    "not_sent": 1,
+    "not_delivered": 0,
+    "not_source_confirmed": 0,
+    "incomplete_attempts": 0,
+    "failed_pairs": 0,
+    "configured_pairs": 8,
+    "returned_pairs": 8
+  },
+  "offering_window_events": {
+    "attempted": 399,
+    "write_completed": 399,
+    "delivered_unique": 399,
+    "source_completed": 399,
+    "fully_completed": 399
+  },
+  "after_offering_window_events": {
+    "attempted": 0,
+    "write_completed": 0,
+    "delivered_unique": 0,
+    "source_completed": 0,
+    "fully_completed": 0
+  },
+  "offering_window_tps": {
+    "denominator_ns": 500000000,
+    "attempted_per_second": 798.0,
+    "write_completed_per_second": 798.0,
+    "delivered_unique_per_second": 798.0,
+    "source_completed_per_second": 798.0,
+    "fully_completed_per_second": 798.0
+  },
+  "measured_cohort_tps_through_drain": {
+    "denominator_ns": 500840958,
+    "attempted_per_second": 796.660084657054,
+    "write_completed_per_second": 796.660084657054,
+    "delivered_unique_per_second": 796.660084657054,
+    "source_completed_per_second": 796.660084657054,
+    "fully_completed_per_second": 796.660084657054
+  },
+  "latencies": {
+    "schedule_to_send": {
+      "count": 399,
+      "min_ns": 15125,
+      "p50_ns": 817958,
+      "p95_ns": 1866791,
+      "p99_ns": 4458000,
+      "max_ns": 8141500,
+      "mean_ns": 966784.2506265665
+    },
+    "send_to_write_completed": {
+      "count": 399,
+      "min_ns": 3834,
+      "p50_ns": 32083,
+      "p95_ns": 153458,
+      "p99_ns": 347666,
+      "max_ns": 1136958,
+      "mean_ns": 52070.27067669173
+    },
+    "send_to_delivery": {
+      "count": 399,
+      "min_ns": 72459,
+      "p50_ns": 307917,
+      "p95_ns": 959125,
+      "p99_ns": 1830625,
+      "max_ns": 3438875,
+      "mean_ns": 394729.8245614035
+    },
+    "schedule_to_delivery": {
+      "count": 399,
+      "min_ns": 123958,
+      "p50_ns": 1227791,
+      "p95_ns": 2470833,
+      "p99_ns": 5059583,
+      "max_ns": 8880166,
+      "mean_ns": 1361514.07518797
+    },
+    "send_to_source_completed": {
+      "count": 399,
+      "min_ns": 48625,
+      "p50_ns": 246000,
+      "p95_ns": 866375,
+      "p99_ns": 1818042,
+      "max_ns": 3412208,
+      "mean_ns": 342469.3909774436
+    },
+    "send_to_full_completion": {
+      "count": 399,
+      "min_ns": 72459,
+      "p50_ns": 307917,
+      "p95_ns": 976292,
+      "p99_ns": 1830625,
+      "max_ns": 3438875,
+      "mean_ns": 394998.41353383457
+    }
+  },
+  "issues": [
+    "1 scheduled messages were not sent"
+  ],
+  "warnings": [],
+  "environment": {
+    "tool_version": "0.1.0",
+    "build_profile": "release",
+    "git_revision": "f44b65736eca53254c2a07a115e6e1ab6e3bc2d0",
+    "code_tree_dirty": "false",
+    "os": "macos",
+    "architecture": "aarch64",
+    "available_parallelism": 10,
+    "started_unix_ms": 1793325574678,
+    "arguments": [
+      "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+      "--addr",
+      "127.0.0.1:52870",
+      "--qos",
+      "1",
+      "--pairs",
+      "8",
+      "--inflight",
+      "2",
+      "--rate",
+      "800",
+      "--warmup-ms",
+      "50",
+      "--duration-ms",
+      "500",
+      "--max-messages",
+      "100000",
+      "--output",
+      "/private/tmp/loadgen-real-0abe8e3a/rate-q1.json"
+    ],
+    "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
+  }
+}

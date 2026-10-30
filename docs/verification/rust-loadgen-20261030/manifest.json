@@ -1,0 +1,31 @@
+{
+  "code_revision": "f44b65736eca53254c2a07a115e6e1ab6e3bc2d0",
+  "branch": "codex/rust-loadgen",
+  "workspace_tests": {
+    "passed": 511,
+    "failed": 0,
+    "ignored": 0
+  },
+  "loadgen_tests": {
+    "unit": 26,
+    "independent_wire": 13,
+    "cli": 4,
+    "total": 43
+  },
+  "fmt": "passed",
+  "strict_workspace_all_target_clippy": "passed",
+  "local_real_broker_profiles": 9,
+  "raw_quantile_independent_checks": "all6series p50/p95/p99 checked against all retained JSONL records for both versions/allQoS",
+  "linux_musl_binary": {
+    "path": "/Volumes/data/rmqtt/target/x86_64-unknown-linux-musl/release/rmqtt-loadgen",
+    "sha256": "00cc0c8fed39e228472b8176c258705fb8f37079e2f1e124faef7b609f1696b4",
+    "build_command": "cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p rmqtt-loadgen",
+    "status": "cross-compiled ELF x86-64 statically linked stripped"
+  },
+  "remote_verification": {
+    "status": "pending host identity confirmation",
+    "server": "47.117.6.20",
+    "reported_ed25519_fingerprint": "SHA256:6JHJR1nEhZ1MI2g6lJZegyIkTtQvyXoKAroual9PC/8"
+  },
+  "local_real_scope": "small correctness acceptance,not max throughput; fixed-rate deadlines intentionally reported not_sent when timer misses cutoff"
+}
