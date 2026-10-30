@@ -164,6 +164,32 @@ class WebSocketBlackbox(unittest.TestCase):
             healthy = self.client(broker, f'after-frame-errors-{secure}')
             self.barrier(healthy);self.disconnect(healthy)
 
+    def test_initial_text_fragment_and_noncanonical_lengths_fail_closed(self):
+        key = b'\x12\x34\x56\x78'
+        ping = bytes(v ^ key[i % 4] for i, v in enumerate(frame(0xc0)))
+        cases = [
+            # MQTT requires binary: reject the first text fragment immediately,
+            # without waiting forever for a final continuation fragment.
+            (masked(b'no-final-fragment', 1, False), 1003),
+            # Strict project input policy rejects non-shortest lengths. RFC6455
+            # requires the sender's minimal encoding; this is not presented as
+            # a separate receiver MUST inferred from that sender requirement.
+            (b'\x82\xfe\x00\x02' + key + ping, 1002),
+            (b'\x82\xff' + struct.pack('!Q', 2) + key + ping, 1002),
+        ]
+        for secure, broker in self.brokers.items():
+            for index, (data, code) in enumerate(cases):
+                with self.subTest(wss=secure, malformed=index):
+                    sock = broker.socket()
+                    self.addCleanup(sock.close)
+                    sock.sendall(connect5(f'early-fail-{secure}-{index}', keepalive=0))
+                    header, body = receive(sock)
+                    self.assertEqual((header, body[:2]), (0x20, b'\0\0'))
+                    sock.settimeout(2)
+                    sock.raw.sendall(data)
+                    self.assertEqual(sock.recv(1), b'')
+                    self.assertEqual(sock.close_code, code)
+
     def test_aggregate_message_bound_and_outgoing_chunks(self):
         for secure in (False, True):
             broker = WebSocketBroker(self.identities, secure, extra=['--ws-max-message-size','64']).start()
