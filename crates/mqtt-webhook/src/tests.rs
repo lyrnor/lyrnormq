@@ -239,6 +239,7 @@ async fn retry_reuses_event_identifier_and_counts_per_event() {
     let first = body(&receive(&mut rx).await);
     let second = body(&receive(&mut rx).await);
     assert_eq!(first, second);
+    assert!(first["events"][0]["delivery_id"].is_string());
     delivered(&runtime, 1).await;
     assert_eq!(runtime.status().await.actions[0].retried, 1);
     runtime.shutdown().await;
@@ -372,4 +373,72 @@ async fn rejects_configuration_symlink_and_invalid_startup_json() {
     std::fs::write(f.0.join("target"), "{}").unwrap();
     std::os::unix::fs::symlink("target", f.path()).unwrap();
     assert!(Runtime::open(f.path()).await.is_err());
+}
+
+#[tokio::test]
+async fn delivery_ids_distinguish_rule_action_fanout() {
+    let f = Fixture::new();
+    let (url, mut rx, stop, server) = server(vec![200], Duration::ZERO).await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut c = config(url);
+    let mut action = c.actions[0].clone();
+    action.id = "send-two".into();
+    c.actions.push(action);
+    c.rules[0].action_ids.push("send-two".into());
+    let mut rule = c.rules[0].clone();
+    rule.id = "hot-two".into();
+    c.rules.push(rule);
+    runtime.replace(c).await.unwrap();
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"temperature":90}"#,
+        "device-a",
+        0,
+        false,
+    );
+    let mut ids = std::collections::BTreeSet::new();
+    let mut events = std::collections::BTreeSet::new();
+    for _ in 0..4 {
+        let value = body(&receive(&mut rx).await);
+        let event = &value["events"][0];
+        ids.insert(event["delivery_id"].as_str().unwrap().to_owned());
+        events.insert(event["event_id"].as_str().unwrap().to_owned());
+    }
+    assert_eq!(ids.len(), 4);
+    assert_eq!(events.len(), 1);
+    delivered(&runtime, 2).await;
+    runtime.shutdown().await;
+    let _ = stop.send(true);
+    server.await.unwrap();
+}
+#[tokio::test]
+async fn fixed_shard_preserves_same_publisher_processing_order() {
+    let f = Fixture::new();
+    let (url, mut rx, stop, server) = server(vec![200], Duration::ZERO).await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut c = config(url);
+    c.rules[0].sql = "SELECT payload.n AS n FROM \"devices/#\"".into();
+    c.actions[0].batch_size = 32;
+    c.actions[0].batch_wait_ms = 100;
+    runtime.replace(c).await.unwrap();
+    let observer = runtime.observer();
+    for n in 0..32 {
+        observer.observe(
+            "devices/a/telemetry",
+            format!("{{\"n\":{n}}}").as_bytes(),
+            "same-client",
+            0,
+            false,
+        );
+    }
+    let value = body(&receive(&mut rx).await);
+    let events = value["events"].as_array().unwrap();
+    assert_eq!(events.len(), 32);
+    for (n, event) in events.iter().enumerate() {
+        assert_eq!(event["data"]["n"].as_f64(), Some(n as f64));
+    }
+    delivered(&runtime, 32).await;
+    runtime.shutdown().await;
+    let _ = stop.send(true);
+    server.await.unwrap();
 }

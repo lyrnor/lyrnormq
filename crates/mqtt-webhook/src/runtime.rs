@@ -24,7 +24,23 @@ use tokio::sync::{Semaphore, watch};
 pub(crate) struct Snapshot {
     pub config: Config,
     pub rules: Vec<(Rule, CompiledRule)>,
+    exact: BTreeMap<String, Vec<usize>>,
+    wildcard: Vec<usize>,
     pub generation: Arc<Generation>,
+}
+impl Snapshot {
+    pub(crate) fn candidates<'a>(
+        &'a self,
+        topic: &str,
+    ) -> impl Iterator<Item = &'a (Rule, CompiledRule)> {
+        let first = topic.split('/').next().unwrap_or("");
+        self.exact
+            .get(first)
+            .into_iter()
+            .flatten()
+            .chain(self.wildcard.iter())
+            .map(|index| &self.rules[*index])
+    }
 }
 pub(crate) struct Inner {
     path: PathBuf,
@@ -66,16 +82,17 @@ impl PublicationObserver for Observer {
         if inner.stopped.load(Ordering::Acquire) {
             return;
         }
-        let snapshot = Arc::clone(
-            &inner
-                .snapshot
-                .read()
-                .unwrap_or_else(PoisonError::into_inner),
-        );
+        let snapshot = match inner.snapshot.try_read() {
+            Ok(snapshot) => Arc::clone(&snapshot),
+            Err(std::sync::TryLockError::Poisoned(error)) => Arc::clone(&error.into_inner()),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                inner.counters.dropped.fetch_add(1, Ordering::Relaxed);
+                return;
+            }
+        };
         if !snapshot
-            .rules
-            .iter()
-            .any(|(rule, compiled)| rule.enabled && compiled.matches_topic(topic))
+            .candidates(topic)
+            .any(|(_, compiled)| compiled.matches_topic(topic))
         {
             return;
         }
@@ -160,9 +177,24 @@ fn build_snapshot(
             tasks.push(task);
         }
     }
+    let mut exact: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    let mut wildcard = Vec::new();
+    for (index, (rule, compiled)) in validated.rules.iter().enumerate() {
+        if !rule.enabled {
+            continue;
+        }
+        let first = compiled.topic_filter().split('/').next().unwrap_or("");
+        if matches!(first, "+" | "#") {
+            wildcard.push(index);
+        } else {
+            exact.entry(first.into()).or_default().push(index);
+        }
+    }
     Arc::new(Snapshot {
         config: validated.config,
         rules: validated.rules,
+        exact,
+        wildcard,
         generation: Arc::new(Generation {
             cancel,
             targets,
