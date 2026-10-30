@@ -36,11 +36,14 @@ class Identities:
             subprocess.run(['openssl', *args], cwd=self.path, check=True,
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=20)
         openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '2',
-                '-subj', '/CN=rmqtt temporary test CA', '-keyout', 'ca.key', '-out', 'ca.pem')
+                '-subj', '/CN=rmqtt temporary test CA', '-keyout', 'ca.key', '-out', 'ca.pem',
+                '-addext', 'basicConstraints=critical,CA:TRUE',
+                '-addext', 'keyUsage=critical,keyCertSign,cRLSign')
         openssl('req', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=localhost',
                 '-keyout', 'server.key', '-out', 'server.csr')
         (self.path / 'extensions').write_text('subjectAltName=DNS:localhost\n'
                                              'extendedKeyUsage=serverAuth\n'
+                                             'keyUsage=critical,digitalSignature,keyEncipherment\n'
                                              'basicConstraints=CA:FALSE\n')
         openssl('x509', '-req', '-days', '2', '-in', 'server.csr', '-CA', 'ca.pem',
                 '-CAkey', 'ca.key', '-CAcreateserial', '-extfile', 'extensions', '-out', 'server.pem')
@@ -77,6 +80,7 @@ class TLSBroker:
         self.process = subprocess.Popen(self.command(), stdout=subprocess.DEVNULL,
                                         stderr=subprocess.PIPE)
         deadline = time.monotonic() + 8
+        last_error = None
         try:
             while time.monotonic() < deadline:
                 if self.process.poll() is not None:
@@ -89,9 +93,10 @@ class TLSBroker:
                         probe.sendall(frame(0xe0))
                         assert probe.recv(1) == b''
                     return self
-                except (OSError, EOFError):
+                except (OSError, EOFError) as error:
+                    last_error = error
                     time.sleep(.02)  # Readiness only, never a persistence barrier.
-            raise TimeoutError('TLS listener did not become ready')
+            raise TimeoutError(f'TLS listener did not become ready: {last_error}')
         except BaseException:
             self.stop(kill=True)
             raise
@@ -273,6 +278,43 @@ class TLSWire(unittest.TestCase):
         healthy = self.client(self.broker, 'tls-after-plaintext')
         self.barrier(healthy)
         self.disconnect(healthy)
+
+    def test_mqtt_packet_limit_is_independent_of_tls_record_boundaries(self):
+        broker = TLSBroker(self.identities, extra=['--max-packet-size', '65536']).start()
+        self.addCleanup(broker.stop)
+        sub = self.client(broker, 'tls-large-s')
+        pub = self.client(broker, 'tls-large-p')
+        self.subscribe(sub, 'tls/large', 1, 5)
+        payload = bytes(range(256)) * 160  # 40 KiB, spanning TLS records and 8 KiB reads.
+        self.assertEqual(len(payload), 40 * 1024)
+        # The independent parse helper must handle this payload before it is
+        # used as the network oracle (including a three-byte remaining length).
+        encoded = publication5('tls/large', payload, 1, 17)
+        position = 1
+        remaining = 0
+        for shift in range(0, 28, 7):
+            digit = encoded[position]
+            position += 1
+            remaining |= (digit & 127) << shift
+            if not digit & 128:
+                break
+        self.assertEqual(remaining, len(encoded) - position)
+        self.assertEqual(parse5((encoded[0], encoded[position:]))[:4],
+                         ('tls/large', payload, 1, 17))
+        self.publish(pub, 'tls/large', payload, 1, 5)
+        self.delivery(sub, 'tls/large', payload, 1, 5)
+        oversized = publication5('tls/too-large', b'x' * 65536, 1, 18)
+        self.assertGreater(len(oversized), 65536)
+        pub.sendall(oversized)
+        header, body = receive(pub)
+        self.assertEqual(header, 0xe0)
+        self.assertEqual(body[0], 0x95, 'MQTT packet-size limit must reject the oversized frame')
+        if len(body) > 1:
+            _, end = readprops(body, 1)
+            self.assertEqual(end, len(body))
+        self.assertEqual(pub.recv(1), b'')
+        self.barrier(sub)
+        self.disconnect(sub)
 
     def test_idle_handshake_deadline_releases_connection_permit(self):
         broker = TLSBroker(self.identities, extra=['--max-connections', '1', '--handshake-timeout-ms', '400']).start()
