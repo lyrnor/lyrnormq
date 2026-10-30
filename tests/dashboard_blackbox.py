@@ -421,6 +421,33 @@ class DashboardBlackbox(unittest.TestCase):
         eventually(lambda: self.session('durable-target')['queued'] == 0
                    and self.session('durable-target')['inflight'] == 0)
 
+    def test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash(self):
+        broker = self.start(sqlite=True)
+        # Cross-version routing: MQTT5 publisher to MQTT3.1.1 durable recipient.
+        source = self.client('source-mqtt5')
+        target = self.client('qos2-mqtt311', version=4, persistent=True)
+        self.subscribe(target, 'recover/qos2', qos=2, version=4)
+        self.publish(source, 'recover/qos2', b'awaitcomp', qos=2)
+        publication = self.delivery(target, 'recover/qos2', b'awaitcomp', 2,
+                                    version=4, acknowledge=False)
+        packet_id = publication[3]
+        target.sendall(ack(0x50, packet_id))
+        self.assertEqual(receive(target), (0x62, struct.pack('!H', packet_id)))
+        eventually(lambda: self.session('qos2-mqtt311')['inflight'] == 1)
+        broker.stop(crash=True)
+        broker.start()
+        restored = self.session('qos2-mqtt311')
+        self.assertEqual(restored['protocol'], '3.1.1')
+        self.assertFalse(restored['online'])
+        self.assertEqual(restored['inflight'], 1)
+        resumed = self.client('qos2-mqtt311', version=4, persistent=True, present=True)
+        # PUBREL is replayed with the original identifier, never a second PUBLISH.
+        self.assertEqual(receive(resumed), (0x62, struct.pack('!H', packet_id)))
+        resumed.sendall(ack(0x70, packet_id))
+        self.barrier(resumed)
+        eventually(lambda: self.session('qos2-mqtt311')['inflight'] == 0)
+        self.assertEqual(broker.data('/api/v1/overview')['messages_out_total'], 0)
+
 
 class DashboardStartupValidation(unittest.TestCase):
     def setUp(self):
