@@ -18,7 +18,8 @@ import threading
 import time
 import unittest
 
-from dashboard_blackbox import DashboardBroker, DashboardBlackbox, TOKEN, BINARY, eventually, free_port
+import dashboard_blackbox as dashboard
+from dashboard_blackbox import DashboardBroker, TOKEN, BINARY, eventually, free_port
 from blackbox import frame, receive, string
 
 CONFIG = '/api/v1/rules/config'
@@ -42,7 +43,7 @@ class Webhook:
                     self.send_error(413)
                     return
                 raw = self.rfile.read(length)
-                owner.records.put_nowait((self.path, dict(self.headers), json.loads(raw), length))
+                owner.records.put_nowait((self.path, {key.lower(): value for key, value in self.headers.items()}, json.loads(raw), length))
                 with owner.lock:
                     code = owner.statuses[0]
                     if len(owner.statuses) > 1:
@@ -87,11 +88,11 @@ def config_for(url, sql=None, batch_size=1, queue_capacity=64, **settings):
 
 
 class RulesWebhook(unittest.TestCase):
-    client = DashboardBlackbox.client
-    subscribe = DashboardBlackbox.subscribe
-    publish = DashboardBlackbox.publish
-    delivery = DashboardBlackbox.delivery
-    barrier = DashboardBlackbox.barrier
+    client = dashboard.DashboardBlackbox.client
+    subscribe = dashboard.DashboardBlackbox.subscribe
+    publish = dashboard.DashboardBlackbox.publish
+    delivery = dashboard.DashboardBlackbox.delivery
+    barrier = dashboard.DashboardBlackbox.barrier
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-rules-quality-')
@@ -190,8 +191,8 @@ class RulesWebhook(unittest.TestCase):
                     self.delivery(target, 'devices/a/telemetry', payload, qos, version)
                     path, headers, body, size = webhook.get()
                     self.assertEqual(path, '/events')
-                    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
-                    self.assertEqual(headers['Content-Type'], 'application/json')
+                    self.assertEqual(headers['authorization'], f'Bearer {SECRET}')
+                    self.assertEqual(headers['content-type'], 'application/json')
                     self.assertEqual(body['action_id'], 'send')
                     self.assertLessEqual(size, 1024 * 1024)
                     self.assertEqual(len(body['events']), 1)
@@ -325,7 +326,7 @@ class RulesWebhook(unittest.TestCase):
         self.assertNotIn(SECRET, json.dumps(self.broker.data(CONFIG)))
         source = self.client('restart-source')
         self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=1)
-        self.assertEqual(webhook.get()[1]['Authorization'], f'Bearer {SECRET}')
+        self.assertEqual(webhook.get()[1]['authorization'], f'Bearer {SECRET}')
         if os.name == 'posix':
             self.assertEqual(self.rules_path.stat().st_mode & 0o777, 0o600)
 
