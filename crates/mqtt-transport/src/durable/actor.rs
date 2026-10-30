@@ -54,6 +54,8 @@ struct Effects {
     commit: bool,
     notify: bool,
     housekeeping: bool,
+    /// When false, install skips rebuilding the subscription index.
+    filters_changed: bool,
     registration: Option<(String, Online)>,
     removal: Option<String>,
 }
@@ -63,6 +65,7 @@ impl Default for Effects {
             commit: true,
             notify: false,
             housekeeping: true,
+            filters_changed: false,
             registration: None,
             removal: None,
         }
@@ -238,6 +241,7 @@ fn apply(
                     close_reason: request.close_reason,
                 },
             ));
+            effects.filters_changed = true;
             effects.notify = true;
             Ok(if let Some(frame) = enhanced_frame {
                 Reply::Authenticated {
@@ -262,6 +266,10 @@ fn apply(
             received_at_millis,
         } => {
             valid_generation(online, &client, generation)?;
+            effects.filters_changed = matches!(
+                frame.packet,
+                Packet::Subscribe { .. } | Packet::Unsubscribe { .. }
+            );
             let replies = match received_at_millis {
                 Some(received_at) => proposal.handle_frame_at(&client, frame, received_at),
                 None => proposal.handle_frame(&client, frame),
@@ -321,6 +329,7 @@ fn apply(
                 .disconnect_with_options(&client, graceful, expiry)
                 .map_err(model_error)?;
             effects.notify = true;
+            effects.filters_changed = true;
             effects.removal = Some(client);
             Ok(Reply::Done)
         }
@@ -338,6 +347,7 @@ fn housekeeping(proposal: &mut SessionEngine, effects: &mut Effects) -> io::Resu
         if expired || pruned || retried {
             effects.commit = true;
             effects.notify = true;
+            effects.filters_changed = true;
         }
     }
     Ok(())
@@ -731,14 +741,16 @@ impl Actor {
             self.accounted = bytes;
             self.engine = proposal;
             self.version = self.version.wrapping_add(1);
-            let filters = self
-                .engine
-                .subscription_filters()
-                .remove(&self.client)
-                .unwrap_or_default();
-            if filters != self.filters {
-                self.broker.index.replace(&self.client, &filters);
-                self.filters = filters;
+            if effects.filters_changed {
+                let filters = self
+                    .engine
+                    .subscription_filters()
+                    .remove(&self.client)
+                    .unwrap_or_default();
+                if filters != self.filters {
+                    self.broker.index.replace(&self.client, &filters);
+                    self.filters = filters;
+                }
             }
         }
         if let Some((client, connection)) = effects.registration {

@@ -99,6 +99,180 @@ pub(super) fn check_live_bounds(engine: &SessionEngine) -> Result<usize, EngineE
     result.map(|()| writer.count)
 }
 
+/// Conservative upper bound on the live JSON projection size. Always ≥ exact
+/// `check_live_bounds` for the same engine; may over-count.
+pub(super) fn live_upper_bound(engine: &SessionEngine) -> usize {
+    // Envelope keys + numeric fields + three empty arrays, with headroom.
+    let mut total = 128usize;
+    total = total.saturating_add(json_u64_upper(engine.clock_floor.get()));
+    for (client, session) in &engine.sessions {
+        total = total.saturating_add(session_upper(client, session));
+    }
+    for entry in engine.retained.entries() {
+        total = total.saturating_add(json_str_upper(entry.topic.as_bytes()));
+        total = total.saturating_add(json_byte_array_upper(&entry.payload));
+        total = total.saturating_add(16); // qos + commas/keys
+        total = total.saturating_add(json_opt_u64_upper(
+            engine.retained_expiry.get(&entry.topic).copied(),
+        ));
+        total = total.saturating_add(properties_upper(
+            engine
+                .retained_properties
+                .get(&entry.topic)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+        ));
+        total = total.saturating_add(64); // RetainedView object keys
+    }
+    for will in engine.wills.values() {
+        total = total.saturating_add(will_upper(will));
+    }
+    total
+}
+
+fn session_upper(client: &str, session: &Session) -> usize {
+    let mut total = 256usize; // SessionView keys / structural commas
+    total = total.saturating_add(json_str_upper(session.owner.name.as_bytes()));
+    total = total.saturating_add(json_str_upper(client.as_bytes()));
+    total = total.saturating_add(json_u64_upper(u64::from(session.expiry)));
+    total = total.saturating_add(json_opt_u64_upper(session.expires_at));
+    for subscription in session.subscriptions.values() {
+        total = total.saturating_add(256); // SubscriptionRecord keys + numbers
+        total = total.saturating_add(json_str_upper(subscription.filter.as_bytes()));
+    }
+    for (id, bytes) in &session.incoming.pending {
+        total = total.saturating_add(json_u64_upper(u64::from(id.get())));
+        total = total.saturating_add(json_byte_array_upper(bytes));
+        total = total.saturating_add(properties_upper(
+            session
+                .incoming_properties
+                .get(id)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+        ));
+        total = total.saturating_add(json_opt_u64_upper(session.incoming_expiry.get(id).copied()));
+        total = total.saturating_add(8);
+    }
+    for id in &session.outgoing.order {
+        total = total.saturating_add(128); // OutgoingView keys
+        total = total.saturating_add(json_u64_upper(u64::from(id.get())));
+        match session.outgoing.pending.get(id) {
+            Some(OutgoingState::AwaitingAck { _message })
+            | Some(OutgoingState::AwaitingReceipt { _message }) => {
+                total = total.saturating_add(16); // Ack/Receipt tag
+                total = total.saturating_add(json_byte_array_upper(_message));
+            }
+            Some(OutgoingState::Released) | None => total = total.saturating_add(16),
+        }
+        total = total.saturating_add(json_opt_u64_upper(session.outgoing_expiry.get(id).copied()));
+        total = total.saturating_add(48); // started/retained_replay bools
+        if let Some(group) = session.outgoing_shared.get(id) {
+            total = total.saturating_add(json_str_upper(group.as_bytes()));
+        } else {
+            total = total.saturating_add(8); // null
+        }
+        total = total.saturating_add(properties_upper(
+            session
+                .outgoing_properties
+                .get(id)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+        ));
+    }
+    for message in &session.queued {
+        total = total.saturating_add(message_upper(message));
+    }
+    total
+}
+
+fn message_upper(message: &super::records::Message) -> usize {
+    let mut total = 96usize;
+    total = total.saturating_add(json_str_upper(message.topic.as_bytes()));
+    total = total.saturating_add(json_byte_array_upper(&message.payload));
+    total = total.saturating_add(48); // qos/retain/retained_replay
+    total = total.saturating_add(match &message.shared_subscription {
+        Some(group) => json_str_upper(group.as_bytes()),
+        None => 8,
+    });
+    total = total.saturating_add(json_opt_u64_upper(message.expires_at));
+    total.saturating_add(properties_upper(&message.properties))
+}
+
+fn will_upper(will: &super::records::WillRecord) -> usize {
+    let mut total = 160usize;
+    total = total.saturating_add(json_str_upper(will.owner.as_bytes()));
+    total = total.saturating_add(json_str_upper(will.client_id.as_bytes()));
+    total = total.saturating_add(json_u64_upper(u64::from(will.delay_interval)));
+    total = total.saturating_add(json_opt_u64_upper(will.due_at));
+    total = total.saturating_add(json_str_upper(will.will.topic.as_bytes()));
+    total = total.saturating_add(json_byte_array_upper(&will.will.payload));
+    total = total.saturating_add(48);
+    total.saturating_add(properties_upper(&will.will.properties))
+}
+
+fn properties_upper(properties: &[Property]) -> usize {
+    let mut total = 2usize; // []
+    for property in properties {
+        total = total.saturating_add(64); // externally tagged variant name + braces
+        total = total.saturating_add(match property {
+            Property::ContentType(value)
+            | Property::ResponseTopic(value)
+            | Property::AssignedClientIdentifier(value)
+            | Property::AuthenticationMethod(value)
+            | Property::ResponseInformation(value)
+            | Property::ServerReference(value)
+            | Property::ReasonString(value) => json_str_upper(value.as_bytes()),
+            Property::UserProperty(left, right) => json_str_upper(left.as_bytes())
+                .saturating_add(json_str_upper(right.as_bytes()))
+                .saturating_add(4),
+            Property::CorrelationData(value) | Property::AuthenticationData(value) => {
+                json_byte_array_upper(value)
+            }
+            Property::PayloadFormatIndicator(_)
+            | Property::RequestProblemInformation(_)
+            | Property::RequestResponseInformation(_)
+            | Property::MaximumQos(_)
+            | Property::RetainAvailable(_)
+            | Property::WildcardSubscriptionAvailable(_)
+            | Property::SubscriptionIdentifierAvailable(_)
+            | Property::SharedSubscriptionAvailable(_) => 8,
+            Property::ServerKeepAlive(_)
+            | Property::ReceiveMaximum(_)
+            | Property::TopicAliasMaximum(_)
+            | Property::TopicAlias(_) => 12,
+            Property::MessageExpiryInterval(_)
+            | Property::SubscriptionIdentifier(_)
+            | Property::SessionExpiryInterval(_)
+            | Property::WillDelayInterval(_)
+            | Property::MaximumPacketSize(_) => 16,
+        });
+        total = total.saturating_add(1); // comma
+    }
+    total
+}
+
+fn json_str_upper(bytes: &[u8]) -> usize {
+    // Worst case every byte becomes \u00XX, plus quotes.
+    bytes.len().saturating_mul(6).saturating_add(2)
+}
+
+fn json_byte_array_upper(bytes: &[u8]) -> usize {
+    // Serde encodes Vec<u8> as a JSON array of numbers; "255," is four bytes.
+    bytes.len().saturating_mul(4).saturating_add(2)
+}
+
+fn json_u64_upper(value: u64) -> usize {
+    let _ = value;
+    20
+}
+
+fn json_opt_u64_upper(value: Option<u64>) -> usize {
+    match value {
+        Some(value) => json_u64_upper(value),
+        None => 8,
+    }
+}
+
 #[derive(Serialize)]
 struct Projection<'a> {
     schema_version: u32,

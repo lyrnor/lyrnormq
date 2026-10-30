@@ -645,7 +645,14 @@ impl SessionEngine {
                 return Err(invalid_record("orphan delivery deadline or reservation"));
             }
         }
-        let bytes = serialization::check_live_bounds(self)?;
+        // Phase4b: when a cheap upper bound fits under the cap, skip Serde.
+        // Profiling keeps the exact path so SerializeLive/RecordsLive spans remain.
+        let upper = serialization::live_upper_bound(self);
+        let bytes = if upper <= self.config.max_state_bytes && !profiling::enabled() {
+            upper
+        } else {
+            serialization::check_live_bounds(self)?
+        };
         self.live_bytes.set(bytes);
         Ok(())
     }

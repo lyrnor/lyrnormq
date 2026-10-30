@@ -1,6 +1,8 @@
 //! Independent old owned-Envelope oracle against borrowed/counting production paths.
 use super::super::*;
-use super::{CountingWriter, check_live_bounds, encode as encode_projection, oracle};
+use super::{
+    CountingWriter, check_live_bounds, encode as encode_projection, live_upper_bound, oracle,
+};
 use mqtt_protocol::Will;
 use std::io::Write;
 use std::sync::Arc;
@@ -352,6 +354,36 @@ fn existing_orphan_validation_still_precedes_capacity_for_complete_live_snapshot
     e.config.max_state_bytes = 1;
     assert!(matches!(e.snapshot(), Err(EngineError::InvalidRecord(_))));
     same_result(e.snapshot(), oracle::snapshot(&e));
+}
+
+#[test]
+fn live_upper_bound_is_at_least_exact_live_json_size() {
+    let mut engine = rich();
+    let exact = check_live_bounds(&engine).unwrap();
+    let upper = live_upper_bound(&engine);
+    assert!(
+        upper >= exact,
+        "upper {upper} must cover exact live size {exact}"
+    );
+    engine
+        .connect_with_options("pub2", None, Principal::anonymous(), options())
+        .unwrap();
+    engine
+        .handle(
+            "pub2",
+            Packet::Publish {
+                topic: "t/x".into(),
+                payload: vec![0x00, 0xff, b'"', b'\\'],
+                qos: 0,
+                retain: false,
+                dup: false,
+                packet_id: None,
+            },
+        )
+        .unwrap();
+    let exact = check_live_bounds(&engine).unwrap();
+    let upper = live_upper_bound(&engine);
+    assert!(upper >= exact, "upper {upper} < exact {exact}");
 }
 
 #[test]

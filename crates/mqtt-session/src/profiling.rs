@@ -68,7 +68,7 @@ impl Counter {
 }
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static COUNTERS: [Counter; OPERATIONS.len()] = [const { Counter::new() }; OPERATIONS.len()];
-fn enabled() -> bool {
+pub(crate) fn enabled() -> bool {
     *ENABLED.get_or_init(|| std::env::var_os("RMQTT_PROFILE").is_some_and(|value| value == "1"))
 }
 fn saturating_add(counter: &AtomicU64, value: u64) {
