@@ -555,3 +555,20 @@ TLS transport is absent; historical TCP acceptance scope remains unchanged.
 - [ ] Continue longer single-node soak/fault/Fuzz and exact-load performance studies.
 
 Implementation/test evidence: [TLS verification](verification/tls-20261030/README.md).
+
+## Phase4d WS/WSS completion
+
+Supersedes the earlier WebSocket backlog item above; cluster remains deferred.
+
+- [x] Freeze WS/WSS API, upgrade/framing limits, close/Will and recovery contract.
+- [x] Independent transport/quality worktrees; bounded maintained codec adapter.
+- [x] WS/WSS dual versions and QoS0/1/2, raw malformed/fragment/control boundaries,
+  strict verified WSS, retained/Will and SQLite cross-transport inflight recovery.
+- [x] Standard Paho interoperability; strict delayed normal-close regressions;
+  root fmt/Clippy/workspace/TLS/plaintext regression and independent review.
+- [x] Update applicable MQTT5 section6/4.2 matrix rows and source roles.
+- [ ] WS/WSS load/latency/memory baseline, longer slow-peer soak and network faults.
+- [ ] Optional Origin allowlist, mTLS, reload and shared multi-listener state under
+  separate contracts; authentication rate limiting and operations metrics remain.
+
+Evidence: [WS/WSS verification](verification/websocket-20261030/README.md).

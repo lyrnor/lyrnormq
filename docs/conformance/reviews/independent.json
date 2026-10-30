@@ -15,7 +15,8 @@
     "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed.",
     "cargo test --offline -p mqtt-transport:85 passed; fmt, strict Clippy and Rustdoc passed",
     "Failure-first explicit-profile API/behavior regressions captured before N3 implementation; known/unknown levels, caps, state isolation and SQLite311-to5 recovery passed.",
-    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
+    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0.",
+    "Phase4d: exact MQTT5 section6 and4.2 endpoint review reconciled with isolated transport/quality implementation, raw WS/WSS18-method acceptance, Paho12 profiles and40 strict delayed-notify recoveries."
   ],
   "clauses": [
     {
@@ -69,39 +70,51 @@
     },
     {
       "id": "MQTT-6.0.0-1",
-      "status": "not-applicable",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
-      "tests": [],
-      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+      "tests": [
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_ws_wss_dual_mqtt_versions_all_qos",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_protocol_errors_have_bounded_close_codes",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_initial_text_fragment_and_noncanonical_lengths_fail_closed"
+      ],
+      "note": "Phase4d: WS/WSS server outputs are independently decoded binary frames; text, including a nonterminal initial text fragment, closes1003 before message completion. Legal control frames remain supported. Malformed-frame rejection is separate from MQTT data type requirements."
     },
     {
       "id": "MQTT-6.0.0-2",
-      "status": "not-applicable",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
-      "tests": [],
-      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+      "tests": [
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_empty_binary_ping_and_unsolicited_pong",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_one_byte_data_budget_preserves_full_size_control_ping"
+      ],
+      "note": "Phase4d: MQTT packets coalesced in one binary message, split across independent messages, fragmented with interleaved controls, empty messages and one-byte data budgets are accepted using the incremental MQTT reader; no packet/frame alignment assumption."
     },
     {
       "id": "MQTT-6.0.0-3",
       "status": "not-applicable",
-      "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
-      ],
+      "implementation": [],
       "tests": [],
-      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+      "note": "Client-only sender obligation to offer mqtt. Server acceptance/refusal is tested under its own subprotocol policy and MQTT-6.0.0-4; no client conformance inferred."
     },
     {
       "id": "MQTT-6.0.0-4",
-      "status": "not-applicable",
+      "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
-      "tests": [],
-      "note": "Conditional WebSocket endpoint obligations are inactive: this broker exposes TCP only and explicitly does not implement WebSocket. This is not a verified WebSocket implementation."
+      "tests": [
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_path_subprotocol_and_invalid_upgrade",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline"
+      ],
+      "note": "Phase4d: valid HTTP101 selects and returns exactly mqtt from offered tokens; missing/wrong subprotocols are refused. Both WS and WSS actual raw HTTP handshakes and Paho2.1.0 interoperability passed."
     },
     {
       "id": "MQTT-4.2.0-1",
@@ -589,12 +602,17 @@
       "status": "verified",
       "implementation": [
         "crates/mqtt-transport/src/server.rs:serve",
-        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
       "tests": [
-        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes"
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_sqlite_offline_and_inflight_resume_across_ws_wss",
+        "crates/mqtt-transport/src/websocket/tests.rs:split_reader_control_flush_and_mqtt_writer_make_full_duplex_progress"
       ],
-      "note": "Tokio TCP listener/stream supplies ordered reliable bidirectional bytes; complete writes use write_all. Independent actualTCP Transport suite passed. No WebSocket support inferred."
+      "note": "Original TCP evidence retained. Phase4d extends ordered bidirectional byte transport through bounded WS/WSS adapters, with actual split/coalesced MQTT framing, full-duplex control flush and persistent recovery tests. Terminal ordering and deadlines remain bounded; no full conformance or performance claim."
     },
     {
       "id": "MQTT-4.7.0-1",
@@ -726,5 +744,6 @@
       "note": "Direct valid/invalid shared grammar tests cover empty group/filter, missing delimiter, forbidden group wildcards, Unicode names and literal nested-looking underlying patterns. Independent Router21 passed."
     }
   ],
-  "integrated_evidence_commit": "e6235ec"
+  "integrated_evidence_commit": "e6235ec",
+  "websocket_evidence_commit": "80b478f"
 }

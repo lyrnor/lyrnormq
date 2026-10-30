@@ -14,7 +14,8 @@
     "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed.",
     "cargo test --offline -p mqtt-protocol:74 passed; fmt, strict Clippy and Rustdoc passed",
     "Independent Router21/Session165 tests passed; published OS3.1.3.2.3/3.3.2.3.2/3.3.2-4/5.4.9 reviewed for producer-versus-forwarder applicability.",
-    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
+    "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0.",
+    "Phase4d: exact MQTT5 section6 and4.2 endpoint review reconciled with isolated transport/quality implementation, raw WS/WSS18-method acceptance, Paho12 profiles and40 strict delayed-notify recoveries."
   ],
   "clauses": [
     {
@@ -978,12 +979,17 @@
       "id": "U-4.2-7ae3da4cdd1f",
       "status": "verified",
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/server.rs:serve",
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
       "tests": [
-        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id"
+        "crates/mqtt-transport/src/enhanced_tests.rs:plain_challenge_reauth_preserves_control_progress_and_assigned_id",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_sqlite_offline_and_inflight_resume_across_ws_wss",
+        "crates/mqtt-transport/src/websocket/tests.rs:split_reader_control_flush_and_mqtt_writer_make_full_duplex_progress"
       ],
-      "note": "Broker exposes Tokio TCP byte streams and exact incremental framing; actual TCP handshake/control/reauth tests passed. TCP is the chosen ordered transport; no TLS/WebSocket claim."
+      "note": "Original TCP evidence retained. Phase4d extends ordered bidirectional byte transport through bounded WS/WSS adapters, with actual split/coalesced MQTT framing, full-duplex control flush and persistent recovery tests. Terminal ordering and deadlines remain bounded; no full conformance or performance claim."
     },
     {
       "id": "U-4.7.3-bd9cb090bad8",
@@ -1090,5 +1096,6 @@
       "note": "Explanatory/error-category paragraph without a separate operative requirement. Retained in the heuristic inventory; actual malformed/protocol/size/capacity handling is assessed by specific numbered requirements and fault tests."
     }
   ],
-  "integrated_evidence_commit": "3ec2245"
+  "integrated_evidence_commit": "3ec2245",
+  "websocket_evidence_commit": "80b478f"
 }

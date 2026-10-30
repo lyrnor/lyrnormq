@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-30",
+  "code_revision": "80b478f",
+  "branch": "codex/single-node-websocket",
+  "scope": "single-node WS/WSS functional and scoped clause acceptance; no deployment or load benchmark",
+  "binary_sha256": "f09dd139c06943d5296089d8209c1a0c150677fb02fafe6322624c20aeeeac38",
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7",
+    "openssl": "OpenSSL 3.6.3 9 Jun 2026",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "paho": "2.1.0 via /private/tmp/rmqtt-client-venv/bin/python"
+  },
+  "results": {
+    "workspace_passed": 540,
+    "raw_methods_passed": 18,
+    "paho_methods_passed": 1,
+    "paho_profiles_passed": 12,
+    "paho_skipped": 0,
+    "delayed_tls_notify_connections_passed": 40,
+    "tls_regression_methods_passed": 12,
+    "plaintext_integration_suite_executions_passed": 36,
+    "final_targeted_plaintext_suite_executions_passed": 6
+  },
+  "plaintext_scope": "36 memory/SQLite integration suites completed before final WS closing patch; after that patch reran entire Rust workspace, TLS12 and affected MQTT5/QoS/Will suites in both storage modes (6). Logs are retained per stage.",
+  "source_commits": {
+    "transport": [
+      "5909d82",
+      "e5a3ade",
+      "0b0e6d9"
+    ],
+    "quality": [
+      "5ceb237",
+      "e68d72d",
+      "287b326",
+      "0dc54f9",
+      "600015a",
+      "50b7a10"
+    ]
+  },
+  "artifacts": {
+    "build-final.log.gz": {
+      "sha256": "065593bfa8942e65f1253d030d80297fd326589799dde16418e5b70bb8fc6cc5",
+      "bytes": 167
+    },
+    "clippy-final.log.gz": {
+      "sha256": "a55389c80188465b5665764104e979626a5e740dc8ac472252d498df232eb7e5",
+      "bytes": 173
+    },
+    "delayed-notify-40-final.log.gz": {
+      "sha256": "e26f97880e3048bc60908b0474912740ad3880ec6d7b3c7d571711a2af175b98",
+      "bytes": 210
+    },
+    "delayed-notify-regression-red.log.gz": {
+      "sha256": "7a13782a21e16be61cd40653a845efd24ec35bfe0792b587762e135e5d8a08c0",
+      "bytes": 506
+    },
+    "delayed-notify-repro-failed.log.gz": {
+      "sha256": "ce4858db2cd7f51cb3fbad10dba4ed62c5ba92e322539e2f0ffc8218915a5c19",
+      "bytes": 406
+    },
+    "paho-final.log.gz": {
+      "sha256": "83c6c369c7eb76f65a09187d04c85ce64ccfc507c78b2ba63d2738a3884dffbd",
+      "bytes": 129
+    },
+    "plaintext-final-targeted-results.json": {
+      "sha256": "8928dc1130c49179d7798eb281bca50b4ab924ea60616e1ee7990a9cdc8661e5",
+      "bytes": 537
+    },
+    "plaintext-final-targeted.tar.gz": {
+      "sha256": "a82983dea592a5cebedf1e098944760d0e6177bd280b9d98e731885ad791b737",
+      "bytes": 3209
+    },
+    "plaintext-integration-results.json": {
+      "sha256": "ce5dc88d8686ff721c42cded2798eb9707360d016b9b0339019bf4893a5f2901",
+      "bytes": 4117
+    },
+    "plaintext-integration.tar.gz": {
+      "sha256": "dd026aa93b6b05a73b8da44b24144666df3e0d107bbd02d6db0300ade18b1322",
+      "bytes": 21827
+    },
+    "raw-final.log.gz": {
+      "sha256": "c53029d6dac1d0d5b52101ed25bae1bbab6caef03d3d6b13fcd98a388ca49ec6",
+      "bytes": 687
+    },
+    "raw-round1-failed.log.gz": {
+      "sha256": "80c5c7de4d9c76aaf6a74abee44953e0de57e98b0e665c617a18dc45286b0b22",
+      "bytes": 1173
+    },
+    "raw-round2-failed.log.gz": {
+      "sha256": "59a17e3b4edafaaee652353cdf68b9ad859bf3b35e666c034f1c0509ea56cbbd",
+      "bytes": 1080
+    },
+    "tls-regression-final.log.gz": {
+      "sha256": "2258bba29044c7951d3f966aea5e70b63b10a363daae20db989ccadfd8e9fc40",
+      "bytes": 490
+    },
+    "workspace-tests-final.log.gz": {
+      "sha256": "56e947cfea82004c2162253bc8ad8745b9ba4554fccbc8aab89a5f896fa42dca",
+      "bytes": 13051
+    }
+  }
+}

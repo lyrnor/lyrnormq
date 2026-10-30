@@ -9,7 +9,8 @@
     "cargo clippy --offline -p mqtt-protocol --all-targets -- -D warnings:passed",
     "RUSTDOCFLAGS=-D warnings cargo doc --offline -p mqtt-protocol --no-deps:passed",
     "cargo test --offline -p mqtt-transport:89 passed (4 new targeted tests, including16 type/state subcases); actual local TCP permitted.",
-    "cargo fmt --all; strict all-target Clippy; strict Rustdoc; git diff --check passed."
+    "cargo fmt --all; strict all-target Clippy; strict Rustdoc; git diff --check passed.",
+    "Phase4d conditional WebSocket endpoint paragraphs reconciled with actual raw/Paho evidence; client-only mqtt offer remains not-applicable to broker; source hashes unchanged."
   ],
   "scope": "Authoritative-source identity/applicability reconciliation plus explicit syntax tests. Existing numbered evidence is bounded and does not itself certify all endpoint/state obligations; delegated table roles need G2.",
   "entries": [
@@ -5906,14 +5907,19 @@
       ],
       "implementation": [
         "crates/mqtt-transport/src/server.rs:serve",
-        "crates/mqtt-transport/src/durable/network.rs:write_frame"
+        "crates/mqtt-transport/src/durable/network.rs:write_frame",
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
       "tests": [
-        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes"
+        "crates/mqtt-transport/src/durable/network.rs:phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_sqlite_offline_and_inflight_resume_across_ws_wss",
+        "crates/mqtt-transport/src/websocket/tests.rs:split_reader_control_flush_and_mqtt_writer_make_full_duplex_progress"
       ],
       "status": "verified",
       "disposition": "mapped-reviewed-numbered-and-candidate-obligations",
-      "note": "Exact DOCX context reconciled with related reviewed IDs and their bounded implementation/test evidence, not a new feature-level pass. Paragraphs may contain an additional error constraint after their numbered MUST; shared property syntax evidence is linked separately where relevant."
+      "note": "Original reliable ordered TCP evidence retained; Phase4d adds actual bounded WS/WSS byte-stream framing/full-duplex/recovery evidence. No separate source requirement or whole-server certification is invented."
     },
     {
       "id": "DOCX-P4665",
@@ -7299,17 +7305,22 @@
         "Using WebSocket as a network transport"
       ],
       "source_kind": "numbered-context",
-      "role": "broker or symmetric packet syntax; peer obligations remain separate",
+      "role": "broker receiver or server sender obligation",
       "related_ids": [
         "MQTT-6.0.0-1"
       ],
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
-      "tests": [],
-      "status": "not-applicable",
+      "tests": [
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_ws_wss_dual_mqtt_versions_all_qos",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_protocol_errors_have_bounded_close_codes",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_initial_text_fragment_and_noncanonical_lengths_fail_closed"
+      ],
+      "status": "verified",
       "disposition": "mapped-reviewed-numbered-and-candidate-obligations",
-      "note": "Exact DOCX context reconciled with related reviewed IDs and their bounded implementation/test evidence, not a new feature-level pass. Paragraphs may contain an additional error constraint after their numbered MUST; shared property syntax evidence is linked separately where relevant."
+      "note": "Phase4d: WS/WSS server outputs are independently decoded binary frames; text, including a nonterminal initial text fragment, closes1003 before message completion. Legal control frames remain supported. Malformed-frame rejection is separate from MQTT data type requirements."
     },
     {
       "id": "DOCX-P5315",
@@ -7318,17 +7329,22 @@
         "Using WebSocket as a network transport"
       ],
       "source_kind": "numbered-context",
-      "role": "broker or symmetric packet syntax; peer obligations remain separate",
+      "role": "broker receiver or server sender obligation",
       "related_ids": [
         "MQTT-6.0.0-2"
       ],
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
-      "tests": [],
-      "status": "not-applicable",
+      "tests": [
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_empty_binary_ping_and_unsolicited_pong",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_one_byte_data_budget_preserves_full_size_control_ping"
+      ],
+      "status": "verified",
       "disposition": "mapped-reviewed-numbered-and-candidate-obligations",
-      "note": "Exact DOCX context reconciled with related reviewed IDs and their bounded implementation/test evidence, not a new feature-level pass. Paragraphs may contain an additional error constraint after their numbered MUST; shared property syntax evidence is linked separately where relevant."
+      "note": "Phase4d: MQTT packets coalesced in one binary message, split across independent messages, fragmented with interleaved controls, empty messages and one-byte data budgets are accepted using the incremental MQTT reader; no packet/frame alignment assumption."
     },
     {
       "id": "DOCX-P5316",
@@ -7337,17 +7353,15 @@
         "Using WebSocket as a network transport"
       ],
       "source_kind": "numbered-context",
-      "role": "broker or symmetric packet syntax; peer obligations remain separate",
+      "role": "client-only sender obligation",
       "related_ids": [
         "MQTT-6.0.0-3"
       ],
-      "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
-      ],
+      "implementation": [],
       "tests": [],
       "status": "not-applicable",
       "disposition": "mapped-reviewed-numbered-and-candidate-obligations",
-      "note": "Exact DOCX context reconciled with related reviewed IDs and their bounded implementation/test evidence, not a new feature-level pass. Paragraphs may contain an additional error constraint after their numbered MUST; shared property syntax evidence is linked separately where relevant."
+      "note": "Client-only sender obligation to offer mqtt. Server acceptance/refusal is tested under its own subprotocol policy and MQTT-6.0.0-4; no client conformance inferred."
     },
     {
       "id": "DOCX-P5317",
@@ -7356,17 +7370,21 @@
         "Using WebSocket as a network transport"
       ],
       "source_kind": "numbered-context",
-      "role": "broker or symmetric packet syntax; peer obligations remain separate",
+      "role": "broker receiver or server sender obligation",
       "related_ids": [
         "MQTT-6.0.0-4"
       ],
       "implementation": [
-        "crates/mqtt-transport/src/server.rs:serve"
+        "crates/mqtt-transport/src/websocket/adapter.rs:WebSocketIo",
+        "crates/mqtt-transport/src/websocket/upgrade.rs:accept"
       ],
-      "tests": [],
-      "status": "not-applicable",
+      "tests": [
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_path_subprotocol_and_invalid_upgrade",
+        "tests/websocket_blackbox.py:WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline"
+      ],
+      "status": "verified",
       "disposition": "mapped-reviewed-numbered-and-candidate-obligations",
-      "note": "Exact DOCX context reconciled with related reviewed IDs and their bounded implementation/test evidence, not a new feature-level pass. Paragraphs may contain an additional error constraint after their numbered MUST; shared property syntax evidence is linked separately where relevant."
+      "note": "Phase4d: valid HTTP101 selects and returns exactly mqtt from offered tokens; missing/wrong subprotocols are refused. Both WS and WSS actual raw HTTP handshakes and Paho2.1.0 interoperability passed."
     },
     {
       "id": "DOCX-P5341",
@@ -8675,13 +8693,13 @@
         "IANA considerations"
       ],
       "source_kind": "table",
-      "role": "conditional WebSocket extension",
+      "role": "IANA registry description",
       "related_ids": [],
       "implementation": [],
       "tests": [],
       "status": "not-applicable",
-      "disposition": "unsupported-transport-not-claimed",
-      "note": "IANA WebSocket subprotocol table applies when WebSocket transport is provided. Current broker exposes TCP only and makes no WebSocket claim."
+      "disposition": "registry-not-new-obligation",
+      "note": "Subprotocol registration metadata is not an independent broker runtime obligation; actual mqtt selection behavior is verified under MQTT-6.0.0-4."
     }
   ],
   "endpoint_review_commit": "485677ca121176e53b14cb415a3af777f0fcba07"

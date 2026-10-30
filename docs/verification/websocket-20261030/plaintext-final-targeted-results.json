@@ -1,0 +1,32 @@
+[
+  {
+    "storage": "memory",
+    "suite": "mqtt5_blackbox.py",
+    "exit_code": 0
+  },
+  {
+    "storage": "memory",
+    "suite": "qos_blackbox.py",
+    "exit_code": 0
+  },
+  {
+    "storage": "memory",
+    "suite": "retained_will_blackbox.py",
+    "exit_code": 0
+  },
+  {
+    "storage": "sqlite",
+    "suite": "mqtt5_blackbox.py",
+    "exit_code": 0
+  },
+  {
+    "storage": "sqlite",
+    "suite": "qos_blackbox.py",
+    "exit_code": 0
+  },
+  {
+    "storage": "sqlite",
+    "suite": "retained_will_blackbox.py",
+    "exit_code": 0
+  }
+]

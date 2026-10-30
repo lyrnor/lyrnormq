@@ -1893,3 +1893,33 @@ No server deployment or TLS throughput test performed. mTLS, WebSocket, certific
 reload, shared dual listeners and rate-limited authentication remain unimplemented.
 The prior MQTT conformance ledger stays explicitly scoped to its TCP assessment;
 new TLS functional tests are not a full protocol/security certification.
+
+## Phase4d WS/WSS — 2026-10-30
+
+Frozen bounded HTTP/WS framing and lifecycle contract, then implemented transport
+and independent raw/Paho quality in separate worktrees/branches. Reused TLS,
+incremental MQTT reader, session actors, outbox and durable schema. TCP retains
+owned halves. Added strict mqtt subprotocol/path, bounded headers/messages/writes,
+binary fragmentation/control handling, and normal WS+TLS closing state.
+
+Verified540 workspace Rust tests,18 raw WS/WSS methods, Paho2.1.0 twelve
+WS/WSS×MQTT311/5×QoS profiles (no skips),40 delayed TLS-notify connections,
+12 existing TLS methods and36 original plaintext suite executions across both
+storage modes. fmt/strict Clippy and source/negative-evidence guards passed.
+The final closing patch additionally reran6 affected plaintext MQTT5/QoS/Will
+suite executions, both storage modes, rather than relabeling earlier binaries.
+Q1 AwaitAck, Q2 AwaitRec/AwaitComp and offline queues resume with matching IDs/DUP
+across WS↔WSS process kills. New raw faults, Will and control/KeepAlive tests passed.
+
+Confirmed/fixed pipeline bytes rejected as HTTP junk, fragmented text not rejected
+until final fragment, and normal WSS closing reset from unread peer notifications.
+Nonminimal frame lengths are rejected as an explicit strict-input policy, not an
+invented receiver MUST. Initial test-oracle issues (error-close echo after peer
+reset and pre-session timeout closure) were corrected with assertions retained;
+strict normal1000 and TLS unwrap were never relaxed. Original failures retained in
+`docs/verification/websocket-20261030/` with final results and scope limitations.
+
+Matrix now281 verified/71N/A/2SHOULD exceptions within inventoried scenarios;
+three newly applicable WS server rows updated, client-only mqtt offer stillN/A.
+No deployment or WS performance claim. mTLS, reload, multiple shared listeners,
+Origin ACL, proxy identity and longer soak/Fuzz remain separate work.

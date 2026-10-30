@@ -2,8 +2,9 @@
 
 Source: [OASIS MQTT Version5.0 OS, 2019-03-07](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html).
 This is a clause/evidence audit, not a feature checklist or a conformance declaration.
-The assessed implementation is the TCP broker; client-only and conditional transport
-requirements are assessed explicitly, not silently counted as successful tests.
+The original whole-server assessment covers the TCP broker; Phase4d adds separate
+WS/WSS clause evidence. Client-only and conditional transport requirements are
+assessed explicitly, not silently counted as successful tests.
 
 ## Artifacts and scope
 
@@ -56,14 +57,14 @@ their current rows become verified. See `docs/progress.md` for actual final tota
 
 All354 inventoried entries have a first review disposition. This includes252 literal
 numbered entries and102 unnumbered candidates, not354 distinct applicable MUSTs.
-There are1719 validated implementation/test references. Scope remains the pinned OS
+There are1749 validated implementation/test references. Scope remains the pinned OS
 source and the recorded scenarios, with no full conformance claim.
 
 | Disposition | Numbered entries | Supplementary candidates | Total |
 | --- | --- | --- | --- |
-| verified within recorded evidence |216|62|278|
+| verified within recorded evidence |219|62|281|
 | test-gap / unresolved interpretation |0|0|0|
-| not-applicable / source alias / editorial |36|38|74|
+| not-applicable / source alias / editorial |33|38|71|
 | SHOULD policy-exception |0|2|2|
 
 Three confirmed implementation mismatches were fixed; none of those remains open.
@@ -173,9 +174,21 @@ The original Phase2o assessment covered plaintext TCP; PLAIN is not encryption.
 Phase4c subsequently adds optional TLS1.2/1.3 with separate transport acceptance
 under [its contract](../contracts/phase4c-tls.md). The historical TCP evidence and
 row dispositions do not certify the new encrypted transport. Additional SASL
-mechanisms, WebSocket, broad Fuzz/fault/client campaigns and measured performance/
+mechanisms, broad Fuzz/fault/client campaigns and measured performance/
 operational hardening remain separate tasks. None alone proves or disproves MQTT5
 conformance.
+
+## Phase4d conditional WebSocket acceptance
+
+WS/WSS now has separate scoped acceptance under
+[Phase4d](../contracts/phase4d-websocket.md) and
+[its verification record](../verification/websocket-20261030/README.md).
+MQTT-6.0.0-1, -2 and -4 are verified within actual raw framing, malformed-input,
+subprotocol and standard-client scenarios. MQTT-6.0.0-3 remains client-only N/A;
+server refusal is not proof that external clients conform. Corresponding DOCX
+paragraphs and4.2 byte-stream evidence were reconciled, with1451 authoritative
+source/test links. The IANA table is registry description, not a new runtime duty.
+Historical TCP G1..G6 scope is unchanged; this is not whole-server WS certification.
 
 
 ## Phase2o whole-server project acceptance
