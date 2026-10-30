@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   defaultOutbound,
+  createResourceId,
+  validateName,
   deletionError,
   testEvent,
   validateOutbound,
@@ -103,5 +105,53 @@ describe("rule form contract validation", () => {
     expect(event.timestamp_ms).toBeGreaterThan(0);
     expect(() => testEvent("devices/#", "test", "x")).toThrow();
     expect(() => testEvent("a", "", "x")).toThrow();
+  });
+});
+
+afterEach(() => vi.unstubAllGlobals());
+describe("automatic internal identifiers", () => {
+  it("generates bounded distinct namespaced identifiers with the Crypto receiver", () => {
+    let counter = 0;
+    const source = {
+      randomUUID() {
+        expect(this).toBe(source);
+        return `00000000-0000-4000-8000-${String(++counter).padStart(12, "0")}`;
+      },
+    };
+    vi.stubGlobal("crypto", source);
+    const first = createResourceId("rules", []);
+    const second = createResourceId("rules", [{ id: first }]);
+    expect(first).not.toBe(second);
+    expect(validateIdentity(first, "名称")).toBeNull();
+    expect(createResourceId("outbounds", [])).toMatch(/^out_/);
+    expect(validateName(" ")).not.toBeNull();
+  });
+  it("uses getRandomValues when randomUUID is unavailable", () => {
+    const source = {
+      getRandomValues<T extends Uint8Array>(bytes: T): T {
+        expect(this).toBe(source);
+        bytes.fill(0);
+        return bytes;
+      },
+    };
+    vi.stubGlobal("crypto", source);
+    expect(createResourceId("rules", [])).toBe(
+      "rule_00000000-0000-4000-8000-000000000000",
+    );
+  });
+  it("retries collisions with a strict bound and reports unavailable crypto safely", () => {
+    const uuid = "00000000-0000-4000-8000-000000000000";
+    const randomUUID = vi.fn(() => uuid);
+    vi.stubGlobal("crypto", { randomUUID });
+    expect(() => createResourceId("rules", [{ id: `rule_${uuid}` }])).toThrow(
+      "暂时无法创建",
+    );
+    expect(randomUUID).toHaveBeenCalledTimes(8);
+    randomUUID.mockReturnValueOnce("11111111-1111-4111-8111-111111111111");
+    expect(createResourceId("rules", [{ id: `rule_${uuid}` }])).toContain(
+      "11111111",
+    );
+    vi.stubGlobal("crypto", undefined);
+    expect(() => createResourceId("rules", [])).toThrow("暂时无法创建");
   });
 });

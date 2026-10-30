@@ -75,13 +75,42 @@ export const defaultOutbound = (): Outbound => ({
     retry_base_ms: 200,
   },
 });
+/** Generate once when a form opens; persisted IDs remain stable across edits. */
+export function createResourceId(
+  kind: "rules" | "outbounds",
+  existing: readonly { id: string }[],
+): string {
+  const ids = new Set(existing.map((item) => item.id));
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const crypto = globalThis.crypto;
+    let uuid: string;
+    if (typeof crypto?.randomUUID === "function") uuid = crypto.randomUUID();
+    else {
+      if (typeof crypto?.getRandomValues !== "function")
+        throw new Error("暂时无法创建，请稍后重试");
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 15) | 64;
+      bytes[8] = (bytes[8] & 63) | 128;
+      const hex = Array.from(bytes, (byte) =>
+        byte.toString(16).padStart(2, "0"),
+      ).join("");
+      uuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    const id = `${kind === "rules" ? "rule" : "out"}_${uuid}`;
+    if (/^[A-Za-z0-9_-]{1,64}$/.test(id) && !ids.has(id)) return id;
+  }
+  throw new Error("暂时无法创建，请稍后重试");
+}
 const encoder = new TextEncoder();
+export function validateName(name: string): string | null {
+  return !name.trim() || encoder.encode(name).length > 128
+    ? "名称不能为空，且最多 128 字节"
+    : null;
+}
 export function validateIdentity(id: string, name: string): string | null {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id))
     return "ID 需为 1–64 位字母、数字、下划线或连字符";
-  if (!name.trim() || encoder.encode(name).length > 128)
-    return "名称不能为空，且最多 128 字节";
-  return null;
+  return validateName(name);
 }
 export function validateSql(sql: string): string | null {
   return !sql.trim() || encoder.encode(sql).length > 8192

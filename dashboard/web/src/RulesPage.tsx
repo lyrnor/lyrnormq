@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useId,
   useState,
   type ReactNode,
   type FormEvent,
@@ -10,6 +11,13 @@ import { api, ApiError, errorMessage } from "./api";
 import { Badge, Drawer, Empty, Panel } from "./components";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { Checkbox } from "./components/ui/checkbox";
+import { Switch } from "./components/ui/switch";
+import { Textarea } from "./components/ui/textarea";
+import { Label } from "./components/ui/label";
+import { Alert, AlertDescription } from "./components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import { Field } from "./components/ui/field";
 import { SingleSelect } from "./components/ui/single-select";
 import {
   Table,
@@ -23,10 +31,11 @@ import { bytes } from "./model";
 import {
   SQL_EXAMPLE,
   defaultOutbound,
+  createResourceId,
+  validateName,
   deletionError,
   testEvent,
   validateOutbound,
-  validateIdentity,
   validateSql,
   type RuleDefinition,
   type RulesConfig,
@@ -38,26 +47,11 @@ type Kind = "rules" | "outbounds";
 type Item = RuleDefinition | Outbound;
 type Editing = { kind: Kind; value: Item; fresh: boolean };
 const names = { rules: "规则", outbounds: "出站" };
-const textarea =
-  "min-h-28 w-full rounded-md border bg-card p-3 font-mono text-xs leading-relaxed outline-offset-4 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
-const note =
-  "rounded-lg border bg-muted/60 p-3 text-xs leading-relaxed text-muted-foreground";
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="grid gap-2 text-xs font-medium">
-      {label}
-      {children}
-    </label>
-  );
-}
 function Notice({ children }: { children: ReactNode }) {
   return (
-    <div
-      role="alert"
-      className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed text-orange-900"
-    >
-      {children}
-    </div>
+    <Alert variant="destructive">
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -201,16 +195,25 @@ export function RulesPage({
     }
   }
   function create() {
+    if (!config) return;
+    let id: string;
+    try {
+      id = createResourceId(tab, config[tab]);
+    } catch {
+      setError("暂时无法创建，请稍后重试");
+      return;
+    }
     const value =
       tab === "rules"
         ? {
-            id: "",
+            id,
             name: "",
             sql: SQL_EXAMPLE,
             enabled: true,
             outbound_ids: [],
           }
-        : defaultOutbound();
+        : { ...defaultOutbound(), id };
+    setError(null);
     setEdit({ kind: tab, value, fresh: true });
     setNotice(null);
   }
@@ -218,7 +221,7 @@ export function RulesPage({
     if (!config || !edit) return;
     const list = config[edit.kind] as Item[];
     if (edit.fresh && list.some((item) => item.id === value.id))
-      throw new Error("ID 已存在，请使用不同 ID");
+      throw new Error("暂时无法创建，请关闭后重试");
     if (!edit.fresh && !list.some((item) => item.id === value.id))
       throw new Error("记录已不存在，请刷新后重试");
     const next = {
@@ -269,7 +272,7 @@ export function RulesPage({
             busy ||
             (kind === "outbounds" && (item as Outbound).type !== "webhook")
           }
-          aria-label={`编辑 ${item.id}`}
+          aria-label={`编辑 ${item.name}`}
           onClick={() => setEdit({ kind, value: item, fresh: false })}
         >
           编辑
@@ -278,7 +281,7 @@ export function RulesPage({
           size="sm"
           variant="ghost"
           disabled={busy || stopped}
-          aria-label={`删除 ${item.id}`}
+          aria-label={`删除 ${item.name}`}
           onClick={() => setRemove({ kind, id: item.id })}
         >
           删除
@@ -332,12 +335,9 @@ export function RulesPage({
         </Notice>
       )}
       {notice && !stopped && (
-        <div
-          role="status"
-          className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"
-        >
-          {notice}
-        </div>
+        <Alert role="status">
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
       )}
       {status && (
         <section
@@ -383,134 +383,138 @@ export function RulesPage({
             </Button>
           }
         >
-          <div
-            className="flex flex-wrap gap-2 px-5 pt-4"
-            aria-label="规则管理分类"
+          <Tabs
+            value={tab}
+            onValueChange={(value) => {
+              if (value === "rules" || value === "outbounds") setTab(value);
+            }}
           >
-            {(["rules", "outbounds"] as Kind[]).map((kind) => (
-              <Button
-                key={kind}
-                size="sm"
-                variant={tab === kind ? "secondary" : "ghost"}
-                aria-pressed={tab === kind}
-                onClick={() => setTab(kind)}
-              >
-                {names[kind]} {config[kind].length}
-              </Button>
-            ))}
-          </div>
-          <div className="overflow-x-auto p-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID / 名称</TableHead>
-                  <TableHead>
-                    {tab === "rules" ? "SQL / 绑定出站" : "类型 / 目标地址"}
-                  </TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tab === "rules" &&
-                  config.rules.map((rule) => (
-                    <TableRow key={rule.id}>
-                      <TableCell>
-                        <b className="text-xs font-medium">{rule.name}</b>
-                        <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                          {rule.id}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <pre
-                          className="max-w-md truncate font-mono text-[11px]"
-                          title={rule.sql}
-                        >
-                          {rule.sql}
-                        </pre>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          出站：{rule.outbound_ids.join("、") || "未绑定"}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <Badge active={rule.enabled}>
-                          {rule.enabled ? "已启用" : "已停用"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={stopped}
-                            onClick={() => setTest(rule.sql)}
-                          >
-                            测试
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={busy || stopped}
-                            onClick={() => void toggle("rules", rule.id)}
-                          >
-                            {rule.enabled ? "停用" : "启用"}
-                          </Button>
-                          {controls("rules", rule)}
-                        </div>
-                      </TableCell>
+            <TabsList className="mx-5 mt-4" aria-label="规则管理分类">
+              {(["rules", "outbounds"] as Kind[]).map((kind) => (
+                <TabsTrigger key={kind} value={kind}>
+                  {names[kind]} {config[kind].length}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <TabsContent value={tab}>
+              <div className="overflow-x-auto p-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>名称</TableHead>
+                      <TableHead>
+                        {tab === "rules" ? "SQL / 绑定出站" : "类型 / 目标地址"}
+                      </TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
                     </TableRow>
-                  ))}
-                {tab === "outbounds" &&
-                  config.outbounds.map((action) => (
-                    <TableRow key={action.id}>
-                      <TableCell>
-                        <b className="text-xs font-medium">{action.name}</b>
-                        <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                          {action.id}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="font-mono text-xs">
-                          {action.type === "webhook"
-                            ? `Webhook · ${action.config.url}`
-                            : "暂不支持的出站类型"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          每批 {action.delivery.batch_size} 条 / 等待{" "}
-                          {action.delivery.batch_wait_ms} ms · 最多{" "}
-                          {action.delivery.max_attempts} 次尝试
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <Badge active={action.enabled}>
-                          {action.enabled ? "已启用" : "已停用"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={
-                              busy || stopped || action.type !== "webhook"
-                            }
-                            onClick={() => void toggle("outbounds", action.id)}
-                          >
-                            {action.enabled ? "停用" : "启用"}
-                          </Button>
-                          {controls("outbounds", action)}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-            {config[tab].length === 0 && (
-              <Empty>
-                暂无{names[tab]}。创建出站后，可在规则中选择消息发送目标。
-              </Empty>
-            )}
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {tab === "rules" &&
+                      config.rules.map((rule) => (
+                        <TableRow key={rule.id}>
+                          <TableCell>
+                            <b className="text-xs font-medium">{rule.name}</b>
+                          </TableCell>
+                          <TableCell>
+                            <pre
+                              className="max-w-md truncate font-mono text-[11px]"
+                              title={rule.sql}
+                            >
+                              {rule.sql}
+                            </pre>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              出站：
+                              {rule.outbound_ids
+                                .map(
+                                  (id) =>
+                                    config.outbounds.find(
+                                      (outbound) => outbound.id === id,
+                                    )?.name ?? "不可用出站",
+                                )
+                                .join("、") || "未绑定"}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Badge active={rule.enabled}>
+                              {rule.enabled ? "已启用" : "已停用"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={stopped}
+                                onClick={() => setTest(rule.sql)}
+                              >
+                                测试
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={busy || stopped}
+                                onClick={() => void toggle("rules", rule.id)}
+                              >
+                                {rule.enabled ? "停用" : "启用"}
+                              </Button>
+                              {controls("rules", rule)}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    {tab === "outbounds" &&
+                      config.outbounds.map((action) => (
+                        <TableRow key={action.id}>
+                          <TableCell>
+                            <b className="text-xs font-medium">{action.name}</b>
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-mono text-xs">
+                              {action.type === "webhook"
+                                ? `Webhook · ${action.config.url}`
+                                : "暂不支持的出站类型"}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              每批 {action.delivery.batch_size} 条 / 等待{" "}
+                              {action.delivery.batch_wait_ms} ms · 最多{" "}
+                              {action.delivery.max_attempts} 次尝试
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Badge active={action.enabled}>
+                              {action.enabled ? "已启用" : "已停用"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={
+                                  busy || stopped || action.type !== "webhook"
+                                }
+                                onClick={() =>
+                                  void toggle("outbounds", action.id)
+                                }
+                              >
+                                {action.enabled ? "停用" : "启用"}
+                              </Button>
+                              {controls("outbounds", action)}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+                {config[tab].length === 0 && (
+                  <Empty>
+                    暂无{names[tab]}。创建出站后，可在规则中选择消息发送目标。
+                  </Empty>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
           <div className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
             <Button
               size="sm"
@@ -542,7 +546,7 @@ export function RulesPage({
               <TableHeader>
                 <TableRow>
                   {[
-                    "出站 ID",
+                    "出站",
                     "排队",
                     "已发送",
                     "失败",
@@ -558,7 +562,9 @@ export function RulesPage({
                 {status.outbounds.map((action) => (
                   <TableRow key={action.id}>
                     <TableCell className="font-mono text-xs">
-                      {action.id}
+                      {config?.outbounds.find(
+                        (outbound) => outbound.id === action.id,
+                      )?.name ?? "不可用出站"}
                     </TableCell>
                     {[
                       action.queued,
@@ -597,7 +603,10 @@ export function RulesPage({
       {remove && config && (
         <Drawer
           title={`删除${names[remove.kind]}`}
-          subtitle={remove.id}
+          subtitle={
+            config[remove.kind].find((item) => item.id === remove.id)?.name ??
+            "这条配置"
+          }
           onClose={() => !busy && setRemove(null)}
         >
           <div className="space-y-4">
@@ -658,6 +667,7 @@ function Editor({
   save: (item: Item) => Promise<void>;
   close: () => void;
 }) {
+  const enabledId = useId();
   const [draft, setDraft] = useState(edit.value),
     [error, setError] = useState<string | null>(null);
   const [headers, setHeaders] = useState(() =>
@@ -675,7 +685,7 @@ function Editor({
     if (stopped) return;
     setError(null);
     let next = draft;
-    let issue = validateIdentity(draft.id, draft.name);
+    let issue = validateName(draft.name);
     if (edit.kind === "rules") {
       const rule = draft as RuleDefinition;
       issue = issue || validateSql(rule.sql);
@@ -721,16 +731,6 @@ function Editor({
       onClose={close}
     >
       <form className="space-y-5" onSubmit={(event) => void submit(event)}>
-        <Field label="ID">
-          <Input
-            value={draft.id}
-            onChange={(e) => patch({ id: e.target.value })}
-            disabled={!edit.fresh || busy}
-            maxLength={64}
-            required
-            autoComplete="off"
-          />
-        </Field>
         <Field label="名称">
           <Input
             value={draft.name}
@@ -740,20 +740,20 @@ function Editor({
             required
           />
         </Field>
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Switch
+            id={enabledId}
             checked={Boolean(rule.enabled)}
-            onChange={(e) => patch({ enabled: e.target.checked })}
+            onCheckedChange={(checked) => patch({ enabled: checked })}
             disabled={busy}
           />
-          启用
-        </label>
+          <Label htmlFor={enabledId}>启用</Label>
+        </div>
         {edit.kind === "rules" && (
           <>
             <Field label="SQL">
-              <textarea
-                className={textarea}
+              <Textarea
+                className="min-h-28 font-mono text-xs leading-relaxed"
                 value={rule.sql}
                 onChange={(e) => patch({ sql: e.target.value })}
                 maxLength={8192}
@@ -765,25 +765,34 @@ function Editor({
             <fieldset className="space-y-2">
               <legend className="mb-2 text-xs font-medium">绑定出站</legend>
               {config.outbounds.map((a) => (
-                <label key={a.id} className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
+                <div key={a.id} className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    id={`bound-${a.id}`}
                     checked={rule.outbound_ids.includes(a.id)}
                     disabled={busy}
-                    onChange={(e) =>
+                    onCheckedChange={(checked) =>
                       patch({
-                        outbound_ids: e.target.checked
-                          ? [...rule.outbound_ids, a.id]
-                          : rule.outbound_ids.filter((id) => id !== a.id),
+                        outbound_ids:
+                          checked === true
+                            ? [...rule.outbound_ids, a.id]
+                            : rule.outbound_ids.filter((id) => id !== a.id),
                       })
                     }
                   />
-                  {a.name}{" "}
-                  <span className="font-mono text-muted-foreground">
-                    {a.id}
-                  </span>
-                  {!a.enabled && <span>（已停用）</span>}
-                </label>
+                  <Label
+                    htmlFor={`bound-${a.id}`}
+                    className="min-w-0 flex-wrap"
+                  >
+                    {a.name}
+                    {!a.enabled && <span>（已停用）</span>}
+                    {config.outbounds.filter((other) => other.name === a.name)
+                      .length > 1 && (
+                      <span className="truncate text-muted-foreground">
+                        Webhook · {a.config.url}
+                      </span>
+                    )}
+                  </Label>
+                </div>
               ))}
               {config.outbounds.length === 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -931,9 +940,11 @@ function Editor({
                 />
               </Field>
             ))}
-            <p className={note}>
-              投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
-            </p>
+            <Alert role="note">
+              <AlertDescription>
+                投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
+              </AlertDescription>
+            </Alert>
           </>
         )}
         {error && <Notice>{error}</Notice>}
@@ -1025,8 +1036,8 @@ function SqlTest({
     >
       <form className="space-y-4" onSubmit={(event) => void run(event)}>
         <Field label="测试 SQL">
-          <textarea
-            className={textarea}
+          <Textarea
+            className="min-h-28 font-mono text-xs leading-relaxed"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             maxLength={8192}
@@ -1048,8 +1059,8 @@ function SqlTest({
           />
         </Field>
         <Field label="测试 Payload">
-          <textarea
-            className={textarea}
+          <Textarea
+            className="min-h-28 font-mono text-xs leading-relaxed"
             value={payload}
             onChange={(e) => setPayload(e.target.value)}
             maxLength={12000}

@@ -1,5 +1,7 @@
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
+import { Alert, AlertDescription } from "./components/ui/alert";
+import { Label } from "./components/ui/label";
 import { Input } from "./components/ui/input";
 import { SingleSelect } from "./components/ui/single-select";
 import {
@@ -111,7 +113,7 @@ function Login({
         <h1>连接到 Broker</h1>
         <p>使用独立管理令牌，查看当前实例的实时状态。</p>
         <form onSubmit={(e) => void submit(e)}>
-          <label htmlFor="token">管理令牌</label>
+          <Label htmlFor="token">管理令牌</Label>
           <Input
             id="token"
             name="token"
@@ -126,12 +128,9 @@ function Login({
             disabled={busy}
           />
           {message && (
-            <div
-              className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed break-words text-orange-800 [&_strong]:font-medium [&_span]:mt-1 [&_span]:block [&_span]:text-[11px]"
-              role="alert"
-            >
-              {message}
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
           )}
           <Button
             variant="default"
@@ -142,9 +141,11 @@ function Login({
             <span aria-hidden="true"> →</span>
           </Button>
         </form>
-        <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          刷新页面后需重新登录。请使用管理员提供的访问令牌。
-        </div>
+        <Alert role="note" className="mt-4">
+          <AlertDescription>
+            刷新页面后需重新登录。请使用管理员提供的访问令牌。
+          </AlertDescription>
+        </Alert>
         <small className="mt-7 block text-center text-[10px] tracking-wider text-muted-foreground">
           rmqtt 管理控制台
         </small>
@@ -403,19 +404,18 @@ function Console({
             </Button>
           </Heading>
           {live.error && (
-            <div
-              className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed break-words text-orange-800 [&_strong]:font-medium [&_span]:mt-1 [&_span]:block [&_span]:text-[11px]"
-              role="alert"
-            >
-              <strong>{live.error}</strong>
-              {live.updated && (
-                <span>
-                  {" "}
-                  下方保留最近成功采样的数据，已过期 ·{" "}
-                  {new Date(live.updated).toLocaleTimeString()}
-                </span>
-              )}
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                <strong>{live.error}</strong>
+                {live.updated && (
+                  <span>
+                    {" "}
+                    下方保留最近成功采样的数据，已过期 ·{" "}
+                    {new Date(live.updated).toLocaleTimeString()}
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
           {live.loading && !o && (
             <div className="rounded-xl border bg-card shadow-none">
@@ -1007,12 +1007,9 @@ function Console({
           {detailLoading ? (
             <Empty>正在读取会话…</Empty>
           ) : detailError ? (
-            <div
-              className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed break-words text-orange-800 [&_strong]:font-medium [&_span]:mt-1 [&_span]:block [&_span]:text-[11px]"
-              role="alert"
-            >
-              {detailError}
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{detailError}</AlertDescription>
+            </Alert>
           ) : (
             detail && (
               <>

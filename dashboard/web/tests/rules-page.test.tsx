@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { RulesPage } from "../src/RulesPage";
 import { api, ApiError } from "../src/api";
 import { defaultOutbound, type RulesConfig } from "../src/rules-model";
@@ -83,14 +83,34 @@ async function ready() {
     expect(screen.getByRole("button", { name: "新建规则" })).toBeTruthy(),
   );
 }
+beforeEach(() => {
+  // Radix form controls measure their hidden input; jsdom has no layout observer.
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+});
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   request.mockReset();
   expired.mockReset();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
 describe("live rule and Webhook management", () => {
+  it("creates without exposing an ID field", async () => {
+    server();
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    expect(screen.queryByLabelText("ID")).toBeNull();
+  });
+
   it("shows a plain disabled state without implementation details", async () => {
     request.mockRejectedValue(
       new ApiError(503, "规则引擎未启用", "rules_disabled"),
@@ -108,11 +128,11 @@ describe("live rule and Webhook management", () => {
     const persist = vi.spyOn(Storage.prototype, "setItem");
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "出站 0" }));
-    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
-    fireEvent.change(screen.getByLabelText("ID"), {
-      target: { value: "hook" },
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 0" }), {
+      button: 0,
+      ctrlKey: false,
     });
+    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Alarm" },
     });
@@ -135,6 +155,9 @@ describe("live rule and Webhook management", () => {
       (call?.[3]?.body as RulesConfig).outbounds[0].config.headers
         .Authorization,
     ).toBe("Bearer private-value");
+    const savedOutbound = (call?.[3]?.body as RulesConfig).outbounds[0];
+    expect(savedOutbound.id).toMatch(/^out_[A-Za-z0-9-]+$/);
+    expect(screen.queryByText(savedOutbound.id)).toBeNull();
     expect(persist).not.toHaveBeenCalled();
     expect(screen.queryByText("Bearer private-value")).toBeNull();
   });
@@ -142,8 +165,11 @@ describe("live rule and Webhook management", () => {
     server(populated);
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "出站 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "编辑 send" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 1" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "编辑 Send alarm" }));
     expect(
       (screen.getByLabelText("请求头值 1") as HTMLInputElement).value,
     ).toBe("[redacted]");
@@ -159,7 +185,15 @@ describe("live rule and Webhook management", () => {
         )?.[3]?.body as RulesConfig
       ).outbounds[0].config.headers.Authorization,
     ).toBe("[redacted]");
-    fireEvent.click(screen.getByRole("button", { name: "删除 send" }));
+    expect(
+      (
+        request.mock.calls.find(
+          ([, , , options]) => options?.method === "PUT",
+        )?.[3]?.body as RulesConfig
+      ).outbounds[0].id,
+    ).toBe("send");
+    expect(screen.queryByText("send")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "删除 Renamed" }));
     expect(screen.getByRole("alert").textContent).toContain("引用");
     expect(
       (screen.getByRole("button", { name: "确认删除" }) as HTMLButtonElement)
@@ -170,11 +204,11 @@ describe("live rule and Webhook management", () => {
     server();
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "出站 0" }));
-    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
-    fireEvent.change(screen.getByLabelText("ID"), {
-      target: { value: "send" },
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 0" }), {
+      button: 0,
+      ctrlKey: false,
     });
+    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Send" },
     });
@@ -183,13 +217,15 @@ describe("live rule and Webhook management", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "规则 0" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "规则 0" }), {
+      button: 0,
+      ctrlKey: false,
+    });
     fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
-    fireEvent.change(screen.getByLabelText("ID"), { target: { value: "hot" } });
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "High" },
     });
-    fireEvent.click(screen.getByLabelText(/Send send/));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Send" }));
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "停用" }));
@@ -201,7 +237,10 @@ describe("live rule and Webhook management", () => {
     );
     expect(writes).toHaveLength(3);
     const cfg = writes[2][3]?.body as RulesConfig;
-    expect(cfg.rules[0].outbound_ids).toEqual(["send"]);
+    expect(cfg.rules[0].outbound_ids).toEqual([cfg.outbounds[0].id]);
+    expect(cfg.outbounds[0].id).toMatch(/^out_[A-Za-z0-9-]+$/);
+    expect(cfg.rules[0].id).toMatch(/^rule_[A-Za-z0-9-]+$/);
+    expect(cfg.rules[0].id).not.toBe(cfg.outbounds[0].id);
     expect(cfg.rules[0].enabled).toBe(false);
   });
   it("rejects unknown outbound types without interpreting them as Webhook", async () => {
@@ -242,21 +281,23 @@ describe("live rule and Webhook management", () => {
       (writes[0][3]?.body as { event: { payload: number[] } }).event.payload,
     ).toEqual(Array.from(new TextEncoder().encode('{"temperature":85}')));
   });
-  it("surfaces validation and server failure inside editor without discarding draft", async () => {
+  it("keeps the generated ID across validation failure and a failed HTTP save", async () => {
     server();
     render(<RulesPage token="token" expired={expired} />);
     await ready();
     fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
-    fireEvent.change(screen.getByLabelText("ID"), {
-      target: { value: "bad id" },
-    });
+    expect(screen.queryByLabelText("ID")).toBeNull();
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Keep draft" },
     });
+    fireEvent.change(screen.getByLabelText("SQL"), { target: { value: " " } });
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
-    expect(screen.getByRole("alert").textContent).toContain("ID");
-    fireEvent.change(screen.getByLabelText("ID"), {
-      target: { value: "valid" },
+    expect(screen.getByRole("alert").textContent).toContain("SQL");
+    expect(
+      request.mock.calls.filter((call) => call[3]?.method === "PUT"),
+    ).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText("SQL"), {
+      target: { value: 'SELECT * FROM "test/#"' },
     });
     request.mockRejectedValueOnce(new ApiError(400, "invalid"));
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
@@ -268,6 +309,65 @@ describe("live rule and Webhook management", () => {
     expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
       "Keep draft",
     );
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const writes = request.mock.calls.filter(
+      (call) => call[3]?.method === "PUT",
+    );
+    expect(writes).toHaveLength(2);
+    expect((writes[0][3]?.body as RulesConfig).rules[0].id).toBe(
+      (writes[1][3]?.body as RulesConfig).rules[0].id,
+    );
+  });
+  it("preserves existing rule identifiers and bindings when renaming", async () => {
+    server(populated);
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.click(
+      screen.getByRole("button", { name: "编辑 High temperature" }),
+    );
+    expect(screen.queryByLabelText("ID")).toBeNull();
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "Renamed rule" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const saved = request.mock.calls.find(
+      (call) => call[3]?.method === "PUT",
+    )?.[3]?.body as RulesConfig;
+    expect(saved.rules[0].id).toBe("hot");
+    expect(saved.rules[0].outbound_ids).toEqual(["send"]);
+    expect(screen.queryByText("hot")).toBeNull();
+  });
+  it("shows a controlled creation failure if secure identifiers cannot be generated", async () => {
+    server();
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    vi.stubGlobal("crypto", undefined);
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    expect(screen.getByRole("alert").textContent).toContain("暂时无法创建");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      request.mock.calls.filter((call) => call[3]?.method === "PUT"),
+    ).toHaveLength(0);
+  });
+  it("switches real tab panels through keyboard without writing configuration", async () => {
+    server(populated);
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    const first = screen.getByRole("tab", { name: "规则 1" });
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    const next = screen.getByRole("tab", { name: "出站 1" });
+    await waitFor(() =>
+      expect(next.getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(
+      next.id,
+    );
+    expect(
+      request.mock.calls.filter((call) => call[3]?.method === "PUT"),
+    ).toHaveLength(0);
   });
   it("clears auth on401 and aborts requests when leaving the page", async () => {
     const signals: AbortSignal[] = [];
@@ -290,7 +390,9 @@ describe("live rule and Webhook management", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    fireEvent.click(screen.getByRole("button", { name: "编辑 hot" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "编辑 High temperature" }),
+    );
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Unsaved draft" },
     });
@@ -348,7 +450,9 @@ describe("live rule and Webhook management", () => {
       (screen.getByRole("button", { name: "测试 SQL" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "编辑 hot" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "编辑 High temperature" }),
+    );
     expect(
       (screen.getByRole("button", { name: "保存并应用" }) as HTMLButtonElement)
         .disabled,
@@ -362,7 +466,9 @@ describe("live rule and Webhook management", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    fireEvent.click(screen.getByRole("button", { name: "删除 hot" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "删除 High temperature" }),
+    );
     expect(
       (screen.getByRole("button", { name: "确认删除" }) as HTMLButtonElement)
         .disabled,
