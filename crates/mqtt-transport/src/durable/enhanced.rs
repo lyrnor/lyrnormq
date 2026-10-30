@@ -145,6 +145,11 @@ fn fitting(frame: &Frame, config: &BrokerConfig, peer: usize) -> io::Result<()> 
     Ok(())
 }
 impl Manager {
+    pub(super) fn cancel(&mut self, generation: u64) {
+        self.pending.remove(&generation);
+        self.established.remove(&generation);
+        self.reauth.remove(&generation);
+    }
     pub(super) fn install(&mut self, established: Established) {
         self.established.insert(established.generation, established);
     }
@@ -170,9 +175,7 @@ impl Manager {
     ) -> io::Result<Processed> {
         match request {
             Request::CancelAuthentication { generation } => {
-                self.pending.remove(&generation);
-                self.established.remove(&generation);
-                self.reauth.remove(&generation);
+                self.cancel(generation);
                 Ok(Processed::Reply(Reply::Done))
             }
             Request::Connect(mut request) => {

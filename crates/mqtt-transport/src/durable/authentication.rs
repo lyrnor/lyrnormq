@@ -1,0 +1,344 @@
+//! Blocking provider ownership and cancellation. Only short registry locks are
+//! touched on the executor; the manager lock lives inside bounded blocking jobs.
+use super::*;
+use std::sync::{
+    TryLockError,
+    atomic::{AtomicBool, Ordering},
+};
+#[derive(Default)]
+struct Entry {
+    cancelled: AtomicBool,
+    established: AtomicBool,
+    handoff: Mutex<Option<oneshot::Sender<bool>>>,
+}
+impl Entry {
+    fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+        if let Some(handoff) = self
+            .handoff
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+        {
+            let _ = handoff.send(false);
+        }
+    }
+}
+#[derive(Default)]
+pub(super) struct State {
+    manager: Mutex<enhanced::Manager>,
+    entries: Mutex<HashMap<u64, Arc<Entry>>>,
+}
+impl State {
+    fn entry(&self, generation: u64, limit: usize) -> io::Result<Arc<Entry>> {
+        let mut entries = self.entries.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(entry) = entries.get(&generation) {
+            return Ok(entry.clone());
+        }
+        if entries.len() >= limit {
+            return Err(failure(
+                ReasonCode::SERVER_BUSY,
+                "authentication state capacity",
+            ));
+        }
+        let entry = Arc::new(Entry::default());
+        entries.insert(generation, entry.clone());
+        Ok(entry)
+    }
+    fn established(&self, generation: u64) -> bool {
+        self.entries
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&generation)
+            .is_some_and(|entry| entry.established.load(Ordering::Acquire))
+    }
+    fn sweep(&self, manager: &mut enhanced::Manager) {
+        self.entries
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|generation, entry| {
+                if entry.cancelled.load(Ordering::Acquire) {
+                    manager.cancel(*generation);
+                    false
+                } else {
+                    true
+                }
+            });
+    }
+    pub(super) fn cancel(&self, generation: u64) {
+        if let Some(entry) = self
+            .entries
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&generation)
+        {
+            entry.cancel();
+        }
+        // Never enqueue cleanup and never wait behind a running hook. That job
+        // sweeps cancelled state before releasing its manager/CPU ownership.
+        match self.manager.try_lock() {
+            Ok(mut manager) => self.sweep(&mut manager),
+            Err(TryLockError::Poisoned(error)) => self.sweep(&mut error.into_inner()),
+            Err(TryLockError::WouldBlock) => {}
+        }
+    }
+}
+impl Drop for State {
+    fn drop(&mut self) {
+        for entry in self
+            .entries
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+        {
+            entry.cancel();
+        }
+    }
+}
+struct CancelOnDrop {
+    state: Arc<State>,
+    entry: Arc<Entry>,
+    generation: u64,
+    armed: bool,
+}
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        if self.armed {
+            self.entry.cancel();
+            self.state.cancel(self.generation);
+        }
+    }
+}
+impl Worker {
+    pub(super) fn adopt_connection(&self, generation: u64) {
+        let entry = self
+            .auth
+            .entries
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&generation)
+            .cloned();
+        if let Some(entry) = entry
+            && !entry.cancelled.load(Ordering::Acquire)
+            && let Some(handoff) = entry
+                .handoff
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take()
+        {
+            let _ = handoff.send(true);
+        }
+    }
+    pub(super) fn release_handshake(&self) {
+        if let Some(slot) = &self.handshake {
+            slot.lock().unwrap_or_else(PoisonError::into_inner).take();
+        }
+    }
+    pub(super) async fn authenticate(&self, request: Request) -> io::Result<Reply> {
+        let generation = match &request {
+            Request::Connect(request) => request.generation,
+            Request::Authenticate { generation, .. } => *generation,
+            Request::CancelAuthentication { generation } => {
+                self.auth.cancel(*generation);
+                return Ok(Reply::Done);
+            }
+            _ => return Err(io::Error::other("unexpected authentication request")),
+        };
+        let busy = || match &request {
+            Request::Connect(request) => Ok(refusal(request, ReasonCode::SERVER_BUSY)),
+            _ if self.auth.established(generation) => Err(failure(
+                ReasonCode::QUOTA_EXCEEDED,
+                "reauthentication admission exhausted",
+            )),
+            _ => Ok(Reply::FrameRejected(ReasonCode::SERVER_BUSY)),
+        };
+        // Charge every received CONNECT/AUTH once, even if CPU admission fails.
+        let Some(permit) = self.broker.admission.authentication() else {
+            return busy();
+        };
+        let entry = match self
+            .auth
+            .entry(generation, self.broker.config.max_connections)
+        {
+            Ok(entry) => entry,
+            Err(_) => return busy(),
+        };
+        let mut guard = CancelOnDrop {
+            state: self.auth.clone(),
+            entry: entry.clone(),
+            generation,
+            armed: true,
+        };
+        let broker = self.broker.clone();
+        let auth = self.auth.clone();
+        let job_entry = entry.clone();
+        let step = tokio::task::spawn_blocking(move || -> io::Result<Authenticated> {
+            let _permit = permit; // The JOB owns this even after its caller disappears.
+            let mut manager = auth.manager.lock().unwrap_or_else(PoisonError::into_inner);
+            auth.sweep(&mut manager);
+            if job_entry.cancelled.load(Ordering::Acquire) {
+                return Err(failure(
+                    ReasonCode::SERVER_UNAVAILABLE,
+                    "authentication cancelled",
+                ));
+            }
+            let outcome = (|| {
+                let mut request = request;
+                if let Request::Connect(connect) = &mut request
+                    && connect.options.version == ProtocolVersion::V5
+                    && connect.client.is_empty()
+                {
+                    connect.client = manager.assigned_identifier(|id| broker.contains(id))?;
+                    connect.assigned = true;
+                }
+                let config = &broker.config;
+                let mut request = match manager.process(request, config, |client, generation| {
+                    broker.is_current(client, generation)
+                })? {
+                    enhanced::Processed::Ready(Request::Connect(request)) => request,
+                    enhanced::Processed::Ready(_) => {
+                        return Err(io::Error::other("unprocessed authentication command"));
+                    }
+                    enhanced::Processed::Reply(reply) => {
+                        return Ok(Authenticated::Reply(Box::new(reply)));
+                    }
+                };
+                if let Some(reason) = connect_policy(&request, config) {
+                    return Ok(Authenticated::Reply(Box::new(refusal(&request, reason))));
+                }
+                let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
+                    config.access_control.authenticate(ConnectInfo {
+                        client_id: &request.client,
+                        username: request.username.as_deref(),
+                        password: request.password.as_ref().map(Password::as_bytes),
+                    })
+                });
+                let principal = match authenticated {
+                    Ok(principal) => principal,
+                    Err(error) => {
+                        return Ok(Authenticated::Reply(Box::new(refusal(
+                            &request,
+                            match error {
+                                AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
+                                AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
+                            },
+                        ))));
+                    }
+                };
+                if request.authentication.is_some() {
+                    manager.install(enhanced::Established::from_request(
+                        &request,
+                        principal.clone(),
+                    ));
+                }
+                Ok(Authenticated::Connect {
+                    request: Box::new(request),
+                    principal,
+                })
+            })();
+            auth.sweep(&mut manager);
+            if job_entry.cancelled.load(Ordering::Acquire) {
+                manager.cancel(generation);
+                return Err(failure(
+                    ReasonCode::SERVER_UNAVAILABLE,
+                    "authentication cancelled",
+                ));
+            }
+            outcome
+        })
+        .await
+        .map_err(io::Error::other)??;
+        if entry.cancelled.load(Ordering::Acquire) {
+            return Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "authentication cancelled",
+            ));
+        }
+        let reply = match step {
+            Authenticated::Reply(reply) => *reply,
+            Authenticated::Connect { request, principal } => {
+                let client = request.client.clone();
+                let overload = refusal(&request, ReasonCode::SERVER_BUSY);
+                let (adopt, adopted) = oneshot::channel();
+                *entry.handoff.lock().unwrap_or_else(PoisonError::into_inner) = Some(adopt);
+                let (response, reply) = oneshot::channel();
+                let broker = self.broker.clone();
+                let lifecycle = entry.clone();
+                let slot = self.handshake.clone();
+                let dispatch = self.broker.spawn_handoff(async move {
+                    // The original pre-CONNACK slot bounds late-commit cleanup,
+                    // even after all connection/Worker handles have disappeared.
+                    let _slot = slot;
+                    if lifecycle.cancelled.load(Ordering::Acquire) {
+                        let _ = response.send(Err(failure(
+                            ReasonCode::SERVER_UNAVAILABLE,
+                            "authentication cancelled",
+                        )));
+                        return;
+                    }
+                    let outcome = broker
+                        .call(&client, true, Request::Connect(*request), Some(principal))
+                        .await;
+                    let installed = matches!(
+                        &outcome,
+                        Ok(Reply::Connected(_)
+                            | Reply::Assigned { .. }
+                            | Reply::Authenticated { .. })
+                    );
+                    if installed {
+                        lifecycle.established.store(true, Ordering::Release);
+                    }
+                    let delivered = response.send(outcome).is_ok();
+                    let adopted = if installed && delivered {
+                        matches!(adopted.await, Ok(true))
+                    } else {
+                        false
+                    };
+                    if installed
+                        && !adopted
+                        && let Err(error) = broker
+                            .call(
+                                &client,
+                                false,
+                                Request::Disconnect {
+                                    client: client.clone(),
+                                    generation,
+                                    graceful: false,
+                                    expiry: None,
+                                },
+                                None,
+                            )
+                            .await
+                        && reason(&error) != Some(ReasonCode::SESSION_TAKEN_OVER)
+                    {
+                        broker.fail(format!("cancelled CONNECT cleanup failed: {error}"));
+                    }
+                });
+                if let Err(error) = dispatch {
+                    if reason(&error) == Some(ReasonCode::SERVER_BUSY) {
+                        return Ok(overload);
+                    }
+                    return Err(error);
+                }
+                let reply = reply.await.map_err(|_| {
+                    failure(ReasonCode::SERVER_UNAVAILABLE, "CONNECT handoff stopped")
+                })??;
+                // Internal test callers have no connection identity to adopt it.
+                // Real sockets always hold a handshake slot and adopt explicitly
+                // immediately after network records the resolved identity.
+                if self.handshake.is_none() && !entry.cancelled.load(Ordering::Acquire) {
+                    self.adopt_connection(generation);
+                }
+                reply
+            }
+        };
+        if entry.cancelled.load(Ordering::Acquire) {
+            return Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "authentication cancelled",
+            ));
+        }
+        guard.armed = false;
+        Ok(reply)
+    }
+}

@@ -87,6 +87,7 @@ impl Registry {
 
 pub(super) struct Broker {
     pub(super) config: BrokerConfig,
+    pub(super) admission: crate::admission::Admission,
     pub(super) session_config: SessionConfig,
     pub(super) clock: Arc<dyn Clock>,
     registry: Registry,
@@ -100,6 +101,7 @@ pub(super) struct Broker {
     pub(super) fatal: watch::Sender<Option<String>>,
     alive: Mutex<Option<mpsc::Sender<()>>>,
     finished: tokio::sync::Mutex<mpsc::Receiver<()>>,
+    handoffs: Mutex<Option<tokio::task::JoinSet<()>>>,
 }
 
 /// Restored partitions and retained entries produced on a blocking thread.
@@ -305,8 +307,10 @@ impl Broker {
         }
         let (alive, finished) = mpsc::channel(1);
         let (fatal, _) = watch::channel(None);
+        let admission = crate::admission::Admission::new(&config)?;
         let broker = Arc::new(Self {
             session_config: session_config(&config),
+            admission,
             config,
             clock,
             registry: Registry::new(),
@@ -320,6 +324,7 @@ impl Broker {
             fatal,
             alive: Mutex::new(Some(alive)),
             finished: tokio::sync::Mutex::new(finished),
+            handoffs: Mutex::new(Some(tokio::task::JoinSet::new())),
         });
         // Index every restored subscription before any actor runs its first
         // tick, so recovered Wills route to subscribers spawned later.
@@ -777,8 +782,41 @@ impl Broker {
         }
     }
 
+    /// Track bounded, authenticated CONNECT responsibilities through adoption or
+    /// same-generation cleanup. Shutdown joins them BEFORE stopping actors.
+    pub(super) fn spawn_handoff(
+        &self,
+        task: impl std::future::Future<Output = ()> + Send + 'static,
+    ) -> io::Result<()> {
+        let mut handoffs = self.handoffs.lock().unwrap_or_else(PoisonError::into_inner);
+        let tasks = handoffs
+            .as_mut()
+            .ok_or_else(|| failure(ReasonCode::SERVER_UNAVAILABLE, "broker stopping"))?;
+        while let Some(result) = tasks.try_join_next() {
+            result.map_err(|error| self.fail(format!("CONNECT handoff failed: {error}")))?;
+        }
+        if tasks.len() >= self.config.max_handshakes {
+            return Err(failure(ReasonCode::SERVER_BUSY, "CONNECT cleanup capacity"));
+        }
+        tasks.spawn(task);
+        Ok(())
+    }
+
     /// Stop every actor after connections have closed, then drain storage.
     pub(super) async fn shutdown(&self) -> io::Result<()> {
+        let handoffs = self
+            .handoffs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        let mut handoff_error = None;
+        if let Some(mut tasks) = handoffs {
+            while let Some(result) = tasks.join_next().await {
+                if let Err(error) = result {
+                    handoff_error = Some(io::Error::other(error));
+                }
+            }
+        }
         for shard in &self.registry.shards {
             shard.lock().unwrap_or_else(PoisonError::into_inner).clear();
         }
@@ -800,7 +838,18 @@ impl Broker {
                 .await
                 .map_err(io::Error::other)?;
         }
-        Ok(())
+        if let Some(error) = handoff_error {
+            Err(error)
+        } else {
+            Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn storage_jobs(&self) -> usize {
+        self.storage.as_ref().map_or(0, |storage| {
+            STORAGE_QUEUE - storage.permits.available_permits()
+        })
     }
 
     #[cfg(test)]

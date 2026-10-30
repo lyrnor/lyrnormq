@@ -28,6 +28,7 @@ use tokio::{
 
 mod actor;
 mod aliases;
+mod authentication;
 mod broker;
 mod enhanced;
 pub(crate) mod export;
@@ -164,12 +165,14 @@ enum Operation {
 enum ConnectRefusal {
     BadCredentials,
     NotAuthorized,
+    ServerBusy,
 }
 impl ConnectRefusal {
     fn code(self) -> u8 {
         match self {
             Self::BadCredentials => 4,
             Self::NotAuthorized => 5,
+            Self::ServerBusy => 3,
         }
     }
 }
@@ -216,15 +219,15 @@ struct Online {
 #[derive(Clone)]
 struct Worker {
     broker: Arc<Broker>,
-    auth: Arc<Mutex<enhanced::Manager>>,
+    auth: Arc<authentication::State>,
+    handshake: Option<Arc<Mutex<Option<tokio::sync::OwnedSemaphorePermit>>>>,
 }
 
 enum Authenticated {
-    Reply(Reply),
+    Reply(Box<Reply>),
     Connect {
         request: Box<ConnectRequest>,
         principal: mqtt_auth::Principal,
-        established: Option<enhanced::Established>,
     },
 }
 
@@ -232,7 +235,8 @@ impl Worker {
     fn new(broker: Arc<Broker>) -> Self {
         Self {
             broker,
-            auth: Arc::new(Mutex::new(enhanced::Manager::default())),
+            auth: Arc::new(authentication::State::default()),
+            handshake: None,
         }
     }
 
@@ -262,85 +266,6 @@ impl Worker {
             }
             result => result,
         }
-    }
-
-    /// Credential and enhanced-auth hooks may block; they run on the bounded
-    /// blocking pool with the connection-local manager locked only there.
-    async fn authenticate(&self, request: Request) -> io::Result<Reply> {
-        let broker = Arc::clone(&self.broker);
-        let auth = Arc::clone(&self.auth);
-        let step = tokio::task::spawn_blocking(move || -> io::Result<Authenticated> {
-            let mut manager = auth.lock().unwrap_or_else(PoisonError::into_inner);
-            let mut request = request;
-            if let Request::Connect(connect) = &mut request
-                && connect.options.version == ProtocolVersion::V5
-                && connect.client.is_empty()
-            {
-                connect.client = manager.assigned_identifier(|id| broker.contains(id))?;
-                connect.assigned = true;
-            }
-            let config = &broker.config;
-            let mut request = match manager.process(request, config, |client, generation| {
-                broker.is_current(client, generation)
-            })? {
-                enhanced::Processed::Ready(Request::Connect(request)) => request,
-                enhanced::Processed::Ready(_) => {
-                    return Err(io::Error::other("unprocessed authentication command"));
-                }
-                enhanced::Processed::Reply(reply) => return Ok(Authenticated::Reply(reply)),
-            };
-            if let Some(reason) = connect_policy(&request, config) {
-                return Ok(Authenticated::Reply(refusal(&request, reason)));
-            }
-            let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
-                config.access_control.authenticate(ConnectInfo {
-                    client_id: &request.client,
-                    username: request.username.as_deref(),
-                    password: request.password.as_ref().map(Password::as_bytes),
-                })
-            });
-            let principal = match authenticated {
-                Ok(principal) => principal,
-                Err(error) => {
-                    let reason = match error {
-                        AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
-                        AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
-                    };
-                    return Ok(Authenticated::Reply(refusal(&request, reason)));
-                }
-            };
-            let established = request
-                .authentication
-                .is_some()
-                .then(|| enhanced::Established::from_request(&request, principal.clone()));
-            Ok(Authenticated::Connect {
-                request: Box::new(request),
-                principal,
-                established,
-            })
-        })
-        .await
-        .map_err(io::Error::other)??;
-        let (request, principal, established) = match step {
-            Authenticated::Reply(reply) => return Ok(reply),
-            Authenticated::Connect {
-                request,
-                principal,
-                established,
-            } => (request, principal, established),
-        };
-        let client = request.client.clone();
-        let reply = self
-            .broker
-            .call(&client, true, Request::Connect(*request), Some(principal))
-            .await?;
-        if let (Reply::Authenticated { .. }, Some(established)) = (&reply, established) {
-            self.auth
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .install(established);
-        }
-        Ok(reply)
     }
 }
 fn session_config(config: &BrokerConfig) -> SessionConfig {
@@ -691,7 +616,9 @@ fn refusal(request: &ConnectRequest, reason: ReasonCode) -> Reply {
     if request.options.version == ProtocolVersion::V5 {
         Reply::FrameRejected(reason)
     } else {
-        Reply::Rejected(if reason == ReasonCode::BAD_USER_NAME_OR_PASSWORD {
+        Reply::Rejected(if reason == ReasonCode::SERVER_BUSY {
+            ConnectRefusal::ServerBusy
+        } else if reason == ReasonCode::BAD_USER_NAME_OR_PASSWORD {
             ConnectRefusal::BadCredentials
         } else {
             ConnectRefusal::NotAuthorized
@@ -776,8 +703,10 @@ async fn serve_with_tls(
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(value) => value, Err(error) => break Err(error) };
                 let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else { drop(stream); continue; };
+                let Some(handshake)=broker.admission.handshake() else {drop(stream);continue;};
                 generation = match generation.checked_add(1) { Some(value) => value, None => break Err(io::Error::other("connection generation exhausted")) };
-                let worker = Worker::new(Arc::clone(&broker));
+                let mut worker = Worker::new(Arc::clone(&broker));
+                worker.handshake=Some(Arc::new(Mutex::new(Some(handshake))));
                 let config = config.clone();
                 let shutdown = stop_rx.clone();
                 let tls = tls.clone();
@@ -1698,3 +1627,7 @@ mod phase3a_tests;
 #[cfg(test)]
 #[path = "durable/actor_tests.rs"]
 mod actor_tests;
+
+#[cfg(test)]
+#[path = "durable/admission_tests.rs"]
+mod admission_tests;

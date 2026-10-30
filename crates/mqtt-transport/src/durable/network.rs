@@ -685,14 +685,16 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                     }
                     let deadline = expires
                         .ok_or_else(|| io::Error::other("missing authentication deadline"))?;
-                    let response = context
-                        .worker
-                        .request(Operation::Authenticate {
+                    let response = authentication::request(
+                        &context,
+                        Operation::Authenticate {
                             generation: context.generation,
                             frame,
                             deadline: deadline.into_std(),
-                        })
-                        .await?;
+                        },
+                        deadline,
+                    )
+                    .await?;
                     let accepted = authentication::handshake_reply(
                         &mut context,
                         response,
@@ -756,9 +758,11 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                             "protocol rejected by listener profile",
                         ));
                     }
-                    let response = context
-                        .worker
-                        .request(Operation::ConnectFrameAt {
+                    let deadline =
+                        expires.ok_or_else(|| io::Error::other("missing handshake deadline"))?;
+                    let response = authentication::request(
+                        &context,
+                        Operation::ConnectFrameAt {
                             deadline: expires
                                 .ok_or_else(|| io::Error::other("missing handshake deadline"))?
                                 .into_std(),
@@ -767,8 +771,10 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                             wake: context.wake_tx.clone(),
                             cancel: context.cancel_tx.clone(),
                             close_reason: context.close_tx.clone(),
-                        })
-                        .await?;
+                        },
+                        deadline,
+                    )
+                    .await?;
                     let accepted =
                         authentication::handshake_reply(&mut context, response, version, client)
                             .await?;
@@ -790,14 +796,16 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                     }
                     let deadline = reauth_deadline
                         .unwrap_or_else(|| Instant::now() + context.config.handshake_timeout);
-                    let response = context
-                        .worker
-                        .request(Operation::Authenticate {
+                    let response = authentication::request(
+                        &context,
+                        Operation::Authenticate {
                             generation: context.generation,
                             frame,
                             deadline: deadline.into_std(),
-                        })
-                        .await?;
+                        },
+                        deadline,
+                    )
+                    .await?;
                     let response = match response {
                         Reply::AuthContinue(frame) => frame,
                         Reply::AuthComplete(frame) => {

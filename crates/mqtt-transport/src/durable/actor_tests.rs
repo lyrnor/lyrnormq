@@ -326,6 +326,11 @@ async fn concurrent_connects_do_not_serialize_behind_one_worker() {
     let config = BrokerConfig {
         max_sessions: CLIENTS as usize,
         max_connections: CLIENTS as usize,
+        // This test measures actor parallelism, not admission rejection. Give
+        // its explicitly bounded 2000 concurrent login attempts enough slots.
+        max_handshakes: CLIENTS as usize,
+        max_auth_tasks: CLIENTS as usize,
+        auth_rate_per_second: 0,
         ..BrokerConfig::default()
     };
     let (worker, task) = worker(config).await;

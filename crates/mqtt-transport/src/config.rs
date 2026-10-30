@@ -54,6 +54,13 @@ pub struct BrokerConfig {
     /// Advertised inbound Topic Alias maximum and local outbound entry budget.
     pub topic_alias_maximum: u16,
     pub max_connections: usize,
+    /// Connections still awaiting a fully flushed successful CONNACK.
+    pub max_handshakes: usize,
+    /// Outstanding blocking credential/provider jobs, including cancelled callers.
+    pub max_auth_tasks: usize,
+    /// Global CONNECT/AUTH token refill; zero disables only rate throttling.
+    pub auth_rate_per_second: u32,
+    pub auth_burst: u32,
     pub outbound_capacity: usize,
     pub max_subscriptions: usize,
     /// Inbound QoS1/2 Receive Maximum and independent durable QoS windows.
@@ -75,6 +82,10 @@ impl Default for BrokerConfig {
             max_packet_size: 1024 * 1024,
             topic_alias_maximum: 32,
             max_connections: 1024,
+            max_handshakes: 128,
+            max_auth_tasks: 4,
+            auth_rate_per_second: 1000,
+            auth_burst: 1000,
             outbound_capacity: 64,
             max_subscriptions: 256,
             max_inflight: 32,

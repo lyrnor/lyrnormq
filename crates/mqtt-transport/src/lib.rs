@@ -1,4 +1,5 @@
 //! Bounded Tokio TCP transport for MQTT 3.1.1 and a bounded MQTT5 subset, sharing durable QoS 0/1/2.
+mod admission;
 mod config;
 mod durable;
 mod io_stream;

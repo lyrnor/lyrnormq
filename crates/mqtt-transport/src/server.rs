@@ -54,6 +54,7 @@ pub async fn serve_wss(
 }
 
 fn validate(config: &BrokerConfig) -> io::Result<()> {
+    crate::admission::Admission::validate(config)?;
     if config.max_retained == 0
         || config.max_sessions == 0
         || config.max_state_bytes == 0

@@ -16,3 +16,5 @@ rustls-pemfile = "2.2"
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 base64 = "0.22"
+[dev-dependencies]
+rusqlite = { version = "0.41", features = ["bundled"] }
