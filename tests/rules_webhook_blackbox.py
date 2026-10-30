@@ -484,15 +484,28 @@ class RulesWebhook(unittest.TestCase):
         self.assertNotIn('action_id', body)
 
     def test_invalid_old_sqlite_is_not_overwritten_during_migration(self):
-        legacy = self.legacy_config('http://127.0.0.1:1/')
-        legacy['actions'][0]['connector_id'] = 'missing'
-        self.seed_legacy_sqlite(legacy)
-        before = self.rules_path.read_bytes()
-        process = subprocess.run([BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)],
-                                 cwd=self.root, capture_output=True, timeout=8)
-        self.assertNotEqual(process.returncode, 0)
-        self.assertEqual(self.rules_path.read_bytes(), before)
-        self.assertEqual(self.stored_config(), legacy)
+        invalid = []
+        missing = self.legacy_config('http://127.0.0.1:1/')
+        missing['actions'][0]['connector_id'] = 'missing'
+        invalid.append(missing)
+        for identity in ['invalid/id', 'x' * 65]:
+            legacy = self.legacy_config('http://127.0.0.1:1/')
+            legacy['connectors'].append(dict(legacy['connectors'][0], id=identity))
+            invalid.append(legacy)
+        excessive = self.legacy_config('http://127.0.0.1:1/')
+        excessive['connectors'] += [dict(excessive['connectors'][0], id=f'unused-{n}') for n in range(32)]
+        invalid.append(excessive)
+        for legacy in invalid:
+            with self.subTest(legacy=legacy):
+                if self.rules_path.exists():
+                    self.rules_path.unlink()
+                self.seed_legacy_sqlite(legacy)
+                before = self.rules_path.read_bytes()
+                process = subprocess.run([BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)],
+                                         cwd=self.root, capture_output=True, timeout=8)
+                self.assertNotEqual(process.returncode, 0)
+                self.assertEqual(self.rules_path.read_bytes(), before)
+                self.assertEqual(self.stored_config(), legacy)
 
     def test_json_foreign_and_corrupt_databases_are_rejected_without_overwrite(self):
         args = [BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)]
