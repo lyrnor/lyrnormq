@@ -1851,3 +1851,15 @@ p99 rechecked locally. Counts fully reconcile;brokerPID2100933 unchanged,no rest
 test connections cleared. Full reports/raw/hash/limitations in
 `docs/verification/rust-loadgen-20261030/`. Not a maximum-throughput comparison with
 old4core emqtt generator or unlimited offered load.
+
+### Loadgen tail-latency diagnosis — 2026-10-30
+
+Read-only independent audits confirm270/390/463ms pressure p99 in raw samples;
+not cutoff/drain artifacts or a few pairs. Same5000connections,unchanged binaries,
+fixed intended5000msg/s10s contrast measured send->deliveryp99=0.368/0.454/0.905ms;
+including scheduling lag=2.140/2.399/2.780ms. All sent messages fully completed;
+4/4/10deadline sends were missed and reports remain unsuccessful,not falsely passed.
+Tool in-flight measured work fell from~2450credits to~1–4 despite5000TCPclients.
+This establishes strong load sensitivity,not a precise broker/network/client queue
+location or a code optimization. No production code/config changes. Evidence and
+remaining causal experiments:docs/performance/loadgen-latency-diagnosis-20261030/.

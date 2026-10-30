@@ -1,0 +1,258 @@
+{
+  "tool_revision": "f44b65736eca53254c2a07a115e6e1ab6e3bc2d0",
+  "tool_sha256": "00cc0c8fed39e228472b8176c258705fb8f37079e2f1e124faef7b609f1696b4",
+  "broker_sha256": "9af2bc7319eabc366e5e06512ed24f5b013407b5eff5c4ece14f4b5bfb423e59",
+  "generator": "47.117.6.20/private172.30.139.132,8cores/16GB",
+  "broker": "101.132.237.211/private172.30.139.129,4cores/~15GiB",
+  "conclusion_scope": "strong offered-load sensitivity across whole client/network/broker path;not localization of queue to one component;no production code change or performance optimization claim",
+  "broker_after": "MainPID=2100933\nNRestarts=0\nActiveState=active\n0\n",
+  "results": [
+    {
+      "qos": 0,
+      "same_connections": 5000,
+      "payload_bytes": 128,
+      "pressure": {
+        "mode": "closed_loop_window1,rate0",
+        "tps": 48790.8,
+        "delivery_p99_ms": 270.025282,
+        "write_p99_ms": 0.056098,
+        "p99_excluding_first_last500ms_ms": 270.5107,
+        "p99_without_late_deliveries_ms": 269.889017,
+        "tail_pair_count": 1616,
+        "tail_top10_pair_fraction": 0.01744421906693712,
+        "tail_late_fraction": 0.01663286004056795,
+        "slow1ms_bins_top": [
+          [
+            138,
+            3562
+          ],
+          [
+            140,
+            3529
+          ],
+          [
+            139,
+            3443
+          ],
+          [
+            141,
+            3380
+          ],
+          [
+            137,
+            3366
+          ],
+          [
+            142,
+            3166
+          ],
+          [
+            136,
+            3156
+          ],
+          [
+            135,
+            2942
+          ]
+        ],
+        "average_measured_cohort_inflight": 2466.8947556984
+      },
+      "lowrate": {
+        "offered_rate": 5000,
+        "tps": 4999.6,
+        "duration_ms": 10000,
+        "delivery_p99_ms": 0.368458,
+        "schedule_to_delivery_p99_ms": 2.13956,
+        "schedule_lag_p99_ms": 1.855666,
+        "planned": 50000,
+        "sent_delivered_completed": 49996,
+        "not_sent": 4,
+        "original_success": false,
+        "issues": [
+          "4 scheduled messages were not sent"
+        ],
+        "missing_delivery": 0,
+        "unconfirmed": null,
+        "average_measured_cohort_inflight": 1.2426489111,
+        "broker_cpu_one_core_percent_sample": 44.36168441554319,
+        "broker_cpu_interval_seconds": 5.026860520243645,
+        "broker_resource_samples": 2,
+        "broker_rss_peak_sample_bytes": 229343232,
+        "tcp_samples": [
+          5000,
+          5000
+        ]
+      }
+    },
+    {
+      "qos": 1,
+      "same_connections": 5000,
+      "payload_bytes": 128,
+      "pressure": {
+        "mode": "closed_loop_window1,rate0",
+        "tps": 29162.6,
+        "delivery_p99_ms": 389.770906,
+        "write_p99_ms": 0.05116,
+        "p99_excluding_first_last500ms_ms": 391.226709,
+        "p99_without_late_deliveries_ms": 389.828548,
+        "tail_pair_count": 1176,
+        "tail_top10_pair_fraction": 0.020917678812415654,
+        "tail_late_fraction": 0.008097165991902834,
+        "slow1ms_bins_top": [
+          [
+            197,
+            2012
+          ],
+          [
+            198,
+            1947
+          ],
+          [
+            195,
+            1941
+          ],
+          [
+            200,
+            1897
+          ],
+          [
+            196,
+            1896
+          ],
+          [
+            199,
+            1792
+          ],
+          [
+            194,
+            1773
+          ],
+          [
+            201,
+            1736
+          ]
+        ],
+        "average_measured_cohort_inflight": 2448.200236357
+      },
+      "lowrate": {
+        "offered_rate": 5000,
+        "tps": 4999.6,
+        "duration_ms": 10000,
+        "delivery_p99_ms": 0.453771,
+        "schedule_to_delivery_p99_ms": 2.399308,
+        "schedule_lag_p99_ms": 2.034083,
+        "planned": 50000,
+        "sent_delivered_completed": 49996,
+        "not_sent": 4,
+        "original_success": false,
+        "issues": [
+          "4 scheduled messages were not sent"
+        ],
+        "missing_delivery": 0,
+        "unconfirmed": 0,
+        "average_measured_cohort_inflight": 1.5224839208,
+        "broker_cpu_one_core_percent_sample": 74.60152683530043,
+        "broker_cpu_interval_seconds": 5.026706770062447,
+        "broker_resource_samples": 2,
+        "broker_rss_peak_sample_bytes": 258682880,
+        "tcp_samples": [
+          5000,
+          5000
+        ]
+      }
+    },
+    {
+      "qos": 2,
+      "same_connections": 5000,
+      "payload_bytes": 128,
+      "pressure": {
+        "mode": "closed_loop_window1,rate0",
+        "tps": 18991.2,
+        "delivery_p99_ms": 462.671343,
+        "write_p99_ms": 0.061209,
+        "p99_excluding_first_last500ms_ms": 465.521904,
+        "p99_without_late_deliveries_ms": 462.889416,
+        "tail_pair_count": 821,
+        "tail_top10_pair_fraction": 0.03076923076923077,
+        "tail_late_fraction": 0.018461538461538463,
+        "slow1ms_bins_top": [
+          [
+            168,
+            2827
+          ],
+          [
+            167,
+            2750
+          ],
+          [
+            169,
+            2648
+          ],
+          [
+            170,
+            2625
+          ],
+          [
+            166,
+            2498
+          ],
+          [
+            171,
+            2495
+          ],
+          [
+            172,
+            2414
+          ],
+          [
+            165,
+            2340
+          ]
+        ],
+        "average_measured_cohort_inflight": 2445.5123794546,
+        "q2_delivery_minus_source_ack_ms": {
+          "p50": 9.068303,
+          "p95": 169.430788,
+          "p99": 314.828685
+        },
+        "q2_positive_delivery_minus_ack_fraction": 0.9991995977465599
+      },
+      "lowrate": {
+        "offered_rate": 5000,
+        "tps": 4999.0,
+        "duration_ms": 10000,
+        "delivery_p99_ms": 0.90529,
+        "schedule_to_delivery_p99_ms": 2.779804,
+        "schedule_lag_p99_ms": 2.028794,
+        "planned": 50000,
+        "sent_delivered_completed": 49990,
+        "not_sent": 10,
+        "original_success": false,
+        "issues": [
+          "10 scheduled messages were not sent"
+        ],
+        "missing_delivery": 0,
+        "unconfirmed": 0,
+        "average_measured_cohort_inflight": 3.3470113816,
+        "broker_cpu_one_core_percent_sample": 110.71917427646798,
+        "broker_cpu_interval_seconds": 5.0307456105947495,
+        "broker_resource_samples": 2,
+        "broker_rss_peak_sample_bytes": 244727808,
+        "tcp_samples": [
+          5000,
+          5000
+        ]
+      }
+    }
+  ],
+  "archives": {
+    "rmqtt-lowrate-client.tar.gz": {
+      "bytes": 4596937,
+      "sha256": "4ebb9459226dc5f345345a1fa531b924c191913745c166cdc633f16519ed218f"
+    },
+    "rmqtt-lowrate-broker.tar.gz": {
+      "bytes": 1553,
+      "sha256": "3ddbe12044ec97cf3a158cd87368b0ee0a748ea3c58d2af08d62f02d05eff3fb"
+    }
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "success": false,
+  "run_id": 1793326689787539554,
+  "config": {
+    "address": "172.30.139.129:1883",
+    "version": "V5",
+    "qos": 0,
+    "pairs": 2500,
+    "payload_bytes": 128,
+    "rate": 5000,
+    "duration_ms": 10000,
+    "warmup_ms": 1000,
+    "drain_timeout_ms": 5000,
+    "connect_timeout_ms": 10000,
+    "io_timeout_ms": 10000,
+    "inflight": 1,
+    "max_messages": 5000000,
+    "max_packet_bytes": 65536
+  },
+  "mode": "absolute_rate",
+  "load_semantics": "absolute-rate intended deadlines; bounded inflight can delay writes; scheduling lag and not-sent messages retained",
+  "source_completion_definition": "not applicable: QoS0 has no wire acknowledgement",
+  "delivery_definition": "validated unique subscriber application delivery; QoS2 recorded at PUBREL; duplicates excluded",
+  "throughput_definition": "offering-window event timestamps in [start,end); cohort-through-drain includes late events using finish-start denominator; never sum ingress and egress",
+  "clock": "one-process std::time::Instant epoch",
+  "percentile_method": "exact nearest rank ceil(q*N), integer nanoseconds, no interpolation",
+  "timestamp_unit": "nanoseconds",
+  "timing": {
+    "measured_start_ns": 2335060539,
+    "measured_end_ns": 12335060539,
+    "finished_ns": 12366736677,
+    "offering_window_ns": 10000000000,
+    "observed_cohort_horizon_ns": 10031676138,
+    "drain_elapsed_ns": 31676138
+  },
+  "accounting": {
+    "counters": {
+      "scheduled": 50000,
+      "attempted": 49996,
+      "write_completed": 49996,
+      "puback_received": 0,
+      "pubrec_received": 0,
+      "pubcomp_received": 0,
+      "delivered_unique": 49996,
+      "duplicates": 0,
+      "unexpected": 0,
+      "invalid_payload": 0,
+      "completed": 49996
+    },
+    "samples_retained": 49996,
+    "not_sent": 4,
+    "not_delivered": 0,
+    "not_source_confirmed": null,
+    "incomplete_attempts": 0,
+    "failed_pairs": 0,
+    "configured_pairs": 2500,
+    "returned_pairs": 2500
+  },
+  "offering_window_events": {
+    "attempted": 49996,
+    "write_completed": 49996,
+    "delivered_unique": 49996,
+    "source_completed": null,
+    "fully_completed": 49996
+  },
+  "after_offering_window_events": {
+    "attempted": 0,
+    "write_completed": 0,
+    "delivered_unique": 0,
+    "source_completed": null,
+    "fully_completed": 0
+  },
+  "offering_window_tps": {
+    "denominator_ns": 10000000000,
+    "attempted_per_second": 4999.6,
+    "write_completed_per_second": 4999.6,
+    "delivered_unique_per_second": 4999.6,
+    "source_completed_per_second": null,
+    "fully_completed_per_second": 4999.6
+  },
+  "measured_cohort_tps_through_drain": {
+    "denominator_ns": 10031676138,
+    "attempted_per_second": 4983.81320451675,
+    "write_completed_per_second": 4983.81320451675,
+    "delivered_unique_per_second": 4983.81320451675,
+    "source_completed_per_second": null,
+    "fully_completed_per_second": 4983.81320451675
+  },
+  "latencies": {
+    "schedule_to_send": {
+      "count": 49996,
+      "min_ns": 81871,
+      "p50_ns": 948808,
+      "p95_ns": 1696480,
+      "p99_ns": 1855666,
+      "max_ns": 3531694,
+      "mean_ns": 961520.7896231698
+    },
+    "send_to_write_completed": {
+      "count": 49996,
+      "min_ns": 5284,
+      "p50_ns": 10043,
+      "p95_ns": 23596,
+      "p99_ns": 36761,
+      "max_ns": 175524,
+      "mean_ns": 12119.777362188976
+    },
+    "send_to_delivery": {
+      "count": 49996,
+      "min_ns": 155856,
+      "p50_ns": 242751,
+      "p95_ns": 316721,
+      "p99_ns": 368458,
+      "max_ns": 3682733,
+      "mean_ns": 248549.66619329547
+    },
+    "schedule_to_delivery": {
+      "count": 49996,
+      "min_ns": 258679,
+      "p50_ns": 1196305,
+      "p95_ns": 1965482,
+      "p99_ns": 2139560,
+      "max_ns": 4567766,
+      "mean_ns": 1210070.4558164654
+    },
+    "send_to_source_completed": null,
+    "send_to_full_completion": {
+      "count": 49996,
+      "min_ns": 155856,
+      "p50_ns": 242751,
+      "p95_ns": 316721,
+      "p99_ns": 368458,
+      "max_ns": 3682733,
+      "mean_ns": 248549.66619329547
+    }
+  },
+  "issues": [
+    "4 scheduled messages were not sent"
+  ],
+  "warnings": [],
+  "environment": {
+    "tool_version": "0.1.0",
+    "build_profile": "release",
+    "git_revision": "f44b65736eca53254c2a07a115e6e1ab6e3bc2d0",
+    "code_tree_dirty": "false",
+    "os": "linux",
+    "architecture": "x86_64",
+    "available_parallelism": 8,
+    "started_unix_ms": 1793326689786,
+    "arguments": [
+      "/opt/rmqtt-loadgen/rmqtt-loadgen",
+      "--addr",
+      "172.30.139.129:1883",
+      "--qos",
+      "0",
+      "--pairs",
+      "2500",
+      "--inflight",
+      "1",
+      "--payload-bytes",
+      "128",
+      "--rate",
+      "5000",
+      "--warmup-ms",
+      "1000",
+      "--duration-ms",
+      "10000",
+      "--drain-timeout-ms",
+      "5000",
+      "--connect-timeout-ms",
+      "10000",
+      "--max-messages",
+      "5000000",
+      "--output",
+      "/var/log/rmqtt-loadgen/lowrate-20261030/q0.json",
+      "--raw",
+      "/var/log/rmqtt-loadgen/lowrate-20261030/q0.jsonl"
+    ],
+    "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
+  }
+}
