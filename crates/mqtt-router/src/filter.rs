@@ -36,10 +36,11 @@ pub fn validate_topic_filter(filter: &str) -> bool {
 /// Split one valid shared subscription into its group name and literal pattern.
 /// The underlying pattern is never recursively interpreted as another group.
 pub fn split_shared_filter(filter: &str) -> Option<(&str, &str)> {
+    let rest = filter.strip_prefix("$share/")?;
     if !valid_string(filter) {
         return None;
     }
-    let (name, inner) = filter.strip_prefix("$share/")?.split_once('/')?;
+    let (name, inner) = rest.split_once('/')?;
     if name.is_empty() || name.contains(['+', '#']) || !validate_topic_filter(inner) {
         return None;
     }

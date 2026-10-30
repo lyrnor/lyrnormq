@@ -96,7 +96,9 @@ impl SessionEngine {
             }
         }
         changed |= self.prune_shared_state();
-        self.ensure_bounds()?;
+        if changed {
+            self.ensure_bounds()?;
+        }
         Ok(changed)
     }
 }

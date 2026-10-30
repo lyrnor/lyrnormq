@@ -33,6 +33,22 @@ impl SessionEngine {
     /// A group's unstarted backlog ends with its last membership. Already-started
     /// exchanges remain their selected session's protocol obligations.
     pub(super) fn prune_shared_state(&mut self) -> bool {
+        if self.shared_cursors.is_empty()
+            && self.shared_epochs.is_empty()
+            && self.sessions.values().all(|session| {
+                session.outgoing_shared.is_empty()
+                    && !session
+                        .subscriptions
+                        .keys()
+                        .any(|filter| filter.starts_with("$share/"))
+                    && session
+                        .queued
+                        .iter()
+                        .all(|message| message.shared_subscription.is_none())
+            })
+        {
+            return false;
+        }
         let groups = self.active_shared_groups();
         self.shared_cursors
             .retain(|group, _| groups.contains(group));

@@ -394,7 +394,7 @@ fn validate_packet(packet: &Packet) -> Result<(), ProtocolError> {
 /// Encode a supported packet, validating the same invariants as the decoder.
 pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
     validate_packet(packet)?;
-    let mut body = Vec::new();
+    let mut body = Vec::with_capacity(body_capacity(packet));
     let header = match packet {
         Packet::Connect {
             client_id,
@@ -507,7 +507,8 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
     if body.len() > 268_435_455 {
         return Err(ProtocolError::PacketTooLarge);
     }
-    let mut out = vec![header];
+    let mut out = Vec::with_capacity(body.len().saturating_add(5));
+    out.push(header);
     let mut n = body.len();
     loop {
         let mut b = (n % 128) as u8;
@@ -520,6 +521,24 @@ pub fn encode(packet: &Packet) -> Result<Vec<u8>, ProtocolError> {
             break;
         }
     }
-    out.extend(body);
+    out.extend_from_slice(&body);
     Ok(out)
+}
+
+/// Initial body allocation hint; exact sizing is not required for correctness.
+pub(crate) fn body_capacity(packet: &Packet) -> usize {
+    match packet {
+        Packet::Publish { topic, payload, .. } => {
+            topic.len().saturating_add(payload.len()).saturating_add(16)
+        }
+        Packet::Connect {
+            client_id, will, ..
+        } => client_id
+            .len()
+            .saturating_add(will.as_ref().map_or(0, |will| {
+                will.topic.len().saturating_add(will.payload.len())
+            }))
+            .saturating_add(64),
+        _ => 16,
+    }
 }

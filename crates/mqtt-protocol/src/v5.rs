@@ -351,7 +351,10 @@ pub fn encode_frame(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
         }
         return crate::encode(&frame.packet);
     }
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(
+        crate::codec::body_capacity(&frame.packet)
+            .saturating_add(frame.properties.len().saturating_mul(16)),
+    );
     let kind = match &frame.packet {
         Packet::Connect { .. } => 1,
         Packet::ConnAck { .. } => 2,
@@ -551,9 +554,10 @@ pub fn encode_frame(frame: &Frame) -> Result<Vec<u8>, ProtocolError> {
             kind << 4
         }
     };
-    let mut bytes = vec![header];
+    let mut bytes = Vec::with_capacity(out.len().saturating_add(5));
+    bytes.push(header);
     varint(&mut bytes, out.len())?;
-    bytes.extend(out);
+    bytes.extend_from_slice(&out);
     Ok(bytes)
 }
 

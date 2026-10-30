@@ -37,6 +37,14 @@ failure without retaining a second copy.
 that client's filter set (CONNECT / SUBSCRIBE / UNSUBSCRIBE / session removal).
 Delivery-only and publish-only installs must not rebuild filter maps.
 
+## B5 Housekeeping fast paths
+
+Authorization reconciliation re-validates bounds only when it changed state; every
+other mutating path still ends in `ensure_bounds`. Shared-subscription pruning may
+return "unchanged" without allocating when no session holds `$share/` filters,
+shared queue/outgoing metadata, cursors or epochs. Encoders may preallocate; wire
+bytes are unchanged.
+
 ## B4 Non-goals
 
 No change to per-recipient fan-out, Will at-most-once, schema8 rows, or the
