@@ -49,7 +49,8 @@ max_messages globally bounds measured samples,distributed deterministically by p
 resource failure/truncation,never successful silent sampling. Frames capped config.
 JSON includes config,mode,units,count denominators,raw counts,phase ns,failure status,
 p50/p95/p99/max/count for exact sample arrays. Optional raw JSONL after load. Sort/
-serialization/output outside measurement via spawn_blocking. No background resource
+serialization/output outside measurement on a synchronous main thread after
+stopping the Tokio runtime (or via spawn_blocking for async callers). No background resource
 sampling implicit;external process RSS/CPU can be joined explicitly by run timestamps.
 
 Acceptance: deterministic metrics oracle/tails/incomplete/late/dup/zero samples,
@@ -58,3 +59,6 @@ rejection/disconnect/delayed delivery/timeouts,rate lag and finite limits. Real 
 smoke both versions allQoS. Fmt,strict all-target clippy,workspace tests. Deliver real
 release binary and documentation,not just architecture. No saturation claim without
 measured actual scheduled/sent/delivered rate and client resource evidence.
+
+Coordinator clarification: RunData.finished_ns is the last pair drive observation
+end BEFORE best-effort DISCONNECT cleanup. Cleanup never dilutes drain TPS.
