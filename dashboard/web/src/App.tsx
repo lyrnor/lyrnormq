@@ -1,3 +1,15 @@
+import { Button } from "./components/ui/button";
+import { Card } from "./components/ui/card";
+import { Input } from "./components/ui/input";
+import { NativeSelect } from "./components/ui/native-select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "./components/ui/table";
 import React, {
   useCallback,
   useEffect,
@@ -42,8 +54,12 @@ const labels: Record<Route, string> = {
 };
 function Brand() {
   return (
-    <a className="brand" href="#overview" aria-label="rmqtt 首页">
-      <span className="brand-mark">
+    <a
+      className="brand flex items-center gap-3 px-6 pt-7 pb-6 text-[27px] font-bold tracking-tight [&_small]:mt-1 [&_small]:block [&_small]:text-[8px] [&_small]:font-medium [&_small]:tracking-[.24em] [&_small]:text-muted-foreground"
+      href="#overview"
+      aria-label="rmqtt 首页"
+    >
+      <span className="relative grid h-10 w-9 shrink-0 place-items-center rounded-[10px_10px_10px_3px] bg-[#e9875d] text-[34px] leading-none font-bold text-white [&>span]:absolute [&>span]:right-2 [&>span]:bottom-2 [&>span]:size-1.5 [&>span]:rounded-full [&>span]:bg-white">
         r<span />
       </span>
       <span>
@@ -85,15 +101,17 @@ function Login({
     }
   }
   return (
-    <div className="login-shell">
-      <section className="login-panel">
+    <div className="grid min-h-dvh place-items-center bg-background p-5">
+      <section className="w-full max-w-[440px] rounded-2xl border bg-card p-7 shadow-xl shadow-emerald-950/5 sm:p-9 [&_.brand]:px-0 [&_.brand]:pt-0 [&_.brand]:pb-9 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-semibold [&>p]:text-xs [&>p]:leading-relaxed [&>p]:text-muted-foreground [&_form]:mt-7 [&_label]:mb-3 [&_label]:block [&_label]:text-xs [&_label]:font-semibold [&_input]:mb-4 [&_form>button]:w-full">
         <Brand />
-        <div className="eyebrow">SINGLE NODE / LIVE CONSOLE</div>
+        <div className="mb-2 text-[9px] font-semibold tracking-[.18em] text-muted-foreground">
+          SINGLE NODE / LIVE CONSOLE
+        </div>
         <h1>连接到 Broker</h1>
         <p>使用独立管理令牌，查看当前实例的实时状态。</p>
         <form onSubmit={(e) => void submit(e)}>
           <label htmlFor="token">管理令牌</label>
-          <input
+          <Input
             id="token"
             name="token"
             type="password"
@@ -107,23 +125,29 @@ function Login({
             disabled={busy}
           />
           {message && (
-            <div className="error-box" role="alert">
+            <div
+              className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed break-words text-orange-800 [&_strong]:font-medium [&_span]:mt-1 [&_span]:block [&_span]:text-[11px]"
+              role="alert"
+            >
               {message}
             </div>
           )}
-          <button
-            className="btn primary"
+          <Button
+            variant="default"
+            className="h-8 gap-2 rounded-md px-3 text-xs font-medium"
             disabled={busy || value.trim().length < 32}
           >
             {busy ? "正在验证…" : "进入控制台"}
             <span aria-hidden="true"> →</span>
-          </button>
+          </Button>
         </form>
-        <div className="note">
+        <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
           令牌仅保留在当前页面内存中，刷新页面后需重新输入。控制台为只读，不修改
           Broker 状态。
         </div>
-        <small className="login-footer">Rust · Tokio · rustls</small>
+        <small className="mt-7 block text-center text-[10px] tracking-wider text-muted-foreground">
+          Rust · Tokio · rustls
+        </small>
       </section>
     </div>
   );
@@ -216,10 +240,10 @@ function Console({
         ? "已连接"
         : "连接中";
   const filter = (
-    <div className="filters">
-      <div className="search-input">
+    <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+      <div className="relative w-full sm:max-w-xs [&>svg]:pointer-events-none [&>svg]:absolute [&>svg]:top-2.5 [&>svg]:left-3 [&>svg]:size-4 [&>svg]:text-muted-foreground [&_input]:pl-9">
         <Icon name="search" />
-        <input
+        <Input
           aria-label={route === "connections" ? "筛选连接" : "筛选主题"}
           placeholder={
             route === "connections"
@@ -232,7 +256,7 @@ function Console({
         />
       </div>
       {route === "connections" && (
-        <select
+        <NativeSelect
           aria-label="筛选 MQTT 版本"
           value={query.protocol}
           onChange={(e) =>
@@ -242,17 +266,23 @@ function Console({
           <option value="">全部协议版本</option>
           <option value="5.0">MQTT 5.0</option>
           <option value="3.1.1">MQTT 3.1.1</option>
-        </select>
+        </NativeSelect>
       )}
-      <span className="filter-note">真实 Broker 数据 · 每 5 秒更新</span>
+      <span className="ml-auto hidden text-[10px] text-muted-foreground xl:inline">
+        真实 Broker 数据 · 每 5 秒更新
+      </span>
     </div>
   );
   return (
     <>
-      <aside className={`sidebar ${menu ? "open" : ""}`}>
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r bg-card transition-transform md:visible md:translate-x-0 ${menu ? "visible translate-x-0" : "invisible -translate-x-full"}`}
+      >
         <Brand />
-        <div className="workspace">
-          <span className="workspace-icon">R</span>
+        <div className="mx-4 mb-6 flex items-center gap-3 rounded-lg border bg-muted/20 p-3 [&_b]:text-xs [&_b]:font-semibold [&_small]:mt-1 [&_small]:block [&_small]:text-[10px] [&_small]:text-muted-foreground">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent font-semibold text-primary">
+            R
+          </span>
           <span>
             <b>当前 Broker</b>
             <small>单节点实例 · 实时数据</small>
@@ -261,7 +291,9 @@ function Console({
         <nav aria-label="主导航">
           {(["工作台", "管理", "扩展"] as const).map((group, i) => (
             <React.Fragment key={group}>
-              <div className="nav-group-title">{group}</div>
+              <div className="mt-5 mb-2 px-6 text-[10px] tracking-widest text-muted-foreground">
+                {group}
+              </div>
               {(i === 0
                 ? ["overview", "connections", "topics"]
                 : i === 1
@@ -271,61 +303,75 @@ function Console({
                 <a
                   key={id}
                   href={`#${id}`}
-                  className={`nav-link ${route === id ? "active" : ""}`}
+                  className={`mx-3 my-1 flex h-11 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors ${route === id ? "bg-accent font-semibold text-primary" : "text-muted-foreground hover:bg-muted"}`}
                   aria-current={route === id ? "page" : undefined}
                 >
                   <Icon name={id} />
                   <span>{labels[id as Route]}</span>
                   {(id === "rules" || id === "logs") && (
-                    <span className="nav-tag">未接入</span>
+                    <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                      未接入
+                    </span>
                   )}
                 </a>
               ))}
             </React.Fragment>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <span className="runtime-dot" />
+        <div className="mx-4 mt-auto flex items-start gap-2 border-t py-5 text-xs text-muted-foreground [&_small]:mt-1 [&_small]:block [&_small]:text-[9px] [&_b]:ml-1 [&_b]:text-[10px] [&_b]:font-normal">
+          <span className="mt-1 size-1.5 shrink-0 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
           <div>
             rmqtt <b>{o?.instance.version ?? "—"}</b>
             <small>Rust · Tokio · rustls</small>
           </div>
-          <span className="mini-badge">只读</span>
+          <span className="ml-auto rounded border px-1 py-0.5 text-[9px]">
+            只读
+          </span>
         </div>
       </aside>
       {menu && (
-        <button
-          className="mobile-backdrop"
+        <Button
+          variant="outline"
+          className="fixed inset-0 z-30 h-auto w-auto rounded-none border-0 bg-slate-950/20 md:hidden"
           aria-label="收起导航"
           onClick={() => setMenu(false)}
         />
       )}
-      <div className="shell">
-        <header className="topbar">
-          <button
-            className="icon-button mobile-menu"
+      <div className="min-w-0 md:ml-56">
+        <header className="flex h-[70px] items-center justify-between gap-3 border-b bg-card px-4 sm:px-8">
+          <Button
+            variant="outline"
+            className="size-8 shrink-0 border-0 bg-transparent p-0 text-muted-foreground shadow-none hover:bg-muted md:hidden"
             aria-label="展开导航"
             onClick={() => setMenu((x) => !x)}
           >
             <Icon name="menu" />
-          </button>
-          <div className="breadcrumb">
+          </Button>
+          <div className="flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground sm:gap-3 [&_b]:max-w-[130px] [&_b]:truncate [&_b]:font-medium [&_b]:text-foreground sm:[&_b]:max-w-xs">
             工作空间 <span>/</span>
-            <b className="mono">{o?.instance.listen ?? "当前实例"}</b>
-            <span className={`live-dot ${live.error ? "offline" : ""}`} />
-          </div>
-          <div className="top-actions">
+            <b className="font-mono text-[11px]">
+              {o?.instance.listen ?? "当前实例"}
+            </b>
             <span
-              className={`connection-tag ${live.error ? "disconnected" : ""}`}
+              className={`size-1.5 shrink-0 rounded-full ${live.error ? "bg-amber-500" : "bg-emerald-500"}`}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <span
+              className={`rounded-md border px-2 py-1 text-[10px] ${live.error ? "border-orange-200 bg-orange-50 text-orange-700" : "border-emerald-100 bg-emerald-50 text-primary"}`}
             >
               {status}
             </span>
-            <button className="btn" onClick={logout}>
+            <Button
+              variant="outline"
+              className="h-8 gap-2 rounded-md px-3 text-xs font-medium"
+              onClick={logout}
+            >
               退出登录
-            </button>
+            </Button>
           </div>
         </header>
-        <main>
+        <main className="mx-auto min-h-[calc(100vh-130px)] max-w-[1640px] px-4 py-6 sm:px-8 sm:py-8">
           <Heading
             title={labels[route]}
             eyebrow={
@@ -339,18 +385,22 @@ function Console({
                 : "当前实例的真实运行数据与只读配置。"
             }
           >
-            <button
-              className="btn"
+            <Button
+              variant="outline"
+              className="h-8 gap-2 rounded-md px-3 text-xs font-medium"
               onClick={() => setRefresh((x) => x + 1)}
               disabled={live.loading}
               aria-label="刷新数据"
             >
               <Icon name="refresh" />
-              <span className="hide-mobile">刷新数据</span>
-            </button>
+              <span className="hidden sm:inline">刷新数据</span>
+            </Button>
           </Heading>
           {live.error && (
-            <div className="error-box" role="alert">
+            <div
+              className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed break-words text-orange-800 [&_strong]:font-medium [&_span]:mt-1 [&_span]:block [&_span]:text-[11px]"
+              role="alert"
+            >
               <strong>{live.error}</strong>
               {live.updated && (
                 <span>
@@ -362,13 +412,13 @@ function Console({
             </div>
           )}
           {live.loading && !o && (
-            <div className="panel">
+            <div className="rounded-xl border bg-card shadow-none">
               <Empty>正在连接管理 API…</Empty>
             </div>
           )}
           {route === "overview" && o && (
             <>
-              <div className="cards">
+              <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
                 {[
                   [
                     "在线会话",
@@ -407,29 +457,34 @@ function Console({
                     "configuration",
                   ],
                 ].map(([name, value, unit, note, icon]) => (
-                  <div className="card metric" key={name}>
-                    <div className="metric-label">
+                  <Card
+                    className="border bg-card shadow-none min-h-32 gap-0 p-4 sm:p-5"
+                    key={name}
+                  >
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                       {name}
-                      <span className="metric-symbol">
+                      <span className="grid size-7 place-items-center rounded-lg bg-accent/60 text-primary/70">
                         <Icon name={String(icon)} />
                       </span>
                     </div>
-                    <div className="metric-number">
+                    <div className="mt-3 mb-3 text-[26px] leading-none font-semibold tracking-tight tabular-nums sm:text-[29px] [&_small]:ml-1 [&_small]:text-[10px] [&_small]:font-normal [&_small]:tracking-normal [&_small]:text-muted-foreground">
                       {typeof value === "number"
                         ? value.toLocaleString()
                         : value}
                       <small>{unit}</small>
                     </div>
-                    <div className="metric-foot">{note}</div>
-                  </div>
+                    <div className="text-[10px] leading-relaxed text-muted-foreground">
+                      {note}
+                    </div>
+                  </Card>
                 ))}
               </div>
-              <div className="two-column">
+              <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
                 <Panel title="消息吞吐" extra={<Badge>实时采样</Badge>}>
-                  <div className="chart-meta">
+                  <div className="flex gap-8 px-5 pt-4 [&_small]:mb-1 [&_small]:block [&_small]:text-[10px] [&_small]:text-muted-foreground [&_b]:text-base [&_b]:font-semibold [&_b>span]:ml-1 [&_b>span]:text-[10px] [&_b>span]:font-normal [&_b>span]:text-muted-foreground">
                     <div>
                       <small>
-                        <span className="legend-mark" />
+                        <span className="mr-1.5 inline-block h-0.5 w-3 rounded bg-primary align-middle" />
                         消息入站
                       </small>
                       <b>
@@ -443,7 +498,7 @@ function Console({
                     </div>
                     <div>
                       <small>
-                        <span className="legend-mark blue" />
+                        <span className="mr-1.5 inline-block h-0.5 w-3 rounded bg-[#91aaca] align-middle" />
                         消息出站
                       </small>
                       <b>
@@ -457,15 +512,15 @@ function Console({
                     </div>
                   </div>
                   <Traffic history={live.history} />
-                  <div className="chart-bottom">
+                  <div className="mx-5 flex flex-wrap gap-4 border-t py-3 text-[10px] text-muted-foreground">
                     <span>最近 {live.history.length} 个采样 · 最多 60 个</span>
                     <span>进程重启后计数清零</span>
                   </div>
                 </Panel>
                 <Panel title="实例信息">
-                  <div className="instance-body">
-                    <div className="instance-name">
-                      <span className="server-icon">
+                  <div className="px-5 pt-3">
+                    <div className="flex items-center gap-3 border-b pb-4 [&_b]:text-xs [&_b]:font-semibold [&_small]:mt-1 [&_small]:block [&_small]:text-[10px] [&_small]:text-muted-foreground [&_[data-slot=badge]]:ml-auto">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg border bg-accent/40 text-primary/70">
                         <Icon name="listeners" />
                       </span>
                       <div>
@@ -483,7 +538,7 @@ function Console({
                         ["协议版本", o.instance.protocol],
                       ]}
                     />
-                    <div className="instance-tags">
+                    <div className="flex flex-wrap gap-2 border-t py-4">
                       <Badge active={o.instance.tls}>
                         {o.instance.tls ? "TLS 已启用" : "无 TLS"}
                       </Badge>
@@ -494,25 +549,39 @@ function Console({
                   </div>
                 </Panel>
               </div>
-              <div className="two-column">
+              <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
                 <Panel title="状态与资源">
-                  <div className="resource-row">
+                  <div className="grid gap-5 p-5 sm:grid-cols-3">
                     <div>
-                      <span className="resource-label">CPU 使用率</span>
-                      <div className="resource-value">—</div>
-                      <span className="resource-note">尚未采集</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        CPU 使用率
+                      </span>
+                      <div className="my-2 text-xl font-semibold tracking-tight">
+                        —
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        尚未采集
+                      </span>
                     </div>
                     <div>
-                      <span className="resource-label">进程 RSS</span>
-                      <div className="resource-value">—</div>
-                      <span className="resource-note">尚未采集</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        进程 RSS
+                      </span>
+                      <div className="my-2 text-xl font-semibold tracking-tight">
+                        —
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        尚未采集
+                      </span>
                     </div>
                     <div>
-                      <span className="resource-label">模型状态内存</span>
-                      <div className="resource-value">
+                      <span className="text-[10px] text-muted-foreground">
+                        模型状态内存
+                      </span>
+                      <div className="my-2 text-xl font-semibold tracking-tight">
                         {bytes(o.state_bytes)}
                       </div>
-                      <span className="resource-note">
+                      <span className="text-[10px] text-muted-foreground">
                         逻辑状态字节，非进程 RSS
                       </span>
                     </div>
@@ -521,18 +590,21 @@ function Console({
                 <Panel
                   title="安全防护"
                   extra={
-                    <a className="text-link" href="#security">
+                    <a
+                      className="h-auto gap-1 border-0 bg-transparent p-0 text-xs font-medium text-primary shadow-none hover:bg-transparent hover:underline"
+                      href="#security"
+                    >
                       查看配置 →
                     </a>
                   }
                 >
-                  <div className="security-status">
+                  <div className="px-5 py-3">
                     <SecuritySummary config={c} />
                   </div>
                 </Panel>
               </div>
               <Panel title="进程累计流量">
-                <div className="panel-body">
+                <div className="p-5">
                   <KeyValues
                     items={[
                       ["入站 PUBLISH 帧", o.messages_in_total.toLocaleString()],
@@ -545,7 +617,7 @@ function Console({
                       ["保留消息", o.retained_messages.toLocaleString()],
                     ]}
                   />
-                  <div className="note">
+                  <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                     字节计数不含 TCP / TLS / WebSocket
                     封装。读取为最终一致视图；统计包含重传，不等同业务去重消息数。延迟指标尚未采集。
                   </div>
@@ -555,7 +627,7 @@ function Console({
           )}
           {route === "connections" && (
             <>
-              <div className="summary-strip">
+              <div className="mb-5 flex flex-wrap items-center gap-4 rounded-lg border border-emerald-100 bg-emerald-50/50 px-5 py-4 text-xs text-emerald-800 [&_small]:text-[10px] [&_small]:text-emerald-700/60 sm:[&_small]:ml-auto">
                 <Icon name="connections" />
                 在线会话 <b>{o?.online_sessions.toLocaleString() ?? "—"}</b>
                 <span>
@@ -563,64 +635,75 @@ function Console({
                 </span>
                 <small>已提交的会话状态，非 TCP 连接数</small>
               </div>
-              <div className="panel table-panel">
-                <div className="table-tab">
+              <div className="rounded-xl border bg-card shadow-none overflow-hidden">
+                <div className="flex gap-5 border-b px-5 [&_button]:h-12 [&_button]:rounded-none [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-0 [&_button]:text-xs [&_button]:shadow-none">
                   {[
                     ["", "全部会话"],
                     ["online", "在线会话"],
                     ["offline", "离线会话"],
                   ].map(([value, name]) => (
-                    <button
+                    <Button
+                      variant="outline"
                       key={value}
-                      className={query.state === value ? "active" : ""}
+                      aria-pressed={query.state === value}
+                      className={
+                        query.state === value
+                          ? "font-semibold text-primary underline decoration-2 underline-offset-[17px]"
+                          : ""
+                      }
                       onClick={() =>
                         setQuery((q) => changeQuery(q, { state: value }))
                       }
                     >
                       {name}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 {filter}
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Client ID</th>
-                        <th>状态</th>
-                        <th>协议</th>
-                        <th>认证身份</th>
-                        <th>订阅</th>
-                        <th>离线排队</th>
-                        <th>详情</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client ID</TableHead>
+                        <TableHead>状态</TableHead>
+                        <TableHead>协议</TableHead>
+                        <TableHead>认证身份</TableHead>
+                        <TableHead>订阅</TableHead>
+                        <TableHead>离线排队</TableHead>
+                        <TableHead>详情</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {live.sessions?.items.map((s) => (
-                        <tr key={s.client_id}>
-                          <td className="mono">{s.client_id}</td>
-                          <td>
+                        <TableRow key={s.client_id}>
+                          <TableCell className="font-mono text-[11px]">
+                            {s.client_id}
+                          </TableCell>
+                          <TableCell>
                             <Badge active={s.online}>
                               {s.online ? "在线" : "离线"}
                             </Badge>
-                          </td>
-                          <td>{protocolLabel(s.protocol)}</td>
-                          <td className="mono">{s.principal || "—"}</td>
-                          <td>{s.subscriptions}</td>
-                          <td>{s.queued}</td>
-                          <td>
-                            <button
-                              className="text-link"
+                          </TableCell>
+                          <TableCell>{protocolLabel(s.protocol)}</TableCell>
+                          <TableCell className="font-mono text-[11px]">
+                            {s.principal || "—"}
+                          </TableCell>
+                          <TableCell>{s.subscriptions}</TableCell>
+                          <TableCell>{s.queued}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              className="h-auto gap-1 border-0 bg-transparent p-0 text-xs font-medium text-primary shadow-none hover:bg-transparent hover:underline"
                               aria-label={`查看 ${s.client_id} 详情`}
                               onClick={() => void openSession(s.client_id)}
                             >
                               查看 →
-                            </button>
-                          </td>
-                        </tr>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
                 {live.loading && !live.sessions ? (
                   <Empty>正在查询会话…</Empty>
@@ -641,15 +724,21 @@ function Console({
             </>
           )}
           {route === "topics" && (
-            <div className="panel table-panel">
-              <div className="table-tab">
+            <div className="rounded-xl border bg-card shadow-none overflow-hidden">
+              <div className="flex gap-5 border-b px-5 [&_button]:h-12 [&_button]:rounded-none [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-0 [&_button]:text-xs [&_button]:shadow-none">
                 {[
                   ["subscriptions", "订阅过滤器"],
                   ["retained", "保留消息"],
                 ].map(([id, name]) => (
-                  <button
+                  <Button
+                    variant="outline"
                     key={id}
-                    className={topicTab === id ? "active" : ""}
+                    aria-pressed={topicTab === id}
+                    className={
+                      topicTab === id
+                        ? "font-semibold text-primary underline decoration-2 underline-offset-[17px]"
+                        : ""
+                    }
                     onClick={() => {
                       setTopicTab(id);
                       setQuery(initialQuery);
@@ -657,63 +746,71 @@ function Console({
                     }}
                   >
                     {name}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {filter}
-              <div className="table-wrap">
+              <div className="overflow-x-auto">
                 {topicTab === "subscriptions" ? (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Topic Filter</th>
-                        <th>Client ID</th>
-                        <th>QoS</th>
-                        <th>No Local</th>
-                        <th>RAP</th>
-                        <th>RH</th>
-                        <th>Subscription ID</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Topic Filter</TableHead>
+                        <TableHead>Client ID</TableHead>
+                        <TableHead>QoS</TableHead>
+                        <TableHead>No Local</TableHead>
+                        <TableHead>RAP</TableHead>
+                        <TableHead>RH</TableHead>
+                        <TableHead>Subscription ID</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {live.subscriptions?.items.map((s) => (
-                        <tr key={`${s.client_id}/${s.filter}`}>
-                          <td className="mono">{s.filter}</td>
-                          <td className="mono">{s.client_id}</td>
-                          <td>{s.qos}</td>
-                          <td>{s.no_local ? "是" : "否"}</td>
-                          <td>{s.retain_as_published ? "是" : "否"}</td>
-                          <td>{s.retain_handling}</td>
-                          <td>{s.identifier ?? "—"}</td>
-                        </tr>
+                        <TableRow key={`${s.client_id}/${s.filter}`}>
+                          <TableCell className="font-mono text-[11px]">
+                            {s.filter}
+                          </TableCell>
+                          <TableCell className="font-mono text-[11px]">
+                            {s.client_id}
+                          </TableCell>
+                          <TableCell>{s.qos}</TableCell>
+                          <TableCell>{s.no_local ? "是" : "否"}</TableCell>
+                          <TableCell>
+                            {s.retain_as_published ? "是" : "否"}
+                          </TableCell>
+                          <TableCell>{s.retain_handling}</TableCell>
+                          <TableCell>{s.identifier ?? "—"}</TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Topic</th>
-                        <th>QoS</th>
-                        <th>Payload 大小</th>
-                        <th>过期时间</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Topic</TableHead>
+                        <TableHead>QoS</TableHead>
+                        <TableHead>Payload 大小</TableHead>
+                        <TableHead>过期时间</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {live.retained?.items.map((r) => (
-                        <tr key={r.topic}>
-                          <td className="mono">{r.topic}</td>
-                          <td>{r.qos}</td>
-                          <td>{bytes(r.payload_bytes)}</td>
-                          <td>
+                        <TableRow key={r.topic}>
+                          <TableCell className="font-mono text-[11px]">
+                            {r.topic}
+                          </TableCell>
+                          <TableCell>{r.qos}</TableCell>
+                          <TableCell>{bytes(r.payload_bytes)}</TableCell>
+                          <TableCell>
                             {r.expires_at_millis === null
                               ? "无过期时间"
                               : new Date(r.expires_at_millis).toLocaleString()}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 )}
               </div>
               {live.loading && !(live.subscriptions || live.retained) ? (
@@ -738,7 +835,7 @@ function Console({
                   }
                 />
               )}
-              <div className="note table-note">
+              <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground mx-4 mb-4">
                 只展示元数据，不读取业务消息 Payload。RAP = Retain As
                 Published；RH = Retain Handling。活跃 Topic 历史尚未采集。
               </div>
@@ -746,7 +843,7 @@ function Console({
           )}
           {route === "security" && c && (
             <>
-              <div className="detail-grid">
+              <div className="mb-5 grid gap-4 lg:grid-cols-3">
                 {[
                   [
                     "MQTT 身份认证",
@@ -772,15 +869,18 @@ function Console({
                     "证书信任校验与 MQTT 身份授权相互独立。",
                   ],
                 ].map(([title, value, note]) => (
-                  <section className="card detail-card" key={title}>
+                  <Card
+                    className="border bg-card shadow-none gap-3 p-5 [&_h3]:text-lg [&_h3]:font-semibold [&_p]:text-xs [&_p]:leading-relaxed [&_p]:text-muted-foreground"
+                    key={title}
+                  >
                     <Badge>{title}</Badge>
                     <h3>{value}</h3>
                     <p>{note}</p>
-                  </section>
+                  </Card>
                 ))}
               </div>
               <Panel title="当前安全配置">
-                <div className="panel-body">
+                <div className="p-5">
                   <SecuritySummary config={c} />
                   <KeyValues
                     items={[
@@ -799,7 +899,7 @@ function Console({
                       ],
                     ]}
                   />
-                  <div className="note">
+                  <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                     本版不提供用户、ACL 或证书内容查询与修改。Redis / PostgreSQL
                     认证和证书身份映射未接入。管理令牌与 MQTT 客户端认证独立。
                   </div>
@@ -809,14 +909,14 @@ function Console({
           )}
           {route === "listeners" && o && (
             <>
-              <div className="listener-grid">
+              <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {["TCP", "TLS", "WS", "WSS"].map((type) => (
-                  <section
-                    className={`card detail-card listener-card ${o.instance.transport.toUpperCase() !== type ? "inactive" : ""}`}
+                  <Card
+                    className={`flex flex-col gap-3 rounded-xl border bg-card p-5 ${o.instance.transport.toUpperCase() !== type ? "border-t-2 border-t-slate-200 text-muted-foreground" : "border-t-2 border-t-emerald-300"}`}
                     key={type}
                   >
-                    <div className="detail-card-top">
-                      <span className="card-icon">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="grid size-9 place-items-center rounded-lg bg-accent text-primary/80">
                         <Icon name="listeners" />
                       </span>
                       <Badge
@@ -828,16 +928,16 @@ function Console({
                       </Badge>
                     </div>
                     <h3>{type}</h3>
-                    <div className="detail-card-number">
+                    <div className="my-3 text-base font-semibold break-all">
                       {o.instance.transport.toUpperCase() === type
                         ? o.instance.listen
                         : "—"}
                     </div>
-                  </section>
+                  </Card>
                 ))}
               </div>
               <Panel title="监听信息">
-                <div className="panel-body">
+                <div className="p-5">
                   <KeyValues
                     items={[
                       ["监听地址", o.instance.listen],
@@ -847,7 +947,7 @@ function Console({
                       ["强制客户端证书", o.instance.mtls ? "是" : "否"],
                     ]}
                   />
-                  <div className="note">
+                  <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                     当前进程仅运行一个 MQTT 监听入口。管理 HTTP
                     是独立本机只读入口，不表示支持多个 MQTT 监听器共享状态。
                   </div>
@@ -857,20 +957,23 @@ function Console({
           )}
           {route === "configuration" && c && (
             <Panel title="启动参数">
-              <div className="panel-body">
+              <div className="p-5">
                 {Object.entries(c.limits).map(([key, value]) => (
-                  <div className="config-row" key={key}>
+                  <div
+                    className="grid gap-3 border-b py-4 last:border-0 sm:grid-cols-[1fr_220px] [&_b]:text-xs [&_b]:font-medium [&_p]:mt-1 [&_p]:text-[10px] [&_p]:text-muted-foreground"
+                    key={key}
+                  >
                     <div>
                       <b>{limitLabels[key] ?? key}</b>
-                      <p className="mono">{key}</p>
+                      <p className="font-mono text-[11px]">{key}</p>
                     </div>
-                    <div className="config-value">
+                    <div className="rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs text-primary">
                       {value.toLocaleString()}
                       {key.endsWith("_ms") ? " ms" : ""}
                     </div>
                   </div>
                 ))}
-                <div className="note">
+                <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                   配置在进程启动时加载。本页仅显示安全的资源限制，不返回密钥、令牌、存储路径或策略内容；修改与热加载尚未实现。
                 </div>
               </div>
@@ -878,8 +981,8 @@ function Console({
           )}
           {(route === "logs" || route === "rules") && (
             <Panel title={labels[route]}>
-              <div className="blank-state">
-                <div className="blank-icon">
+              <div className="px-6 py-12 text-center [&_h2]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mx-auto [&_p]:mb-5 [&_p]:max-w-md [&_p]:text-xs [&_p]:leading-relaxed [&_p]:text-muted-foreground">
+                <div className="mx-auto mb-5 grid size-14 place-items-center rounded-2xl border bg-accent/60 text-primary [&>svg]:size-6">
                   <Icon name={route} />
                 </div>
                 <h2>
@@ -898,7 +1001,7 @@ function Console({
             <Empty>Broker 暂无可用数据</Empty>
           )}
         </main>
-        <footer>
+        <footer className="mx-auto flex max-w-[1640px] flex-col justify-between gap-2 px-4 py-5 text-[10px] text-muted-foreground sm:flex-row sm:px-8">
           <span>rmqtt console / 单节点 MQTT Broker</span>
           <span>
             {live.updated
@@ -917,19 +1020,24 @@ function Console({
           {detailLoading ? (
             <Empty>正在读取会话…</Empty>
           ) : detailError ? (
-            <div className="error-box" role="alert">
+            <div
+              className="mb-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-xs leading-relaxed break-words text-orange-800 [&_strong]:font-medium [&_span]:mt-1 [&_span]:block [&_span]:text-[11px]"
+              role="alert"
+            >
               {detailError}
             </div>
           ) : (
             detail && (
               <>
-                <div className="pill-group">
+                <div className="flex flex-wrap gap-2">
                   <Badge active={detail.online}>
                     {detail.online ? "在线" : "离线"}
                   </Badge>
                   <Badge>{protocolLabel(detail.protocol)}</Badge>
                 </div>
-                <h3 className="drawer-section">客户端</h3>
+                <h3 className="mt-6 border-b pb-3 text-xs font-semibold">
+                  客户端
+                </h3>
                 <KeyValues
                   items={[
                     ["Client ID", detail.client_id],
@@ -938,7 +1046,9 @@ function Console({
                     ["订阅数量", detail.subscriptions],
                   ]}
                 />
-                <h3 className="drawer-section">会话与消息</h3>
+                <h3 className="mt-6 border-b pb-3 text-xs font-semibold">
+                  会话与消息
+                </h3>
                 <KeyValues
                   items={[
                     ["排队消息", detail.queued],
@@ -961,7 +1071,7 @@ function Console({
                     ],
                   ]}
                 />
-                <div className="note">
+                <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                   详情为本次查询快照，不包含业务消息内容。当前版本不提供强制断开与删除操作。
                 </div>
               </>
@@ -989,7 +1099,7 @@ const limitLabels: Record<string, string> = {
   topic_alias_maximum: "Topic Alias 上限",
 };
 function SecuritySummary({ config }: { config: Configuration | null }) {
-  if (!config) return <span className="muted">等待配置…</span>;
+  if (!config) return <span className="text-muted-foreground">等待配置…</span>;
   return (
     <>
       {[
@@ -998,10 +1108,15 @@ function SecuritySummary({ config }: { config: Configuration | null }) {
         ["客户端证书", config.instance.mtls ? "强制 mTLS" : "未启用"],
         ["管理操作", "只读 · Bearer 令牌"],
       ].map(([label, value]) => (
-        <div className="security-line" key={label}>
-          <span className="check-circle">·</span>
+        <div
+          className="my-3 flex items-center gap-2 text-xs text-foreground/70 [&_span:last-child]:ml-auto [&_span:last-child]:text-[10px]"
+          key={label}
+        >
+          <span className="grid size-4 shrink-0 place-items-center rounded-full border border-emerald-200 bg-emerald-50 text-primary">
+            ·
+          </span>
           {label}
-          <span className="muted">{value}</span>
+          <span className="text-muted-foreground">{value}</span>
         </div>
       ))}
     </>

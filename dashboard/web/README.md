@@ -55,3 +55,30 @@ search bounds, real-rate calculation/reset/history bounds, polling cancellation 
 backpressure, memory-only login/logout/401, restored negotiation labels, and XSS
 escaping. Live browser integration and broker blackbox tests are run by the
 coordinator after front/back-end integration.
+
+## UI stack and component provenance
+
+The live interface uses Tailwind CSS v4 through `@tailwindcss/vite` and genuine
+shadcn/ui source components, generated from the official `ui.shadcn.com` registry
+using the shadcn CLI **3.8.5** (`new-york` configuration in `components.json`).
+Button, Card, Input, Badge, Table and Native Select live under `src/components/ui`.
+The generated imports were adjusted to the project's `@/lib/utils` alias; their
+variant/accessibility primitives are retained. Icons come from `lucide-react`.
+The CLI itself is not a runtime or permanent development dependency.
+
+Layout, spacing, responsive behavior and state colors use Tailwind utilities.
+The previous 2,191-line handcrafted stylesheet was removed; `src/style.css` is
+61 lines containing theme tokens, base styles and the native dialog backdrop.
+The compiled Tailwind stylesheet also includes library utilities; its generated
+size is distinct from manually maintained CSS.
+
+Details use a browser-native `<dialog>` rendered as a side panel, rather than
+claiming to be shadcn Sheet. This preserves the management server's strict
+`script-src 'self'; style-src 'self'` policy: Radix modal scroll-lock/focus-guard
+and Tabs roving-focus helpers introduce runtime styles. The view filters use
+shadcn Buttons with `aria-pressed`; no Radix Tabs or style-injection exception is
+required. Native modal focus, Escape handling, focus restoration and absence of
+injected styles have regression tests; real-browser validation runs on integration.
+
+Official references: [Tailwind Vite integration](https://tailwindcss.com/docs/installation/using-vite)
+and [shadcn Vite installation](https://ui.shadcn.com/docs/installation/vite).

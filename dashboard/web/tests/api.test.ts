@@ -3,13 +3,11 @@ import { api, ApiError, errorMessage } from "../src/api";
 afterEach(() => vi.unstubAllGlobals());
 describe("same-origin read-only API client", () => {
   it("sends bearer only in headers, omits cookies/cache and refuses redirects", async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response('{"ready":true}', {
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('{"ready":true}', {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
     vi.stubGlobal("fetch", fetch);
     expect(await api("/api/v1/overview", "secret")).toEqual({ ready: true });
     const [url, options] = fetch.mock.calls[0];
@@ -73,13 +71,11 @@ describe("same-origin read-only API client", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response("{", {
-            headers: { "Content-Type": "application/json" },
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response("{", {
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
     );
     await expect(api("/api/v1/overview", "secret")).rejects.toMatchObject({
       status: 502,

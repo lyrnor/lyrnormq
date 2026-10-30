@@ -165,7 +165,10 @@ describe("memory-only management login", () => {
     await waitFor(() =>
       expect(screen.getByRole("dialog").textContent).toContain("未协商"),
     );
-    fireEvent.keyDown(document, { key: "Escape" });
+    expect(container.querySelectorAll("[style], style")).toHaveLength(0);
+    fireEvent.keyDown(screen.getByRole("button", { name: "关闭详情" }), {
+      key: "Escape",
+    });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
