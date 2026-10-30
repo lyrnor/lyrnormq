@@ -149,14 +149,14 @@ async fn run(
                 break;
             };
             if size
-                .checked_add(1)
+                .checked_add(limits.separator_bytes)
                 .and_then(|size| size.checked_add(item.encoded.len()))
                 .is_none_or(|size| size > limits.max_bytes)
             {
                 pending = Some(item);
                 break;
             }
-            size += 1 + item.encoded.len();
+            size += limits.separator_bytes + item.encoded.len();
             batch.push(item);
         }
         if *cancel.borrow() {

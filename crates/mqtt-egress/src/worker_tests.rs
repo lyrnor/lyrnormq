@@ -11,6 +11,7 @@ impl Sink for Fake {
             max_bytes: 4,
             overhead: 0,
             max_events: 1,
+            separator_bytes: 0,
         }
     }
     fn send<'a>(
@@ -115,6 +116,7 @@ impl Sink for BoundedFake {
             max_bytes: 8,
             overhead: if self.invalid { usize::MAX } else { 0 },
             max_events: if self.invalid { 0 } else { 1 },
+            separator_bytes: 0,
         }
     }
     fn send<'a>(

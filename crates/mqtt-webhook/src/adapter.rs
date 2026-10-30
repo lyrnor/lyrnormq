@@ -124,6 +124,7 @@ impl Sink for WebhookSink {
             max_bytes: 1024 * 1024,
             max_events: 500,
             overhead: self.prefix.len() + 2,
+            separator_bytes: 1,
         }
     }
     fn send<'a>(
