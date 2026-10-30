@@ -77,15 +77,17 @@ class Webhook:
 
 
 def config_for(url, sql=None, batch_size=1, queue_capacity=64, **settings):
-    action = dict(id='send', name='Send alarms', connector_id='alarm', enabled=True,
-                  batch_size=batch_size, batch_wait_ms=30, queue_capacity=queue_capacity,
-                  timeout_ms=1000, max_attempts=3, retry_base_ms=10)
-    action.update(settings)
-    return dict(connectors=[dict(id='alarm', name='Alarm endpoint', url=url,
-                                 headers={'Authorization': f'Bearer {SECRET}'})],
-                actions=[action], rules=[dict(id='hot', name='High temperature', enabled=True,
-                                             sql=sql or 'SELECT client_id, payload.temperature AS temperature FROM "devices/+/telemetry" WHERE payload.temperature >= 80',
-                                             action_ids=['send'])])
+    delivery = dict(batch_size=batch_size, batch_wait_ms=30, queue_capacity=queue_capacity,
+                    timeout_ms=1000, max_attempts=3, retry_base_ms=10)
+    delivery.update(settings)
+    return dict(schema_version=2,
+                outbounds=[dict(id='send', name='Send alarms', enabled=True, type='webhook',
+                                config=dict(url=url, headers={'Authorization': f'Bearer {SECRET}'}),
+                                delivery=delivery)],
+                rules=[dict(id='hot', name='High temperature', enabled=True,
+                            sql=sql or 'SELECT client_id, payload.temperature AS temperature FROM "devices/+/telemetry" WHERE payload.temperature >= 80',
+                            outbound_ids=['send'])])
+
 
 
 class RulesWebhook(unittest.TestCase):
@@ -144,8 +146,10 @@ class RulesWebhook(unittest.TestCase):
     def status(self):
         return self.broker.data(STATUS)
 
-    def action_status(self, name='send'):
-        return next(action for action in self.status()['actions'] if action['id'] == name)
+    def outbound_status(self, name='send'):
+        item = next(outbound for outbound in self.status()['outbounds'] if outbound['id'] == name)
+        self.assertEqual(item['type'], 'webhook')
+        return item
 
     def sample(self, payload=None):
         return dict(topic='devices/a/telemetry', payload=list(payload or b'{"temperature":81}'),
@@ -162,7 +166,7 @@ class RulesWebhook(unittest.TestCase):
                 self.assertIn('no-store', headers.get('cache-control', ''))
         public = self.broker.data(CONFIG)
         self.assertNotIn(SECRET, json.dumps(public))
-        self.assertEqual(public['connectors'][0]['headers']['Authorization'], '[redacted]')
+        self.assertEqual(public['outbounds'][0]['config']['headers']['Authorization'], '[redacted]')
         self.replace(public)
         self.assertIn(SECRET, json.dumps(self.stored_config()))
         body = {'sql': public['rules'][0]['sql'], 'event': self.sample()}
@@ -210,7 +214,7 @@ class RulesWebhook(unittest.TestCase):
                     self.assertEqual(path, '/events')
                     self.assertEqual(headers['authorization'], f'Bearer {SECRET}')
                     self.assertEqual(headers['content-type'], 'application/json')
-                    self.assertEqual(body['action_id'], 'send')
+                    self.assertEqual(body['outbound_id'], 'send')
                     self.assertLessEqual(size, 1024 * 1024)
                     self.assertEqual(len(body['events']), 1)
                     event = body['events'][0]
@@ -220,10 +224,10 @@ class RulesWebhook(unittest.TestCase):
                     self.assertEqual(event['data'], {'client_id': f'source-{version}', 'temperature': 80 + qos})
                     self.assertIsInstance(event['event_id'], str)
                     self.assertNotIn('not-selected', json.dumps(body))
-        eventually(lambda: self.action_status()['delivered'] == 6)
-        self.assertEqual(self.action_status()['failed'], 0)
+        eventually(lambda: self.outbound_status()['delivered'] == 6)
+        self.assertEqual(self.outbound_status()['failed'], 0)
 
-    def test_nonmatching_rules_binary_metadata_and_disabled_actions(self):
+    def test_nonmatching_rules_binary_metadata_and_disabled_outbounds(self):
         webhook = self.webhook()
         config = config_for(webhook.url)
         self.start(config)
@@ -238,7 +242,7 @@ class RulesWebhook(unittest.TestCase):
         self.replace(config)
         self.publish(source, 'devices/a/telemetry', b'opaque')
         self.assertEqual(webhook.get()[2]['events'][0]['data'], {'topic': 'devices/a/telemetry'})
-        config['actions'][0]['enabled'] = False
+        config['outbounds'][0]['enabled'] = False
         self.replace(config)
         self.publish(source, 'devices/a/telemetry', b'opaque')
         self.barrier(source)
@@ -255,14 +259,14 @@ class RulesWebhook(unittest.TestCase):
         self.assertEqual(records[0]['events'][0]['delivery_id'], records[2]['events'][0]['delivery_id'])
         self.assertEqual(records[0], records[1])
         self.assertEqual(records[1], records[2])
-        eventually(lambda: self.action_status()['delivered'] == 1)
-        self.assertEqual(self.action_status()['retried'], 2)
+        eventually(lambda: self.outbound_status()['delivered'] == 1)
+        self.assertEqual(self.outbound_status()['retried'], 2)
         with webhook.lock:
             webhook.statuses = deque([400])
         self.publish(source, 'devices/a/telemetry', b'{"temperature":91}', qos=1)
         webhook.get()
-        eventually(lambda: self.action_status()['failed'] == 1)
-        self.assertEqual(self.action_status()['retried'], 2)
+        eventually(lambda: self.outbound_status()['failed'] == 1)
+        self.assertEqual(self.outbound_status()['retried'], 2)
         self.assertTrue(webhook.records.empty())
         self.assertNotIn(SECRET, json.dumps(self.status()))
 
@@ -284,7 +288,7 @@ class RulesWebhook(unittest.TestCase):
         self.assertEqual(len(seen), 4)
         self.assertEqual(sorted(event['data']['temperature'] for event in seen), [80, 81, 82, 83])
         self.assertEqual(len({event['event_id'] for event in seen}), 4)
-        eventually(lambda: self.action_status()['delivered'] == 4)
+        eventually(lambda: self.outbound_status()['delivered'] == 4)
 
     def test_batch_splits_on_request_byte_limit(self):
         webhook = self.webhook()
@@ -301,39 +305,40 @@ class RulesWebhook(unittest.TestCase):
             self.assertLessEqual(size, 1024 * 1024)
             self.assertEqual(len(body['events']), 1)
             self.assertEqual(len(body['events'][0]['data']['blob']), 600000)
-        eventually(lambda: self.action_status()['delivered'] == 2)
-        self.assertEqual(self.action_status()['failed'], 0)
+        eventually(lambda: self.outbound_status()['delivered'] == 2)
+        self.assertEqual(self.outbound_status()['failed'], 0)
 
-    def test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint(self):
+    def test_outbound_fanout_has_distinct_delivery_ids_even_at_same_endpoint(self):
         webhook = self.webhook()
         config = config_for(webhook.url)
-        config['actions'].append(dict(config['actions'][0], id='second', name='Second action'))
-        config['rules'][0]['action_ids'].append('second')
+        config['outbounds'].append(dict(config['outbounds'][0], id='second', name='Second action'))
+        config['rules'][0]['outbound_ids'].append('second')
         self.start(config)
         source = self.client('fanout-source')
         self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=1)
         requests = [webhook.get()[2] for _ in range(2)]
-        self.assertEqual({request['action_id'] for request in requests}, {'send', 'second'})
+        self.assertEqual({request['outbound_id'] for request in requests}, {'send', 'second'})
         events = [request['events'][0] for request in requests]
         self.assertEqual(events[0]['event_id'], events[1]['event_id'])
         self.assertNotEqual(events[0]['delivery_id'], events[1]['delivery_id'])
 
-    def test_slow_target_and_overflow_do_not_block_other_action_or_mqtt(self):
+    def test_slow_target_and_overflow_do_not_block_other_outbound_or_mqtt(self):
         slow, fast = self.webhook(delay=.5), self.webhook()
         config = config_for(slow.url, queue_capacity=1, timeout_ms=100, max_attempts=1)
-        config['connectors'].append(dict(id='fast', name='Fast endpoint', url=fast.url, headers={}))
-        action = dict(config['actions'][0], id='fast', name='Fast action', connector_id='fast', queue_capacity=256, timeout_ms=1000)
-        config['actions'].append(action)
-        config['rules'][0]['action_ids'].append('fast')
+        fast_outbound = copy.deepcopy(config['outbounds'][0])
+        fast_outbound.update(id='fast', name='Fast outbound', config=dict(url=fast.url, headers={}))
+        fast_outbound['delivery'].update(queue_capacity=256, timeout_ms=1000)
+        config['outbounds'].append(fast_outbound)
+        config['rules'][0]['outbound_ids'].append('fast')
         self.start(config)
         source = self.client('overflow-source')
         for n in range(60):
             self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=0)
         self.barrier(source)
-        self.assertEqual(fast.get()[2]['action_id'], 'fast')
-        eventually(lambda: self.action_status()['dropped'] > 0)
-        eventually(lambda: self.action_status('fast')['delivered'] > 0)
-        self.assertEqual(self.action_status('fast')['failed'], 0)
+        self.assertEqual(fast.get()[2]['outbound_id'], 'fast')
+        eventually(lambda: self.outbound_status()['dropped'] > 0)
+        eventually(lambda: self.outbound_status('fast')['delivered'] > 0)
+        self.assertEqual(self.outbound_status('fast')['failed'], 0)
         self.assertLessEqual(self.status()['queued_bytes'], 16 * 1024 * 1024)
 
     def test_config_atomic_validation_secret_roundtrip_and_restart(self):
@@ -344,16 +349,16 @@ class RulesWebhook(unittest.TestCase):
         self.replace(public)
         original = self.stored_config()
         bad = copy.deepcopy(public)
-        bad['rules'][0]['action_ids'] = ['absent']
+        bad['rules'][0]['outbound_ids'] = ['absent']
         self.assertEqual(self.request(CONFIG, 'PUT', bad)[0], 400)
         self.assertEqual(self.stored_config(), original)
         self.assertEqual(self.broker.data(CONFIG), public)
         for header in ['Host', 'Content-Length', 'Content-Type', 'Connection']:
             bad = copy.deepcopy(config)
-            bad['connectors'][0]['headers'][header] = 'forbidden'
+            bad['outbounds'][0]['config']['headers'][header] = 'forbidden'
             self.assertEqual(self.request(CONFIG, 'PUT', bad)[0], 400)
         bad = copy.deepcopy(config)
-        bad['connectors'][0]['url'] += '?secret=do-not-accept'
+        bad['outbounds'][0]['config']['url'] += '?secret=do-not-accept'
         self.assertEqual(self.request(CONFIG, 'PUT', bad)[0], 400)
         self.broker.stop()
         self.broker.start()
@@ -370,9 +375,9 @@ class RulesWebhook(unittest.TestCase):
         legacy.write_text('{invalid-legacy-json-do-not-read')
         self.start(default=True)
         self.assertTrue(self.status()['running'])
-        self.assertEqual(self.broker.data(CONFIG), {'connectors': [], 'actions': [], 'rules': []})
+        self.assertEqual(self.broker.data(CONFIG), {'schema_version': 2, 'outbounds': [], 'rules': []})
         self.assertEqual(self.request(CONFIG, token=None)[0], 401)
-        self.assertEqual(self.stored_config(), {'connectors': [], 'actions': [], 'rules': []})
+        self.assertEqual(self.stored_config(), {'schema_version': 2, 'outbounds': [], 'rules': []})
         self.assertEqual(legacy.read_text(), '{invalid-legacy-json-do-not-read')
         self.barrier(self.client('default-rules'))
 
@@ -410,6 +415,85 @@ class RulesWebhook(unittest.TestCase):
         self.assertEqual(self.stored_config(), original)
         self.assertTrue(self.status()['running'])
 
+    def test_unknown_types_versions_fields_and_references_are_atomic(self):
+        self.start(config_for('http://127.0.0.1:1/'))
+        original = self.stored_config()
+        public = self.broker.data(CONFIG)
+        invalid = []
+        for kind in ['kafka', 'postgresql', 'redis', 'unknown']:
+            bad = copy.deepcopy(public)
+            bad['outbounds'][0]['type'] = kind
+            invalid.append(bad)
+        for version in [0, 1, 3, '2', None]:
+            bad = copy.deepcopy(public)
+            bad['schema_version'] = version
+            invalid.append(bad)
+        for target in ['root', 'outbound', 'config', 'delivery', 'rule']:
+            bad = copy.deepcopy(public)
+            item = {'root': bad, 'outbound': bad['outbounds'][0],
+                    'config': bad['outbounds'][0]['config'],
+                    'delivery': bad['outbounds'][0]['delivery'], 'rule': bad['rules'][0]}[target]
+            item['unknown_field'] = 'reject'
+            invalid.append(bad)
+        bad = copy.deepcopy(public)
+        bad['outbounds'] = []
+        invalid.append(bad)
+        invalid.append(dict(connectors=[], actions=[], rules=[]))
+        for bad in invalid:
+            with self.subTest(config=bad):
+                self.assertEqual(self.request(CONFIG, 'PUT', bad)[0], 400)
+                self.assertEqual(self.stored_config(), original)
+                self.assertEqual(self.broker.data(CONFIG), public)
+                self.assertTrue(self.status()['running'])
+        self.assertNotIn('actions', self.status())
+        self.assertNotIn('connectors', public)
+
+    def legacy_config(self, url):
+        modern = config_for(url)
+        outbound = modern['outbounds'][0]
+        rule = copy.deepcopy(modern['rules'][0])
+        rule['action_ids'] = rule.pop('outbound_ids')
+        return dict(connectors=[dict(id='alarm', name='Alarm endpoint', **outbound['config'])],
+                    actions=[dict(id=outbound['id'], name=outbound['name'], enabled=True,
+                                  connector_id='alarm', **outbound['delivery'])], rules=[rule])
+
+    def seed_legacy_sqlite(self, value):
+        with sqlite3.connect(self.rules_path) as database:
+            database.execute("CREATE TABLE rule_configuration (id INTEGER PRIMARY KEY CHECK (id = 1), data BLOB NOT NULL CHECK (typeof(data) = 'blob'))")
+            database.execute('PRAGMA application_id=1380795206')
+            database.execute('PRAGMA user_version=1')
+            database.execute('INSERT INTO rule_configuration VALUES(1, ?)',
+                             (json.dumps(value).encode(),))
+
+    def test_old_sqlite_migrates_once_preserving_ids_secrets_and_delivery(self):
+        webhook = self.webhook()
+        self.seed_legacy_sqlite(self.legacy_config(webhook.url))
+        self.start()
+        modern = self.stored_config()
+        self.assertEqual(modern, config_for(webhook.url))
+        self.assertEqual(self.broker.data(CONFIG)['outbounds'][0]['config']['headers']['Authorization'], '[redacted]')
+        self.assertEqual(self.broker.data(CONFIG)['rules'][0]['outbound_ids'], ['send'])
+        self.broker.stop(crash=True)
+        self.broker.start()
+        self.assertEqual(self.stored_config(), modern)
+        self.publish(self.client('migrated'), 'devices/a/telemetry', b'{"temperature":90}', qos=1)
+        _, headers, body, _ = webhook.get()
+        self.assertEqual(headers['authorization'], f'Bearer {SECRET}')
+        self.assertEqual(body['outbound_id'], 'send')
+        self.assertEqual(body['events'][0]['rule_id'], 'hot')
+        self.assertNotIn('action_id', body)
+
+    def test_invalid_old_sqlite_is_not_overwritten_during_migration(self):
+        legacy = self.legacy_config('http://127.0.0.1:1/')
+        legacy['actions'][0]['connector_id'] = 'missing'
+        self.seed_legacy_sqlite(legacy)
+        before = self.rules_path.read_bytes()
+        process = subprocess.run([BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)],
+                                 cwd=self.root, capture_output=True, timeout=8)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertEqual(self.rules_path.read_bytes(), before)
+        self.assertEqual(self.stored_config(), legacy)
+
     def test_json_foreign_and_corrupt_databases_are_rejected_without_overwrite(self):
         args = [BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)]
         for content in [b'{"connectors":[],"actions":[],"rules":[]}', b'not a database']:
@@ -441,7 +525,7 @@ class RulesWebhook(unittest.TestCase):
         self.rules_path.unlink()
         self.start()
         self.broker.stop()
-        self.assertEqual(self.stored_config(), {'connectors': [], 'actions': [], 'rules': []})
+        self.assertEqual(self.stored_config(), {'schema_version': 2, 'outbounds': [], 'rules': []})
         assets = self.root / 'assets'
         assets.mkdir()
         (assets / 'index.html').write_text('<div>test</div>')
