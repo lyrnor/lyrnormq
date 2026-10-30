@@ -1,0 +1,62 @@
+{
+  "scope": "single-node TLS functional acceptance; no deployment or performance measurement",
+  "business_base": "89293dc",
+  "transport_source": "a6bfaf709a62d20a6726626eb90cba932a6d1fae",
+  "quality_sources": [
+    "5d07c06",
+    "26e58ec",
+    "4261695"
+  ],
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "binary_sha256": "cbb007e92aaa2ab4808b97b28d15a47edfacfc14cad774fe87694387fb9f5e17",
+  "workspace_tests_passed": 521,
+  "tls_test_methods_passed": 12,
+  "plaintext_regressions": {
+    "suites": 18,
+    "storage_modes": [
+      "memory",
+      "sqlite"
+    ],
+    "final_suite_executions": 36,
+    "final_failures": 0,
+    "unittest_method_executions": 728,
+    "expected_skips": 68,
+    "initial_failures_retained": 1,
+    "rap_repeated_checks": {
+      "old_and_tls_online_scenario": "19/20 each; same preexisting timing assumption",
+      "fixed_old_and_tls_memory_and_sqlite": "40/40"
+    }
+  },
+  "logs": {
+    "workspace-tests.log.gz": {
+      "sha256": "2760974174995eb8b54915f98f18b5c40206bfaf7f0082bec9d1ec0b70eae0e7",
+      "uncompressed_bytes": 51754
+    },
+    "clippy.log.gz": {
+      "sha256": "d87a06eb912f618fb75bdc70ed97eba5b82b1378f5341ac0a07d7cd69cf728fc",
+      "uncompressed_bytes": 631
+    },
+    "tls-blackbox.log.gz": {
+      "sha256": "0632a47436c29397461df232041defc3a35b809ac1568c7563e286d1ebe776f5",
+      "uncompressed_bytes": 1743
+    },
+    "plaintext-regressions.tar.gz": {
+      "sha256": "60805c41eaaabc14dc0549228b840c0d0ecafd6caa51ef7af48196f6f0767005",
+      "bytes": 22470
+    },
+    "rap-admission-diagnosis.tar.gz": {
+      "sha256": "89ee59833b0dbf50c37b61d22f8f36552e2ff65f8208b6394dd2c5db3eee8ab9",
+      "bytes": 1326
+    },
+    "plaintext-final-results.json": {
+      "sha256": "a76becd1a8211029e019ce39bc7aada0e751d520e6713ce3fe098eb57f0e5897",
+      "bytes": 4128
+    }
+  },
+  "validated_code_revision": "827073d",
+  "quality_admission_fix": "f01b67a"
+}

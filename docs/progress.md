@@ -1863,3 +1863,33 @@ Tool in-flight measured work fell from~2450credits to~1–4 despite5000TCPclient
 This establishes strong load sensitivity,not a precise broker/network/client queue
 location or a code optimization. No production code/config changes. Evidence and
 remaining causal experiments:docs/performance/loadgen-latency-diagnosis-20261030/.
+
+## Phase4c single-node TLS — 2026-10-30
+
+Cluster work deferred by user. Frozen `docs/contracts/phase4c-tls.md` before two
+independent implementation/quality worktrees. Added optional server-authenticated
+Rustls TLS1.2/1.3 listener, bounded startup identity loading and CLI flags. MQTT
+protocol/session/outbox code paths and durable schema are reused. Plain TCP keeps
+owned halves and static dispatch. Handshake permits, timeout/shutdown, write flush,
+normal TLS close_notify and abnormal EOF/Will semantics are covered.
+
+Workspace521 Rust tests, fmt and strict all-target Clippy pass. Independent stdlib
+ssl/OpenSSL blackbox12 methods pass, including all TLS/version/QoS combinations,
+strict CA/hostname rejection,40KiB cross-record payload, packet-size rejection,
+handshake/permit recovery, clean/abrupt/close_notify Will and dual-version SQLite
+SIGKILL recovery. Test CA initially failed Python's strict KeyUsage requirement;
+fixture fixed without weakening certificate verification. Runtime/CLI and transport
+changes independently reviewed, no blocking findings. Final evidence and plaintext
+regression results are recorded in `docs/verification/tls-20261030/`.
+
+Plaintext18 suites × memory/SQLite final36 executions passed (728 unittest method
+executions,68 expected skips). One initial RAP queue-capacity assertion failed;
+independent old/new20-run comparisons reproduced it on both versions. The test
+now pins capacity using an offline persistent recipient, preserving all assertions
+and runtime semantics; old/new × both stores ×10 repeats passed40/40, followed by
+full RAP suite reruns. Original failure and comparisons are archived, not erased.
+
+No server deployment or TLS throughput test performed. mTLS, WebSocket, certificate
+reload, shared dual listeners and rate-limited authentication remain unimplemented.
+The prior MQTT conformance ledger stays explicitly scoped to its TCP assessment;
+new TLS functional tests are not a full protocol/security certification.

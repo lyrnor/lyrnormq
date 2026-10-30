@@ -521,6 +521,9 @@ Next ordered tasks:
 
 ## Cluster architecture review — 2026-10-30
 
+Deferred by user in favor of single-node functionality. The checklist below is
+backlog only; no cluster implementation is active.
+
 - [x] Reviewed current Phase4/Phase4b at `89293dc` with independent read-only
   transport/session and routing/quality agents. User selected high-frequency,
   many point-to-point Topics as the primary workload.
@@ -536,3 +539,19 @@ Next ordered tasks:
 This is a reviewed architecture proposal, not a frozen cluster implementation
 contract, deployed cluster or measured capacity result. Existing runtime and
 durable schema remain unchanged.
+
+## Single-node priorities — Phase4c
+
+Cluster implementation deferred by user. Supersedes earlier statements that all
+TLS transport is absent; historical TCP acceptance scope remains unchanged.
+
+- [x] Freeze TLS API, startup identity limits and connection lifecycle contract.
+- [x] Implement TLS1.2/1.3 using the existing session/outbox and plaintext fast path.
+- [x] Strict CA/hostname, packet boundaries, handshake limits/shutdown, close_notify,
+  Will and persistent crash recovery acceptance; fmt/Clippy/workspace tests.
+- [ ] TLS-specific throughput/resource baseline; no capacity claim from unit tests.
+- [ ] mTLS and certificate reload under separate contracts if required.
+- [ ] WebSocket transport, authentication rate limiting, broader operations metrics.
+- [ ] Continue longer single-node soak/fault/Fuzz and exact-load performance studies.
+
+Implementation/test evidence: [TLS verification](verification/tls-20261030/README.md).
