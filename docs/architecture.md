@@ -598,3 +598,18 @@ Normal MQTT disconnect closes the transport without draining queued application
 output; WS/TLS closure alone preserves ungraceful MQTT/Will semantics. State schema,
 session ownership, admission and outbox remain unchanged; plaintext IO keeps the
 existing owned socket halves. Each process still owns one listener/broker.
+
+## Phase4e: authentication admission and mTLS
+
+[Phase4e](contracts/phase4e-admission-mtls.md) adds broker-wide fixed-size token
+admission plus separate bounded handshake/credential concurrency. Handshake slots
+span transport negotiation through successful CONNACK flush; authentication slots
+stay inside blocking jobs even after the caller is cancelled. Initial overload
+never mutates session/takeover/Will; established MQTT traffic is not token-charged.
+Cancellation cleanup is independent of authentication rate/CPU admission.
+
+The existing immutable TLS identity optionally installs a mandatory WebPki client
+certificate verifier using a bounded startup trust bundle. TLS/WSS share the same
+trust policy; MQTT authentication and ACL remain independent. No certificate-name
+principal mapping or schema change is introduced. Metrics, health, certificate
+reload, shared multi-listener and performance acceptance remain outside this phase.

@@ -42,6 +42,14 @@ No per-IP/user maps, IP bans or TLS certificate-to-MQTT principal mapping.
   Preserve generation isolation and connection-local enhanced auth cleanup.
   Running blocking hooks cannot be forcibly aborted; built-in/bounded custom
   hooks must eventually return. Do not claim preemptive provider cancellation.
+- Credential cancellation before actor admission must not create or take over a
+  session. Once an authenticated CONNECT transaction is already committing, a
+  caller timeout is not an atomic rollback: retain a generation-scoped cleanup
+  responsibility so a late commit cannot leave an orphan online session/Will.
+  Any asynchronous cleanup must retain the handshake admission slot until the
+  transaction/cleanup resolves, remain bounded, and never disconnect a newer
+  generation. Previously committed takeover is not falsely reported as undone;
+  an accepted connection lost before CONNACK is cleaned as a network disconnect.
 
 CLI: `--max-handshakes`, `--max-auth-tasks`, `--auth-rate-per-second` (0..u32MAX),
 `--auth-burst` (1..u32MAX). Reject invalid/missing/duplicate new numeric options.
@@ -83,6 +91,8 @@ caller cancellation retaining permits, fail-fast overload and generation/state
 invariants; independently exercise initial311/5 refusal, rate refill, established
 liveness, TCP/TLS/WS/WSS handshake slot recovery, pending shutdown, enhanced auth
 and reauth quota. No production test delay flags or weakened protocol assertions.
+Include a controlled SQLite write-lock case spanning CONNECT's commit and caller
+timeout; verify eventual generation cleanup, slot recovery and no orphan state.
 
 mTLS tests: TLS12/13 × TLS/WSS × MQTT311/5 QoS0/1/2; strict server/client identity,
 required/missing/wrong-CA/expired/wrong-EKU client cert, packet/state isolation and

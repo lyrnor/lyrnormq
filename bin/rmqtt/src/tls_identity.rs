@@ -41,6 +41,17 @@ pub fn load(cert: &Path, key: &Path) -> io::Result<TlsConfig> {
     TlsConfig::from_pem(&read_bounded(cert)?, &read_bounded(key)?)
 }
 
+pub fn load_with_client_ca(cert: &Path, key: &Path, ca: Option<&Path>) -> io::Result<TlsConfig> {
+    match ca {
+        None => load(cert, key),
+        Some(ca) => TlsConfig::from_pem_with_client_ca(
+            &read_bounded(cert)?,
+            &read_bounded(key)?,
+            &read_bounded(ca)?,
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -368,6 +368,7 @@ dependencies = [
  "mqtt-router",
  "mqtt-session",
  "mqtt-storage",
+ "rusqlite",
  "rustls-pemfile",
  "tokio",
  "tokio-rustls",

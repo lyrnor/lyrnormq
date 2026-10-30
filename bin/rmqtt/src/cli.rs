@@ -1,12 +1,13 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
 
 pub struct Options {
     pub address: String,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
+    pub tls_client_ca: Option<PathBuf>,
     pub websocket: bool,
     pub websocket_options: WebSocketOptions,
     pub auth_policy: Option<PathBuf>,
@@ -36,6 +37,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         address: "127.0.0.1:1883".into(),
         tls_cert: None,
         tls_key: None,
+        tls_client_ca: None,
         websocket: false,
         websocket_options: WebSocketOptions::default(),
         auth_policy: None,
@@ -46,6 +48,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut first = true;
     let mut ws_path_set = false;
     let mut ws_limit_set = false;
+    let mut admission_seen = [false; 4];
     while let Some(option) = args.next() {
         if std::mem::take(&mut first) && option == "export-state" {
             options.export_state = true;
@@ -70,6 +73,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             "--listen"
                 | "--tls-cert"
                 | "--tls-key"
+                | "--tls-client-ca"
+                | "--max-handshakes"
+                | "--max-auth-tasks"
+                | "--auth-rate-per-second"
+                | "--auth-burst"
                 | "--ws-path"
                 | "--ws-max-message-size"
                 | "--protocol"
@@ -92,6 +100,46 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         let value = args
             .next()
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
+        let admission_index = match option.as_str() {
+            "--max-handshakes" => Some(0),
+            "--max-auth-tasks" => Some(1),
+            "--auth-rate-per-second" => Some(2),
+            "--auth-burst" => Some(3),
+            _ => None,
+        };
+        if let Some(index) = admission_index {
+            if std::mem::replace(&mut admission_seen[index], true) {
+                return Err(invalid(format!("{option} cannot be repeated")));
+            }
+            match index {
+                0 | 1 => {
+                    let limit = positive(&value, &option)?;
+                    if limit > tokio::sync::Semaphore::MAX_PERMITS {
+                        return Err(invalid(format!("{option} exceeds semaphore capacity")));
+                    }
+                    if index == 0 {
+                        options.config.max_handshakes = limit;
+                    } else {
+                        options.config.max_auth_tasks = limit;
+                    }
+                }
+                2 | 3 => {
+                    let limit = value
+                        .parse::<u32>()
+                        .map_err(|_| invalid(format!("{option} requires a u32 integer")))?;
+                    if index == 2 {
+                        options.config.auth_rate_per_second = limit;
+                    } else {
+                        if limit == 0 {
+                            return Err(invalid("--auth-burst must be positive"));
+                        }
+                        options.config.auth_burst = limit;
+                    }
+                }
+                _ => return Err(invalid("unrecognized admission option")),
+            }
+            continue;
+        }
         if option == "--listen" {
             options.address = value;
             continue;
@@ -123,11 +171,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             options.websocket_options.max_message_size = size;
             continue;
         }
-        if option == "--tls-cert" || option == "--tls-key" {
-            let slot = if option == "--tls-cert" {
-                &mut options.tls_cert
-            } else {
-                &mut options.tls_key
+        if matches!(
+            option.as_str(),
+            "--tls-cert" | "--tls-key" | "--tls-client-ca"
+        ) {
+            let slot = match option.as_str() {
+                "--tls-cert" => &mut options.tls_cert,
+                "--tls-key" => &mut options.tls_key,
+                _ => &mut options.tls_client_ca,
             };
             if value.is_empty() || slot.is_some() {
                 return Err(invalid(format!("{option} requires one nonempty path")));
@@ -209,6 +260,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             "--tls-cert and --tls-key must be supplied together",
         ));
     }
+    if options.tls_client_ca.is_some() && options.tls_cert.is_none() {
+        return Err(invalid("--tls-client-ca requires --tls-cert and --tls-key"));
+    }
     if options.export_state && options.tls_cert.is_some() {
         return Err(invalid("TLS options cannot be used with export-state"));
     }
@@ -224,6 +278,94 @@ mod tests {
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).into()).collect()
+    }
+
+    #[test]
+    fn admission_limits_have_explicit_defaults_and_rate_can_be_disabled() {
+        let default = parse(args(&[])).unwrap().unwrap().config;
+        assert_eq!(default.max_handshakes, 128);
+        assert_eq!(default.max_auth_tasks, 4);
+        assert_eq!(default.auth_rate_per_second, 1000);
+        assert_eq!(default.auth_burst, 1000);
+        let config = parse(args(&[
+            "--max-handshakes",
+            "2",
+            "--max-auth-tasks",
+            "1",
+            "--auth-rate-per-second",
+            "0",
+            "--auth-burst",
+            "1",
+        ]))
+        .unwrap()
+        .unwrap()
+        .config;
+        assert_eq!(config.max_handshakes, 2);
+        assert_eq!(config.max_auth_tasks, 1);
+        assert_eq!(config.auth_rate_per_second, 0);
+        assert_eq!(config.auth_burst, 1);
+        for option in [
+            "--max-handshakes",
+            "--max-auth-tasks",
+            "--auth-rate-per-second",
+            "--auth-burst",
+        ] {
+            assert!(parse(args(&[option])).is_err());
+            assert!(parse(args(&[option, "1", option, "2"])).is_err());
+            assert!(parse(args(&[option, "-1"])).is_err());
+            assert!(parse(args(&[option, "184467440737095516160"])).is_err());
+        }
+        for option in ["--max-handshakes", "--max-auth-tasks", "--auth-burst"] {
+            assert!(parse(args(&[option, "0"])).is_err());
+        }
+        let overflow = (tokio::sync::Semaphore::MAX_PERMITS + 1).to_string();
+        assert!(parse(args(&["--max-handshakes", &overflow])).is_err());
+        assert!(parse(args(&["--auth-rate-per-second", "4294967296"])).is_err());
+    }
+
+    #[test]
+    fn client_ca_requires_server_identity_and_rejects_duplicate_or_empty_paths() {
+        let options = parse(args(&[
+            "--tls-client-ca",
+            "ca.pem",
+            "--tls-cert",
+            "cert.pem",
+            "--tls-key",
+            "key.pem",
+            "--websocket",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert_eq!(options.tls_client_ca, Some(PathBuf::from("ca.pem")));
+        assert!(options.websocket);
+        for values in [
+            vec!["--tls-client-ca", "ca.pem"],
+            vec!["--tls-client-ca"],
+            vec!["--tls-client-ca", "", "--tls-cert", "c", "--tls-key", "k"],
+            vec![
+                "--tls-client-ca",
+                "a",
+                "--tls-client-ca",
+                "b",
+                "--tls-cert",
+                "c",
+                "--tls-key",
+                "k",
+            ],
+            vec![
+                "export-state",
+                "--storage-path",
+                "state.db",
+                "--tls-cert",
+                "c",
+                "--tls-key",
+                "k",
+                "--tls-client-ca",
+                "a",
+            ],
+        ] {
+            assert!(parse(args(&values)).is_err(), "{values:?}");
+        }
     }
 
     #[test]

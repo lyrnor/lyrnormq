@@ -34,7 +34,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     let tls = match (options.tls_cert, options.tls_key) {
         (Some(cert), Some(key)) => {
-            Some(tokio::task::spawn_blocking(move || tls_identity::load(&cert, &key)).await??)
+            let client_ca = options.tls_client_ca;
+            Some(
+                tokio::task::spawn_blocking(move || {
+                    tls_identity::load_with_client_ca(&cert, &key, client_ca.as_deref())
+                })
+                .await??,
+            )
         }
         (None, None) => None,
         _ => return Err("TLS requires both certificate and key".into()),

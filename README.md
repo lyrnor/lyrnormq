@@ -43,9 +43,51 @@ TLS handshakes count toward `--max-connections` and have
 `--handshake-timeout-ms`; MQTT CONNECT has its own separate handshake deadline.
 MQTT packet limits, Keep Alive, QoS and durable recovery use the same implementation
 as plaintext. One process serves one listener: simultaneous listeners sharing
-state, mTLS and certificate reload are not implemented. Do not
+state and certificate reload are not implemented. Do not
 start two processes against the same SQLite database. See the
 [TLS contract](docs/contracts/phase4c-tls.md) for lifecycle and acceptance scope.
+
+### Mandatory client certificates (mTLS)
+
+```sh
+cargo run -p rmqtt -- --listen 0.0.0.0:8883 \
+  --tls-cert ./server-chain.pem --tls-key ./server-key.pem \
+  --tls-client-ca ./clients-ca.pem
+```
+
+`--tls-client-ca` requires every TLS client to present a currently valid client-auth
+certificate chaining to that nonempty PEM trust bundle and prove private-key
+possession. Missing/untrusted/expired/wrong-purpose certificates fail before MQTT
+acceptance. Each startup identity/CA file is limited to1MiB. Add `--websocket` for
+the same policy on WSS. Without this flag the existing server-only TLS mode remains.
+
+Client certificates are an additional transport trust gate: they do not map CN/SAN
+to an MQTT username or bypass `--auth-policy`, enhanced AUTH or ACL. Configure the
+existing MQTT policy independently. Client CA reload, CRL/OCSP and optional client
+certificate mode are not implemented. See [Phase4e](docs/contracts/phase4e-admission-mtls.md).
+
+## Authentication and handshake admission
+
+| Option | Default | Bound |
+|---|---:|---|
+| `--max-handshakes` |128| Connections pending initial successful CONNACK, including TLS/HTTP/AUTH |
+| `--max-auth-tasks` |4| Outstanding credential/provider blocking jobs |
+| `--auth-rate-per-second` |1000| Global CONNECT/AUTH attempt refill per second;0 disables rate only |
+| `--auth-burst` |1000| Global authentication token capacity |
+
+Limits apply to all transports and fail fast instead of queuing unlimited work.
+Handshake slots release after CONNACK reaches the socket; established clients
+continue using the existing connection limit. Every received CONNECT/AUTH attempt
+uses one rate token, including bad credentials; established PUBLISH/PING/ACK and
+cleanup are not charged. This is global admission, without per-IP bans or maps.
+
+Initial overload returns CONNACK3 for MQTT311 or89 for MQTT5 when the protocol and
+packet cap permit; reauthentication overload closes MQTT5 with DISCONNECT97.
+Pre-negotiation handshake overload simply closes the new socket. Denied initial
+connections do not take over a Client ID or install session/Will state. Tune these
+limits for your workload;0 disables only the token bucket, not CPU/handshake bounds.
+An already running blocking provider cannot be forcibly stopped by cancellation;
+its slot stays occupied until it returns. Custom hooks must eventually return.
 
 ## MQTT over WebSocket
 

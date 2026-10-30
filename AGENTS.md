@@ -8,3 +8,6 @@ TLS listeners additionally follow docs/contracts/phase4c-tls.md. Cluster impleme
 is deferred; docs/cluster/architecture-proposal.md is a proposal, not a frozen contract.
 WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
 stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
+Authentication admission and mandatory client certificates follow
+docs/contracts/phase4e-admission-mtls.md. Metrics/health/reload/multi-listener and
+performance acceptance are outside that phase's explicitly limited user scope.
