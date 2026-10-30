@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f7fa">
+  <title>rmqtt · Broker 控制台</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#overview" aria-label="rmqtt 首页"><span class="brand-mark">r<span></span></span><span>rmqtt<small>BROKER CONSOLE</small></span></a>
+    <div class="workspace"><span class="workspace-icon">R</span><span><b>默认工作空间</b><small>单节点实例</small></span><span class="workspace-chevron">⌄</span></div>
+    <nav id="navigation" aria-label="主导航"></nav>
+    <div class="sidebar-bottom"><span class="runtime-dot"></span><div>rmqtt <b>v0.1.0</b><small>Rust · Tokio · rustls</small></div><span class="mini-badge">单节点</span></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <button class="icon-button mobile-menu" id="mobile-menu" aria-label="展开导航"></button>
+      <div class="breadcrumb">工作空间 <span>/</span> <b>broker-01</b><span class="status-dot"></span></div>
+      <div class="top-actions"><button class="global-search" id="global-search"><span id="search-icon"></span><span>搜索 Client ID 或 Topic</span><kbd>⌘ K</kbd></button><span class="preview-tag">设计预览 · 演示数据</span><button class="avatar" id="profile-button" aria-label="查看当前用户">R</button></div>
+    </header>
+    <main id="main" tabindex="-1"></main>
+    <footer><span>rmqtt console <span class="footer-separator">/</span> 单节点 MQTT Broker</span><span>本地交互原型 · 数据未连接真实实例</span></footer>
+  </div>
+  <div class="overlay" id="overlay" hidden></div>
+  <section class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden></section>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
