@@ -344,4 +344,25 @@ describe("live rule and Webhook management", () => {
     ).toBe(true);
     expect(request.mock.calls.every((call) => !call[3])).toBe(true);
   });
+  it("disables an already-open delete confirmation if execution stops", async () => {
+    server(populated);
+    vi.useFakeTimers();
+    render(<RulesPage token="token" expired={expired} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "删除 hot" }));
+    expect(
+      (screen.getByRole("button", { name: "确认删除" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    request.mockResolvedValueOnce({ ...status, running: false } as never);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(
+      (screen.getByRole("button", { name: "确认删除" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
 });

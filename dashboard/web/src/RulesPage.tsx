@@ -648,7 +648,9 @@ export function RulesPage({
             <Button
               variant="destructive"
               disabled={
-                busy || Boolean(deletionError(remove.kind, remove.id, config))
+                busy ||
+                stopped ||
+                Boolean(deletionError(remove.kind, remove.id, config))
               }
               onClick={() => void confirmRemove()}
             >
