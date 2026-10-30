@@ -11,7 +11,7 @@ use mqtt_transport::PublicationObserver;
 use std::{
     collections::BTreeMap,
     fmt, io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex, PoisonError, RwLock, Weak,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -303,6 +303,7 @@ impl Runtime {
         let c = &self.inner.counters;
         Status {
             mode: "best_effort",
+            running: !self.inner.stopped.load(Ordering::Acquire),
             queued_events: c.queued.load(Ordering::Relaxed),
             queued_bytes: c.bytes.load(Ordering::Relaxed),
             received: c.received.load(Ordering::Relaxed),
@@ -324,7 +325,23 @@ impl Runtime {
                 .collect(),
         }
     }
-    pub async fn replace(&self, mut config: Config) -> Result<PublicConfig, RuntimeError> {
+    pub async fn replace(&self, config: Config) -> Result<PublicConfig, RuntimeError> {
+        self.replace_using(config, persistence::sync_directory)
+            .await
+    }
+    #[cfg(test)]
+    pub(crate) async fn replace_test_sync(
+        &self,
+        config: Config,
+        sync: fn(&Path) -> io::Result<()>,
+    ) -> Result<PublicConfig, RuntimeError> {
+        self.replace_using(config, sync).await
+    }
+    async fn replace_using(
+        &self,
+        mut config: Config,
+        sync: fn(&Path) -> io::Result<()>,
+    ) -> Result<PublicConfig, RuntimeError> {
         if self.inner.stopped.load(Ordering::Acquire) {
             return Err(RuntimeError::Stopped);
         }
@@ -346,10 +363,10 @@ impl Runtime {
                 .clone();
             config.restore_redacted(&previous)?;
             let path = inner.path.clone();
-            let validated = tokio::task::spawn_blocking(move || {
+            let (validated, publication) = tokio::task::spawn_blocking(move || {
                 let validated = config.validate()?;
-                persistence::write(&path, &validated.config)?;
-                Ok::<_, RuntimeError>(validated)
+                let publication = persistence::write_with_sync(&path, &validated.config, sync)?;
+                Ok::<_, RuntimeError>((validated, publication))
             })
             .await
             .map_err(|_| RuntimeError::Storage)??;
@@ -357,6 +374,12 @@ impl Runtime {
                 return Err(RuntimeError::Stopped);
             }
             let next = build_snapshot(validated, &inner.client, &inner.outbound);
+            let published_not_synced = publication == persistence::Publication::PublishedNotSynced;
+            if published_not_synced {
+                inner.stopped.store(true, Ordering::Release);
+                inner.counters.errors.fetch_add(1, Ordering::Relaxed);
+                next.generation.cancel();
+            }
             let public = next.config.public();
             let previous = std::mem::replace(
                 &mut *inner
@@ -366,6 +389,9 @@ impl Runtime {
                 next,
             );
             previous.generation.finish().await;
+            if published_not_synced {
+                return Err(RuntimeError::Storage);
+            }
             Ok(public)
         })
         .await

@@ -12,7 +12,9 @@ pub(crate) fn read(path: &Path) -> Result<Config, RuntimeError> {
         Ok(meta) => meta,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             let config = Config::default();
-            write(path, &config)?;
+            if write(path, &config)? != Publication::Synced {
+                return Err(RuntimeError::Storage);
+            }
             return Ok(config);
         }
         Err(_) => return Err(RuntimeError::Storage),
@@ -31,7 +33,22 @@ pub(crate) fn read(path: &Path) -> Result<Config, RuntimeError> {
     }
     serde_json::from_slice(&bytes).map_err(|_| RuntimeError::InvalidConfig)
 }
-pub(crate) fn write(path: &Path, config: &Config) -> Result<(), RuntimeError> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Publication {
+    Synced,
+    PublishedNotSynced,
+}
+pub(crate) fn sync_directory(path: &Path) -> std::io::Result<()> {
+    fs::File::open(path).and_then(|dir| dir.sync_all())
+}
+pub(crate) fn write(path: &Path, config: &Config) -> Result<Publication, RuntimeError> {
+    write_with_sync(path, config, sync_directory)
+}
+pub(crate) fn write_with_sync(
+    path: &Path,
+    config: &Config,
+    sync: fn(&Path) -> std::io::Result<()>,
+) -> Result<Publication, RuntimeError> {
     if let Ok(meta) = fs::symlink_metadata(path)
         && (!meta.is_file() || meta.file_type().is_symlink())
     {
@@ -63,9 +80,11 @@ pub(crate) fn write(path: &Path, config: &Config) -> Result<(), RuntimeError> {
             .and_then(|_| file.sync_all())
             .map_err(|_| RuntimeError::Storage)?;
         fs::rename(&temp, path).map_err(|_| RuntimeError::Storage)?;
-        fs::File::open(parent)
-            .and_then(|dir| dir.sync_all())
-            .map_err(|_| RuntimeError::Storage)
+        Ok(if sync(parent).is_ok() {
+            Publication::Synced
+        } else {
+            Publication::PublishedNotSynced
+        })
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temp);

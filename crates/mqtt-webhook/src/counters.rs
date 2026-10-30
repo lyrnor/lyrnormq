@@ -26,6 +26,7 @@ pub(crate) struct ActionCounters {
 #[derive(Debug, Serialize)]
 pub struct Status {
     pub mode: &'static str,
+    pub running: bool,
     pub queued_events: usize,
     pub queued_bytes: usize,
     pub received: u64,

@@ -13,6 +13,22 @@ use tokio::{
 };
 
 pub(crate) const MAX_REQUEST: usize = 1024 * 1024;
+
+pub(crate) fn headers(
+    connector: &Connector,
+) -> Result<reqwest::header::HeaderMap, crate::RuntimeError> {
+    let mut headers = reqwest::header::HeaderMap::new();
+    for (key, value) in &connector.headers {
+        let name = reqwest::header::HeaderName::from_bytes(key.as_bytes())
+            .map_err(|_| crate::RuntimeError::InvalidConfig)?;
+        let mut value = reqwest::header::HeaderValue::from_str(value)
+            .map_err(|_| crate::RuntimeError::InvalidConfig)?;
+        value.set_sensitive(true);
+        headers.insert(name, value);
+    }
+    Ok(headers)
+}
+
 pub(crate) struct Delivery {
     pub encoded: Vec<u8>,
     pub _budget: Budget,
@@ -111,6 +127,10 @@ async fn run(
     mut cancel: watch::Receiver<bool>,
     mut receiver: mpsc::Receiver<Delivery>,
 ) {
+    let headers = match headers(&connector) {
+        Ok(headers) => headers,
+        Err(_) => return,
+    };
     let mut pending = None;
     loop {
         if *cancel.borrow() {
@@ -192,9 +212,7 @@ async fn run(
                 .header(reqwest::header::CONTENT_TYPE, "application/json")
                 .timeout(Duration::from_millis(action.timeout_ms))
                 .body(body.clone());
-            for (key, value) in &connector.headers {
-                request = request.header(key, value);
-            }
+            request = request.headers(headers.clone());
             let response =
                 tokio::select! {biased;_ = cancel.changed()=>break,result=request.send()=>result};
             let retry = match response {

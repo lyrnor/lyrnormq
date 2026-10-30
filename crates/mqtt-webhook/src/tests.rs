@@ -442,3 +442,73 @@ async fn fixed_shard_preserves_same_publisher_processing_order() {
     let _ = stop.send(true);
     server.await.unwrap();
 }
+
+#[test]
+fn outbound_custom_headers_are_marked_sensitive() {
+    let config = config("https://example.invalid/hook".into());
+    let headers = crate::worker::headers(&config.connectors[0]).unwrap();
+    assert!(headers["Authorization"].is_sensitive());
+    assert!(!format!("{headers:?}").contains("test-secret"));
+}
+#[tokio::test]
+async fn reconfiguration_cancels_old_generation_and_counts_abandoned_events() {
+    let f = Fixture::new();
+    let (url, mut rx, stop, server) = server(vec![200], Duration::from_millis(300)).await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    runtime.replace(config(url)).await.unwrap();
+    for _ in 0..20 {
+        runtime.observer().observe(
+            "devices/a/telemetry",
+            br#"{"temperature":90}"#,
+            "same-client",
+            0,
+            false,
+        );
+    }
+    receive(&mut rx).await;
+    runtime.replace(Config::default()).await.unwrap();
+    for _ in 0..100 {
+        if runtime.status().await.queued_events == 0 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_eq!(runtime.status().await.queued_events, 0);
+    assert!(runtime.status().await.dropped > 0);
+    assert!(runtime.configuration().await.rules.is_empty());
+    runtime.shutdown().await;
+    let _ = stop.send(true);
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn post_rename_directory_sync_failure_publishes_view_and_stops_runtime() {
+    fn fail_sync(_: &std::path::Path) -> std::io::Result<()> {
+        Err(std::io::Error::other("injected directory sync failure"))
+    }
+    let f = Fixture::new();
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let config = config("http://127.0.0.1:1/hook".into());
+    assert!(matches!(
+        runtime.replace_test_sync(config, fail_sync).await,
+        Err(RuntimeError::Storage)
+    ));
+    assert!(!runtime.status().await.running);
+    assert_eq!(runtime.configuration().await.rules[0].id, "hot");
+    let disk: Config = serde_json::from_slice(&std::fs::read(f.path()).unwrap()).unwrap();
+    assert_eq!(disk.rules[0].id, "hot");
+    let before = runtime.status().await.received;
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"temperature":90}"#,
+        "a",
+        0,
+        false,
+    );
+    assert_eq!(runtime.status().await.received, before);
+    assert!(matches!(
+        runtime.replace(Config::default()).await,
+        Err(RuntimeError::Stopped)
+    ));
+    runtime.shutdown().await;
+}
