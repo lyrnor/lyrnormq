@@ -323,3 +323,66 @@ async fn canonical_extended_lengths_stream_without_payload_accumulation_in_guard
         task.await.unwrap();
     }
 }
+#[tokio::test]
+async fn split_reader_control_flush_and_mqtt_writer_make_full_duplex_progress() {
+    timeout(Duration::from_secs(1), async {
+        let (server, mut client) = socket(1, 128).await;
+        let (mut reader, mut writer) = tokio::io::split(server);
+        let reading = tokio::spawn(async move {
+            let mut bytes = [0; 2];
+            reader.read_exact(&mut bytes).await.unwrap();
+            bytes
+        });
+        client.write_all(&masked(0x89, b"p")).await.unwrap();
+        let writing = tokio::spawn(async move {
+            writer.write_all(b"out").await.unwrap();
+            writer.flush().await.unwrap();
+        });
+        let mut got_pong = false;
+        let mut got_binary = false;
+        for _ in 0..2 {
+            let mut header = [0; 2];
+            client.read_exact(&mut header).await.unwrap();
+            let mut bytes = vec![0; usize::from(header[1])];
+            client.read_exact(&mut bytes).await.unwrap();
+            match header[0] {
+                0x8a => {
+                    assert_eq!(&bytes, b"p");
+                    got_pong = true;
+                    client.write_all(&masked(0x82, b"in")).await.unwrap();
+                }
+                0x82 => {
+                    assert_eq!(&bytes, b"out");
+                    got_binary = true;
+                }
+                other => panic!("unexpected frame {other}"),
+            }
+        }
+        assert!(got_pong && got_binary);
+        assert_eq!(&reading.await.unwrap(), b"in");
+        writing.await.unwrap();
+    })
+    .await
+    .unwrap();
+}
+#[tokio::test]
+async fn incomplete_fragment_flood_yields_to_mqtt_deadlines() {
+    let (mut server, mut client) = socket(65536, 128).await;
+    client.write_all(&masked(0x02, b"")).await.unwrap();
+    let continuation = masked(0x00, b"");
+    let flood = tokio::spawn(async move {
+        loop {
+            if client.write_all(&continuation).await.is_err() {
+                break;
+            }
+        }
+    });
+    let mut byte = [0];
+    assert!(
+        timeout(Duration::from_millis(20), server.read(&mut byte))
+            .await
+            .is_err()
+    );
+    flood.abort();
+    let _ = flood.await;
+}
