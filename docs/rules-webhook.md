@@ -9,17 +9,19 @@ MQTT，队列与计数器在内存中；崩溃/队列满可能丢弃规则事件
 
 ```sh
 ./scripts/build-rmqtt.sh
-# 以空规则开始，文件不存在时创建；或复制 docs/examples/rules-webhook.json 调整。
+# 默认启用规则引擎，配置保存在工作目录的 rmqtt-rules.sqlite。
 ./target/release/rmqtt --listen 127.0.0.1:1883 \
-  --rules-config /tmp/rmqtt-rules.json \
   --admin-listen 127.0.0.1:8766 --admin-token-file /tmp/rmqtt-admin.token
 ```
 
-管理令牌文件按 Dashboard 文档生成；不要放入静态资源目录。规则配置包含
-Webhook 凭据时也属于敏感文件。服务端检查普通文件、大小和符号链接，并以0600
-写临时文件、同步并原子替换。规则引擎默认启用，使用工作目录下的 `rules.json`，
-无需额外启动参数；`--rules-config PATH` 可指定其他位置。`export-state` 不加载或
-创建规则配置。运行中不要另一个进程同时修改同一个配置文件。
+管理令牌文件按 Dashboard 文档生成；不要放入静态资源目录。规则配置仅使用
+SQLite，默认 `rmqtt-rules.sqlite`；`--rules-config PATH` 可指定其他 SQLite 路径。
+规则、连接器和出站动作由 Dashboard 管理，保存后以事务提交并应用。
+不读取、不导入 `rules.json`，也不支持 JSON 文件存储或导入参数。
+独立配置库不修改会话数据库表结构；新数据库及所有权锁文件权限为0600。
+配置可能包含 Webhook 凭据，数据库与附属文件均须作为敏感文件保护。
+`export-state` 不加载或创建规则配置。保存失败时会暂停规则服务，避免配置状态不确定；
+排查后重启即可从已提交配置恢复。此持久化仅针对配置，不提供消息队列持久化。
 
 ## SQL
 
@@ -75,6 +77,6 @@ client_id、qos、retain、timestamp_ms 和 SQL 输出 data。同一任务重试
 配置，不代表目标网络连通。本阶段不执行任意地址的隐式连接测试。
 
 配置版本替换会取消旧版本积压并计入丢弃，避免无限保留旧任务。极端情况下
-配置 rename 已成功但目录同步失败，API 会公开已发布版本，同时停止规则运行
-并返回存储错误；running=false 时页面禁止继续编辑或测试，需排查后重启。
+SQLite 写入或提交失败时暂停规则运行并返回存储错误；running=false 时页面
+禁止继续编辑或测试，需排查后重启并从已提交配置恢复。
 HTTP 连接池按配置版本管理，旧版本停止后释放，不为过去任意多个目标保留连接池。

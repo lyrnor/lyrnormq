@@ -1,7 +1,7 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config PATH]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH]";
 
 pub struct Options {
     pub address: String,
@@ -318,7 +318,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         return Err(invalid("rules cannot combine with export-state"));
     }
     if !options.export_state && options.rules_config.is_none() {
-        options.rules_config = Some(PathBuf::from("rules.json"));
+        options.rules_config = Some(PathBuf::from("rmqtt-rules.sqlite"));
     }
     Ok(Some(options))
 }
@@ -335,7 +335,7 @@ mod tests {
     fn rules_config_defaults_for_serving_and_rejects_invalid_combinations() {
         assert_eq!(
             parse(args(&[])).unwrap().unwrap().rules_config,
-            Some(PathBuf::from("rules.json"))
+            Some(PathBuf::from("rmqtt-rules.sqlite"))
         );
         assert!(
             parse(args(&["export-state", "--storage-path", "state.db"]))
@@ -345,13 +345,17 @@ mod tests {
                 .is_none()
         );
         assert_eq!(
-            parse(args(&["--rules-config", "custom-rules.json"]))
+            parse(args(&["--rules-config", "custom-rules.sqlite"]))
                 .unwrap()
                 .unwrap()
                 .rules_config,
-            Some(PathBuf::from("custom-rules.json"))
+            Some(PathBuf::from("custom-rules.sqlite"))
         );
         for v in [
+            vec!["--rules-import"],
+            vec!["--rules-import", ""],
+            vec!["--rules-import", "a", "--rules-import", "b"],
+            vec!["export-state", "--storage-path", "x", "--rules-import", "y"],
             vec!["--rules-config"],
             vec!["--rules-config", ""],
             vec!["--rules-config", "a", "--rules-config", "b"],

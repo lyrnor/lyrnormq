@@ -70,3 +70,42 @@ fn builtin_bundle_contains_production_entry_and_linked_assets() {
     assert!(bundle.keys().any(|name| name.ends_with(".js")));
     assert!(bundle.keys().any(|name| name.ends_with(".css")));
 }
+
+#[test]
+fn sqlite_configuration_and_companion_aliases_cannot_be_static_assets() {
+    use mqtt_transport::management::ManagementHandle;
+    for suffix in ["", "-journal", "-wal", "-shm", ".config-lock"] {
+        let dir = Fixture::new();
+        let token = dir.0.join("token");
+        std::fs::write(&token, b"test-only-0123456789abcdef0123456789abcdef").unwrap();
+        let web = dir.0.join("web");
+        std::fs::create_dir(&web).unwrap();
+        std::fs::write(web.join("index.html"), b"<html></html>").unwrap();
+        let database = dir.0.join("config.sqlite");
+        let sensitive = dir.0.join(format!("config.sqlite{suffix}"));
+        std::fs::write(&sensitive, b"private configuration").unwrap();
+        std::fs::hard_link(&sensitive, web.join("private.js")).unwrap();
+        let options = crate::cli::parse([
+            "--admin-listen".into(),
+            "127.0.0.1:0".into(),
+            "--admin-token-file".into(),
+            token.to_string_lossy().into_owned(),
+            "--dashboard-dir".into(),
+            web.to_string_lossy().into_owned(),
+            "--rules-config".into(),
+            database.to_string_lossy().into_owned(),
+        ])
+        .unwrap()
+        .unwrap();
+        assert!(
+            super::settings::prepare(
+                &options,
+                "127.0.0.1:0".into(),
+                ManagementHandle::new(),
+                None,
+            )
+            .is_err(),
+            "sensitive companion must not be public: {suffix}"
+        );
+    }
+}

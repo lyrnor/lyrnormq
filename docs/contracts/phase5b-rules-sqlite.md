@@ -22,12 +22,10 @@ Errors redact credentials/paths. No database schema change to durable session st
 ## Runtime API (Webhook owner)
 
 `Runtime::open(PathBuf)` now accepts SQLite, no extension-based JSON behavior.
-Add `Runtime::open_with_import(PathBuf, Option<PathBuf>)`: if no saved row exists,
-read optional legacy JSON (regular no symlink <=64KiB), validate SQL/config, commit
-once; absent source initializes empty config. Existing DB row always wins, legacy
-source stays unchanged. Invalid legacy source or saved config fails startup without
-saving default/invalid payload; empty initialized DB can be retried after correcting
-legacy file. `open` delegates with None. Config JSON remains internal bounded blob,
+No JSON file compatibility or import API/CLI. If no saved row exists, validate
+and persist the empty default. Existing persisted bytes must deserialize and
+validate before starting; invalid data fails closed without overwriting it.
+Config JSON remains an internal bounded opaque blob, not a JSON file backend.
 HTTP contract unchanged. Build client/validate before commit; publish immutable
 snapshot only after commit. All DB work on spawn_blocking with store mutex inside
 blocking worker, never across await. Caller cancellation cannot orphan mutation
@@ -40,20 +38,18 @@ SQLite failure tests. Keep lib.rs declarations/reexports only.
 
 ## CLI/coordinator
 
-Default enabled path `rmqtt-rules.sqlite` in cwd, importing cwd `rules.json` only
-when target has no configuration row. `--rules-config PATH` overrides SQLite path.
-`--rules-import PATH` optionally names legacy JSON source; custom SQLite paths
-have no implicit import. Reject empty/duplicate import path, import without serving
-(export-state); export-state neither reads nor creates configuration. Static assets
-protect both resolved SQLite path and legacy import path. Error/status API and
-Dashboard remain unchanged. Existing --rules-config JSON users migrate with a new
-SQLite path and --rules-import old-path (old file kept).
+Default enabled path `rmqtt-rules.sqlite` in cwd. `--rules-config PATH` only
+overrides the SQLite path; it never accepts/imports JSON files. Export-state
+neither reads nor creates configuration. Static asset sensitive alias protection
+includes SQLite DB, -journal/-wal/-shm and .config-lock. Error/status API and
+Dashboard remain unchanged. Legacy rules.json files are never inspected/imported.
+This supersedes all Phase5a JSON-file persistence and directory-sync rules.
 
 ## Acceptance
 
 Real SQLite header/schema; atomic rollback and bounded data; rejected foreign,
 corrupt/symlink databases; exclusive owner; config secrets redacted in API yet
-restored for HTTP; restart and SIGKILL recovery of acknowledged config; source
-legacy retained, existing DB takes precedence, invalid imports rejected. Default
+restored for HTTP; restart and SIGKILL recovery of acknowledged config; JSON input
+files rejected without overwrite and no implicit JSON reads. Default
 startup API ready without flags, custom overrides, export no side effects.
 No throughput/p99 or durable message-delivery claim.

@@ -71,7 +71,7 @@ pub fn prepare(
             "management token cannot be a dashboard asset",
         ));
     }
-    let sensitive = [
+    let mut sensitive: Vec<_> = [
         options.admin_token_file.as_deref(),
         options.tls_cert.as_deref(),
         options.tls_key.as_deref(),
@@ -79,8 +79,19 @@ pub fn prepare(
         options.auth_policy.as_deref(),
         options.config.storage_path.as_deref(),
         options.rules_config.as_deref(),
-    ];
-    for secret in sensitive.into_iter().flatten() {
+    ]
+    .into_iter()
+    .flatten()
+    .map(Path::to_path_buf)
+    .collect();
+    if let Some(path) = &options.rules_config {
+        for suffix in ["-journal", "-wal", "-shm", ".config-lock"] {
+            let mut companion = path.as_os_str().to_os_string();
+            companion.push(suffix);
+            sensitive.push(companion.into());
+        }
+    }
+    for secret in &sensitive {
         for asset in assets.values() {
             let Some(source) = &asset.source else {
                 continue;

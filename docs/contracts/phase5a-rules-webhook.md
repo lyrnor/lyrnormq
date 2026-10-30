@@ -1,3 +1,5 @@
+> Persistence/CLI superseded by [Phase5b](phase5b-rules-sqlite.md): SQLite only, default enabled, no JSON file import.
+
 # Phase5a — SQL rules and Webhook outbound
 
 Frozen before parallel implementation on 2026-10-30; this consolidated version

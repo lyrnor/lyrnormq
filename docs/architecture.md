@@ -656,8 +656,10 @@ Each action owns a bounded queue/worker; shared HTTP concurrency and queued byte
 are bounded. Rule errors or slow targets do not gate MQTT ACKs or ordinary routing.
 
 Connections, actions and SQL rules are distinct configuration entities. Config
-replacement compiles/validates off the network runtime, persists via0600 atomic
-replacement and switches immutable snapshots. Replaced action workers are cancelled
+replacement compiles/validates off the network runtime, commits an atomic SQLite
+configuration transaction and switches immutable snapshots after success. The
+configuration database is separate from the strict session store, defaults to
+rmqtt-rules.sqlite, and is enabled by default. No JSON-file backend/import exists. Replaced action workers are cancelled
 and abandoned copies counted. HTTP pools belong to a generation, preventing endpoint
 churn retaining process-global idle pools. Input and action copies retain bounded
 memory reservations through processing, batching, retries and cancellation.
@@ -669,9 +671,10 @@ redirects are disabled, response bodies are not unboundedly collected. SQL previ
 has no external side effects. Admin write routes are restricted to rule config/test;
 MQTT/session controls remain read-only, with unchanged token/CSP/loopback policy.
 
-Only configuration persists; event queues/counters are volatile. A published config
-whose directory sync fails is exposed consistently but stops rule execution and
-rejects subsequent mutations until restart. This phase does not implement durable
+Only configuration persists; event queues/counters are volatile. An uncertain
+SQLite save failure stops rule execution and rejects subsequent mutations until
+restart; acknowledged commits are restored. Database IO runs only on blocking
+workers, never on MQTT publication paths. This phase does not implement durable
 rule admission/action outbox, Kafka/PostgreSQL, plugins, windows, dead-letter replay
 or performance certification. MQTT durable schemas and ACK/outbox semantics remain
 unchanged. Built React UI continues to be embedded in the release binary.
