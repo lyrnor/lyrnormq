@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -170,5 +171,83 @@ describe("memory-only management login", () => {
       key: "Escape",
     });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("topic view transitions", () => {
+  it("keeps pagination absent while the selected view loads in either direction", async () => {
+    location.hash = "#topics";
+    const subscriptionPage = {
+      items: [
+        {
+          client_id: "live-client",
+          filter: "devices/+/state",
+          qos: 1,
+          no_local: false,
+          retain_as_published: false,
+          retain_handling: 0,
+          identifier: null,
+        },
+      ],
+      total: 1,
+      offset: 0,
+      limit: 25,
+    };
+    const retainedPage = {
+      items: [
+        {
+          topic: "devices/one/state",
+          qos: 1,
+          payload_bytes: 12,
+          expires_at_millis: null,
+        },
+      ],
+      total: 1,
+      offset: 0,
+      limit: 25,
+    };
+    let subscriptionCalls = 0;
+    let resolveRetained: (() => void) | undefined;
+    let resolveSubscriptions: (() => void) | undefined;
+    request.mockImplementation((path) => {
+      if (path.includes("overview")) return Promise.resolve(overview as never);
+      if (path.includes("configuration"))
+        return Promise.resolve({ instance, limits } as never);
+      if (path.includes("subscriptions")) {
+        if (subscriptionCalls++ === 0)
+          return Promise.resolve(subscriptionPage as never);
+        return new Promise<never>((resolve) => {
+          resolveSubscriptions = () => resolve(subscriptionPage as never);
+        });
+      }
+      return new Promise<never>((resolve) => {
+        resolveRetained = () => resolve(retainedPage as never);
+      });
+    });
+    render(<App />);
+    await login();
+    await waitFor(() =>
+      expect(screen.getByText("devices/+/state")).toBeTruthy(),
+    );
+    expect(() =>
+      fireEvent.click(screen.getByRole("button", { name: "保留消息" })),
+    ).not.toThrow();
+    await waitFor(() => expect(resolveRetained).toBeTypeOf("function"));
+    expect(screen.queryByRole("button", { name: "上一页" })).toBeNull();
+    expect(screen.getByText("正在查询主题元数据…")).toBeTruthy();
+    await act(async () => resolveRetained?.());
+    await waitFor(() =>
+      expect(screen.getByText("devices/one/state")).toBeTruthy(),
+    );
+    expect(() =>
+      fireEvent.click(screen.getByRole("button", { name: "订阅过滤器" })),
+    ).not.toThrow();
+    await waitFor(() => expect(resolveSubscriptions).toBeTypeOf("function"));
+    expect(screen.queryByRole("button", { name: "上一页" })).toBeNull();
+    expect(screen.getByText("正在查询主题元数据…")).toBeTruthy();
+    await act(async () => resolveSubscriptions?.());
+    await waitFor(() =>
+      expect(screen.getByText("devices/+/state")).toBeTruthy(),
+    );
   });
 });

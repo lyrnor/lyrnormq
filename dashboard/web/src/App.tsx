@@ -239,6 +239,8 @@ function Console({
       : o?.ready
         ? "已连接"
         : "连接中";
+  const topicPage =
+    topicTab === "subscriptions" ? live.subscriptions : live.retained;
   const filter = (
     <div className="flex flex-wrap items-center gap-3 px-5 py-4">
       <div className="relative w-full sm:max-w-xs [&>svg]:pointer-events-none [&>svg]:absolute [&>svg]:top-2.5 [&>svg]:left-3 [&>svg]:size-4 [&>svg]:text-muted-foreground [&_input]:pl-9">
@@ -813,23 +815,16 @@ function Console({
                   </Table>
                 )}
               </div>
-              {live.loading && !(live.subscriptions || live.retained) ? (
+              {live.loading && !topicPage ? (
                 <Empty>正在查询主题元数据…</Empty>
-              ) : ((topicTab === "subscriptions"
-                  ? live.subscriptions
-                  : live.retained
-                )?.items.length ?? 0) === 0 ? (
+              ) : (topicPage?.items.length ?? 0) === 0 ? (
                 <Empty>
                   {live.error ? "暂时无法读取数据" : "没有符合条件的记录"}
                 </Empty>
               ) : null}
-              {(live.subscriptions || live.retained) && (
+              {topicPage && (
                 <Paging
-                  data={
-                    (topicTab === "subscriptions"
-                      ? live.subscriptions
-                      : live.retained)!
-                  }
+                  data={topicPage}
                   onPage={(offset) =>
                     setQuery((q) => changeQuery(q, { offset }))
                   }
