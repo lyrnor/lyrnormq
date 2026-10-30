@@ -233,6 +233,8 @@ class RulesWebhook(unittest.TestCase):
         source = self.client('source')
         self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=1)
         records = [webhook.get()[2] for _ in range(3)]
+        self.assertIsInstance(records[0]['events'][0]['delivery_id'], str)
+        self.assertEqual(records[0]['events'][0]['delivery_id'], records[2]['events'][0]['delivery_id'])
         self.assertEqual(records[0], records[1])
         self.assertEqual(records[1], records[2])
         eventually(lambda: self.action_status()['delivered'] == 1)
@@ -253,15 +255,32 @@ class RulesWebhook(unittest.TestCase):
         for n in range(4):
             self.publish(source, 'devices/a/telemetry', json.dumps({'temperature': 80 + n}).encode())
         seen = []
+        batch_lengths = []
         while len(seen) < 4:
             _, _, body, size = webhook.get()
             self.assertLessEqual(size, 1024 * 1024)
             self.assertLessEqual(len(body['events']), 4)
+            batch_lengths.append(len(body['events']))
             seen += body['events']
+        self.assertGreater(max(batch_lengths), 1, "configured batching never grouped events")
         self.assertEqual(len(seen), 4)
         self.assertEqual(sorted(event['data']['temperature'] for event in seen), [80, 81, 82, 83])
         self.assertEqual(len({event['event_id'] for event in seen}), 4)
         eventually(lambda: self.action_status()['delivered'] == 4)
+
+    def test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint(self):
+        webhook = self.webhook()
+        config = config_for(webhook.url)
+        config['actions'].append(dict(config['actions'][0], id='second', name='Second action'))
+        config['rules'][0]['action_ids'].append('second')
+        self.start(config)
+        source = self.client('fanout-source')
+        self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=1)
+        requests = [webhook.get()[2] for _ in range(2)]
+        self.assertEqual({request['action_id'] for request in requests}, {'send', 'second'})
+        events = [request['events'][0] for request in requests]
+        self.assertEqual(events[0]['event_id'], events[1]['event_id'])
+        self.assertNotEqual(events[0]['delivery_id'], events[1]['delivery_id'])
 
     def test_slow_target_and_overflow_do_not_block_other_action_or_mqtt(self):
         slow, fast = self.webhook(delay=.5), self.webhook()
