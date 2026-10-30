@@ -27,6 +27,7 @@ jobs:
           openssl version
           python3 tests/tls_blackbox.py
       - run: python3 tests/websocket_blackbox.py
+      - run: python3 tests/admission_mtls_blackbox.py
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
       - run: python3 tests/persistence_blackbox.py
