@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import queue
 import socket
+import sqlite3
 import struct
 import subprocess
 import tempfile
@@ -98,16 +99,32 @@ class RulesWebhook(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-rules-quality-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.rules_path = self.root / 'private-rules.json'
+        self.rules_path = self.root / 'private-rules.sqlite'
         self.broker = None
 
-    def start(self, config=None, enabled=True):
-        if config is not None:
-            self.rules_path.write_text(json.dumps(config))
-        extra = ['--rules-config', str(self.rules_path)] if enabled else []
+    def start(self, config=None, default=False):
+        extra = [] if default else ['--rules-config', str(self.rules_path)]
+        if default:
+            self.rules_path = self.root / 'rmqtt-rules.sqlite'
         self.broker = DashboardBroker(self.directory.name, extra=extra)
         self.addCleanup(self.broker.stop)
-        return self.broker.start()
+        broker = self.broker.start()
+        if config is not None:
+            self.replace(config)
+        return broker
+
+    def stored_config(self):
+        self.assertEqual(self.rules_path.read_bytes()[:16], b'SQLite format 3\0')
+        with sqlite3.connect(self.rules_path) as database:
+            tables = database.execute("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
+            self.assertEqual(len(tables), 1)
+            name = tables[0][0].replace('"', '""')
+            records = database.execute(f'SELECT * FROM "{name}"').fetchall()
+            self.assertEqual(len(records), 1)
+            for field in records[0]:
+                if isinstance(field, bytes):
+                    return json.loads(field)
+        self.fail('configuration must be stored in a bounded SQLite blob')
 
     def webhook(self, *args, **kwargs):
         webhook = Webhook(*args, **kwargs)
@@ -147,7 +164,7 @@ class RulesWebhook(unittest.TestCase):
         self.assertNotIn(SECRET, json.dumps(public))
         self.assertEqual(public['connectors'][0]['headers']['Authorization'], '[redacted]')
         self.replace(public)
-        self.assertIn(SECRET, self.rules_path.read_text())
+        self.assertIn(SECRET, json.dumps(self.stored_config()))
         body = {'sql': public['rules'][0]['sql'], 'event': self.sample()}
         code, _, result = self.request(TEST, 'POST', body)
         self.assertEqual(code, 200, result)
@@ -325,11 +342,11 @@ class RulesWebhook(unittest.TestCase):
         self.start(config)
         public = self.broker.data(CONFIG)
         self.replace(public)
-        original = self.rules_path.read_bytes()
+        original = self.stored_config()
         bad = copy.deepcopy(public)
         bad['rules'][0]['action_ids'] = ['absent']
         self.assertEqual(self.request(CONFIG, 'PUT', bad)[0], 400)
-        self.assertEqual(self.rules_path.read_bytes(), original)
+        self.assertEqual(self.stored_config(), original)
         self.assertEqual(self.broker.data(CONFIG), public)
         for header in ['Host', 'Content-Length', 'Content-Type', 'Connection']:
             bad = copy.deepcopy(config)
@@ -348,13 +365,66 @@ class RulesWebhook(unittest.TestCase):
         if os.name == 'posix':
             self.assertEqual(self.rules_path.stat().st_mode & 0o777, 0o600)
 
-    def test_disabled_rules_fail_explicitly_and_existing_mqtt_stays_live(self):
-        self.start(enabled=False)
-        self.assertEqual(self.request(CONFIG)[0], 503)
-        self.assertEqual(self.request(STATUS)[0], 503)
-        self.assertEqual(self.request(TEST, 'POST', {'sql': 'bad', 'event': self.sample()})[0], 503)
+    def test_default_rules_enabled_without_loading_legacy_json(self):
+        legacy = self.root / 'rules.json'
+        legacy.write_text('{invalid-legacy-json-do-not-read')
+        self.start(default=True)
+        self.assertTrue(self.status()['running'])
+        self.assertEqual(self.broker.data(CONFIG), {'connectors': [], 'actions': [], 'rules': []})
         self.assertEqual(self.request(CONFIG, token=None)[0], 401)
-        self.barrier(self.client('no-rules'))
+        self.assertEqual(self.stored_config(), {'connectors': [], 'actions': [], 'rules': []})
+        self.assertEqual(legacy.read_text(), '{invalid-legacy-json-do-not-read')
+        self.barrier(self.client('default-rules'))
+
+    def test_acknowledged_config_survives_sigkill_and_delivers_after_recovery(self):
+        webhook = self.webhook()
+        self.start()
+        config = config_for(webhook.url)
+        config['rules'][0]['name'] = 'Committed before process crash'
+        public = self.replace(config)
+        self.broker.stop(crash=True)
+        self.broker.start()
+        self.assertEqual(self.broker.data(CONFIG), public)
+        self.assertEqual(self.stored_config()['rules'][0]['name'], 'Committed before process crash')
+        self.assertTrue(self.status()['running'])
+        source = self.client('after-crash')
+        self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=1)
+        self.assertEqual(webhook.get()[1]['authorization'], f'Bearer {SECRET}')
+        self.assertNotIn(SECRET, json.dumps(self.broker.data(CONFIG)))
+
+    def test_sqlite_write_failure_keeps_committed_config_and_stops_rules(self):
+        self.start(config_for('http://127.0.0.1:1/'))
+        original = self.stored_config()
+        changed = copy.deepcopy(original)
+        changed['rules'][0]['name'] = 'Must not be committed'
+        with sqlite3.connect(self.rules_path, timeout=1) as database:
+            database.execute('BEGIN IMMEDIATE')
+            self.assertEqual(self.request(CONFIG, 'PUT', changed)[0], 503)
+            self.assertFalse(self.status()['running'])
+            self.assertNotEqual(self.broker.data(CONFIG)['rules'][0]['name'], 'Must not be committed')
+            database.rollback()
+        self.assertEqual(self.stored_config(), original)
+        self.barrier(self.client('mqtt-after-config-failure'))
+        self.broker.stop()
+        self.broker.start()
+        self.assertEqual(self.stored_config(), original)
+        self.assertTrue(self.status()['running'])
+
+    def test_json_foreign_and_corrupt_databases_are_rejected_without_overwrite(self):
+        args = [BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)]
+        for content in [b'{"connectors":[],"actions":[],"rules":[]}', b'not a database']:
+            self.rules_path.write_bytes(content)
+            process = subprocess.run(args, cwd=self.root, capture_output=True, timeout=8)
+            self.assertNotEqual(process.returncode, 0)
+            self.assertEqual(self.rules_path.read_bytes(), content)
+        self.rules_path.unlink()
+        with sqlite3.connect(self.rules_path) as database:
+            database.execute('CREATE TABLE foreign_records (value TEXT)')
+            database.execute('INSERT INTO foreign_records VALUES (?)', ('do-not-overwrite',))
+        before = self.rules_path.read_bytes()
+        process = subprocess.run(args, cwd=self.root, capture_output=True, timeout=8)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertEqual(self.rules_path.read_bytes(), before)
 
     def test_cli_invalid_config_and_sensitive_static_alias_fail_closed(self):
         token = self.root / 'token'
@@ -363,10 +433,10 @@ class RulesWebhook(unittest.TestCase):
         for tail in [['--rules-config'], ['--rules-config', ''], ['--rules-config', 'a', '--rules-config', 'b'],
                      ['export-state', '--storage-path', 'a', '--rules-config', 'b']]:
             command = [BINARY] + tail if tail[0] == 'export-state' else args + tail
-            process = subprocess.run(command, capture_output=True, timeout=5)
+            process = subprocess.run(command, cwd=self.root, capture_output=True, timeout=5)
             self.assertNotEqual(process.returncode, 0)
         self.rules_path.write_text('{invalid')
-        process = subprocess.run(args + ['--rules-config', str(self.rules_path)], capture_output=True, timeout=5)
+        process = subprocess.run(args + ['--rules-config', str(self.rules_path)], capture_output=True, timeout=5, cwd=self.root)
         self.assertNotEqual(process.returncode, 0)
         self.rules_path.write_text(json.dumps({'connectors': [], 'actions': [], 'rules': []}))
         assets = self.root / 'assets'
@@ -375,7 +445,7 @@ class RulesWebhook(unittest.TestCase):
         os.link(self.rules_path, assets / 'secret.js')
         command = args + ['--rules-config', str(self.rules_path), '--admin-listen', f'127.0.0.1:{free_port()}',
                           '--admin-token-file', str(token), '--dashboard-dir', str(assets)]
-        process = subprocess.run(command, capture_output=True, timeout=5)
+        process = subprocess.run(command, cwd=self.root, capture_output=True, timeout=5)
         self.assertNotEqual(process.returncode, 0)
         self.assertNotIn(SECRET.encode(), process.stdout + process.stderr)
 

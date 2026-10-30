@@ -81,7 +81,7 @@ class GateBroker(WebSocketBroker):
         if self.mtls:args+=['--tls-client-ca',str(self.identities.path/'ca.pem')]
         if self.persistent:args+=['--storage-path',str(Path(self.directory)/'sessions.sqlite')]
         if self.policy_path is not None:args+=['--auth-policy',str(self.policy_path)]
-        return args+self.extra
+        return args+["--rules-config",str(Path(self.rules_directory.name)/"rules.sqlite")]+self.extra
 
     def start(self):
         self.port=free_port()

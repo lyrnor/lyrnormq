@@ -62,6 +62,7 @@ class Identities:
 class TLSBroker:
     def __init__(self, identities, directory=None, extra=()):
         self.identities = identities
+        self.rules_directory = tempfile.TemporaryDirectory(prefix="rmqtt-tls-rules-")
         self.directory = directory
         self.extra = list(extra)
         self.process = None
@@ -73,7 +74,7 @@ class TLSBroker:
                 str(self.identities.path / 'server.key')]
         if self.directory is not None:
             args += ['--storage-path', str(Path(self.directory) / 'sessions.sqlite')]
-        return args + self.extra
+        return args + ["--rules-config", str(Path(self.rules_directory.name) / "rules.sqlite")] + self.extra
 
     def start(self):
         self.port = free_port()

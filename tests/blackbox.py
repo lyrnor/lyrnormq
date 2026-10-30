@@ -6,6 +6,7 @@ import signal
 import socket
 import struct
 import subprocess
+import tempfile
 import time
 import unittest
 
@@ -60,7 +61,9 @@ class Broker:
             probe.bind(('127.0.0.1', 0))
             self.port = probe.getsockname()[1]
         executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
-        command = [executable, '--listen', f'127.0.0.1:{self.port}']
+        self.rules_directory = tempfile.TemporaryDirectory(prefix='rmqtt-wire-rules-')
+        command = [executable, '--listen', f'127.0.0.1:{self.port}',
+                   '--rules-config', str(Path(self.rules_directory.name) / 'rules.sqlite')]
         storage_path = os.environ.get('RMQTT_TEST_STORAGE_PATH')
         if storage_path:
             command.extend(['--storage-path', storage_path])
@@ -87,6 +90,7 @@ class Broker:
                 self.process.wait()
                 raise AssertionError('broker failed graceful shutdown')
         self.process.stderr.close()
+        self.rules_directory.cleanup()
 
     def socket(self):
         sock = socket.create_connection(('127.0.0.1', self.port), timeout=3)

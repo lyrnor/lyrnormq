@@ -175,7 +175,8 @@ class WebSocketBroker(TLSBroker):
         if self.directory is not None:
             from pathlib import Path
             args += ['--storage-path', str(Path(self.directory) / 'sessions.sqlite')]
-        return args + self.extra
+        from pathlib import Path
+        return args + ["--rules-config", str(Path(self.rules_directory.name) / "rules.sqlite")] + self.extra
 
     def transport_socket(self, version=None, trusted=True, hostname='localhost'):
         return super().socket(version, trusted, hostname) if self.secure else self.raw()

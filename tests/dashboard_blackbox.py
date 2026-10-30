@@ -81,7 +81,7 @@ class DashboardBroker:
     def start(self):
         self.stderr = tempfile.TemporaryFile()
         self.process = subprocess.Popen(self.command(), stdout=subprocess.DEVNULL,
-                                        stderr=self.stderr)
+                                        stderr=self.stderr, cwd=self.root)
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             if self.process.poll() is not None:
@@ -254,7 +254,7 @@ class DashboardBlackbox(unittest.TestCase):
         self.assertEqual(configuration['limits']['max_handshakes'], 128)
         overview = broker.data('/api/v1/overview')
         self.assertEqual(overview['resources'], {'cpu_percent': None, 'rss_bytes': None})
-        self.assertEqual(overview['capabilities'], {'events': False, 'resource_metrics': False, 'mutations': False})
+        self.assertEqual(overview['capabilities'], {'events': False, 'resource_metrics': False, 'mutations': False, 'rules': True})
         self.assertEqual(overview['online_sessions'], 0)
         self.assertNotIn(TOKEN, broker.logs())
 
@@ -499,7 +499,7 @@ class DashboardStartupValidation(unittest.TestCase):
 
     def rejected(self, args):
         process = subprocess.Popen([BINARY, '--listen', '127.0.0.1:0'] + args,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.root)
         try:
             stdout, stderr = process.communicate(timeout=5)
         except subprocess.TimeoutExpired:

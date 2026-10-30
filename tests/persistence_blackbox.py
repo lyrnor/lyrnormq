@@ -36,13 +36,15 @@ def free_port():
 class PersistentBroker:
     def __init__(self, directory, extra_args=()):
         self.db = Path(directory) / 'sessions.sqlite'
+        self.rules_directory = tempfile.TemporaryDirectory(prefix="rmqtt-persistent-rules-")
         self.extra_args = list(extra_args)
         self.process = None
 
     def command(self):
         executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
         return [executable, '--listen', f'127.0.0.1:{self.port}',
-                '--storage-path', str(self.db)] + self.extra_args
+                '--storage-path', str(self.db), '--rules-config',
+                str(Path(self.rules_directory.name) / 'rules.sqlite')] + self.extra_args
 
     def start(self):
         self.port = free_port()
