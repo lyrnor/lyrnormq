@@ -141,10 +141,15 @@ async fn ping_flush_is_bounded_without_mqtt_output() {
 #[tokio::test]
 async fn normal_shutdown_sends_close1000_and_remote_close_is_eof() {
     let (mut server, mut client) = socket(4096, 128).await;
-    server.shutdown().await.unwrap();
+    let closing = tokio::spawn(async move {
+        server.shutdown().await.unwrap();
+    });
     let mut close = [0; 4];
     client.read_exact(&mut close).await.unwrap();
     assert_eq!(&close, b"\x88\x02\x03\xe8");
+    client.write_all(&masked(0x88, b"\x03\xe8")).await.unwrap();
+    client.shutdown().await.unwrap();
+    closing.await.unwrap();
     let (mut server, mut client) = socket(4096, 128).await;
     client.write_all(&masked(0x88, b"\x03\xe8")).await.unwrap();
     let mut byte = [0];
@@ -385,4 +390,107 @@ async fn incomplete_fragment_flood_yields_to_mqtt_deadlines() {
     );
     flood.abort();
     let _ = flood.await;
+}
+#[tokio::test]
+async fn wss_shutdown_waits_for_ws_echo_and_delayed_tls_close_notify() {
+    use std::sync::Arc;
+    use tokio_rustls::{TlsConnector, rustls};
+    timeout(Duration::from_secs(2), async {
+        let cert = include_bytes!("../tls/fixtures/cert.pem");
+        let key = include_bytes!("../tls/fixtures/key.pem");
+        let acceptor = crate::TlsConfig::from_pem(cert, key).unwrap().acceptor;
+        let mut roots = rustls::RootCertStore::empty();
+        let mut pem = cert.as_slice();
+        for cert in rustls_pemfile::certs(&mut pem) {
+            roots.add(cert.unwrap()).unwrap();
+        }
+        let config = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+        let (raw_server, raw_client) = duplex(4096);
+        let connector = TlsConnector::from(Arc::new(config));
+        let (server, client) = tokio::join!(
+            acceptor.accept(raw_server),
+            connector.connect("localhost".try_into().unwrap(), raw_client)
+        );
+        let mut client = client.unwrap();
+        let socket = WebSocketStream::from_raw_socket(
+            super::policy::FramePolicy::new(server.unwrap(), true),
+            Role::Server,
+            None,
+        )
+        .await;
+        let mut server = WebSocketIo::new(socket, 128, Duration::from_millis(250));
+        let closing = tokio::spawn(async move {
+            server.shutdown().await.unwrap();
+        });
+        let mut close = [0; 4];
+        client.read_exact(&mut close).await.unwrap();
+        assert_eq!(&close, b"\x88\x02\x03\xe8");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert!(
+            !closing.is_finished(),
+            "server dropped WSS before receiving peer WS Close"
+        );
+        client.write_all(&masked(0x88, b"\x03\xe8")).await.unwrap();
+        client.flush().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert!(
+            !closing.is_finished(),
+            "server dropped WSS before peer TLS close_notify"
+        );
+        client.shutdown().await.unwrap();
+        let mut byte = [0];
+        assert_eq!(client.read(&mut byte).await.unwrap(), 0);
+        closing.await.unwrap();
+    })
+    .await
+    .unwrap();
+}
+#[tokio::test]
+async fn shutdown_bounds_missing_ws_ack_and_missing_transport_eof() {
+    for ack in [false, true] {
+        let (mut server, mut client) = socket(4096, 128).await;
+        let closing = tokio::spawn(async move { server.shutdown().await });
+        let mut close = [0; 4];
+        client.read_exact(&mut close).await.unwrap();
+        assert_eq!(&close, b"\x88\x02\x03\xe8");
+        if ack {
+            client.write_all(&masked(0x88, b"\x03\xe8")).await.unwrap();
+            client.flush().await.unwrap();
+        }
+        // Keep the peer transport open: both a missing WS acknowledgement and
+        // a peer that never half-closes must release server resources on time.
+        let result = timeout(Duration::from_millis(250), closing)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+    }
+}
+#[tokio::test]
+async fn ungraceful_ws_close_does_not_wait_for_peer_transport_eof() {
+    use crate::io_stream::IoStream;
+    use std::sync::atomic::Ordering;
+    let (mut server, mut client) = socket(4096, 128).await;
+    server
+        .full_close_policy()
+        .unwrap()
+        .store(false, Ordering::Release);
+    client.write_all(&masked(0x88, b"\x03\xe8")).await.unwrap();
+    let mut byte = [0];
+    assert_eq!(server.read(&mut byte).await.unwrap(), 0);
+    let mut close = [0; 4];
+    client.read_exact(&mut close).await.unwrap();
+    assert_eq!(&close, b"\x88\x02\x03\xe8");
+    // Deliberately keep the peer open, as a Will observer can legitimately wait
+    // after receiving its WS close reply without sending TLS close_notify yet.
+    timeout(Duration::from_millis(10), server.shutdown())
+        .await
+        .unwrap()
+        .unwrap();
 }

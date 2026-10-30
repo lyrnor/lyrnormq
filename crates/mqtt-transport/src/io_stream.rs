@@ -1,5 +1,8 @@
 //! Static IO dispatch keeps the plaintext TcpStream owned split path.
-use std::io;
+use std::{
+    io,
+    sync::{Arc, atomic::AtomicBool},
+};
 use tokio::{
     io::{AsyncRead, AsyncWrite, ReadHalf, WriteHalf},
     net::{
@@ -12,6 +15,10 @@ pub(crate) trait IoStream: Send + 'static {
     const GRACEFUL_CLOSE: bool;
     type Reader: AsyncRead + Unpin + Send;
     type Writer: AsyncWrite + Unpin + Send + 'static;
+    /// WS can distinguish completed MQTT DISCONNECT from ungraceful transport EOF.
+    fn full_close_policy(&self) -> Option<Arc<AtomicBool>> {
+        None
+    }
     fn into_io(self) -> io::Result<(Self::Reader, Self::Writer)>;
 }
 impl IoStream for TcpStream {

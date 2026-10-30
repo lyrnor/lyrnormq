@@ -377,6 +377,7 @@ struct Context<'a> {
     close: watch::Receiver<Option<ReasonCode>>,
     shutdown: watch::Receiver<bool>,
     flush: &'a mut bool,
+    mqtt_disconnected: &'a mut bool,
 }
 fn terminal_frame(context: &Context<'_>, frame: Frame) {
     context.terminal.send_replace(Some(frame));
@@ -389,6 +390,10 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
     shutdown: watch::Receiver<bool>,
     identity: &mut Option<String>,
 ) -> io::Result<()> {
+    let full_close = stream.full_close_policy();
+    if let Some(policy) = &full_close {
+        policy.store(false, Ordering::Release);
+    }
     let (mut reader, writer) = stream.into_io()?;
     let (output, receiver) = mpsc::channel(config.outbound_capacity);
     let (terminal, terminal_rx) = watch::channel(None);
@@ -418,6 +423,7 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
     let mut connected = false;
     let mut authenticating = false;
     let mut flush = false;
+    let mut mqtt_disconnected = false;
     let result = drive(
         &mut reader,
         Context {
@@ -441,9 +447,13 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
             close,
             shutdown,
             flush: &mut flush,
+            mqtt_disconnected: &mut mqtt_disconnected,
         },
     )
     .await;
+    if let Some(policy) = full_close {
+        policy.store(mqtt_disconnected, Ordering::Release);
+    }
     // Only an actual queued terminal packet authorizes bounded writer completion.
     // Established errors never drain the ordinary outbound data queue.
     if let Err(error) = &result
@@ -832,6 +842,7 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                         return Err(io::Error::other("invalid disconnect response"));
                     };
                     *context.identity = None;
+                    *context.mqtt_disconnected = true;
                     return Ok(());
                 }
                 if *context.version == Some(ProtocolVersion::V5)

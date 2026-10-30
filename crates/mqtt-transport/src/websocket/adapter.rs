@@ -5,6 +5,10 @@ use std::{
     future::Future,
     io,
     pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     task::{Context, Poll, Waker},
     time::Duration,
 };
@@ -56,6 +60,10 @@ pub(crate) struct WebSocketIo<S> {
     pending_error: Option<io::Error>,
     eof: bool,
     reader: Option<Waker>,
+    peer_closed: bool,
+    shutdown_due: Option<Pin<Box<Sleep>>>,
+    shutdown_complete: bool,
+    full_close: Arc<AtomicBool>,
 }
 impl<S: AsyncRead + AsyncWrite + Unpin> WebSocketIo<S> {
     pub(super) fn new(
@@ -75,6 +83,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> WebSocketIo<S> {
             pending_error: None,
             eof: false,
             reader: None,
+            peer_closed: false,
+            shutdown_due: None,
+            shutdown_complete: false,
+            full_close: Arc::new(AtomicBool::new(true)),
         }
     }
     fn control(&mut self) {
@@ -177,6 +189,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for WebSocketIo<S> {
                 }
                 Poll::Ready(Some(Ok(Message::Pong(_)))) => {}
                 Poll::Ready(Some(Ok(Message::Close(_)))) => {
+                    self.peer_closed = true;
                     self.close_sent = true;
                     self.eof = true;
                     self.control();
@@ -250,21 +263,104 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for WebSocketIo<S> {
         }
     }
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        if self.shutdown_complete {
+            return Poll::Ready(Ok(()));
+        }
+        if self.shutdown_due.is_none() {
+            self.shutdown_due = Some(Box::pin(sleep(self.write_timeout)));
+        }
+        if self
+            .shutdown_due
+            .as_mut()
+            .is_some_and(|due| due.as_mut().poll(cx).is_ready())
+        {
+            return Poll::Ready(Err(failure(
+                io::ErrorKind::TimedOut,
+                "WebSocket closing handshake timed out",
+            )));
+        }
         if !self.close_sent {
             self.close(CloseCode::Normal);
         }
         match self.poll_control(cx) {
             Poll::Pending => return Poll::Pending,
-            Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
             Poll::Ready(Ok(())) => {}
         }
-        Pin::new(self.socket.get_mut()).poll_shutdown(cx)
+        // Sending Close is only the first half of normal WS shutdown. Retain
+        // ownership until its peer acknowledgement arrives; discard business
+        // input while closing rather than handing it back to the MQTT loop.
+        for _ in 0..32 {
+            if !self.full_close.load(Ordering::Acquire) || self.peer_closed {
+                break;
+            }
+            match Pin::new(&mut self.socket).poll_next(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(None) => {
+                    self.peer_closed = true;
+                }
+                Poll::Ready(Some(Ok(Message::Close(_)))) => {
+                    self.peer_closed = true;
+                    self.eof = true;
+                    self.control();
+                }
+                Poll::Ready(Some(Ok(_))) => {}
+                Poll::Ready(Some(Err(
+                    tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed,
+                ))) => {
+                    self.peer_closed = true;
+                }
+                Poll::Ready(Some(Err(error))) => return Poll::Ready(Err(websocket_error(error))),
+            }
+        }
+        if self.full_close.load(Ordering::Acquire) && !self.peer_closed {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+        match self.poll_control(cx) {
+            Poll::Pending => return Poll::Pending,
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+            Poll::Ready(Ok(())) => {}
+        }
+        match Pin::new(self.socket.get_mut()).poll_shutdown(cx) {
+            Poll::Pending => return Poll::Pending,
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+            Poll::Ready(Ok(())) => {}
+        }
+        if !self.full_close.load(Ordering::Acquire) {
+            // Ungraceful transport termination must not postpone MQTT cleanup
+            // (notably Will) waiting for an uncooperative peer's notification.
+            self.shutdown_complete = true;
+            return Poll::Ready(Ok(()));
+        }
+        // SHUT_WR/TLS close_notify still leaves the read side open. Consume
+        // reciprocal TLS notification or TCP FIN before drop, avoiding unread
+        // peer Close/alert bytes turning an otherwise clean close into TCP RST.
+        // This drain shares the ORIGINAL shutdown deadline and has no task.
+        for _ in 0..32 {
+            let mut scratch = [0; 1024];
+            let mut input = ReadBuf::new(&mut scratch);
+            match Pin::new(self.socket.get_mut()).poll_read(cx, &mut input) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Ready(Ok(())) if input.filled().is_empty() => {
+                    self.shutdown_complete = true;
+                    return Poll::Ready(Ok(()));
+                }
+                Poll::Ready(Ok(())) => {}
+            }
+        }
+        cx.waker().wake_by_ref();
+        Poll::Pending
     }
 }
 impl<S: AsyncRead + AsyncWrite + Unpin + Send + 'static> IoStream for WebSocketIo<S> {
     const GRACEFUL_CLOSE: bool = true;
     type Reader = ReadHalf<Self>;
     type Writer = WriteHalf<Self>;
+    fn full_close_policy(&self) -> Option<Arc<AtomicBool>> {
+        Some(self.full_close.clone())
+    }
     fn into_io(self) -> io::Result<(Self::Reader, Self::Writer)> {
         Ok(tokio::io::split(self))
     }
