@@ -1,0 +1,29 @@
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-rules-webhook/crates/mqtt-webhook)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.88s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_webhook-ce4c3dabc03b1d61)
+
+running 15 tests
+test tests::outbound_custom_headers_are_marked_sensitive ... ok
+test tests::rejects_configuration_symlink_and_invalid_startup_json ... ok
+test tests::rejects_invalid_and_dangerous_configuration ... ok
+test tests::post_rename_directory_sync_failure_publishes_view_and_stops_runtime ... ok
+test tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget ... ok
+test tests::delivery_ids_distinguish_rule_action_fanout ... ok
+test tests::evaluates_real_sql_and_posts_json_envelope ... ok
+test tests::fixed_shard_preserves_same_publisher_processing_order ... ok
+test tests::batches_only_within_configured_limits ... ok
+test tests::replacing_configuration_releases_old_keepalive_connection_pool ... ok
+test tests::retry_reuses_event_identifier_and_counts_per_event ... ok
+test tests::persists_configuration_redacts_and_preserves_headers_on_roundtrip ... ok
+test tests::permanent_http_error_does_not_retry ... ok
+test tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work ... ok
+test tests::reconfiguration_cancels_old_generation_and_counts_abandoned_events ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+   Doc-tests mqtt_webhook
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

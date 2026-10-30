@@ -49,12 +49,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Load bounded token/assets before accepting connections. Binding port zero
     // first lets the dashboard report the actual MQTT endpoint.
     let listener = TcpListener::bind(&options.address).await?;
-    let admin = if let Some(address) = options.admin_listen {
+    let mut admin = if let Some(address) = options.admin_listen {
         let handle = mqtt_transport::management::ManagementHandle::new();
         options.config.management = Some(handle.clone());
         let listen = listener.local_addr()?.to_string();
         let (returned, state) = tokio::task::spawn_blocking(move || {
-            let state = admin::prepare(&options, listen, handle)?;
+            let state = admin::prepare(&options, listen, handle, None)?;
             Ok::<_, std::io::Error>((options, state))
         })
         .await??;
@@ -65,6 +65,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
             listener.local_addr()?
         );
         Some((listener, state))
+    } else {
+        None
+    };
+    let rules = if let Some(path) = options.rules_config.clone() {
+        let runtime = mqtt_webhook::Runtime::open(path).await?;
+        options.config.publication_observer = Some(runtime.observer());
+        if let Some((_, state)) = &mut admin {
+            let state = std::sync::Arc::get_mut(state)
+                .ok_or("management state unexpectedly shared during startup")?;
+            state.rules = Some(runtime.clone());
+        }
+        Some(runtime)
     } else {
         None
     };
@@ -123,6 +135,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     } else {
         broker.await
     };
+    if let Some(runtime) = rules {
+        runtime.shutdown().await;
+    }
     result?;
     other?;
     Ok(())

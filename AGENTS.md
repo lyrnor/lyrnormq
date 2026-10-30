@@ -17,3 +17,7 @@ Read-only management and React Dashboard additionally follow
 coordinator owns management HTTP/CLI in bin/rmqtt. Do not reintroduce prototype
 sample data into the real UI, expose credentials/payloads, or mutate sessions
 through read endpoints. Preserve bounded metadata queries and MQTT hot paths.
+
+SQL/Webhook additionally follows docs/contracts/phase5a-rules-webhook.md. Rules owner
+owns crates/mqtt-rules; Webhook owner crates/mqtt-webhook; Dashboard owner frontend.
+Rules are bounded best-effort side effects; do not claim durable queue/ACK coupling.

@@ -1,0 +1,9 @@
+test_copied_binary_serves_real_embedded_assets_and_authenticated_live_api (__main__.EmbeddedDashboardBlackbox.test_copied_binary_serves_real_embedded_assets_and_authenticated_live_api) ... ok
+test_default_ignores_arbitrary_cwd_dashboard_dist (__main__.EmbeddedDashboardBlackbox.test_default_ignores_arbitrary_cwd_dashboard_dist) ... ok
+test_explicit_missing_override_fails_without_embedded_fallback (__main__.EmbeddedDashboardBlackbox.test_explicit_missing_override_fails_without_embedded_fallback) ... ok
+test_explicit_override_replaces_entire_embedded_set (__main__.EmbeddedDashboardBlackbox.test_explicit_override_replaces_entire_embedded_set) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.170s
+
+OK

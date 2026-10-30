@@ -24,7 +24,7 @@ use tokio::{
     task::JoinSet,
 };
 
-fn error(status: StatusCode, code: &str, message: &str) -> Response {
+pub(super) fn error(status: StatusCode, code: &str, message: &str) -> Response {
     (
         status,
         Json(json!({"error":{"code":code,"message":message}})),
@@ -140,6 +140,8 @@ async fn dispatch(ExtractState(state): ExtractState<Arc<State>>, request: Reques
             header::HeaderValue::from_static("Bearer"),
         );
         response
+    } else if api && path.starts_with("/api/v1/rules/") {
+        super::rules::dispatch(&state, request).await
     } else if request.method() != Method::GET {
         let mut response = error(
             StatusCode::METHOD_NOT_ALLOWED,
@@ -229,6 +231,11 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
                 "capabilities".into(),
                 json!({"events":false,"resource_metrics":false,"mutations":false}),
             );
+            if state.rules.is_some()
+                && let Some(Value::Object(capabilities)) = value.get_mut("capabilities")
+            {
+                capabilities.insert("rules".into(), Value::Bool(true));
+            }
             Json(Value::Object(value)).into_response()
         }
         "/api/v1/configuration" => {

@@ -1,0 +1,20 @@
+{
+  "action_id": "qa-send",
+  "events": [
+    {
+      "event_id": "80852-1793349049462649000-372",
+      "delivery_id": "80852-1793349049462649000-372:qa-high-temp:qa-send",
+      "rule_id": "qa-high-temp",
+      "topic": "devices/qa/telemetry",
+      "client_id": "sensor-rule-qa",
+      "qos": 0,
+      "retain": false,
+      "timestamp_ms": 1793349236621,
+      "data": {
+        "client_id": "sensor-rule-qa",
+        "source_topic": "devices/qa/telemetry",
+        "temperature": 92
+      }
+    }
+  ]
+}

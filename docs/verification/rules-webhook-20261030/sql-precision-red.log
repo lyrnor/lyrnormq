@@ -1,0 +1,24 @@
+   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-rules-core/crates/mqtt-rules)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.83s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_rules-4e654c88aa0dc9a0)
+
+running 1 test
+test tests::arithmetic_results_and_large_float_payloads_fail_safe_range_checks ... FAILED
+
+failures:
+
+---- tests::arithmetic_results_and_large_float_payloads_fail_safe_range_checks stdout ----
+
+thread 'tests::arithmetic_results_and_large_float_payloads_fail_safe_range_checks' (14235293) panicked at crates/mqtt-rules/src/tests.rs:144:5:
+assertion `left == right` failed
+  left: Ok(Some(Object {"value": Number(9007199254740992.0)}))
+ right: Err(Arithmetic)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::arithmetic_results_and_large_float_payloads_fail_safe_range_checks
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p mqtt-rules --lib`

@@ -1,0 +1,20 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/api.test.ts (8 tests) 17ms
+ ✓ tests/rules-model.test.ts (6 tests) 5ms
+ ✓ tests/model.test.ts (12 tests) 3ms
+ ✓ tests/dialog.test.tsx (2 tests) 113ms
+ ✓ tests/polling.test.tsx (6 tests) 370ms
+ ✓ tests/app.test.tsx (5 tests) 539ms
+ ✓ tests/rules-page.test.tsx (11 tests) 627ms
+
+ Test Files  7 passed (7)
+      Tests  50 passed (50)
+   Start at  16:29:33
+   Duration  2.92s (transform 876ms, setup 91ms, collect 3.25s, tests 1.67s, environment 5.86s, prepare 906ms)
+

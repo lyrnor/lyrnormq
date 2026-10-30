@@ -2009,3 +2009,36 @@ ignores cwd dist, and respects explicit override/no fallback. Real incremental p
 confirmed added/deleted assets are re-embedded without cargo clean. Full build wrapper
 also tested using --profile dev. Optimized native macOS arm64 executable produced;
 no Linux binary, server deployment or hosted CI execution claimed this change.
+
+## Phase5a SQL + Webhook — 2026-10-30
+
+Frozen SQL subset, observer/runtime/management contracts before isolated core,
+Webhook, frontend and quality worktrees. Implemented native mqtt-rules, nonblocking
+accepted-publication hook, mqtt-webhook runtime, explicit --rules-config startup,
+authenticated config/status/test endpoints, and actual Dashboard rule/connector/
+action CRUD with SQL preview. No Kafka/PostgreSQL/plugins implemented.
+
+Four bounded SQL shards execute outside network threads; actions have independent
+queues, batching, limited retry and per-generation connection pools. Global logical
+queued bytes16MiB and HTTP concurrency16 are finite. Config persists atomically,
+secrets are redacted, and save/directory-sync uncertainty is explicit/failclosed.
+Distinct source/event delivery IDs preserve intentional fanout and receiver dedup.
+
+Verified600 Rust tests including doctests, strict workspace/all-target Clippy/fmt,
+50 frontend tests plus TypeScript/production build. Final release72 unique independent
+methods pass: rules12, dashboard14, embedded4, TLS12, WS/WSS18, admission/mTLS12.
+Initial parallel TLS sendall BrokenPipe is retained; two unchanged full serial TLS
+reruns passed. Other red tests preceded fixes for numeric precision, expired observer
+inputs, missing delivery IDs, pending UI delete after stop and old HTTP pool lifetime.
+
+Browser created a real connector/action/rule through UI, ran SQL preview, and observed
+actual MQTT→HTTP output/counters. Final release restored these configs and continued
+real delivery; desktop1440 and phone390/edit-dialog widths fit, console clean. Runtime
+fixtures stopped; existing user Broker was not restarted or reconfigured. Evidence:
+`docs/verification/rules-webhook-20261030/`, usage `docs/rules-webhook.md`.
+
+Remaining: durable event/action outbox and ACK admission, durable dead-letter/replay,
+Kafka/PostgreSQL, aggregation/windows, plugins, finer per-rule metrics/history,
+config version administration and high-load TPS/p99 acceptance. Current best-effort
+queues may lose work on crash, overflow or configuration replacement; no durable or
+exactly-once external delivery/performance guarantee is claimed.

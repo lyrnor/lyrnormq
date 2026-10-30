@@ -11,6 +11,7 @@ use std::{
 
 pub struct State {
     pub handle: ManagementHandle,
+    pub rules: Option<Arc<mqtt_webhook::Runtime>>,
     pub token: Vec<u8>,
     pub assets: Assets,
     pub instance: Value,
@@ -49,6 +50,7 @@ pub fn prepare(
     options: &Options,
     listen: String,
     handle: ManagementHandle,
+    rules: Option<Arc<mqtt_webhook::Runtime>>,
 ) -> io::Result<Arc<State>> {
     let path = options
         .admin_token_file
@@ -76,6 +78,7 @@ pub fn prepare(
         options.tls_client_ca.as_deref(),
         options.auth_policy.as_deref(),
         options.config.storage_path.as_deref(),
+        options.rules_config.as_deref(),
     ];
     for secret in sensitive.into_iter().flatten() {
         for asset in assets.values() {
@@ -100,6 +103,7 @@ pub fn prepare(
     let configuration = json!({"instance":instance,"limits":limits(config)});
     Ok(Arc::new(State {
         handle,
+        rules,
         token,
         assets,
         instance,

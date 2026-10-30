@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+mqtt-rules = { path = "../../crates/mqtt-rules" }
+mqtt-webhook = { path = "../../crates/mqtt-webhook" }
 mqtt-auth = { path = "../../crates/mqtt-auth" }
 mqtt-transport = { path = "../../crates/mqtt-transport" }
 tokio.workspace = true

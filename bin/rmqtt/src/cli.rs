@@ -1,13 +1,14 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config PATH]";
 
 pub struct Options {
     pub address: String,
     pub admin_listen: Option<std::net::SocketAddr>,
     pub admin_token_file: Option<PathBuf>,
     pub dashboard_dir: Option<PathBuf>,
+    pub rules_config: Option<PathBuf>,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
     pub tls_client_ca: Option<PathBuf>,
@@ -41,6 +42,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         admin_listen: None,
         admin_token_file: None,
         dashboard_dir: None,
+        rules_config: None,
         tls_cert: None,
         tls_key: None,
         tls_client_ca: None,
@@ -80,6 +82,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 | "--admin-listen"
                 | "--admin-token-file"
                 | "--dashboard-dir"
+                | "--rules-config"
                 | "--tls-cert"
                 | "--tls-key"
                 | "--tls-client-ca"
@@ -119,11 +122,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 }
                 continue;
             }
-            "--admin-token-file" | "--dashboard-dir" => {
-                let target = if option == "--admin-token-file" {
-                    &mut options.admin_token_file
-                } else {
-                    &mut options.dashboard_dir
+            "--admin-token-file" | "--dashboard-dir" | "--rules-config" => {
+                let target = match option.as_str() {
+                    "--admin-token-file" => &mut options.admin_token_file,
+                    "--rules-config" => &mut options.rules_config,
+                    _ => &mut options.dashboard_dir,
                 };
                 if value.is_empty() || target.replace(PathBuf::from(value)).is_some() {
                     return Err(invalid(
@@ -311,6 +314,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             "management requires --admin-listen and --admin-token-file, and cannot combine with export-state",
         ));
     }
+    if options.export_state && options.rules_config.is_some() {
+        return Err(invalid("rules cannot combine with export-state"));
+    }
     Ok(Some(options))
 }
 
@@ -320,6 +326,26 @@ mod tests {
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).into()).collect()
+    }
+
+    #[test]
+    fn rules_config_is_explicit_and_rejects_invalid_combinations() {
+        assert!(parse(args(&[])).unwrap().unwrap().rules_config.is_none());
+        assert_eq!(
+            parse(args(&["--rules-config", "rules.json"]))
+                .unwrap()
+                .unwrap()
+                .rules_config,
+            Some(PathBuf::from("rules.json"))
+        );
+        for v in [
+            vec!["--rules-config"],
+            vec!["--rules-config", ""],
+            vec!["--rules-config", "a", "--rules-config", "b"],
+            vec!["export-state", "--storage-path", "x", "--rules-config", "y"],
+        ] {
+            assert!(parse(args(&v)).is_err());
+        }
     }
 
     #[test]

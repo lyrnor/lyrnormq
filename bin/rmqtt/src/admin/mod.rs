@@ -2,6 +2,7 @@
 mod asset_rules;
 mod assets;
 mod http;
+mod rules;
 mod settings;
 #[cfg(test)]
 mod tests;

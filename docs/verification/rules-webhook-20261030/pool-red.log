@@ -1,0 +1,25 @@
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-rules-webhook/crates/mqtt-webhook)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.18s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_webhook-ce4c3dabc03b1d61)
+
+running 1 test
+test tests::replacing_configuration_releases_old_keepalive_connection_pool ... FAILED
+
+failures:
+
+---- tests::replacing_configuration_releases_old_keepalive_connection_pool stdout ----
+
+thread 'tests::replacing_configuration_releases_old_keepalive_connection_pool' (14340298) panicked at crates/mqtt-webhook/src/tests.rs:559:14:
+old generation retained idle connection: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tests::replacing_configuration_releases_old_keepalive_connection_pool' (14340298) panicked at crates/mqtt-webhook/src/tests.rs:574:29:
+called `Result::unwrap()` on an `Err` value: JoinError::Panic(Id(1), "old generation retained idle connection: Elapsed(())", ...)
+
+
+failures:
+    tests::replacing_configuration_releases_old_keepalive_connection_pool
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 2.06s
+
+error: test failed, to rerun pass `-p mqtt-webhook --lib`

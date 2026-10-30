@@ -643,3 +643,35 @@ build host runs npm explicitly, not from Cargo. Default startup uses only embedd
 assets and never searches cwd. Explicit --dashboard-dir replaces the entire bundle
 through the same bounded/sensitive-file checks. Embedded records carry no runtime
 filesystem identity; administrator credentials, TLS keys and state are not embedded.
+
+## Phase5a: SQL rules and Webhook outbound
+
+The [frozen rule/Webhook contract](contracts/phase5a-rules-webhook.md) introduces
+an opt-in best-effort side path, not a new MQTT delivery guarantee. A nonblocking
+publication observer prefilters Topics and tries to enqueue a bounded metadata/
+payload event. Four dedicated client-hashed dispatcher threads preserve processing
+order within a publisher while executing different shards concurrently. SQL is
+parsed and whitelisted at configuration time, with bounded expressions and output.
+Each action owns a bounded queue/worker; shared HTTP concurrency and queued bytes
+are bounded. Rule errors or slow targets do not gate MQTT ACKs or ordinary routing.
+
+Connections, actions and SQL rules are distinct configuration entities. Config
+replacement compiles/validates off the network runtime, persists via0600 atomic
+replacement and switches immutable snapshots. Replaced action workers are cancelled
+and abandoned copies counted. HTTP pools belong to a generation, preventing endpoint
+churn retaining process-global idle pools. Input and action copies retain bounded
+memory reservations through processing, batching, retries and cancellation.
+
+Webhook POST batches carry a source event_id and a per-rule/action delivery_id,
+stable across retries. Receiver idempotency uses delivery_id. Credentials are local
+configuration headers, redacted from APIs/debug output; HTTPS verifies certificates,
+redirects are disabled, response bodies are not unboundedly collected. SQL preview
+has no external side effects. Admin write routes are restricted to rule config/test;
+MQTT/session controls remain read-only, with unchanged token/CSP/loopback policy.
+
+Only configuration persists; event queues/counters are volatile. A published config
+whose directory sync fails is exposed consistently but stops rule execution and
+rejects subsequent mutations until restart. This phase does not implement durable
+rule admission/action outbox, Kafka/PostgreSQL, plugins, windows, dead-letter replay
+or performance certification. MQTT durable schemas and ACK/outbox semantics remain
+unchanged. Built React UI continues to be embedded in the release binary.

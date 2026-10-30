@@ -1,0 +1,112 @@
+test_api_authentication_errors_and_secret_redaction (dashboard_blackbox.DashboardBlackbox.test_api_authentication_errors_and_secret_redaction) ... ok
+test_bounded_queries_methods_unknown_paths_and_static_files (dashboard_blackbox.DashboardBlackbox.test_bounded_queries_methods_unknown_paths_and_static_files) ... ok
+test_dual_version_qos_wire_activity_observed_without_mock_data (dashboard_blackbox.DashboardBlackbox.test_dual_version_qos_wire_activity_observed_without_mock_data) ... ok
+test_graceful_abnormal_disconnect_and_clean_session_removal (dashboard_blackbox.DashboardBlackbox.test_graceful_abnormal_disconnect_and_clean_session_removal) ... ok
+test_http_resource_bounds_preserve_established_mqtt_liveness (dashboard_blackbox.DashboardBlackbox.test_http_resource_bounds_preserve_established_mqtt_liveness) ... ok
+test_retained_update_delete_and_expiry_metadata (dashboard_blackbox.DashboardBlackbox.test_retained_update_delete_and_expiry_metadata) ... ok
+test_session_pagination_filters_unicode_and_untrusted_strings (dashboard_blackbox.DashboardBlackbox.test_session_pagination_filters_unicode_and_untrusted_strings) ... ok
+test_sqlite_crash_restores_offline_queue_and_inflight_packet_identifier (dashboard_blackbox.DashboardBlackbox.test_sqlite_crash_restores_offline_queue_and_inflight_packet_identifier) ... ok
+test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash (dashboard_blackbox.DashboardBlackbox.test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash) ... ok
+test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint (__main__.RulesWebhook.test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint) ... ERROR
+test_authenticated_mutations_sql_preview_and_no_network_side_effect (__main__.RulesWebhook.test_authenticated_mutations_sql_preview_and_no_network_side_effect) ... ok
+test_batching_preserves_all_events_and_body_limit (__main__.RulesWebhook.test_batching_preserves_all_events_and_body_limit) ... ok
+test_cli_invalid_config_and_sensitive_static_alias_fail_closed (__main__.RulesWebhook.test_cli_invalid_config_and_sensitive_static_alias_fail_closed) ... ok
+test_config_atomic_validation_secret_roundtrip_and_restart (__main__.RulesWebhook.test_config_atomic_validation_secret_roundtrip_and_restart) ... ERROR
+test_disabled_rules_fail_explicitly_and_existing_mqtt_stays_live (__main__.RulesWebhook.test_disabled_rules_fail_explicitly_and_existing_mqtt_stays_live) ... ok
+test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) ... 
+  test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=0) ... ERROR
+  test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=1) ... ERROR
+  test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=2) ... ERROR
+  test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=0) ... ERROR
+  test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=1) ... ERROR
+  test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=2) ... ERROR
+test_nonmatching_rules_binary_metadata_and_disabled_actions (__main__.RulesWebhook.test_nonmatching_rules_binary_metadata_and_disabled_actions) ... ok
+test_retry_ids_remain_stable_and_permanent_error_does_not_retry (__main__.RulesWebhook.test_retry_ids_remain_stable_and_permanent_error_does_not_retry) ... ERROR
+test_slow_target_and_overflow_do_not_block_other_action_or_mqtt (__main__.RulesWebhook.test_slow_target_and_overflow_do_not_block_other_action_or_mqtt) ... ok
+test_sql_errors_null_binary_and_request_body_bounds (__main__.RulesWebhook.test_sql_errors_null_binary_and_request_body_bounds) ... ok
+
+======================================================================
+ERROR: test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint (__main__.RulesWebhook.test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 283, in test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint
+    self.assertNotEqual(events[0]['delivery_id'], events[1]['delivery_id'])
+                        ~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'delivery_id'
+
+======================================================================
+ERROR: test_config_atomic_validation_secret_roundtrip_and_restart (__main__.RulesWebhook.test_config_atomic_validation_secret_roundtrip_and_restart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 328, in test_config_atomic_validation_secret_roundtrip_and_restart
+    self.assertEqual(webhook.get()[1]['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+    self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
+                     ~~~~~~~^^^^^^^^^^^^^^^^^
+KeyError: 'Authorization'
+
+======================================================================
+ERROR: test_retry_ids_remain_stable_and_permanent_error_does_not_retry (__main__.RulesWebhook.test_retry_ids_remain_stable_and_permanent_error_does_not_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 236, in test_retry_ids_remain_stable_and_permanent_error_does_not_retry
+    self.assertIsInstance(records[0]['events'][0]['delivery_id'], str)
+                          ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'delivery_id'
+
+----------------------------------------------------------------------
+Ran 20 tests in 6.974s
+
+FAILED (errors=9)
