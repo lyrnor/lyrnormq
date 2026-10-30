@@ -327,7 +327,8 @@ class DashboardBlackbox(unittest.TestCase):
                 self.assertFalse(row['retain_as_published'])
 
     def test_session_pagination_filters_unicode_and_untrusted_strings(self):
-        self.start()
+        # Existing MQTT311 profile requires SQLite for CleanSession=false.
+        self.start(sqlite=True)
         names = ['z-last', 'a-first', '<script>alert("x")</script>', '设备/三']
         sockets = []
         for i, name in enumerate(names):
@@ -395,7 +396,8 @@ class DashboardBlackbox(unittest.TestCase):
         eventually(lambda: self.page('retained', search='expire/')['total'] == 0, timeout=5)
 
     def test_graceful_abnormal_disconnect_and_clean_session_removal(self):
-        self.start()
+        # Exercise the existing durable311 profile without changing its policy.
+        self.start(sqlite=True)
         graceful = self.client('graceful', persistent=True)
         abnormal = self.client('abnormal', version=4, persistent=True)
         clean = self.client('clean')
