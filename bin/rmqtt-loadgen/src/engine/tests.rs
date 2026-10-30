@@ -113,3 +113,21 @@ fn completed_duplicate_cannot_change_measurement_cohort() {
     changed.measured = false;
     assert!(s.deliver(changed, 21).is_err());
 }
+
+#[test]
+fn client_ids_fit_mqtt311_required_range_and_remain_distinct() {
+    let mut ids = std::collections::BTreeSet::new();
+    for run in [0, 1, u64::MAX] {
+        for pair in [0, 1, 59_999] {
+            for role in ['s', 'p'] {
+                let id = super::actor::client_id(run, pair, role);
+                assert!(
+                    id.len() <= 23,
+                    "client ID exceeds basic MQTT311 limit: {id}"
+                );
+                assert!(id.bytes().all(|b| b.is_ascii_alphanumeric()));
+                assert!(ids.insert(id));
+            }
+        }
+    }
+}

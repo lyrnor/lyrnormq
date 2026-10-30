@@ -43,7 +43,7 @@ impl Clock {
 async fn setup(config: Arc<RunConfig>, pair: u32, run_id: u64) -> Result<Pair, LoadError> {
     let began = Instant::now();
     let topic = format!("rmqtt-loadgen/{run_id}/{pair}");
-    let mut subscriber = Connection::open(&config, format!("lg-{run_id}-{pair}-s")).await?;
+    let mut subscriber = Connection::open(&config, client_id(run_id, pair, 's')).await?;
     subscriber
         .send(Packet::Subscribe {
             packet_id: 1,
@@ -68,7 +68,7 @@ async fn setup(config: Arc<RunConfig>, pair: u32, run_id: u64) -> Result<Pair, L
             )));
         }
     }
-    let publisher = Connection::open(&config, format!("lg-{run_id}-{pair}-p")).await?;
+    let publisher = Connection::open(&config, client_id(run_id, pair, 'p')).await?;
     Ok(Pair {
         pair,
         subscriber,
@@ -474,4 +474,9 @@ pub(super) fn effective_window(qos: u8, configured: u16, peer: u16) -> usize {
     } else {
         configured.min(peer)
     })
+}
+
+/// Distinct run, pair and role identifiers within MQTT 3.1.1's required 23-byte range.
+pub(super) fn client_id(run_id: u64, pair: u32, role: char) -> String {
+    format!("lg{run_id:016x}{pair:04x}{role}")
 }
