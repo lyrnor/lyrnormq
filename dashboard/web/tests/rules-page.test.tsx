@@ -104,6 +104,7 @@ describe("live rule and Webhook management", () => {
     );
     expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
     expect(screen.getByText(/不是耐久 outbox/)).toBeTruthy();
+    expect(screen.getByText(/按 delivery_id（投递 ID）幂等处理/)).toBeTruthy();
   });
   it("creates connector with password inputs, never writes credentials into storage", async () => {
     server();

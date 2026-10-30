@@ -313,7 +313,8 @@ export function RulesPage({
         <p className="mt-1">
           MQTT 确认不等待
           HTTP。内存任务在进程崩溃时可能丢失，队列满会丢弃并计数；此模式不是耐久
-          outbox。HTTP 超时重试可能重复，请接收方按事件 ID 幂等处理。
+          outbox。HTTP 超时重试可能重复，请接收方按 delivery_id（投递
+          ID）幂等处理；同一投递重试保持 ID，不同规则或动作使用不同投递 ID。
         </p>
       </div>
       {error && (

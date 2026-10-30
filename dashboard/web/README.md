@@ -144,3 +144,8 @@ inspectable. Save failures are described as unconfirmed (not unchanged): a confi
 rename may already have published new settings before a later storage sync failure.
 The operator must refresh to inspect the published config and repair/restart the
 broker before rule execution resumes; ordinary MQTT remains independent.
+
+Webhook receivers should deduplicate by `delivery_id` (source event + rule + action),
+which stays stable across retries. `event_id` identifies the source event and is
+shared by intentional rule/action fanout, so using it alone could suppress valid
+separate deliveries. The best-effort banner states this boundary explicitly.
