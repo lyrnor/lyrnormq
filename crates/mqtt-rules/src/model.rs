@@ -17,15 +17,15 @@ pub struct Rule {
     pub name: String,
     pub sql: String,
     pub enabled: bool,
-    pub action_ids: Vec<String>,
+    pub outbound_ids: Vec<String>,
 }
 impl Rule {
     pub fn validate(&self) -> Result<(), RuleError> {
         if !valid_id(&self.id)
             || self.name.is_empty()
             || self.name.len() > 128
-            || self.action_ids.len() > 64
-            || self.action_ids.iter().any(|id| !valid_id(id))
+            || self.outbound_ids.len() > 64
+            || self.outbound_ids.iter().any(|id| !valid_id(id))
         {
             return Err(RuleError::InvalidConfiguration);
         }

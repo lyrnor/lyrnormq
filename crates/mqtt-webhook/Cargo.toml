@@ -1,14 +1,10 @@
 [package]
-name = "mqtt-webhook"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
+name="mqtt-webhook"
+version.workspace=true
+edition.workspace=true
+license.workspace=true
 [dependencies]
-mqtt-storage = { path = "../mqtt-storage" }
-mqtt-rules = { path = "../mqtt-rules" }
-mqtt-transport = { path = "../mqtt-transport" }
-tokio.workspace = true
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+mqtt-egress-core={path="../mqtt-egress-core"}
+serde={version="1",features=["derive"]}
+serde_json="1"
+reqwest={version="0.12",default-features=false,features=["rustls-tls","json"]}

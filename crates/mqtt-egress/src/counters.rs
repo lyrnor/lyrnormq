@@ -33,10 +33,12 @@ pub struct Status {
     pub matched: u64,
     pub dropped: u64,
     pub errors: u64,
-    pub actions: Vec<ActionStatus>,
+    pub outbounds: Vec<ActionStatus>,
 }
 #[derive(Debug, Serialize)]
 pub struct ActionStatus {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
     pub id: String,
     pub queued: usize,
     pub delivered: u64,
@@ -46,8 +48,9 @@ pub struct ActionStatus {
     pub last_error: Option<String>,
 }
 impl ActionCounters {
-    pub fn view(&self, id: String) -> ActionStatus {
+    pub fn view(&self, id: String, kind: &'static str) -> ActionStatus {
         ActionStatus {
+            kind,
             id,
             queued: self.queued.load(Ordering::Relaxed),
             delivered: self.delivered.load(Ordering::Relaxed),

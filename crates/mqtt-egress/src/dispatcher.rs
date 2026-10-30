@@ -68,7 +68,7 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                         }
                     };
                     inner.counters.matched.fetch_add(1, Ordering::Relaxed);
-                    for action_id in &rule.action_ids {
+                    for action_id in &rule.outbound_ids {
                         let Some(target) = work.snapshot.generation.targets.get(action_id) else {
                             continue;
                         };

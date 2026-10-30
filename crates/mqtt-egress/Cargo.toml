@@ -1,0 +1,15 @@
+[package]
+name = "mqtt-egress"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+mqtt-storage = { path = "../mqtt-storage" }
+mqtt-rules = { path = "../mqtt-rules" }
+mqtt-transport = { path = "../mqtt-transport" }
+tokio.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+mqtt-webhook = {path="../mqtt-webhook"}
+mqtt-egress-core = {path="../mqtt-egress-core"}

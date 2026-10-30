@@ -149,43 +149,24 @@ impl PublicationObserver for Observer {
         let _ = inner.senders[shard].try_send(work);
     }
 }
-fn make_client() -> Result<reqwest::Client, RuntimeError> {
-    reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .no_proxy()
-        .pool_max_idle_per_host(1)
-        .pool_idle_timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|_| RuntimeError::InvalidConfig)
-}
-fn build_snapshot(
-    validated: Validated,
-    client: &reqwest::Client,
-    outbound: &Arc<Semaphore>,
-) -> Arc<Snapshot> {
+fn build_snapshot(validated: Validated, outbound: &Arc<Semaphore>) -> Arc<Snapshot> {
     let (cancel, _) = watch::channel(false);
     let mut targets = BTreeMap::new();
     let mut tasks = Vec::new();
-    for action in validated.config.actions.iter().filter(|a| a.enabled) {
-        if let Some(connector) = validated
-            .config
-            .connectors
-            .iter()
-            .find(|c| c.id == action.connector_id)
-        {
-            let stats = Arc::new(ActionCounters::default());
-            let (target, task) = worker::spawn(
-                action.clone(),
-                connector.clone(),
-                client.clone(),
-                Arc::clone(outbound),
-                Arc::clone(&stats),
-                cancel.subscribe(),
-            );
-            targets.insert(action.id.clone(), target);
-            tasks.push(task);
-        }
+    for action in validated.config.outbounds.iter().filter(|a| a.enabled) {
+        let stats = Arc::new(ActionCounters::default());
+        let Some(sink) = validated.sinks.get(&action.id).cloned() else {
+            continue;
+        };
+        let (target, task) = worker::spawn(
+            action.clone(),
+            sink,
+            Arc::clone(outbound),
+            stats,
+            cancel.subscribe(),
+        );
+        targets.insert(action.id.clone(), target);
+        tasks.push(task);
     }
     let mut exact: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     let mut wildcard = Vec::new();
@@ -215,7 +196,7 @@ fn build_snapshot(
 impl Runtime {
     /// Open the configuration SQLite database. Missing databases start empty.
     pub async fn open(path: PathBuf) -> io::Result<Arc<Self>> {
-        let (store, validated, client) = tokio::task::spawn_blocking(move || {
+        let (store, validated) = tokio::task::spawn_blocking(move || {
             let mut store =
                 ConfigStore::open(&path, MAX_CONFIG).map_err(|_| RuntimeError::Storage)?;
             let bytes = store.load().map_err(|_| RuntimeError::Storage)?;
@@ -224,17 +205,19 @@ impl Runtime {
                 None => Config::default(),
             };
             let validated = config.validate()?;
-            let client = make_client()?;
-            if bytes.is_none() {
+            if bytes
+                .as_ref()
+                .is_none_or(|b| serde_json::from_slice::<Config>(b).is_err())
+            {
                 persistence::write(&mut store, &validated.config)?;
             }
-            Ok::<_, RuntimeError>((store, validated, client))
+            Ok::<_, RuntimeError>((store, validated))
         })
         .await
         .map_err(|_| io::Error::other("rule runtime initialization failed"))?
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
         let outbound = Arc::new(Semaphore::new(16));
-        let snapshot = build_snapshot(validated, &client, &outbound);
+        let snapshot = build_snapshot(validated, &outbound);
         let (senders, receivers): (Vec<_>, Vec<_>) =
             (0..4).map(|_| mpsc::sync_channel(256)).unzip();
         let prefix = format!(
@@ -315,17 +298,19 @@ impl Runtime {
             matched: c.matched.load(Ordering::Relaxed),
             dropped: c.dropped.load(Ordering::Relaxed),
             errors: c.errors.load(Ordering::Relaxed),
-            actions: snapshot
+            outbounds: snapshot
                 .config
-                .actions
+                .outbounds
                 .iter()
                 .map(|a| {
                     snapshot
                         .generation
                         .targets
                         .get(&a.id)
-                        .map(|target| target.stats.view(a.id.clone()))
-                        .unwrap_or_else(|| ActionCounters::default().view(a.id.clone()))
+                        .map(|target| target.stats.view(a.id.clone(), a.endpoint.kind()))
+                        .unwrap_or_else(|| {
+                            ActionCounters::default().view(a.id.clone(), a.endpoint.kind())
+                        })
                 })
                 .collect(),
         }
@@ -370,14 +355,14 @@ impl Runtime {
             let saved = tokio::task::spawn_blocking(move || {
                 // Validation failures do not change storage or stop a healthy runtime.
                 let validated = config.validate().map_err(|error| (error, false))?;
-                let client = make_client().map_err(|error| (error, false))?;
+
                 let mut guard = store.lock().map_err(|_| (RuntimeError::Storage, true))?;
                 let store = guard.as_mut().ok_or((RuntimeError::Storage, true))?;
                 write(store, &validated.config).map_err(|error| (error, true))?;
-                Ok::<_, (RuntimeError, bool)>((validated, client))
+                Ok::<_, (RuntimeError, bool)>(validated)
             })
             .await;
-            let (validated, client) = match saved {
+            let validated = match saved {
                 Ok(Ok(result)) => result,
                 Ok(Err((error, false))) => return Err(error),
                 Ok(Err((error, true))) => {
@@ -392,7 +377,7 @@ impl Runtime {
             if inner.stopped.load(Ordering::Acquire) {
                 return Err(RuntimeError::Stopped);
             }
-            let next = build_snapshot(validated, &client, &inner.outbound);
+            let next = build_snapshot(validated, &inner.outbound);
             let public = next.config.public();
             let previous = std::mem::replace(
                 &mut *inner

@@ -1,8 +1,8 @@
 use crate::{
-    Action, Connector,
+    Outbound,
     counters::{ActionCounters, Budget, Counters},
 };
-use serde_json::json;
+use mqtt_egress_core::Sink;
 use std::{
     sync::{Arc, Mutex, PoisonError, atomic::Ordering},
     time::Duration,
@@ -13,21 +13,6 @@ use tokio::{
 };
 
 pub(crate) const MAX_REQUEST: usize = 1024 * 1024;
-
-pub(crate) fn headers(
-    connector: &Connector,
-) -> Result<reqwest::header::HeaderMap, crate::RuntimeError> {
-    let mut headers = reqwest::header::HeaderMap::new();
-    for (key, value) in &connector.headers {
-        let name = reqwest::header::HeaderName::from_bytes(key.as_bytes())
-            .map_err(|_| crate::RuntimeError::InvalidConfig)?;
-        let mut value = reqwest::header::HeaderValue::from_str(value)
-            .map_err(|_| crate::RuntimeError::InvalidConfig)?;
-        value.set_sensitive(true);
-        headers.insert(name, value);
-    }
-    Ok(headers)
-}
 
 pub(crate) struct Delivery {
     pub encoded: Vec<u8>,
@@ -101,9 +86,8 @@ impl Generation {
     }
 }
 pub(crate) fn spawn(
-    action: Action,
-    connector: Connector,
-    client: reqwest::Client,
+    action: Outbound,
+    sink: Arc<dyn Sink>,
     global: Arc<Semaphore>,
     stats: Arc<ActionCounters>,
     cancel: watch::Receiver<bool>,
@@ -113,24 +97,17 @@ pub(crate) fn spawn(
         sender,
         stats: Arc::clone(&stats),
     };
-    let task = tokio::spawn(run(
-        action, connector, client, global, stats, cancel, receiver,
-    ));
+    let task = tokio::spawn(run(action, sink, global, stats, cancel, receiver));
     (target, task)
 }
 async fn run(
-    action: Action,
-    connector: Connector,
-    client: reqwest::Client,
+    action: Outbound,
+    sink: Arc<dyn Sink>,
     global: Arc<Semaphore>,
     stats: Arc<ActionCounters>,
     mut cancel: watch::Receiver<bool>,
     mut receiver: mpsc::Receiver<Delivery>,
 ) {
-    let headers = match headers(&connector) {
-        Ok(headers) => headers,
-        Err(_) => return,
-    };
     let mut pending = None;
     loop {
         if *cancel.borrow() {
@@ -144,16 +121,22 @@ async fn run(
         let Some(first) = first else {
             break;
         };
-        let prefix = format!("{{\"action_id\":{},\"events\":[", json!(action.id));
-        let mut size = prefix.len() + first.encoded.len() + 2;
-        if size > MAX_REQUEST {
+        let limits = sink.limits();
+        let size = limits.overhead.checked_add(first.encoded.len());
+        if limits.max_events == 0 || size.is_none() {
+            let mut first = first;
+            first.complete(false, Some("invalid_batch_limits"));
+            continue;
+        }
+        let mut size = size.unwrap_or(usize::MAX);
+        if size > limits.max_bytes {
             let mut first = first;
             first.complete(false, Some("request_too_large"));
             continue;
         }
         let mut batch = vec![first];
         let deadline = tokio::time::Instant::now() + Duration::from_millis(action.batch_wait_ms);
-        while batch.len() < action.batch_size {
+        while batch.len() < action.batch_size.min(limits.max_events) {
             let next = match receiver.try_recv() {
                 Ok(item) => Some(item),
                 Err(mpsc::error::TryRecvError::Disconnected) => None,
@@ -165,7 +148,11 @@ async fn run(
             let Some(item) = next else {
                 break;
             };
-            if size + 1 + item.encoded.len() > MAX_REQUEST {
+            if size
+                .checked_add(1)
+                .and_then(|size| size.checked_add(item.encoded.len()))
+                .is_none_or(|size| size > limits.max_bytes)
+            {
                 pending = Some(item);
                 break;
             }
@@ -175,15 +162,7 @@ async fn run(
         if *cancel.borrow() {
             break;
         }
-        let mut body = Vec::with_capacity(size);
-        body.extend_from_slice(prefix.as_bytes());
-        for (index, item) in batch.iter().enumerate() {
-            if index > 0 {
-                body.push(b',');
-            }
-            body.extend_from_slice(&item.encoded);
-        }
-        body.extend_from_slice(b"]}");
+        let events: Vec<&[u8]> = batch.iter().map(|item| item.encoded.as_slice()).collect();
         let mut result = Err("transport".to_owned());
         for attempt in 0..action.max_attempts {
             if *cancel.borrow() {
@@ -194,8 +173,7 @@ async fn run(
                     .retried
                     .fetch_add(batch.len() as u64, Ordering::Relaxed);
                 let scale = 1u64 << attempt.min(5);
-                let jitter =
-                    (body.len() as u64 + attempt as u64 * 37) % action.retry_base_ms.max(1);
+                let jitter = (size as u64 + attempt as u64 * 37) % action.retry_base_ms.max(1);
                 let delay = action
                     .retry_base_ms
                     .saturating_mul(scale)
@@ -207,33 +185,15 @@ async fn run(
             let Some(_permit) = permit else {
                 break;
             };
-            let mut request = client
-                .post(&connector.url)
-                .header(reqwest::header::CONTENT_TYPE, "application/json")
-                .timeout(Duration::from_millis(action.timeout_ms))
-                .body(body.clone());
-            request = request.headers(headers.clone());
-            let response =
-                tokio::select! {biased;_ = cancel.changed()=>break,result=request.send()=>result};
+            let response = tokio::select! {biased;_=cancel.changed()=>break,result=tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events))=>match result{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:mqtt_egress_core::FailureKind::Retryable,code:"timeout".into()})}};
             let retry = match response {
-                Ok(response) => {
-                    let code = response.status();
-                    if code.is_success() {
-                        result = Ok(());
-                        false
-                    } else {
-                        result = Err(format!("http_{}", code.as_u16()));
-                        code.as_u16() == 408 || code.as_u16() == 429 || code.is_server_error()
-                    }
+                Ok(()) => {
+                    result = Ok(());
+                    false
                 }
                 Err(error) => {
-                    result = Err(if error.is_timeout() {
-                        "timeout"
-                    } else {
-                        "transport"
-                    }
-                    .into());
-                    true
+                    result = Err(error.code);
+                    error.kind == mqtt_egress_core::FailureKind::Retryable
                 }
             };
             if !retry {
@@ -251,3 +211,7 @@ async fn run(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "worker_tests.rs"]
+mod tests;

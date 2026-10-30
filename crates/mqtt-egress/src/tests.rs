@@ -34,7 +34,7 @@ impl Drop for Fixture {
     }
 }
 fn config(url: String) -> Config {
-    Config{connectors:vec![Connector{id:"sink".into(),name:"Sink".into(),url,headers:BTreeMap::from([("Authorization".into(),"Bearer test-secret".into())])}],actions:vec![Action{id:"send".into(),name:"Send".into(),connector_id:"sink".into(),enabled:true,batch_size:1,batch_wait_ms:0,queue_capacity:64,timeout_ms:1000,max_attempts:3,retry_base_ms:10}],rules:vec![Rule{id:"hot".into(),name:"Hot".into(),sql:"SELECT client_id, payload.temperature AS temperature FROM \"devices/+/telemetry\" WHERE payload.temperature >= 80".into(),enabled:true,action_ids:vec!["send".into()]}]}
+    Config{schema_version:2,outbounds:vec![Outbound{id:"send".into(),name:"Send".into(),endpoint:Endpoint::Webhook(mqtt_webhook::WebhookConfig{url,headers:BTreeMap::from([("Authorization".into(),"Bearer test-secret".into())])}),enabled:true,delivery:DeliveryPolicy{batch_size:1,batch_wait_ms:0,queue_capacity:64,timeout_ms:1000,max_attempts:3,retry_base_ms:10}}],rules:vec![Rule{id:"hot".into(),name:"Hot".into(),sql:"SELECT client_id, payload.temperature AS temperature FROM \"devices/+/telemetry\" WHERE payload.temperature >= 80".into(),enabled:true,outbound_ids:vec!["send".into()]}]}
 }
 async fn server(
     codes: Vec<u16>,
@@ -117,7 +117,7 @@ async fn receive(rx: &mut mpsc::Receiver<Vec<u8>>) -> Vec<u8> {
 }
 async fn delivered(runtime: &Runtime, n: u64) {
     for _ in 0..200 {
-        if runtime.status().await.actions[0].delivered == n {
+        if runtime.status().await.outbounds[0].delivered == n {
             return;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -136,19 +136,21 @@ fn rejects_invalid_and_dangerous_configuration() {
         assert!(config(url.into()).validate().is_err());
     }
     let mut c = config("http://localhost/".into());
-    c.connectors[0].headers.insert("Host".into(), "evil".into());
+    webhook_mut(&mut c.outbounds[0].endpoint)
+        .headers
+        .insert("Host".into(), "evil".into());
     assert!(c.validate().is_err());
     let mut c = config("http://localhost/".into());
-    c.actions[0].connector_id = "missing".into();
+    c.rules[0].outbound_ids = vec!["missing".into()];
     assert!(c.validate().is_err());
     let mut c = config("http://localhost/".into());
-    c.rules[0].action_ids.push("send".into());
+    c.rules[0].outbound_ids.push("send".into());
     assert!(c.validate().is_err());
     let mut c = config("http://localhost/".into());
-    c.actions[0].batch_size = 501;
+    c.outbounds[0].batch_size = 501;
     assert!(c.validate().is_err());
     let mut c = config("http://localhost/".into());
-    c.connectors[0]
+    webhook_mut(&mut c.outbounds[0].endpoint)
         .headers
         .insert("authorization".into(), "duplicate".into());
     assert!(c.validate().is_err());
@@ -161,7 +163,10 @@ async fn persists_configuration_redacts_and_preserves_headers_on_roundtrip() {
         .replace(config("http://127.0.0.1:1/".into()))
         .await
         .unwrap();
-    assert_eq!(public.connectors[0].headers["Authorization"], "[redacted]");
+    assert_eq!(
+        webhook(&public.outbounds[0].endpoint).headers["Authorization"],
+        "[redacted]"
+    );
     runtime.replace(public).await.unwrap();
     assert!(
         std::fs::read(f.path())
@@ -203,7 +208,7 @@ async fn evaluates_real_sql_and_posts_json_envelope() {
     );
     let raw = receive(&mut rx).await;
     let value = body(&raw);
-    assert_eq!(value["action_id"], "send");
+    assert_eq!(value["outbound_id"], "send");
     assert_eq!(value["events"][0]["rule_id"], "hot");
     assert_eq!(value["events"][0]["data"]["client_id"], "device-a");
     assert_eq!(
@@ -242,7 +247,7 @@ async fn retry_reuses_event_identifier_and_counts_per_event() {
     assert_eq!(first, second);
     assert!(first["events"][0]["delivery_id"].is_string());
     delivered(&runtime, 1).await;
-    assert_eq!(runtime.status().await.actions[0].retried, 1);
+    assert_eq!(runtime.status().await.outbounds[0].retried, 1);
     runtime.shutdown().await;
     let _ = stop.send(true);
     server.await.unwrap();
@@ -264,9 +269,9 @@ async fn permanent_http_error_does_not_retry() {
     tokio::time::sleep(Duration::from_millis(60)).await;
     assert!(rx.try_recv().is_err());
     let status = runtime.status().await;
-    assert_eq!(status.actions[0].failed, 1);
-    assert_eq!(status.actions[0].last_error.as_deref(), Some("http_400"));
-    assert_eq!(status.actions[0].retried, 0);
+    assert_eq!(status.outbounds[0].failed, 1);
+    assert_eq!(status.outbounds[0].last_error.as_deref(), Some("http_400"));
+    assert_eq!(status.outbounds[0].retried, 0);
     runtime.shutdown().await;
     let _ = stop.send(true);
     server.await.unwrap();
@@ -277,8 +282,8 @@ async fn batches_only_within_configured_limits() {
     let (url, mut rx, stop, server) = server(vec![200], Duration::ZERO).await;
     let runtime = Runtime::open(f.path()).await.unwrap();
     let mut c = config(url);
-    c.actions[0].batch_size = 5;
-    c.actions[0].batch_wait_ms = 100;
+    c.outbounds[0].batch_size = 5;
+    c.outbounds[0].batch_wait_ms = 100;
     runtime.replace(c).await.unwrap();
     for n in 0..10 {
         runtime.observer().observe(
@@ -304,7 +309,7 @@ async fn bounded_overflow_does_not_block_observer_and_shutdown_releases_budget()
     let (url, _rx, stop, server) = server(vec![200], Duration::from_millis(400)).await;
     let runtime = Runtime::open(f.path()).await.unwrap();
     let mut c = config(url);
-    c.actions[0].queue_capacity = 1;
+    c.outbounds[0].queue_capacity = 1;
     runtime.replace(c).await.unwrap();
     let data = format!(
         "{{\"temperature\":90,\"padding\":\"{}\"}}",
@@ -382,10 +387,10 @@ async fn delivery_ids_distinguish_rule_action_fanout() {
     let (url, mut rx, stop, server) = server(vec![200], Duration::ZERO).await;
     let runtime = Runtime::open(f.path()).await.unwrap();
     let mut c = config(url);
-    let mut action = c.actions[0].clone();
+    let mut action = c.outbounds[0].clone();
     action.id = "send-two".into();
-    c.actions.push(action);
-    c.rules[0].action_ids.push("send-two".into());
+    c.outbounds.push(action);
+    c.rules[0].outbound_ids.push("send-two".into());
     let mut rule = c.rules[0].clone();
     rule.id = "hot-two".into();
     c.rules.push(rule);
@@ -419,8 +424,8 @@ async fn fixed_shard_preserves_same_publisher_processing_order() {
     let runtime = Runtime::open(f.path()).await.unwrap();
     let mut c = config(url);
     c.rules[0].sql = "SELECT payload.n AS n FROM \"devices/#\"".into();
-    c.actions[0].batch_size = 32;
-    c.actions[0].batch_wait_ms = 100;
+    c.outbounds[0].batch_size = 32;
+    c.outbounds[0].batch_wait_ms = 100;
     runtime.replace(c).await.unwrap();
     let observer = runtime.observer();
     for n in 0..32 {
@@ -444,13 +449,6 @@ async fn fixed_shard_preserves_same_publisher_processing_order() {
     server.await.unwrap();
 }
 
-#[test]
-fn outbound_custom_headers_are_marked_sensitive() {
-    let config = config("https://example.invalid/hook".into());
-    let headers = crate::worker::headers(&config.connectors[0]).unwrap();
-    assert!(headers["Authorization"].is_sensitive());
-    assert!(!format!("{headers:?}").contains("test-secret"));
-}
 #[tokio::test]
 async fn reconfiguration_cancels_old_generation_and_counts_abandoned_events() {
     let f = Fixture::new();
@@ -704,4 +702,47 @@ async fn cancelled_update_and_shutdown_callers_do_not_leave_database_locked() {
     .unwrap();
     assert_eq!(restored.configuration().await.rules[0].id, "hot");
     restored.shutdown().await;
+}
+
+#[tokio::test]
+async fn migrates_old_sqlite_blob_transactionally_and_rejects_new_wire_unknowns() {
+    let f = Fixture::new();
+    let old = serde_json::json!({"connectors":[{"id":"c","name":"C","url":"http://localhost/","headers":{"Authorization":"secret"}}],"actions":[{"id":"a","name":"A","connector_id":"c","enabled":true,"batch_size":1,"batch_wait_ms":0,"queue_capacity":1,"timeout_ms":100,"max_attempts":1,"retry_base_ms":10}],"rules":[{"id":"r","name":"R","sql":"SELECT * FROM \"t\"","enabled":true,"action_ids":["a"]}]});
+    {
+        let mut store = mqtt_storage::configuration::ConfigStore::open(&f.path(), 65536).unwrap();
+        store.save(&serde_json::to_vec(&old).unwrap()).unwrap();
+    }
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let public = runtime.configuration().await;
+    assert_eq!(public.schema_version, 2);
+    assert_eq!(public.rules[0].outbound_ids, vec!["a"]);
+    assert_eq!(
+        webhook(&public.outbounds[0].endpoint).headers["Authorization"],
+        "[redacted]"
+    );
+    runtime.shutdown().await;
+    let store = mqtt_storage::configuration::ConfigStore::open(&f.path(), 65536).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&store.load().unwrap().unwrap()).unwrap();
+    assert_eq!(saved["schema_version"], 2);
+    assert_eq!(
+        saved["outbounds"][0]["config"]["headers"]["Authorization"],
+        "secret"
+    );
+    let mut wire = serde_json::to_value(config("http://localhost/".into())).unwrap();
+    wire["outbounds"][0]["type"] = "kafka".into();
+    assert!(serde_json::from_value::<Config>(wire.clone()).is_err());
+    wire["outbounds"][0]["type"] = "webhook".into();
+    wire["outbounds"][0]["extra"] = true.into();
+    assert!(serde_json::from_value::<Config>(wire).is_err());
+}
+
+fn webhook(endpoint: &Endpoint) -> &mqtt_webhook::WebhookConfig {
+    match endpoint {
+        Endpoint::Webhook(c) => c,
+    }
+}
+fn webhook_mut(endpoint: &mut Endpoint) -> &mut mqtt_webhook::WebhookConfig {
+    match endpoint {
+        Endpoint::Webhook(c) => c,
+    }
 }
