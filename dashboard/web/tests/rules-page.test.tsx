@@ -46,6 +46,7 @@ const populated: RulesConfig = {
   ],
 };
 const status = {
+  running: true,
   mode: "best_effort",
   queued_events: 2,
   queued_bytes: 128,
@@ -251,7 +252,7 @@ describe("live rule and Webhook management", () => {
     await waitFor(() =>
       expect(
         within(screen.getByRole("dialog")).getByRole("alert").textContent,
-      ).toContain("配置未保存"),
+      ).toContain("保存未确认"),
     );
     expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
       "Keep draft",
@@ -312,5 +313,35 @@ describe("live rule and Webhook management", () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("shows stopped execution explicitly while keeping published configuration inspectable", async () => {
+    request.mockImplementation(
+      async (path) =>
+        (path.endsWith("config")
+          ? populated
+          : { ...status, running: false }) as never,
+    );
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    expect(screen.getByRole("alert").textContent).toContain("规则执行器已停止");
+    expect(screen.getByText("High temperature")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "新建规则" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "停用" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "测试 SQL" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "编辑 hot" }));
+    expect(
+      (screen.getByRole("button", { name: "保存并应用" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(request.mock.calls.every((call) => !call[3])).toBe(true);
   });
 });

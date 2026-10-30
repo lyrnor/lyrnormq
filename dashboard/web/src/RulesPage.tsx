@@ -84,6 +84,7 @@ export function RulesPage({
   const [statusError, setStatusError] = useState<string | null>(null),
     [sampledAt, setSampledAt] = useState<number | null>(null);
   const saving = useRef(false);
+  const stopped = status?.running === false;
   const [edit, setEdit] = useState<Editing | null>(null),
     [remove, setRemove] = useState<{ kind: Kind; id: string } | null>(null),
     [test, setTest] = useState<string | null>(null);
@@ -168,7 +169,7 @@ export function RulesPage({
     };
   }, [load, token, onError]);
   async function save(next: RulesConfig): Promise<boolean> {
-    if (saving.current) return false;
+    if (saving.current || stopped) return false;
     saving.current = true;
     requests.current.load?.abort();
     requests.current.save?.abort();
@@ -225,7 +226,7 @@ export function RulesPage({
     if (await save(next)) setEdit(null);
     else
       throw new Error(
-        "配置未保存，请检查 SQL、参数范围、引用关系或管理 API 状态后重试",
+        "保存未确认，请刷新配置核对；检查 SQL、参数范围、引用关系或存储状态后重试",
       );
   }
   async function toggle(kind: "rules" | "actions", id: string) {
@@ -269,7 +270,7 @@ export function RulesPage({
         <Button
           size="sm"
           variant="ghost"
-          disabled={busy}
+          disabled={busy || stopped}
           aria-label={`删除 ${item.id}`}
           onClick={() => setRemove({ kind, id: item.id })}
         >
@@ -331,7 +332,14 @@ export function RulesPage({
           运行统计刷新失败：{statusError}。显示上次成功采样，不能视为实时状态。
         </Notice>
       )}
-      {notice && (
+      {stopped && (
+        <Notice>
+          规则执行器已停止：当前配置仅供检查，不再处理消息或执行
+          Webhook。配置写入与 SQL 测试不可用；请排查存储错误并重启
+          Broker。此状态不影响普通 MQTT 路由。
+        </Notice>
+      )}
+      {notice && !stopped && (
         <div
           role="status"
           className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900"
@@ -376,6 +384,7 @@ export function RulesPage({
               size="sm"
               disabled={
                 busy ||
+                stopped ||
                 config[tab].length >=
                   (tab === "rules" ? 128 : tab === "actions" ? 64 : 32)
               }
@@ -448,6 +457,7 @@ export function RulesPage({
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={stopped}
                             onClick={() => setTest(rule.sql)}
                           >
                             测试
@@ -455,7 +465,7 @@ export function RulesPage({
                           <Button
                             size="sm"
                             variant="ghost"
-                            disabled={busy}
+                            disabled={busy || stopped}
                             onClick={() => void toggle("rules", rule.id)}
                           >
                             {rule.enabled ? "停用" : "启用"}
@@ -519,7 +529,7 @@ export function RulesPage({
                           <Button
                             size="sm"
                             variant="ghost"
-                            disabled={busy}
+                            disabled={busy || stopped}
                             onClick={() => void toggle("actions", action.id)}
                           >
                             {action.enabled ? "停用" : "启用"}
@@ -541,6 +551,7 @@ export function RulesPage({
             <Button
               size="sm"
               variant="outline"
+              disabled={stopped}
               onClick={() => setTest(SQL_EXAMPLE)}
             >
               测试 SQL
@@ -615,6 +626,7 @@ export function RulesPage({
           edit={edit}
           config={config}
           busy={busy}
+          stopped={stopped}
           save={saveEdit}
           close={() => !busy && setEdit(null)}
         />
@@ -656,6 +668,7 @@ export function RulesPage({
       {test !== null && (
         <SqlTest
           token={token}
+          stopped={stopped}
           sql={test}
           expired={expired}
           close={() => setTest(null)}
@@ -669,12 +682,14 @@ function Editor({
   edit,
   config,
   busy,
+  stopped,
   save,
   close,
 }: {
   edit: Editing;
   config: RulesConfig;
   busy: boolean;
+  stopped: boolean;
   save: (item: Item) => Promise<void>;
   close: () => void;
 }) {
@@ -692,6 +707,7 @@ function Editor({
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (stopped) return;
     setError(null);
     let next = draft;
     let issue = validateIdentity(draft.id, draft.name);
@@ -939,7 +955,7 @@ function Editor({
         )}
         {error && <Notice>{error}</Notice>}
         <div className="flex gap-2 border-t pt-4">
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy || stopped}>
             {busy ? "正在保存…" : "保存并应用"}
           </Button>
           <Button
@@ -958,11 +974,13 @@ function Editor({
 
 function SqlTest({
   token,
+  stopped,
   sql,
   expired,
   close,
 }: {
   token: string;
+  stopped: boolean;
   sql: string;
   expired: () => void;
   close: () => void;
@@ -981,7 +999,7 @@ function SqlTest({
   useEffect(() => () => request.current?.abort(), []);
   async function run(event: FormEvent) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || stopped) return;
     setError(null);
     setResult(null);
     const issue = validateSql(query);
@@ -1059,7 +1077,7 @@ function SqlTest({
           这里输入独立测试样例，不是已读取的业务消息。仅校验、匹配并计算输出，不发送
           HTTP。
         </p>
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || stopped}>
           {busy ? "正在计算…" : "运行测试"}
         </Button>
         {error && <Notice>{error}</Notice>}

@@ -137,3 +137,10 @@ submitting. API validation remains authoritative. Status polls every five second
 only while the page is visible, without overlapping requests; route/logout aborts
 inflight requests and discards editor state. Refresh failures explicitly mark stale
 statistics. No mock data or automatic configuration mutation is used.
+
+A runtime status with `running: false` displays a stopped/fail-closed warning and
+disables configuration writes and SQL execution while leaving published config
+inspectable. Save failures are described as unconfirmed (not unchanged): a config
+rename may already have published new settings before a later storage sync failure.
+The operator must refresh to inspect the published config and repair/restart the
+broker before rule execution resumes; ordinary MQTT remains independent.

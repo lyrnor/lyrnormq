@@ -38,6 +38,7 @@ export interface ActionStatus {
   last_error: string | null;
 }
 export interface RulesStatus {
+  running: boolean;
   mode: "best_effort";
   queued_events: number;
   queued_bytes: number;
