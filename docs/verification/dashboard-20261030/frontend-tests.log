@@ -1,0 +1,19 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/model.test.ts (12 tests) 10ms
+ ✓ tests/api.test.ts (5 tests) 15ms
+ ✓ tests/polling.test.tsx (6 tests) 375ms
+ ✓ tests/dialog.test.tsx (2 tests) 159ms
+ ✓ tests/app.test.tsx (5 tests) 827ms
+   ✓ memory-only management login > renders real data and clears authenticated views on logout without persisting the token  359ms
+
+ Test Files  5 passed (5)
+      Tests  30 passed (30)
+   Start at  14:58:53
+   Duration  3.28s (transform 735ms, setup 112ms, collect 2.33s, tests 1.39s, environment 4.35s, prepare 815ms)
+

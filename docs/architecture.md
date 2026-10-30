@@ -631,3 +631,8 @@ resource metrics, event history and rule execution are explicitly unavailable.
 The service is disabled unless both management CLI flags are present; remote access
 requires a tunnel or a properly secured reverse proxy. No MQTT TLS/auth policy,
 ACK/outbox transaction, durable schema or multiple-MQTT-listener change is implied.
+
+The frontend foundation is Tailwind CSS v4 plus official shadcn/ui source controls,
+with Lucide icons. Native dialog supplies detail-modal semantics without relaxing
+CSP for runtime library style injection. Theme/base CSS is intentionally small;
+layout and responsive behavior use utilities rather than a parallel custom UI kit.

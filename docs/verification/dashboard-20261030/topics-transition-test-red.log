@@ -1,0 +1,42 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --run tests/app.test.tsx -t selected view loads
+
+
+ RUN  v3.2.7 /private/tmp/rmqtt-dashboard-react/dashboard/web
+
+ ❯ tests/app.test.tsx (5 tests | 1 failed | 4 skipped) 95ms
+   ↓ memory-only management login > renders real data and clears authenticated views on logout without persisting the token
+   ↓ memory-only management login > reports invalid credentials without entering the console
+   ↓ memory-only management login > returns to login if a console request receives 401
+   ↓ memory-only management login > escapes broker strings and labels restored negotiation unknown
+   × topic view transitions > keeps pagination absent while the selected view loads in either direction 95ms
+     → expected [Function] to not throw an error but 'TypeError: Cannot read properties of …' was thrown
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/app.test.tsx > topic view transitions > keeps pagination absent while the selected view loads in either direction
+AssertionError: expected [Function] to not throw an error but 'TypeError: Cannot read properties of …' was thrown
+
+- Expected: 
+undefined
+
++ Received: 
+"TypeError: Cannot read properties of null (reading 'total')"
+
+ ❯ tests/app.test.tsx:198:96
+    196|     await login();
+    197|     await waitFor(() => expect(screen.getByText("devices/+/state")).to…
+    198|     expect(() => fireEvent.click(screen.getByRole("button", {name: "保留…
+       |                                                                                                ^
+    199|     await waitFor(() => expect(resolveRetained).toBeTypeOf("function")…
+    200|     expect(screen.queryByRole("button", {name: "上一页"})).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  14:56:31
+   Duration  993ms (transform 122ms, setup 6ms, collect 404ms, tests 95ms, environment 298ms, prepare 42ms)
+

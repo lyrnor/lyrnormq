@@ -1946,3 +1946,47 @@ commit and mTLS TLS↔WSS outbox recovery passed. Evidence and saved red transcr
 No metrics/health/reload/multi-listener, deployment, long soak or performance
 acceptance performed. Running blocking hooks remain non-preemptible; limits bound
 their count, not arbitrary custom hook lifetime. Durable schema unchanged.
+
+## Phase4f Dashboard — 2026-10-30
+
+Frozen read-only management API, DTO/error/query/resource contracts before three
+independent writer worktrees (`codex/dashboard-telemetry`, `codex/dashboard-react`,
+`codex/dashboard-quality`). Integrated transport/session metadata projections,
+payload-free retained traversal, process-lifetime MQTT wire counters, bounded HTTP
+management and CLI, React real-data UI and independent blackbox/CI checks. The
+coordinator owns HTTP/CLI/docs; approved read-only metadata visitors narrowly extend
+telemetry ownership into router files. No durable schema or ACK/outbox changes.
+
+Management is opt-in, numeric loopback only, with independent file-loaded bearer
+token. Static build assets are startup-loaded with finite file/byte caps; configured
+sensitive-file aliases and copied token assets are rejected. API exposes no payload,
+credential hash, key/certificate or secret path. Read views are eventually consistent;
+restored negotiation is unknown until reconnect rather than fabricated from defaults.
+
+User requested Tailwind CSS + shadcn/ui instead of extensive handcrafted CSS. The
+React migration uses official generated controls and Lucide icons, preserves the
+light design and real API behavior, and replaces the old2191-line stylesheet with
+61 lines of theme/base/native-backdrop CSS. Details deliberately use native dialog
+to preserve strict CSP without library style injection; no fake resource metrics.
+
+Verified complete Rust workspace571 tests including doctests, strict Clippy and
+fmt; independent live HTTP/MQTT14/14 including dual-version QoS0/1/2, retained,
+clean/persistent disconnect, SQLite crash/reconnect/outbox, resource saturation,
+redaction and sensitive static-file aliases. Matrix/source guards and6 negative
+acceptance-guard tests also pass. Original red evidence and fixture-policy source
+comparison are retained; MQTT311 persistent cases use existing SQLite requirement.
+See `docs/verification/dashboard-20261030/` for logs and final UI validation.
+
+Remaining: CPU/RSS/latency sampling, persistent event history, control-plane mutations,
+user/ACL editing, rule execution, certificate reload, monitoring performance/large
+instance acceptance, and server deployment. This is a real read-only console, not
+an assertion that all future administration or monitoring functions are complete.
+
+Final UI acceptance:30 React tests plus production build/typecheck pass; browser
+verified actual Broker login, live sampling, search/details, empty filters, mobile
+navigation/modal and logout. Found and fixed active-topic pagination dereferencing
+null while a newly selected page loads; a deferred dual-direction regression and
+original browser/test red evidence are retained. Desktop1440/phone390 have no page
+overflow and final fixed-bundle browser console is clean. Existing TLS12/WS18/
+admission-mTLS12 methods also pass with no skips. CI jobs added; hosted CI and remote
+deployment have not been run. Local verification broker has been stopped.

@@ -1,0 +1,17 @@
+test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) ... ok
+test_client_ca_input_and_admission_cli_limits_fail_closed (__main__.AdmissionMutualTLS.test_client_ca_input_and_admission_cli_limits_fail_closed) ... ok
+test_client_certificate_fixtures_validate_for_intended_purpose (__main__.AdmissionMutualTLS.test_client_certificate_fixtures_validate_for_intended_purpose) ... ok
+test_established_enhanced_reauth_uses_disconnect_quota_reason (__main__.AdmissionMutualTLS.test_established_enhanced_reauth_uses_disconnect_quota_reason) ... ok
+test_handshake_concurrency_release_and_pending_shutdown_all_transports (__main__.AdmissionMutualTLS.test_handshake_concurrency_release_and_pending_shutdown_all_transports) ... ok
+test_handshake_slot_covers_initial_enhanced_auth_until_connack (__main__.AdmissionMutualTLS.test_handshake_slot_covers_initial_enhanced_auth_until_connack) ... ok
+test_mandatory_mtls_tls12_tls13_tls_wss_both_versions_all_qos (__main__.AdmissionMutualTLS.test_mandatory_mtls_tls12_tls13_tls_wss_both_versions_all_qos) ... ok
+test_missing_wrong_ca_expired_wrong_eku_never_authenticate_or_takeover (__main__.AdmissionMutualTLS.test_missing_wrong_ca_expired_wrong_eku_never_authenticate_or_takeover) ... ok
+test_mtls_sqlite_offline_and_released_qos2_resume_across_tls_wss (__main__.AdmissionMutualTLS.test_mtls_sqlite_offline_and_released_qos2_resume_across_tls_wss) ... ok
+test_rate_burst_failed_credentials_refill_and_existing_session_isolation (__main__.AdmissionMutualTLS.test_rate_burst_failed_credentials_refill_and_existing_session_isolation) ... ok
+test_valid_client_certificate_does_not_replace_mqtt_credentials (__main__.AdmissionMutualTLS.test_valid_client_certificate_does_not_replace_mqtt_credentials) ... ok
+test_auth_packets_are_version_specific_known_bytes (__main__.FixtureChecks.test_auth_packets_are_version_specific_known_bytes) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 7.907s
+
+OK

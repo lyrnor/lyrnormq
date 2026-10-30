@@ -1,0 +1,23 @@
+test_aggregate_message_bound_and_outgoing_chunks (__main__.WebSocketBlackbox.test_aggregate_message_bound_and_outgoing_chunks) ... ok
+test_binary_split_coalesced_fragmented_and_upgrade_pipeline (__main__.WebSocketBlackbox.test_binary_split_coalesced_fragmented_and_upgrade_pipeline) ... ok
+test_empty_binary_ping_and_unsolicited_pong (__main__.WebSocketBlackbox.test_empty_binary_ping_and_unsolicited_pong) ... ok
+test_handshake_timeout_permit_recovery_and_shutdown (__main__.WebSocketBlackbox.test_handshake_timeout_permit_recovery_and_shutdown) ... ok
+test_initial_text_fragment_and_noncanonical_lengths_fail_closed (__main__.WebSocketBlackbox.test_initial_text_fragment_and_noncanonical_lengths_fail_closed) ... ok
+test_one_byte_data_budget_preserves_full_size_control_ping (__main__.WebSocketBlackbox.test_one_byte_data_budget_preserves_full_size_control_ping) ... ok
+test_path_subprotocol_and_invalid_upgrade (__main__.WebSocketBlackbox.test_path_subprotocol_and_invalid_upgrade) ... ok
+test_protocol_errors_have_bounded_close_codes (__main__.WebSocketBlackbox.test_protocol_errors_have_bounded_close_codes) ... ok
+test_retained_and_will_normal_close_vs_ws_close_or_drop (__main__.WebSocketBlackbox.test_retained_and_will_normal_close_vs_ws_close_or_drop) ... ok
+test_sqlite_offline_and_inflight_resume_across_ws_wss (__main__.WebSocketBlackbox.test_sqlite_offline_and_inflight_resume_across_ws_wss) ... ok
+test_upgrade_header_cap_before_incomplete_request_finishes (__main__.WebSocketBlackbox.test_upgrade_header_cap_before_incomplete_request_finishes) ... ok
+test_ws_control_ping_does_not_extend_mqtt_keepalive (__main__.WebSocketBlackbox.test_ws_control_ping_does_not_extend_mqtt_keepalive) ... ok
+test_ws_wss_dual_mqtt_versions_all_qos (__main__.WebSocketBlackbox.test_ws_wss_dual_mqtt_versions_all_qos) ... ok
+test_wss_normal_close_survives_delayed_reciprocal_tls_notify (__main__.WebSocketBlackbox.test_wss_normal_close_survives_delayed_reciprocal_tls_notify) ... ok
+test_wss_requires_trusted_ca_and_correct_hostname (__main__.WebSocketBlackbox.test_wss_requires_trusted_ca_and_correct_hostname) ... ok
+test_received_error_close_remains_observable_after_echo_reset (__main__.WebSocketOracle.test_received_error_close_remains_observable_after_echo_reset) ... ok
+test_rfc6455_known_accept_and_mask (__main__.WebSocketOracle.test_rfc6455_known_accept_and_mask) ... ok
+test_server_frame_decoder_known_bytes_and_http_pipeline (__main__.WebSocketOracle.test_server_frame_decoder_known_bytes_and_http_pipeline) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 8.469s
+
+OK

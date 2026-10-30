@@ -1,0 +1,8 @@
+[
+  {
+    "level": "error",
+    "message": "TypeError: Cannot read properties of null (reading 'total')\n    at o0 (http://127.0.0.1:8766/assets/index-C01plJ4D.js:9:99846)\n    at bo (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:49700)\n    at Bo (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:72728)\n    at kd (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:83724)\n    at Dm (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:129386)\n    at Nv (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:128432)\n    at hs (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:128264)\n    at Nm (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:124926)\n    at Qm (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:137610)\n    at bu (http://127.0.0.1:8766/assets/index-C01plJ4D.js:8:136158)",
+    "timestamp": "2026-10-30T06:55:56.387Z",
+    "url": "http://127.0.0.1:8766/assets/index-C01plJ4D.js"
+  }
+]

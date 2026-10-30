@@ -31,3 +31,33 @@ mode remains exercised by live QoS, retained and HTTP tests.
 No ACK/outbox persistence change or durable schema migration. Management reads are
 eventually consistent bounded metadata scans, not constant-time/no-contention
 monitoring; performance impact under high connection counts is not yet measured.
+
+The frontend uses Tailwind v4 and six official shadcn/ui controls rather than the
+prototype's large handcrafted CSS. CI now includes independent Node24 test/build
+and live Dashboard blackbox checks; hosted GitHub Actions was not run locally.
+Browser QA caught a real subscription/retained tab-transition null-page failure
+missed by initial tests. The original console/screenshot and then failing deferred
+component regression are saved as `topics-transition-red.*` and
+`topics-transition-test-red.log`. The owner fixes active-view page guards, without
+mock fallback or relaxed assertions, before final browser acceptance.
+
+Final integrated frontend: `npm ci --offline` succeeds from the locked dependency
+set; `npm test`30/30 and `npm run build` (strict TypeScript + Vite) pass. Upstream
+radix-ui module directives produce build-time Vite warnings, not build failures;
+rendered controls/native modal require no inline-style CSP exception. See frontend
+logs. Existing TLS12 + WS/WSS18 + admission/mTLS12 methods all pass with no skips
+against the final root binary; logs are included.
+
+Real IAB browser acceptance used the production assets served by the actual local
+SQLite broker, two connected MQTT5 QA clients, one offline persistent session,
+two subscriptions and one retained message. A real publisher sends QoS0 telemetry;
+rate values come from its observed wire counters, not benchmark measurements.
+Verified1440×1024 desktop and390×844 phone viewports (page widths1440/390), login,
+real session search/empty version filter, offline metadata detail, native Escape
+close, both topic-tab transitions, retained metadata and live-rate graph. Phone
+menu navigation and detail modal fit390px. Logout removes all broker views and
+returns an empty token field. Final console capture `browser-console-final.json`
+is empty (no JS/CSP error/warn after fixed-bundle reload). Temporary viewport was
+reset and the test broker/clients stopped after verification; no server deployment.
+
+Screenshots: `overview-desktop.jpg`, `details-desktop.jpg`, `details-mobile.jpg`.

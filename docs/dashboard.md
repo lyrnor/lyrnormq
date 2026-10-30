@@ -40,3 +40,10 @@ target/release/rmqtt --listen 127.0.0.1:1883 \
 - 不暴露消息 Payload、令牌、密码哈希、证书、私钥及配置文件路径。
 
 精确接口与资源限额见 [Phase4f 契约](contracts/phase4f-dashboard.md)。
+
+## 前端组件
+
+React + Tailwind CSS v4 + shadcn/ui。布局使用工具类，按钮、卡片、输入框、
+徽章、表格和原生选择框使用官方组件源码，图标使用 Lucide。只保留61行主题、
+基础样式及原生 dialog 背景 CSS。组件来源与许可见
+`dashboard/web/THIRD_PARTY_NOTICES.md`；详情面板使用原生 dialog，保持严格 CSP。
