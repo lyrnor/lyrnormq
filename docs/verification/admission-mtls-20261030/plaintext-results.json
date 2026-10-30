@@ -1,0 +1,218 @@
+[
+  {
+    "storage": "memory",
+    "suite": "blackbox.py",
+    "exit_code": 0,
+    "seconds": 3.52
+  },
+  {
+    "storage": "memory",
+    "suite": "alias_blackbox.py",
+    "exit_code": 0,
+    "seconds": 1.584
+  },
+  {
+    "storage": "memory",
+    "suite": "auth_acl_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.541
+  },
+  {
+    "storage": "memory",
+    "suite": "clause_boundaries_blackbox.py",
+    "exit_code": 0,
+    "seconds": 1.999
+  },
+  {
+    "storage": "memory",
+    "suite": "conformance_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.251
+  },
+  {
+    "storage": "memory",
+    "suite": "enhanced_auth_blackbox.py",
+    "exit_code": 0,
+    "seconds": 1.942
+  },
+  {
+    "storage": "memory",
+    "suite": "expiry_will_blackbox.py",
+    "exit_code": 0,
+    "seconds": 42.854
+  },
+  {
+    "storage": "memory",
+    "suite": "fault_recovery_blackbox.py",
+    "exit_code": 0,
+    "seconds": 0.132
+  },
+  {
+    "storage": "memory",
+    "suite": "mqtt5_blackbox.py",
+    "exit_code": 0,
+    "seconds": 9.99
+  },
+  {
+    "storage": "memory",
+    "suite": "negotiation_blackbox.py",
+    "exit_code": 0,
+    "seconds": 10.56
+  },
+  {
+    "storage": "memory",
+    "suite": "persistence_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.973
+  },
+  {
+    "storage": "memory",
+    "suite": "phase3a_wakeup_blackbox.py",
+    "exit_code": 0,
+    "seconds": 5.067
+  },
+  {
+    "storage": "memory",
+    "suite": "qos_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.301
+  },
+  {
+    "storage": "memory",
+    "suite": "rap_profiles_blackbox.py",
+    "exit_code": 0,
+    "seconds": 4.788
+  },
+  {
+    "storage": "memory",
+    "suite": "retained_will_blackbox.py",
+    "exit_code": 0,
+    "seconds": 4.758
+  },
+  {
+    "storage": "memory",
+    "suite": "semantic_boundaries_blackbox.py",
+    "exit_code": 0,
+    "seconds": 0.834
+  },
+  {
+    "storage": "memory",
+    "suite": "shared_blackbox.py",
+    "exit_code": 0,
+    "seconds": 5.967
+  },
+  {
+    "storage": "memory",
+    "suite": "subscription_blackbox.py",
+    "exit_code": 0,
+    "seconds": 3.704
+  },
+  {
+    "storage": "sqlite",
+    "suite": "blackbox.py",
+    "exit_code": 0,
+    "seconds": 3.529
+  },
+  {
+    "storage": "sqlite",
+    "suite": "alias_blackbox.py",
+    "exit_code": 0,
+    "seconds": 1.797
+  },
+  {
+    "storage": "sqlite",
+    "suite": "auth_acl_blackbox.py",
+    "exit_code": 0,
+    "seconds": 5.862
+  },
+  {
+    "storage": "sqlite",
+    "suite": "clause_boundaries_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.021
+  },
+  {
+    "storage": "sqlite",
+    "suite": "conformance_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.084
+  },
+  {
+    "storage": "sqlite",
+    "suite": "enhanced_auth_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.055
+  },
+  {
+    "storage": "sqlite",
+    "suite": "expiry_will_blackbox.py",
+    "exit_code": 0,
+    "seconds": 57.573
+  },
+  {
+    "storage": "sqlite",
+    "suite": "fault_recovery_blackbox.py",
+    "exit_code": 0,
+    "seconds": 5.733
+  },
+  {
+    "storage": "sqlite",
+    "suite": "mqtt5_blackbox.py",
+    "exit_code": 0,
+    "seconds": 15.808
+  },
+  {
+    "storage": "sqlite",
+    "suite": "negotiation_blackbox.py",
+    "exit_code": 0,
+    "seconds": 11.695
+  },
+  {
+    "storage": "sqlite",
+    "suite": "persistence_blackbox.py",
+    "exit_code": 0,
+    "seconds": 3.032
+  },
+  {
+    "storage": "sqlite",
+    "suite": "phase3a_wakeup_blackbox.py",
+    "exit_code": 0,
+    "seconds": 5.266
+  },
+  {
+    "storage": "sqlite",
+    "suite": "qos_blackbox.py",
+    "exit_code": 0,
+    "seconds": 2.336
+  },
+  {
+    "storage": "sqlite",
+    "suite": "rap_profiles_blackbox.py",
+    "exit_code": 0,
+    "seconds": 5.243
+  },
+  {
+    "storage": "sqlite",
+    "suite": "retained_will_blackbox.py",
+    "exit_code": 0,
+    "seconds": 6.6
+  },
+  {
+    "storage": "sqlite",
+    "suite": "semantic_boundaries_blackbox.py",
+    "exit_code": 0,
+    "seconds": 0.884
+  },
+  {
+    "storage": "sqlite",
+    "suite": "shared_blackbox.py",
+    "exit_code": 0,
+    "seconds": 6.901
+  },
+  {
+    "storage": "sqlite",
+    "suite": "subscription_blackbox.py",
+    "exit_code": 0,
+    "seconds": 4.694
+  }
+]

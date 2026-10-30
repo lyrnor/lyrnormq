@@ -1923,3 +1923,26 @@ Matrix now281 verified/71N/A/2SHOULD exceptions within inventoried scenarios;
 three newly applicable WS server rows updated, client-only mqtt offer stillN/A.
 No deployment or WS performance claim. mTLS, reload, multiple shared listeners,
 Origin ACL, proxy identity and longer soak/Fuzz remain separate work.
+
+## Phase4e authentication admission + mTLS — 2026-10-30
+
+User narrowed scope to authentication rate/handshake protection and mTLS only.
+Frozen contract, three isolated writer worktrees and independent review delivered
+global fixed token bucket, handshake128/auth-job4 defaults, rate1000/burst1000,
+nonblocking cleanup and mandatory Rustls client certificates for TLS/WSS. Credential
+rate0 disables only token admission. No certificate-name user mapping or ACL bypass.
+
+Review found a real late-CONNECT-commit cancellation window. Controlled provider,
+network deadline and SQLite regressions preceded fixes; bounded tracked handoff
+retains reply/slot until identity adoption or same-generation cleanup. Old takeover
+is not falsely rolled back; stale cleanup cannot disconnect a newer owner.
+
+Final556 Rust tests,12 new independent methods (24 positive/16 negative mTLS
+profiles), existing TLS12/WS18/Paho12 profiles and36 plaintext dual-store suites
+passed. fmt, strict Clippy and source/negative metadata guards passed. SQLite late
+commit and mTLS TLS↔WSS outbox recovery passed. Evidence and saved red transcripts:
+`docs/verification/admission-mtls-20261030/`.
+
+No metrics/health/reload/multi-listener, deployment, long soak or performance
+acceptance performed. Running blocking hooks remain non-preemptible; limits bound
+their count, not arbitrary custom hook lifetime. Durable schema unchanged.

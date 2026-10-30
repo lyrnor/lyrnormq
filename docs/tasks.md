@@ -572,3 +572,17 @@ Supersedes the earlier WebSocket backlog item above; cluster remains deferred.
   separate contracts; authentication rate limiting and operations metrics remain.
 
 Evidence: [WS/WSS verification](verification/websocket-20261030/README.md).
+
+## Phase4e completed — limited user scope
+
+- [x] Global authentication token admission and independent handshake/job caps.
+- [x] Cancellation keeps CPU ownership; late CONNECT commit retains bounded cleanup
+  responsibility and generation fencing; cleanup does not queue behind providers.
+- [x] Mandatory trusted client certificates on TLS/WSS; MQTT credentials/ACL remain
+  separate. Positive/negative certificate and durable recovery acceptance passed.
+- [x] Three isolated writer worktrees, read-only review, root tests/integration/docs.
+
+This supersedes earlier authentication-rate-limit and mTLS absence statements.
+Metrics/health, certificate reload, multi-listener and performance/long-soak work
+are explicitly excluded by user; no such task is active. Existing future backlog
+is not an implementation claim. [Evidence](verification/admission-mtls-20261030/README.md).

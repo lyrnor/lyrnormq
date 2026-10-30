@@ -1,0 +1,101 @@
+{
+  "date": "2026-10-30",
+  "code_revision": "37c872d",
+  "branch": "codex/admission-mtls",
+  "scope": "authentication/handshake admission and mandatory client certificates only; no metrics, health, reload, deployment, soak or performance acceptance",
+  "binary_sha256": "fd211c72f20438bbf87e4dc2014a0584ca4b90ce347184f56b181310e4789d6d",
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7",
+    "openssl": "OpenSSL 3.6.3 9 Jun 2026",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "paho": "2.1.0 via existing /private/tmp/rmqtt-client-venv/bin/python"
+  },
+  "source_commits": {
+    "admission": "1399399e5656dc99de4b09e9439dc4af062e7b8d",
+    "mtls": "961f1d2b3f3d03c5556c6d1e9970b38857ff02ad",
+    "quality": [
+      "79fc400",
+      "350f288"
+    ]
+  },
+  "results": {
+    "workspace_passed": 556,
+    "new_blackbox_methods_passed": 12,
+    "new_blackbox_skipped": 0,
+    "mtls_positive_profiles": 24,
+    "mtls_negative_certificate_profiles": 16,
+    "good_cert_bad_mqtt_credential_profiles": 4,
+    "ca_and_cli_negative_profiles": 15,
+    "existing_tls_methods_passed": 12,
+    "existing_websocket_methods_passed": 18,
+    "existing_paho_methods_passed": 1,
+    "existing_paho_profiles_passed": 12,
+    "plaintext_suite_executions_passed": 36
+  },
+  "limitations": [
+    "global admission, no per-IP map",
+    "non-preemptible running provider retains CPU slot until it returns",
+    "committing authenticated CONNECT is not rolled back; retained generation cleanup responsibility",
+    "mTLS certificates do not map to MQTT principals or bypass ACL",
+    "no CRL/OCSP/reload or performance claim"
+  ],
+  "artifacts": {
+    "admission-module-final.log.gz": {
+      "sha256": "3264f11d3a5b3d4159393cb117a5d411cccc860ed7507297bd960c6f380a478d",
+      "bytes": 4065
+    },
+    "admission-mtls-final.log.gz": {
+      "sha256": "b5c04fd184f58187523102972d31433025f833f61782c618832eca28c205bb7d",
+      "bytes": 569
+    },
+    "build-final.log.gz": {
+      "sha256": "381267737f34bc2277ec060816f981ca8e0112f7ede1579a8e71728eb936b7fe",
+      "bytes": 168
+    },
+    "clippy-final.log.gz": {
+      "sha256": "fce7697d11ad94abe2cdeb189fc3c6fe71b6931f2e26731d475acd75de879d5a",
+      "bytes": 173
+    },
+    "network-deadline-red-transcript.log.gz": {
+      "sha256": "4d7758abdc20dd5308bb372e09989289d32ea93f557a77e78dc96e9ed1fc9310",
+      "bytes": 521
+    },
+    "old-binary-feature-red.log.gz": {
+      "sha256": "4eacd4f901173e1ef9298ff2143e2fa34090890698e18315993ea04dbf69a4c8",
+      "bytes": 1496
+    },
+    "original-tls-regression.log.gz": {
+      "sha256": "8895125ae494d6de9f9e093ae9d1fdcd5bec4e83dae91e7e5411f9c923cc27bf",
+      "bytes": 490
+    },
+    "original-ws-regression.log.gz": {
+      "sha256": "d0bebd3e6e9df3b31aae61d540d1dabaa6bf2c6e24b5f47dd7218bd27f487a0e",
+      "bytes": 688
+    },
+    "paho-ws-regression.log.gz": {
+      "sha256": "f4b5bc3a92ecaef5621b7ab7440a09636938bacb17c0e3e061258858af43a1e1",
+      "bytes": 128
+    },
+    "plaintext-regressions.tar.gz": {
+      "sha256": "fe33f4df3d96c9fa20f53b1a6c31d1968a342c9227693c0bdb54e4044bc51a2f",
+      "bytes": 21832
+    },
+    "plaintext-results.json": {
+      "sha256": "d584a4c39da9721a44a3305f4d0507c9e8c98a088f211591f1fb1a70cbb9629f",
+      "bytes": 4115
+    },
+    "provider-cancel-red-transcript.log.gz": {
+      "sha256": "2701f22ca884112b8b145a1cbfa0fa80ebd239bd960460ab7e019b07f49deec0",
+      "bytes": 472
+    },
+    "sqlite-cancel-red-transcript.log.gz": {
+      "sha256": "5ac103d5f0c41ae367b8220bd67da8e706a817321143e1c6f7d1cd230abcf80c",
+      "bytes": 522
+    },
+    "workspace-final.log.gz": {
+      "sha256": "7139ce8a47a863aa827acca31b60fab407a5c6c61bbb7c75d4027fdbb1e7c57f",
+      "bytes": 13447
+    }
+  }
+}
