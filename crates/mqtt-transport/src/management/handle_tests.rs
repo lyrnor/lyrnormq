@@ -155,3 +155,38 @@ async fn metadata_paging_is_ordered_and_does_not_copy_queued_payloads() {
         0
     );
 }
+
+#[tokio::test]
+async fn busy_and_unavailable_have_stable_typed_error_causes() {
+    fn classify(error: &io::Error) -> ManagementError {
+        assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+        *error
+            .get_ref()
+            .unwrap()
+            .downcast_ref::<ManagementError>()
+            .unwrap()
+    }
+    let unattached = ManagementHandle::new();
+    assert_eq!(
+        classify(&unattached.overview().await.unwrap_err()),
+        ManagementError::Unavailable
+    );
+    let (h, _source) = attached();
+    let all_permits = Arc::clone(&h.inner.requests)
+        .try_acquire_many_owned(8)
+        .unwrap();
+    assert_eq!(
+        classify(&h.overview().await.unwrap_err()),
+        ManagementError::Busy
+    );
+    drop(all_permits);
+    assert!(h.overview().await.is_ok());
+    let _all_permits = Arc::clone(&h.inner.requests)
+        .try_acquire_many_owned(8)
+        .unwrap();
+    h.stop();
+    assert_eq!(
+        classify(&h.overview().await.unwrap_err()),
+        ManagementError::Unavailable
+    );
+}

@@ -1,4 +1,4 @@
-use super::types::*;
+use super::{ManagementError, types::*};
 use mqtt_session::durable::SessionEngine;
 use std::{
     collections::BTreeMap,
@@ -94,7 +94,7 @@ impl Default for ManagementHandle {
     }
 }
 fn unavailable() -> io::Error {
-    io::Error::new(io::ErrorKind::WouldBlock, "management unavailable")
+    io::Error::new(io::ErrorKind::WouldBlock, ManagementError::Unavailable)
 }
 impl ManagementHandle {
     pub fn new() -> Self {
@@ -203,9 +203,12 @@ impl ManagementHandle {
         &self,
         read: impl FnOnce(&Self, &dyn Source) -> io::Result<T> + Send + 'static,
     ) -> io::Result<T> {
+        if !self.inner.ready.load(Ordering::Acquire) {
+            return Err(unavailable());
+        }
         let permit = Arc::clone(&self.inner.requests)
             .try_acquire_owned()
-            .map_err(|_| unavailable())?;
+            .map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, ManagementError::Busy))?;
         if !self.inner.ready.load(Ordering::Acquire) {
             return Err(unavailable());
         }

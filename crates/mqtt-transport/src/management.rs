@@ -1,5 +1,7 @@
 //! Read-only, bounded observations of the installed broker state.
+mod error;
 mod handle;
+pub use error::ManagementError;
 #[cfg(test)]
 mod tests;
 mod types;
