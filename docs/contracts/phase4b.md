@@ -45,6 +45,18 @@ return "unchanged" without allocating when no session holds `$share/` filters,
 shared queue/outgoing metadata, cursors or epochs. Encoders may preallocate; wire
 bytes are unchanged.
 
+## B6 Delivery size and QoS0 begin
+
+Delivery size preflight may accept when a conservative Publish frame **upper bound**
+is ≤ the limit without running `encode_frame`; the upper bound must always be ≥ the
+exact encoded length (tests compare both). Exact encode remains when the upper bound
+exceeds the limit. Empty application property lists skip the validation encode;
+non-empty lists still encode once to prove wire validity.
+
+`begin_delivery` for QoS0 without message expiry or shared-subscription metadata may
+omit `expire_sessions` (the preceding `PollDelivery` already expired). Authorization
+reconciliation and the connection task's Poll/Begin round trips are unchanged.
+
 ## B4 Non-goals
 
 No change to per-recipient fan-out, Will at-most-once, schema8 rows, or the

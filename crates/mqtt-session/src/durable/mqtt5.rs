@@ -65,14 +65,92 @@ fn wire_packet(version: ProtocolVersion, mut packet: Packet, replay: bool) -> Pa
     }
     packet
 }
+/// Conservative wire-size ceiling for a Publish envelope. Always ≥ exact
+/// `encode_frame` length; over-counting only forces the exact path more often.
+pub(super) fn publish_frame_upper_bound(
+    version: ProtocolVersion,
+    packet: &Packet,
+    properties: &[Property],
+) -> Option<usize> {
+    let Packet::Publish {
+        topic,
+        payload,
+        qos,
+        packet_id,
+        ..
+    } = packet
+    else {
+        return None;
+    };
+    let mut body = topic.len().saturating_add(payload.len()).saturating_add(2);
+    if *qos > 0 {
+        if packet_id.is_none() {
+            return None;
+        }
+        body = body.saturating_add(2);
+    }
+    if version == ProtocolVersion::V5 {
+        body = body.saturating_add(properties_wire_upper(properties));
+    }
+    Some(body.saturating_add(5))
+}
+
+fn properties_wire_upper(properties: &[Property]) -> usize {
+    let mut bytes = 0usize;
+    for property in properties {
+        bytes = bytes.saturating_add(1);
+        bytes = bytes.saturating_add(match property {
+            Property::PayloadFormatIndicator(_) => 1,
+            Property::MessageExpiryInterval(_) => 4,
+            Property::ContentType(value)
+            | Property::ResponseTopic(value)
+            | Property::AssignedClientIdentifier(value)
+            | Property::AuthenticationMethod(value)
+            | Property::ResponseInformation(value)
+            | Property::ServerReference(value)
+            | Property::ReasonString(value) => value.len().saturating_add(2),
+            Property::CorrelationData(value) | Property::AuthenticationData(value) => {
+                value.len().saturating_add(2)
+            }
+            Property::SubscriptionIdentifier(value) => match *value {
+                0..=127 => 1,
+                128..=16_383 => 2,
+                16_384..=2_097_151 => 3,
+                _ => 4,
+            },
+            Property::TopicAlias(_)
+            | Property::ReceiveMaximum(_)
+            | Property::TopicAliasMaximum(_)
+            | Property::ServerKeepAlive(_) => 2,
+            Property::SessionExpiryInterval(_)
+            | Property::WillDelayInterval(_)
+            | Property::MaximumPacketSize(_) => 4,
+            Property::UserProperty(key, value) => {
+                key.len().saturating_add(value.len()).saturating_add(4)
+            }
+            Property::RequestProblemInformation(_)
+            | Property::RequestResponseInformation(_)
+            | Property::MaximumQos(_)
+            | Property::RetainAvailable(_)
+            | Property::WildcardSubscriptionAvailable(_)
+            | Property::SubscriptionIdentifierAvailable(_)
+            | Property::SharedSubscriptionAvailable(_) => 1,
+        });
+    }
+    bytes.saturating_add(4)
+}
+
 /// Preflight the complete recipient envelope, including both variable integers.
 pub(super) fn check_delivery_size(
     limit: usize,
     version: ProtocolVersion,
     packet: &Packet,
-    properties: &Properties,
+    properties: &[Property],
 ) -> Result<(), EngineError> {
-    let frame = wrap(version, packet.clone(), properties.clone());
+    if publish_frame_upper_bound(version, packet, properties).is_some_and(|upper| upper <= limit) {
+        return Ok(());
+    }
+    let frame = wrap(version, packet.clone(), properties.to_vec());
     let bytes = encode_frame(&frame).map_err(|error| invalid_record(error.to_string()))?;
     if bytes.len() > limit {
         return Err(EngineError::Capacity);
@@ -206,10 +284,17 @@ impl SessionEngine {
         {
             return Err(mqtt5_error(0x82));
         }
-        self.validate_delivery_properties(packet, properties)?;
         if properties.is_empty() {
             return Ok(());
         }
+        self.validate_delivery_properties(packet, properties)?;
+        if publish_frame_upper_bound(ProtocolVersion::V5, packet, properties)
+            .is_some_and(|upper| upper <= self.config.max_packet_size)
+        {
+            return Ok(());
+        }
+        // `validate_delivery_properties` already proved the envelope encodes;
+        // re-encode only when the upper bound exceeded the server limit.
         let bytes = encode_frame(&wrap(
             ProtocolVersion::V5,
             packet.clone(),
@@ -240,6 +325,11 @@ impl SessionEngine {
                 Property::TopicAlias(_) => return Err(mqtt5_error(0x94)),
                 _ => return Err(mqtt5_error(0x83)),
             }
+        }
+        // Empty properties: packet structure is checked by the accompanying
+        // encode/`check_delivery_size` on every mutating path that trusts this.
+        if properties.is_empty() {
+            return Ok(());
         }
         encode_frame(&wrap(
             ProtocolVersion::V5,
@@ -627,7 +717,16 @@ impl SessionEngine {
     ) -> Result<FramePollOutcome, EngineError> {
         self.require_online(client_id)?;
         let previous_floor = self.clock_floor.get();
-        let mut changed = self.expire_sessions()?;
+        // QoS0 without expiry/shared metadata cannot observe session or message
+        // deadlines this call would act on; PollDelivery already expired.
+        let qos0_fast = delivery.expires_at.is_none()
+            && delivery.shared_subscription.is_none()
+            && matches!(delivery.frame.packet, Packet::Publish { qos: 0, .. });
+        let mut changed = if qos0_fast {
+            false
+        } else {
+            self.expire_sessions()?
+        };
         changed |= self.reconcile_authorization()?;
         let now = self.effective_now();
         let session = self
@@ -733,28 +832,89 @@ impl SessionEngine {
         if session.version == ProtocolVersion::V311 {
             frame.properties.clear();
         }
-        let bytes = encode_frame(&frame).map_err(|e| invalid_record(e.to_string()))?;
-        if bytes.len() > self.config.max_packet_size {
-            return Err(EngineError::Capacity);
-        }
-        if bytes.len() > session.maximum_packet_size as usize {
-            if let Packet::Publish {
-                packet_id: Some(id),
-                ..
-            } = frame.packet
-            {
-                session.retire_outgoing(identifier(id)?);
-                changed = true;
+        let peer_limit = session.maximum_packet_size as usize;
+        let server_limit = self.config.max_packet_size;
+        let under_both = publish_frame_upper_bound(frame.version, &frame.packet, &frame.properties)
+            .is_some_and(|upper| upper <= server_limit && upper <= peer_limit);
+        if !under_both {
+            let bytes = encode_frame(&frame).map_err(|e| invalid_record(e.to_string()))?;
+            if bytes.len() > server_limit {
+                return Err(EngineError::Capacity);
             }
-            return Ok(FramePollOutcome {
-                frame: None,
-                changed,
-            });
+            if bytes.len() > peer_limit {
+                if let Packet::Publish {
+                    packet_id: Some(id),
+                    ..
+                } = frame.packet
+                {
+                    session.retire_outgoing(identifier(id)?);
+                    changed = true;
+                }
+                return Ok(FramePollOutcome {
+                    frame: None,
+                    changed,
+                });
+            }
         }
         self.ensure_bounds()?;
         Ok(FramePollOutcome {
             frame: Some(frame),
             changed: changed || now != previous_floor,
         })
+    }
+}
+
+#[cfg(test)]
+mod upper_bound_tests {
+    use super::*;
+    use mqtt_protocol::{Packet, Property, encode_frame};
+
+    fn publish(topic: &str, payload: &[u8], qos: u8) -> Packet {
+        Packet::Publish {
+            topic: topic.into(),
+            payload: payload.to_vec(),
+            qos,
+            packet_id: (qos > 0).then_some(1),
+            dup: false,
+            retain: false,
+        }
+    }
+
+    #[test]
+    fn publish_frame_upper_bound_covers_exact_v311_and_v5() {
+        let cases = [
+            (ProtocolVersion::V311, publish("a/b", b"hello", 0), vec![]),
+            (ProtocolVersion::V311, publish("a/b", b"hello", 1), vec![]),
+            (ProtocolVersion::V5, publish("a/b", b"hello", 0), vec![]),
+            (
+                ProtocolVersion::V5,
+                publish("t", b"x", 0),
+                vec![
+                    Property::ContentType("json".into()),
+                    Property::UserProperty("k".into(), "v".into()),
+                    Property::SubscriptionIdentifier(1),
+                    Property::MessageExpiryInterval(60),
+                ],
+            ),
+        ];
+        for (version, packet, properties) in cases {
+            let upper = publish_frame_upper_bound(version, &packet, &properties).expect("publish");
+            let frame = wrap(version, packet, properties);
+            let exact = encode_frame(&frame).unwrap().len();
+            assert!(
+                upper >= exact,
+                "upper {upper} < exact {exact} for {version:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn check_delivery_size_accepts_when_upper_fits() {
+        let packet = publish("sensors/1", &[0u8; 128], 0);
+        check_delivery_size(1024, ProtocolVersion::V5, &packet, &[]).unwrap();
+        assert!(matches!(
+            check_delivery_size(8, ProtocolVersion::V5, &packet, &[]),
+            Err(EngineError::Capacity)
+        ));
     }
 }

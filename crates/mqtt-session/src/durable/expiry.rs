@@ -90,7 +90,16 @@ impl SessionEngine {
         Ok(changed)
     }
     pub fn expire_sessions(&mut self) -> Result<bool, EngineError> {
+        // Always observe wall time so proposal clock floors advance even when
+        // there is nothing to expire (restore/rebase and empty timer ticks).
         let now = self.effective_now();
+        if !self.may_have_expirable_state() {
+            let changed = self.prune_shared_state();
+            if changed {
+                self.ensure_bounds()?;
+            }
+            return Ok(changed);
+        }
         let before = self.sessions.len();
         self.sessions.retain(|_, session| {
             session.online || !super::temporal::is_expired(session.expires_at, now)
@@ -102,5 +111,19 @@ impl SessionEngine {
             self.ensure_bounds()?;
         }
         Ok(changed)
+    }
+
+    /// True when any session, queue, outgoing exchange or retained topic carries
+    /// a deadline this pass could act on.
+    fn may_have_expirable_state(&self) -> bool {
+        !self.retained_expiry.is_empty()
+            || self.sessions.values().any(|session| {
+                (!session.online && session.expires_at.is_some())
+                    || !session.outgoing_expiry.is_empty()
+                    || session
+                        .queued
+                        .iter()
+                        .any(|message| message.expires_at.is_some())
+            })
     }
 }

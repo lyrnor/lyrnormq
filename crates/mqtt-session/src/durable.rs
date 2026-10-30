@@ -615,9 +615,14 @@ impl SessionEngine {
         if message.retained_replay && !message.retain {
             return Err(invalid_record("replay marker without retain"));
         }
-        self.validate_delivery_properties(&message.packet(id, false), &message.properties)?;
-        let bytes = encode(&message.packet(id, false))
-            .map_err(|error| invalid_record(error.to_string()))?;
+        let packet = message.packet(id, false);
+        self.validate_delivery_properties(&packet, &message.properties)?;
+        if mqtt5::publish_frame_upper_bound(ProtocolVersion::V311, &packet, &[])
+            .is_some_and(|upper| upper <= self.config.max_packet_size)
+        {
+            return Ok(());
+        }
+        let bytes = encode(&packet).map_err(|error| invalid_record(error.to_string()))?;
         if bytes.len() > self.config.max_packet_size {
             return Err(EngineError::Capacity);
         }
