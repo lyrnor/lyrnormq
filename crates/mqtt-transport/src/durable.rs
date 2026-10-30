@@ -1635,3 +1635,6 @@ mod admission_tests;
 #[cfg(test)]
 #[path = "durable/management_tests.rs"]
 mod management_tests;
+
+#[cfg(test)]
+mod observer_tests;

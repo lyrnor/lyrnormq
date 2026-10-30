@@ -706,6 +706,15 @@ impl Broker {
         if publication.expired {
             return None;
         }
+        if let Some(observer) = &self.config.publication_observer {
+            observer.observe(
+                &publication.topic,
+                &publication.payload,
+                publication.publisher.as_deref().unwrap_or(""),
+                publication.qos,
+                publication.retain,
+            );
+        }
         let matches = self.index.matches(&publication.topic);
         let mut acks = Vec::new();
         for client in matches.ordinary {

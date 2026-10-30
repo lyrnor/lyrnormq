@@ -40,6 +40,8 @@ impl ProtocolMode {
 /// process termination. SQLite retains persistent sessions and global records.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
+    /// Optional nonblocking best-effort publication side channel.
+    pub publication_observer: Option<Arc<dyn crate::PublicationObserver>>,
     /// Opt-in read-only state observation; no additional broker is created.
     pub management: Option<crate::management::ManagementHandle>,
     /// Explicit listener negotiation profile; never persisted with a session.
@@ -74,6 +76,7 @@ pub struct BrokerConfig {
 impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
+            publication_observer: None,
             management: None,
             protocol_mode: ProtocolMode::Both,
             access_control: Arc::new(AllowAnonymous),
