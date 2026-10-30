@@ -26,6 +26,7 @@ jobs:
         run: |
           openssl version
           python3 tests/tls_blackbox.py
+      - run: python3 tests/websocket_blackbox.py
       - run: python3 tests/blackbox.py
       - run: python3 tests/qos_blackbox.py
       - run: python3 tests/persistence_blackbox.py
@@ -47,6 +48,7 @@ jobs:
       - run: python3 tests/phase3_reliability.py
       - run: python3 tests/phase3a_wakeup_blackbox.py
       - run: python3 -m pip install paho-mqtt==2.1.0
+      - run: python3 tests/websocket_paho.py
       - run: python3 tests/paho_interop.py
       - run: python3 tests/persistence_paho.py
       - run: python3 tests/retained_will_paho.py
