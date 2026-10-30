@@ -141,7 +141,7 @@ describe("bounded rule management writes", () => {
     );
     await expect(api("/api/v1/rules/config", "secret")).rejects.toMatchObject({
       code: "rules_disabled",
-      message: expect.stringContaining("--rules-config"),
+      message: expect.stringContaining("请联系管理员"),
     });
     try {
       await api("/api/v1/rules/config", "secret");

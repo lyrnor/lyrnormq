@@ -2042,3 +2042,18 @@ Kafka/PostgreSQL, aggregation/windows, plugins, finer per-rule metrics/history,
 config version administration and high-load TPS/p99 acceptance. Current best-effort
 queues may lose work on crash, overflow or configuration replacement; no durable or
 exactly-once external delivery/performance guarantee is claimed.
+
+
+### Rules enabled by default (2026-10-30)
+
+Normal broker startup now enables SQL rules/Webhook with working-directory
+`rules.json`; `--rules-config PATH` only overrides the location. Missing files
+start with empty rules, existing invalid files still fail closed, and static asset
+sensitive-file checks include the resolved default. Export-state remains free of
+rule configuration reads/writes. Dashboard copy now describes user operations and
+status without internal execution/outbox details.
+Validation: default-path regression reproduced before the parser fix; cargo fmt,
+workspace Clippy (-D warnings), full workspace tests, and release build pass. A
+separate temporary release broker without --rules-config created rules.json and
+returned authenticated config/status with running=true; existing services were
+untouched. Network tests required local-listener sandbox permission.

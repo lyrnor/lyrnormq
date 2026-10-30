@@ -317,6 +317,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     if options.export_state && options.rules_config.is_some() {
         return Err(invalid("rules cannot combine with export-state"));
     }
+    if !options.export_state && options.rules_config.is_none() {
+        options.rules_config = Some(PathBuf::from("rules.json"));
+    }
     Ok(Some(options))
 }
 
@@ -329,14 +332,24 @@ mod tests {
     }
 
     #[test]
-    fn rules_config_is_explicit_and_rejects_invalid_combinations() {
-        assert!(parse(args(&[])).unwrap().unwrap().rules_config.is_none());
+    fn rules_config_defaults_for_serving_and_rejects_invalid_combinations() {
         assert_eq!(
-            parse(args(&["--rules-config", "rules.json"]))
+            parse(args(&[])).unwrap().unwrap().rules_config,
+            Some(PathBuf::from("rules.json"))
+        );
+        assert!(
+            parse(args(&["export-state", "--storage-path", "state.db"]))
+                .unwrap()
+                .unwrap()
+                .rules_config
+                .is_none()
+        );
+        assert_eq!(
+            parse(args(&["--rules-config", "custom-rules.json"]))
                 .unwrap()
                 .unwrap()
                 .rules_config,
-            Some(PathBuf::from("rules.json"))
+            Some(PathBuf::from("custom-rules.json"))
         );
         for v in [
             vec!["--rules-config"],

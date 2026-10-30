@@ -94,17 +94,17 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("live rule and Webhook management", () => {
-  it("shows explicit disabled instructions without mock data", async () => {
+  it("shows a plain disabled state without implementation details", async () => {
     request.mockRejectedValue(
       new ApiError(503, "规则引擎未启用", "rules_disabled"),
     );
     render(<RulesPage token="token" expired={expired} />);
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toContain("--rules-config"),
+      expect(screen.getByRole("alert").textContent).toContain("规则引擎未启用"),
     );
     expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
-    expect(screen.getByText(/不是耐久 outbox/)).toBeTruthy();
-    expect(screen.getByText(/按 delivery_id（投递 ID）幂等处理/)).toBeTruthy();
+    expect(screen.queryByText(/outbox|Best effort|有界异步旁路/)).toBeNull();
+    expect(screen.queryByText(/delivery_id|--rules-config/)).toBeNull();
   });
   it("creates connector with password inputs, never writes credentials into storage", async () => {
     server();
@@ -324,7 +324,7 @@ describe("live rule and Webhook management", () => {
     );
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    expect(screen.getByRole("alert").textContent).toContain("规则执行器已停止");
+    expect(screen.getByRole("alert").textContent).toContain("规则服务已停止");
     expect(screen.getByText("High temperature")).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "新建规则" }) as HTMLButtonElement)

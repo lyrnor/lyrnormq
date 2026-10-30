@@ -285,16 +285,16 @@ export function RulesPage({
         ["规则命中", status.matched],
         ["排队事件", status.queued_events],
         ["丢弃", status.dropped],
-        ["计算错误", status.errors],
+        ["处理失败", status.errors],
       ] as const)
     : [];
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">SQL 规则与 Webhook 出站</h2>
+          <h2 className="text-lg font-semibold">规则引擎</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            原生筛选转换，Webhook 异步执行；配置持久化保存。
+            筛选消息、提取数据，并发送到指定的 Webhook。
           </p>
         </div>
         <Button
@@ -306,23 +306,9 @@ export function RulesPage({
           刷新规则配置
         </Button>
       </div>
-      <div className={note}>
-        <strong className="font-medium text-foreground">
-          Best effort · 有界异步旁路
-        </strong>
-        <p className="mt-1">
-          MQTT 确认不等待
-          HTTP。内存任务在进程崩溃时可能丢失，队列满会丢弃并计数；此模式不是耐久
-          outbox。HTTP 超时重试可能重复，请接收方按 delivery_id（投递
-          ID）幂等处理；同一投递重试保持 ID，不同规则或动作使用不同投递 ID。
-        </p>
-      </div>
       {error && (
         <Notice>
           {error}
-          {disabled && (
-            <p className="mt-2 font-mono">--rules-config /path/to/rules.json</p>
-          )}
           {config && (
             <p className="mt-1">显示上次成功读取的数据，请刷新后核对。</p>
           )}
@@ -335,9 +321,7 @@ export function RulesPage({
       )}
       {stopped && (
         <Notice>
-          规则执行器已停止：当前配置仅供检查，不再处理消息或执行
-          Webhook。配置写入与 SQL 测试不可用；请排查存储错误并重启
-          Broker。此状态不影响普通 MQTT 路由。
+          规则服务已停止，消息投递已暂停。暂时无法保存配置或测试规则，请联系管理员恢复服务。
         </Notice>
       )}
       {notice && !stopped && (
@@ -362,7 +346,7 @@ export function RulesPage({
             </div>
           ))}
           <div className="rounded-xl border bg-card p-4">
-            <p className="text-xs text-muted-foreground">排队字节</p>
+            <p className="text-xs text-muted-foreground">待发送数据量</p>
             <p className="mt-2 text-xl font-semibold">
               {bytes(status.queued_bytes)}
             </p>
@@ -373,9 +357,7 @@ export function RulesPage({
         <Empty>正在读取规则配置…</Empty>
       ) : !config ? (
         <Empty>
-          {disabled
-            ? "当前进程尚未启用规则引擎"
-            : "暂无可用规则配置，请检查管理 API"}
+          {disabled ? "规则引擎尚未启用" : "暂时无法加载规则配置，请稍后重试"}
         </Empty>
       ) : (
         <Panel
@@ -616,8 +598,7 @@ export function RulesPage({
             {status.actions.length === 0 && <Empty>暂无动作执行统计</Empty>}
           </div>
           <p className="px-5 pb-4 text-[11px] leading-relaxed text-muted-foreground">
-            统计按事件计数，重试包含再次尝试的事件，不是 HTTP
-            请求数。统计与队列不跨进程保存，各动作独立失败和重试。
+            统计单位为消息条数，重试次数按参与重试的消息计算；服务重启后统计重新开始。
           </p>
         </Panel>
       )}
@@ -750,7 +731,7 @@ function Editor({
   return (
     <Drawer
       title={`${edit.fresh ? "新建" : "编辑"}${names[edit.kind]}`}
-      subtitle="保存后应用配置；测试 SQL 不产生外部副作用"
+      subtitle="保存后立即生效"
       onClose={close}
     >
       <form className="space-y-5" onSubmit={(event) => void submit(event)}>
@@ -951,8 +932,7 @@ function Editor({
               </Field>
             ))}
             <p className={note}>
-              始终 POST JSON，2xx 视为成功；网络错误、超时、408、429、5xx
-              有限重试，其他 4xx 失败。每个动作独立排队。
+              投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
             </p>
           </>
         )}
@@ -1040,7 +1020,7 @@ function SqlTest({
   return (
     <Drawer
       title="测试 SQL"
-      subtitle="样例仅在本次页面内存中；不会提交 Webhook"
+      subtitle="使用样例预览处理结果，不会发送到 Webhook"
       onClose={close}
     >
       <form className="space-y-4" onSubmit={(event) => void run(event)}>
@@ -1076,10 +1056,6 @@ function SqlTest({
             spellCheck={false}
           />
         </Field>
-        <p className={note}>
-          这里输入独立测试样例，不是已读取的业务消息。仅校验、匹配并计算输出，不发送
-          HTTP。
-        </p>
         <Button type="submit" disabled={busy || stopped}>
           {busy ? "正在计算…" : "运行测试"}
         </Button>

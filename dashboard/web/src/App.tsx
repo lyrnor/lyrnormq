@@ -143,7 +143,7 @@ function Login({
           </Button>
         </form>
         <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          令牌仅保留在当前页面内存中，刷新页面后需重新输入。会话只读；启用规则引擎后可管理规则、连接器及出站动作。
+          刷新页面后需重新登录。请使用管理员提供的访问令牌。
         </div>
         <small className="mt-7 block text-center text-[10px] tracking-wider text-muted-foreground">
           Rust · Tokio · rustls
@@ -385,7 +385,7 @@ function Console({
               route === "overview"
                 ? "了解 Broker 的连接、消息流量与运行状态。"
                 : route === "rules"
-                  ? "管理 SQL 规则、Webhook 连接器与异步出站动作。"
+                  ? "管理消息处理规则、Webhook 连接器和出站动作。"
                   : "当前实例的真实运行数据与只读配置。"
             }
           >
@@ -417,7 +417,7 @@ function Console({
           )}
           {live.loading && !o && (
             <div className="rounded-xl border bg-card shadow-none">
-              <Empty>正在连接管理 API…</Empty>
+              <Empty>正在连接服务…</Empty>
             </div>
           )}
           {route === "overview" && o && (
@@ -897,8 +897,8 @@ function Console({
                     ]}
                   />
                   <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                    本版不提供用户、ACL 或证书内容查询与修改。Redis / PostgreSQL
-                    认证和证书身份映射未接入。管理令牌与 MQTT 客户端认证独立。
+                    此处显示当前认证设置。客户端连接凭据与 Dashboard
+                    访问令牌分别管理。
                   </div>
                 </div>
               </Panel>
@@ -945,9 +945,7 @@ function Console({
                     ]}
                   />
                   <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                    当前进程仅运行一个 MQTT 监听入口。管理 HTTP
-                    是独立本机管理入口（会话只读、规则配置可写），不表示支持多个
-                    MQTT 监听器共享状态。
+                    MQTT 客户端请使用上方监听地址连接。
                   </div>
                 </div>
               </Panel>
@@ -963,7 +961,6 @@ function Console({
                   >
                     <div>
                       <b>{limitLabels[key] ?? key}</b>
-                      <p className="font-mono text-[11px]">{key}</p>
                     </div>
                     <div className="rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs text-primary">
                       {value.toLocaleString()}
@@ -972,7 +969,7 @@ function Console({
                   </div>
                 ))}
                 <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                  配置在进程启动时加载。本页仅显示安全的资源限制，不返回密钥、令牌、存储路径或策略内容；修改与热加载尚未实现。
+                  当前配置仅供查看。修改启动参数后需重启服务生效。
                 </div>
               </div>
             </Panel>

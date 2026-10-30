@@ -53,7 +53,7 @@ export async function api<T>(
           ? "Broker 尚未就绪或已经停止"
           : response.status === 429
             ? "管理查询繁忙，请稍后重试"
-            : `管理 API 请求失败（${response.status}）`;
+            : `请求失败（${response.status}）`;
     let code: string | undefined;
     try {
       const data = await response.json();
@@ -65,23 +65,22 @@ export async function api<T>(
     } catch {
       /* Keep the public status message; never expose response contents. */
     }
-    if (code === "rules_disabled")
-      message = "规则引擎未启用，请使用 --rules-config PATH 启动 Broker";
+    if (code === "rules_disabled") message = "规则引擎尚未启用，请联系管理员";
     else if (response.status === 400 && path.startsWith("/api/v1/rules/"))
       message = "规则 SQL 或配置无效，请检查语法、参数范围和引用关系";
     throw new ApiError(response.status, message, code);
   }
   if (!response.headers.get("content-type")?.includes("application/json"))
-    throw new ApiError(502, "管理 API 返回了非 JSON 数据");
+    throw new ApiError(502, "服务响应异常，请稍后重试");
   try {
     return (await response.json()) as T;
   } catch {
-    throw new ApiError(502, "管理 API 响应无法解析");
+    throw new ApiError(502, "服务响应异常，请稍后重试");
   }
 }
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof DOMException && error.name === "TimeoutError")
-    return "管理 API 请求超时";
-  return "无法连接管理 API，请检查 Broker 和网络连接";
+    return "请求超时，请稍后重试";
+  return "无法连接服务，请检查网络连接";
 }

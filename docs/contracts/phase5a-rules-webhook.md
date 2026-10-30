@@ -150,9 +150,11 @@ sanitized status/class; no payload history or arbitrary persistent dead letters.
 
 ## CLI, authenticated management and React
 
---rules-config PATH is opt-in, nonempty/nonduplicate, incompatible with export-state.
-Missing file creates empty config; invalid existing file fails startup. Without it,
-no observer/runtime is attached. Add its file identity to static sensitive aliases.
+Rules are enabled by default for normal serving, using rules.json in the working
+directory. --rules-config PATH overrides this location, must be nonempty/nonduplicate,
+and is incompatible with export-state. Export-state never loads or creates rules
+configuration. Missing file creates empty config; invalid existing file fails startup.
+The resolved default/custom file identity is included in static sensitive aliases.
 Admin opt-in/token/loopback/CSP remain unchanged. Rule configuration writes explicitly
 extend Phase4f read-only scope; session controls remain read-only.
 
