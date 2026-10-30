@@ -41,6 +41,10 @@ class WebSocketOracle(unittest.TestCase):
         self.assertEqual(ws.read_frame(), (True, 2, b'abc'))
         self.assertEqual(ws.read_frame(), (True, 2, b''))
         self.assertEqual(ws.read_frame(), (True, 10, b'p'))
+        fragmented = WebSocket(BytesSocket(b'\x02\x01a\x80\x01b'))
+        self.assertEqual(fragmented.recv(1), b'a')
+        self.assertEqual(fragmented.recv(1), b'b')
+        self.assertEqual(fragmented.message_sizes, [2])
         status, headers, pending = response(BytesSocket(b'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n\x82\x01a'))
         self.assertEqual((status, headers, pending), (101, {'upgrade':['websocket']}, b'\x82\x01a'))
 
@@ -206,6 +210,7 @@ class WebSocketBlackbox(unittest.TestCase):
             for at in range(0,len(data),60):pub.send_frame(data[at:at+60])
             self.barrier(pub);self.delivery(sub,'chunks',b'a'*200,0,5)
             self.assertTrue(sub.frame_sizes);self.assertLessEqual(max(sub.frame_sizes),64)
+            self.assertTrue(sub.message_sizes);self.assertLessEqual(max(sub.message_sizes),64)
             self.disconnect(pub);self.disconnect(sub);broker.stop()
 
     def test_wss_requires_trusted_ca_and_correct_hostname(self):

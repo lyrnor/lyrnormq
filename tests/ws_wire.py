@@ -65,6 +65,8 @@ class WebSocket:
         self.application = bytearray()
         self.pongs = []
         self.frame_sizes = []
+        self.message_sizes = []
+        self.message_size = 0
         self.closed = False
         self.close_sent = False
         self.close_code = None
@@ -132,6 +134,10 @@ class WebSocket:
                 assert (opcode == 0) == self.fragment, 'malformed server data fragmentation'
                 self.fragment = not fin
                 self.frame_sizes.append(len(payload))
+                self.message_size += len(payload)
+                if fin:
+                    self.message_sizes.append(self.message_size)
+                    self.message_size = 0
                 self.application.extend(payload)
         result = bytes(self.application[:count])
         del self.application[:count]
