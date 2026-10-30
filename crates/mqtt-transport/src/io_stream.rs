@@ -9,13 +9,13 @@ use tokio::{
 };
 use tokio_rustls::server::TlsStream;
 pub(crate) trait IoStream: Send + 'static {
-    const TLS: bool;
+    const GRACEFUL_CLOSE: bool;
     type Reader: AsyncRead + Unpin + Send;
     type Writer: AsyncWrite + Unpin + Send + 'static;
     fn into_io(self) -> io::Result<(Self::Reader, Self::Writer)>;
 }
 impl IoStream for TcpStream {
-    const TLS: bool = false;
+    const GRACEFUL_CLOSE: bool = false;
     type Reader = OwnedReadHalf;
     type Writer = OwnedWriteHalf;
     fn into_io(self) -> io::Result<(Self::Reader, Self::Writer)> {
@@ -24,7 +24,7 @@ impl IoStream for TcpStream {
     }
 }
 impl IoStream for TlsStream<TcpStream> {
-    const TLS: bool = true;
+    const GRACEFUL_CLOSE: bool = true;
     type Reader = ReadHalf<Self>;
     type Writer = WriteHalf<Self>;
     fn into_io(self) -> io::Result<(Self::Reader, Self::Writer)> {

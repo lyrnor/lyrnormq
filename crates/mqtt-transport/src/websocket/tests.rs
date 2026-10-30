@@ -1,0 +1,325 @@
+use super::*;
+#[test]
+fn endpoint_limits_fail_closed() {
+    assert!(WebSocketOptions::default().validate().is_ok());
+    for path in ["", "mqtt", "/a b", "/mqtt?x", "/mqtt#x", "/a\n"] {
+        assert!(
+            WebSocketOptions {
+                path: path.into(),
+                ..WebSocketOptions::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+    for n in [0, 16 * 1024 * 1024 + 1] {
+        assert!(
+            WebSocketOptions {
+                max_message_size: n,
+                ..WebSocketOptions::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+}
+
+use super::adapter::WebSocketIo;
+use std::{io, time::Duration};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, DuplexStream, duplex},
+    time::timeout,
+};
+use tokio_tungstenite::{
+    WebSocketStream,
+    tungstenite::protocol::{Role, WebSocketConfig},
+};
+fn masked(op: u8, payload: &[u8]) -> Vec<u8> {
+    assert!(payload.len() < 126);
+    let key = [1, 2, 3, 4];
+    let mut frame = vec![op, 0x80 | payload.len() as u8];
+    frame.extend_from_slice(&key);
+    frame.extend(payload.iter().enumerate().map(|(i, b)| b ^ key[i % 4]));
+    frame
+}
+async fn socket(
+    capacity: usize,
+    max: usize,
+) -> (
+    WebSocketIo<super::policy::FramePolicy<DuplexStream>>,
+    DuplexStream,
+) {
+    let (server, client) = duplex(capacity);
+    let config = WebSocketConfig::default()
+        .read_buffer_size(128)
+        .write_buffer_size(0)
+        .max_write_buffer_size(max + 1024)
+        .max_frame_size(Some(max.max(125)))
+        .max_message_size(Some(max));
+    let server = WebSocketStream::from_raw_socket(
+        super::policy::FramePolicy::new(server, true),
+        Role::Server,
+        Some(config),
+    )
+    .await;
+    (
+        WebSocketIo::new(server, max, Duration::from_millis(30)),
+        client,
+    )
+}
+#[tokio::test]
+async fn fragments_empty_binary_and_control_flatten_without_eof() {
+    let (mut server, mut client) = socket(4096, 128).await;
+    let raw = [
+        masked(0x82, b""),
+        masked(0x02, b"ab"),
+        masked(0x89, b"ping"),
+        masked(0x80, b"cd"),
+        masked(0x82, b"ef"),
+        masked(0x8a, b"unsolicited"),
+    ]
+    .concat();
+    client.write_all(&raw).await.unwrap();
+    let mut bytes = [0; 6];
+    server.read_exact(&mut bytes).await.unwrap();
+    assert_eq!(&bytes, b"abcdef");
+    let mut pong = [0; 6];
+    client.read_exact(&mut pong).await.unwrap();
+    assert_eq!(&pong, b"\x8a\x04ping");
+    let mut byte = [0];
+    assert!(
+        timeout(Duration::from_millis(10), client.read(&mut byte))
+            .await
+            .is_err()
+    );
+}
+#[tokio::test]
+async fn framing_errors_flush_typed_close_before_returning_error() {
+    for (raw, code, max) in [
+        (masked(0x81, b"text"), 1003u16, 128),
+        (vec![0x82, 1, b'x'], 1002, 128),
+        (masked(0xc2, b"x"), 1002, 128),
+        (masked(0x82, b"12345"), 1009, 4),
+    ] {
+        let (mut server, mut client) = socket(4096, max).await;
+        client.write_all(&raw).await.unwrap();
+        let mut byte = [0];
+        let error = server.read(&mut byte).await.unwrap_err();
+        assert!(adapter::is_framing_error(&error));
+        let mut close = [0; 4];
+        client.read_exact(&mut close).await.unwrap();
+        assert_eq!(&close[..2], b"\x88\x02");
+        assert_eq!(u16::from_be_bytes([close[2], close[3]]), code);
+    }
+}
+#[tokio::test]
+async fn flush_reaches_underlying_socket_and_chunks_obey_message_bound() {
+    let (mut server, mut client) = socket(1, 3).await;
+    let writer = tokio::spawn(async move {
+        server.write_all(b"abcdef").await.unwrap();
+        server.flush().await.unwrap();
+    });
+    tokio::task::yield_now().await;
+    assert!(!writer.is_finished());
+    let mut bytes = [0; 10];
+    timeout(Duration::from_secs(1), client.read_exact(&mut bytes))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(&bytes, b"\x82\x03abc\x82\x03def");
+    writer.await.unwrap();
+}
+#[tokio::test]
+async fn ping_flush_is_bounded_without_mqtt_output() {
+    let (mut server, mut client) = socket(1, 128).await;
+    let frame = masked(0x89, b"blocked");
+    let mut byte = [0];
+    let (written, read) = tokio::join!(client.write_all(&frame), server.read(&mut byte));
+    written.unwrap();
+    assert_eq!(read.unwrap_err().kind(), io::ErrorKind::TimedOut);
+}
+#[tokio::test]
+async fn normal_shutdown_sends_close1000_and_remote_close_is_eof() {
+    let (mut server, mut client) = socket(4096, 128).await;
+    server.shutdown().await.unwrap();
+    let mut close = [0; 4];
+    client.read_exact(&mut close).await.unwrap();
+    assert_eq!(&close, b"\x88\x02\x03\xe8");
+    let (mut server, mut client) = socket(4096, 128).await;
+    client.write_all(&masked(0x88, b"\x03\xe8")).await.unwrap();
+    let mut byte = [0];
+    assert_eq!(server.read(&mut byte).await.unwrap(), 0);
+    client.read_exact(&mut close).await.unwrap();
+    assert_eq!(&close, b"\x88\x02\x03\xe8");
+}
+#[tokio::test]
+async fn empty_message_flood_yields_to_timers() {
+    let (mut server, mut client) = socket(65536, 128).await;
+    let frame = masked(0x82, b"");
+    let flood = tokio::spawn(async move {
+        loop {
+            if client.write_all(&frame).await.is_err() {
+                break;
+            }
+        }
+    });
+    let mut byte = [0];
+    assert!(
+        timeout(Duration::from_millis(20), server.read(&mut byte))
+            .await
+            .is_err()
+    );
+    flood.abort();
+    let _ = flood.await;
+}
+fn request(path: &str, protocol: &str) -> Vec<u8> {
+    format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Protocol: {protocol}\r\n\r\n").into_bytes()
+}
+async fn response(stream: &mut DuplexStream) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    while !bytes.ends_with(b"\r\n\r\n") {
+        bytes.push(stream.read_u8().await.unwrap());
+    }
+    bytes
+}
+#[tokio::test]
+async fn upgrade_preserves_pipeline_and_selects_mqtt_from_tokens() {
+    let (server, mut client) = duplex(32768);
+    let options = WebSocketOptions::default();
+    let task = tokio::spawn(async move {
+        let mut server = accept(server, &options, Duration::from_secs(1))
+            .await
+            .unwrap();
+        let mut ping = [0; 2];
+        server.read_exact(&mut ping).await.unwrap();
+        assert_eq!(&ping, b"\xc0\x00");
+    });
+    let bytes = [
+        request("/mqtt?ignored=1", "other, mqtt"),
+        masked(0x82, b"\xc0\0"),
+    ]
+    .concat();
+    client.write_all(&bytes).await.unwrap();
+    let headers = String::from_utf8(response(&mut client).await)
+        .unwrap()
+        .to_ascii_lowercase();
+    assert!(headers.starts_with("http/1.1 101"));
+    assert!(headers.contains("sec-websocket-protocol: mqtt\r\n"));
+    task.await.unwrap();
+}
+#[tokio::test]
+async fn upgrade_rejects_path_subprotocol_key_and_header_overflow() {
+    for (bytes, status) in [
+        (request("/wrong", "mqtt"), "404"),
+        (request("/mqtt", "other"), "400"),
+        (
+            String::from_utf8(request("/mqtt", "mqtt"))
+                .unwrap()
+                .replace("dGhlIHNhbXBsZSBub25jZQ==", "YQ==")
+                .into_bytes(),
+            "400",
+        ),
+        (vec![b'a'; 16 * 1024], "431"),
+    ] {
+        let (server, mut client) = duplex(32768);
+        let options = WebSocketOptions::default();
+        let task = tokio::spawn(async move {
+            accept(server, &options, Duration::from_secs(1))
+                .await
+                .is_err()
+        });
+        client.write_all(&bytes).await.unwrap();
+        let headers = String::from_utf8(response(&mut client).await).unwrap();
+        assert!(
+            headers.starts_with(&format!("HTTP/1.1 {status}")),
+            "{headers}"
+        );
+        assert!(task.await.unwrap());
+    }
+}
+#[tokio::test]
+async fn fragmented_text_and_nonminimal_lengths_fail_before_message_completion() {
+    for (raw, code) in [
+        (masked(0x01, b"unfinished"), 1003u16),
+        (vec![0x82, 0xfe, 0, 2, 1, 2, 3, 4, b'a' ^ 1, b'b' ^ 2], 1002),
+        (
+            vec![
+                0x82,
+                0xff,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                2,
+                1,
+                2,
+                3,
+                4,
+                b'a' ^ 1,
+                b'b' ^ 2,
+            ],
+            1002,
+        ),
+    ] {
+        let (mut server, mut client) = socket(4096, 128).await;
+        client.write_all(&raw).await.unwrap();
+        let mut byte = [0];
+        let result = timeout(Duration::from_millis(100), server.read(&mut byte)).await;
+        assert!(
+            result.is_ok(),
+            "invalid frame waited for the rest of a message"
+        );
+        assert!(result.unwrap().is_err(), "invalid length was accepted");
+        let mut close = [0; 4];
+        client.read_exact(&mut close).await.unwrap();
+        assert_eq!(u16::from_be_bytes([close[2], close[3]]), code);
+    }
+}
+#[tokio::test]
+async fn one_byte_message_budget_still_allows_full_size_ping() {
+    let (mut server, mut client) = socket(4096, 1).await;
+    let ping = vec![b'p'; 125];
+    let raw = [masked(0x82, b"a"), masked(0x89, &ping), masked(0x82, b"b")].concat();
+    client.write_all(&raw).await.unwrap();
+    let mut data = [0; 2];
+    server.read_exact(&mut data).await.unwrap();
+    assert_eq!(&data, b"ab");
+    let mut pong = vec![0; 127];
+    client.read_exact(&mut pong).await.unwrap();
+    assert_eq!(&pong[..2], b"\x8a\x7d");
+    assert_eq!(&pong[2..], &ping);
+    server.write_all(b"cd").await.unwrap();
+    server.flush().await.unwrap();
+    let mut chunks = [0; 6];
+    client.read_exact(&mut chunks).await.unwrap();
+    assert_eq!(&chunks, b"\x82\x01c\x82\x01d");
+}
+#[tokio::test]
+async fn canonical_extended_lengths_stream_without_payload_accumulation_in_guard() {
+    for size in [126usize, 65536] {
+        let (mut server, mut client) = socket(4096, size).await;
+        let mut frame = vec![0x82];
+        if size == 126 {
+            frame.push(0xfe);
+            frame.extend_from_slice(&(size as u16).to_be_bytes());
+        } else {
+            frame.push(0xff);
+            frame.extend_from_slice(&(size as u64).to_be_bytes());
+        }
+        frame.extend_from_slice(&[0; 4]);
+        frame.extend(std::iter::repeat_n(b'a', size));
+        let task = tokio::spawn(async move {
+            client.write_all(&frame).await.unwrap();
+        });
+        let mut bytes = vec![0; size];
+        timeout(Duration::from_secs(1), server.read_exact(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(bytes.iter().all(|b| *b == b'a'));
+        task.await.unwrap();
+    }
+}

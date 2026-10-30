@@ -724,7 +724,7 @@ pub(super) async fn serve(
     config: BrokerConfig,
     shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
-    serve_with_tls(listener, config, None, shutdown).await
+    serve_with_tls(listener, config, None, None, shutdown).await
 }
 
 pub(super) async fn serve_tls(
@@ -733,13 +733,24 @@ pub(super) async fn serve_tls(
     tls: crate::TlsConfig,
     shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
-    serve_with_tls(listener, config, Some(tls), shutdown).await
+    serve_with_tls(listener, config, Some(tls), None, shutdown).await
+}
+
+pub(super) async fn serve_websocket(
+    listener: TcpListener,
+    config: BrokerConfig,
+    tls: Option<crate::TlsConfig>,
+    options: crate::WebSocketOptions,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    serve_with_tls(listener, config, tls, Some(options), shutdown).await
 }
 
 async fn serve_with_tls(
     listener: TcpListener,
     config: BrokerConfig,
     tls: Option<crate::TlsConfig>,
+    websocket: Option<crate::WebSocketOptions>,
     mut shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let broker = start(config.clone()).await?;
@@ -770,10 +781,11 @@ async fn serve_with_tls(
                 let config = config.clone();
                 let shutdown = stop_rx.clone();
                 let tls = tls.clone();
+                let websocket = websocket.clone();
                 tasks.spawn(async move {
                     let _permit = permit;
+                    if stream.set_nodelay(true).is_err() { return; }
                     if let Some(tls) = tls {
-                        if stream.set_nodelay(true).is_err() { return; }
                         let mut stopped = shutdown.clone();
                         let accepted = tokio::select! {
                             biased;
@@ -781,10 +793,10 @@ async fn serve_with_tls(
                             result = tokio::time::timeout(config.handshake_timeout, tls.acceptor.accept(stream)) => result,
                         };
                         if let Ok(Ok(stream)) = accepted {
-                            let _ = connection(stream, generation, worker, config, shutdown).await;
+                            let _ = accept_mqtt(stream, websocket, generation, worker, config, shutdown).await;
                         }
                     } else {
-                        let _ = connection(stream, generation, worker, config, shutdown).await;
+                        let _ = accept_mqtt(stream, websocket, generation, worker, config, shutdown).await;
                     }
                 });
             }
@@ -798,6 +810,29 @@ async fn serve_with_tls(
     }
     let stopped = broker.shutdown().await;
     result.and(stopped)
+}
+
+async fn accept_mqtt<
+    S: crate::io_stream::IoStream + tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+>(
+    stream: S,
+    websocket: Option<crate::WebSocketOptions>,
+    generation: u64,
+    worker: Worker,
+    config: BrokerConfig,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    if let Some(options) = websocket {
+        let mut stopped = shutdown.clone();
+        let stream = tokio::select! {
+            biased;
+            _=stopped.changed()=>return Ok(()),
+            result=tokio::time::timeout(config.handshake_timeout,crate::websocket::accept(stream,&options,config.write_timeout))=>result.map_err(|_|io::Error::new(io::ErrorKind::TimedOut,"WebSocket upgrade timed out"))??,
+        };
+        connection(stream, generation, worker, config, shutdown).await
+    } else {
+        connection(stream, generation, worker, config, shutdown).await
+    }
 }
 
 async fn connection<S: crate::io_stream::IoStream>(

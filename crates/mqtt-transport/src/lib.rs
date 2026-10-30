@@ -5,8 +5,10 @@ mod io_stream;
 mod packet_io;
 mod server;
 mod tls;
+mod websocket;
 
 pub use config::{BrokerConfig, ProtocolMode};
 pub use durable::export::export_state;
-pub use server::{serve, serve_tls};
+pub use server::{serve, serve_tls, serve_ws, serve_wss};
 pub use tls::TlsConfig;
+pub use websocket::WebSocketOptions;

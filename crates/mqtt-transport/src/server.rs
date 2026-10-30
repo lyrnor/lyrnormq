@@ -29,6 +29,30 @@ pub async fn serve_tls(
     durable::serve_tls(listener, config, tls, shutdown).await
 }
 
+/// Serve MQTT over a bounded binary WebSocket endpoint.
+pub async fn serve_ws(
+    listener: TcpListener,
+    config: BrokerConfig,
+    options: crate::WebSocketOptions,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    validate(&config)?;
+    options.validate()?;
+    durable::serve_websocket(listener, config, None, options, shutdown).await
+}
+/// Serve the WebSocket endpoint over the configured authenticated TLS identity.
+pub async fn serve_wss(
+    listener: TcpListener,
+    config: BrokerConfig,
+    tls: crate::TlsConfig,
+    options: crate::WebSocketOptions,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    validate(&config)?;
+    options.validate()?;
+    durable::serve_websocket(listener, config, Some(tls), options, shutdown).await
+}
+
 fn validate(config: &BrokerConfig) -> io::Result<()> {
     if config.max_retained == 0
         || config.max_sessions == 0

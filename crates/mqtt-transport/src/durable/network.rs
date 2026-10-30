@@ -451,6 +451,7 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
         && version == Some(ProtocolVersion::V5)
         && !failed.load(Ordering::Acquire)
         && !flush
+        && !crate::websocket::is_framing_error(error)
     {
         if connected {
             let mut frame = Frame::v5(Packet::Disconnect);
@@ -477,7 +478,7 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
             }
         }
     }
-    if S::TLS && result.is_ok() && terminal.borrow().is_none() {
+    if S::GRACEFUL_CLOSE && result.is_ok() && terminal.borrow().is_none() {
         // TLS EOF, MQTT DISCONNECT and shutdown may send a reciprocal alert,
         // without draining queued business packets. Finish an already-started
         // frame, then close under the existing bounded writer join.
