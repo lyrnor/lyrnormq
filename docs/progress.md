@@ -1817,3 +1817,25 @@ Independent final accounting review recomputed all18 run counts,throughput/laten
 RSS/CPU tables and archive hashes without rerunning loads;no blocker found. Failed
 ACK-only evidence remains separate and explicitly unresolved. Final source guards,
 six anti-bypass cases and seven thin-lib audits pass.
+
+## Rust load generator — 2026-10-30
+
+Added `bin/rmqtt-loadgen` on `codex/rust-loadgen`; frozen standalone contract
+`docs/contracts/rust-loadgen.md`. Real isolated engine/metrics/quality subagents
+implemented paired MQTT3.1.1/5 QoS0/1/2, bounded closed-loop/absolute-rate load,
+monotonic in-payload identity/timing, complete/incomplete record accounting, exact
+nearest-rank nanosecond percentiles and JSON/optional rawJSONL. No broker modules
+or durable schemas changed. `lib.rs` remains declarations/reexports only.
+
+43 tool tests (26unit/13 independent wire/4CLI),whole workspace511passed,fmt and
+strict all-target Clippy passed. Six actual local broker dual-version/QoS profiles
+had all raw percentile series independently recomputed;three fixed-rate checks
+verified explicit unsent handling (one deadline miss was correctly unsuccessful).
+Linux amd64 musl release cross-built locally,code revisionf44b657;artifact hash
+and logs in `docs/verification/rust-loadgen-20261030/manifest.json`.
+
+Live validation on47.117.6.20 is pending:SSH host keys differ from existing trusted
+known_hosts entries;identity confirmation requested. Do not disable strict host
+checking or count this remote validation as passed. Tool usage and metric definitions
+are in `bin/rmqtt-loadgen/README.md`. Future:connect-only profiles,TLS/auth and
+multi-host synchronized-clock support;these are not advertised as implemented.

@@ -499,3 +499,14 @@ Next ordered tasks:
    exhaust schedules or certify hardware power loss.
 4. Keep Phase2o explicit-V5/Both qualifications and SHOULD exceptions visible. TLS,
    WebSocket and clustering remain separate contracts after single-node hardening.
+
+## Rust load generator remaining acceptance
+
+- [x] Independent Rust client engine and exact sample metrics;closed-loop/rate modes.
+- [x] Raw sample percentile oracle,protocol-fault coverage,workspace checks.
+- [x] Actual local broker dual-version/QoS correctness and local Linux musl build.
+- [ ] Confirm changed SSH host identity for47.117.6.20,then upload/test Linux binary.
+- [ ] New-tool5000connection QoS0/1/2 server acceptance with raw percentile oracle.
+- [ ] Separate future profiling of client scheduling and broker service time;never
+  compare closed-loop results to the earlier unlimited emqtt workload as a pure
+  broker improvement. No server capacity conclusion from these correctness smokes.
