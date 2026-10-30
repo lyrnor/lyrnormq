@@ -3,6 +3,7 @@
 //! Values are opaque encoded records; protocol and session owners are responsible
 //! for their schema and MQTT semantics. Call SQLite only from a blocking worker.
 
+pub mod configuration;
 pub mod durable;
 mod error;
 mod memory;
