@@ -57,21 +57,23 @@ struct Publication {
 
 impl Peer {
     pub async fn start(scenario: Scenario) -> Self {
+        Self::start_pairs(scenario, 1).await
+    }
+    pub async fn start_pairs(scenario: Scenario, pairs: usize) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let observed = Arc::new(Observed::default());
         let obs = observed.clone();
         let (stop, mut stopped) = oneshot::channel();
         let task = tokio::spawn(async move {
-            let (tx, rx) = mpsc::channel(16);
-            let rx = Arc::new(Mutex::new(Some(rx)));
+            let routes = Arc::new(Mutex::new(BTreeMap::new()));
             let mut tasks = tokio::task::JoinSet::new();
             let mut errors = Vec::new();
             let mut accepted = 0;
             loop {
                 tokio::select! {
                  _=&mut stopped=>break,
-                 result=listener.accept(),if accepted<2=>{match result{Ok((stream,_))=>{accepted+=1;tasks.spawn(connection(stream,scenario,obs.clone(),tx.clone(),rx.clone()));},Err(e)=>{errors.push(e.to_string());break;}}},
+                 result=listener.accept(),if accepted<pairs*2=>{match result{Ok((stream,_))=>{accepted+=1;tasks.spawn(connection(stream,scenario,obs.clone(),routes.clone()));},Err(e)=>{errors.push(e.to_string());break;}}},
                  result=tasks.join_next(),if !tasks.is_empty()=>{match result {Some(Ok(Err(e)))=>errors.push(e.to_string()),Some(Err(e))=>errors.push(e.to_string()),_=>{}}}
                 }
             }
@@ -263,12 +265,24 @@ async fn deliver(
     }
     Ok(())
 }
+type Routes = Arc<Mutex<BTreeMap<Vec<u8>, mpsc::Sender<Publication>>>>;
+async fn route(routes: &Routes, publication: Publication) -> io::Result<()> {
+    let target = routes
+        .lock()
+        .unwrap()
+        .get(&publication.topic)
+        .cloned()
+        .ok_or_else(|| bad("PUBLISH topic has no completed subscription"))?;
+    target
+        .send(publication)
+        .await
+        .map_err(|_| bad("subscriber gone"))
+}
 async fn connection(
     mut stream: TcpStream,
     scenario: Scenario,
     obs: Arc<Observed>,
-    route: mpsc::Sender<Publication>,
-    receiver: Arc<Mutex<Option<mpsc::Receiver<Publication>>>>,
+    routes: Routes,
 ) -> io::Result<()> {
     stream.set_nodelay(true)?;
     let Some((h, b)) = read(&mut stream).await? else {
@@ -303,7 +317,11 @@ async fn connection(
                 let len = usize::from(take_id(b.get(pos..).ok_or_else(|| bad("filter field"))?)?);
                 pos += 2;
                 let end = pos + len;
-                let _filter = b.get(pos..end).ok_or_else(|| bad("filter data"))?;
+                let filter = b.get(pos..end).ok_or_else(|| bad("filter data"))?.to_vec();
+                let (sender, mut messages) = mpsc::channel(16);
+                if routes.lock().unwrap().insert(filter, sender).is_some() {
+                    return Err(bad("duplicate exact subscription"));
+                }
                 let qos = *b.get(end).ok_or_else(|| bad("subscription options"))? & 3;
                 let mut answer = id.to_be_bytes().to_vec();
                 if version == 5 {
@@ -312,11 +330,6 @@ async fn connection(
                 answer.push(qos);
                 write(&mut stream, 0x90, &answer).await?;
                 obs.subscribed.store(true, Ordering::SeqCst);
-                let mut messages = receiver
-                    .lock()
-                    .unwrap()
-                    .take()
-                    .ok_or_else(|| bad("more than one subscriber"))?;
                 loop {
                     tokio::select! {p=messages.recv()=>{let Some(p)=p else{return Ok(());};if let Err(e)=deliver(&mut stream,p,version,scenario).await{if matches!(scenario.fault,Fault::CorruptPayload){return Ok(());}return Err(e);}},p=read(&mut stream)=>{match p?{Some((0xe0,_))|None=>return Ok(()),Some((0xc0,_))=>write(&mut stream,0xd0,&[]).await?,Some(_)=>return Err(bad("unexpected idle subscriber packet"))}}}
                 }
@@ -340,7 +353,7 @@ async fn connection(
                     0
                 };
                 match p.qos {
-                    0 => route.send(p).await.map_err(|_| bad("subscriber gone"))?,
+                    0 => route(&routes, p).await?,
                     1 => {
                         if reason == 0 && !wrong {
                             let completed = if scenario.duplicate_delivery {
@@ -350,7 +363,7 @@ async fn connection(
                             } else {
                                 None
                             };
-                            route.send(p).await.map_err(|_| bad("subscriber gone"))?;
+                            route(&routes, p).await?;
                             // Keep source completion pending until the duplicate has been
                             // acknowledged, so normal end-of-run closure cannot race it.
                             if let Some(completed) = completed {
@@ -378,9 +391,12 @@ async fn connection(
                 }
             }
             6 => {
+                if h != 0x62 {
+                    return Err(bad("PUBREL fixed flags"));
+                }
                 let id = take_id(&b)?;
                 if let Some(p) = pending.remove(&id) {
-                    route.send(p).await.map_err(|_| bad("subscriber gone"))?;
+                    route(&routes, p).await?;
                 }
                 tokio::time::sleep(scenario.source_comp_delay).await;
                 ack(&mut stream, 0x70, id, version, 0).await?;

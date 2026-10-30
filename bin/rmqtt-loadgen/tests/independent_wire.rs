@@ -309,3 +309,67 @@ async fn fixed_rate_retains_lag_and_unsent_deadlines() {
         "late intended deadlines reset to now"
     );
 }
+
+#[tokio::test]
+async fn multiple_pairs_window_four_and_warmup_preserve_sample_boundaries() {
+    let peer = Peer::start_pairs(
+        Scenario {
+            delivery_delay: Duration::from_millis(5),
+            ..Scenario::default()
+        },
+        3,
+    )
+    .await;
+    let mut c = config(peer.address, Version::V5, 2);
+    c.pairs = 3;
+    c.inflight = 4;
+    c.warmup_ms = 35;
+    c.duration_ms = 70;
+    let data = timeout(Duration::from_secs(5), engine::run(c))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(peer.finish().await.is_empty());
+    assert!(data.failures.is_empty(), "{:?}", data.failures);
+    assert_eq!(data.pairs.len(), 3);
+    for pair in data.pairs {
+        assert!(pair.error.is_none(), "{:?}", pair.error);
+        assert!(!pair.samples.is_empty());
+        assert_eq!(pair.counters.attempted, pair.counters.completed);
+        assert!(
+            pair.samples[0].sequence > 0,
+            "warmup traffic must precede measurement"
+        );
+        assert!(
+            pair.samples
+                .iter()
+                .all(|s| s.send_started_ns >= data.measured_start_ns
+                    && s.send_started_ns < data.measured_end_ns)
+        );
+        assert!(
+            pair.samples
+                .windows(2)
+                .any(|w| w[1].send_started_ns < w[0].completed_ns.unwrap()),
+            "window >1 must permit overlapping messages"
+        );
+        for sample in &pair.samples {
+            let active = pair
+                .samples
+                .iter()
+                .filter(|s| {
+                    s.send_started_ns <= sample.send_started_ns
+                        && s.completed_ns.unwrap() > sample.send_started_ns
+                })
+                .count();
+            assert!(active <= 4, "outstanding work exceeded configured window");
+            assert_eq!(sample.pair, pair.pair);
+            assert_eq!(
+                sample.completed_ns,
+                sample
+                    .ack_ns
+                    .max(sample.delivery_ns)
+                    .max(sample.write_completed_ns)
+            );
+        }
+    }
+}
