@@ -781,6 +781,7 @@ name = "mqtt-webhook"
 version = "0.1.0"
 dependencies = [
  "mqtt-rules",
+ "mqtt-storage",
  "mqtt-transport",
  "reqwest",
  "serde",

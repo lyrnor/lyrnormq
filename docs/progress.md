@@ -2057,3 +2057,28 @@ workspace Clippy (-D warnings), full workspace tests, and release build pass. A
 separate temporary release broker without --rules-config created rules.json and
 returned authenticated config/status with running=true; existing services were
 untouched. Network tests required local-listener sandbox permission.
+
+
+### Phase5b — SQLite-only rule configuration (2026-10-30)
+
+Completed with independent storage/runtime/quality worktrees and final read-only
+review. The user explicitly removed JSON-file compatibility/import from scope.
+Rules remain enabled by default, now using `rmqtt-rules.sqlite`; `--rules-config`
+only changes the SQLite path. Old `rules.json` is neither read nor written.
+The separate bounded configuration store uses an atomic singleton transaction,
+FULL synchronization, dedicated application/schema identity and lifetime ownership
+lock; the strict MQTT session database schema is unchanged. All database IO runs on
+blocking workers; snapshot publication follows successful commit. Uncertain save
+failures stop rule dispatch; restart recovers actual committed data.
+
+Validated: Fmt, workspace Clippy all targets with -D warnings, 616 Rust tests,
+release build, 85 independent release blackbox tests: rules/Webhook15, Dashboard14,
+persistent MQTT14, WS/WSS18, TLS12, admission/mTLS12. Real SIGKILL and uncommitted
+transaction rollback, API acknowledged-config recovery with subsequent HTTP
+delivery, external SQLite write-lock failure, cancellation-safe shutdown/reopen,
+no legacy JSON reads, secret redaction, foreign/invalid schema and static companion
+hardlink rejection are covered. No existing user broker was restarted.
+
+Evidence: `docs/verification/rules-sqlite-20261030/README.md`. Configuration
+persistence does not add durable message queues/action outbox. Physical power loss
+and fresh performance baselines were not measured; remaining scope is unchanged.

@@ -659,7 +659,8 @@ Connections, actions and SQL rules are distinct configuration entities. Config
 replacement compiles/validates off the network runtime, commits an atomic SQLite
 configuration transaction and switches immutable snapshots after success. The
 configuration database is separate from the strict session store, defaults to
-rmqtt-rules.sqlite, and is enabled by default. No JSON-file backend/import exists. Replaced action workers are cancelled
+rmqtt-rules.sqlite, and is enabled by default. No JSON-file backend/import exists.
+Replaced action workers are cancelled
 and abandoned copies counted. HTTP pools belong to a generation, preventing endpoint
 churn retaining process-global idle pools. Input and action copies retain bounded
 memory reservations through processing, batching, retries and cancellation.
