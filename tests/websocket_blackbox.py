@@ -219,6 +219,26 @@ class WebSocketBlackbox(unittest.TestCase):
             with self.assertRaises(ssl.SSLCertVerificationError):broker.socket(**kwargs)
         healthy = self.client(broker,'wss-after-rejected-identity');self.barrier(healthy);self.disconnect(healthy)
 
+    def test_one_byte_data_budget_preserves_full_size_control_ping(self):
+        broker = WebSocketBroker(self.identities, extra=['--ws-max-message-size', '1'],
+                                 client_chunk_size=1).start()
+        self.addCleanup(broker.stop)
+        sock = broker.socket()
+        self.addCleanup(sock.close)
+        # Send each CONNECT byte as a separate complete binary message.
+        for byte in connect5('single-byte-ws'):
+            sock.send_frame(bytes([byte]))
+        header, body = receive(sock)
+        self.assertEqual((header, body[:2]), (0x20, b'\0\0'))
+        self.assertTrue(sock.message_sizes)
+        self.assertTrue(all(size <= 1 for size in sock.message_sizes))
+        ping = bytes(range(125))
+        sock.send_frame(ping, 9)
+        self.barrier(sock)  # Byte-chunked MQTT PINGREQ; consume WS Pong on the way.
+        self.assertEqual(sock.pongs, [ping])
+        self.assertTrue(all(size <= 1 for size in sock.message_sizes))
+        self.disconnect(sock)
+
     def test_upgrade_header_cap_before_incomplete_request_finishes(self):
         broker = WebSocketBroker(self.identities,extra=['--handshake-timeout-ms','10000']).start()
         self.addCleanup(broker.stop)

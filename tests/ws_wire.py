@@ -71,6 +71,7 @@ class WebSocket:
         self.close_sent = False
         self.close_code = None
         self.fragment = False
+        self.send_chunk_size = None
 
     def __enter__(self):
         return self
@@ -114,7 +115,11 @@ class WebSocket:
             self.close_sent = True
 
     def sendall(self, data):
-        self.send_frame(data)
+        if self.send_chunk_size is None:
+            self.send_frame(data)
+        else:
+            for offset in range(0, len(data), self.send_chunk_size):
+                self.send_frame(data[offset:offset+self.send_chunk_size])
 
     def recv(self, count):
         while not self.application and not self.closed:
@@ -145,9 +150,10 @@ class WebSocket:
 
 
 class WebSocketBroker(TLSBroker):
-    def __init__(self, identities, secure=False, directory=None, extra=()):
+    def __init__(self, identities, secure=False, directory=None, extra=(), client_chunk_size=None):
         super().__init__(identities, directory, extra)
         self.secure = secure
+        self.client_chunk_size = client_chunk_size
 
     def command(self):
         args = [BINARY, '--listen', f'127.0.0.1:{self.port}', '--websocket']
@@ -175,7 +181,9 @@ class WebSocketBroker(TLSBroker):
             assert fields.get('upgrade', [''])[0].lower() == 'websocket', fields
             assert 'upgrade' in fields.get('connection', [''])[0].lower(), fields
             assert 'sec-websocket-extensions' not in fields, 'unsolicited extension negotiation'
-            return WebSocket(raw, pending)
+            result = WebSocket(raw, pending)
+            result.send_chunk_size = self.client_chunk_size
+            return result
         except BaseException:
             raw.close()
             raise
