@@ -14,8 +14,7 @@ cargo build --release -p rmqtt
 # 创建权限受限的令牌文件；不要将它加入 Git 或输出到日志。
 (umask 077; openssl rand -hex 32 > /tmp/rmqtt-admin.token)
 target/release/rmqtt --listen 127.0.0.1:1883 \
-  --admin-listen 127.0.0.1:8080 --admin-token-file /tmp/rmqtt-admin.token \
-  --dashboard-dir dashboard/web/dist
+  --admin-listen 127.0.0.1:8080 --admin-token-file /tmp/rmqtt-admin.token
 ```
 
 打开 `http://127.0.0.1:8080/`，在登录页输入令牌文件内容。令牌只留在页面内存，
@@ -23,9 +22,26 @@ target/release/rmqtt --listen 127.0.0.1:1883 \
 服务器远程访问使用 SSH 本地转发，例如 `ssh -L 8080:127.0.0.1:8080 USER@HOST`。
 该 HTTP 服务仅允许 loopback 数字地址；TLS/反向代理与访问控制由部署环境配置。
 
-服务端启动时加载静态文件，没有 Node 生产运行时依赖。默认目录缺失时 API
-仍可启动并输出明确提示；显式 `--dashboard-dir` 错误时启动失败。只更新静态
-文件也需重启管理服务，本阶段未实现热加载。
+React 生产构建通过 include_dir 嵌入 Rust 二进制。部署只需复制 `rmqtt`，
+运行目录不需要 `dashboard/web/dist` 或 Node.js；令牌、证书、持久数据仍是各自
+独立的运行配置，绝不编入二进制。管理服务仍默认关闭。
+
+可使用一条命令完成前端与 release 构建：
+
+```sh
+./scripts/build-rmqtt.sh
+# 交叉编译时仍在本机生成前端，再传递 Rust 目标参数：
+./scripts/build-rmqtt.sh --target x86_64-unknown-linux-musl
+```
+
+脚本透传 Cargo 参数；交叉编译需另外安装对应 Rust target 和链接工具链。
+Cargo 的 build.rs 不自动安装依赖或调用 npm，缺少或不合法的 dist 会明确失败。
+前端源码变化后必须重新执行前端构建，再重编 Rust；dist 文件变化触发 Cargo
+重新嵌入，不需要 cargo clean。
+
+`--dashboard-dir /path/to/dist` 可完全覆盖内置资源，保留原有目录、文件数量、
+体积、符号链接及敏感文件检查。覆盖目录无效则启动失败，不回退内置页面；
+未指定时不查找当前目录的前端文件。外部覆盖需重启生效，不支持热加载。
 
 ## 指标语义与范围
 

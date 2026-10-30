@@ -9,6 +9,8 @@ coverage, confirmed corrections, scoped acceptance and remaining limitations. Fe
 availability below is not a substitute for that assessment.
 
 ```sh
+# First build the UI embedded in the broker (Node is needed only on the build host).
+(cd dashboard/web && npm ci && npm run build)
 cargo build --workspace
 cargo run -p rmqtt -- --listen 127.0.0.1:1883
 # Enable durable sessions, retained records and active/pending Wills:
@@ -541,6 +543,8 @@ python3 -m venv /tmp/rmqtt-client-venv
 /tmp/rmqtt-client-venv/bin/pip install paho-mqtt==2.1.0
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
+# A fresh checkout must build dashboard/web/dist before compiling rmqtt tests.
+(cd dashboard/web && npm ci && npm run build)
 cargo test --workspace
 RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps
 python3 tests/blackbox.py

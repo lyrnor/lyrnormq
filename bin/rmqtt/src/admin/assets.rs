@@ -1,4 +1,6 @@
 //! Startup-only bounded static loading. No file IO occurs in HTTP handlers.
+use super::asset_rules::{MAX_ENTRIES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, content_type};
+use include_dir::{Dir, DirEntry, include_dir};
 use std::{
     collections::BTreeMap,
     fs,
@@ -8,7 +10,7 @@ use std::{
 };
 
 pub struct Asset {
-    pub source: PathBuf,
+    pub source: Option<PathBuf>,
     pub bytes: Arc<[u8]>,
     pub content_type: &'static str,
 }
@@ -20,17 +22,8 @@ fn invalid() -> io::Error {
     )
 }
 
-pub fn load(root: &Path, required: bool) -> io::Result<Assets> {
-    let metadata = match fs::symlink_metadata(root) {
-        Ok(meta) => meta,
-        Err(error) if !required && error.kind() == io::ErrorKind::NotFound => {
-            eprintln!(
-                "Dashboard assets unavailable; management API only (build dashboard/web first)"
-            );
-            return Ok(BTreeMap::new());
-        }
-        Err(_) => return Err(invalid()),
-    };
+pub fn load(root: &Path) -> io::Result<Assets> {
+    let metadata = fs::symlink_metadata(root).map_err(|_| invalid())?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err(invalid());
     }
@@ -52,7 +45,7 @@ fn visit(
 ) -> io::Result<()> {
     for entry in fs::read_dir(dir).map_err(|_| invalid())? {
         *visited += 1;
-        if *visited > 256 {
+        if *visited > MAX_ENTRIES {
             return Err(invalid());
         }
         let entry = entry.map_err(|_| invalid())?;
@@ -65,17 +58,17 @@ fn visit(
             visit(root, &path, assets, visited, total)?;
             continue;
         }
-        if !meta.is_file() || meta.len() > 4 * 1024 * 1024 {
+        if !meta.is_file() || meta.len() > MAX_FILE_BYTES as u64 {
             return Err(invalid());
         }
         let mut bytes = Vec::new();
         fs::File::open(&path)
             .map_err(|_| invalid())?
-            .take(4 * 1024 * 1024 + 1)
+            .take((MAX_FILE_BYTES + 1) as u64)
             .read_to_end(&mut bytes)
             .map_err(|_| invalid())?;
         *total = total.checked_add(bytes.len()).ok_or_else(invalid)?;
-        if bytes.len() > 4 * 1024 * 1024 || *total > 16 * 1024 * 1024 {
+        if bytes.len() > MAX_FILE_BYTES || *total > MAX_TOTAL_BYTES {
             return Err(invalid());
         }
         let name = path
@@ -86,25 +79,64 @@ fn visit(
         if name.contains(['\\', '%']) {
             return Err(invalid());
         }
-        let content_type = match path.extension().and_then(|s| s.to_str()) {
-            Some("html") => "text/html; charset=utf-8",
-            Some("js") => "text/javascript; charset=utf-8",
-            Some("css") => "text/css; charset=utf-8",
-            Some("svg") => "image/svg+xml",
-            Some("png") => "image/png",
-            Some("jpg" | "jpeg") => "image/jpeg",
-            Some("ico") => "image/x-icon",
-            Some("woff2") => "font/woff2",
-            _ => return Err(invalid()),
-        };
+        let content_type = content_type(&path).ok_or_else(invalid)?;
         assets.insert(
             format!("/{name}"),
             Asset {
-                source: path,
+                source: Some(path),
                 bytes: bytes.into(),
                 content_type,
             },
         );
+    }
+    Ok(())
+}
+
+static DASHBOARD: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../dashboard/web/dist");
+
+/// Use only resources compiled into this binary; independent of cwd or Node.
+pub fn embedded() -> io::Result<Assets> {
+    let mut assets = Assets::new();
+    embed(&DASHBOARD, &mut assets, &mut 0, &mut 0)?;
+    if !assets.contains_key("/index.html") {
+        return Err(invalid());
+    }
+    Ok(assets)
+}
+fn embed(
+    directory: &Dir<'static>,
+    assets: &mut Assets,
+    entries: &mut usize,
+    total: &mut usize,
+) -> io::Result<()> {
+    for entry in directory.entries() {
+        *entries += 1;
+        if *entries > MAX_ENTRIES {
+            return Err(invalid());
+        }
+        match entry {
+            DirEntry::Dir(dir) => embed(dir, assets, entries, total)?,
+            DirEntry::File(file) => {
+                let path = file.path();
+                let name = path.to_str().ok_or_else(invalid)?;
+                if name.contains(['\\', '%']) {
+                    return Err(invalid());
+                }
+                let bytes = file.contents();
+                *total = total.checked_add(bytes.len()).ok_or_else(invalid)?;
+                if bytes.len() > MAX_FILE_BYTES || *total > MAX_TOTAL_BYTES {
+                    return Err(invalid());
+                }
+                assets.insert(
+                    format!("/{name}"),
+                    Asset {
+                        source: None,
+                        bytes: Arc::from(bytes),
+                        content_type: content_type(path).ok_or_else(invalid)?,
+                    },
+                );
+            }
+        }
     }
     Ok(())
 }

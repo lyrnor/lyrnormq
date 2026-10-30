@@ -1990,3 +1990,22 @@ original browser/test red evidence are retained. Desktop1440/phone390 have no pa
 overflow and final fixed-bundle browser console is clean. Existing TLS12/WS18/
 admission-mTLS12 methods also pass with no skips. CI jobs added; hosted CI and remote
 deployment have not been run. Local verification broker has been stopped.
+
+## Embedded Dashboard — 2026-10-30
+
+React dist now embedded in rmqtt at Rust compile time with include_dir. No external
+frontend directory or Node runtime needed at deployment. Optional dashboard-dir is
+an explicit full-bundle override, retaining resource, symlink and secret containment
+checks; invalid override is fatal. Runtime never implicitly reads cwd dist. Build.rs
+requires a valid frontend build, checks file/count/byte bounds and tracks additions,
+changes/removals; it does not invoke npm/network. scripts/build-rmqtt.sh builds
+frontend then release Rust and forwards target/profile flags; CI builds UI first.
+
+Verified572 workspace Rust tests including doctests, strict Clippy and fmt,4 std-only
+build-input guard tests,4 copied-release embedded runtime tests and14 existing API/
+MQTT acceptance tests. Copied release runs from an empty cwd with PATH excluding Node,
+serves linked JS/CSS/favicon with MIME/CSP, preserves auth and actual MQTT state,
+ignores cwd dist, and respects explicit override/no fallback. Real incremental probe
+confirmed added/deleted assets are re-embedded without cargo clean. Full build wrapper
+also tested using --profile dev. Optimized native macOS arm64 executable produced;
+no Linux binary, server deployment or hosted CI execution claimed this change.

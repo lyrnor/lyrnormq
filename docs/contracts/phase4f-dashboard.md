@@ -73,3 +73,23 @@ query cancellation, all real-data/unsupported states and tests. Add accessible
 standard Button/Card/Input/Badge/Table/Sheet or Dialog/Tabs/NativeSelect primitives
 as appropriate; retain same light visual direction. No backend/CSP weakening for UI
 library convenience. Frontend owner continues isolated dashboard/web/** worktree.
+
+### Embedded Dashboard — 2026-10-30
+
+This supersedes the earlier default-directory/API-only fallback behavior.
+Default static resources are the React production dist embedded in rmqtt at Rust
+compile time using include_dir (stable, no metadata feature). Explicit
+`--dashboard-dir` replaces the entire embedded set using existing bounded/sensitive
+file checks, with no fallback on invalid override. No implicit runtime lookup of
+cwd/dashboard/web/dist. Management remains opt-in/authenticated/loopback; API/CSP
+unchanged. Embedded entries have no filesystem source identity. Build requires
+`npm ci && npm run build` before Cargo; missing/invalid dist fails clearly instead
+of shipping an empty UI or running npm/network from build.rs. Build.rs tracks the
+dist tree for Cargo rebuild and rejects symlinks, unknown extensions and existing
+file/count/byte limits before embedding. Source edits require frontend rebuild;
+provide a single local build wrapper forwarding Cargo target/profile flags.
+CI builds React before any rmqtt Cargo checks. Test copied executable in an empty
+cwd with no dist/Node runtime, all HTML-referenced JS/CSS and favicon accessible,
+Bearer API still protected/working, explicit override and invalid override behavior.
+Coordinator owns bin/rmqtt/scripts/docs; quality owns tests/dashboard_embedded.py
+and .github/workflows/ci.yml in its existing isolated worktree.

@@ -1,0 +1,43 @@
+   Compiling smallvec v1.16.3
+   Compiling serde_core v1.0.229
+   Compiling futures-core v0.3.34
+   Compiling serde_json v1.0.154
+   Compiling http-body v1.1.0
+   Compiling memchr v2.8.3
+   Compiling tower-service v0.3.3
+   Compiling tower-layer v0.3.3
+   Compiling mqtt-router v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-router)
+   Compiling percent-encoding v2.3.2
+   Compiling futures-util v0.3.34
+   Compiling httpdate v1.0.3
+   Compiling sync_wrapper v1.0.2
+   Compiling atomic-waker v1.1.2
+   Compiling parking_lot_core v0.9.12
+   Compiling rusqlite v0.41.0
+   Compiling http-body-util v0.1.5
+   Compiling mime v0.3.17
+   Compiling form_urlencoded v1.2.2
+   Compiling parking_lot v0.12.5
+   Compiling include_dir_macros v0.7.4
+   Compiling axum-core v0.5.6
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling tokio v1.54.1
+   Compiling ryu v1.0.23
+   Compiling matchit v0.8.4
+   Compiling include_dir v0.7.4
+   Compiling same-file v1.0.6
+   Compiling mqtt-storage v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-storage)
+   Compiling serde v1.0.229
+   Compiling serde_path_to_error v0.1.20
+   Compiling mqtt-protocol v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-protocol)
+   Compiling serde_urlencoded v0.7.1
+   Compiling mqtt-auth v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth)
+   Compiling mqtt-session v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-session)
+   Compiling hyper v1.12.0
+   Compiling tower v0.5.3
+   Compiling tokio-tungstenite v0.28.0
+   Compiling tokio-rustls v0.26.6
+   Compiling hyper-util v0.1.21
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling axum v0.8.9
+    Finished `release` profile [optimized] target(s) in 21.49s

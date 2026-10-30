@@ -43,17 +43,12 @@ fn token_input_is_bounded_and_errors_do_not_disclose_secrets() {
 #[test]
 fn static_input_has_file_and_total_limits_and_needs_index() {
     let dir = Fixture::new();
-    assert!(assets::load(&dir.0, true).is_err());
+    assert!(assets::load(&dir.0).is_err());
     std::fs::write(dir.0.join("index.html"), b"<html></html>").unwrap();
-    assert_eq!(assets::load(&dir.0, true).unwrap().len(), 1);
+    assert_eq!(assets::load(&dir.0).unwrap().len(), 1);
     std::fs::write(dir.0.join("large.js"), vec![b'a'; 4 * 1024 * 1024 + 1]).unwrap();
-    assert!(assets::load(&dir.0, true).is_err());
-    assert!(assets::load(&dir.0.join("missing"), true).is_err());
-    assert!(
-        assets::load(&dir.0.join("missing"), false)
-            .unwrap()
-            .is_empty()
-    );
+    assert!(assets::load(&dir.0).is_err());
+    assert!(assets::load(&dir.0.join("missing")).is_err());
 }
 #[cfg(unix)]
 #[test]
@@ -61,6 +56,17 @@ fn static_symlinks_and_token_symlinks_are_rejected() {
     let dir = Fixture::new();
     std::fs::write(dir.0.join("index.html"), b"ok").unwrap();
     std::os::unix::fs::symlink("index.html", dir.0.join("alias")).unwrap();
-    assert!(assets::load(&dir.0, true).is_err());
+    assert!(assets::load(&dir.0).is_err());
     assert!(read_token(&dir.0.join("alias")).is_err());
+}
+
+#[test]
+fn builtin_bundle_contains_production_entry_and_linked_assets() {
+    let bundle = assets::embedded().unwrap();
+    let html = std::str::from_utf8(&bundle.get("/index.html").unwrap().bytes).unwrap();
+    assert!(html.contains("id=\"root\""));
+    assert!(!html.contains("/src/main.tsx"));
+    assert!(bundle.values().all(|asset| asset.source.is_none()));
+    assert!(bundle.keys().any(|name| name.ends_with(".js")));
+    assert!(bundle.keys().any(|name| name.ends_with(".css")));
 }

@@ -55,13 +55,10 @@ pub fn prepare(
         .as_deref()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "management token required"))?;
     let token = read_token(path)?;
-    let assets = assets::load(
-        options
-            .dashboard_dir
-            .as_deref()
-            .unwrap_or(Path::new("dashboard/web/dist")),
-        options.dashboard_dir.is_some(),
-    )?;
+    let assets = match options.dashboard_dir.as_deref() {
+        Some(root) => assets::load(root)?,
+        None => assets::embedded()?,
+    };
     // Even a hard-linked token with a .js name must never become a public asset.
     if assets
         .values()
@@ -82,7 +79,10 @@ pub fn prepare(
     ];
     for secret in sensitive.into_iter().flatten() {
         for asset in assets.values() {
-            match same_file::is_same_file(secret, &asset.source) {
+            let Some(source) = &asset.source else {
+                continue;
+            };
+            match same_file::is_same_file(secret, source) {
                 Ok(false) => {}
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                 _ => {

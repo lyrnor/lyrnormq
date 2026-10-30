@@ -636,3 +636,10 @@ The frontend foundation is Tailwind CSS v4 plus official shadcn/ui source contro
 with Lucide icons. Native dialog supplies detail-modal semantics without relaxing
 CSP for runtime library style injection. Theme/base CSS is intentionally small;
 layout and responsive behavior use utilities rather than a parallel custom UI kit.
+
+Dashboard production assets are now compiled into rmqtt using include_dir without
+filesystem metadata. Build.rs validates finite inputs and tracks dist changes; the
+build host runs npm explicitly, not from Cargo. Default startup uses only embedded
+assets and never searches cwd. Explicit --dashboard-dir replaces the entire bundle
+through the same bounded/sensitive-file checks. Embedded records carry no runtime
+filesystem identity; administrator credentials, TLS keys and state are not embedded.
