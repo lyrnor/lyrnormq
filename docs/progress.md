@@ -2138,3 +2138,30 @@ regression is fixed by honoring defaultPrevented in Drawer keyboard handling.
 release build passed. Real browser pointer/keyboard/Escape/outside-click, desktop
 and390px mobile widths, protocol filtering, zero CSP/console errors verified.
 Evidence: docs/verification/select-component-20261030/README.md.
+
+
+### Dashboard automatic identity and component consolidation (2026-10-30)
+
+Independent UI primitives and identity/integration worktrees completed and were
+reviewed read-only before integration. Rule/outbound create forms no longer ask
+for IDs; each new draft gets a WebCrypto UUID with kind prefix, randomUUID plus
+getRandomValues fallback, bounded collision checks and safe unavailable-crypto
+feedback. IDs survive edits and validation/HTTP retry. Existing SQLite/API identity
+and name-independent outbound references remain unchanged. Internal IDs are hidden
+from list subtitles, binding summaries, execution status, delete subtitles and
+action ARIA labels; protocol Client ID fields are intentionally preserved.
+
+Reusable Radix Switch/Checkbox/Label/Tabs and shared Textarea/Field/Alert replace
+raw business-page controls and duplicate error styling. Existing Table/Button/Card/
+Badge/SingleSelect and tested strict-CSP Drawer remain in use; no new dependency.
+Duplicate outbound names expose destination context in selection.
+
+Validation: 69 frontend tests, strict TS/Vite/Prettier, workspace Fmt/strict Clippy,
+620 Rust tests and embedded release build passed. Real isolated Chrome created two
+same-name destinations without ID inputs, bound only the second by its visible URL,
+verified MQTT->HTTP delivery, renamed without changing identity/references, tested
+actual browser randomUUID-unavailable fallback, masked credentials, hidden IDs and
+390px mobile shared controls. Zero captured CSP/console errors. Existing jsdom
+window.scrollTo not-implemented warning remains test-environment-only.
+Evidence: docs/verification/auto-id-components-20261030/README.md. Existing user
+Broker was not restarted; only owned temporary QA services/browser were used.

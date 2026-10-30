@@ -1,0 +1,19 @@
+{
+  "autoID": true,
+  "distinct": true,
+  "oldIDStableAfterRename": true,
+  "sameNameBoundSecondOnly": true,
+  "cryptoFallback": true,
+  "realMQTTWebhookDelivery": true,
+  "internalIDsHidden": true,
+  "mobile": {
+    "width": 390,
+    "document": 390,
+    "hasID": false,
+    "switches": 1,
+    "checkboxes": 2,
+    "textareas": 1
+  },
+  "cspViolations": [],
+  "consoleErrors": []
+}

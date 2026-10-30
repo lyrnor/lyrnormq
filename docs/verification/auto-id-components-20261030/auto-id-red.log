@@ -1,0 +1,57 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --run tests/rules-page.test.tsx
+
+
+ RUN  v3.2.7 /private/tmp/rmqtt-ui-auto-ids/dashboard/web
+
+ ❯ tests/rules-page.test.tsx (13 tests | 1 failed) 410ms
+   × live rule and Webhook management > creates without exposing an ID field 94ms
+     → expected <input data-slot="input" …(5)></input> to be null
+   ✓ live rule and Webhook management > shows a plain disabled state without implementation details 5ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage 60ms
+   ✓ live rule and Webhook management > preserves redacted secrets and rejects deleting referenced outbound 52ms
+   ✓ live rule and Webhook management > creates outbound and rule with exact references then disables rule 81ms
+   ✓ live rule and Webhook management > rejects unknown outbound types without interpreting them as Webhook 4ms
+   ✓ live rule and Webhook management > SQL dry run only calls test endpoint and escapes output 20ms
+   ✓ live rule and Webhook management > surfaces validation and server failure inside editor without discarding draft 29ms
+   ✓ live rule and Webhook management > clears auth on401 and aborts requests when leaving the page 3ms
+   ✓ live rule and Webhook management > polls status without overwriting an open form and stops while hidden 14ms
+   ✓ live rule and Webhook management > marks failed statistics stale and clears that warning after a successful sample 7ms
+   ✓ live rule and Webhook management > shows stopped execution explicitly while keeping published configuration inspectable 21ms
+   ✓ live rule and Webhook management > disables an already-open delete confirmation if execution stops 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/rules-page.test.tsx > live rule and Webhook management > creates without exposing an ID field
+AssertionError: expected <input data-slot="input" …(5)></input> to be null
+
+- Expected: 
+null
+
++ Received: 
+<input
+  autocomplete="off"
+  class="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40"
+  data-slot="input"
+  maxlength="64"
+  required=""
+  value=""
+/>
+
+ ❯ tests/rules-page.test.tsx:99:43
+     97|     await ready();
+     98|     fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+     99|     expect(screen.queryByLabelText("ID")).toBeNull();
+       |                                           ^
+    100|   });
+    101| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  17:45:03
+   Duration  1.08s (transform 85ms, setup 7ms, collect 321ms, tests 410ms, environment 146ms, prepare 41ms)
+

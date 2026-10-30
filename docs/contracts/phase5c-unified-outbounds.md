@@ -99,3 +99,16 @@ fanout identity,1MiB envelope limits, bounded slow target, redaction, references
 unknown type/fields/format versions, enable/delete, pure SQLite restart/SIGKILL,
 old-SQLite transaction migration and no JSON-file backend. Run full Fmt/Clippy/tests,
 frontend tests/build and real release blackbox; inspect desktop/mobile browser CRUD.
+
+### Dashboard identity and controls clarification (2026-10-30)
+
+New rule/outbound drafts generate bounded cryptographic internal IDs once; users
+enter names rather than IDs. Preserve identities across edits, validation/save
+retries and refresh. Configuration API/schema and existing SQLite identity remain
+unchanged; API IDs and outbound_ids are still explicit for programmatic callers.
+UI lists, bindings, execution status, delete confirmation and accessible action
+labels display names rather than internal keys; duplicate destination names show
+type/address context when selecting. MQTT Client IDs/Subscription IDs remain
+meaningful protocol fields. Use shared Radix Switch/Checkbox/Tabs/Label and shared
+Textarea/Field/Alert primitives; retain the tested Drawer/native-dialog top layer
+and strict CSP, with no new dependency or inline-style permission.

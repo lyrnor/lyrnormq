@@ -1,0 +1,36 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/model.test.ts (12 tests) 8ms
+ ✓ tests/api.test.ts (8 tests) 33ms
+ ✓ tests/rules-model.test.ts (9 tests) 7ms
+ ✓ tests/polling.test.tsx (6 tests) 378ms
+ ✓ tests/dialog.test.tsx (2 tests) 131ms
+ ✓ tests/ui-primitives.test.tsx (7 tests) 209ms
+ ✓ tests/single-select.test.tsx (3 tests) 399ms
+stderr | tests/app.test.tsx > memory-only management login > escapes broker strings and labels restored negotiation unknown
+Error: Not implemented: window.scrollTo
+    at module.exports (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at change (/Volumes/data/rmqtt/dashboard/web/src/App.tsx:190:14)
+    at callTheUserObjectsOperation (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at EventTargetImpl._dispatch (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at fireAnEvent (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
+    at SessionHistory._fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
+    at fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
+
+ ✓ tests/app.test.tsx (5 tests) 752ms
+ ✓ tests/rules-page.test.tsx (17 tests) 961ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage  302ms
+
+ Test Files  9 passed (9)
+      Tests  69 passed (69)
+   Start at  17:53:31
+   Duration  3.38s (transform 1.33s, setup 172ms, collect 4.83s, tests 2.88s, environment 10.43s, prepare 1.26s)
+
