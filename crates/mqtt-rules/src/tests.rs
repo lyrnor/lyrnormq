@@ -136,3 +136,47 @@ fn limits_and_arithmetic_fail_explicitly() {
     let body = serde_json::to_vec(&json!({"large":"x".repeat(600_000)})).unwrap();
     assert_eq!(rule.evaluate(&event(&body)), Err(RuleError::OutputTooLarge));
 }
+
+#[test]
+fn arithmetic_results_and_large_float_payloads_fail_safe_range_checks() {
+    let rule =
+        CompiledRule::compile(r#"SELECT 9007199254740991 + 2 AS value FROM "devices/#""#).unwrap();
+    assert_eq!(rule.evaluate(&event(b"{}")), Err(RuleError::Arithmetic));
+    let rule = CompiledRule::compile(r#"SELECT payload.n > 0 AS value FROM "devices/#""#).unwrap();
+    assert_eq!(
+        rule.evaluate(&event(br#"{"n":1e100}"#)),
+        Err(RuleError::Arithmetic)
+    );
+}
+
+#[test]
+fn generated_arithmetic_and_three_valued_logic_cases_match_reference() {
+    for n in -50..50 {
+        let sql = "SELECT payload.n * 2 + 3 AS answer FROM \"devices/#\" WHERE payload.n >= -100";
+        let output = evaluate(sql, format!("{{\"n\":{n}}}").as_bytes()).unwrap();
+        assert_eq!(output["answer"].as_f64(), Some(f64::from(n * 2 + 3)));
+    }
+    let values = [("true", Some(true)), ("false", Some(false)), ("NULL", None)];
+    for (left, a) in values {
+        for (right, b) in values {
+            let and = match (a, b) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            };
+            let or = match (a, b) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            };
+            for (op, result) in [("AND", and), ("OR", or)] {
+                let sql = format!("SELECT {left} {op} {right} AS result FROM \"devices/#\"");
+                assert_eq!(
+                    evaluate(&sql, b"{}"),
+                    Some(json!({"result":result})),
+                    "{sql}"
+                );
+            }
+        }
+    }
+}

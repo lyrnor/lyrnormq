@@ -48,6 +48,9 @@ async fn hook_observes_unsubscribed_publications_but_never_expired_ones() {
             true
         )
     );
+    publication.expires_at = Some(1);
+    broker.dispatch(Arc::new(publication.clone()), false);
+    assert!(rx.try_recv().is_err());
     publication.expired = true;
     broker.dispatch(Arc::new(publication), false);
     assert!(rx.try_recv().is_err());

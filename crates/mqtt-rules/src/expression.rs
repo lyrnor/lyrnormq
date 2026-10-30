@@ -257,6 +257,9 @@ fn truth(value: Option<bool>) -> Value {
     value.map(Value::Bool).unwrap_or(Value::Null)
 }
 fn number(n: f64) -> Result<Value, RuleError> {
+    if !n.is_finite() || n.abs() > 9_007_199_254_740_991.0 {
+        return Err(RuleError::Arithmetic);
+    }
     Number::from_f64(n)
         .map(Value::Number)
         .ok_or(RuleError::Arithmetic)
@@ -269,7 +272,11 @@ fn numeric(v: &Value) -> Result<Option<f64>, RuleError> {
     {
         return Err(RuleError::Arithmetic);
     }
-    Ok(n.as_f64())
+    let value = n.as_f64();
+    if value.is_some_and(|n| !n.is_finite() || n.abs() > 9_007_199_254_740_991.0) {
+        return Err(RuleError::Arithmetic);
+    }
+    Ok(value)
 }
 fn compare(a: &Value, b: &Value) -> Result<Option<Ordering>, RuleError> {
     Ok(match (a, b) {

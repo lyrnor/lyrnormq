@@ -706,7 +706,11 @@ impl Broker {
         if publication.expired {
             return None;
         }
-        if let Some(observer) = &self.config.publication_observer {
+        if let Some(observer) = &self.config.publication_observer
+            && !publication
+                .expires_at
+                .is_some_and(|deadline| deadline <= self.clock.now_millis())
+        {
             observer.observe(
                 &publication.topic,
                 &publication.payload,
