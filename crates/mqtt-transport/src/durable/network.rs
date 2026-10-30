@@ -17,12 +17,10 @@ use std::{
     },
     time::Duration,
 };
+#[cfg(test)]
+use tokio::net::{TcpStream, tcp::OwnedWriteHalf};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{
-        TcpStream,
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-    },
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     sync::{mpsc, oneshot, watch},
     time::{Instant, timeout},
 };
@@ -217,8 +215,8 @@ fn io_reason(error: &io::Error) -> ReasonCode {
             ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR
         })
 }
-async fn write_frame(
-    writer: &mut OwnedWriteHalf,
+async fn write_frame<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     frame: &Frame,
     config: &BrokerConfig,
     peer_maximum: usize,
@@ -230,17 +228,21 @@ async fn write_frame(
             "outgoing packet exceeds limit",
         ));
     }
-    timeout(config.write_timeout, writer.write_all(&bytes))
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "socket write timed out"))?
+    timeout(config.write_timeout, async {
+        writer.write_all(&bytes).await?;
+        writer.flush().await
+    })
+    .await
+    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "socket write timed out"))?
 }
 struct WriterLimits {
+    close: Arc<AtomicBool>,
     config: BrokerConfig,
     peer_maximum: Arc<AtomicUsize>,
     peer_alias_maximum: Arc<AtomicUsize>,
 }
-fn spawn_writer(
-    mut writer: OwnedWriteHalf,
+fn spawn_writer<W: AsyncWrite + Unpin + Send + 'static>(
+    mut writer: W,
     mut output: mpsc::Receiver<Box<Output>>,
     mut terminal: watch::Receiver<Option<Frame>>,
     credits: SharedCredits,
@@ -249,6 +251,7 @@ fn spawn_writer(
     failed: Arc<AtomicBool>,
 ) -> tokio::task::JoinHandle<io::Result<()>> {
     let WriterLimits {
+        close,
         config,
         peer_maximum,
         peer_alias_maximum,
@@ -257,6 +260,7 @@ fn spawn_writer(
     tokio::spawn(async move {
         let result = async {
             loop {
+                if close.load(Ordering::Acquire) { return Ok(()); }
                 let final_frame = terminal.borrow_and_update().clone();
                 if let Some(frame) = final_frame {
                     write_frame(&mut writer, &frame, &config, peer_maximum.load(Ordering::Acquire)).await?;
@@ -268,6 +272,7 @@ fn spawn_writer(
                     message=output.recv()=>{
                         let Some(message)=message else{return Ok(());};
                         let prepared=begin_output(message).await;
+                        if close.load(Ordering::Acquire) { return Ok(()); }
                         // A terminal signal arriving during the blocking worker roundtrip
                         // still wins before any new frame bytes are started.
                         let final_frame=terminal.borrow_and_update().clone();
@@ -285,6 +290,21 @@ fn spawn_writer(
             }
         }
         .await;
+        let result = match result {
+            Ok(()) => match timeout(config.write_timeout, async {
+                writer.shutdown().await?;
+                writer.flush().await
+            })
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "socket shutdown timed out",
+                )),
+            },
+            Err(error) => Err(error),
+        };
         if result.is_err() {
             failed.store(true, Ordering::Release);
             let _ = cancel.send(true);
@@ -361,16 +381,15 @@ struct Context<'a> {
 fn terminal_frame(context: &Context<'_>, frame: Frame) {
     context.terminal.send_replace(Some(frame));
 }
-pub(super) async fn connection_loop(
-    stream: TcpStream,
+pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
+    stream: S,
     generation: u64,
     worker: &Worker,
     config: &BrokerConfig,
     shutdown: watch::Receiver<bool>,
     identity: &mut Option<String>,
 ) -> io::Result<()> {
-    stream.set_nodelay(true)?;
-    let (mut reader, writer) = stream.into_split();
+    let (mut reader, writer) = stream.into_io()?;
     let (output, receiver) = mpsc::channel(config.outbound_capacity);
     let (terminal, terminal_rx) = watch::channel(None);
     let (wake_tx, wake) = watch::channel(0u64);
@@ -380,12 +399,14 @@ pub(super) async fn connection_loop(
     let failed = Arc::new(AtomicBool::new(false));
     let peer_maximum = Arc::new(AtomicUsize::new(usize::MAX));
     let peer_alias_maximum = Arc::new(AtomicUsize::new(0));
+    let writer_close = Arc::new(AtomicBool::new(false));
     let writer = spawn_writer(
         writer,
         receiver,
         terminal_rx,
         credits.clone(),
         WriterLimits {
+            close: writer_close.clone(),
             config: config.clone(),
             peer_maximum: peer_maximum.clone(),
             peer_alias_maximum: peer_alias_maximum.clone(),
@@ -456,6 +477,14 @@ pub(super) async fn connection_loop(
             }
         }
     }
+    if S::TLS && result.is_ok() && terminal.borrow().is_none() {
+        // TLS EOF, MQTT DISCONNECT and shutdown may send a reciprocal alert,
+        // without draining queued business packets. Finish an already-started
+        // frame, then close under the existing bounded writer join.
+        writer_close.store(true, Ordering::Release);
+        terminal.send_replace(None);
+        flush = true;
+    }
     drop(output);
     finish_writer(writer, result, flush, config.write_timeout).await
 }
@@ -488,7 +517,7 @@ pub(super) async fn finish_writer(
 }
 #[cfg(test)]
 pub(super) fn test_writer(
-    writer: OwnedWriteHalf,
+    writer: tokio::net::tcp::OwnedWriteHalf,
     output: mpsc::Receiver<Box<Output>>,
     config: BrokerConfig,
     cancel: watch::Sender<bool>,
@@ -505,6 +534,7 @@ pub(super) fn test_writer(
             receiver,
             credits,
             WriterLimits {
+                close: Arc::new(AtomicBool::new(false)),
                 config,
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
                 peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
@@ -544,7 +574,7 @@ fn discard_acknowledged(pending: &mut Option<Delivery>, acknowledged: Option<u16
     }
 }
 
-async fn drive(reader: &mut OwnedReadHalf, mut context: Context<'_>) -> io::Result<()> {
+async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -> io::Result<()> {
     let mut buffer = Vec::new();
     let mut scratch = [0u8; 8192];
     let mut received_at_millis = 0;
@@ -1014,6 +1044,7 @@ mod tests {
             terminal_rx,
             credits.clone(),
             WriterLimits {
+                close: Arc::new(AtomicBool::new(false)),
                 config,
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
                 peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
@@ -1065,6 +1096,7 @@ mod tests {
             terminal_rx,
             credits.clone(),
             WriterLimits {
+                close: Arc::new(AtomicBool::new(false)),
                 config,
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
                 peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
@@ -1653,6 +1685,7 @@ mod tests {
             terminal_rx,
             credits,
             WriterLimits {
+                close: Arc::new(AtomicBool::new(false)),
                 config: config.clone(),
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
                 peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
@@ -2110,3 +2143,7 @@ mod tests {
 #[cfg(test)]
 #[path = "network/phase3_tests.rs"]
 mod phase3_tests;
+
+#[cfg(test)]
+#[path = "network/flush_tests.rs"]
+mod flush_tests;

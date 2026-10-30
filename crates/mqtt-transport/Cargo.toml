@@ -11,3 +11,5 @@ mqtt-router = { path = "../mqtt-router" }
 mqtt-session = { path = "../mqtt-session" }
 mqtt-storage = { path = "../mqtt-storage" }
 tokio.workspace = true
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls-pemfile = "2.2"

@@ -36,6 +36,7 @@ async fn full_output_queue_drain_timeout_preserves_unwritten_credits_and_release
             terminal_rx,
             credits.clone(),
             WriterLimits {
+                close: Arc::new(AtomicBool::new(false)),
                 config: config.clone(),
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
                 peer_alias_maximum: Arc::new(AtomicUsize::new(0)),
@@ -92,6 +93,7 @@ async fn full_output_queue_drain_timeout_preserves_unwritten_credits_and_release
             healthy_terminal_rx,
             Arc::new(Mutex::new(Credits::new(1))),
             WriterLimits {
+                close: Arc::new(AtomicBool::new(false)),
                 config: config.clone(),
                 peer_maximum: Arc::new(AtomicUsize::new(usize::MAX)),
                 peer_alias_maximum: Arc::new(AtomicUsize::new(0)),

@@ -17,8 +17,10 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
     time::Duration,
 };
+#[cfg(test)]
+use tokio::net::TcpStream;
 use tokio::{
-    net::{TcpListener, TcpStream},
+    net::TcpListener,
     sync::{Semaphore, mpsc, oneshot, watch},
     task::JoinSet,
     time::MissedTickBehavior,
@@ -720,6 +722,24 @@ async fn start(config: BrokerConfig) -> io::Result<Arc<Broker>> {
 pub(super) async fn serve(
     listener: TcpListener,
     config: BrokerConfig,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    serve_with_tls(listener, config, None, shutdown).await
+}
+
+pub(super) async fn serve_tls(
+    listener: TcpListener,
+    config: BrokerConfig,
+    tls: crate::TlsConfig,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    serve_with_tls(listener, config, Some(tls), shutdown).await
+}
+
+async fn serve_with_tls(
+    listener: TcpListener,
+    config: BrokerConfig,
+    tls: Option<crate::TlsConfig>,
     mut shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
     let broker = start(config.clone()).await?;
@@ -749,9 +769,23 @@ pub(super) async fn serve(
                 let worker = Worker::new(Arc::clone(&broker));
                 let config = config.clone();
                 let shutdown = stop_rx.clone();
+                let tls = tls.clone();
                 tasks.spawn(async move {
                     let _permit = permit;
-                    let _ = connection(stream, generation, worker, config, shutdown).await;
+                    if let Some(tls) = tls {
+                        if stream.set_nodelay(true).is_err() { return; }
+                        let mut stopped = shutdown.clone();
+                        let accepted = tokio::select! {
+                            biased;
+                            _ = stopped.changed() => return,
+                            result = tokio::time::timeout(config.handshake_timeout, tls.acceptor.accept(stream)) => result,
+                        };
+                        if let Ok(Ok(stream)) = accepted {
+                            let _ = connection(stream, generation, worker, config, shutdown).await;
+                        }
+                    } else {
+                        let _ = connection(stream, generation, worker, config, shutdown).await;
+                    }
                 });
             }
         }
@@ -766,8 +800,8 @@ pub(super) async fn serve(
     result.and(stopped)
 }
 
-async fn connection(
-    stream: TcpStream,
+async fn connection<S: crate::io_stream::IoStream>(
+    stream: S,
     generation: u64,
     worker: Worker,
     config: BrokerConfig,

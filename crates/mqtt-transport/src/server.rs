@@ -14,6 +14,22 @@ pub async fn serve(
     config: BrokerConfig,
     shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
+    validate(&config)?;
+    durable::serve(listener, config, shutdown).await
+}
+
+/// Serve the same broker/session machinery over server-authenticated TLS.
+pub async fn serve_tls(
+    listener: TcpListener,
+    config: BrokerConfig,
+    tls: crate::TlsConfig,
+    shutdown: watch::Receiver<bool>,
+) -> io::Result<()> {
+    validate(&config)?;
+    durable::serve_tls(listener, config, tls, shutdown).await
+}
+
+fn validate(config: &BrokerConfig) -> io::Result<()> {
     if config.max_retained == 0
         || config.max_sessions == 0
         || config.max_state_bytes == 0
@@ -36,5 +52,5 @@ pub async fn serve(
             "invalid broker resource limits",
         ));
     }
-    durable::serve(listener, config, shutdown).await
+    Ok(())
 }
