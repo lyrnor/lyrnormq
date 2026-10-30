@@ -252,6 +252,23 @@ class WebSocketBlackbox(unittest.TestCase):
         self.assertTrue(all(size <= 1 for size in sock.message_sizes))
         self.disconnect(sock)
 
+    def test_wss_normal_close_survives_delayed_reciprocal_tls_notify(self):
+        for tls_version in (ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3):
+            for version in (4, 5):
+                with self.subTest(tls=tls_version.name, mqtt=version):
+                    sock = self.client(self.brokers[True],
+                                       f'delayed-notify-{tls_version.name}-{version}',
+                                       version, tls=tls_version)
+                    self.barrier(sock)
+                    sock.sendall(frame(0xe0))
+                    self.assertEqual(sock.recv(1), b'')  # Receives and echoes WS Close.
+                    self.assertEqual(sock.close_code, 1000)
+                    # Peer response may be scheduled later. This is a legal client
+                    # pause, not a persistence barrier or a latency threshold.
+                    time.sleep(.01)
+                    plain = sock.raw.unwrap()  # Ragged EOF / BrokenPipe must fail.
+                    plain.close()
+
     def test_upgrade_header_cap_before_incomplete_request_finishes(self):
         broker = WebSocketBroker(self.identities,extra=['--handshake-timeout-ms','10000']).start()
         self.addCleanup(broker.stop)
