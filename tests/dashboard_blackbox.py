@@ -408,12 +408,18 @@ class DashboardBlackbox(unittest.TestCase):
         recovered = self.session('durable-target')
         self.assertFalse(recovered['online'])
         self.assertTrue(recovered['persistent'])
+        self.assertEqual(recovered['protocol'], 'unknown')
+        self.assertIsNone(recovered['receive_maximum'])
+        self.assertEqual(self.page('sessions', protocol='5.0')['total'], 0)
+        self.assertEqual(self.page('sessions', protocol='3.1.1')['total'], 0)
         self.assertEqual(recovered['queued'], 1)
         self.assertEqual(recovered['inflight'], 1)
         self.assertEqual(broker.data('/api/v1/overview')['messages_in_total'], 0)
         self.assertEqual(self.page('retained')['items'][0]['payload_bytes'], len(b'committed-qos1'))
         self.assertEqual(self.page('subscriptions')['items'][0]['identifier'], 9)
         resumed = self.client('durable-target', persistent=True, present=True)
+        self.assertEqual(self.session('durable-target')['protocol'], '5.0')
+        self.assertIsInstance(self.session('durable-target')['receive_maximum'], int)
         replay = self.delivery(resumed, 'recover/inflight', b'committed-qos1', 1, dup=True)
         self.assertEqual(replay[3], packet_id)
         self.delivery(resumed, 'recover/queued', b'committed-qos2', 2)
@@ -437,10 +443,12 @@ class DashboardBlackbox(unittest.TestCase):
         broker.stop(crash=True)
         broker.start()
         restored = self.session('qos2-mqtt311')
-        self.assertEqual(restored['protocol'], '3.1.1')
+        self.assertEqual(restored['protocol'], 'unknown')
+        self.assertIsNone(restored['receive_maximum'])
         self.assertFalse(restored['online'])
         self.assertEqual(restored['inflight'], 1)
         resumed = self.client('qos2-mqtt311', version=4, persistent=True, present=True)
+        self.assertEqual(self.session('qos2-mqtt311')['protocol'], '3.1.1')
         # PUBREL is replayed with the original identifier, never a second PUBLISH.
         self.assertEqual(receive(resumed), (0x62, struct.pack('!H', packet_id)))
         resumed.sendall(ack(0x70, packet_id))
@@ -528,6 +536,19 @@ class DashboardStartupValidation(unittest.TestCase):
             occupied.listen(1)
             self.admin_address = f'127.0.0.1:{occupied.getsockname()[1]}'
             self.rejected(self.admin())
+
+    def test_rejects_management_secret_exposed_as_unauthenticated_static_asset(self):
+        assets = self.root / 'web'
+        assets.mkdir()
+        (assets / 'index.html').write_text('<!doctype html><div>test</div>')
+        inside = assets / 'administrator.js'
+        inside.write_text(TOKEN)
+        self.rejected(['--admin-listen', self.admin_address, '--admin-token-file', str(inside),
+                       '--dashboard-dir', str(assets)])
+        inside.unlink()
+        # A differently named hard link exposes identical secret bytes too.
+        os.link(self.token, inside)
+        self.rejected(self.admin() + ['--dashboard-dir', str(assets)])
 
 
 if __name__ == '__main__':
