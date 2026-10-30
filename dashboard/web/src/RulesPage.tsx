@@ -10,10 +10,7 @@ import { api, ApiError, errorMessage } from "./api";
 import { Badge, Drawer, Empty, Panel } from "./components";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "./components/ui/native-select";
+import { SingleSelect } from "./components/ui/single-select";
 import {
   Table,
   TableBody,
@@ -799,21 +796,26 @@ function Editor({
         {edit.kind === "outbounds" && (
           <>
             <Field label="出站类型">
-              <NativeSelect
+              <SingleSelect
+                aria-label="出站类型"
                 value={action.type}
                 disabled={busy || !edit.fresh}
-                onChange={(event) => {
-                  if (event.target.value === "webhook")
-                    patch({ type: "webhook" });
+                onValueChange={(value) => {
+                  if (value === "webhook") patch({ type: "webhook" });
                 }}
-              >
-                <NativeSelectOption value="webhook">Webhook</NativeSelectOption>
-                {action.type !== "webhook" && (
-                  <NativeSelectOption value={action.type}>
-                    暂不支持的出站类型
-                  </NativeSelectOption>
-                )}
-              </NativeSelect>
+                options={[
+                  { value: "webhook", label: "Webhook" },
+                  ...(action.type !== "webhook"
+                    ? [
+                        {
+                          value: action.type,
+                          label: "暂不支持的出站类型",
+                          disabled: true,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             </Field>
             <Field label="Webhook URL">
               <Input

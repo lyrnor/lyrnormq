@@ -1,7 +1,7 @@
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { Input } from "./components/ui/input";
-import { NativeSelect } from "./components/ui/native-select";
+import { SingleSelect } from "./components/ui/single-select";
 import {
   Table,
   TableHeader,
@@ -258,17 +258,19 @@ function Console({
         />
       </div>
       {route === "connections" && (
-        <NativeSelect
+        <SingleSelect
           aria-label="筛选 MQTT 版本"
+          className="w-full sm:w-44"
           value={query.protocol}
-          onChange={(e) =>
-            setQuery((q) => changeQuery(q, { protocol: e.target.value }))
+          onValueChange={(value) =>
+            setQuery((q) => changeQuery(q, { protocol: value }))
           }
-        >
-          <option value="">全部协议版本</option>
-          <option value="5.0">MQTT 5.0</option>
-          <option value="3.1.1">MQTT 3.1.1</option>
-        </NativeSelect>
+          options={[
+            { value: "", label: "全部协议版本" },
+            { value: "5.0", label: "MQTT 5.0" },
+            { value: "3.1.1", label: "MQTT 3.1.1" },
+          ]}
+        />
       )}
       <span className="ml-auto hidden text-[10px] text-muted-foreground xl:inline">
         真实 Broker 数据 · 每 5 秒更新

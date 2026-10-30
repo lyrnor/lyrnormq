@@ -222,6 +222,7 @@ export function Drawer({
           onClose();
       }}
       onKeyDown={(e) => {
+        if (e.defaultPrevented) return;
         if (e.key === "Escape") {
           e.preventDefault();
           onClose();
