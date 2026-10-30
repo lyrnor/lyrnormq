@@ -87,7 +87,16 @@ async fn both_versions_all_qos_actual_delivery_and_final_confirmation() {
                 assert!(s.send_started_ns >= s.scheduled_ns);
                 assert!(s.delivery_ns.is_some());
                 assert!(s.write_completed_ns.is_some());
-                assert!(s.completed_ns >= s.delivery_ns);
+                let expected_completion = s
+                    .write_completed_ns
+                    .into_iter()
+                    .chain(s.delivery_ns)
+                    .chain(s.ack_ns)
+                    .max();
+                assert_eq!(
+                    s.completed_ns, expected_completion,
+                    "full completion must be the final observed write/delivery/source ACK"
+                );
                 if qos == 0 {
                     assert_eq!(s.ack_ns, None);
                 } else {
