@@ -22,6 +22,7 @@ from blackbox import frame, receive, string
 from mqtt5_blackbox import (ack5, connect5, parse5, parse_ack5, props,
                             publication5, readprops)
 from qos_blackbox import ack, parse_publish
+from auth_acl_blackbox import policy
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -577,6 +578,27 @@ class DashboardStartupValidation(unittest.TestCase):
         # A differently named hard link exposes identical secret bytes too.
         os.link(self.token, inside)
         self.rejected(self.admin() + ['--dashboard-dir', str(assets)])
+
+    def test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets(self):
+        assets = self.root / 'web'
+        assets.mkdir()
+        (assets / 'index.html').write_text('<!doctype html><div>test</div>')
+        policy_path = self.root / 'credentials.json'
+        policy_path.write_text(json.dumps(policy()))
+        alias = assets / 'public-bundle.js'
+        os.link(policy_path, alias)
+        self.rejected(self.admin() + ['--auth-policy', str(policy_path),
+                                     '--dashboard-dir', str(assets)])
+        alias.unlink()
+        key = self.root / 'server-private.pem'
+        cert = self.root / 'server-cert.pem'
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                        '-days', '1', '-subj', '/CN=localhost', '-keyout', str(key),
+                        '-out', str(cert)], check=True, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.PIPE, timeout=20)
+        os.link(key, alias)
+        self.rejected(self.admin() + ['--tls-cert', str(cert), '--tls-key', str(key),
+                                     '--dashboard-dir', str(assets)])
 
 
 if __name__ == '__main__':
