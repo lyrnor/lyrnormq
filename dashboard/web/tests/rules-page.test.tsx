@@ -243,6 +243,52 @@ describe("live rule and Webhook management", () => {
     expect(cfg.rules[0].id).not.toBe(cfg.outbounds[0].id);
     expect(cfg.rules[0].enabled).toBe(false);
   });
+  it("binds only the selected identifier when outbound names are identical", async () => {
+    server({
+      ...populated,
+      outbounds: [
+        {
+          ...populated.outbounds[0],
+          name: "Shared destination",
+          config: { url: "https://example.com/first", headers: {} },
+        },
+        {
+          ...populated.outbounds[0],
+          id: "second-outbound",
+          name: "Shared destination",
+          config: { url: "https://example.com/second", headers: {} },
+        },
+      ],
+    });
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "Only second" },
+    });
+    const first = screen.getByRole("checkbox", {
+      name: /https:\/\/example.com\/first/,
+    });
+    const second = screen.getByRole("checkbox", {
+      name: /https:\/\/example.com\/second/,
+    });
+    expect(first.getAttribute("aria-checked")).toBe("false");
+    expect(second.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(second);
+    expect(first.getAttribute("aria-checked")).toBe("false");
+    expect(second.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const saved = request.mock.calls.find(
+      (call) => call[3]?.method === "PUT",
+    )?.[3]?.body as RulesConfig;
+    expect(
+      saved.rules.find((rule) => rule.name === "Only second")?.outbound_ids,
+    ).toEqual(["second-outbound"]);
+    expect(saved.rules.find((rule) => rule.id === "hot")?.outbound_ids).toEqual(
+      ["send"],
+    );
+  });
   it("rejects unknown outbound types without interpreting them as Webhook", async () => {
     server({
       ...empty,
