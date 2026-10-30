@@ -644,38 +644,38 @@ assets and never searches cwd. Explicit --dashboard-dir replaces the entire bund
 through the same bounded/sensitive-file checks. Embedded records carry no runtime
 filesystem identity; administrator credentials, TLS keys and state are not embedded.
 
-## Phase5a: SQL rules and Webhook outbound
+## Phase5c: SQL rules and unified outbounds
 
-The [frozen rule/Webhook contract](contracts/phase5a-rules-webhook.md) introduces
-an opt-in best-effort side path, not a new MQTT delivery guarantee. A nonblocking
-publication observer prefilters Topics and tries to enqueue a bounded metadata/
-payload event. Four dedicated client-hashed dispatcher threads preserve processing
-order within a publisher while executing different shards concurrently. SQL is
-parsed and whitelisted at configuration time, with bounded expressions and output.
-Each action owns a bounded queue/worker; shared HTTP concurrency and queued bytes
-are bounded. Rule errors or slow targets do not gate MQTT ACKs or ordinary routing.
+The [unified outbound contract](contracts/phase5c-unified-outbounds.md) defines two
+user-managed entities: Rules and Outbounds. A rule selects outbound_ids; each typed
+outbound owns its destination configuration and delivery policy. No separate
+connector/action workflow is exposed. Only Webhook is currently available.
 
-Connections, actions and SQL rules are distinct configuration entities. Config
-replacement compiles/validates off the network runtime, commits an atomic SQLite
-configuration transaction and switches immutable snapshots after success. The
-configuration database is separate from the strict session store, defaults to
-rmqtt-rules.sqlite, and is enabled by default. No JSON-file backend/import exists.
-Replaced action workers are cancelled
-and abandoned copies counted. HTTP pools belong to a generation, preventing endpoint
-churn retaining process-global idle pools. Input and action copies retain bounded
-memory reservations through processing, batching, retries and cancellation.
+A nonblocking publication observer prefilters topics and enqueues bounded events.
+Four client-hashed SQL dispatcher threads preserve per-publisher processing order.
+SQL plans are compiled at configuration time. Per-outbound queues, global16MiB
+reservations, batching, retry pacing, lifecycle and statistics belong to mqtt-egress.
+The scheduler talks to an object-safe async sink from mqtt-egress-core; protocol
+success/retry classification, HTTP envelope/client/headers, TLS and redaction belong
+to the mqtt-webhook adapter. New native sink types add typed config/factory/forms
+without modifying SQL evaluation or scheduling. Unsupported types fail validation.
 
-Webhook POST batches carry a source event_id and a per-rule/action delivery_id,
-stable across retries. Receiver idempotency uses delivery_id. Credentials are local
-configuration headers, redacted from APIs/debug output; HTTPS verifies certificates,
-redirects are disabled, response bodies are not unboundedly collected. SQL preview
-has no external side effects. Admin write routes are restricted to rule config/test;
-MQTT/session controls remain read-only, with unchanged token/CSP/loopback policy.
+Configuration is enabled by default and persists in rmqtt-rules.sqlite. The bounded
+SQLite singleton container is separate from the strict session database. New
+schema_version2 records contain outbounds and rules. Recognized old SQLite blobs
+are validated and converted transactionally: action IDs become outbound IDs,
+referenced connector credentials become typed destination config and bindings are
+preserved. No JSON file backend/import exists. Invalid migrations fail without
+overwriting the prior record. Config commits precede snapshot publication; failures
+stop dispatch until restart. DB IO runs on blocking workers, never MQTT hot paths.
 
-Only configuration persists; event queues/counters are volatile. An uncertain
-SQLite save failure stops rule execution and rejects subsequent mutations until
-restart; acknowledged commits are restored. Database IO runs only on blocking
-workers, never on MQTT publication paths. This phase does not implement durable
-rule admission/action outbox, Kafka/PostgreSQL, plugins, windows, dead-letter replay
-or performance certification. MQTT durable schemas and ACK/outbox semantics remain
-unchanged. Built React UI continues to be embedded in the release binary.
+Generation-owned sinks are cancelled/released on replacement; abandoned copies
+count as drops. Source event_id and per-rule/outbound delivery_id remain stable
+across retries. Webhook POST batches use outbound_id and are capped at1MiB including
+envelope overhead. Credentials are redacted from API/debug output; preview has no
+outbound side effects. MQTT/session control remains read-only with unchanged
+Bearer/loopback/CSP policy. React assets remain embedded in the release binary.
+
+Event queues/counters remain volatile best-effort. No durable action outbox,
+Kafka/PostgreSQL/Redis, plugins, windowing or dead-letter replay is implemented.
+This refactor adds no performance certification or change to MQTT ACK/outbox schema.

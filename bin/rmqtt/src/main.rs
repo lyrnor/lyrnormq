@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None
     };
     let rules = if let Some(path) = options.rules_config.clone() {
-        let runtime = mqtt_webhook::Runtime::open(path).await?;
+        let runtime = mqtt_egress::Runtime::open(path).await?;
         options.config.publication_observer = Some(runtime.observer());
         if let Some((_, state)) = &mut admin {
             let state = std::sync::Arc::get_mut(state)

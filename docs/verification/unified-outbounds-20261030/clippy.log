@@ -1,0 +1,7 @@
+    Blocking waiting for file lock on build directory
+   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+    Checking mqtt-storage v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-storage)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Checking mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+    Checking mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.67s

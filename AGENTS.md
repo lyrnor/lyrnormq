@@ -23,3 +23,8 @@ owns crates/mqtt-rules; Webhook owner crates/mqtt-webhook; Dashboard owner front
 Rules are bounded best-effort side effects; do not claim durable queue/ACK coupling.
 
 Rule configuration SQLite additionally follows `docs/contracts/phase5b-rules-sqlite.md`.
+
+Unified rules/outbounds follow `docs/contracts/phase5c-unified-outbounds.md`, which
+supersedes the connector/action model. Egress owner owns crates/mqtt-egress and
+crates/mqtt-egress-core; Webhook owns crates/mqtt-webhook as a protocol adapter only.
+Generic scheduling must not depend on HTTP or import reqwest.

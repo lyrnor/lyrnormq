@@ -61,7 +61,9 @@ delivery_id uses source+rule+outbound, stable across retries/distinct fanout.
   accepted silently. It is fine to deserialize raw wire config at a strict boundary
   then convert to typed variants; runtime domain must use typed configuration.
 - Shared delivery policy describes capacities/time budgets/retry ceiling. Adapter
-  capabilities constrain batching sizes/bytes and classify errors. Webhook's batch
+  capabilities constrain batching sizes/bytes, declare fixed/record-separator
+  framing overhead and classify errors. Shared timeout is enforced by the generic
+  worker, including for non-HTTP sinks. Webhook's batch
   body max1MiB includes all envelope overhead, preserving current boundary tests.
   Tests with fake non-HTTP sinks prove retry/permanent handling and capability
   bounds without standing up Kafka/PostgreSQL/Redis or providing dummy support.

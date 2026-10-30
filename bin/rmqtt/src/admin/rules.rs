@@ -7,7 +7,7 @@ use axum::{
     http::{Method, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use mqtt_webhook::{Config, RuntimeError};
+use mqtt_egress::{Config, RuntimeError};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -23,7 +23,7 @@ fn failure(error_kind: RuntimeError) -> Response {
         RuntimeError::InvalidConfig => error(
             StatusCode::BAD_REQUEST,
             "invalid_config",
-            "Invalid rule, action or connector configuration",
+            "Invalid rule or outbound configuration",
         ),
         RuntimeError::InvalidSql => error(
             StatusCode::BAD_REQUEST,
@@ -52,7 +52,7 @@ pub(super) async fn dispatch(state: &State, request: Request) -> Response {
         return error(
             StatusCode::SERVICE_UNAVAILABLE,
             "rules_disabled",
-            "Enable --rules-config to use rules and Webhook actions",
+            "Rule service is not available",
         );
     };
     if request.uri().query().is_some_and(|q| !q.is_empty()) {

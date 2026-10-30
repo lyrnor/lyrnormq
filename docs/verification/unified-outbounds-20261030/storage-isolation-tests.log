@@ -1,0 +1,251 @@
+Run 1/5, default parallel test threads
+   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-storage-test-isolation/crates/mqtt-storage)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+
+running 36 tests
+test configuration::tests::crash_worker ... ok
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... ok
+test configuration::tests::rejects_zero_limit_directory_and_invalid_blob_rows ... ok
+test configuration::tests::rejects_database_and_lock_symlinks_without_touching_target ... ok
+test configuration::tests::process_kill_recovers_committed_row_and_rolls_back_uncommitted_row ... ok
+test configuration::tests::exclusive_canonical_owner_releases_on_drop ... ok
+test configuration::tests::external_oversize_update_is_rejected_on_load_before_copying ... ok
+test configuration::tests::transaction_failure_preserves_previous_configuration ... ok
+test configuration::tests::errors_and_debug_do_not_expose_data_or_paths ... ok
+test durable::rows::tests::container1_is_reported_then_migrated_atomically ... ok
+test durable::rows::tests::fresh_store_applies_batches_and_reopens_rows ... ok
+test configuration::tests::sqlite_roundtrip_limits_and_private_permissions ... ok
+test durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows ... ok
+test configuration::tests::foreign_corrupt_and_unknown_schema_are_rejected_without_rewriting ... ok
+test durable::service::tests::full_queue_is_reported_without_blocking ... ok
+test durable::service::tests::legacy_store_cannot_start_a_service ... ok
+test durable::service::tests::queued_jobs_commit_in_one_group_and_complete_in_order ... ok
+test memory::tests::batch_checks_intermediate_capacity_not_only_final_state ... ok
+test memory::tests::batch_preflights_operation_and_input_byte_limits ... ok
+test memory::tests::batch_preserves_namespaces_and_replacement_accounting ... ok
+test memory::tests::batch_rolls_back_changes_when_later_capacity_check_fails ... ok
+test memory::tests::batch_validates_each_key_and_value_and_empty_batch_is_noop ... ok
+test memory::tests::failed_replacement_preserves_old_record_and_accounting ... ok
+test memory::tests::inflight_keys_count_packet_identifier_bytes ... ok
+test memory::tests::namespaces_do_not_collide ... ok
+test memory::tests::replace_at_entry_limit_and_reclaim_bytes ... ok
+test memory::tests::validates_limits_keys_and_sizes_without_mutation ... ok
+test durable::tests::commit_reopen_and_limits_preserve_previous_snapshot ... ok
+test durable::tests::disk_full_sql_error_rolls_back_and_store_can_continue ... ok
+test durable::tests::exclusive_owner_lock_releases_on_drop ... ok
+test durable::rows::tests::open_limits_and_unknown_schemas_fail_closed ... ok
+test durable::rows::tests::row_store_shares_the_exclusive_owner_lock ... ok
+test durable::service::tests::failed_commit_fails_the_group_and_every_later_job ... ok
+test durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock ... ok
+test durable::tests::rejects_dangling_symlink_but_existing_alias_shares_owner_lock ... ok
+test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resetting ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+   Doc-tests mqtt_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Run 2/5, default parallel test threads
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+
+running 36 tests
+test configuration::tests::crash_worker ... ok
+test configuration::tests::errors_and_debug_do_not_expose_data_or_paths ... ok
+test configuration::tests::exclusive_canonical_owner_releases_on_drop ... ok
+test configuration::tests::external_oversize_update_is_rejected_on_load_before_copying ... ok
+test configuration::tests::foreign_corrupt_and_unknown_schema_are_rejected_without_rewriting ... ok
+test configuration::tests::rejects_zero_limit_directory_and_invalid_blob_rows ... ok
+test configuration::tests::sqlite_roundtrip_limits_and_private_permissions ... ok
+test configuration::tests::transaction_failure_preserves_previous_configuration ... ok
+test durable::rows::tests::container1_is_reported_then_migrated_atomically ... ok
+test durable::rows::tests::fresh_store_applies_batches_and_reopens_rows ... ok
+test durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows ... ok
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... ok
+test configuration::tests::rejects_database_and_lock_symlinks_without_touching_target ... ok
+test durable::rows::tests::open_limits_and_unknown_schemas_fail_closed ... ok
+test durable::rows::tests::row_store_shares_the_exclusive_owner_lock ... ok
+test durable::service::tests::failed_commit_fails_the_group_and_every_later_job ... ok
+test durable::service::tests::full_queue_is_reported_without_blocking ... ok
+test memory::tests::batch_checks_intermediate_capacity_not_only_final_state ... ok
+test memory::tests::batch_preflights_operation_and_input_byte_limits ... ok
+test memory::tests::batch_preserves_namespaces_and_replacement_accounting ... ok
+test memory::tests::batch_rolls_back_changes_when_later_capacity_check_fails ... ok
+test memory::tests::batch_validates_each_key_and_value_and_empty_batch_is_noop ... ok
+test memory::tests::failed_replacement_preserves_old_record_and_accounting ... ok
+test memory::tests::inflight_keys_count_packet_identifier_bytes ... ok
+test memory::tests::namespaces_do_not_collide ... ok
+test memory::tests::replace_at_entry_limit_and_reclaim_bytes ... ok
+test memory::tests::validates_limits_keys_and_sizes_without_mutation ... ok
+test durable::service::tests::legacy_store_cannot_start_a_service ... ok
+test durable::service::tests::queued_jobs_commit_in_one_group_and_complete_in_order ... ok
+test durable::tests::commit_reopen_and_limits_preserve_previous_snapshot ... ok
+test durable::tests::disk_full_sql_error_rolls_back_and_store_can_continue ... ok
+test configuration::tests::process_kill_recovers_committed_row_and_rolls_back_uncommitted_row ... ok
+test durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock ... ok
+test durable::tests::rejects_dangling_symlink_but_existing_alias_shares_owner_lock ... ok
+test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resetting ... ok
+test durable::tests::exclusive_owner_lock_releases_on_drop ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+   Doc-tests mqtt_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Run 3/5, default parallel test threads
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+
+running 36 tests
+test configuration::tests::crash_worker ... ok
+test configuration::tests::exclusive_canonical_owner_releases_on_drop ... ok
+test configuration::tests::foreign_corrupt_and_unknown_schema_are_rejected_without_rewriting ... ok
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... ok
+test configuration::tests::sqlite_roundtrip_limits_and_private_permissions ... ok
+test configuration::tests::errors_and_debug_do_not_expose_data_or_paths ... ok
+test configuration::tests::rejects_zero_limit_directory_and_invalid_blob_rows ... ok
+test configuration::tests::transaction_failure_preserves_previous_configuration ... ok
+test durable::rows::tests::container1_is_reported_then_migrated_atomically ... ok
+test configuration::tests::process_kill_recovers_committed_row_and_rolls_back_uncommitted_row ... ok
+test configuration::tests::external_oversize_update_is_rejected_on_load_before_copying ... ok
+test durable::rows::tests::fresh_store_applies_batches_and_reopens_rows ... ok
+test durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows ... ok
+test durable::rows::tests::open_limits_and_unknown_schemas_fail_closed ... ok
+test durable::rows::tests::row_store_shares_the_exclusive_owner_lock ... ok
+test durable::service::tests::failed_commit_fails_the_group_and_every_later_job ... ok
+test durable::service::tests::full_queue_is_reported_without_blocking ... ok
+test memory::tests::batch_checks_intermediate_capacity_not_only_final_state ... ok
+test memory::tests::batch_preflights_operation_and_input_byte_limits ... ok
+test memory::tests::batch_preserves_namespaces_and_replacement_accounting ... ok
+test memory::tests::batch_rolls_back_changes_when_later_capacity_check_fails ... ok
+test memory::tests::batch_validates_each_key_and_value_and_empty_batch_is_noop ... ok
+test memory::tests::failed_replacement_preserves_old_record_and_accounting ... ok
+test memory::tests::inflight_keys_count_packet_identifier_bytes ... ok
+test memory::tests::namespaces_do_not_collide ... ok
+test memory::tests::replace_at_entry_limit_and_reclaim_bytes ... ok
+test memory::tests::validates_limits_keys_and_sizes_without_mutation ... ok
+test durable::service::tests::legacy_store_cannot_start_a_service ... ok
+test configuration::tests::rejects_database_and_lock_symlinks_without_touching_target ... ok
+test durable::tests::commit_reopen_and_limits_preserve_previous_snapshot ... ok
+test durable::tests::disk_full_sql_error_rolls_back_and_store_can_continue ... ok
+test durable::tests::exclusive_owner_lock_releases_on_drop ... ok
+test durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock ... ok
+test durable::tests::rejects_dangling_symlink_but_existing_alias_shares_owner_lock ... ok
+test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resetting ... ok
+test durable::service::tests::queued_jobs_commit_in_one_group_and_complete_in_order ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+   Doc-tests mqtt_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Run 4/5, default parallel test threads
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+
+running 36 tests
+test configuration::tests::crash_worker ... ok
+test configuration::tests::exclusive_canonical_owner_releases_on_drop ... ok
+test configuration::tests::errors_and_debug_do_not_expose_data_or_paths ... ok
+test configuration::tests::external_oversize_update_is_rejected_on_load_before_copying ... ok
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... ok
+test configuration::tests::foreign_corrupt_and_unknown_schema_are_rejected_without_rewriting ... ok
+test configuration::tests::sqlite_roundtrip_limits_and_private_permissions ... ok
+test configuration::tests::transaction_failure_preserves_previous_configuration ... ok
+test durable::rows::tests::container1_is_reported_then_migrated_atomically ... ok
+test durable::rows::tests::fresh_store_applies_batches_and_reopens_rows ... ok
+test durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows ... ok
+test durable::rows::tests::open_limits_and_unknown_schemas_fail_closed ... ok
+test configuration::tests::rejects_zero_limit_directory_and_invalid_blob_rows ... ok
+test configuration::tests::process_kill_recovers_committed_row_and_rolls_back_uncommitted_row ... ok
+test durable::rows::tests::row_store_shares_the_exclusive_owner_lock ... ok
+test durable::service::tests::failed_commit_fails_the_group_and_every_later_job ... ok
+test durable::service::tests::full_queue_is_reported_without_blocking ... ok
+test memory::tests::batch_checks_intermediate_capacity_not_only_final_state ... ok
+test memory::tests::batch_preflights_operation_and_input_byte_limits ... ok
+test memory::tests::batch_preserves_namespaces_and_replacement_accounting ... ok
+test memory::tests::batch_rolls_back_changes_when_later_capacity_check_fails ... ok
+test memory::tests::batch_validates_each_key_and_value_and_empty_batch_is_noop ... ok
+test memory::tests::failed_replacement_preserves_old_record_and_accounting ... ok
+test memory::tests::inflight_keys_count_packet_identifier_bytes ... ok
+test memory::tests::namespaces_do_not_collide ... ok
+test memory::tests::replace_at_entry_limit_and_reclaim_bytes ... ok
+test memory::tests::validates_limits_keys_and_sizes_without_mutation ... ok
+test durable::service::tests::legacy_store_cannot_start_a_service ... ok
+test durable::service::tests::queued_jobs_commit_in_one_group_and_complete_in_order ... ok
+test durable::tests::commit_reopen_and_limits_preserve_previous_snapshot ... ok
+test durable::tests::disk_full_sql_error_rolls_back_and_store_can_continue ... ok
+test durable::tests::exclusive_owner_lock_releases_on_drop ... ok
+test configuration::tests::rejects_database_and_lock_symlinks_without_touching_target ... ok
+test durable::tests::rejects_dangling_symlink_but_existing_alias_shares_owner_lock ... ok
+test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resetting ... ok
+test durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+   Doc-tests mqtt_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Run 5/5, default parallel test threads
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+
+running 36 tests
+test configuration::tests::crash_worker ... ok
+test configuration::tests::errors_and_debug_do_not_expose_data_or_paths ... ok
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... ok
+test configuration::tests::process_kill_recovers_committed_row_and_rolls_back_uncommitted_row ... ok
+test configuration::tests::external_oversize_update_is_rejected_on_load_before_copying ... ok
+test configuration::tests::foreign_corrupt_and_unknown_schema_are_rejected_without_rewriting ... ok
+test configuration::tests::transaction_failure_preserves_previous_configuration ... ok
+test durable::rows::tests::container1_is_reported_then_migrated_atomically ... ok
+test durable::rows::tests::fresh_store_applies_batches_and_reopens_rows ... ok
+test configuration::tests::rejects_database_and_lock_symlinks_without_touching_target ... ok
+test durable::rows::tests::open_limits_and_unknown_schemas_fail_closed ... ok
+test configuration::tests::exclusive_canonical_owner_releases_on_drop ... ok
+test configuration::tests::rejects_zero_limit_directory_and_invalid_blob_rows ... ok
+test configuration::tests::sqlite_roundtrip_limits_and_private_permissions ... ok
+test durable::rows::tests::row_store_shares_the_exclusive_owner_lock ... ok
+test durable::service::tests::failed_commit_fails_the_group_and_every_later_job ... ok
+test durable::service::tests::full_queue_is_reported_without_blocking ... ok
+test memory::tests::batch_checks_intermediate_capacity_not_only_final_state ... ok
+test memory::tests::batch_preflights_operation_and_input_byte_limits ... ok
+test memory::tests::batch_preserves_namespaces_and_replacement_accounting ... ok
+test memory::tests::batch_rolls_back_changes_when_later_capacity_check_fails ... ok
+test memory::tests::batch_validates_each_key_and_value_and_empty_batch_is_noop ... ok
+test memory::tests::failed_replacement_preserves_old_record_and_accounting ... ok
+test memory::tests::inflight_keys_count_packet_identifier_bytes ... ok
+test memory::tests::namespaces_do_not_collide ... ok
+test memory::tests::replace_at_entry_limit_and_reclaim_bytes ... ok
+test memory::tests::validates_limits_keys_and_sizes_without_mutation ... ok
+test durable::service::tests::legacy_store_cannot_start_a_service ... ok
+test durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows ... ok
+test durable::service::tests::queued_jobs_commit_in_one_group_and_complete_in_order ... ok
+test durable::tests::commit_reopen_and_limits_preserve_previous_snapshot ... ok
+test durable::tests::disk_full_sql_error_rolls_back_and_store_can_continue ... ok
+test durable::tests::exclusive_owner_lock_releases_on_drop ... ok
+test durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock ... ok
+test durable::tests::rejects_dangling_symlink_but_existing_alias_shares_owner_lock ... ok
+test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resetting ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+   Doc-tests mqtt_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

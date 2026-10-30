@@ -66,5 +66,5 @@ React + Tailwind CSS v4 + shadcn/ui。布局使用工具类，按钮、卡片、
 `dashboard/web/THIRD_PARTY_NOTICES.md`；详情面板使用原生 dialog，保持严格 CSP。
 
 规则管理默认启用，配置保存到 SQLite；`--rules-config PATH` 可自定义数据库位置。详见 [SQL 与 Webhook](rules-webhook.md)。
-支持 SQL 样例测试、连接器/动作配置和真实执行统计；规则事件为 best-effort，
+支持 SQL 样例测试、出站配置（类型、目标和发送策略）和真实执行统计；规则事件为 best-effort，
 配置持久化不等于动作队列耐久。

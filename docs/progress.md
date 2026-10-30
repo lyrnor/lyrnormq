@@ -2082,3 +2082,46 @@ hardlink rejection are covered. No existing user broker was restarted.
 Evidence: `docs/verification/rules-sqlite-20261030/README.md`. Configuration
 persistence does not add durable message queues/action outbox. Physical power loss
 and fresh performance baselines were not measured; remaining scope is unchanged.
+
+
+### Phase5c — Unified typed outbounds (2026-10-30)
+
+Completed in independent backend/UI/quality worktrees after freezing
+`docs/contracts/phase5c-unified-outbounds.md`. UI now exposes Rules and Outbounds,
+with one editor for type, destination, credentials and delivery policy. Rules bind
+`outbound_ids` directly. API config version2 contains `outbounds`/`rules`; status
+contains typed `outbounds`; Webhook envelopes use `outbound_id`. Unsupported types
+and unknown fields are rejected; only Webhook is implemented.
+
+Generic lifecycle/queues/batching/timeouts/retry pacing/counters/SQL admission and
+SQLite configuration now live in mqtt-egress. mqtt-egress-core provides the native
+async Sink interface, typed retry/permanent result and adapter batch capabilities.
+mqtt-webhook only owns Webhook config/validation/redaction, HTTP encoding/client
+and status classification. Common workers contain no reqwest, HTTP status or
+envelope logic; non-HTTP fake sink tests prove retries, timeout and capabilities.
+Registry/config variants are explicit; new native adapters add their variant/factory
+and form without editing SQL evaluation or generic scheduling.
+
+Existing strict SQLite container remains unchanged. Old recognized connector/action
+blobs are fully validated and transactionally converted to version2, preserving
+action IDs as outbound IDs, credentials and rule bindings. Invalid unused
+connectors, excessive counts, malformed refs and unknown versions fail without
+overwriting. No JSON file compatibility/import was reintroduced. Existing queue
+volatility and MQTT ACK/outbox semantics remain unchanged.
+
+Verification: cargo fmt; workspace all-target Clippy -D warnings; 620 Rust tests;
+51 frontend tests, strict TS/Vite production build/Prettier; native release build;
+88 release blackbox methods (outbound18, Dashboard14, persistent MQTT14, WS/WSS18,
+TLS12, admission/mTLS12). Browser CRUD, direct binding, SQL preview and real
+MQTT->HTTP confirmed, desktop1440/mobile390 layout and masked headers checked.
+
+Final testing exposed a preexisting parallel test isolation race: configuration
+crash workers could temporarily inherit another test's exclusive-file descriptor
+between fork and exec. A deterministic failing fixture-gate regression preceded a
+test-only shared gate fix, using the same gate as durable crash tests; no production
+lock or retry/sleep workaround. Storage36 tests passed five normal-parallel runs,
+then the full workspace passed. Initial failure and correction evidence retained.
+
+Evidence: docs/verification/unified-outbounds-20261030/README.md. No actual user
+broker restarted, deployment or new performance claim. Native Kafka/PostgreSQL/Redis
+adapters and durable message delivery remain future work.

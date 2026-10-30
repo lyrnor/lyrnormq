@@ -717,6 +717,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "mqtt-egress"
+version = "0.1.0"
+dependencies = [
+ "mqtt-egress-core",
+ "mqtt-rules",
+ "mqtt-storage",
+ "mqtt-transport",
+ "mqtt-webhook",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "mqtt-egress-core"
+version = "0.1.0"
+
+[[package]]
 name = "mqtt-protocol"
 version = "0.1.0"
 dependencies = [
@@ -780,13 +798,10 @@ dependencies = [
 name = "mqtt-webhook"
 version = "0.1.0"
 dependencies = [
- "mqtt-rules",
- "mqtt-storage",
- "mqtt-transport",
+ "mqtt-egress-core",
  "reqwest",
  "serde",
  "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -1086,9 +1101,9 @@ dependencies = [
  "include_dir",
  "mimalloc",
  "mqtt-auth",
+ "mqtt-egress",
  "mqtt-rules",
  "mqtt-transport",
- "mqtt-webhook",
  "same-file",
  "serde",
  "serde_json",

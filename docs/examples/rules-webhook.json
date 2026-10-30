@@ -1,27 +1,28 @@
 {
-  "connectors": [{
-    "id": "alarm-service",
-    "name": "告警 Webhook",
-    "url": "http://127.0.0.1:9001/events",
-    "headers": {}
-  }],
-  "actions": [{
+  "schema_version": 2,
+  "outbounds": [{
     "id": "send-alarm",
-    "name": "发送高温告警",
-    "connector_id": "alarm-service",
+    "name": "Alarm service",
     "enabled": true,
-    "batch_size": 50,
-    "batch_wait_ms": 100,
-    "queue_capacity": 256,
-    "timeout_ms": 3000,
-    "max_attempts": 3,
-    "retry_base_ms": 100
+    "type": "webhook",
+    "config": {
+      "url": "https://example.com/events",
+      "headers": {"Authorization": "Bearer replace-me"}
+    },
+    "delivery": {
+      "batch_size": 100,
+      "batch_wait_ms": 50,
+      "queue_capacity": 256,
+      "timeout_ms": 3000,
+      "max_attempts": 3,
+      "retry_base_ms": 200
+    }
   }],
   "rules": [{
-    "id": "high-temperature",
-    "name": "设备高温告警",
-    "sql": "SELECT client_id, topic AS source_topic, payload.device_id AS device_id, payload.temperature AS temperature FROM \"devices/+/telemetry\" WHERE payload.temperature >= 80",
+    "id": "hot",
+    "name": "High temperature",
+    "sql": "SELECT client_id, topic AS source_topic, payload.temperature AS temperature FROM \"devices/+/telemetry\" WHERE payload.temperature >= 80",
     "enabled": true,
-    "action_ids": ["send-alarm"]
+    "outbound_ids": ["send-alarm"]
   }]
 }

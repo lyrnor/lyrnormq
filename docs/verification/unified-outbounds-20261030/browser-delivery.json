@@ -1,0 +1,20 @@
+{
+  "outbound_id": "qa-webhook",
+  "events": [
+    {
+      "event_id": "21715-1793352211046624000-186",
+      "delivery_id": "21715-1793352211046624000-186:qa-hot:qa-webhook",
+      "rule_id": "qa-hot",
+      "topic": "devices/qa/telemetry",
+      "client_id": "ui-qa-publisher",
+      "qos": 0,
+      "retain": false,
+      "timestamp_ms": 1793352469974,
+      "data": {
+        "client_id": "ui-qa-publisher",
+        "source_topic": "devices/qa/telemetry",
+        "temperature": 92
+      }
+    }
+  ]
+}

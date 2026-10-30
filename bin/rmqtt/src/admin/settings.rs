@@ -11,7 +11,7 @@ use std::{
 
 pub struct State {
     pub handle: ManagementHandle,
-    pub rules: Option<Arc<mqtt_webhook::Runtime>>,
+    pub rules: Option<Arc<mqtt_egress::Runtime>>,
     pub token: Vec<u8>,
     pub assets: Assets,
     pub instance: Value,
@@ -50,7 +50,7 @@ pub fn prepare(
     options: &Options,
     listen: String,
     handle: ManagementHandle,
-    rules: Option<Arc<mqtt_webhook::Runtime>>,
+    rules: Option<Arc<mqtt_egress::Runtime>>,
 ) -> io::Result<Arc<State>> {
     let path = options
         .admin_token_file

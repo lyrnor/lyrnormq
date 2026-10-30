@@ -1,3 +1,5 @@
+> Configuration entities and adapter architecture superseded by [Phase5c](phase5c-unified-outbounds.md). SQLite container semantics remain in force.
+
 # Phase 5b: SQLite rule configuration (frozen 2026-10-30)
 
 Scope: configuration persistence only; MQTT durable schema/outbox and best-effort

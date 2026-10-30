@@ -1,0 +1,37 @@
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling pkg-config v0.3.34
+   Compiling vcpkg v0.2.15
+   Compiling foldhash v0.2.0
+   Compiling bitflags v2.13.2
+   Compiling smallvec v1.16.3
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling fallible-iterator v0.3.0
+   Compiling hashbrown v0.17.1
+   Compiling cc v1.10.0
+   Compiling hashlink v0.12.2
+   Compiling libsqlite3-sys v0.39.1
+   Compiling rusqlite v0.41.0
+   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-storage-test-isolation/crates/mqtt-storage)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.76s
+     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+
+running 1 test
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... FAILED
+
+failures:
+
+---- configuration::tests::fixture_serializes_with_durable_crash_helpers stdout ----
+
+thread 'configuration::tests::fixture_serializes_with_durable_crash_helpers' (14655914) panicked at crates/mqtt-storage/src/configuration/tests.rs:255:5:
+assertion failed: matches!(crate::test_support::FILE_TESTS.try_lock(),
+    Err(std::sync::TryLockError::WouldBlock))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    configuration::tests::fixture_serializes_with_durable_crash_helpers
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p mqtt-storage --lib`

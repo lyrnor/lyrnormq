@@ -1,0 +1,22 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/model.test.ts (12 tests) 8ms
+ ✓ tests/rules-model.test.ts (6 tests) 14ms
+ ✓ tests/api.test.ts (8 tests) 22ms
+ ✓ tests/polling.test.tsx (6 tests) 380ms
+ ✓ tests/dialog.test.tsx (2 tests) 215ms
+ ✓ tests/app.test.tsx (5 tests) 728ms
+   ✓ memory-only management login > renders real data and clears authenticated views on logout without persisting the token  359ms
+ ✓ tests/rules-page.test.tsx (12 tests) 889ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage  332ms
+
+ Test Files  7 passed (7)
+      Tests  51 passed (51)
+   Start at  17:21:41
+   Duration  2.99s (transform 1.02s, setup 223ms, collect 3.64s, tests 2.26s, environment 5.46s, prepare 797ms)
+
