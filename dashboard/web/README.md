@@ -6,22 +6,50 @@ original visual prototype; this application contains no demo broker data.
 
 ## Build and serve
 
+The React production bundle is embedded in the Rust executable at compile time
+using `include_dir`. Build the frontend **before** compiling rmqtt. From the
+repository root, the combined build wrapper runs `npm ci`, `npm run build`, then
+`cargo build --release -p rmqtt`:
+
 ```sh
-cd dashboard/web
-npm ci
-npm test
-npm run build
+./scripts/build-rmqtt.sh
 ```
 
-Start rmqtt from the repository root using its management options:
+The wrapper forwards additional Cargo flags, for example
+`./scripts/build-rmqtt.sh --target x86_64-unknown-linux-musl`. It uses Cargo's normal
+toolchain; configure a cross-linker separately when cross-compiling.
+
+To run the frontend checks or build manually:
 
 ```sh
-cargo run --release -p rmqtt -- \
+(cd dashboard/web && npm ci && npm test && npm run build)
+cargo build --release -p rmqtt
+```
+
+Frontend source changes require another `npm run build` before Cargo compilation;
+Cargo tracks the resulting dist tree and re-embeds it. Missing or invalid build
+assets fail compilation rather than producing an empty Dashboard. The Rust build
+never runs npm or fetches frontend dependencies automatically.
+
+Run the compiled executable using its management options:
+
+```sh
+./target/release/rmqtt \
   --listen 127.0.0.1:1883 \
   --admin-listen 127.0.0.1:8080 \
-  --admin-token-file /path/to/admin-token \
-  --dashboard-dir dashboard/web/dist
+  --admin-token-file /path/to/admin-token
 ```
+
+The executable serves its embedded Dashboard from any working directory. Runtime
+hosts need neither Node.js nor a separate `dist` directory. Management remains
+opt-in; without the management options, no Dashboard HTTP listener is enabled.
+
+For an intentional external asset override, add
+`--dashboard-dir /absolute/path/to/dist`. This replaces the **entire** embedded
+bundle and uses the bounded asset and sensitive-file checks. An invalid override
+fails startup; there is no embedded fallback and no implicit lookup of a dist
+directory relative to the working directory. Rebuild the frontend and executable
+for the normal embedded deployment path.
 
 The token file contains a 32–256 character administrator token. Visit the actual
 management listener address and enter the token in the login form. Do not pass
