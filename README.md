@@ -20,8 +20,8 @@ Without SQLite, clean sessions and global retained/Will state are volatile acros
 process death. With SQLite, Clean Session=false retains subscriptions, offline
 QoS1/2 and inflight stages/IDs. Clean Session=true discards the prior session;
 retained messages remain independent of that reset. MQTT5 Clean Start and Session
-Expiry are independent, as described below. Optional TLS is described below;
-WebSocket remains unsupported.
+Expiry are independent, as described below. Optional TLS and MQTT over WS/WSS
+are described below.
 Default bind is loopback.
 
 ## TLS listener
@@ -42,10 +42,40 @@ TLS does not replace the existing authentication/ACL policy.
 TLS handshakes count toward `--max-connections` and have
 `--handshake-timeout-ms`; MQTT CONNECT has its own separate handshake deadline.
 MQTT packet limits, Keep Alive, QoS and durable recovery use the same implementation
-as plaintext. One process serves one listener: simultaneous plain/TLS listeners
-sharing state, mTLS, certificate reload and WebSocket are not implemented. Do not
+as plaintext. One process serves one listener: simultaneous listeners sharing
+state, mTLS and certificate reload are not implemented. Do not
 start two processes against the same SQLite database. See the
 [TLS contract](docs/contracts/phase4c-tls.md) for lifecycle and acceptance scope.
+
+## MQTT over WebSocket
+
+```sh
+# ws://localhost:8083/mqtt
+cargo run -p rmqtt -- --listen 127.0.0.1:8083 --websocket
+# wss://broker.example:8084/mqtt (use your own matching certificate and key)
+cargo run -p rmqtt -- --listen 0.0.0.0:8084 --websocket \
+  --tls-cert ./server-chain.pem --tls-key ./server-key.pem
+```
+
+Clients must offer the `mqtt` WebSocket subprotocol and send binary data. Both
+MQTT3.1.1 and MQTT5 use the existing QoS0/1/2, session, retained, Will and outbox
+implementation. WebSocket message boundaries do not define MQTT packet boundaries.
+WSS uses the same verified server TLS identity configuration as the TLS listener.
+
+`--ws-path` defaults to `/mqtt` and matches the request path exactly (query strings
+do not change it). `--ws-max-message-size` bounds each complete WebSocket message,
+including fragments; default1MiB, permitted1byte..16MiB. This is independent of
+`--max-packet-size`, which still bounds each decoded MQTT packet. HTTP upgrade
+headers are limited to16KiB. TLS, HTTP upgrade and MQTT CONNECT each have a separate
+`--handshake-timeout-ms` deadline and all count toward `--max-connections`.
+
+WebSocket Ping/Pong does not extend MQTT Keep Alive. A WebSocket Close without
+MQTT DISCONNECT is an abnormal MQTT disconnection and can trigger Will. Normal
+MQTT DISCONNECT closes WS/WSS without draining queued business messages. Compression,
+Origin allowlists, cookie authentication and trusted proxy identity are not enabled;
+existing MQTT authentication/ACL still applies. One process selects one transport;
+do not point separate transport processes at the same SQLite database. See the
+[WS/WSS contract](docs/contracts/phase4d-websocket.md) for scope and bounds.
 
 ## MQTT5 foundation and version interoperability
 

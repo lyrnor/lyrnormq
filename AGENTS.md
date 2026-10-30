@@ -6,3 +6,5 @@ Structure: lib.rs contains crate documentation, module declarations and public r
 
 TLS listeners additionally follow docs/contracts/phase4c-tls.md. Cluster implementation
 is deferred; docs/cluster/architecture-proposal.md is a proposal, not a frozen contract.
+WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
+stream framing, strict mqtt subprotocol, finite buffers and bounded closing.

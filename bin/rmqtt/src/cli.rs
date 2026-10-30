@@ -1,12 +1,14 @@
-use mqtt_transport::{BrokerConfig, ProtocolMode};
+use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain]";
 
 pub struct Options {
     pub address: String,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
+    pub websocket: bool,
+    pub websocket_options: WebSocketOptions,
     pub auth_policy: Option<PathBuf>,
     pub enhanced_auth_plain: bool,
     /// Print the merged stored state of a stopped broker instead of serving.
@@ -34,12 +36,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         address: "127.0.0.1:1883".into(),
         tls_cert: None,
         tls_key: None,
+        websocket: false,
+        websocket_options: WebSocketOptions::default(),
         auth_policy: None,
         enhanced_auth_plain: false,
         export_state: false,
         config: BrokerConfig::default(),
     };
     let mut first = true;
+    let mut ws_path_set = false;
+    let mut ws_limit_set = false;
     while let Some(option) = args.next() {
         if std::mem::take(&mut first) && option == "export-state" {
             options.export_state = true;
@@ -52,11 +58,20 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             options.enhanced_auth_plain = true;
             continue;
         }
+        if option == "--websocket" {
+            if options.websocket {
+                return Err(invalid("--websocket cannot be repeated"));
+            }
+            options.websocket = true;
+            continue;
+        }
         if !matches!(
             option.as_str(),
             "--listen"
                 | "--tls-cert"
                 | "--tls-key"
+                | "--ws-path"
+                | "--ws-max-message-size"
                 | "--protocol"
                 | "--auth-policy"
                 | "--storage-path"
@@ -79,6 +94,33 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
         if option == "--listen" {
             options.address = value;
+            continue;
+        }
+        if option == "--ws-path" {
+            if ws_path_set
+                || !value.starts_with('/')
+                || value.len() > 1024
+                || value
+                    .chars()
+                    .any(|ch| ch.is_whitespace() || ch.is_control() || ch == '?' || ch == '#')
+            {
+                return Err(invalid(
+                    "--ws-path requires one absolute path of at most 1024 bytes without whitespace, query or fragment",
+                ));
+            }
+            ws_path_set = true;
+            options.websocket_options.path = value;
+            continue;
+        }
+        if option == "--ws-max-message-size" {
+            let size = positive(&value, &option)?;
+            if ws_limit_set || size > 16 * 1024 * 1024 {
+                return Err(invalid(
+                    "--ws-max-message-size requires one value in 1..=16777216",
+                ));
+            }
+            ws_limit_set = true;
+            options.websocket_options.max_message_size = size;
             continue;
         }
         if option == "--tls-cert" || option == "--tls-key" {
@@ -154,6 +196,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             _ => return Err(invalid("unrecognized numeric option")),
         }
     }
+    if (ws_path_set || ws_limit_set) && !options.websocket {
+        return Err(invalid("WebSocket options require --websocket"));
+    }
+    if options.export_state && options.websocket {
+        return Err(invalid(
+            "WebSocket options cannot be used with export-state",
+        ));
+    }
     if options.tls_cert.is_some() != options.tls_key.is_some() {
         return Err(invalid(
             "--tls-cert and --tls-key must be supplied together",
@@ -174,6 +224,72 @@ mod tests {
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).into()).collect()
+    }
+
+    #[test]
+    fn websocket_selection_supports_plain_and_tls_without_reading_identity() {
+        assert!(!parse(args(&[])).unwrap().unwrap().websocket);
+        let ws = parse(args(&["--websocket"])).unwrap().unwrap();
+        assert!(ws.websocket);
+        assert_eq!(ws.websocket_options.path, "/mqtt");
+        assert_eq!(ws.websocket_options.max_message_size, 1024 * 1024);
+        assert_eq!(ws.address, "127.0.0.1:1883");
+        let wss = parse(args(&[
+            "--ws-path",
+            "/custom",
+            "--websocket",
+            "--ws-max-message-size",
+            "16777216",
+            "--tls-cert",
+            "cert.pem",
+            "--tls-key",
+            "key.pem",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert_eq!(wss.websocket_options.path, "/custom");
+        assert_eq!(wss.websocket_options.max_message_size, 16 * 1024 * 1024);
+        assert!(wss.tls_cert.is_some());
+        assert_eq!(
+            parse(args(&["--websocket", "--ws-max-message-size", "1"]))
+                .unwrap()
+                .unwrap()
+                .websocket_options
+                .max_message_size,
+            1
+        );
+    }
+
+    #[test]
+    fn websocket_rejects_incomplete_duplicate_invalid_and_export_configuration() {
+        for values in [
+            vec!["--websocket", "--websocket"],
+            vec!["--ws-path", "/mqtt"],
+            vec!["--ws-max-message-size", "1"],
+            vec!["--websocket", "--ws-path"],
+            vec!["--websocket", "--ws-path", ""],
+            vec!["--websocket", "--ws-path", "mqtt"],
+            vec!["--websocket", "--ws-path", "/a?b"],
+            vec!["--websocket", "--ws-path", "/a#b"],
+            vec!["--websocket", "--ws-path", "/a b"],
+            vec!["--websocket", "--ws-path", "/a\r\n"],
+            vec!["--websocket", "--ws-path", "/a", "--ws-path", "/b"],
+            vec!["--websocket", "--ws-max-message-size", "0"],
+            vec!["--websocket", "--ws-max-message-size", "-1"],
+            vec!["--websocket", "--ws-max-message-size", "16777217"],
+            vec![
+                "--websocket",
+                "--ws-max-message-size",
+                "1",
+                "--ws-max-message-size",
+                "2",
+            ],
+            vec!["export-state", "--storage-path", "state.db", "--websocket"],
+        ] {
+            assert!(parse(args(&values)).is_err(), "{values:?}");
+        }
+        let oversized = format!("/{}", "x".repeat(1024));
+        assert!(parse(args(&["--websocket", "--ws-path", &oversized])).is_err());
     }
 
     #[test]

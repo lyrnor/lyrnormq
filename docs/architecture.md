@@ -585,3 +585,16 @@ Identity files are bounded startup-only IO on the blocking pool. No durable sche
 change, shared dual listeners, client certificate authentication or certificate
 reload is introduced. Cluster work is deferred by user; the cluster document is a
 proposal only.
+
+## Phase4d: WS/WSS transport
+
+[Phase4d](contracts/phase4d-websocket.md) adapts maintained RFC6455 WebSocket IO
+to the same incremental MQTT byte stream. HTTP upgrade is bounded before parsing,
+negotiates `mqtt`, and creates no client session before MQTT CONNECT. Binary WS
+messages may contain multiple or partial MQTT packets; control traffic is handled
+below MQTT and does not extend its Keep Alive. WS framing/write buffers have
+independent finite limits. WSS composes the existing TLS identity and handshake.
+Normal MQTT disconnect closes the transport without draining queued application
+output; WS/TLS closure alone preserves ungraceful MQTT/Will semantics. State schema,
+session ownership, admission and outbox remain unchanged; plaintext IO keeps the
+existing owned socket halves. Each process still owns one listener/broker.

@@ -3,7 +3,7 @@ mod auth_policy;
 mod cli;
 mod tls_identity;
 
-use mqtt_transport::{export_state, serve, serve_tls};
+use mqtt_transport::{export_state, serve, serve_tls, serve_ws, serve_wss};
 use std::{error::Error, io::Write};
 use tokio::{net::TcpListener, sync::watch};
 
@@ -40,7 +40,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         _ => return Err("TLS requires both certificate and key".into()),
     };
     let listener = TcpListener::bind(&options.address).await?;
-    let transport = if tls.is_some() { "TLS" } else { "TCP" };
+    let transport = match (options.websocket, tls.is_some()) {
+        (false, false) => "TCP",
+        (false, true) => "TLS",
+        (true, false) => "WS",
+        (true, true) => "WSS",
+    };
     eprintln!(
         "rmqtt listening on {} ({transport})",
         listener.local_addr()?
@@ -51,10 +56,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let _ = tx.send(true);
         }
     });
-    if let Some(tls) = tls {
-        serve_tls(listener, options.config, tls, rx).await?;
-    } else {
-        serve(listener, options.config, rx).await?;
+    match (options.websocket, tls) {
+        (false, None) => serve(listener, options.config, rx).await?,
+        (false, Some(tls)) => serve_tls(listener, options.config, tls, rx).await?,
+        (true, None) => serve_ws(listener, options.config, options.websocket_options, rx).await?,
+        (true, Some(tls)) => {
+            serve_wss(listener, options.config, tls, options.websocket_options, rx).await?
+        }
     }
     Ok(())
 }
