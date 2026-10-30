@@ -104,6 +104,7 @@ struct Actor {
     client: String,
     id: u64,
     engine: SessionEngine,
+    observation: Option<Arc<Mutex<crate::management::Observation>>>,
     online: HashMap<String, Online>,
     online_generation: Arc<AtomicU64>,
     receiver: mpsc::Receiver<ActorCommand>,
@@ -148,7 +149,13 @@ pub(super) fn spawn(
     let fresh_until = engine
         .is_vacant()
         .then(|| tokio::time::Instant::now() + broker.config.handshake_timeout);
+    let observation = broker
+        .config
+        .management
+        .as_ref()
+        .map(|management| management.register(&client, id, &engine));
     let actor = Actor {
+        observation,
         broker,
         client,
         id,
@@ -393,6 +400,9 @@ impl Actor {
                 ReasonCode::SERVER_UNAVAILABLE,
                 "session actor stopped",
             )));
+        }
+        if let Some(management) = &self.broker.config.management {
+            management.remove(&self.client, self.id);
         }
         self.broker.actor_exited(&self.client, self.accounted);
     }
@@ -741,6 +751,12 @@ impl Actor {
             self.accounted = bytes;
             self.engine = proposal;
             self.version = self.version.wrapping_add(1);
+            if let Some(observation) = &self.observation {
+                observation
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .update(&self.engine, &self.client, effects.filters_changed);
+            }
             if effects.filters_changed {
                 let filters = self
                     .engine

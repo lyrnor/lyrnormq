@@ -233,7 +233,11 @@ async fn write_frame<W: AsyncWrite + Unpin>(
         writer.flush().await
     })
     .await
-    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "socket write timed out"))?
+    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "socket write timed out"))??;
+    if let Some(management) = &config.management {
+        management.sent(matches!(frame.packet, Packet::Publish { .. }), bytes.len());
+    }
+    Ok(())
 }
 struct WriterLimits {
     close: Arc<AtomicBool>,
@@ -670,6 +674,9 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
             }
         };
         if let Some((mut frame, consumed)) = decoded {
+            if let Some(management) = &context.config.management {
+                management.received(matches!(frame.packet, Packet::Publish { .. }), consumed);
+            }
             buffer.drain(..consumed);
             let received = Instant::now();
             if !*context.connected {

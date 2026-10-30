@@ -17,6 +17,8 @@ mod authorization;
 mod delivery_hint;
 mod expiry;
 mod lifecycle;
+mod management;
+pub use management::{SessionMetadata, SubscriptionMetadata};
 mod mqtt5;
 mod ordinary;
 mod partition;

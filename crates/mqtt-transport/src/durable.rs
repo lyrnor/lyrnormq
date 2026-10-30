@@ -1631,3 +1631,7 @@ mod actor_tests;
 #[cfg(test)]
 #[path = "durable/admission_tests.rs"]
 mod admission_tests;
+
+#[cfg(test)]
+#[path = "durable/management_tests.rs"]
+mod management_tests;

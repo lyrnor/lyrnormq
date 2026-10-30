@@ -54,6 +54,14 @@ pub struct RetainedStore {
     bytes: usize,
 }
 impl RetainedStore {
+    /// Visit ordered metadata without allocating or copying message payloads.
+    /// Callbacks must be short and must not mutate this store.
+    pub fn visit_metadata(&self, mut visitor: impl FnMut(&str, u8, usize)) {
+        for (topic, message) in &self.records {
+            visitor(topic, message.qos, message.payload.len());
+        }
+    }
+
     pub fn new(max_entries: usize, max_bytes: usize) -> Result<Self, RetainedError> {
         if max_entries == 0 || max_bytes == 0 {
             return Err(RetainedError::InvalidLimits);

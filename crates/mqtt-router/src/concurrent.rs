@@ -45,6 +45,17 @@ impl<M: Clone> ConcurrentRetained<M> {
         with_metadata(state.0.matching(filter, qos), &state.1)
     }
 
+    /// Visit ordered metadata under a synchronous lock, without payload copies.
+    /// Callbacks must not block, await, or call back into this store.
+    pub fn visit_metadata(&self, mut visitor: impl FnMut(&str, u8, usize, &M)) {
+        let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        state.0.visit_metadata(|topic, qos, bytes| {
+            if let Some(metadata) = state.1.get(topic) {
+                visitor(topic, qos, bytes, metadata);
+            }
+        });
+    }
+
     pub fn entries(&self) -> Vec<(RetainedMessage, M)> {
         let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         with_metadata(state.0.entries(), &state.1)

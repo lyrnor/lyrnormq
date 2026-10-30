@@ -275,6 +275,9 @@ impl Broker {
         clock: Arc<dyn Clock>,
         seed: Option<SessionEngine>,
     ) -> io::Result<Arc<Self>> {
+        if let Some(management) = &config.management {
+            management.claim()?;
+        }
         let restore_config = config.clone();
         let restore_clock = Arc::clone(&clock);
         let restored =
@@ -344,6 +347,9 @@ impl Broker {
                 let completing = Arc::clone(&broker);
                 tokio::spawn(async move { completing.complete(fanout).await });
             }
+        }
+        if let Some(management) = &broker.config.management {
+            management.attach(Arc::clone(&broker) as Arc<dyn crate::management::Source>)?;
         }
         Ok(broker)
     }
@@ -543,6 +549,9 @@ impl Broker {
     }
 
     pub(super) fn fail(&self, message: String) -> io::Error {
+        if let Some(management) = &self.config.management {
+            management.stop();
+        }
         self.fatal.send_if_modified(|current| {
             if current.is_none() {
                 *current = Some(message.clone());
@@ -804,6 +813,9 @@ impl Broker {
 
     /// Stop every actor after connections have closed, then drain storage.
     pub(super) async fn shutdown(&self) -> io::Result<()> {
+        if let Some(management) = &self.config.management {
+            management.stop();
+        }
         let handoffs = self
             .handoffs
             .lock()
@@ -942,5 +954,39 @@ pub(super) fn subscribe_filters(frame: &Frame) -> Option<&[(String, u8)]> {
     match &frame.packet {
         Packet::Subscribe { filters, .. } => Some(filters),
         _ => None,
+    }
+}
+
+impl crate::management::Source for Broker {
+    fn state_bytes(&self) -> usize {
+        self.state_bytes.load(Ordering::Acquire)
+    }
+    fn retained(
+        &self,
+        query: &crate::management::Query,
+    ) -> crate::management::Page<crate::management::RetainedView> {
+        let now = self.clock.now_millis();
+        let mut page = crate::management::Page {
+            items: Vec::with_capacity(query.limit),
+            total: 0,
+            offset: query.offset,
+            limit: query.limit,
+        };
+        self.retained
+            .visit_metadata(|topic, qos, payload_bytes, meta| {
+                if meta.expires_at.is_some_and(|at| at <= now) || !topic.contains(&query.search) {
+                    return;
+                }
+                if page.total >= query.offset && page.items.len() < query.limit {
+                    page.items.push(crate::management::RetainedView {
+                        topic: topic.into(),
+                        qos,
+                        payload_bytes,
+                        expires_at_millis: meta.expires_at,
+                    });
+                }
+                page.total += 1;
+            });
+        page
     }
 }

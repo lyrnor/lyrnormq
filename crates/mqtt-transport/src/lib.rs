@@ -3,6 +3,7 @@ mod admission;
 mod config;
 mod durable;
 mod io_stream;
+pub mod management;
 mod packet_io;
 mod server;
 mod tls;
