@@ -269,6 +269,24 @@ class RulesWebhook(unittest.TestCase):
         self.assertEqual(len({event['event_id'] for event in seen}), 4)
         eventually(lambda: self.action_status()['delivered'] == 4)
 
+    def test_batch_splits_on_request_byte_limit(self):
+        webhook = self.webhook()
+        config = config_for(webhook.url, sql='SELECT payload.blob AS blob FROM "devices/#"',
+                            batch_size=4, batch_wait_ms=500)
+        self.start(config)
+        source = self.client('large-source')
+        payload = json.dumps({'blob': 'x' * 600000}).encode()
+        for _ in range(2):
+            self.publish(source, 'devices/a/telemetry', payload, qos=1)
+        records = [webhook.get(timeout=8), webhook.get(timeout=8)]
+        self.assertEqual(sum(len(record[2]['events']) for record in records), 2)
+        for _, _, body, size in records:
+            self.assertLessEqual(size, 1024 * 1024)
+            self.assertEqual(len(body['events']), 1)
+            self.assertEqual(len(body['events'][0]['data']['blob']), 600000)
+        eventually(lambda: self.action_status()['delivered'] == 2)
+        self.assertEqual(self.action_status()['failed'], 0)
+
     def test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint(self):
         webhook = self.webhook()
         config = config_for(webhook.url)
