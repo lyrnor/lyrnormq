@@ -93,13 +93,19 @@ class RapProfilesBlackbox(unittest.TestCase):
         # Phase4: a recipient's ordinary copies are one atomic delivery; the
         # shared copy is a separate delivery. Overflow drops only those copies,
         # the publisher is acknowledged and the retained value is stored.
+        # Admission limits queued records, not records already moved to outgoing.
+        # Keep this persistent recipient offline until source acknowledgement so
+        # ordinary delivery cannot race Poll/BeginDelivery and free queue space
+        # before the separate shared copy is offered.
         for shared in (False, True):
             with self.subTest(shared=shared):
                 self.start('--outbound-capacity', '2' if shared else '1')
-                pub = self.client('source');target = self.client('target');self.mixed(target)
+                pub = self.client('source');target = self.client('target', expiry=60);self.mixed(target)
                 if shared:self.sub(target, [('$share/g/mixed/#', 0x21)], 33, packet_id=3)
+                self.disconnect(target)
                 pub.sendall(wire.publication5('mixed/value', b'stored', 1, 91, retain=True))
                 wire.parse_ack5(receive(pub), 0x40, 91)
+                target = self.client('target', clean=False, expiry=60, present=True, maximum=1)
                 if shared:
                     self.copies(target, 'mixed/value', b'stored', [(1, False, (11,)), (1, True, (22,))])
                 self.quiet(target)
