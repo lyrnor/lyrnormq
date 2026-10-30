@@ -1,0 +1,194 @@
+export interface RuleDefinition {
+  id: string;
+  name: string;
+  sql: string;
+  enabled: boolean;
+  action_ids: string[];
+}
+export interface WebhookConnector {
+  id: string;
+  name: string;
+  url: string;
+  headers: Record<string, string>;
+}
+export interface WebhookAction {
+  id: string;
+  name: string;
+  connector_id: string;
+  enabled: boolean;
+  batch_size: number;
+  batch_wait_ms: number;
+  queue_capacity: number;
+  timeout_ms: number;
+  max_attempts: number;
+  retry_base_ms: number;
+}
+export interface RulesConfig {
+  connectors: WebhookConnector[];
+  actions: WebhookAction[];
+  rules: RuleDefinition[];
+}
+export interface ActionStatus {
+  id: string;
+  queued: number;
+  delivered: number;
+  failed: number;
+  retried: number;
+  dropped: number;
+  last_error: string | null;
+}
+export interface RulesStatus {
+  mode: "best_effort";
+  queued_events: number;
+  queued_bytes: number;
+  received: number;
+  matched: number;
+  dropped: number;
+  errors: number;
+  actions: ActionStatus[];
+}
+export interface RuleEvent {
+  topic: string;
+  payload: number[];
+  client_id: string;
+  qos: number;
+  retain: boolean;
+  timestamp_ms: number;
+}
+export const SQL_EXAMPLE = `SELECT client_id, topic AS source_topic, payload.temperature AS temperature\nFROM "devices/+/telemetry"\nWHERE payload.temperature >= 80`;
+export const defaultAction = (): WebhookAction => ({
+  id: "",
+  name: "",
+  connector_id: "",
+  enabled: true,
+  batch_size: 100,
+  batch_wait_ms: 50,
+  queue_capacity: 256,
+  timeout_ms: 3000,
+  max_attempts: 3,
+  retry_base_ms: 200,
+});
+const encoder = new TextEncoder();
+export function validateIdentity(id: string, name: string): string | null {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id))
+    return "ID 需为 1–64 位字母、数字、下划线或连字符";
+  if (!name.trim() || encoder.encode(name).length > 128)
+    return "名称不能为空，且最多 128 字节";
+  return null;
+}
+export function validateSql(sql: string): string | null {
+  return !sql.trim() || encoder.encode(sql).length > 8192
+    ? "SQL 不能为空，且最多 8 KiB"
+    : null;
+}
+export function validateConnector(connector: WebhookConnector): string | null {
+  const identity = validateIdentity(connector.id, connector.name);
+  if (identity) return identity;
+  try {
+    const url = new URL(connector.url);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      return "Webhook 仅支持 HTTP/HTTPS，地址不能含凭据、查询参数或片段；凭据请放请求头";
+  } catch {
+    return "请输入有效的 Webhook URL";
+  }
+  const headers = Object.entries(connector.headers);
+  if (
+    headers.length > 16 ||
+    encoder.encode(headers.map(([k, v]) => k + v).join("")).length > 8192
+  )
+    return "请求头最多 16 项、合计 8 KiB";
+  const forbidden = new Set([
+    "host",
+    "content-length",
+    "content-type",
+    "connection",
+    "transfer-encoding",
+    "keep-alive",
+    "upgrade",
+    "te",
+    "trailer",
+    "proxy-authenticate",
+    "proxy-authorization",
+  ]);
+  const seen = new Set<string>();
+  for (const [key, value] of headers) {
+    const normalized = key.toLowerCase();
+    if (
+      !/^[!#$%&'*+.^_`|~0-9a-z-]+$/i.test(key) ||
+      forbidden.has(normalized) ||
+      /[\r\n]/.test(value) ||
+      seen.has(normalized)
+    )
+      return "请求头名称无效、重复或包含系统保留字段；值不能含换行";
+    seen.add(normalized);
+  }
+  return null;
+}
+export function validateAction(
+  action: WebhookAction,
+  config: RulesConfig,
+): string | null {
+  const identity = validateIdentity(action.id, action.name);
+  if (identity) return identity;
+  if (!config.connectors.some((c) => c.id === action.connector_id))
+    return "请选择已有的 Webhook 连接器";
+  const bounds: [number, number, number, string][] = [
+    [action.batch_size, 1, 500, "批量条数"],
+    [action.batch_wait_ms, 0, 1000, "批量等待"],
+    [action.queue_capacity, 1, 4096, "队列容量"],
+    [action.timeout_ms, 100, 30000, "请求超时"],
+    [action.max_attempts, 1, 5, "最多尝试次数"],
+    [action.retry_base_ms, 10, 10000, "重试基础间隔"],
+  ];
+  for (const [value, min, max, label] of bounds)
+    if (!Number.isInteger(value) || value < min || value > max)
+      return `${label}必须为 ${min}–${max} 的整数`;
+  return null;
+}
+export function deletionError(
+  kind: "connectors" | "actions" | "rules",
+  id: string,
+  config: RulesConfig,
+): string | null {
+  if (
+    kind === "connectors" &&
+    config.actions.some((action) => action.connector_id === id)
+  )
+    return "连接器仍被出站动作引用，请先删除或修改相应动作";
+  if (
+    kind === "actions" &&
+    config.rules.some((rule) => rule.action_ids.includes(id))
+  )
+    return "动作仍被规则引用，请先解除绑定";
+  return null;
+}
+export function testEvent(
+  topic: string,
+  clientId: string,
+  payload: string,
+): RuleEvent {
+  if (
+    !topic ||
+    topic.includes("+") ||
+    topic.includes("#") ||
+    topic.includes("\0") ||
+    encoder.encode(topic).length > 65535
+  )
+    throw new Error("测试 Topic 不能为空，不能包含通配符或 NUL");
+  if (!clientId || encoder.encode(clientId).length > 65535)
+    throw new Error("测试 Client ID 不能为空或过长");
+  return {
+    topic,
+    client_id: clientId,
+    payload: Array.from(encoder.encode(payload)),
+    qos: 0,
+    retain: false,
+    timestamp_ms: Date.now(),
+  };
+}

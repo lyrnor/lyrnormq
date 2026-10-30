@@ -82,3 +82,71 @@ describe("same-origin read-only API client", () => {
     });
   });
 });
+
+describe("bounded rule management writes", () => {
+  it("sends authenticated JSON only to the supported rule write endpoints", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ rules: [], connectors: [], actions: [] }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetch);
+    await api("/api/v1/rules/config", "secret", undefined, {
+      method: "PUT",
+      body: { rules: [], connectors: [], actions: [] },
+    });
+    const options = fetch.mock.calls[0][1];
+    expect(options.method).toBe("PUT");
+    expect(options.headers["Content-Type"]).toBe("application/json");
+    expect(options.headers.Authorization).toBe("Bearer secret");
+    await expect(
+      api("/api/v1/sessions", "secret", undefined, { method: "PUT", body: {} }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      api("/api/v1/rules/config", "secret", undefined, {
+        method: "POST",
+        body: {},
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("rejects requests above 64KiB before any network call", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      api("/api/v1/rules/test", "secret", undefined, {
+        method: "POST",
+        body: { payload: "中".repeat(22000) },
+      }),
+    ).rejects.toMatchObject({ status: 413 });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("exposes only safe error codes and no server credential details", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "rules_disabled",
+              message: "secret path and password",
+            },
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    await expect(api("/api/v1/rules/config", "secret")).rejects.toMatchObject({
+      code: "rules_disabled",
+      message: expect.stringContaining("--rules-config"),
+    });
+    try {
+      await api("/api/v1/rules/config", "secret");
+    } catch (error) {
+      expect(errorMessage(error)).not.toContain("password");
+    }
+  });
+});

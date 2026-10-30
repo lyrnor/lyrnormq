@@ -19,6 +19,7 @@ import React, {
   type FormEvent,
 } from "react";
 import { api, ApiError, errorMessage } from "./api";
+import { RulesPage } from "./RulesPage";
 import {
   authReducer,
   boundedSearch,
@@ -142,8 +143,7 @@ function Login({
           </Button>
         </form>
         <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          令牌仅保留在当前页面内存中，刷新页面后需重新输入。控制台为只读，不修改
-          Broker 状态。
+          令牌仅保留在当前页面内存中，刷新页面后需重新输入。会话只读；启用规则引擎后可管理规则、连接器及出站动作。
         </div>
         <small className="mt-7 block text-center text-[10px] tracking-wider text-muted-foreground">
           Rust · Tokio · rustls
@@ -310,7 +310,7 @@ function Console({
                 >
                   <Icon name={id} />
                   <span>{labels[id as Route]}</span>
-                  {(id === "rules" || id === "logs") && (
+                  {id === "logs" && (
                     <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
                       未接入
                     </span>
@@ -327,7 +327,7 @@ function Console({
             <small>Rust · Tokio · rustls</small>
           </div>
           <span className="ml-auto rounded border px-1 py-0.5 text-[9px]">
-            只读
+            会话只读
           </span>
         </div>
       </aside>
@@ -384,7 +384,9 @@ function Console({
             description={
               route === "overview"
                 ? "了解 Broker 的连接、消息流量与运行状态。"
-                : "当前实例的真实运行数据与只读配置。"
+                : route === "rules"
+                  ? "管理 SQL 规则、Webhook 连接器与异步出站动作。"
+                  : "当前实例的真实运行数据与只读配置。"
             }
           >
             <Button
@@ -944,7 +946,8 @@ function Console({
                   />
                   <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
                     当前进程仅运行一个 MQTT 监听入口。管理 HTTP
-                    是独立本机只读入口，不表示支持多个 MQTT 监听器共享状态。
+                    是独立本机管理入口（会话只读、规则配置可写），不表示支持多个
+                    MQTT 监听器共享状态。
                   </div>
                 </div>
               </Panel>
@@ -974,22 +977,12 @@ function Console({
               </div>
             </Panel>
           )}
-          {(route === "logs" || route === "rules") && (
-            <Panel title={labels[route]}>
-              <div className="px-6 py-12 text-center [&_h2]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mx-auto [&_p]:mb-5 [&_p]:max-w-md [&_p]:text-xs [&_p]:leading-relaxed [&_p]:text-muted-foreground">
-                <div className="mx-auto mb-5 grid size-14 place-items-center rounded-2xl border bg-accent/60 text-primary [&>svg]:size-6">
-                  <Icon name={route} />
-                </div>
-                <h2>
-                  {route === "logs" ? "事件历史尚未接入" : "规则引擎尚未实现"}
-                </h2>
-                <p>
-                  {route === "logs"
-                    ? "管理 API 暂不采集事件历史。请使用 Broker 进程日志排查运行问题。"
-                    : "当前 Broker 不执行 SQL 规则。本页保留信息架构入口，后续将先冻结规则与动作契约。"}
-                </p>
-                <Badge active={false}>不可用</Badge>
-              </div>
+          {route === "rules" && <RulesPage token={token} expired={expired} />}
+          {route === "logs" && (
+            <Panel title="事件记录">
+              <Empty>
+                事件历史尚未接入。请使用 Broker 进程日志排查运行问题。
+              </Empty>
             </Panel>
           )}
           {!o && !live.loading && !live.error && (
@@ -1002,7 +995,7 @@ function Console({
             {live.updated
               ? `最近成功采样 ${new Date(live.updated).toLocaleTimeString()} · 最终一致视图`
               : "等待采样"}{" "}
-            · 只读管理
+            · 会话只读 / 规则配置可管理
           </span>
         </footer>
       </div>
@@ -1101,7 +1094,7 @@ function SecuritySummary({ config }: { config: Configuration | null }) {
         ["本地认证策略", config.instance.auth_policy ? "已加载" : "未加载"],
         ["传输加密", config.instance.tls ? "TLS 已启用" : "未启用"],
         ["客户端证书", config.instance.mtls ? "强制 mTLS" : "未启用"],
-        ["管理操作", "只读 · Bearer 令牌"],
+        ["管理操作", "会话只读 / 规则配置写入 · Bearer 令牌"],
       ].map(([label, value]) => (
         <div
           className="my-3 flex items-center gap-2 text-xs text-foreground/70 [&_span:last-child]:ml-auto [&_span:last-child]:text-[10px]"

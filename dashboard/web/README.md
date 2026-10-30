@@ -1,7 +1,8 @@
 # rmqtt Dashboard (React)
 
-Production React/TypeScript frontend for the read-only management API frozen in
-`docs/contracts/phase4f-dashboard.md`. The sibling `dashboard/design` remains the
+Production React/TypeScript frontend for broker observation and rule management,
+following `docs/contracts/phase4f-dashboard.md` and
+`docs/contracts/phase5a-rules-webhook.md`. The sibling `dashboard/design` remains the
 original visual prototype; this application contains no demo broker data.
 
 ## Build and serve
@@ -73,7 +74,7 @@ for same-origin API requests.
   production bundle requires no inline script/style CSP exceptions.
 - Session protocol `unknown` and Receive Maximum `null` (restored before reconnect)
   appear as “未协商”; the UI does not invent negotiated metadata.
-- CPU, RSS, latency and event history are not collected in this phase. Rule engine,
+- CPU, RSS, latency and event history are not collected in this phase. Session
   mutations, user/ACL editing and certificate reload are unavailable. Logical state
   bytes are explicitly distinguished from process RSS. Retained payload contents
   are never requested or displayed.
@@ -110,3 +111,29 @@ injected styles have regression tests; real-browser validation runs on integrati
 
 Official references: [Tailwind Vite integration](https://tailwindcss.com/docs/installation/using-vite)
 and [shadcn Vite installation](https://ui.shadcn.com/docs/installation/vite).
+
+## SQL rules and Webhook outbound
+
+When the broker starts with `--rules-config PATH`, the Rules page manages three
+separate objects: SQL rules, Webhook connectors and outbound actions. The existing
+broker/session views remain read-only; only explicit rule configuration saves use
+authenticated JSON PUT, and SQL sample execution uses POST without outbound side
+effects. The rule APIs are `/api/v1/rules/config`, `/status`, and `/test`.
+
+The page displays actual runtime counters and labels the mode **best effort**:
+MQTT acknowledgement does not await HTTP; process-local queued events/counters can
+be lost on crash, and capacity overflow drops/counters the affected copy. Successful
+configuration saves persist and apply a new runtime version; old queued work may be
+cancelled and counted. This is not a durable action outbox or an exactly-once claim.
+
+Connector header values use password fields. Public `[redacted]` values are sent
+back unchanged to preserve existing credentials; new values remain only in component
+memory and disappear after save/close/logout. URL userinfo/query/fragment and unsafe
+system headers are rejected. SQL sample inputs/results also remain local to the
+open editor and are not persisted in browser storage or sent to a Webhook.
+
+Forms validate identities, UTF-8 byte limits, references and resource limits before
+submitting. API validation remains authoritative. Status polls every five seconds
+only while the page is visible, without overlapping requests; route/logout aborts
+inflight requests and discards editor state. Refresh failures explicitly mark stale
+statistics. No mock data or automatic configuration mutation is used.

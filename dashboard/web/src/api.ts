@@ -2,6 +2,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -11,6 +12,7 @@ export async function api<T>(
   path: string,
   token: string,
   signal?: AbortSignal,
+  options?: { method: "POST" | "PUT"; body: unknown },
 ): Promise<T> {
   if (
     !path.startsWith("/api/v1/") ||
@@ -18,8 +20,24 @@ export async function api<T>(
     /[\r\n]/.test(token)
   )
     throw new ApiError(400, "无效的管理请求");
+  const body = options ? JSON.stringify(options.body) : undefined;
+  if (body && new TextEncoder().encode(body).length > 65536)
+    throw new ApiError(413, "请求内容最多 64 KiB");
+  if (
+    options &&
+    !(
+      (path === "/api/v1/rules/config" && options.method === "PUT") ||
+      (path === "/api/v1/rules/test" && options.method === "POST")
+    )
+  )
+    throw new ApiError(400, "该管理接口不支持写入");
   const response = await fetch(path, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    ...(options ? { method: options.method, body } : {}),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...(options ? { "Content-Type": "application/json" } : {}),
+    },
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
       : AbortSignal.timeout(10000),
@@ -36,7 +54,22 @@ export async function api<T>(
           : response.status === 429
             ? "管理查询繁忙，请稍后重试"
             : `管理 API 请求失败（${response.status}）`;
-    throw new ApiError(response.status, message);
+    let code: string | undefined;
+    try {
+      const data = await response.json();
+      if (
+        typeof data?.error?.code === "string" &&
+        /^[a-z_]{1,64}$/.test(data.error.code)
+      )
+        code = data.error.code;
+    } catch {
+      /* Keep the public status message; never expose response contents. */
+    }
+    if (code === "rules_disabled")
+      message = "规则引擎未启用，请使用 --rules-config PATH 启动 Broker";
+    else if (response.status === 400 && path.startsWith("/api/v1/rules/"))
+      message = "规则 SQL 或配置无效，请检查语法、参数范围和引用关系";
+    throw new ApiError(response.status, message, code);
   }
   if (!response.headers.get("content-type")?.includes("application/json"))
     throw new ApiError(502, "管理 API 返回了非 JSON 数据");
