@@ -419,7 +419,7 @@ class HttpAccessBlackbox(unittest.TestCase):
                         if version == 5:
                             header, body = receive(attacker)
                             self.assertEqual(header, 0xe0)
-                            self.assertEqual(body[0], 0x87 if status == 403 else 0x8b)
+                            self.assertEqual(body[0], 0x87 if status == 403 else 0x89)
                         self.assertEqual(attacker.recv(1), b'')
                         self.quiet(observer)
                         self.assertEqual(len(self.service.observations('/acl', client_id=f'attacker-{version}-{status}-{qos}')), 1)
@@ -458,11 +458,11 @@ class HttpAccessBlackbox(unittest.TestCase):
             self.service.policy = lambda path, body: 503 if path == '/acl' and body['action'] == 'subscribe' else None
             body = struct.pack('!H', 2) + (props() if version == 5 else b'') + string('new-unavailable/#') + bytes([1])
             sub.sendall(frame(0x82, body))
-            # Unavailability fails the entire current operation. 0x8b is a
+            # Unavailability fails the entire current operation. 0x89 is a
             # DISCONNECT reason, never a legal per-filter SUBACK reason.
             if version == 5:
                 header, body = receive(sub)
-                self.assertEqual((header, body[0]), (0xe0, 0x8b))
+                self.assertEqual((header, body[0]), (0xe0, 0x89))
             self.assertEqual(sub.recv(1), b'')
             self.publish(pub, f'unavailable/{version}/value', b'preserved-queue', 1)
             eventually(lambda: self.pending(name) == 1)
@@ -496,7 +496,7 @@ class HttpAccessBlackbox(unittest.TestCase):
         finally:
             release.set()
         header, body = receive(source)
-        self.assertEqual((header, body[0]), (0xe0, 0x8b))
+        self.assertEqual((header, body[0]), (0xe0, 0x89))
         self.quiet(watcher)
         self.assertEqual(self.broker.data('/api/v1/retained?search=late%2F')['total'], 0)
         self.assertEqual(len(self.service.observations('/acl', client_id='late-publisher')), 1)
@@ -593,8 +593,11 @@ class HttpAccessBlackbox(unittest.TestCase):
             self.publish(pub, 'shared/value', bytes([qos]), qos)
             self.delivery(allowed, 'shared/value', bytes([qos]), qos)
             self.quiet(denied)
-        self.assertEqual(len(self.service.observations('/acl', client_id='z-allowed')), 1)
-        self.assertEqual(len(self.service.observations('/acl', client_id='a-denied')), 1)
+        for client in ('z-allowed', 'a-denied'):
+            calls = self.service.observations('/acl', client_id=client)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0]['body'], dict(client_id=client,
+                username=client, action='subscribe', topic='shared/#'))
 
     def test_plain_authentication_and_same_owner_reauthentication(self):
         self.start(authz=True, extra=['--enhanced-auth-plain'])
