@@ -1,0 +1,18 @@
+    Updating crates.io index
+     Locking 4 packages to latest Rust 1.98.1 compatible versions
+      Adding cmake v0.1.58
+      Adding curl-sys v0.4.91+curl-8.22.0
+      Adding windows-link v0.2.1
+      Adding windows-sys v0.61.2
+ Downloading crates ...
+  Downloaded curl-sys v0.4.91+curl-8.22.0
+   Compiling curl-sys v0.4.91+curl-8.22.0
+   Compiling rdkafka-sys v4.10.0+2.12.1
+   Compiling rdkafka v0.39.0
+   Compiling rmqtt-kafka-zig-spike v0.1.0 (/private/tmp/rmqtt-kafka-zig-spike)
+warning: linker stderr: ignoring deprecated linker optimization setting '1'
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `rmqtt-kafka-zig-spike` (bin "rmqtt-kafka-zig-spike") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 47.96s

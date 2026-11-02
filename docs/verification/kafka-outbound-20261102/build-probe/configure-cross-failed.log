@@ -1,0 +1,118 @@
+   Compiling rdkafka-sys v4.10.0+2.12.1
+error: failed to run custom build command for `rdkafka-sys v4.10.0+2.12.1`
+
+Caused by:
+  process didn't exit successfully: `/private/tmp/rmqtt-kafka-zig-spike/target/release/build/rdkafka-sys-7208031d74ef9abe/build-script-build` (exit status: 101)
+  --- stdout
+  Cloning librdkafka
+  Configuring librdkafka
+  checking for OS or distribution... ok (osx)
+  checking for C compiler from CC env... failed
+  checking for gcc (by command)... ok
+  checking for C++ compiler from CXX env... failed
+  checking for C++ compiler (g++)... ok
+  checking executable ld... ok
+  checking executable nm... ok
+  checking executable objdump... ok
+  checking executable strip... ok
+  checking executable libtool... ok
+  checking executable ranlib... ok
+  checking for debug symbols compiler flag (-g...)... ok
+  checking for pkgconfig (by command)... ok
+  checking for install (by command)... failed
+  checking for GNU ar... failed (disable)
+  checking for PIC (by compile)... ok
+  checking for GNU-compatible linker options... failed
+  checking for OSX linker options... ok
+  checking for GNU linker-script ld flag... failed
+  checking for Solaris linker-script ld flag... failed (ignore)
+  checking for __atomic_32 (by compile)... ok
+  checking for __atomic_64 (by compile)... ok
+  checking for socket (by compile)... ok
+  parsing version '0x020c01ff'... ok (2.12.1)
+  checking for librt (by pkg-config)... failed
+  checking for librt (by compile)... failed
+  checking for libpthread (by pkg-config)... failed
+  checking for libpthread (by compile)... ok
+  checking for c11threads (by pkg-config)... failed
+  checking for c11threads (by compile)... failed (disable)
+  checking for libdl (by pkg-config)... failed
+  checking for libdl (by compile)... ok
+  checking for zlib (by pkg-config)... failed
+  checking for zlib (by compile)... failed (disable)
+  checking for libcrypto (by pkg-config)... failed
+  checking for libcrypto (by compile)... failed (fail)
+  checking for libzstd (by pkg-config)... failed
+  checking for libzstd (by compile)... failed (fail)
+  checking for libm (by pkg-config)... failed
+  checking for libm (by compile)... ok
+  checking for syslog (by compile)... ok
+  checking for rapidjson (by compile)... failed (disable)
+  checking for crc32chw (by compile)... failed (disable)
+  checking for regex (by compile)... ok
+  checking for rand_r (by compile)... ok
+  checking for strndup (by compile)... ok
+  checking for strlcpy (by compile)... ok
+  checking for strerror_r (by compile)... ok
+  checking for strcasestr (by compile)... ok
+  checking for pthread_setname_gnu (by compile)... failed (disable)
+  checking for pthread_setname_darwin (by compile)... ok
+  checking for nm (by env NM)... ok (cached)
+  checking for getrusage (by compile)... ok
+
+
+
+
+  --- stderr
+  Building and linking librdkafka statically
+  Running command: "cp -a librdkafka/. /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-b040615ff62fc230/out" in dir: .
+  Running command: "/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-b040615ff62fc230/out/configure --enable-ssl --disable-gssapi --disable-curl --enable-zstd --disable-lz4-ext" in dir: /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-b040615ff62fc230/out
+  ###########################################################
+  ###                  Configure failed                   ###
+  ###########################################################
+  ### Accumulated failures:                               ###
+  ###########################################################
+   libcrypto () 
+      module: self
+      action: fail
+      reason:
+  compile check failed:
+  CC: CC
+  flags: -lcrypto
+  gcc -I/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/include -I/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out/include -I/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/include -gstrict-dwarf -O2 -fPIC -Wall -Wsign-compare -Wfloat-equal -Wpointer-arith -Wcast-align -Wall -Werror _mkltmp1ab7UA.c -o _mkltmp1ab7UA.c.o  -L/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/lib -L/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out/lib -L/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out -lcrypto -ldl -lpthread:
+  ld: archive member '/' not a mach-o file in '/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/lib/libcrypto.a'
+  clang: error: linker command failed with exit code 1 (use -v to see invocation)
+  source: 
+  #include <openssl/ssl.h>
+  #include <openssl/evp.h>
+  #if OPENSSL_VERSION_NUMBER < 0x1000100fL
+  #error "Requires OpenSSL version >= v1.0.1"
+  #endif
+
+   libzstd (WITH_ZSTD) 
+      module: self
+      action: fail
+      reason:
+  compile check failed:
+  CC: CC
+  flags: -lzstd
+  gcc -I/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/include -I/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out/include -I/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/include -gstrict-dwarf -O2 -fPIC -Wall -Wsign-compare -Wfloat-equal -Wpointer-arith -Wcast-align -Wall -Werror _mkltmpXhs267.c -o _mkltmpXhs267.c.o  -L/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/lib -L/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out/lib -L/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out -lzstd -ldl -lpthread:
+  ld: archive member '/' not a mach-o file in '/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/libzstd.a'
+  clang: error: linker command failed with exit code 1 (use -v to see invocation)
+  source: 
+  #include <zstd.h>
+  #include <zstd_errors.h>
+
+  void foo (void) {
+       ZSTD_getFrameContentSize(NULL, 0);
+  }
+
+  ###########################################################
+  ### Installing the following packages might help:       ###
+  ###########################################################
+  brew install  openssl zstd
+
+
+  thread 'main' (16214342) panicked at /Users/ren/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rdkafka-sys-4.10.0+2.12.1/build.rs:36:33:
+  Command failed with error code 1
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

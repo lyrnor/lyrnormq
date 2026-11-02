@@ -1,0 +1,26 @@
+   Compiling libc v0.2.191
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling pin-project-lite v0.2.17
+   Compiling futures-core v0.3.34
+   Compiling serde v1.0.229
+   Compiling libz-sys v1.1.31
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling openssl-sys v0.9.118
+   Compiling num_enum v0.7.6
+   Compiling serde_json v1.0.154
+   Compiling futures-task v0.3.34
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling tokio v1.54.1
+   Compiling futures-channel v0.3.34
+   Compiling futures-util v0.3.34
+   Compiling log v0.4.35
+   Compiling slab v0.4.12
+   Compiling curl-sys v0.4.91+curl-8.22.0
+   Compiling rdkafka-sys v4.10.0+2.12.1
+   Compiling rdkafka v0.39.0
+   Compiling rmqtt-kafka-zig-spike v0.1.0 (/private/tmp/rmqtt-kafka-zig-spike)
+    Finished `release` profile [optimized] target(s) in 51.04s
+     Running `/private/tmp/rmqtt-kafka-zig-spike/target/release/rmqtt-kafka-zig-spike`
+librdkafka (34341375, "2.12.1"); verified features: ssl,sasl,sasl_plain,sasl_scram,lz4,zstd,gzip

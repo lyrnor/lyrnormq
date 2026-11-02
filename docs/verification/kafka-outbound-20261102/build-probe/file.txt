@@ -1,0 +1,1 @@
+/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/rmqtt-kafka-zig-spike: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
