@@ -1,0 +1,10 @@
+[package]
+name = "rmqtt-kafka-test-client"
+version = "0.1.0"
+edition = "2024"
+publish = false
+[workspace]
+[dependencies]
+rdkafka = { version = "=0.39.0", default-features = false, features = ["tokio", "cmake-build", "curl-static", "ssl-vendored", "libz-static", "zstd"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
