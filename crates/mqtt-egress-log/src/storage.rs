@@ -140,9 +140,17 @@ pub(crate) fn publish(root: &Path, id: u64) -> Result<(), QueueError> {
     fs::rename(temp, root.join("CURRENT"))?;
     sync_dir(root)
 }
-pub(crate) fn files(dir: &Path) -> Result<Vec<(u64, u64)>, QueueError> {
+#[cfg(not(test))]
+pub(crate) const MAX_SEGMENTS: usize = 1_000_002;
+#[cfg(test)]
+pub(crate) const MAX_SEGMENTS: usize = 32;
+pub(crate) fn files(dir: &Path, max_bytes: u64) -> Result<Vec<(u64, u64)>, QueueError> {
     let mut result = Vec::new();
+    let mut total = 0u64;
     for e in fs::read_dir(dir)? {
+        if result.len() >= MAX_SEGMENTS {
+            return Err(QueueError::Corrupt);
+        }
         let e = e?;
         let name = e.file_name();
         let name = name.to_str().ok_or(QueueError::Corrupt)?;
@@ -154,7 +162,12 @@ pub(crate) fn files(dir: &Path) -> Result<Vec<(u64, u64)>, QueueError> {
             .filter(|n| *n > 0)
             .ok_or(QueueError::Corrupt)?;
         let file = private_file(&e.path(), false)?;
-        result.push((n, file.metadata()?.len()));
+        let len = file.metadata()?.len();
+        total = total.checked_add(len).ok_or(QueueError::Corrupt)?;
+        if total.saturating_add(20) > max_bytes {
+            return Err(QueueError::Full);
+        }
+        result.push((n, len));
     }
     result.sort_unstable();
     if result.is_empty() {
@@ -219,6 +232,7 @@ pub(crate) fn read_payload(
     segment_id: u64,
     offset: u64,
     len: usize,
+    expected_checksum: u32,
 ) -> Result<Vec<u8>, QueueError> {
     let mut file = private_file(&segment(dir, segment_id), false)?;
     if offset
@@ -230,5 +244,8 @@ pub(crate) fn read_payload(
     file.seek(SeekFrom::Start(offset))?;
     let mut data = vec![0u8; len];
     file.read_exact(&mut data)?;
+    if format::checksum(&data) != expected_checksum {
+        return Err(QueueError::Corrupt);
+    }
     Ok(data)
 }

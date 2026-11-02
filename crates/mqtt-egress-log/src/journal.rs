@@ -34,6 +34,8 @@ pub struct Journal {
     live_bytes: u64,
     recovered: usize,
     poisoned: bool,
+    #[cfg(test)]
+    pub(crate) fault: Option<Fault>,
 }
 impl std::fmt::Debug for Journal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -50,7 +52,13 @@ impl Journal {
         let dir = storage::generation(&root, generation);
         if current.is_none() {
             // No published manifest means only initial preparation can exist.
-            storage::clean_other_generations(&root, 0)?;
+            // A missing manifest is not proof that an existing generation is
+            // disposable. Never erase a previously accepted queue on damage.
+            for entry in fs::read_dir(&root)? {
+                if entry?.file_name() != "OWNERSHIP" {
+                    return Err(QueueError::Corrupt);
+                }
+            }
             storage::directory(&dir)?;
             let mut file = storage::private_file(&storage::segment(&dir, 1), true)?;
             let txn = Transaction::Snapshot {
@@ -70,7 +78,7 @@ impl Journal {
                 return Err(QueueError::Io);
             }
         }
-        let segments = storage::files(&dir)?;
+        let segments = storage::files(&dir, options.max_bytes)?;
         let last = segments
             .last()
             .map(|(id, _)| *id)
@@ -79,7 +87,7 @@ impl Journal {
             .iter()
             .try_fold(0u64, |n, (_, len)| n.checked_add(*len))
             .ok_or(QueueError::Corrupt)?;
-        if physical > options.max_bytes {
+        if physical.saturating_add(20) > options.max_bytes {
             return Err(QueueError::Full);
         }
         let active = storage::private_file(&storage::segment(&dir, last), false)?;
@@ -105,6 +113,8 @@ impl Journal {
             live_bytes: 0,
             recovered: 0,
             poisoned: false,
+            #[cfg(test)]
+            fault: None,
         };
         let mut saw = false;
         for (segment, _) in segments {
@@ -241,7 +251,7 @@ impl Journal {
             .entries
             .len()
             .checked_add(records.len())
-            .is_none_or(|n| n > self.options.max_records)
+            .is_none_or(|n| n > self.options.max_records || n > storage::MAX_SEGMENTS - 2)
         {
             return Err(QueueError::Full);
         }
@@ -283,7 +293,10 @@ impl Journal {
             added = added
                 .checked_add(entry_cost(&meta))
                 .ok_or(QueueError::Full)?;
-            metas.push(meta);
+            metas.push(StoredRecord {
+                meta,
+                checksum: format::checksum(&record.payload),
+            });
         }
         if self
             .live_bytes
@@ -292,7 +305,7 @@ impl Journal {
         {
             return Err(QueueError::Full);
         }
-        let ids = metas.iter().map(|m| m.id).collect();
+        let ids = metas.iter().map(|m| m.meta.id).collect();
         let payloads: Vec<&[u8]> = records.iter().map(|r| r.payload.as_slice()).collect();
         self.commit(
             Transaction::Append {
@@ -320,6 +333,21 @@ impl Journal {
         max_payload_bytes: usize,
     ) -> Result<Vec<Record>, QueueError> {
         self.healthy()?;
+        let result = self.read_batch_inner(head_id, limit, max_payload_bytes);
+        if matches!(result, Err(QueueError::Io | QueueError::Corrupt)) {
+            self.poisoned = true;
+        }
+        result
+    }
+    /// Bounded metadata preview used to reserve the exact resident byte budget
+    /// before reading opaque payloads. Selection is identical to `read_batch`.
+    pub fn batch_metas(
+        &self,
+        head_id: u64,
+        limit: usize,
+        max_payload_bytes: usize,
+    ) -> Result<Vec<RecordMeta>, QueueError> {
+        self.healthy()?;
         if limit == 0 || max_payload_bytes == 0 || max_payload_bytes > MAX_GROUP_BYTES {
             return Err(QueueError::InvalidOptions);
         }
@@ -342,25 +370,38 @@ impl Journal {
             {
                 break;
             }
-            let Some(n) = size.checked_add(entry.meta.payload_len) else {
+            let Some(next) = size.checked_add(entry.meta.payload_len) else {
                 return Err(QueueError::Corrupt);
             };
-            if n > max_payload_bytes {
+            if next > max_payload_bytes {
                 break;
             }
-            let payload = storage::read_payload(
-                &self.dir,
-                entry.segment,
-                entry.offset,
-                entry.meta.payload_len,
-            )?;
-            result.push(Record {
-                meta: entry.meta.clone(),
-                payload,
-            });
-            size = n;
+            result.push(entry.meta.clone());
+            size = next;
         }
         Ok(result)
+    }
+    fn read_batch_inner(
+        &self,
+        head_id: u64,
+        limit: usize,
+        max_payload_bytes: usize,
+    ) -> Result<Vec<Record>, QueueError> {
+        let metadata = self.batch_metas(head_id, limit, max_payload_bytes)?;
+        metadata
+            .into_iter()
+            .map(|meta| {
+                let entry = self.entries.get(&meta.id).ok_or(QueueError::Corrupt)?;
+                let payload = storage::read_payload(
+                    &self.dir,
+                    entry.segment,
+                    entry.offset,
+                    entry.meta.payload_len,
+                    entry.checksum,
+                )?;
+                Ok(Record { meta, payload })
+            })
+            .collect()
     }
     fn validate_ids(&self, ids: &[u64]) -> Result<(), QueueError> {
         self.healthy()?;
@@ -427,17 +468,18 @@ impl Journal {
         if len > self.options.max_bytes / 2 {
             return Err(QueueError::Full);
         }
-        if self
-            .physical
-            .checked_add(len)
-            .is_none_or(|n| n > self.options.max_bytes)
+        if self.segment >= storage::MAX_SEGMENTS as u64
+            || self
+                .physical
+                .checked_add(len)
+                .is_none_or(|n| n.saturating_add(20) > self.options.max_bytes)
         {
             self.checkpoint()?;
         }
         if self
             .physical
             .checked_add(len)
-            .is_none_or(|n| n > self.options.max_bytes)
+            .is_none_or(|n| n.saturating_add(20) > self.options.max_bytes)
         {
             return Err(QueueError::Full);
         }
@@ -452,7 +494,11 @@ impl Journal {
                 storage::sync_dir(&self.dir)?;
             }
             let (offset, written) = format::write_frame(&mut self.active, &json, payloads)?;
+            #[cfg(test)]
+            self.inject(Fault::AfterWrite)?;
             self.active.sync_all()?;
+            #[cfg(test)]
+            self.inject(Fault::AfterSync)?;
             self.active_len += written;
             self.physical += written;
             self.apply(
@@ -515,6 +561,7 @@ impl Journal {
                 let mut previous = self.next_id.saturating_sub(1);
                 let mut bytes = 0u64;
                 for meta in records {
+                    let StoredRecord { meta, checksum } = meta;
                     if meta.id <= previous
                         || meta.id >= next_id
                         || meta.payload_len > MAX_RECORD_PAYLOAD
@@ -534,6 +581,7 @@ impl Journal {
                     let len = meta.payload_len as u64;
                     self.add_entry(Entry {
                         meta,
+                        checksum,
                         segment,
                         offset: location,
                     })?;
@@ -718,6 +766,14 @@ impl Journal {
             .ok_or(QueueError::Corrupt)?;
         Ok(())
     }
+    #[cfg(test)]
+    fn inject(&mut self, fault: Fault) -> Result<(), QueueError> {
+        if self.fault == Some(fault) {
+            self.fault = None;
+            return Err(QueueError::Io);
+        }
+        Ok(())
+    }
     fn compact(&mut self) -> Result<(), QueueError> {
         let generation = self.generation.checked_add(1).ok_or(QueueError::Io)?;
         let dir = storage::generation(&self.root, generation);
@@ -757,9 +813,16 @@ impl Journal {
                     entry.segment,
                     entry.offset,
                     entry.meta.payload_len,
+                    entry.checksum,
                 )?;
                 bytes += payload.len();
-                metas.push((*id, entry.meta.clone()));
+                metas.push((
+                    *id,
+                    StoredRecord {
+                        meta: entry.meta.clone(),
+                        checksum: entry.checksum,
+                    },
+                ));
                 payloads.push(payload);
             }
             if metas.is_empty() {
@@ -776,24 +839,29 @@ impl Journal {
             if active_len > 0 && active_len.saturating_add(len) > self.options.segment_bytes {
                 file.sync_all()?;
                 segment = segment.checked_add(1).ok_or(QueueError::Io)?;
+                if segment > storage::MAX_SEGMENTS as u64 {
+                    return Err(QueueError::Full);
+                }
                 file = storage::private_file(&storage::segment(&dir, segment), true)?;
                 active_len = 0;
             }
             if physical
                 .checked_add(len)
-                .is_none_or(|n| n > self.options.max_bytes)
+                .is_none_or(|n| n.saturating_add(20) > self.options.max_bytes)
             {
                 return Err(QueueError::Full);
             }
             let (mut location, written) = format::write_frame(&mut file, &json, &refs)?;
             active_len += written;
             physical += written;
-            for (_, meta) in metas {
+            for (_, stored) in metas {
+                let StoredRecord { meta, checksum } = stored;
                 let n = meta.payload_len as u64;
                 rewritten.insert(
                     meta.id,
                     Entry {
                         meta,
+                        checksum,
                         segment,
                         offset: location,
                     },
@@ -809,12 +877,16 @@ impl Journal {
         let (_, len) = format::write_frame(&mut file, &json, &[])?;
         active_len += len;
         physical += len;
-        if physical > self.options.max_bytes {
+        if physical.saturating_add(20) > self.options.max_bytes {
             return Err(QueueError::Full);
         }
         file.sync_all()?;
         storage::sync_dir(&dir)?;
+        #[cfg(test)]
+        self.inject(Fault::BeforePublish)?;
         storage::publish(&self.root, generation)?;
+        #[cfg(test)]
+        self.inject(Fault::AfterPublish)?;
         let old_dir = std::mem::replace(&mut self.dir, dir);
         let old_file = std::mem::replace(&mut self.active, file);
         drop(old_file);

@@ -91,8 +91,15 @@ pub(crate) struct StoredBinding {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Entry {
     pub meta: RecordMeta,
+    pub checksum: u32,
     pub segment: u64,
     pub offset: u64,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StoredRecord {
+    pub meta: RecordMeta,
+    pub checksum: u32,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -102,7 +109,7 @@ pub(crate) enum Transaction {
         next_revision: u64,
     },
     Append {
-        records: Vec<RecordMeta>,
+        records: Vec<StoredRecord>,
         next_id: u64,
     },
     Begin {
@@ -125,4 +132,13 @@ pub(crate) enum Transaction {
         next_id: u64,
         next_revision: u64,
     },
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Fault {
+    AfterWrite,
+    AfterSync,
+    BeforePublish,
+    AfterPublish,
 }

@@ -5,7 +5,7 @@ use crate::{
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-pub(crate) const HEADER: u64 = 16;
+pub(crate) const HEADER: u64 = 24;
 const MAGIC: &[u8; 4] = b"REQJ";
 const MAX_FRAME: u64 = (MAX_META + MAX_GROUP_BYTES + 4) as u64;
 
@@ -93,6 +93,8 @@ pub(crate) fn write_frame(
     header[4] = 1;
     header[8..12].copy_from_slice(&body32.to_le_bytes());
     header[12..16].copy_from_slice(&(!crc).to_le_bytes());
+    let header_crc = checksum(&header[..16]);
+    header[16..20].copy_from_slice(&header_crc.to_le_bytes());
     let start = file.seek(SeekFrom::End(0))?;
     file.write_all(&header)?;
     file.write_all(&json32)?;
@@ -115,6 +117,11 @@ pub(crate) fn scan(file: &mut File, offset: u64, max_bytes: u64) -> Result<Scan,
     let mut header = [0u8; HEADER as usize];
     file.read_exact(&mut header)?;
     if &header[..4] != MAGIC || header[4] != 1 || header[5..8] != [0, 0, 0] {
+        return Err(QueueError::Corrupt);
+    }
+    let expected_header =
+        u32::from_le_bytes(header[16..20].try_into().map_err(|_| QueueError::Corrupt)?);
+    if checksum(&header[..16]) != expected_header || header[20..24] != [0, 0, 0, 0] {
         return Err(QueueError::Corrupt);
     }
     let body = u64::from(u32::from_le_bytes(
