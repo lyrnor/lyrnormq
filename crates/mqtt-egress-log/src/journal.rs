@@ -39,8 +39,7 @@ pub struct Journal {
     pub(crate) poisoned: bool,
     #[cfg(test)]
     pub(crate) fault: Option<Fault>,
-    #[cfg(test)]
-    pub(crate) group_data_syncs: usize,
+    pub(crate) append_syncs: u64,
 }
 impl std::fmt::Debug for Journal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -122,8 +121,7 @@ impl Journal {
             poisoned: false,
             #[cfg(test)]
             fault: None,
-            #[cfg(test)]
-            group_data_syncs: 0,
+            append_syncs: 0,
         };
         let mut saw = false;
         for (segment, _) in segments {

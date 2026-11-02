@@ -19,6 +19,14 @@ struct Prepared<'a> {
     next_id: u64,
 }
 impl Journal {
+    /// Successful result-append data synchronizations since this owner was opened.
+    /// Includes append group rollover synchronizations, but excludes initialization,
+    /// directory, legacy per-delivery, state-operation and checkpoint synchronizations.
+    /// Not persisted.
+    pub fn append_data_syncs(&self) -> u64 {
+        self.append_syncs
+    }
+
     /// Append at most four independently atomic result frames under one durable
     /// barrier. Success means every frame was synchronized; an error after IO may
     /// recover a complete-frame prefix, never a cross-frame atomic transaction.
@@ -106,11 +114,9 @@ impl Journal {
     }
     fn sync_group_segment(&mut self, check: Option<AppendCheck>) -> Result<(), QueueError> {
         self.active.sync_all()?;
+        self.append_syncs = self.append_syncs.saturating_add(1);
         #[cfg(test)]
-        {
-            self.group_data_syncs += 1;
-            self.inject(Fault::AfterSync)?;
-        }
+        self.inject(Fault::AfterSync)?;
         self.reads
             .get_mut()
             .map_err(|_| QueueError::Io)?
