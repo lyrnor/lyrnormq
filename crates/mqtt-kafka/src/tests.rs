@@ -61,82 +61,18 @@ async fn producer_constructor_rejects_invalid_concurrency_and_identity() {
 }
 
 #[tokio::test]
-async fn mock_kafka_records_preserve_data_keys_headers_and_same_client_order() {
-    use mqtt_egress_core::Sink;
-    use rdkafka::{
-        ClientConfig, Offset, TopicPartitionList,
-        consumer::{Consumer, StreamConsumer},
-        message::{Headers, Message},
-        mocking::MockCluster,
-    };
-    let cluster = MockCluster::new(3).unwrap();
-    cluster.create_topic("events", 3, 1).unwrap();
-    let c = KafkaConfig {
-        brokers: cluster
-            .bootstrap_servers()
-            .split(',')
-            .map(str::to_owned)
-            .collect(),
-        topic: "events".into(),
-        ..KafkaConfig::default()
-    };
-    let sink = KafkaSink::new("mock", c, 5000, 128).unwrap();
-    let consumer: StreamConsumer = ClientConfig::new()
-        .set("bootstrap.servers", cluster.bootstrap_servers())
-        .set("group.id", "adapter-order-test")
-        .set("enable.auto.commit", "false")
-        .set("auto.offset.reset", "earliest")
-        .create()
-        .unwrap();
-    let mut partitions = TopicPartitionList::new();
-    for p in 0..3 {
-        partitions
-            .add_partition_offset("events", p, Offset::Beginning)
-            .unwrap();
-    }
-    consumer.assign(&partitions).unwrap();
-    let client = "source\"\\é";
-    for seq in 0..6 {
-        let event=serde_json::to_vec(&serde_json::json!({"event_id":format!("e{seq}"),"delivery_id":format!("d{seq}"),"rule_id":"r","client_id":client,"topic":"devices/t","timestamp_ms":123,"data":{"sequence":seq,"selected":true}})).unwrap();
-        sink.send(&[&event]).await.unwrap();
-    }
-    let mut chosen = None;
-    for seq in 0..6 {
-        let msg = tokio::time::timeout(std::time::Duration::from_secs(5), consumer.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(msg.key(), Some(client.as_bytes()));
-        assert!(chosen.is_none_or(|p| p == msg.partition()));
-        chosen = Some(msg.partition());
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(msg.payload().unwrap()).unwrap(),
-            serde_json::json!({"sequence":seq,"selected":true})
-        );
-        let headers = msg.headers().unwrap();
-        let hs: std::collections::BTreeMap<_, _> = (0..headers.count())
-            .map(|i| {
-                let h = headers.get(i);
-                (h.key, h.value.unwrap())
-            })
-            .collect();
-        assert_eq!(hs["rmqtt-client-id"], client.as_bytes());
-        assert_eq!(hs["rmqtt-delivery-id"], format!("d{seq}").as_bytes());
-        assert_eq!(hs["rmqtt-topic"], b"devices/t");
-        assert_eq!(hs["rmqtt-rule-id"], b"r");
-    }
-    sink.shutdown().await.unwrap();
-}
-
-#[tokio::test]
 async fn native_queue_full_is_retryable_and_never_success() {
     use mqtt_egress_core::{FailureKind, Sink};
     use std::sync::Arc;
+    let broker = krafka::testing::FakeBroker::start().await.unwrap();
+    broker.on(krafka::testing::ApiKey::ApiVersions, |_| {
+        krafka::testing::Control::Silence
+    });
     let sink = Arc::new(
         KafkaSink::new(
             "queue",
             KafkaConfig {
-                brokers: vec!["127.0.0.1:1".into()],
+                brokers: vec![broker.bootstrap_servers()],
                 topic: "events".into(),
                 ..KafkaConfig::default()
             },
@@ -230,5 +166,132 @@ async fn adapter_rejects_bad_keys_batches_and_header_inflated_records_before_enq
     let error = sink.send(&[&large]).await.unwrap_err();
     assert_eq!(error.kind, FailureKind::Permanent);
     assert_eq!(error.code, "request_too_large");
+    sink.shutdown().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn lost_ack_retries_deduplicate_and_shutdown_fences_connections() {
+    use krafka::testing::{ApiKey, Control, FakeBroker};
+    use mqtt_egress_core::Sink;
+    let broker = FakeBroker::start().await.unwrap();
+    broker.create_topic("events", 1);
+    let sink = KafkaSink::new(
+        "dedup",
+        KafkaConfig {
+            brokers: vec![broker.bootstrap_servers()],
+            topic: "events".into(),
+            ..KafkaConfig::default()
+        },
+        5000,
+        128,
+    )
+    .unwrap();
+    broker.on_once(ApiKey::Produce, |_| {
+        Control::ApplyThen(Box::new(Control::Disconnect))
+    });
+    let event=br#"{"event_id":"e","delivery_id":"d","rule_id":"r","client_id":"c","topic":"t","timestamp_ms":1,"data":{"v":1}}"#;
+    sink.send(&[event]).await.unwrap();
+    assert!(broker.request_count(ApiKey::Produce) >= 2);
+    assert_eq!(
+        broker.with_state(|s| s.partition("events", 0).unwrap().next_offset),
+        1
+    );
+    let (a, b) = tokio::join!(sink.shutdown(), sink.shutdown());
+    a.unwrap();
+    b.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while broker.open_connections() != 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await
+        }
+    })
+    .await
+    .unwrap();
+    assert!(sink.send(&[event]).await.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ambiguous_deadline_fences_old_generation_and_can_reconnect() {
+    use krafka::testing::{ApiKey, Control, FakeBroker};
+    use mqtt_egress_core::Sink;
+    let broker = FakeBroker::start().await.unwrap();
+    broker.create_topic("events", 1);
+    let sink = KafkaSink::new(
+        "uncertain",
+        KafkaConfig {
+            brokers: vec![broker.bootstrap_servers()],
+            topic: "events".into(),
+            ..KafkaConfig::default()
+        },
+        1000,
+        128,
+    )
+    .unwrap();
+    broker.on(ApiKey::Produce, |_| {
+        Control::ApplyThen(Box::new(Control::Delay(std::time::Duration::from_millis(
+            1200,
+        ))))
+    });
+    let event=br#"{"event_id":"e","delivery_id":"d","rule_id":"r","client_id":"c","topic":"t","timestamp_ms":1,"data":{"v":1}}"#;
+    let start = std::time::Instant::now();
+    assert!(sink.send(&[event]).await.is_err());
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while broker.open_connections() != 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await
+        }
+    })
+    .await
+    .unwrap();
+    let count = broker.request_count(ApiKey::Produce);
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert_eq!(broker.request_count(ApiKey::Produce), count);
+    broker.clear_hooks();
+    sink.send(&[event]).await.unwrap();
+    sink.shutdown().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn raw_data_headers_keys_timestamps_and_fifo_are_unchanged() {
+    use krafka::testing::FakeBroker;
+    use mqtt_egress_core::Sink;
+    let broker = FakeBroker::start().await.unwrap();
+    broker.create_topic("events", 3);
+    let sink = KafkaSink::new(
+        "wire",
+        KafkaConfig {
+            brokers: vec![broker.bootstrap_servers()],
+            topic: "events".into(),
+            ..KafkaConfig::default()
+        },
+        5000,
+        128,
+    )
+    .unwrap();
+    let client = "client-\"é";
+    for seq in 0..6 {
+        let event=serde_json::to_vec(&serde_json::json!({"event_id":format!("e{seq}"),"delivery_id":format!("d{seq}"),"rule_id":"r","client_id":client,"topic":"devices/t","timestamp_ms":123,"data":{"sequence":seq}})).unwrap();
+        sink.send(&[&event]).await.unwrap();
+    }
+    let records = broker.all_records("events").unwrap();
+    assert_eq!(records.len(), 6);
+    let partition = records[0].partition;
+    for (seq, record) in records.iter().enumerate() {
+        assert_eq!(record.partition, partition);
+        assert_eq!(record.key.as_deref(), Some(client.as_bytes()));
+        assert_eq!(record.timestamp, 123);
+        let headers: std::collections::BTreeMap<_, _> = record
+            .headers
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_deref().unwrap()))
+            .collect();
+        assert_eq!(headers["rmqtt-delivery-id"], format!("d{seq}").as_bytes());
+        assert_eq!(headers["rmqtt-client-id"], client.as_bytes());
+        assert_eq!(headers["rmqtt-topic"], b"devices/t");
+        assert_eq!(headers["rmqtt-rule-id"], b"r");
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(record.value.as_deref().unwrap()).unwrap(),
+            serde_json::json!({"sequence":seq})
+        );
+    }
     sink.shutdown().await.unwrap();
 }
