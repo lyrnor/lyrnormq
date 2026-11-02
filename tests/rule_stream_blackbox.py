@@ -52,8 +52,8 @@ class RuleStreams(unittest.TestCase):
         config['rules'].append(other)
         return config
 
-    def start(self, config=None):
-        self.broker = DashboardBroker(self.directory.name, extra=['--rules-config', str(self.rules_path)])
+    def start(self, config=None, extra=()):
+        self.broker = DashboardBroker(self.directory.name, extra=['--rules-config', str(self.rules_path), *extra])
         self.addCleanup(self.broker.stop)
         self.broker.start()
         if config is not None:
@@ -232,6 +232,27 @@ class RuleStreams(unittest.TestCase):
         self.assertEqual(events(first.tracker.completed[0])[0]['data']['temperature'], 30)
         self.assertEqual(second.tracker.started, [])
         self.emit(self.client('after-delete'), [1])
+        self.assertEqual(second.tracker.started, [])
+
+    def test_fanout_capacity_rejection_is_atomic_and_runtime_can_continue(self):
+        first = self.receiver()
+        second = self.receiver()
+        config = self.config(first, second)
+        config['rules'] = config['rules'][:1]
+        self.start(config, extra=['--egress-queue-max-records', '1'])
+        self.emit(self.client('atomic-fanout'), [0])
+        eventually(lambda: self.outbound()['dropped'] >= 1 and self.outbound('mirror')['dropped'] >= 1)
+        self.pending(0, 0)
+        self.assertTrue(self.status()['running'])
+        self.assertEqual(first.tracker.started, [])
+        self.assertEqual(second.tracker.started, [])
+        self.assertNotIn(b'only-rule-temperature-0', self.bytes())
+        config['rules'][0]['outbound_ids'] = ['send']
+        self.replace(config)
+        self.emit(self.client('atomic-fanout'), [1])
+        first.tracker.wait(lambda t: len(t.completed) == 1)
+        self.drained()
+        self.assertEqual(events(first.tracker.completed[0])[0]['data']['seq'], 1)
         self.assertEqual(second.tracker.started, [])
 
     def fixture_start(self, config, entries):

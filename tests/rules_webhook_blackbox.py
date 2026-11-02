@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent Phase5a real MQTT → SQL → Webhook acceptance (stdlib only).
 Run after building: RMQTT_BIN=/absolute/path/rmqtt python3 tests/rules_webhook_blackbox.py -v
-All queues/outbound tasks are explicitly best-effort; no crash-durable action claim.
+Admission before durable append remains best effort; shared queue recovery is tested separately.
 """
 from collections import deque
 import copy
