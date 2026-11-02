@@ -2320,3 +2320,26 @@ pass. Exactrawresults,machineinfo,commands,rangesandfullpercentiles under
  docs/verification/egress-log-performance-20261102/README.md. Thesearelocalengine
 measurements,noproductionTPSclaim. Followup:targetLinuxbaseline,profileperrecord
 open/stat/read andgroupcommit/compactionbeforechangingdurabilityorimplementation.
+
+
+### Shared rule-result streams and independent consumers (2026-11-02)
+
+先冻结 phase5g，再由日志、运行时、质量 Agent 在独立 worktree 中并行实施。
+每条规则的转换结果只保存一次，原子附加所有获准出站引用；物理日志共享，逻辑流按规则划分。
+投递 ID、目标版本、重试期限及进行中状态独立保存；最后一个消费者完成后才回收正文。
+保序键调整为出站/规则/Client，不同规则独立推进，批次不混合规则，共享 8/16 并发上限。
+
+Webhook 格式及稳定 ID 保持不变。正文读取、封装和发送均计入有界预算，保留无空转轮询
+及容量唤醒修复。启动时原子迁移 v1，保留未完成投递的旧 ID 和状态；损坏、冲突或容量
+不足时保留旧数据并拒绝迁移。接近满额的旧队列可能需要提高容量。实际旧 Broker 已验证
+拒绝 v2 且不修改文件。旧索引重建缺陷先由失败测试复现，再修复。
+
+690 项 Workspace Rust 测试（含日志 43、出站 46）、83 项前端测试、3 项独立基准测试，
+fmt、严格 Clippy、TypeScript/Vite、Prettier 和嵌入前端的 Release 构建通过。
+132 项 Release 黑盒通过，含 13 项新增多规则、扇出及迁移测试，验证不同 SQL 输出、
+正文去重、3 引用/2 结果计数、独立重试、部分 ACK、重启恢复及旧记录升级。
+
+基准已适配共享 API，目前仅重跑冒烟，旧性能数据仍标为历史基线。文档及 Dashboard
+统计单位已更新，没有合并 main 或重启生产服务。验收证据：
+[规则结果共享日志验收](verification/rule-result-streams-20261102/README.md)。
+剩余：新模型 Linux 性能基线、队列 profiling；可选 ACK 耦合准入、死信和复制队列。

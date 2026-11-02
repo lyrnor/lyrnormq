@@ -301,7 +301,7 @@ export function RulesPage({
         ["接入事件", status.received],
         ["规则命中", status.matched],
         [
-          "待完成事件",
+          "待完成投递",
           status.durable_queue?.pending_records ?? status.queued_events,
         ],
         ["丢弃", status.dropped],
@@ -595,7 +595,7 @@ export function RulesPage({
             {status.outbounds.length === 0 && <Empty>暂无出站执行统计</Empty>}
           </div>
           <p className="px-5 pb-4 text-[11px] leading-relaxed text-muted-foreground">
-            待完成包含排队、发送和重试中的消息，重启后继续发送；进行中按请求数，其余按消息条数统计。发送、失败等累计统计在服务重启后重新开始。
+            待完成包含排队、发送和重试中的消息，重启后继续发送；进行中按请求数，其余按投递条数统计。同一结果发送到多个出站时，待完成分别计数，数据量只计一次。发送、失败等累计统计在服务重启后重新开始。
           </p>
         </Panel>
       )}
@@ -994,8 +994,8 @@ function Editor({
               ))}
               <Alert role="note">
                 <AlertDescription>
-                  同一客户端的消息按顺序发送，不同客户端可并发发送。并发请求数限制同时发送的请求数量。
-                  重试只等待当前客户端，最终失败后继续下一条。已保存的待发送消息会在重启后继续发送；接纳前过载仍可能丢失消息，接收方应避免重复处理。
+                  同一规则中，同一客户端的消息按顺序发送；不同规则或不同客户端可并发发送。并发请求数限制同时发送的请求数量。
+                  重试只等待当前规则的当前客户端，最终失败后继续下一条。已保存的待发送消息会在重启后继续发送；接纳前过载仍可能丢失消息，接收方应避免重复处理。
                 </AlertDescription>
               </Alert>
             </CollapsibleContent>

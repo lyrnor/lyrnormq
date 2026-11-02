@@ -1,0 +1,29 @@
+   Compiling serde_json v1.0.154
+   Compiling mqtt-auth v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-auth)
+   Compiling reqwest v0.12.28
+   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-rules)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-egress-log)
+   Compiling mqtt-session v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-session)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-webhook)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-transport)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.19s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-d9ed1ca6f32348d7)
+
+running 1 test
+
+thread 'tests::one_rule_fanout_stores_its_transformed_body_once' (15829904) panicked at crates/mqtt-egress/src/tests.rs:916:5:
+assertion `left == right` failed: one transformed result was copied once for every destination
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::one_rule_fanout_stores_its_transformed_body_once ... FAILED
+
+failures:
+
+failures:
+    tests::one_rule_fanout_stores_its_transformed_body_once
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.16s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

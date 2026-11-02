@@ -1,0 +1,4 @@
+broker exited during startup: rmqtt management on 127.0.0.1:50757 (loopback, bearer authentication)
+Error: Custom { kind: Other, error: Storage }
+
+PASS: actual old broker rejects v2 journal; all durable files unchanged

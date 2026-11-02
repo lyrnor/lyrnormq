@@ -1,5 +1,7 @@
 # Phase5f — Generic durable outbound segmented queue (frozen 2026-11-02)
 
+**Cross-rule ordering and per-delivery payloads superseded by [Phase5g](phase5g-rule-result-streams.md).**
+
 Supersedes volatile-delivery and generation-cancellation disposal in phase5c/d/e.
 Exact client FIFO, generic Sink boundary, concurrency8/default1..16/global16 and
 lib.rs structure remain. No Kafka/PostgreSQL/Redis adapters, SQLite message rows,

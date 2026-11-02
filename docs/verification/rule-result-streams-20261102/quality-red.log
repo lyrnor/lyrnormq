@@ -1,0 +1,27 @@
+FF
+======================================================================
+FAIL: test_distinct_rule_results_are_stored_once_despite_fanout (__main__.RuleStreams.test_distinct_rule_results_are_stored_once_despite_fanout)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rule-stream-quality/tests/rule_stream_blackbox.py", line 95, in test_distinct_rule_results_are_stored_once_despite_fanout
+    self.assertEqual(data.count(b'only-rule-temperature-0'), 1, 'one rule body must not be copied per outbound')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 1 : one rule body must not be copied per outbound
+
+======================================================================
+FAIL: test_same_outbound_rules_and_other_outbound_progress_independently (__main__.RuleStreams.test_same_outbound_rules_and_other_outbound_progress_independently)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rule-stream-quality/tests/rule_stream_blackbox.py", line 122, in test_same_outbound_rules_and_other_outbound_progress_independently
+    first.tracker.wait(lambda t: sum(events(r)[0]['rule_id'] == 'humidity' for r in t.completed) == 2)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-rule-stream-quality/tests/outbound_concurrency_blackbox.py", line 41, in wait
+    raise AssertionError(f'HTTP barrier timed out: active={self.active}, '
+                         f'started={len(self.started)}, completed={len(self.completed)}, '
+                         f'peak={self.peak}, closed={self.closed}')
+AssertionError: HTTP barrier timed out: active=1, started=1, completed=0, peak=1, closed=0
+
+----------------------------------------------------------------------
+Ran 2 tests in 5.528s
+
+FAILED (failures=2)

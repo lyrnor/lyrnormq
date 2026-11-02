@@ -533,6 +533,56 @@ describe("live rule and Webhook management", () => {
 });
 
 describe("outbound request observations", () => {
+  it("counts fanout deliveries separately while shared result bytes are counted once", async () => {
+    const config = structuredClone(populated);
+    config.outbounds.push({
+      ...structuredClone(config.outbounds[0]),
+      id: "second",
+      name: "Secondary",
+    });
+    config.rules[0].outbound_ids = ["send", "second"];
+    const observed = {
+      ...status,
+      queued_events: 0,
+      queued_bytes: 0,
+      durable_queue: {
+        pending_records: 2,
+        pending_results: 1,
+        pending_bytes: 128,
+        disk_bytes: 4096,
+        max_bytes: 268435456,
+        recovered_records: 0,
+      },
+      outbounds: ["send", "second"].map((id) => ({
+        ...status.outbounds[0],
+        id,
+        queued: 0,
+        durable_queued: 1,
+      })),
+    };
+    request.mockImplementation(
+      async (path) => (path.endsWith("config") ? config : observed) as never,
+    );
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    expect(screen.getByText("待完成投递").parentElement?.textContent).toContain(
+      "2",
+    );
+    expect(
+      screen.getByText("待发送数据量").parentElement?.textContent,
+    ).toContain("128 B");
+    const table = screen
+      .getByRole("columnheader", { name: "待完成（消息）" })
+      .closest("table")!;
+    for (const row of within(table).getAllByRole("row").slice(1)) {
+      expect(within(row).getAllByRole("cell")[2].textContent).toBe("1");
+    }
+    expect(
+      screen.getByText(
+        /同一结果发送到多个出站时，待完成分别计数，数据量只计一次/,
+      ),
+    ).toBeTruthy();
+  });
   it("shows durable backlog even when the memory window is empty", async () => {
     const observed = {
       ...status,
@@ -552,7 +602,7 @@ describe("outbound request observations", () => {
     );
     render(<RulesPage token="token" expired={expired} />);
     await ready();
-    expect(screen.getByText("待完成事件").parentElement?.textContent).toContain(
+    expect(screen.getByText("待完成投递").parentElement?.textContent).toContain(
       "321",
     );
     expect(
@@ -585,7 +635,7 @@ describe("outbound request observations", () => {
     expect(
       screen.getByRole("columnheader", { name: "待完成（消息）" }),
     ).toBeTruthy();
-    expect(screen.getByText("待完成事件")).toBeTruthy();
+    expect(screen.getByText("待完成投递")).toBeTruthy();
     expect(screen.getByText(/待完成包含排队、发送和重试中的消息/)).toBeTruthy();
     expect(screen.getByText(/进行中按请求数/)).toBeTruthy();
   });
@@ -766,10 +816,10 @@ describe("Webhook basic and advanced settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
     const note = screen.getByRole("note");
     expect(note.textContent).toContain(
-      "同一客户端的消息按顺序发送，不同客户端可并发发送",
+      "同一规则中，同一客户端的消息按顺序发送；不同规则或不同客户端可并发发送",
     );
     expect(note.textContent).toContain(
-      "重试只等待当前客户端，最终失败后继续下一条",
+      "重试只等待当前规则的当前客户端，最终失败后继续下一条",
     );
     expect(note.textContent).toContain("并发请求数限制同时发送的请求数量");
     expect(note.textContent).not.toContain("需要按顺序发送时设为 1");

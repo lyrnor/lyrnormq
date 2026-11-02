@@ -736,3 +736,23 @@ Admission, metadata, memory windows and disk have finite limits; no MQTT ACK cou
 or replicated durability is claimed. Dashboard backlog uses durable counts, keeping
 memory reservation counters distinct. Previous volatile-queue statements are
 historical and superseded by this phase.
+
+
+## Phase5g: Shared rule-result streams
+
+[Phase5g](contracts/phase5g-rule-result-streams.md) supersedes one payload copy per
+outbound delivery. SQL evaluation creates one immutable result and atomically
+snapshots its eligible consumer references. Result bodies and their disk locations
+are distinct from consumer IDs, destination revisions, retry/acknowledgement state.
+Only the last completed consumer releases a body. Checkpoints copy live bodies
+once, retaining all unfinished consumers. Logical lanes are now
+(outbound, rule-stream, exact client), allowing different rules to progress without
+mixing batches while sharing per-outbound/global concurrency budgets.
+
+The generic journal remains opaque and protocol-independent. Runtime uses a common
+RawValue codec to materialize the existing per-consumer wire delivery ID. A bounded
+startup resolver migrates v1 per-destination bodies into a new synchronized v2
+generation, preserving IDs/state and deduplicating only equal results from the same
+rule/event/client. No original payload log, per-rule physical directory, MQTT ACK
+coupling or historical-subscription replay is introduced. Prior phase5f performance
+results are a historical baseline, not certification of this changed data model.

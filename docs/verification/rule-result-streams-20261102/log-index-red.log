@@ -1,0 +1,24 @@
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-rule-stream-log/crates/mqtt-egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.41s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+
+running 1 test
+test tests::shared_tests::mixed_legacy_and_shared_migration_preserves_fifo_and_legacy_api_remains_usable ... FAILED
+
+failures:
+
+---- tests::shared_tests::mixed_legacy_and_shared_migration_preserves_fifo_and_legacy_api_remains_usable stdout ----
+
+thread 'tests::shared_tests::mixed_legacy_and_shared_migration_preserves_fifo_and_legacy_api_remains_usable' (15876100) panicked at crates/mqtt-egress-log/src/shared_tests.rs:327:5:
+assertion `left == right` failed
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::shared_tests::mixed_legacy_and_shared_migration_preserves_fifo_and_legacy_api_remains_usable
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `-p mqtt-egress-log --lib`

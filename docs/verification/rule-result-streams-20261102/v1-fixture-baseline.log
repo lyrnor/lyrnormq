@@ -1,0 +1,17 @@
+F
+======================================================================
+FAIL: test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive (__main__.RuleStreams.test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-rule-stream-quality/tests/rule_stream_blackbox.py", line 253, in test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive
+    self.pending(2, 1)
+    ~~~~~~~~~~~~^^^^^^
+  File "/private/tmp/rmqtt-rule-stream-quality/tests/rule_stream_blackbox.py", line 73, in pending
+    self.assertEqual(self.status()['durable_queue'].get('pending_results'), results)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 1
+
+----------------------------------------------------------------------
+Ran 1 test in 0.184s
+
+FAILED (failures=1)

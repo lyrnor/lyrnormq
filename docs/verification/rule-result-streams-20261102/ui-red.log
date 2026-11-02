@@ -1,0 +1,387 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --run tests/rules-page.test.tsx
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ❯ tests/rules-page.test.tsx (29 tests | 1 failed) 847ms
+   ✓ live rule and Webhook management > creates without exposing an ID field 97ms
+   ✓ live rule and Webhook management > shows a plain disabled state without implementation details 5ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage 53ms
+   ✓ live rule and Webhook management > preserves redacted secrets and rejects deleting referenced outbound 52ms
+   ✓ live rule and Webhook management > creates outbound and rule with exact references then disables rule 78ms
+   ✓ live rule and Webhook management > binds only the selected identifier when outbound names are identical 38ms
+   ✓ live rule and Webhook management > rejects unknown outbound types without interpreting them as Webhook 3ms
+   ✓ live rule and Webhook management > SQL dry run only calls test endpoint and escapes output 18ms
+   ✓ live rule and Webhook management > keeps the generated ID across validation failure and a failed HTTP save 43ms
+   ✓ live rule and Webhook management > preserves existing rule identifiers and bindings when renaming 32ms
+   ✓ live rule and Webhook management > shows a controlled creation failure if secure identifiers cannot be generated 8ms
+   ✓ live rule and Webhook management > switches real tab panels through keyboard without writing configuration 14ms
+   ✓ live rule and Webhook management > clears auth on401 and aborts requests when leaving the page 2ms
+   ✓ live rule and Webhook management > polls status without overwriting an open form and stops while hidden 22ms
+   ✓ live rule and Webhook management > marks failed statistics stale and clears that warning after a successful sample 7ms
+   ✓ live rule and Webhook management > shows stopped execution explicitly while keeping published configuration inspectable 21ms
+   ✓ live rule and Webhook management > disables an already-open delete confirmation if execution stops 17ms
+   × outbound request observations > counts fanout deliveries separately while shared result bytes are counted once 11ms
+     → Unable to find an element with the text: 待完成投递. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mclass[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-lg font-semibold"[39m
+          [36m>[39m
+            [0m规则引擎[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m筛选消息、提取数据，并发送到指定目标。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5"[39m
+          [33mdata-size[39m=[32m"sm"[39m
+          [33mdata-slot[39m=[32m"button"[39m
+          [33mdata-variant[39m=[32m"outline"[39m
+        [36m>[39m
+          [0m刷新规则配置[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"规则运行统计"[39m
+        [33mclass[39m=[32m"grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m接入事件[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m12[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m规则命中[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m8[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m待完成事件[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m丢弃[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m1[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m处理失败[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m0[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m待发送数据量[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m128 B[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col rounded-xl border bg-card text-card-foreground gap-0 overflow-hidden py-0 shadow-none"[39m
+        [33mdata-slot[39m=[32m"card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"@container/card-header auto-rows-min grid-rows-[auto_auto] has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6 flex flex-row items-center justify-between gap-3 px-5 pt-5 pb-0"[39m
+          [33mdata-slot[39m=[32m"card-header"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"text-sm font-semibold"[39m
+            [33mdata-slot[39m=[32m"card-title"[39m
+          [36m>[39m
+            [36m<h2>[39m
+              [0m规则配置[0m
+            [36m</h2>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary/90 h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5"[39m
+            [33mdata-size[39m=[32m"sm"[39m
+            [33mdata-slot[39m=[32m"button"[39m
+            [33mdata-variant[39m=[32m"default"[39m
+          [36m>[39m
+            [0m新建[0m
+            [0m规则[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-3"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-slot[39m=[32m"tabs"[39m
+          [33mdir[39m=[32m"ltr"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"规则管理分类"[39m
+            [33maria-orientation[39m=[32m"horizontal"[39m
+            [33mclass[39m=[32m"inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground mx-5 mt-4"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-slot[39m=[32m"tabs-list"[39m
+            [33mrole[39m=[32m"tablist"[39m
+            [33mstyle[39m=[32m"outline: none;"[39m...
+   ✓ outbound request observations > shows durable backlog even when the memory window is empty 12ms
+   ✓ outbound request observations > labels in-progress attempts as requests independently of message counts 13ms
+   ✓ Webhook basic and advanced settings > only shows business fields initially and saves the system defaults 28ms
+   ✓ Webhook basic and advanced settings > retains advanced edits through collapse with no editable queue capacity 63ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 100/wait 50/concurrency 1 without opening advanced 28ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 7/wait 15/concurrency 16 without opening advanced 27ms
+   ✓ Webhook basic and advanced settings > expands hidden invalid tuning instead of submitting it 46ms
+   ✓ Webhook basic and advanced settings > rejects hidden concurrency 0 and focuses the expanded field 39ms
+   ✓ Webhook basic and advanced settings > rejects hidden concurrency 17 and focuses the expanded field 40ms
+   ✓ Webhook basic and advanced settings > explains delivery order only inside the advanced panel 18ms
+   ✓ Webhook basic and advanced settings > keeps the rule enable switch and SQL immediately available 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/rules-page.test.tsx > outbound request observations > counts fanout deliveries separately while shared result bytes are counted once
+TestingLibraryElementError: Unable to find an element with the text: 待完成投递. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mclass[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-lg font-semibold"[39m
+          [36m>[39m
+            [0m规则引擎[0m
+          [36m</h2>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-1 text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m筛选消息、提取数据，并发送到指定目标。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5"[39m
+          [33mdata-size[39m=[32m"sm"[39m
+          [33mdata-slot[39m=[32m"button"[39m
+          [33mdata-variant[39m=[32m"outline"[39m
+        [36m>[39m
+          [0m刷新规则配置[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"规则运行统计"[39m
+        [33mclass[39m=[32m"grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m接入事件[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m12[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m规则命中[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m8[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m待完成事件[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m丢弃[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m1[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m处理失败[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m0[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-xl border bg-card p-4"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs text-muted-foreground"[39m
+          [36m>[39m
+            [0m待发送数据量[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mt-2 text-xl font-semibold"[39m
+          [36m>[39m
+            [0m128 B[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col rounded-xl border bg-card text-card-foreground gap-0 overflow-hidden py-0 shadow-none"[39m
+        [33mdata-slot[39m=[32m"card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"@container/card-header auto-rows-min grid-rows-[auto_auto] has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6 flex flex-row items-center justify-between gap-3 px-5 pt-5 pb-0"[39m
+          [33mdata-slot[39m=[32m"card-header"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"text-sm font-semibold"[39m
+            [33mdata-slot[39m=[32m"card-title"[39m
+          [36m>[39m
+            [36m<h2>[39m
+              [0m规则配置[0m
+            [36m</h2>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-primary/90 h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5"[39m
+            [33mdata-size[39m=[32m"sm"[39m
+            [33mdata-slot[39m=[32m"button"[39m
+            [33mdata-variant[39m=[32m"default"[39m
+          [36m>[39m
+            [0m新建[0m
+            [0m规则[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-3"[39m
+          [33mdata-orientation[39m=[32m"horizontal"[39m
+          [33mdata-slot[39m=[32m"tabs"[39m
+          [33mdir[39m=[32m"ltr"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"规则管理分类"[39m
+            [33maria-orientation[39m=[32m"horizontal"[39m
+            [33mclass[39m=[32m"inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground mx-5 mt-4"[39m
+            [33mdata-orientation[39m=[32m"horizontal"[39m
+            [33mdata-slot[39m=[32m"tabs-list"[39m
+            [33mrole[39m=[32m"tablist"[39m
+            [33mstyle[39m=[32m"outline: none;"[39m...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/rules-page.test.tsx:553:19
+    551|     render(<RulesPage token="token" expired={expired} />);
+    552|     await ready();
+    553|     expect(screen.getByText("待完成投递").parentElement?.textContent).toCon…
+       |                   ^
+    554|     expect(screen.getByText("待发送数据量").parentElement?.textContent).toCo…
+    555|     const table = screen.getByRole("columnheader", { name: "待完成（消息）" }…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+   Start at  14:05:46
+   Duration  1.82s (transform 120ms, setup 7ms, collect 362ms, tests 847ms, environment 426ms, prepare 60ms)
+

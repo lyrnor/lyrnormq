@@ -1,5 +1,7 @@
 # Phase5e — Client-ordered outbound delivery (frozen 2026-11-02)
 
+**Cross-rule ordering and per-delivery payloads superseded by [Phase5g](phase5g-rule-result-streams.md).**
+
 **Volatile queue/lifecycle superseded by [Phase5f](phase5f-durable-outbound-queue.md).**
 
 Supersedes phase5d scheduling and ordering only. User requests same-client FIFO,

@@ -1,0 +1,12 @@
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
+   Compiling egress-log-bench v0.1.0 (/Volumes/data/rmqtt/benches/egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.65s
+     Running unittests src/main.rs (target/debug/deps/egress_log_bench-093ea08370ff880b)
+
+running 3 tests
+test metrics::tests::rank_is_not_batch_amortized ... ok
+test config::tests::rejects_oversized_work_and_preserves_parent_topology ... ok
+test run::tests::verified_smoke_covers_reads_and_durable_state ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+

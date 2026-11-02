@@ -1,0 +1,24 @@
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-rule-stream-log/crates/mqtt-egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+
+running 1 test
+test tests::one_rule_result_fanout_stores_body_only_once ... FAILED
+
+failures:
+
+---- tests::one_rule_result_fanout_stores_body_only_once stdout ----
+
+thread 'tests::one_rule_result_fanout_stores_body_only_once' (15827191) panicked at crates/mqtt-egress-log/src/tests.rs:784:5:
+assertion `left == right` failed
+  left: 100
+ right: 50
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::one_rule_result_fanout_stores_body_only_once
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p mqtt-egress-log --lib`

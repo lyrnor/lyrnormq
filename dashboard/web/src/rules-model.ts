@@ -51,6 +51,7 @@ export interface RulesStatus {
   queued_bytes: number;
   durable_queue?: {
     pending_records: number;
+    pending_results?: number;
     pending_bytes: number;
     disk_bytes: number;
     max_bytes: number;
