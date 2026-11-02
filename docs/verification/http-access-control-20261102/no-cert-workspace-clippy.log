@@ -1,0 +1,4 @@
+   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+    Checking mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+    Checking rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.95s

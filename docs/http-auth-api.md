@@ -119,7 +119,7 @@ challenge，Broker不会据此自动重试、更换服务凭据或转发设备�
 
 - 请求为UTF-8 JSON、`Content-Type: application/json`，最多1MiB，拒绝重复key、未知
   字段和非法类型。响应不要求JSON，不再兼容旧的200+result方案。
-- 固定Authorization等服务请求头与设备密码分开，可用mTLS；默认HTTPS，验证证书和
+- 固定Authorization等服务请求头与设备密码分开，不提供自定义 CA 或客户端证书配置；默认HTTPS，使用默认信任根验证证书和
   主机名。明文HTTP须显式允许，不提供跳过证书验证开关。禁止重定向、URL内凭据、
   凭据查询参数和用户输入替换URL/header。请求ID仅为可忽略的`X-Request-ID` header。
 - 单次请求默认总超时1000ms，可配置100..5000ms，受现有握手/重认证总期限约束；

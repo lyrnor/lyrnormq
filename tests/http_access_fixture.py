@@ -155,12 +155,9 @@ class AccessService:
                     and all(item['body'].get(k) == v for k, v in fields.items())]
 
     def endpoint(self, path, enabled=True):
-        tls = dict(ca_pem=None, certificate_pem=None, private_key_pem=None)
-        if self.identities:
-            tls['ca_pem'] = (self.identities.path / 'ca.pem').read_text()
         return dict(type='http', enabled=enabled, name='Acceptance service', url=self.base + path,
                     service_auth=dict(type='none'), headers={}, timeout_ms=1000,
-                    max_concurrency=128, allow_http=not bool(self.identities), tls=tls)
+                    max_concurrency=128, allow_http=not bool(self.identities))
 
     def configuration(self, ttl=30, authz=True):
         authorization = self.endpoint('/acl', enabled=authz)

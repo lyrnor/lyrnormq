@@ -1,0 +1,34 @@
+   Compiling mqtt-auth-http v0.1.0 (/private/tmp/rmqtt-http-access-backend/crates/mqtt-auth-http)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.19s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_auth_http-97e3c2ce99703d3b)
+
+running 20 tests
+test tests::certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage ... ok
+test tests::configuration_limits_and_composition_are_fail_closed ... ok
+test tests::configuration_is_flat_strict_and_redacts_every_service_secret ... ok
+test tests::disabled_legacy_path_remains_local_and_uses_no_remote_budget ... ok
+test tests::asynchronous_authentication_binds_username_and_classifies_unavailable ... ok
+test tests::actual_http_authentication_uses_status_and_exact_credential_encoding ... ok
+test tests::configuration_restart_and_shutdown_preserve_private_durable_settings ... ok
+test tests::cache_clear_and_configuration_change_fence_unsealed_not_admitted_attempts ... ok
+test tests::both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only_keeps_static_acl ... ok
+test tests::cancelled_configuration_save_stops_old_view_and_restart_loads_actual_commit ... ok
+test tests::point_acl_receipts_are_exact_and_never_global_revocation ... ok
+test tests::bounded_attempts_requirements_and_generations_fail_busy_without_allowing ... ok
+test tests::ttl_zero_pins_only_current_attempt_and_does_not_loop ... ok
+test tests::probe_draft_and_redacted_save_have_no_formal_cache_or_live_stat_effect ... ok
+test tests::unknown_and_unavailable_never_become_false_denial ... ok
+test tests::simultaneous_exact_requests_share_one_inflight_call ... ok
+test tests::tls::real_https_ca_hostname_and_required_client_certificate_checks ... ok
+test tests::cancelled_query_releases_flight_and_late_response_cannot_repopulate_clear ... ok
+test tests::stage_concurrency_is_fail_fast_and_a_different_attempt_can_continue ... ok
+test tests::expiration_refetches_decision_and_acl401_is_never_cached_as_deny ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.15s
+
+   Doc-tests mqtt_auth_http
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

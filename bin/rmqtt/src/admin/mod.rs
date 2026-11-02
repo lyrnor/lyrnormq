@@ -1,4 +1,5 @@
 //! Opt-in loopback management HTTP service; independent from MQTT authentication.
+mod access_control;
 mod asset_rules;
 mod assets;
 mod http;

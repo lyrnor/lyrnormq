@@ -5,6 +5,7 @@ fn state() -> State {
     State {
         handle: ManagementHandle::new(),
         rules: None,
+        access_control: None,
         token: vec![b'x'; 32],
         assets: super::super::assets::Assets::new(),
         instance: json!({}),

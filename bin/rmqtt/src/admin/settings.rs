@@ -12,6 +12,7 @@ use std::{
 pub struct State {
     pub handle: ManagementHandle,
     pub rules: Option<Arc<mqtt_egress::Runtime>>,
+    pub access_control: Option<Arc<mqtt_auth_http::Runtime>>,
     pub token: Vec<u8>,
     pub assets: Assets,
     pub instance: Value,
@@ -95,12 +96,20 @@ pub fn prepare(
         options.auth_policy.as_deref(),
         options.config.storage_path.as_deref(),
         options.rules_config.as_deref(),
+        options.access_control_config.as_deref(),
     ]
     .into_iter()
     .flatten()
     .map(Path::to_path_buf)
     .collect();
     if let Some(path) = &options.rules_config {
+        for suffix in ["-journal", "-wal", "-shm", ".config-lock"] {
+            let mut companion = path.as_os_str().to_os_string();
+            companion.push(suffix);
+            sensitive.push(companion.into());
+        }
+    }
+    if let Some(path) = &options.access_control_config {
         for suffix in ["-journal", "-wal", "-shm", ".config-lock"] {
             let mut companion = path.as_os_str().to_os_string();
             companion.push(suffix);
@@ -131,6 +140,7 @@ pub fn prepare(
     Ok(Arc::new(State {
         handle,
         rules,
+        access_control: None,
         token,
         assets,
         instance,

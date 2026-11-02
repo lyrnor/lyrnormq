@@ -1,0 +1,15 @@
+test_custom_tls_configuration_is_rejected_and_not_exposed (__main__.HttpAccessBlackbox.test_custom_tls_configuration_is_rejected_and_not_exposed) ... FAIL
+
+======================================================================
+FAIL: test_custom_tls_configuration_is_rejected_and_not_exposed (__main__.HttpAccessBlackbox.test_custom_tls_configuration_is_rejected_and_not_exposed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Volumes/data/rmqtt/tests/http_access_blackbox.py", line 357, in test_custom_tls_configuration_is_rejected_and_not_exposed
+    self.assertNotIn('tls', original[stage])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'tls' unexpectedly found in {'type': 'http', 'enabled': True, 'name': 'Acceptance service', 'url': 'http://127.0.0.1:61252/authenticate', 'service_auth': {'type': 'none'}, 'headers': {}, 'timeout_ms': 1000, 'max_concurrency': 128, 'allow_http': True, 'tls': {'ca_pem': None, 'certificate_pem': None, 'private_key_pem': None}}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.569s
+
+FAILED (failures=1)

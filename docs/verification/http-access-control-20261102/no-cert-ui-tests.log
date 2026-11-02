@@ -1,0 +1,27 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v3.2.7 /private/tmp/rmqtt-http-no-cert-ui/dashboard/web
+
+··········································stderr | tests/app.test.tsx > memory-only management login > escapes broker strings and labels restored negotiation unknown
+Error: Not implemented: window.scrollTo
+    at module.exports (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at change (/private/tmp/rmqtt-http-no-cert-ui/dashboard/web/src/App.tsx:191:14)
+    at callTheUserObjectsOperation (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at EventTargetImpl._dispatch (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at fireAnEvent (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
+    at SessionHistory._fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
+    at fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
+
+········································································
+
+ Test Files  13 passed (13)
+      Tests  114 passed (114)
+   Start at  18:58:47
+   Duration  3.12s (transform 963ms, setup 148ms, collect 5.32s, tests 6.44s, environment 5.78s, prepare 812ms)
+

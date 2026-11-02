@@ -1488,11 +1488,13 @@ name = "rmqtt"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "hyper",
  "hyper-util",
  "include_dir",
  "mimalloc",
  "mqtt-auth",
+ "mqtt-auth-http",
  "mqtt-egress",
  "mqtt-rules",
  "mqtt-transport",

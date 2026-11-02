@@ -350,54 +350,40 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.delivery(sub, 'public/value', b'preserved', 1)
         self.barrier(sub)
 
-    def test_https_mtls_inline_credentials_and_wrong_trust_anchor(self):
-        service = AccessService(self.identities, mutual_tls=True)
-        self.addCleanup(service.close)
+    def test_custom_tls_configuration_is_rejected_and_not_exposed(self):
         self.start(authz=False)
-        config = service.endpoint('/authenticate', enabled=False)
-        config['tls']['certificate_pem'] = (self.identities.path / 'valid.pem').read_text()
-        config['tls']['private_key_pem'] = (self.identities.path / 'client.key').read_text()
-        request = dict(config=config, client_id='mtls-probe', username='device', password=PASSWORD.decode())
-        code, _, result = self.request('/test/authentication', request)
-        self.assertEqual(code, 200)
-        self.assertEqual(result['result'], 'allow')
-        self.assertTrue(service.observations('/authenticate')[-1]['mutual_tls'])
-        missing = copy.deepcopy(request)
-        missing['config']['tls']['certificate_pem'] = None
-        missing['config']['tls']['private_key_pem'] = None
-        self.assertEqual(self.request('/test/authentication', missing)[2]['result'], 'unavailable')
-        wrong_ca = copy.deepcopy(request)
-        wrong_ca['config']['tls']['ca_pem'] = (self.identities.path / 'wrong-ca.pem').read_text()
-        self.assertEqual(self.request('/test/authentication', wrong_ca)[2]['result'], 'unavailable')
-        live = self.request('/config')[2]
-        live['authentication'] = config
-        live['authentication']['enabled'] = True
-        saved = self.replace(live)
-        self.assertEqual(saved['authentication']['tls']['private_key_pem'], '[redacted]')
-        self.replace(saved)
-        code, _, result = self.request('/test/authentication', dict(
-            config=saved['authentication'], client_id='saved-mtls-probe',
-            username='device', password=PASSWORD.decode()))
-        self.assertEqual((code, result['result']), (200, 'allow'))
-        self.assertEqual(service.failures, [])
-        self.assertNotIn((self.identities.path / 'client.key').read_text(), self.broker.logs())
+        original = self.request('/config')[2]
+        for stage in ('authentication', 'authorization'):
+            self.assertNotIn('tls', original[stage])
+            changed = copy.deepcopy(original)
+            changed[stage]['tls'] = {'ca_pem': 'obsolete-certificate'}
+            self.assertEqual(self.request('/config', changed, 'PUT')[0], 400)
+            self.assertEqual(self.request('/config')[2], original)
+        for stage in ('authentication', 'authorization'):
+            config = copy.deepcopy(original[stage])
+            config['tls'] = {}
+            payload = dict(config=config, client_id='probe', username='device')
+            payload.update(dict(password=PASSWORD.decode()) if stage == 'authentication'
+                           else dict(action='publish', topic='test/topic'))
+            self.assertEqual(self.request('/test/' + stage, payload)[0], 400)
 
-    def test_live_mqtt_credentials_are_verified_over_external_https_mtls(self):
-        service = AccessService(self.identities, mutual_tls=True)
+    def test_https_untrusted_certificate_remains_unavailable(self):
+        service = AccessService(self.identities)
         self.addCleanup(service.close)
         self.start(authz=False)
-        config = self.request('/config')[2]
-        target = service.endpoint('/authenticate')
-        target['tls']['certificate_pem'] = (self.identities.path / 'valid.pem').read_text()
-        target['tls']['private_key_pem'] = (self.identities.path / 'client.key').read_text()
-        config['authentication'] = target
-        self.replace(config)
-        for version in (4, 5):
-            self.client(f'mtls-wire-{version}', username=f'mtls-device-{version}', version=version)
-        calls = service.observations('/authenticate')
-        self.assertEqual(len(calls), 2)
-        self.assertTrue(all(call['mutual_tls'] for call in calls))
-        self.assertEqual(service.failures, [])
+        for stage, path in (('authentication', '/authenticate'), ('authorization', '/acl')):
+            config = service.endpoint(path)
+            if stage == 'authorization':
+                config['cache_ttl_seconds'] = 30
+            payload = dict(config=config, client_id='untrusted-probe', username='device')
+            payload.update(dict(password=PASSWORD.decode()) if stage == 'authentication'
+                           else dict(action='publish', topic='test/topic'))
+            code, _, result = self.request('/test/' + stage, payload)
+            self.assertEqual(code, 200)
+            self.assertEqual(result['result'], 'unavailable')
+            self.assertIsNone(result['http_status'])
+        self.assertEqual(service.observations(), [])
+        self.assertEqual(self.request('/status')[2]['authentication']['requests_total'], 0)
 
     def test_retained_and_will_use_original_device_and_actual_topic(self):
         self.start(ttl=0)

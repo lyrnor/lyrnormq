@@ -140,6 +140,8 @@ async fn dispatch(ExtractState(state): ExtractState<Arc<State>>, request: Reques
             header::HeaderValue::from_static("Bearer"),
         );
         response
+    } else if api && path.starts_with("/api/v1/access-control/") {
+        super::access_control::dispatch(&state, request).await
     } else if api && path.starts_with("/api/v1/rules/") {
         super::rules::dispatch(&state, request).await
     } else if request.method() != Method::GET {

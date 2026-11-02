@@ -1,0 +1,9 @@
+test_custom_tls_configuration_is_rejected_and_not_exposed (__main__.HttpAccessBlackbox.test_custom_tls_configuration_is_rejected_and_not_exposed) ... ok
+test_https_untrusted_certificate_remains_unavailable (__main__.HttpAccessBlackbox.test_https_untrusted_certificate_remains_unavailable) ... ok
+test_management_probes_drafts_redaction_and_external401_do_not_logout (__main__.HttpAccessBlackbox.test_management_probes_drafts_redaction_and_external401_do_not_logout) ... ok
+test_probe_unknown_status_and_acl401_are_unavailable_not_business_denials (__main__.HttpAccessBlackbox.test_probe_unknown_status_and_acl401_are_unavailable_not_business_denials) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 2.068s
+
+OK
