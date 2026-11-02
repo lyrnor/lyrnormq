@@ -1,0 +1,6 @@
+{
+  "baseline_topology_sha256": "8ca085d68db5062838032fe9ea239db3d08c0a62ab13f7068c1a5f9f60b9af89",
+  "write_sampling": "sample PID 3 seconds at 1ms, own baseline topology --inputs4096 --rules16 --fanout1 --batch64 --payload-bytes1024",
+  "read_sampling": "sample PID 3 seconds at 1ms after1.7s; own baseline egress-log-bench --records16384 --batch64 --payload-bytes1024 --read-rounds20 --phase read",
+  "note": "Sampling profiles are diagnostics, not measurements used in before/after throughput tables. Stack samples approximate main-thread wall residence, including blocking IO; not CPU-only percentages. Both completed successfully."
+}

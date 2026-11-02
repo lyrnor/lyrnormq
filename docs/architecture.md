@@ -756,3 +756,22 @@ generation, preserving IDs/state and deduplicating only equal results from the s
 rule/event/client. No original payload log, per-rule physical directory, MQTT ACK
 coupling or historical-subscription replay is introduced. Prior phase5f performance
 results are a historical baseline, not certification of this changed data model.
+
+## Phase5h: Bounded journal IO reuse
+
+[Phase5h](contracts/phase5h-journal-io-optimization.md) preserves phase5g frames,
+consumer state transitions and synchronization boundaries. Frame writes coalesce
+through at most 64 KiB scratch space and use a compatible slicing-by-eight CRC.
+Successful writes flush and sync before applying in-memory state as before.
+
+On Unix the synchronous journal owner reuses at most 16 validated segment handles,
+reads payloads positionally and retains at most 8 MiB / 8192 CRC-verified fanout
+bodies. The public payload remains Vec, so caller buffers and wire rendering stay
+independent. This cache is a separate fixed memory allowance; it does not expand
+disk admission or replace durable state. File identity, permissions, links and
+change fingerprints are checked before cache use; generation replacement and last
+consumer completion release cached data. Known owned appends preserve only a
+prevalidated immutable prefix, with per-segment trust bookkeeping rather than a
+scan of the full body cache. Platforms without reliable fingerprints use the
+previous checked read path. Cache sharing depends on working-set locality, and
+process recovery always starts cold.

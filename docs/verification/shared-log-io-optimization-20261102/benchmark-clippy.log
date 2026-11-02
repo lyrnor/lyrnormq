@@ -1,0 +1,3 @@
+    Checking mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
+    Checking egress-log-bench v0.1.0 (/Volumes/data/rmqtt/benches/egress-log)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.95s

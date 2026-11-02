@@ -1,0 +1,168 @@
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
+   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.71s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_auth-db4f728db4966d8c)
+
+running 20 tests
+test containment::tests::requested_language_cannot_escape_grant ... ok
+test enhanced::tests::resolved_context_is_bounded_before_exchange_allocation_or_verification ... ok
+test enhanced::tests::exact_data_limit_unicode_and_byte_counted_username_bounds ... ok
+test policy::tests::anonymous_default_is_compatible_but_configured_rules_default_deny ... ok
+test enhanced::tests::all_debug_and_error_paths_redact_authentication_data ... ok
+test enhanced::tests::literal_shared_prefix_policy_is_not_recursively_unwrapped ... ok
+test policy::tests::binary_password_is_not_utf8_or_c_string ... ok
+test enhanced::tests::direct_and_challenge_verify_real_argon2_policy_and_finish_once ... ok
+test enhanced::tests::malformed_credentials_delegation_and_failure_cannot_retry ... ok
+test enhanced::tests::unsupported_method_client_acl_and_anonymous_are_not_bypassed ... ok
+test policy::tests::debug_and_errors_never_echo_hash_or_password ... ok
+test policy::tests::authenticate_and_authorize_each_resource_kind ... ok
+test policy::tests::missing_unknown_wrong_and_partial_credentials_fail_closed ... ok
+test policy::tests::synthetic_interop_fixtures ... ok
+test policy::tests::all_hash_parameters_are_checked_before_authentication ... ok
+test containment::tests::deep_filters_are_iterative_and_bounded ... ok
+test policy::tests::file_user_name_and_rule_limits_are_enforced ... ok
+test policy::tests::unknown_fields_duplicates_missing_fields_and_invalid_rules_are_rejected ... ok
+test containment::tests::bounded_exhaustive_topic_reference_has_no_false_grants ... ok
+test policy::tests::recommended_hash_parameters_and_explicit_empty_password_work ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress-caaee877da994710)
+
+running 46 tests
+test result_wire::tests::malformed_legacy_or_mismatched_stream_fails_without_identity_fallback ... ok
+test result_wire::tests::migration_and_materialization_preserve_wire_bytes_and_exact_length ... ok
+test runtime::lifecycle_tests::cancelled_initialization_guard_releases_configuration_on_blocking_pool ... ok
+test tests::accepted_delivery_replays_after_shutdown_with_stable_identity ... FAILED
+test tests::batches_only_within_configured_limits ... FAILED
+test tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget ... FAILED
+test durable_worker::tests::memory_release_without_journal_mutation_resumes_durable_head ... ok
+test durable_worker::tests::separate_rule_streams_do_not_mix_batches_or_block_one_another ... ok
+test runtime::lifecycle_tests::failed_journal_initialization_releases_configuration_ownership ... ok
+test durable_worker::tests::uncertain_generic_attempt_replays_after_reopen_without_exhausting_budget ... ok
+test tests::evaluates_real_sql_and_posts_json_envelope ... FAILED
+test tests::delivery_ids_distinguish_rule_action_fanout ... FAILED
+test tests::fixed_shard_preserves_same_publisher_processing_order ... FAILED
+test durable_worker::tests::generic_durable_sink_retries_raw_opaque_bytes_and_commits_completion ... ok
+test durable_worker::tests::idle_outbounds_wait_for_mutations_and_future_retry_deadlines_without_polling ... ok
+test runtime::lifecycle_tests::storage_failure_waits_for_generation_cleanup_before_returning ... ok
+test durable_worker::tests::metadata_release_does_not_spin_when_payload_capacity_is_still_unavailable ... ok
+test tests::permanent_http_error_does_not_retry ... FAILED
+test tests::one_rule_fanout_stores_its_transformed_body_once ... FAILED
+test tests::reconfiguration_pauses_and_retains_committed_pending_deliveries ... FAILED
+test tests::invalid_saved_sqlite_configuration_fails_without_overwriting_payload ... ok
+test tests::rejects_invalid_and_dangerous_configuration ... ok
+test durable_worker::tests::one_consumer_completion_retains_shared_body_for_another_after_reopen ... ok
+test tests::replacing_configuration_releases_old_keepalive_connection_pool ... FAILED
+test tests::rejects_configuration_symlink_and_non_sqlite_file ... ok
+test tests::retry_reuses_event_identifier_and_counts_per_event ... FAILED
+test tests::storage_failure_returns_after_concurrent_attempts_are_cancelled ... FAILED
+test tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work ... FAILED
+test worker::tests::concurrent_jobs_reach_local_cap_and_cancel_without_budget_leaks ... ok
+test worker::tests::generic_worker_obeys_non_http_capabilities_and_error_classes ... ok
+test worker::tests::global_attempt_cap_is_shared_and_waiting_jobs_are_not_inflight ... ok
+test worker::tests::one_job_drains_accepted_deliveries_sequentially_after_sender_closes ... ok
+test worker::tests::panicked_child_stops_scheduler_and_releases_every_lane_and_permit ... ok
+test worker::tests::resident_admission_bounds_one_held_client_and_cancel_releases_slots ... ok
+test worker::tests::immediate_success_client_churn_bounds_completed_jobs_and_lane_registry ... ok
+test worker::tests::retry_backoff_releases_global_slot_and_does_not_block_another_job ... ok
+test worker::tests::same_client_does_not_overlap_even_with_concurrency_three ... ok
+test tests::cancelled_update_and_shutdown_callers_do_not_leave_database_locked ... ok
+test tests::migrates_old_sqlite_blob_transactionally_and_rejects_new_wire_unknowns ... ok
+test tests::concurrency_defaults_limits_and_sqlite_recovery_preserve_old_policy ... ok
+test tests::default_configuration_is_real_sqlite_and_releases_ownership ... ok
+test tests::failed_sqlite_write_preserves_previous_committed_configuration ... ok
+test tests::persists_configuration_redacts_and_preserves_headers_on_roundtrip ... ok
+test worker::tests::worker_enforces_time_budget_and_rejects_invalid_adapter_limits ... ok
+test tests::rejected_configuration_does_not_commit_or_stop_runtime ... ok
+test tests::uncertain_sqlite_write_failure_stops_runtime_and_restores_actual_commit ... ok
+
+failures:
+
+---- tests::accepted_delivery_replays_after_shutdown_with_stable_identity stdout ----
+
+thread 'tests::accepted_delivery_replays_after_shutdown_with_stable_identity' (15999156) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::batches_only_within_configured_limits stdout ----
+
+thread 'tests::batches_only_within_configured_limits' (15999157) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget stdout ----
+
+thread 'tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget' (15999158) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::evaluates_real_sql_and_posts_json_envelope stdout ----
+
+thread 'tests::evaluates_real_sql_and_posts_json_envelope' (15999189) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::delivery_ids_distinguish_rule_action_fanout stdout ----
+
+thread 'tests::delivery_ids_distinguish_rule_action_fanout' (15999188) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::fixed_shard_preserves_same_publisher_processing_order stdout ----
+
+thread 'tests::fixed_shard_preserves_same_publisher_processing_order' (15999194) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::permanent_http_error_does_not_retry stdout ----
+
+thread 'tests::permanent_http_error_does_not_retry' (15999200) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::one_rule_fanout_stores_its_transformed_body_once stdout ----
+
+thread 'tests::one_rule_fanout_stores_its_transformed_body_once' (15999199) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::reconfiguration_pauses_and_retains_committed_pending_deliveries stdout ----
+
+thread 'tests::reconfiguration_pauses_and_retains_committed_pending_deliveries' (15999203) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::replacing_configuration_releases_old_keepalive_connection_pool stdout ----
+
+thread 'tests::replacing_configuration_releases_old_keepalive_connection_pool' (15999212) panicked at crates/mqtt-egress/src/tests.rs:587:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::retry_reuses_event_identifier_and_counts_per_event stdout ----
+
+thread 'tests::retry_reuses_event_identifier_and_counts_per_event' (15999213) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::storage_failure_returns_after_concurrent_attempts_are_cancelled stdout ----
+
+thread 'tests::storage_failure_returns_after_concurrent_attempts_are_cancelled' (15999214) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work stdout ----
+
+thread 'tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work' (15999215) panicked at crates/mqtt-egress/src/tests.rs:48:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+
+failures:
+    tests::accepted_delivery_replays_after_shutdown_with_stable_identity
+    tests::batches_only_within_configured_limits
+    tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget
+    tests::delivery_ids_distinguish_rule_action_fanout
+    tests::evaluates_real_sql_and_posts_json_envelope
+    tests::fixed_shard_preserves_same_publisher_processing_order
+    tests::one_rule_fanout_stores_its_transformed_body_once
+    tests::permanent_http_error_does_not_retry
+    tests::reconfiguration_pauses_and_retains_committed_pending_deliveries
+    tests::replacing_configuration_releases_old_keepalive_connection_pool
+    tests::retry_reuses_event_identifier_and_counts_per_event
+    tests::storage_failure_returns_after_concurrent_attempts_are_cancelled
+    tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work
+
+test result: FAILED. 33 passed; 13 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

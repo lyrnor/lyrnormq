@@ -1,0 +1,35 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling syn v3.0.9
+   Compiling serde_derive v1.0.229
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-journal-io-opt/crates/mqtt-egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.47s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+
+running 1 test
+test tests::read_cache_tests::destinations_share_one_verified_physical_body_read ... FAILED
+
+failures:
+
+---- tests::read_cache_tests::destinations_share_one_verified_physical_body_read stdout ----
+
+thread 'tests::read_cache_tests::destinations_share_one_verified_physical_body_read' (15957470) panicked at crates/mqtt-egress-log/src/read_cache_tests.rs:11:5:
+assertion `left == right` failed
+  left: 4
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::read_cache_tests::destinations_share_one_verified_physical_body_read
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `-p mqtt-egress-log --lib`

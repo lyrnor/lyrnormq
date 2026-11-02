@@ -2356,3 +2356,24 @@ fmt、严格 Clippy、TypeScript/Vite、Prettier 和嵌入前端的 Release 构�
 这是 M4 本机热缓存、直接引擎测量，不是 MQTT/Webhook 生产 TPS。
 [完整环境、原始数据及复现命令](verification/shared-log-performance-20261102/README.md)。
 后续：Linux/NVMe 目标基线、持续排空/状态写入、文件读取路径 profiling；本轮未部署。
+
+
+### Bounded journal IO optimization and repeat matrix (2026-11-02)
+
+先冻结 phase5h（含可信追加前缀澄清），日志/质量 Agent 在独立 worktree 实施与验证，
+集成9049def、0cf7609，质量c7c4faf。最多64KiB帧写合并、兼容CRC slicing8，Unix
+最多16个校验FD、8MiB/8192条多消费者正文缓存。追加前验证、成功sync后按段推进可信
+前缀，使Begin/Retry/部分Complete交错仍共享一次正文读取；换代/最后消费者/异常指纹
+正确失效。API、磁盘格式、sync和poison/recovery语义不变，非Unix旁路缓存。
+
+699项Workspace Rust、18项独立基准/完整性、62项Release MQTT/Webhook黑盒通过，
+fmt、严格Clippy、Release构建通过。新回归旧版4次读盘失败，优化后为1次；覆盖外部
+篡改、mtime恢复、权限/链接/替换、FD逐出、缓存容量和重启/崩溃恢复。
+
+原39场景全部复测并保留旧数据，工作负载源码SHA一致，逐轮配置/统计/日志字节相同。
+1KiB batch64写入提升11%–26%、读取10.4–21.8倍；单规则16出站读取57,060→1,242,824/s，
+峰值RSS23.95→28.78MiB。128字节/逐条同步历史写入有持平或下降，未隐藏；额外18次
+旧/新交替诊断，小包16出站写入约+6%、1KiB4出站约+24%、逐条sync持平。读取工作窗口
+较短，非隔离M4实测，不是生产TPS承诺。未部署或合并main。
+[完整数据、环境、限制及复现](verification/shared-log-io-optimization-20261102/README.md)。
+剩余：隔离Linux/NVMe基线、持续入队/排空与确认写入、缓存工作集/调度局部性profiling。

@@ -1,0 +1,73 @@
+{
+  "append": {
+    "api_call_latency_ns": {
+      "max": 28577625,
+      "p50": 3990917,
+      "p95": 4986625,
+      "p99": 6431708
+    },
+    "calls": 2048,
+    "engine_items_per_second": 248.17922241024564,
+    "engine_seconds": 8.252100962,
+    "item_unit": "rule_results",
+    "items": 2048,
+    "mean_engine_ns_per_item": 4029346.1728515625,
+    "payload_bytes": 2097152,
+    "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+    "stage": "append_results_durable",
+    "wall_items_per_second": 247.53973146643116,
+    "wall_payload_mib_per_second": 0.24173801901018668,
+    "wall_seconds": 8.273419333
+  },
+  "config": {
+    "batch": 1,
+    "fanout": 4,
+    "inputs": 2048,
+    "payload_bytes": 1024,
+    "rules": 1,
+    "segment_bytes": 1048576
+  },
+  "debug_assertions": false,
+  "method": "production sync_all unchanged; single writer; reads warm after append, include CRC; wall includes generation/validation/head lookup; API latency excludes driver; RSS sampled via ps outside timings, peak via external time; no SQL/HTTP/MQTT",
+  "read": {
+    "api_call_latency_ns": {
+      "max": 272208,
+      "p50": 3208,
+      "p95": 8708,
+      "p99": 12750
+    },
+    "calls": 8192,
+    "engine_items_per_second": 223801.42955895083,
+    "engine_seconds": 0.036603877,
+    "item_unit": "consumer_deliveries",
+    "items": 8192,
+    "mean_engine_ns_per_item": 4468.2467041015625,
+    "payload_bytes": 8388608,
+    "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+    "stage": "read_consumers_warm_verified",
+    "wall_items_per_second": 192982.44043539965,
+    "wall_payload_mib_per_second": 188.45941448769497,
+    "wall_seconds": 0.042449458
+  },
+  "rss_kib": {
+    "after_append": 7728,
+    "after_read": 10448,
+    "initial": 2352
+  },
+  "schema_version": 1,
+  "stats_after_append": {
+    "disk_bytes": 3497563,
+    "max_bytes": 536870912,
+    "pending_bytes": 2097152,
+    "pending_records": 8192,
+    "pending_results": 2048,
+    "recovered_records": 0
+  },
+  "tool": "egress-topology",
+  "verified_deliveries_per_outbound": [
+    2048,
+    2048,
+    2048,
+    2048
+  ]
+}

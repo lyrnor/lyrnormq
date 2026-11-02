@@ -1,0 +1,292 @@
+Analysis of sampling rmqtt-log-before-io (pid 39640) every 1 millisecond
+Process:         rmqtt-log-before-io [39640]
+Path:            /private/tmp/rmqtt-log-before-io
+Load Address:    0x104de8000
+Identifier:      rmqtt-log-before-io
+Version:         0
+Code Type:       ARM64
+Platform:        macOS
+Parent Process:  time [39639]
+Target Type:     live task
+
+Date/Time:       2026-11-02 14:34:48.528 +0800
+Launch Time:     2026-11-02 14:34:46.756 +0800
+OS Version:      macOS 27.0 (26A428)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         14.6M
+Physical footprint (peak):  14.6M
+Idle exit:                  untracked
+----
+
+Call graph:
+    2199 Thread_15959688   DispatchQueue_1: com.apple.main-thread  (serial)
+      2199 start  (in dyld) + 6688  [0x19da27e80]
+        2199 main  (in rmqtt-log-before-io) + 52  [0x104df4368]
+          2199 _RNvNtCs82bWklYMk3w_3std2rt19lang_start_internal  (in rmqtt-log-before-io) + 952  [0x104e57bdc]
+            2199 _RNCINvNtCs82bWklYMk3w_3std2rt10lang_startINtNtCs8Mbv00yxnRz_4core6result6ResultuINtNtCshxvaOLs88l5_5alloc5boxed3BoxDNtNtBI_5error5ErrorEL_EEE0Cs4jHM0h5erLH_16egress_log_bench  (in rmqtt-log-before-io) + 16  [0x104df3d40]
+              2199 _RINvNtNtCs82bWklYMk3w_3std3sys9backtrace28___rust_begin_short_backtraceFEINtNtCs8Mbv00yxnRz_4core6result6ResultuINtNtCshxvaOLs88l5_5alloc5boxed3BoxDNtNtB1e_5error5ErrorEL_EEB19_ECs4jHM0h5erLH_16egress_log_bench  (in rmqtt-log-before-io) + 12  [0x104df2e34]
+                2199 _RNvCs4jHM0h5erLH_16egress_log_bench4main  (in rmqtt-log-before-io) + 176  [0x104df3e20]
+                  2189 _RNvNtCs4jHM0h5erLH_16egress_log_bench3run3run  (in rmqtt-log-before-io) + 11396  [0x104decda4]
+                  + 2165 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14read_consumers  (in rmqtt-log-before-io) + 124  [0x104e19410]
+                  + ! 2099 _RNvXs_NtNtCshxvaOLs88l5_5alloc3vec16in_place_collectINtB6_3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model14ConsumerRecordEINtNtB6_14spec_from_iter12SpecFromIterBY_INtNtNtCs8Mbv00yxnRz_4core4iter8adapters12GenericShuntINtNtB2C_3map3MapINtNtB6_9into_iter8IntoIterNtB10_12ConsumerMetaENCNvMs_NtB12_6sharedNtNtB12_7journal7Journal14read_consumers0EINtNtB2G_6result6ResultNtNtB2G_7convert10InfallibleNtNtB12_5error10QueueErrorEEE9from_iterB12_  (in rmqtt-log-before-io) + 504  [0x104e25130]
+                  + ! : 2090 _RINvXs4_NtNtCshxvaOLs88l5_5alloc3vec9into_iterINtB6_8IntoIterNtNtCs4ou8seJds8w_15mqtt_egress_log5model12ConsumerMetaENtNtNtNtCs8Mbv00yxnRz_4core4iter6traits8iterator8Iterator8try_folduNCINvNtNtB1X_8adapters3map12map_try_foldBX_INtNtB1Z_6result6ResultNtBZ_14ConsumerRecordNtNtB11_5error10QueueErrorEuINtNtNtB1Z_3ops12control_flow11ControlFlowIB4O_B40_EENCNvMs_NtB11_6sharedNtNtB11_7journal7Journal14read_consumers0NCINvXB33_INtB33_12GenericShuntINtB31_3MapBI_B5E_EIB3E_NtNtB1Z_7convert10InfallibleB4l_EEB1R_8try_folduNCINvNvB1R_12try_for_each4callB40_B5t_NcNtB5t_5Break0E0B5t_E0E0B4N_EB11_  (in rmqtt-log-before-io) + 260  [0x104e33d5c]
+                  + ! : | 1639 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 152  [0x104e28bd0]
+                  + ! : | + 1429 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 212  [0x104e28a20]
+                  + ! : | + ! 1424 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-log-before-io) + 148  [0x104e56f70]
+                  + ! : | + ! : 1422 _RNvMsi_NtNtNtCs82bWklYMk3w_3std3sys2fs4unixNtB5_4File6open_c  (in rmqtt-log-before-io) + 280  [0x104e56df0]
+                  + ! : | + ! : | 1422 open  (in libsystem_kernel.dylib) + 64  [0x19ddc4960]
+                  + ! : | + ! : |   1422 __open  (in libsystem_kernel.dylib) + 8,0  [0x19ddb9680,0x19ddb9678]
+                  + ! : | + ! : 2 _RNvMsi_NtNtNtCs82bWklYMk3w_3std3sys2fs4unixNtB5_4File6open_c  (in rmqtt-log-before-io) + 280  [0x104e56df0]
+                  + ! : | + ! 2 _RNvMsi_NtNtNtCs82bWklYMk3w_3std3sys2fs4unixNtB5_4File6open_c  (in rmqtt-log-before-io) + 388,392  [0x104e56e5c,0x104e56e60]
+                  + ! : | + ! 2 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-log-before-io) + 32,148  [0x104e56efc,0x104e56f70]
+                  + ! : | + ! 1 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-log-before-io) + 84  [0x104e56f30]
+                  + ! : | + !   1 _RNvMs3_NtNtCs8Mbv00yxnRz_4core3ffi5c_strNtB5_4CStr19from_bytes_with_nul  (in rmqtt-log-before-io) + 164  [0x104e6dd80]
+                  + ! : | + 88 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 112  [0x104e289bc]
+                  + ! : | + ! 87 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-log-before-io) + 148  [0x104e595f8]
+                  + ! : | + ! : 87 lstat  (in libsystem_kernel.dylib) + 8  [0x19ddc48d0]
+                  + ! : | + ! 1 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-log-before-io) + 76  [0x104e595b0]
+                  + ! : | + !   1 _RNvMs3_NtNtCs8Mbv00yxnRz_4core3ffi5c_strNtB5_4CStr19from_bytes_with_nul  (in rmqtt-log-before-io) + 0  [0x104e6dcdc]
+                  + ! : | + 80 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 276  [0x104e28a60]
+                  + ! : | + ! 76 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-log-before-io) + 148  [0x104e595f8]
+                  + ! : | + ! : 76 lstat  (in libsystem_kernel.dylib) + 8  [0x19ddc48d0]
+                  + ! : | + ! 2 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-log-before-io) + 76  [0x104e595b0]
+                  + ! : | + ! : 2 _RNvMs3_NtNtCs8Mbv00yxnRz_4core3ffi5c_strNtB5_4CStr19from_bytes_with_nul  (in rmqtt-log-before-io) + 164,196  [0x104e6dd80,0x104e6dda0]
+                  + ! : | + ! 2 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-log-before-io) + 0,272  [0x104e59564,0x104e59674]
+                  + ! : | + 41 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 244  [0x104e28a40]
+                  + ! : | + ! 41 _RNvMs2_NtCs82bWklYMk3w_3std2fsNtB5_4File8metadata  (in rmqtt-log-before-io) + 56  [0x104e4e3f4]
+                  + ! : | + !   41 fstat  (in libsystem_kernel.dylib) + 8  [0x19ddc743c]
+                  + ! : | + 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 448  [0x104e28b0c]
+                  + ! : | 250 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 652,656,...  [0x104e28dc4,0x104e28dc8,...]
+                  + ! : | 57 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 540  [0x104e28d54]
+                  + ! : | + 55 _RINvNtCs82bWklYMk3w_3std2io18default_read_exactNtNtB4_2fs4FileECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-log-before-io) + 100  [0x104e2b6cc]
+                  + ! : | + ! 54 _RNvXsa_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io4Read4read  (in rmqtt-log-before-io) + 32  [0x104e60040]
+                  + ! : | + ! : 54 read  (in libsystem_kernel.dylib) + 8,4  [0x19ddb9910,0x19ddb990c]
+                  + ! : | + ! 1 _RNvXsa_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io4Read4read  (in rmqtt-log-before-io) + 32  [0x104e60040]
+                  + ! : | + 2 _RINvNtCs82bWklYMk3w_3std2io18default_read_exactNtNtB4_2fs4FileECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-log-before-io) + 168  [0x104e2b710]
+                  + ! : | 40 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 432  [0x104e28ce8]
+                  + ! : | + 39 close  (in libsystem_kernel.dylib) + 8,4  [0x19ddb98e4,0x19ddb98e0]
+                  + ! : | + 1 DYLD-STUB$$close  (in rmqtt-log-before-io) + 4  [0x104e7ca24]
+                  + ! : | 34 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 244  [0x104e28c2c]
+                  + ! : | + 34 _RNvMs2_NtCs82bWklYMk3w_3std2fsNtB5_4File8metadata  (in rmqtt-log-before-io) + 56  [0x104e4e3f4]
+                  + ! : | +   34 fstat  (in libsystem_kernel.dylib) + 8  [0x19ddc743c]
+                  + ! : | 33 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 332  [0x104e28c84]
+                  + ! : | + 31 _RNvXsc_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io4Seek4seek  (in rmqtt-log-before-io) + 40  [0x104e602e8]
+                  + ! : | + ! 31 __lseek  (in libsystem_kernel.dylib) + 8,4  [0x19ddba61c,0x19ddba618]
+                  + ! : | + 2 _RNvXsc_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io4Seek4seek  (in rmqtt-log-before-io) + 28,100  [0x104e602dc,0x104e60324]
+                  + ! : | 16 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 92  [0x104e28b94]
+                  + ! : | + 13 _RNvNvNtCshxvaOLs88l5_5alloc3fmt6format12format_inner  (in rmqtt-log-before-io) + 308  [0x104e6c160]
+                  + ! : | + ! 13 _RNvNtCs8Mbv00yxnRz_4core3fmt5write  (in rmqtt-log-before-io) + 324  [0x104e6fb3c]
+                  + ! : | + !   12 _RNvXsd_NtNtNtCs8Mbv00yxnRz_4core3fmt3num3impyNtB9_7Display3fmt  (in rmqtt-log-before-io) + 76  [0x104e75c7c]
+                  + ! : | + !   : 9 _RNvMsa_NtCs8Mbv00yxnRz_4core3fmtNtB5_9Formatter12pad_integral  (in rmqtt-log-before-io) + 752  [0x104e6e298]
+                  + ! : | + !   : | 7 _RNvXsZ_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core3fmt5Write10write_char  (in rmqtt-log-before-io) + 112  [0x104e6c380]
+                  + ! : | + !   : | + 7 _RINvNvMs2_NtCshxvaOLs88l5_5alloc7raw_vecINtB8_11RawVecInnerpE7reserve21do_reserve_and_handleNtNtBa_5alloc6GlobalEBa_  (in rmqtt-log-before-io) + 68  [0x104e7c380]
+                  + ! : | + !   : | +   7 _RNvMs5_NtCshxvaOLs88l5_5alloc7raw_vecNtB5_11RawVecInner11finish_growB7_  (in rmqtt-log-before-io) + 44  [0x104e7c440]
+                  + ! : | + !   : | +     7 _realloc  (in libsystem_malloc.dylib) + 456  [0x19dc25358]
+                  + ! : | + !   : | +       7 _malloc_zone_realloc  (in libsystem_malloc.dylib) + 148  [0x19dc24b2c]
+                  + ! : | + !   : | +         4 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 1028  [0x19dc15414]
+                  + ! : | + !   : | +         ! 3 _xzm_free  (in libsystem_malloc.dylib) + 1384  [0x19dc1cc68]
+                  + ! : | + !   : | +         ! : 3 mach_absolute_time  (in libsystem_kernel.dylib) + 108  [0x19ddb90f8]
+                  + ! : | + !   : | +         ! 1 _xzm_free  (in libsystem_malloc.dylib) + 0  [0x19dc1c700]
+                  + ! : | + !   : | +         1 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 896  [0x19dc15390]
+                  + ! : | + !   : | +         ! 1 _xzm_malloc  (in libsystem_malloc.dylib) + 0  [0x19dc17df4]
+                  + ! : | + !   : | +         1 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 996  [0x19dc153f4]
+                  + ! : | + !   : | +         ! 1 _platform_memmove  (in libsystem_platform.dylib) + 428  [0x19de07f0c]
+                  + ! : | + !   : | +         1 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 508  [0x19dc1520c]
+                  + ! : | + !   : | 2 _RNvXsZ_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core3fmt5Write10write_char  (in rmqtt-log-before-io) + 52  [0x104e6c344]
+                  + ! : | + !   : 3 _RNvMsa_NtCs8Mbv00yxnRz_4core3fmtNtB5_9Formatter12pad_integral  (in rmqtt-log-before-io) + 720,736  [0x104e6e278,0x104e6e288]
+                  + ! : | + !   1 _RNvMsf_NtNtNtCs8Mbv00yxnRz_4core3fmt3num3impy10__fmt_inner  (in rmqtt-log-before-io) + 336  [0x104e6f068]
+                  + ! : | + 3 _RNvNvNtCshxvaOLs88l5_5alloc3fmt6format12format_inner  (in rmqtt-log-before-io) + 264  [0x104e6c134]
+                  + ! : | +   1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 92  [0x19dc1f864]
+                  + ! : | +   1 _RNvCs1njKG4L9aB3_7___rustc11___rdl_alloc  (in rmqtt-log-before-io) + 0  [0x104e4b37c]
+                  + ! : | +   1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 88  [0x19dc18aa4]
+                  + ! : | 7 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 224  [0x104e28c18]
+                  + ! : | + 4 _xzm_free_main  (in libsystem_malloc.dylib) + 448,112,...  [0x19dc2107c,0x19dc20f2c,...]
+                  + ! : | + 1 _free  (in libsystem_malloc.dylib) + 0  [0x19dc25110]
+                  + ! : | + 1 _xzm_free_main  (in libsystem_malloc.dylib) + 736  [0x19dc2119c]
+                  + ! : | + ! 1 mach_absolute_time  (in libsystem_kernel.dylib) + 108  [0x19ddb90f8]
+                  + ! : | + 1 free  (in libsystem_malloc.dylib) + 0  [0x19dbe66f0]
+                  + ! : | 6 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 116  [0x104e28bac]
+                  + ! : | + 3 _RNvMs16_NtCs82bWklYMk3w_3std4pathNtB6_4Path5__join  (in rmqtt-log-before-io) + 64  [0x104e4cc08]
+                  + ! : | + ! 2 _malloc_zone_malloc  (in libsystem_malloc.dylib) + 12  [0x19dc244fc]
+                  + ! : | + ! 1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 404  [0x19dc18be0]
+                  + ! : | + 3 _RNvMs16_NtCs82bWklYMk3w_3std4pathNtB6_4Path5__join  (in rmqtt-log-before-io) + 196  [0x104e4cc8c]
+                  + ! : | +   3 _RINvNvMs2_NtCshxvaOLs88l5_5alloc7raw_vecINtB8_11RawVecInnerpE7reserve21do_reserve_and_handleNtNtBa_5alloc6GlobalECs82bWklYMk3w_3std  (in rmqtt-log-before-io) + 88  [0x104e7b40c]
+                  + ! : | +     3 _RNvMs5_NtCshxvaOLs88l5_5alloc7raw_vecNtB5_11RawVecInner11finish_growCs82bWklYMk3w_3std  (in rmqtt-log-before-io) + 92  [0x104e7be70]
+                  + ! : | +       3 _realloc  (in libsystem_malloc.dylib) + 456  [0x19dc25358]
+                  + ! : | +         3 _malloc_zone_realloc  (in libsystem_malloc.dylib) + 148  [0x19dc24b2c]
+                  + ! : | +           2 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 1028  [0x19dc15414]
+                  + ! : | +           : 1 _xzm_free  (in libsystem_malloc.dylib) + 1384  [0x19dc1cc68]
+                  + ! : | +           : | 1 mach_absolute_time  (in libsystem_kernel.dylib) + 108  [0x19ddb90f8]
+                  + ! : | +           : 1 _xzm_free  (in libsystem_malloc.dylib) + 1368  [0x19dc1cc58]
+                  + ! : | +           1 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 896  [0x19dc15390]
+                  + ! : | +             1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 268  [0x19dc18b58]
+                  + ! : | 5 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 508  [0x104e28d34]
+                  + ! : | + 3 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 56,764,...  [0x19dc18a84,0x19dc18d48,...]
+                  + ! : | + 1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 336  [0x19dc1f958]
+                  + ! : | + 1 calloc  (in libsystem_malloc.dylib) + 0  [0x19dbe78f8]
+                  + ! : | 1 _RINvNtCs82bWklYMk3w_3std2io18default_read_exactNtNtB4_2fs4FileECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-log-before-io) + 284  [0x104e2b784]
+                  + ! : | 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 460  [0x104e28b18]
+                  + ! : | 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 136  [0x104e28bc0]
+                  + ! : |   1 _xzm_free_main  (in libsystem_malloc.dylib) + 284  [0x19dc20fd8]
+                  + ! : 8 _RINvXs4_NtNtCshxvaOLs88l5_5alloc3vec9into_iterINtB6_8IntoIterNtNtCs4ou8seJds8w_15mqtt_egress_log5model12ConsumerMetaENtNtNtNtCs8Mbv00yxnRz_4core4iter6traits8iterator8Iterator8try_folduNCINvNtNtB1X_8adapters3map12map_try_foldBX_INtNtB1Z_6result6ResultNtBZ_14ConsumerRecordNtNtB11_5error10QueueErrorEuINtNtNtB1Z_3ops12control_flow11ControlFlowIB4O_B40_EENCNvMs_NtB11_6sharedNtNtB11_7journal7Journal14read_consumers0NCINvXB33_INtB33_12GenericShuntINtB31_3MapBI_B5E_EIB3E_NtNtB1Z_7convert10InfallibleB4l_EEB1R_8try_folduNCINvNvB1R_12try_for_each4callB40_B5t_NcNtB5t_5Break0E0B5t_E0E0B4N_EB11_  (in rmqtt-log-before-io) + 0,44,...  [0x104e33c58,0x104e33c84,...]
+                  + ! : 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 448  [0x104e28cf8]
+                  + ! 65 _RNvXs_NtNtCshxvaOLs88l5_5alloc3vec16in_place_collectINtB6_3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model14ConsumerRecordEINtNtB6_14spec_from_iter12SpecFromIterBY_INtNtNtCs8Mbv00yxnRz_4core4iter8adapters12GenericShuntINtNtB2C_3map3MapINtNtB6_9into_iter8IntoIterNtB10_12ConsumerMetaENCNvMs_NtB12_6sharedNtNtB12_7journal7Journal14read_consumers0EINtNtB2G_6result6ResultNtNtB2G_7convert10InfallibleNtNtB12_5error10QueueErrorEEE9from_iterB12_  (in rmqtt-log-before-io) + 72  [0x104e24f80]
+                  + ! : 64 _RINvXs4_NtNtCshxvaOLs88l5_5alloc3vec9into_iterINtB6_8IntoIterNtNtCs4ou8seJds8w_15mqtt_egress_log5model12ConsumerMetaENtNtNtNtCs8Mbv00yxnRz_4core4iter6traits8iterator8Iterator8try_folduNCINvNtNtB1X_8adapters3map12map_try_foldBX_INtNtB1Z_6result6ResultNtBZ_14ConsumerRecordNtNtB11_5error10QueueErrorEuINtNtNtB1Z_3ops12control_flow11ControlFlowIB4O_B40_EENCNvMs_NtB11_6sharedNtNtB11_7journal7Journal14read_consumers0NCINvXB33_INtB33_12GenericShuntINtB31_3MapBI_B5E_EIB3E_NtNtB1Z_7convert10InfallibleB4l_EEB1R_8try_folduNCINvNvB1R_12try_for_each4callB40_B5t_NcNtB5t_5Break0E0B5t_E0E0B4N_EB11_  (in rmqtt-log-before-io) + 260  [0x104e33d5c]
+                  + ! : | 58 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 152  [0x104e28bd0]
+                  + ! : | + 48 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 212  [0x104e28a20]
+                  + ! : | + ! 47 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-log-before-io) + 148  [0x104e56f70]
+                  + ! : | + ! : 47 _RNvMsi_NtNtNtCs82bWklYMk3w_3std3sys2fs4unixNtB5_4File6open_c  (in rmqtt-log-before-io) + 280  [0x104e56df0]
+                  + ! : | + ! :   47 open  (in libsystem_kernel.dylib) + 64  [0x19ddc4960]
+                  + ! : | + ! :     47 __open  (in libsystem_kernel.dylib) + 8  [0x19ddb9680]
+                  + ! : | + ! 1 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-log-before-io) + 84  [0x104e56f30]
+                  + ! : | + !   1 _RNvMs3_NtNtCs8Mbv00yxnRz_4core3ffi5c_strNtB5_4CStr19from_bytes_with_nul  (in rmqtt-log-before-io) + 164  [0x104e6dd80]
+                  + ! : | + 8 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 112  [0x104e289bc]
+                  + ! : | + ! 8 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-log-before-io) + 148  [0x104e595f8]
+                  + ! : | + !   8 lstat  (in libsystem_kernel.dylib) + 8  [0x19ddc48d0]
+                  + ! : | + 2 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-log-before-io) + 244  [0x104e28a40]
+                  + ! : | +   2 _RNvMs2_NtCs82bWklYMk3w_3std2fsNtB5_4File8metadata  (in rmqtt-log-before-io) + 56  [0x104e4e3f4]
+                  + ! : | +     2 fstat  (in libsystem_kernel.dylib) + 4,8  [0x19ddc7438,0x19ddc743c]
+                  + ! : | 5 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 652  [0x104e28dc4]
+                  + ! : | 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io) + 540  [0x104e28d54]
+                  + ! : |   1 _RINvNtCs82bWklYMk3w_3std2io18default_read_exactNtNtB4_2fs4FileECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-log-before-io) + 100  [0x104e2b6cc]
+                  + ! : |     1 _RNvXsa_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io4Read4read  (in rmqtt-log-before-io) + 32  [0x104e60040]
+                  + ! : |       1 read  (in libsystem_kernel.dylib) + 8  [0x19ddb9910]
+                  + ! : 1 _RINvXs4_NtNtCshxvaOLs88l5_5alloc3vec9into_iterINtB6_8IntoIterNtNtCs4ou8seJds8w_15mqtt_egress_log5model12ConsumerMetaENtNtNtNtCs8Mbv00yxnRz_4core4iter6traits8iterator8Iterator8try_folduNCINvNtNtB1X_8adapters3map12map_try_foldBX_INtNtB1Z_6result6ResultNtBZ_14ConsumerRecordNtNtB11_5error10QueueErrorEuINtNtNtB1Z_3ops12control_flow11ControlFlowIB4O_B40_EENCNvMs_NtB11_6sharedNtNtB11_7journal7Journal14read_consumers0NCINvXB33_INtB33_12GenericShuntINtB31_3MapBI_B5E_EIB3E_NtNtB1Z_7convert10InfallibleB4l_EEB1R_8try_folduNCINvNvB1R_12try_for_each4callB40_B5t_NcNtB5t_5Break0E0B5t_E0E0B4N_EB11_  (in rmqtt-log-before-io) + 156  [0x104e33cf4]
+                  + ! 1 _RNvXs_NtNtCshxvaOLs88l5_5alloc3vec16in_place_collectINtB6_3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model14ConsumerRecordEINtNtB6_14spec_from_iter12SpecFromIterBY_INtNtNtCs8Mbv00yxnRz_4core4iter8adapters12GenericShuntINtNtB2C_3map3MapINtNtB6_9into_iter8IntoIterNtB10_12ConsumerMetaENCNvMs_NtB12_6sharedNtNtB12_7journal7Journal14read_consumers0EINtNtB2G_6result6ResultNtNtB2G_7convert10InfallibleNtNtB12_5error10QueueErrorEEE9from_iterB12_  (in rmqtt-log-before-io) + 588  [0x104e25184]
+                  + 24 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14read_consumers  (in rmqtt-log-before-io) + 32  [0x104e193b4]
+                  +   22 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14consumer_metas  (in rmqtt-log-before-io) + 988  [0x104e19138]
+                  +   : 12 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared4meta  (in rmqtt-log-before-io) + 216,60,...  [0x104e2eae4,0x104e2ea48,...]
+                  +   : 4 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared4meta  (in rmqtt-log-before-io) + 308  [0x104e2eb40]
+                  +   : | 3 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-log-before-io) + 68  [0x104e6c23c]
+                  +   : | + 3 _platform_memmove  (in libsystem_platform.dylib) + 452,444  [0x19de07f24,0x19de07f1c]
+                  +   : | 1 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-log-before-io) + 48  [0x104e6c228]
+                  +   : |   1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 144  [0x19dc1f898]
+                  +   : 3 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared4meta  (in rmqtt-log-before-io) + 324  [0x104e2eb50]
+                  +   : | 3 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-log-before-io) + 48  [0x104e6c228]
+                  +   : |   1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 92  [0x19dc1f864]
+                  +   : |   1 _malloc_zone_malloc  (in libsystem_malloc.dylib) + 12  [0x19dc244fc]
+                  +   : |   1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 404  [0x19dc18be0]
+                  +   : 2 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared4meta  (in rmqtt-log-before-io) + 296  [0x104e2eb34]
+                  +   : | 1 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-log-before-io) + 48  [0x104e6c228]
+                  +   : | + 1 _malloc_zone_malloc  (in libsystem_malloc.dylib) + 12  [0x19dc244fc]
+                  +   : | 1 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-log-before-io) + 76  [0x104e6c244]
+                  +   : 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared4meta  (in rmqtt-log-before-io) + 280  [0x104e2eb24]
+                  +   :   1 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-log-before-io) + 48  [0x104e6c228]
+                  +   :     1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 16  [0x19dc18a5c]
+                  +   1 _RNvMs4_NtCshxvaOLs88l5_5alloc7raw_vecINtB5_6RawVecNtNtCs4ou8seJds8w_15mqtt_egress_log5model12ConsumerMetaE8grow_oneBQ_  (in rmqtt-log-before-io) + 84  [0x104e7707c]
+                  +   1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14consumer_metas  (in rmqtt-log-before-io) + 1172  [0x104e191f0]
+                  6 _RNvNtCs4jHM0h5erLH_16egress_log_bench3run3run  (in rmqtt-log-before-io) + 11656  [0x104decea8]
+                  + 2 _RNvXso_NtCshxvaOLs88l5_5alloc3vecINtB5_3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model14ConsumerRecordENtNtNtCs8Mbv00yxnRz_4core3ops4drop4Drop4dropCs4jHM0h5erLH_16egress_log_bench  (in rmqtt-log-before-io) + 104  [0x104df5f50]
+                  + ! 2 _free  (in libsystem_malloc.dylib) + 0,44  [0x19dc25110,0x19dc2513c]
+                  + 2 _xzm_free_main  (in libsystem_malloc.dylib) + 1064,1080  [0x19dc212e4,0x19dc212f4]
+                  + 1 _RNvXso_NtCshxvaOLs88l5_5alloc3vecINtB5_3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model14ConsumerRecordENtNtNtCs8Mbv00yxnRz_4core3ops4drop4Drop4dropCs4jHM0h5erLH_16egress_log_bench  (in rmqtt-log-before-io) + 64  [0x104df5f28]
+                  + ! 1 _xzm_free_main  (in libsystem_malloc.dylib) + 120  [0x19dc20f34]
+                  + 1 _RNvXso_NtCshxvaOLs88l5_5alloc3vecINtB5_3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model14ConsumerRecordENtNtNtCs8Mbv00yxnRz_4core3ops4drop4Drop4dropCs4jHM0h5erLH_16egress_log_bench  (in rmqtt-log-before-io) + 124  [0x104df5f64]
+                  +   1 _free  (in libsystem_malloc.dylib) + 76  [0x19dc2515c]
+                  3 _RNvNtCs4jHM0h5erLH_16egress_log_bench3run3run  (in rmqtt-log-before-io) + 11532  [0x104dece2c]
+                  + 3 _platform_memcmp  (in libsystem_platform.dylib) + 48,56  [0x19de051a0,0x19de051a8]
+                  1 _RNvNtCs4jHM0h5erLH_16egress_log_bench3run3run  (in rmqtt-log-before-io) + 11396  [0x104decda4]
+
+Total number in stack (recursive counted multiple, when >=5):
+        6       _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 0  [0x19dc18a4c]
+
+Sort by top of stack, same collapsed (when >= 5):
+        __open  (in libsystem_kernel.dylib)        1469
+        _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12read_payload  (in rmqtt-log-before-io)        256
+        lstat  (in libsystem_kernel.dylib)        171
+        fstat  (in libsystem_kernel.dylib)        77
+        read  (in libsystem_kernel.dylib)        55
+        close  (in libsystem_kernel.dylib)        39
+        __lseek  (in libsystem_kernel.dylib)        31
+        _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared4meta  (in rmqtt-log-before-io)        12
+        _RINvXs4_NtNtCshxvaOLs88l5_5alloc3vec9into_iterINtB6_8IntoIterNtNtCs4ou8seJds8w_15mqtt_egress_log5model12ConsumerMetaENtNtNtNtCs8Mbv00yxnRz_4core4iter6traits8iterator8Iterator8try_folduNCINvNtNtB1X_8adapters3map12map_try_foldBX_INtNtB1Z_6result6ResultNtBZ_14ConsumerRecordNtNtB11_5error10QueueErrorEuINtNtNtB1Z_3ops12control_flow11ControlFlowIB4O_B40_EENCNvMs_NtB11_6sharedNtNtB11_7journal7Journal14read_consumers0NCINvXB33_INtB33_12GenericShuntINtB31_3MapBI_B5E_EIB3E_NtNtB1Z_7convert10InfallibleB4l_EEB1R_8try_folduNCINvNvB1R_12try_for_each4callB40_B5t_NcNtB5t_5Break0E0B5t_E0E0B4N_EB11_  (in rmqtt-log-before-io)        9
+        _xzm_free_main  (in libsystem_malloc.dylib)        8
+        _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib)        8
+        _RNvMs3_NtNtCs8Mbv00yxnRz_4core3ffi5c_strNtB5_4CStr19from_bytes_with_nul  (in rmqtt-log-before-io)        5
+        mach_absolute_time  (in libsystem_kernel.dylib)        5
+
+Binary Images:
+       0x104de8000 -        0x104ea7777 +rmqtt-log-before-io (0) <DAFDFE33-EDBD-3CA7-B3A0-41089DF6B237> /tmp/rmqtt-log-before-io
+       0x19d974000 -        0x19d9c35f7  libobjc.A.dylib (973.1) <C0680DF6-9900-3C29-A071-95A031686EF8> /usr/lib/libobjc.A.dylib
+       0x19d9c4000 -        0x19d9ce23f  libsharedcache.dylib (0) <117C1ED6-AE11-3D9E-B05B-844F35395552> /usr/lib/libsharedcache.dylib
+       0x19d9cf000 -        0x19d9f5d3b  libdyld.dylib (27062) <62863BCA-DD60-3D32-A9DB-89099BA6F3D7> /usr/lib/system/libdyld.dylib
+       0x19d9f6000 -        0x19dab56e3  dyld (1.0.0 - 27062) <D341DDCB-7969-3A9C-8E03-0CF4751398A9> /usr/lib/dyld
+       0x19dab6000 -        0x19dab901f  libsystem_blocks.dylib (98.1) <6F304731-D95D-3501-B4AD-F2934F7F2446> /usr/lib/system/libsystem_blocks.dylib
+       0x19daba000 -        0x19db0f0df  libxpc.dylib (3298.1.1) <0791121F-B5FC-3F84-BF04-115E86D2D882> /usr/lib/system/libxpc.dylib
+       0x19db10000 -        0x19db2fc13  libsystem_trace.dylib (1966.1.1) <B48A8E3E-A12A-3342-8321-428B555E965E> /usr/lib/system/libsystem_trace.dylib
+       0x19db30000 -        0x19dbe4f27  libcorecrypto.dylib (2109.0.22) <807AA6C9-5D8A-3CA5-B4CE-FACE5296EF6A> /usr/lib/system/libcorecrypto.dylib
+       0x19dbe5000 -        0x19dc3ac5f  libsystem_malloc.dylib (886.0.8) <2339CB57-FE5A-3154-A206-A76059C749EB> /usr/lib/system/libsystem_malloc.dylib
+       0x19dc3b000 -        0x19dc8119f  libdispatch.dylib (1605.0.2) <022BF08F-0B3A-3225-9E65-16D1553CE90D> /usr/lib/system/libdispatch.dylib
+       0x19dc82000 -        0x19dc84d2b  libsystem_featureflags.dylib (108) <20C1CAB2-1F13-3426-8146-9CAE9FF2A33D> /usr/lib/system/libsystem_featureflags.dylib
+       0x19dc85000 -        0x19dd07ca3  libsystem_c.dylib (1786.0.3) <FBA7B23E-AA60-3A90-9AA4-A7A2E0AD63EE> /usr/lib/system/libsystem_c.dylib
+       0x19dd08000 -        0x19dd9d033  libc++.1.dylib (2200.27) <1E9BA4AA-B5DA-3CF3-80AC-4B880049573F> /usr/lib/libc++.1.dylib
+       0x19dd9e000 -        0x19ddb7eff  libc++abi.dylib (2200.27) <A21743EE-6E1C-3E74-97EA-7AF793DE4BDF> /usr/lib/libc++abi.dylib
+       0x19ddb8000 -        0x19ddf69ab  libsystem_kernel.dylib (13432.1.9) <F63BF418-8F75-34A4-AAF1-8CAF2B9B6A05> /usr/lib/system/libsystem_kernel.dylib
+       0x19ddf7000 -        0x19de0391b  libsystem_pthread.dylib (553.0.1) <5A1828C3-CBC2-3B85-BD07-C8ED10021A41> /usr/lib/system/libsystem_pthread.dylib
+       0x19de04000 -        0x19de0d4f3  libsystem_platform.dylib (402.0.1.0.1) <080E4444-A0FB-3913-9756-4E470015F32F> /usr/lib/system/libsystem_platform.dylib
+       0x19de0e000 -        0x19de3c903  libsystem_info.dylib (603) <BC387AEB-1CEF-3513-92D7-D7F913596711> /usr/lib/system/libsystem_info.dylib
+       0x1a1f66000 -        0x1a1f6fb13  libsystem_darwin.dylib (1786.0.3) <4E66C888-993C-3E6A-A8DA-A949C01C5B67> /usr/lib/system/libsystem_darwin.dylib
+       0x1a23c0000 -        0x1a23d1b8b  libsystem_notify.dylib (368) <58FD36D8-37A7-311C-80F2-8E64DD8710CF> /usr/lib/system/libsystem_notify.dylib
+       0x1a451d000 -        0x1a4537d93  libsystem_networkextension.dylib (2340.1.2) <22E1D190-486F-324F-ABA4-F36AB841BFE9> /usr/lib/system/libsystem_networkextension.dylib
+       0x1a45c5000 -        0x1a45dc247  libsystem_asl.dylib (409) <B4D449B7-A821-3A9A-8019-E917B291F10A> /usr/lib/system/libsystem_asl.dylib
+       0x1a5570000 -        0x1a5570f2f  libobjcMsgSend.dylib (973.1) <41179EDE-DC97-3BBE-8848-6400D12C1436> /usr/lib/objc/libobjcMsgSend.dylib
+       0x1a66bc000 -        0x1a66c3edf  libsystem_symptoms.dylib (2394.0.4) <60EE7884-9F4E-3184-A6AC-FA40A7A0297D> /usr/lib/system/libsystem_symptoms.dylib
+       0x1aaa54000 -        0x1aaa8eaeb  libsystem_containermanager.dylib (833.0.8.0.1) <08A57205-555D-3792-8931-9D5B585AF326> /usr/lib/system/libsystem_containermanager.dylib
+       0x1ac0a7000 -        0x1ac0ab317  libsystem_configuration.dylib (1446) <F3EB66A7-7A24-3AE5-B6E8-9A37BB00F119> /usr/lib/system/libsystem_configuration.dylib
+       0x1ac0ac000 -        0x1ac0b2e03  libsystem_sandbox.dylib (3051.0.52) <1E892B56-092E-3832-BDE3-DCE356D7A4FA> /usr/lib/system/libsystem_sandbox.dylib
+       0x1ad570000 -        0x1ad570f2f  libobjcMsgSend1.dylib (973.1) <B40D9B2A-E1EE-37ED-8004-711A1F263DE1> /usr/lib/objc/libobjcMsgSend1.dylib
+       0x1adc90000 -        0x1adc92f93  libquarantine.dylib (217.0.4) <7FD4AE22-86EF-382B-83F5-ADF9336C1160> /usr/lib/system/libquarantine.dylib
+       0x1ae3a2000 -        0x1ae3a81e7  libsystem_coreservices.dylib (203) <57248E07-11A5-3857-918E-4A3A63B69FE8> /usr/lib/system/libsystem_coreservices.dylib
+       0x1ae96a000 -        0x1ae9a7b27  libsystem_m.dylib (3326.0.1) <A3FB340F-3ED5-30F4-8B64-9D5860F64D35> /usr/lib/system/libsystem_m.dylib
+       0x1ae9a9000 -        0x1ae9ac4f7  libmacho.dylib (27062) <50DEADEC-3E99-3519-AFC3-4A3FEB3F14C3> /usr/lib/system/libmacho.dylib
+       0x1ae9c6000 -        0x1ae9d2707  libcommonCrypto.dylib (600041) <41C99F45-C5E6-39DB-B1F2-A1BEA9D242A4> /usr/lib/system/libcommonCrypto.dylib
+       0x1ae9d3000 -        0x1ae9dcc87  libunwind.dylib (2200.5) <3070AB81-B082-39E8-8A00-EF88DDE9AC47> /usr/lib/system/libunwind.dylib
+       0x1ae9e4000 -        0x1ae9ee7eb  libcopyfile.dylib (260.0.3) <72D95AF9-BF5E-3A84-81A6-BCC5BDB99857> /usr/lib/system/libcopyfile.dylib
+       0x1ae9ef000 -        0x1ae9f28bf  libcompiler_rt.dylib (103.4) <DFB5CE7F-A36E-36AA-BECE-1392D3D43607> /usr/lib/system/libcompiler_rt.dylib
+       0x1ae9f3000 -        0x1ae9f8077  libsystem_collections.dylib (1786.0.3) <1E8022D4-5A37-3A7A-8936-603E6FA88358> /usr/lib/system/libsystem_collections.dylib
+       0x1ae9f9000 -        0x1ae9fbf1f  libsystem_secinit.dylib (182) <DE037464-4C5D-3E96-A33F-2A4557CC6A20> /usr/lib/system/libsystem_secinit.dylib
+       0x1ae9fc000 -        0x1ae9fe97f  libremovefile.dylib (96) <E6E6DFCF-6B2C-3F30-A59D-816CAB1190CE> /usr/lib/system/libremovefile.dylib
+       0x1ae9ff000 -        0x1ae9ffe27  libkeymgr.dylib (31) <5EC997EF-3ADA-360B-9FCD-5F940C83FA4E> /usr/lib/system/libkeymgr.dylib
+       0x1aea00000 -        0x1aea08af7  libsystem_dnssd.dylib (3111.0.5.0.1) <DE22096F-1E5B-3D6E-8164-771582DD6391> /usr/lib/system/libsystem_dnssd.dylib
+       0x1aea09000 -        0x1aea0df1b  libcache.dylib (95) <80BAE197-E285-3F6E-A1EE-B77FE37D7E5D> /usr/lib/system/libcache.dylib
+       0x1aea0e000 -        0x1aea0f8f3  libSystem.B.dylib (1359) <4FDC9AA6-B344-37FE-B8C6-A4C94A038F57> /usr/lib/libSystem.B.dylib
+       0x1b5570000 -        0x1b5570f2f  libobjcMsgSend2.dylib (973.1) <BD27A84B-C9AE-3282-BBEA-3B6119837B5A> /usr/lib/objc/libobjcMsgSend2.dylib
+       0x1bd570000 -        0x1bd570f2f  libobjcMsgSend3.dylib (973.1) <C0860D68-DDFC-3BD7-8B06-DB0645CBBED4> /usr/lib/objc/libobjcMsgSend3.dylib
+       0x1c5570000 -        0x1c5570f2f  libobjcMsgSend4.dylib (973.1) <A6153BF5-622B-3B01-81B6-F64A365EF613> /usr/lib/objc/libobjcMsgSend4.dylib
+       0x1cd570000 -        0x1cd570f2f  libobjcMsgSend5.dylib (973.1) <3913A71C-B29A-3AEA-820B-BEC40AC1861A> /usr/lib/objc/libobjcMsgSend5.dylib
+       0x1d5570000 -        0x1d5570f2f  libobjcMsgSend6.dylib (973.1) <9BC523A3-E167-3F6C-8CAE-0F3EBA671791> /usr/lib/objc/libobjcMsgSend6.dylib
+       0x1dd570000 -        0x1dd570f2f  libobjcMsgSend7.dylib (973.1) <248B7BCE-5B4C-34C7-A340-43D5228628C5> /usr/lib/objc/libobjcMsgSend7.dylib
+       0x1e5570000 -        0x1e5570f2f  libobjcMsgSend8.dylib (973.1) <3E041BAD-A8E8-3069-B741-78CD1A45B176> /usr/lib/objc/libobjcMsgSend8.dylib
+       0x1ed570000 -        0x1ed570f2f  libobjcMsgSend9.dylib (973.1) <34A67969-21A0-39D6-BB81-8FDA5A2409DB> /usr/lib/objc/libobjcMsgSend9.dylib
+       0x1f5570000 -        0x1f5570f2f  libobjcMsgSend10.dylib (973.1) <678186C0-8EAD-3B35-8CBB-00285B41E4A0> /usr/lib/objc/libobjcMsgSend10.dylib
+       0x1fd570000 -        0x1fd570f2f  libobjcMsgSend11.dylib (973.1) <E05CB08C-E956-36FA-8967-AE8E346A8D2C> /usr/lib/objc/libobjcMsgSend11.dylib
+       0x225570000 -        0x225570f2f  libobjcMsgSend12.dylib (973.1) <10AB03AA-FF1F-3FDC-9DFB-BFC40042C501> /usr/lib/objc/libobjcMsgSend12.dylib
+       0x22d570000 -        0x22d570f2f  libobjcMsgSend13.dylib (973.1) <ABF53427-FA6F-3D0D-8F9D-7AD795CA5C92> /usr/lib/objc/libobjcMsgSend13.dylib
+       0x235570000 -        0x235570f2f  libobjcMsgSend14.dylib (973.1) <9A844C46-A6DA-34D4-8EBF-2AD775C30684> /usr/lib/objc/libobjcMsgSend14.dylib
+       0x23d570000 -        0x23d570f2f  libobjcMsgSend15.dylib (973.1) <7C995666-2B2D-3284-AA0A-EBF7C922838E> /usr/lib/objc/libobjcMsgSend15.dylib
+       0x245570000 -        0x245570f2f  libobjcMsgSend16.dylib (973.1) <B6C0E14B-53AE-3E22-9ED5-1729C49F46F2> /usr/lib/objc/libobjcMsgSend16.dylib
+       0x24d570000 -        0x24d570f2f  libobjcMsgSend17.dylib (973.1) <07B4CF85-251B-301B-832B-20B315A59E19> /usr/lib/objc/libobjcMsgSend17.dylib
+       0x255570000 -        0x255570f2f  libobjcMsgSend18.dylib (973.1) <43E575B7-04DB-3999-A633-1A3B638BA6E3> /usr/lib/objc/libobjcMsgSend18.dylib
+       0x25d570000 -        0x25d570f2f  libobjcMsgSend19.dylib (973.1) <736F4D85-76F7-3B28-8D87-C07E8F7A0EF4> /usr/lib/objc/libobjcMsgSend19.dylib
+       0x265570000 -        0x265570f2f  libobjcMsgSend20.dylib (973.1) <74E67C8B-6BCA-3184-A18E-A97F370052C6> /usr/lib/objc/libobjcMsgSend20.dylib
+       0x26d570000 -        0x26d570f2f  libobjcMsgSend21.dylib (973.1) <CC0D732F-98E7-3888-9E15-70984DA2FB04> /usr/lib/objc/libobjcMsgSend21.dylib
+       0x275570000 -        0x275570f2f  libobjcMsgSend22.dylib (973.1) <85A60286-5DE3-32BA-B18C-2A498B065C88> /usr/lib/objc/libobjcMsgSend22.dylib
+       0x27d570000 -        0x27d570f2f  libobjcMsgSend23.dylib (973.1) <5452A0D2-6B19-39BE-ADDD-80B7BCDE3A98> /usr/lib/objc/libobjcMsgSend23.dylib
+       0x285570000 -        0x285570f2f  libobjcMsgSend24.dylib (973.1) <94BBF2D6-722B-350D-8557-4D25A8E8D53A> /usr/lib/objc/libobjcMsgSend24.dylib
+       0x28d570000 -        0x28d570f2f  libobjcMsgSend25.dylib (973.1) <35481387-5A8E-3AE4-86A6-94CEB3CC8726> /usr/lib/objc/libobjcMsgSend25.dylib
+       0x2a5570000 -        0x2a5570f2f  libobjcMsgSend26.dylib (973.1) <9E0C8664-E7F4-39D1-AAFC-BD92B255E4E8> /usr/lib/objc/libobjcMsgSend26.dylib
+       0x2ad570000 -        0x2ad570f2f  libobjcMsgSend27.dylib (973.1) <FD424935-55A9-3650-955A-EED3441A1D19> /usr/lib/objc/libobjcMsgSend27.dylib
+       0x2b5570000 -        0x2b5570f2f  libobjcMsgSend28.dylib (973.1) <09BA7B97-7DF7-3C7F-932A-B6847662FC49> /usr/lib/objc/libobjcMsgSend28.dylib
+       0x2bd570000 -        0x2bd570f2f  libobjcMsgSend29.dylib (973.1) <36D5BA3F-2139-30B0-8558-556764BE9813> /usr/lib/objc/libobjcMsgSend29.dylib
+       0x2c5570000 -        0x2c5570f2f  libobjcMsgSend30.dylib (973.1) <9F05564A-9D12-372C-98FC-E9F0E6BE4F04> /usr/lib/objc/libobjcMsgSend30.dylib
+       0x2ca28a000 -        0x2ca290fe5  libRosetta.dylib (385) <E359944B-D230-33F9-A04E-0C3B17C3326E> /usr/lib/libRosetta.dylib
+       0x2cac79000 -        0x2cac7c75b  libsystem_darwindirectory.dylib (129.0.1) <61264923-2AA5-3658-B8C4-550C71E9D4B3> /usr/lib/system/libsystem_darwindirectory.dylib
+       0x2cac7d000 -        0x2cac87d9b  libsystem_eligibility.dylib (446.1.3) <EDDE8E9C-A2CF-3931-BBB3-321CB852EB30> /usr/lib/system/libsystem_eligibility.dylib
+       0x2cac88000 -        0x2cac9142b  libsystem_sanitizers.dylib (32) <7138ED99-7AA0-34EA-B35B-20EF6ADB1EED> /usr/lib/system/libsystem_sanitizers.dylib
+       0x2cac92000 -        0x2cac92a13  libsystem_trial.dylib (511) <6AE48824-EC44-3A8C-B501-BE57DBE892E7> /usr/lib/system/libsystem_trial.dylib
+       0x2cd570000 -        0x2cd570f2f  libobjcMsgSend31.dylib (973.1) <0985E20F-78C3-3466-A2B2-DBB95F7104A3> /usr/lib/objc/libobjcMsgSend31.dylib
+       0x2d5570000 -        0x2d5570f2f  libobjcMsgSend32.dylib (973.1) <0D309D58-D576-3E5D-AD4B-6D55AB491702> /usr/lib/objc/libobjcMsgSend32.dylib
+       0x2dd570000 -        0x2dd570f2f  libobjcMsgSend33.dylib (973.1) <346E0484-48FA-369B-8A64-93B5F5341CFE> /usr/lib/objc/libobjcMsgSend33.dylib
+       0x2e5570000 -        0x2e5570f2f  libobjcMsgSend34.dylib (973.1) <6A31F809-BCBE-3E01-A367-E91FDACCE324> /usr/lib/objc/libobjcMsgSend34.dylib

@@ -36,3 +36,5 @@ Client-ordered outbounds additionally follow `docs/contracts/phase5e-client-orde
 Generic durable outbound queues additionally follow `docs/contracts/phase5f-durable-outbound-queue.md`. Storage owner for this phase owns crates/mqtt-egress-log; coordinator also owns the small Dashboard status integration.
 
 Shared rule-result streams and per-destination consumers supersede per-delivery bodies via `docs/contracts/phase5g-rule-result-streams.md`; log owner owns crates/mqtt-egress-log, runtime owner crates/mqtt-egress, quality owns tests/benches/CI in separate worktrees.
+
+Journal IO optimization additionally follows `docs/contracts/phase5h-journal-io-optimization.md`, including prevalidated owned-append cache retention, finite caches and unchanged durable frames/sync boundaries.

@@ -1,0 +1,39 @@
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-journal-io-quality/crates/mqtt-egress-log)
+   Compiling egress-log-bench v0.1.0 (/private/tmp/rmqtt-journal-io-quality/benches/egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.92s
+     Running unittests src/main.rs (/private/tmp/rmqtt-quality-target/debug/deps/egress_log_bench-7f376d30b06af9d5)
+
+running 3 tests
+test metrics::tests::rank_is_not_batch_amortized ... ok
+test config::tests::rejects_oversized_work_and_preserves_parent_topology ... ok
+test run::tests::verified_smoke_covers_reads_and_durable_state ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running unittests src/bin/topology.rs (/private/tmp/rmqtt-quality-target/debug/deps/topology-48b3e5d7f2b62c68)
+
+running 3 tests
+test metrics::tests::rank_is_not_batch_amortized ... ok
+test tests::rejects_unbounded_dataset ... ok
+test tests::distinct_rules_shared_fanout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/shared_cache_integrity.rs (/private/tmp/rmqtt-quality-target/debug/deps/shared_cache_integrity-9db0321efe618193)
+
+running 12 tests
+test permissions_change_after_warm_read_fails_closed ... ok
+test legal_append_does_not_bless_preexisting_external_body_mutation ... ok
+test legal_append_after_warm_read_preserves_old_and_new_result_bytes ... ok
+test same_length_mutation_after_first_destination_is_not_hidden ... ok
+test restoring_mtime_after_mutation_does_not_revalidate_cached_bytes ... ok
+test hardlink_after_warm_read_fails_closed ... ok
+test different_inode_at_same_path_cannot_return_old_cached_body ... ok
+test empty_body_fanout_survives_checkpoint_and_restart ... ok
+test symlink_replacement_after_warm_read_fails_closed ... ok
+test truncated_body_after_warm_read_fails_closed ... ok
+test partial_completion_retry_checkpoint_and_reopen_preserve_remaining_reference ... ok
+test cache_pressure_does_not_lose_rule_bodies_or_consumer_heads ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.30s
+

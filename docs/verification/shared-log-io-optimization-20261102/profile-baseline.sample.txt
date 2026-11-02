@@ -1,0 +1,347 @@
+Analysis of sampling rmqtt-topology-before-io (pid 39330) every 1 millisecond
+Process:         rmqtt-topology-before-io [39330]
+Path:            /private/tmp/rmqtt-topology-before-io
+Load Address:    0x100928000
+Identifier:      rmqtt-topology-before-io
+Version:         0
+Code Type:       ARM64
+Platform:        macOS
+Parent Process:  time [39329]
+Target Type:     live task
+
+Date/Time:       2026-11-02 14:34:07.839 +0800
+Launch Time:     2026-11-02 14:34:07.428 +0800
+OS Version:      macOS 27.0 (26A428)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         34.5M
+Physical footprint (peak):  34.5M
+Idle exit:                  untracked
+----
+
+Call graph:
+    2231 Thread_15957187   DispatchQueue_1: com.apple.main-thread  (serial)
+      2231 start  (in dyld) + 6688  [0x19da27e80]
+        2231 main  (in rmqtt-topology-before-io) + 52  [0x10092d950]
+          2231 _RNvNtCs82bWklYMk3w_3std2rt19lang_start_internal  (in rmqtt-topology-before-io) + 952  [0x1009955a8]
+            2231 _RNCINvNtCs82bWklYMk3w_3std2rt10lang_startINtNtCs8Mbv00yxnRz_4core6result6ResultuINtNtCshxvaOLs88l5_5alloc5boxed3BoxDNtNtBI_5error5ErrorEL_EEE0CsddpYQZToDVV_8topology  (in rmqtt-topology-before-io) + 24  [0x100931050]
+              2231 _RINvNtNtCs82bWklYMk3w_3std3sys9backtrace28___rust_begin_short_backtraceFEINtNtCs8Mbv00yxnRz_4core6result6ResultuINtNtCshxvaOLs88l5_5alloc5boxed3BoxDNtNtB1e_5error5ErrorEL_EEB19_ECsddpYQZToDVV_8topology  (in rmqtt-topology-before-io) + 12  [0x100930a2c]
+                2231 _RNvCsddpYQZToDVV_8topology4main  (in rmqtt-topology-before-io) + 1512  [0x10092d154]
+                  2221 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 2264  [0x10092ac4c]
+                  + 2110 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 2388  [0x1009525f8]
+                  + ! 1575 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 624  [0x100957f24]
+                  + ! : 1575 _RNvMs2_NtCs82bWklYMk3w_3std2fsNtB5_4File8sync_all  (in rmqtt-topology-before-io) + 48  [0x100989c3c]
+                  + ! :   1575 fcntl  (in libsystem_kernel.dylib) + 88  [0x19ddb9758]
+                  + ! :     1575 __fcntl  (in libsystem_kernel.dylib) + 8  [0x19ddb98b8]
+                  + ! 336 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 584  [0x100957efc]
+                  + ! : 155 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io) + 312,244,...  [0x100971908,0x1009718c4,...]
+                  + ! : 140 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io) + 700  [0x100971a8c]
+                  + ! : | 140 _RNvYNtNtCs82bWklYMk3w_3std2fs4FileNtNtB6_2io5Write9write_allCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 112  [0x100972144]
+                  + ! : |   140 _RNvXsb_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io5Write5write  (in rmqtt-topology-before-io) + 32  [0x10099e428]
+                  + ! : |     140 write  (in libsystem_kernel.dylib) + 8  [0x19ddbc838]
+                  + ! : 25 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io) + 572  [0x100971a0c]
+                  + ! : | 25 _RNvYNtNtCs82bWklYMk3w_3std2fs4FileNtNtB6_2io5Write9write_allCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 112  [0x100972144]
+                  + ! : |   25 _RNvXsb_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io5Write5write  (in rmqtt-topology-before-io) + 32  [0x10099e428]
+                  + ! : |     25 write  (in libsystem_kernel.dylib) + 8  [0x19ddbc838]
+                  + ! : 9 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io) + 612  [0x100971a34]
+                  + ! : | 9 _RNvYNtNtCs82bWklYMk3w_3std2fs4FileNtNtB6_2io5Write9write_allCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 112  [0x100972144]
+                  + ! : |   9 _RNvXsb_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io5Write5write  (in rmqtt-topology-before-io) + 32  [0x10099e428]
+                  + ! : |     9 write  (in libsystem_kernel.dylib) + 8  [0x19ddbc838]
+                  + ! : 6 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io) + 592  [0x100971a20]
+                  + ! : | 6 _RNvYNtNtCs82bWklYMk3w_3std2fs4FileNtNtB6_2io5Write9write_allCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 112  [0x100972144]
+                  + ! : |   6 _RNvXsb_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io5Write5write  (in rmqtt-topology-before-io) + 32  [0x10099e428]
+                  + ! : |     6 write  (in libsystem_kernel.dylib) + 8  [0x19ddbc838]
+                  + ! : 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io) + 548  [0x1009719f4]
+                  + ! :   1 _RNvXsc_NtCs82bWklYMk3w_3std2fsNtB5_4FileNtNtB7_2io4Seek4seek  (in rmqtt-topology-before-io) + 40  [0x10099e650]
+                  + ! :     1 __lseek  (in libsystem_kernel.dylib) + 8  [0x19ddba61c]
+                  + ! 121 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 544  [0x100957ed4]
+                  + ! : 119 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage8sync_dir  (in rmqtt-topology-before-io) + 152  [0x100964d18]
+                  + ! : | 119 _RNvMs2_NtCs82bWklYMk3w_3std2fsNtB5_4File8sync_all  (in rmqtt-topology-before-io) + 48  [0x100989c3c]
+                  + ! : |   119 fcntl  (in libsystem_kernel.dylib) + 88  [0x19ddb9758]
+                  + ! : |     119 __fcntl  (in libsystem_kernel.dylib) + 8  [0x19ddb98b8]
+                  + ! : 2 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage8sync_dir  (in rmqtt-topology-before-io) + 64  [0x100964cc0]
+                  + ! :   2 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-topology-before-io) + 148  [0x10099473c]
+                  + ! :     2 _RNvMsi_NtNtNtCs82bWklYMk3w_3std3sys2fs4unixNtB5_4File6open_c  (in rmqtt-topology-before-io) + 280  [0x100993a88]
+                  + ! :       2 open  (in libsystem_kernel.dylib) + 64  [0x19ddc4960]
+                  + ! :         2 __open  (in libsystem_kernel.dylib) + 8  [0x19ddb9680]
+                  + ! 56 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 932  [0x100958058]
+                  + ! : 45 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io) + 4796  [0x100956e44]
+                  + ! : | 31 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6insert  (in rmqtt-topology-before-io) + 1084  [0x100969768]
+                  + ! : | + 13 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 252,1716,...  [0x1009689d0,0x100968f88,...]
+                  + ! : | + 7 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 1052  [0x100968cf0]
+                  + ! : | + ! 7 _RNvMsi_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3mapINtB5_8BTreeMapTINtNtBb_4sync3ArceEB18_B18_EINtNtB9_9vec_deque8VecDequeyEE5entryCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 60  [0x10095b858]
+                  + ! : | + !   4 <deduplicated_symbol>  (in rmqtt-topology-before-io) + 260  [0x10093fa5c]
+                  + ! : | + !   : 4 _platform_memcmp  (in libsystem_platform.dylib) + 280,140,...  [0x19de05288,0x19de051fc,...]
+                  + ! : | + !   2 <deduplicated_symbol>  (in rmqtt-topology-before-io) + 200  [0x10093fa20]
+                  + ! : | + !   : 1 DYLD-STUB$$memcmp  (in rmqtt-topology-before-io) + 4  [0x1009ba0f8]
+                  + ! : | + !   : 1 _platform_memcmp  (in libsystem_platform.dylib) + 256  [0x19de05270]
+                  + ! : | + !   1 <deduplicated_symbol>  (in rmqtt-topology-before-io) + 148  [0x10093f9ec]
+                  + ! : | + !     1 _platform_memcmp  (in libsystem_platform.dylib) + 272  [0x19de05280]
+                  + ! : | + 2 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 2512  [0x1009692a4]
+                  + ! : | + ! 2 _RNvMsz_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3mapINtB5_8IntoIterNtNtBb_6string6StringNtNtB7_7set_val9SetValZSTE10dying_nextCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 432  [0x10095c100]
+                  + ! : | + !   1 _xzm_free_main  (in libsystem_malloc.dylib) + 736  [0x19dc2119c]
+                  + ! : | + !   : 1 mach_absolute_time  (in libsystem_kernel.dylib) + 112  [0x19ddb90fc]
+                  + ! : | + !   1 _xzm_free_main  (in libsystem_malloc.dylib) + 268  [0x19dc20fc8]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 636  [0x100968b50]
+                  + ! : | + ! 1 _RINvXsd_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3setINtB6_8BTreeSetNtNtBc_6string6StringEINtNtNtNtCs8Mbv00yxnRz_4core4iter6traits7collect12FromIteratorB18_E9from_iterINtNtNtB1B_8adapters10filter_map9FilterMapINtB6_4IteryENCNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB3H_6Shared6attach0EEB3J_  (in rmqtt-topology-before-io) + 124  [0x10096dc40]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 892  [0x100968c50]
+                  + ! : | + ! 1 _RNvMsi_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3mapINtB5_8BTreeMapNtNtBb_6string6StringNtNtB7_7set_val9SetValZSTE6insertCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 252  [0x10095b3d8]
+                  + ! : | + !   1 _RNvMs4_NtNtNtNtCshxvaOLs88l5_5alloc11collections5btree3map5entryINtB5_11VacantEntryNtNtBd_6string6StringNtNtB9_7set_val9SetValZSTE12insert_entryCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 132  [0x10096fce4]
+                  + ! : | + !     1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 288  [0x19dc1f928]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 944  [0x100968c84]
+                  + ! : | + ! 1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 260  [0x19dc18b50]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 988  [0x100968cb0]
+                  + ! : | + ! 1 _platform_memmove  (in libsystem_platform.dylib) + 452  [0x19de07f24]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 1064  [0x100968cfc]
+                  + ! : | + ! 1 _RNvMs3_NtNtNtNtCshxvaOLs88l5_5alloc11collections5btree3map5entryINtB5_5EntryTINtNtBd_4sync3ArceEB1d_B1d_EINtNtBb_9vec_deque8VecDequeyEE10or_defaultCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 120  [0x10096fa8c]
+                  + ! : | + !   1 _RINvMsN_NtNtNtCshxvaOLs88l5_5alloc11collections5btree4nodeINtB6_6HandleINtB6_7NodeRefNtNtB6_6marker3MutTINtNtBc_4sync3ArceEB1E_B1E_EINtNtBa_9vec_deque8VecDequeyENtB1n_4LeafENtB1n_4EdgeE16insert_recursingNtNtBc_5alloc6GlobalNCNvMs4_NtNtB8_3map5entryINtB3H_11VacantEntryB1D_B26_E12insert_entry0ECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 928  [0x1009398e4]
+                  + ! : | + !     1 _xzm_xzone_malloc_freelist_outlined  (in libsystem_malloc.dylib) + 324  [0x19dc1a0f8]
+                  + ! : | + !       1 _xzm_xzone_find_and_malloc_from_freelist_chunk  (in libsystem_malloc.dylib) + 1296  [0x19dc1ada0]
+                  + ! : | + !         1 xzm_segment_group_alloc_chunk  (in libsystem_malloc.dylib) + 564  [0x19dbf892c]
+                  + ! : | + !           1 _xzm_segment_group_find_and_allocate_chunk  (in libsystem_malloc.dylib) + 508  [0x19dbf8f9c]
+                  + ! : | + !             1 _xzm_segment_group_span_mark_smaller  (in libsystem_malloc.dylib) + 156  [0x19dbfa3c8]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 1160  [0x100968d5c]
+                  + ! : | + ! 1 _RNvMs3_NtNtCshxvaOLs88l5_5alloc11collections9vec_dequeINtB5_8VecDequeyE4growCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 24  [0x10096d228]
+                  + ! : | + !   1 _RNvMs4_NtCshxvaOLs88l5_5alloc7raw_vecINtB5_6RawVecyE8grow_oneCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 60  [0x1009b48d4]
+                  + ! : | + !     1 _RNvMs5_NtCshxvaOLs88l5_5alloc7raw_vecNtB5_11RawVecInner11finish_growCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 92  [0x1009b495c]
+                  + ! : | + !       1 _realloc  (in libsystem_malloc.dylib) + 456  [0x19dc25358]
+                  + ! : | + !         1 _malloc_zone_realloc  (in libsystem_malloc.dylib) + 60  [0x19dc24ad4]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 1948  [0x100969070]
+                  + ! : | + ! 1 _RNvMs4_NtNtNtNtCshxvaOLs88l5_5alloc11collections5btree3map5entryINtB5_11VacantEntryyTyNtNtCs4ou8seJds8w_15mqtt_egress_log5model14StoredConsumerEE12insert_entryB1q_  (in rmqtt-topology-before-io) + 88  [0x100970128]
+                  + ! : | + !   1 _RINvMsN_NtNtNtCshxvaOLs88l5_5alloc11collections5btree4nodeINtB6_6HandleINtB6_7NodeRefNtNtB6_6marker3MutyTyNtNtCs4ou8seJds8w_15mqtt_egress_log5model14StoredConsumerENtB1n_4LeafENtB1n_4EdgeE16insert_recursingNtNtBc_5alloc6GlobalNCNvMs4_NtNtB8_3map5entryINtB3K_11VacantEntryyB1E_E12insert_entry0EB1K_  (in rmqtt-topology-before-io) + 228  [0x10093c968]
+                  + ! : | + !     1 _xzm_xzone_malloc_freelist_outlined  (in libsystem_malloc.dylib) + 768  [0x19dc1a2b4]
+                  + ! : | + 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io) + 2548  [0x1009692c8]
+                  + ! : | + ! 1 _xzm_free_main  (in libsystem_malloc.dylib) + 184  [0x19dc20f74]
+                  + ! : | + 1 _RNvMs4_NtNtNtNtCshxvaOLs88l5_5alloc11collections5btree3map5entryINtB5_11VacantEntryyTyNtNtCs4ou8seJds8w_15mqtt_egress_log5model14StoredConsumerEE12insert_entryB1q_  (in rmqtt-topology-before-io) + 224  [0x1009701b0]
+                  + ! : | 8 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6insert  (in rmqtt-topology-before-io) + 100,176,...  [0x100969390,0x1009693dc,...]
+                  + ! : | 3 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6insert  (in rmqtt-topology-before-io) + 1068  [0x100969758]
+                  + ! : | + 3 _RNvMs4_NtNtNtNtCshxvaOLs88l5_5alloc11collections5btree3map5entryINtB5_11VacantEntryyNtNtCs4ou8seJds8w_15mqtt_egress_log6shared4BodyE12insert_entryB1o_  (in rmqtt-topology-before-io) + 88  [0x10097000c]
+                  + ! : | +   2 _RINvMsN_NtNtNtCshxvaOLs88l5_5alloc11collections5btree4nodeINtB6_6HandleINtB6_7NodeRefNtNtB6_6marker3MutyNtNtCs4ou8seJds8w_15mqtt_egress_log6shared4BodyNtB1n_4LeafENtB1n_4EdgeE16insert_recursingNtNtBc_5alloc6GlobalNCNvMs4_NtNtB8_3map5entryINtB3x_11VacantEntryyB1E_E12insert_entry0EB1I_  (in rmqtt-topology-before-io) + 268  [0x10093bc80]
+                  + ! : | +   ! 2 _xzm_xzone_malloc_freelist_outlined  (in libsystem_malloc.dylib) + 768  [0x19dc1a2b4]
+                  + ! : | +   1 _RINvMsN_NtNtNtCshxvaOLs88l5_5alloc11collections5btree4nodeINtB6_6HandleINtB6_7NodeRefNtNtB6_6marker3MutyNtNtCs4ou8seJds8w_15mqtt_egress_log6shared4BodyNtB1n_4LeafENtB1n_4EdgeE16insert_recursingNtNtBc_5alloc6GlobalNCNvMs4_NtNtB8_3map5entryINtB3x_11VacantEntryyB1E_E12insert_entry0EB1I_  (in rmqtt-topology-before-io) + 836  [0x10093beb8]
+                  + ! : | 2 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6insert  (in rmqtt-topology-before-io) + 556  [0x100969558]
+                  + ! : | + 1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 92  [0x19dc1f864]
+                  + ! : | + 1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 404  [0x19dc18be0]
+                  + ! : | 1 _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6insert  (in rmqtt-topology-before-io) + 472  [0x100969504]
+                  + ! : |   1 _malloc_zone_malloc  (in libsystem_malloc.dylib) + 12  [0x19dc244fc]
+                  + ! : 7 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io) + 3452,3472,...  [0x100956904,0x100956918,...]
+                  + ! : 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io) + 3952  [0x100956af8]
+                  + ! : | 1 _RNvMsi_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3mapINtB5_8BTreeMapyNtNtB7_7set_val9SetValZSTE6insertCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 144  [0x10095bbc0]
+                  + ! : |   1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 520  [0x19dc18c54]
+                  + ! : 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io) + 4052  [0x100956b5c]
+                  + ! : | 1 _platform_memcmp  (in libsystem_platform.dylib) + 272  [0x19de05280]
+                  + ! : 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io) + 4208  [0x100956bf8]
+                  + ! : | 1 _free  (in libsystem_malloc.dylib) + 108  [0x19dc2517c]
+                  + ! : 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io) + 4408  [0x100956cc0]
+                  + ! :   1 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-topology-before-io) + 48  [0x1009a9adc]
+                  + ! :     1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 336  [0x19dc1f958]
+                  + ! 10 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 464  [0x100957e84]
+                  + ! : 9 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-topology-before-io) + 80  [0x10096261c]
+                  + ! : | 9 _RNvMsj_NtCs82bWklYMk3w_3std2fsNtB5_11OpenOptions5__open  (in rmqtt-topology-before-io) + 148  [0x10099473c]
+                  + ! : |   9 _RNvMsi_NtNtNtCs82bWklYMk3w_3std3sys2fs4unixNtB5_4File6open_c  (in rmqtt-topology-before-io) + 280  [0x100993a88]
+                  + ! : |     9 open  (in libsystem_kernel.dylib) + 64  [0x19ddc4960]
+                  + ! : |       9 __open  (in libsystem_kernel.dylib) + 8  [0x19ddb9680]
+                  + ! : 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage12private_file  (in rmqtt-topology-before-io) + 276  [0x1009626e0]
+                  + ! :   1 _RNvNtNtCs82bWklYMk3w_3std3sys2fs16symlink_metadata  (in rmqtt-topology-before-io) + 148  [0x1009972fc]
+                  + ! :     1 lstat  (in libsystem_kernel.dylib) + 8  [0x19ddc48d0]
+                  + ! 9 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 56  [0x100957cec]
+                  + ! : 9 _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format4json  (in rmqtt-topology-before-io) + 72  [0x100971af4]
+                  + ! :   9 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5modelsf_1__NtB5_11TransactionNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 252  [0x1009607c0]
+                  + ! :     9 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeIBN_NtNtCs4ou8seJds8w_15mqtt_egress_log5model12StoredResultEEB2V_  (in rmqtt-topology-before-io) + 288  [0x10096ab78]
+                  + ! :       6 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models7_1__NtB5_12StoredResultNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 156  [0x1009602b8]
+                  + ! :       | 5 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeIBN_NtNtCs4ou8seJds8w_15mqtt_egress_log5model14StoredConsumerEEB2V_  (in rmqtt-topology-before-io) + 212  [0x10096af74]
+                  + ! :       | + 2 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models5_1__NtB5_14StoredConsumerNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 184  [0x100960164]
+                  + ! :       | + ! 2 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeNtNtBR_6string6StringECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 160  [0x10096b680]
+                  + ! :       | + !   2 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 112,484  [0x10096a294,0x10096a408]
+                  + ! :       | + 2 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models5_1__NtB5_14StoredConsumerNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 212  [0x100960180]
+                  + ! :       | + ! 1 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryemECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 112  [0x10096bc5c]
+                  + ! :       | + ! : 1 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 476  [0x10096a400]
+                  + ! :       | + ! :   1 _platform_memmove  (in libsystem_platform.dylib) + 428  [0x19de07f0c]
+                  + ! :       | + ! 1 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryemECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 124  [0x10096bc68]
+                  + ! :       | + 1 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models5_1__NtB5_14StoredConsumerNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 128  [0x10096012c]
+                  + ! :       | +   1 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeNtNtBR_6string6StringECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 160  [0x10096b680]
+                  + ! :       | +     1 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 436  [0x10096a3d8]
+                  + ! :       | 1 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeIBN_NtNtCs4ou8seJds8w_15mqtt_egress_log5model14StoredConsumerEEB2V_  (in rmqtt-topology-before-io) + 112  [0x10096af10]
+                  + ! :       |   1 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 484  [0x10096a408]
+                  + ! :       3 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models7_1__NtB5_12StoredResultNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 100  [0x100960280]
+                  + ! :         1 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models3_1__NtB5_10ResultMetaNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 100  [0x10095fff4]
+                  + ! :         + 1 <deduplicated_symbol>  (in rmqtt-topology-before-io) + 112  [0x10096badc]
+                  + ! :         +   1 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 476  [0x10096a400]
+                  + ! :         +     1 _platform_memmove  (in libsystem_platform.dylib) + 460  [0x19de07f2c]
+                  + ! :         1 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models3_1__NtB5_10ResultMetaNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 128  [0x100960010]
+                  + ! :         + 1 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeNtNtBR_6string6StringECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 108  [0x10096b64c]
+                  + ! :         +   1 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 124  [0x10096a2a0]
+                  + ! :         1 _RINvXNvNtCs4ou8seJds8w_15mqtt_egress_log5models3_1__NtB5_10ResultMetaNtNtCsaWfPSzppGRc_10serde_core3ser9Serialize9serializeQINtNtCslMRbZXR9Ve0_10serde_json3ser10SerializerQINtNtCshxvaOLs88l5_5alloc3vec3VechEEEB7_  (in rmqtt-topology-before-io) + 156  [0x10096002c]
+                  + ! :           1 _RINvYINtNtCslMRbZXR9Ve0_10serde_json3ser8CompoundQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB6_16CompactFormatterENtNtCsaWfPSzppGRc_10serde_core3ser12SerializeMap15serialize_entryeNtNtBR_6string6StringECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 160  [0x10096b680]
+                  + ! :             1 _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 636  [0x10096a4a0]
+                  + ! :               1 _RINvNvMs2_NtCshxvaOLs88l5_5alloc7raw_vecINtB8_11RawVecInnerpE7reserve21do_reserve_and_handleNtNtBa_5alloc6GlobalECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 108  [0x1009b43c0]
+                  + ! :                 1 _RNvMs5_NtCshxvaOLs88l5_5alloc7raw_vecNtB5_11RawVecInner11finish_growCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 92  [0x1009b495c]
+                  + ! :                   1 _realloc  (in libsystem_malloc.dylib) + 456  [0x19dc25358]
+                  + ! :                     1 _malloc_zone_realloc  (in libsystem_malloc.dylib) + 148  [0x19dc24b2c]
+                  + ! :                       1 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 896  [0x19dc15390]
+                  + ! :                         1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 120  [0x19dc18ac4]
+                  + ! 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 448  [0x100957e74]
+                  + ! : 1 _RNvNtCs4ou8seJds8w_15mqtt_egress_log7storage7segment  (in rmqtt-topology-before-io) + 96  [0x100964968]
+                  + ! :   1 _RNvMs16_NtCs82bWklYMk3w_3std4pathNtB6_4Path5__join  (in rmqtt-topology-before-io) + 196  [0x100988404]
+                  + ! :     1 _RINvNvMs2_NtCshxvaOLs88l5_5alloc7raw_vecINtB8_11RawVecInnerpE7reserve21do_reserve_and_handleNtNtBa_5alloc6GlobalECs82bWklYMk3w_3std  (in rmqtt-topology-before-io) + 88  [0x1009b8978]
+                  + ! :       1 _RNvMs5_NtCshxvaOLs88l5_5alloc7raw_vecNtB5_11RawVecInner11finish_growCs82bWklYMk3w_3std  (in rmqtt-topology-before-io) + 92  [0x1009b93dc]
+                  + ! :         1 _realloc  (in libsystem_malloc.dylib) + 456  [0x19dc25358]
+                  + ! :           1 _malloc_zone_realloc  (in libsystem_malloc.dylib) + 148  [0x19dc24b2c]
+                  + ! :             1 xzm_malloc_zone_malloc_type_realloc  (in libsystem_malloc.dylib) + 1028  [0x19dc15414]
+                  + ! :               1 _xzm_free  (in libsystem_malloc.dylib) + 1384  [0x19dc1cc68]
+                  + ! :                 1 mach_absolute_time  (in libsystem_kernel.dylib) + 108  [0x19ddb90f8]
+                  + ! 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 508  [0x100957eb0]
+                  + ! : 1 close  (in libsystem_kernel.dylib) + 8  [0x19ddb98e4]
+                  + ! 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal6commit  (in rmqtt-topology-before-io) + 708  [0x100957f78]
+                  + 93 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 1496,1500,...  [0x10095227c,0x100952280,...]
+                  + 10 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 1752  [0x10095237c]
+                  + ! 10 _RNvMsz_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3mapINtB5_8IntoIterNtNtBb_6string6StringNtNtB7_7set_val9SetValZSTE10dying_nextCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 432  [0x10095c100]
+                  + !   9 _xzm_free_main  (in libsystem_malloc.dylib) + 736  [0x19dc2119c]
+                  + !   : 9 mach_absolute_time  (in libsystem_kernel.dylib) + 108  [0x19ddb90f8]
+                  + !   1 DYLD-STUB$$free  (in rmqtt-topology-before-io) + 4  [0x1009ba080]
+                  + 3 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 2492  [0x100952660]
+                  + ! 3 _RINvNtCs8Mbv00yxnRz_4core3ptr9drop_glueINtNtCshxvaOLs88l5_5alloc3vec3VecNtNtCs4ou8seJds8w_15mqtt_egress_log5model9NewResultEEB1c_  (in rmqtt-topology-before-io) + 52  [0x100951268]
+                  + !   1 _RINvNtCs8Mbv00yxnRz_4core3ptr9drop_glueNtNtCs4ou8seJds8w_15mqtt_egress_log5model9NewResultEBF_  (in rmqtt-topology-before-io) + 40  [0x10095deb8]
+                  + !   : 1 _xzm_free_main  (in libsystem_malloc.dylib) + 256  [0x19dc20fbc]
+                  + !   1 _RINvNtCs8Mbv00yxnRz_4core3ptr9drop_glueNtNtCs4ou8seJds8w_15mqtt_egress_log5model9NewResultEBF_  (in rmqtt-topology-before-io) + 60  [0x10095decc]
+                  + !   : 1 _xzm_free_main  (in libsystem_malloc.dylib) + 40  [0x19dc20ee4]
+                  + !   1 _RINvNtCs8Mbv00yxnRz_4core3ptr9drop_glueNtNtCs4ou8seJds8w_15mqtt_egress_log5model9NewResultEBF_  (in rmqtt-topology-before-io) + 80  [0x10095dee0]
+                  + !     1 _xzm_free_main  (in libsystem_malloc.dylib) + 332  [0x19dc21008]
+                  + 2 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 556  [0x100951ed0]
+                  + ! 2 _RNvXs4_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core5clone5Clone5clone  (in rmqtt-topology-before-io) + 48  [0x1009a9adc]
+                  + !   1 <deduplicated_symbol>  (in libsystem_malloc.dylib) + 140  [0x19dc1f894]
+                  + !   1 _RNvCs1njKG4L9aB3_7___rustc11___rdl_alloc  (in rmqtt-topology-before-io) + 0  [0x100984f08]
+                  + 2 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 1208  [0x10095215c]
+                  + ! 1 DYLD-STUB$$malloc  (in rmqtt-topology-before-io) + 4  [0x1009ba0ec]
+                  + ! 1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 672  [0x19dc18cec]
+                  + 1 _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io) + 768  [0x100951fa4]
+                  +   1 _RNvMsi_NtNtNtCshxvaOLs88l5_5alloc11collections5btree3mapINtB5_8BTreeMapNtNtBb_6string6StringNtNtB7_7set_val9SetValZSTE6insertCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 252  [0x10095b3d8]
+                  +     1 _RNvMs4_NtNtNtNtCshxvaOLs88l5_5alloc11collections5btree3map5entryINtB5_11VacantEntryNtNtBd_6string6StringNtNtB9_7set_val9SetValZSTE12insert_entryCs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io) + 132  [0x10096fce4]
+                  +       1 _malloc_zone_malloc  (in libsystem_malloc.dylib) + 56  [0x19dc24528]
+                  4 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 1696  [0x10092aa14]
+                  + 4 _RNvNvNtCshxvaOLs88l5_5alloc3fmt6format12format_inner  (in rmqtt-topology-before-io) + 308  [0x1009a9a14]
+                  +   3 _RNvNtCs8Mbv00yxnRz_4core3fmt5write  (in rmqtt-topology-before-io) + 96  [0x1009ad400]
+                  +   ! 2 _RNvXsZ_NtCshxvaOLs88l5_5alloc6stringNtB5_6StringNtNtCs8Mbv00yxnRz_4core3fmt5Write9write_str  (in rmqtt-topology-before-io) + 112  [0x1009a9d44]
+                  +   ! : 2 _RINvNvMs2_NtCshxvaOLs88l5_5alloc7raw_vecINtB8_11RawVecInnerpE7reserve21do_reserve_and_handleNtNtBa_5alloc6GlobalEBa_  (in rmqtt-topology-before-io) + 68  [0x1009b98ec]
+                  +   ! :   2 _RNvMs5_NtCshxvaOLs88l5_5alloc7raw_vecNtB5_11RawVecInner11finish_growB7_  (in rmqtt-topology-before-io) + 44  [0x1009b99ac]
+                  +   ! :     1 _realloc  (in libsystem_malloc.dylib) + 252  [0x19dc2528c]
+                  +   ! :     | 1 xzm_malloc_zone_size  (in libsystem_malloc.dylib) + 152  [0x19dc1439c]
+                  +   ! :     1 _realloc  (in libsystem_malloc.dylib) + 456  [0x19dc25358]
+                  +   ! :       1 _malloc_zone_realloc  (in libsystem_malloc.dylib) + 184  [0x19dc24b50]
+                  +   ! 1 _RNvXsd_NtNtNtCs8Mbv00yxnRz_4core3fmt3num3impyNtB9_7Display3fmt  (in rmqtt-topology-before-io) + 76  [0x1009b30dc]
+                  +   !   1 _RNvMsa_NtCs8Mbv00yxnRz_4core3fmtNtB5_9Formatter12pad_integral  (in rmqtt-topology-before-io) + 0  [0x1009ab85c]
+                  +   1 _RNvMsa_NtCs8Mbv00yxnRz_4core3fmtNtB5_9Formatter3pad  (in rmqtt-topology-before-io) + 672  [0x1009ac74c]
+                  2 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 1588,1816  [0x10092a9a8,0x10092aa8c]
+                  1 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 1312  [0x10092a894]
+                  + 1 _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 404  [0x19dc18be0]
+                  1 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 1536  [0x10092a974]
+                  + 1 DYLD-STUB$$memcmp  (in rmqtt-topology-before-io) + 4  [0x1009ba0f8]
+                  1 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 1816  [0x10092aa8c]
+                  + 1 _RNvNvNtCshxvaOLs88l5_5alloc3fmt6format12format_inner  (in rmqtt-topology-before-io) + 308  [0x1009a9a14]
+                  +   1 _RNvNtCs8Mbv00yxnRz_4core3fmt5write  (in rmqtt-topology-before-io) + 84  [0x1009ad3f4]
+                  1 _RNvCsddpYQZToDVV_8topology3run  (in rmqtt-topology-before-io) + 2416  [0x10092ace4]
+                    1 _xzm_free_main  (in libsystem_malloc.dylib) + 1064  [0x19dc212e4]
+
+Total number in stack (recursive counted multiple, when >=5):
+        6       _xzm_free_main  (in libsystem_malloc.dylib) + 0  [0x19dc20ebc]
+        6       _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib) + 0  [0x19dc18a4c]
+
+Sort by top of stack, same collapsed (when >= 5):
+        __fcntl  (in libsystem_kernel.dylib)        1694
+        write  (in libsystem_kernel.dylib)        180
+        _RNvNtCs4ou8seJds8w_15mqtt_egress_log6format11write_frame  (in rmqtt-topology-before-io)        155
+        _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log6sharedNtNtB6_7journal7Journal14append_results  (in rmqtt-topology-before-io)        93
+        _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6attach  (in rmqtt-topology-before-io)        13
+        __open  (in libsystem_kernel.dylib)        11
+        mach_absolute_time  (in libsystem_kernel.dylib)        11
+        _RNvMNtCs4ou8seJds8w_15mqtt_egress_log6sharedNtB2_6Shared6insert  (in rmqtt-topology-before-io)        8
+        _RNvMs_NtCs4ou8seJds8w_15mqtt_egress_log7journalNtB4_7Journal5apply  (in rmqtt-topology-before-io)        7
+        _platform_memcmp  (in libsystem_platform.dylib)        7
+        _xzm_free_main  (in libsystem_malloc.dylib)        6
+        _xzm_xzone_malloc_tiny  (in libsystem_malloc.dylib)        6
+        _RINvNtCslMRbZXR9Ve0_10serde_json3ser18format_escaped_strQINtNtCshxvaOLs88l5_5alloc3vec3VechENtB2_16CompactFormatterECs4ou8seJds8w_15mqtt_egress_log  (in rmqtt-topology-before-io)        5
+
+Binary Images:
+       0x100928000 -        0x1009e3677 +rmqtt-topology-before-io (0) <04603E64-2D74-3C44-9B47-8139E3ACE289> /tmp/rmqtt-topology-before-io
+       0x19d974000 -        0x19d9c35f7  libobjc.A.dylib (973.1) <C0680DF6-9900-3C29-A071-95A031686EF8> /usr/lib/libobjc.A.dylib
+       0x19d9c4000 -        0x19d9ce23f  libsharedcache.dylib (0) <117C1ED6-AE11-3D9E-B05B-844F35395552> /usr/lib/libsharedcache.dylib
+       0x19d9cf000 -        0x19d9f5d3b  libdyld.dylib (27062) <62863BCA-DD60-3D32-A9DB-89099BA6F3D7> /usr/lib/system/libdyld.dylib
+       0x19d9f6000 -        0x19dab56e3  dyld (1.0.0 - 27062) <D341DDCB-7969-3A9C-8E03-0CF4751398A9> /usr/lib/dyld
+       0x19dab6000 -        0x19dab901f  libsystem_blocks.dylib (98.1) <6F304731-D95D-3501-B4AD-F2934F7F2446> /usr/lib/system/libsystem_blocks.dylib
+       0x19daba000 -        0x19db0f0df  libxpc.dylib (3298.1.1) <0791121F-B5FC-3F84-BF04-115E86D2D882> /usr/lib/system/libxpc.dylib
+       0x19db10000 -        0x19db2fc13  libsystem_trace.dylib (1966.1.1) <B48A8E3E-A12A-3342-8321-428B555E965E> /usr/lib/system/libsystem_trace.dylib
+       0x19db30000 -        0x19dbe4f27  libcorecrypto.dylib (2109.0.22) <807AA6C9-5D8A-3CA5-B4CE-FACE5296EF6A> /usr/lib/system/libcorecrypto.dylib
+       0x19dbe5000 -        0x19dc3ac5f  libsystem_malloc.dylib (886.0.8) <2339CB57-FE5A-3154-A206-A76059C749EB> /usr/lib/system/libsystem_malloc.dylib
+       0x19dc3b000 -        0x19dc8119f  libdispatch.dylib (1605.0.2) <022BF08F-0B3A-3225-9E65-16D1553CE90D> /usr/lib/system/libdispatch.dylib
+       0x19dc82000 -        0x19dc84d2b  libsystem_featureflags.dylib (108) <20C1CAB2-1F13-3426-8146-9CAE9FF2A33D> /usr/lib/system/libsystem_featureflags.dylib
+       0x19dc85000 -        0x19dd07ca3  libsystem_c.dylib (1786.0.3) <FBA7B23E-AA60-3A90-9AA4-A7A2E0AD63EE> /usr/lib/system/libsystem_c.dylib
+       0x19dd08000 -        0x19dd9d033  libc++.1.dylib (2200.27) <1E9BA4AA-B5DA-3CF3-80AC-4B880049573F> /usr/lib/libc++.1.dylib
+       0x19dd9e000 -        0x19ddb7eff  libc++abi.dylib (2200.27) <A21743EE-6E1C-3E74-97EA-7AF793DE4BDF> /usr/lib/libc++abi.dylib
+       0x19ddb8000 -        0x19ddf69ab  libsystem_kernel.dylib (13432.1.9) <F63BF418-8F75-34A4-AAF1-8CAF2B9B6A05> /usr/lib/system/libsystem_kernel.dylib
+       0x19ddf7000 -        0x19de0391b  libsystem_pthread.dylib (553.0.1) <5A1828C3-CBC2-3B85-BD07-C8ED10021A41> /usr/lib/system/libsystem_pthread.dylib
+       0x19de04000 -        0x19de0d4f3  libsystem_platform.dylib (402.0.1.0.1) <080E4444-A0FB-3913-9756-4E470015F32F> /usr/lib/system/libsystem_platform.dylib
+       0x19de0e000 -        0x19de3c903  libsystem_info.dylib (603) <BC387AEB-1CEF-3513-92D7-D7F913596711> /usr/lib/system/libsystem_info.dylib
+       0x1a1f66000 -        0x1a1f6fb13  libsystem_darwin.dylib (1786.0.3) <4E66C888-993C-3E6A-A8DA-A949C01C5B67> /usr/lib/system/libsystem_darwin.dylib
+       0x1a23c0000 -        0x1a23d1b8b  libsystem_notify.dylib (368) <58FD36D8-37A7-311C-80F2-8E64DD8710CF> /usr/lib/system/libsystem_notify.dylib
+       0x1a451d000 -        0x1a4537d93  libsystem_networkextension.dylib (2340.1.2) <22E1D190-486F-324F-ABA4-F36AB841BFE9> /usr/lib/system/libsystem_networkextension.dylib
+       0x1a45c5000 -        0x1a45dc247  libsystem_asl.dylib (409) <B4D449B7-A821-3A9A-8019-E917B291F10A> /usr/lib/system/libsystem_asl.dylib
+       0x1a5570000 -        0x1a5570f2f  libobjcMsgSend.dylib (973.1) <41179EDE-DC97-3BBE-8848-6400D12C1436> /usr/lib/objc/libobjcMsgSend.dylib
+       0x1a66bc000 -        0x1a66c3edf  libsystem_symptoms.dylib (2394.0.4) <60EE7884-9F4E-3184-A6AC-FA40A7A0297D> /usr/lib/system/libsystem_symptoms.dylib
+       0x1aaa54000 -        0x1aaa8eaeb  libsystem_containermanager.dylib (833.0.8.0.1) <08A57205-555D-3792-8931-9D5B585AF326> /usr/lib/system/libsystem_containermanager.dylib
+       0x1ac0a7000 -        0x1ac0ab317  libsystem_configuration.dylib (1446) <F3EB66A7-7A24-3AE5-B6E8-9A37BB00F119> /usr/lib/system/libsystem_configuration.dylib
+       0x1ac0ac000 -        0x1ac0b2e03  libsystem_sandbox.dylib (3051.0.52) <1E892B56-092E-3832-BDE3-DCE356D7A4FA> /usr/lib/system/libsystem_sandbox.dylib
+       0x1ad570000 -        0x1ad570f2f  libobjcMsgSend1.dylib (973.1) <B40D9B2A-E1EE-37ED-8004-711A1F263DE1> /usr/lib/objc/libobjcMsgSend1.dylib
+       0x1adc90000 -        0x1adc92f93  libquarantine.dylib (217.0.4) <7FD4AE22-86EF-382B-83F5-ADF9336C1160> /usr/lib/system/libquarantine.dylib
+       0x1ae3a2000 -        0x1ae3a81e7  libsystem_coreservices.dylib (203) <57248E07-11A5-3857-918E-4A3A63B69FE8> /usr/lib/system/libsystem_coreservices.dylib
+       0x1ae96a000 -        0x1ae9a7b27  libsystem_m.dylib (3326.0.1) <A3FB340F-3ED5-30F4-8B64-9D5860F64D35> /usr/lib/system/libsystem_m.dylib
+       0x1ae9a9000 -        0x1ae9ac4f7  libmacho.dylib (27062) <50DEADEC-3E99-3519-AFC3-4A3FEB3F14C3> /usr/lib/system/libmacho.dylib
+       0x1ae9c6000 -        0x1ae9d2707  libcommonCrypto.dylib (600041) <41C99F45-C5E6-39DB-B1F2-A1BEA9D242A4> /usr/lib/system/libcommonCrypto.dylib
+       0x1ae9d3000 -        0x1ae9dcc87  libunwind.dylib (2200.5) <3070AB81-B082-39E8-8A00-EF88DDE9AC47> /usr/lib/system/libunwind.dylib
+       0x1ae9e4000 -        0x1ae9ee7eb  libcopyfile.dylib (260.0.3) <72D95AF9-BF5E-3A84-81A6-BCC5BDB99857> /usr/lib/system/libcopyfile.dylib
+       0x1ae9ef000 -        0x1ae9f28bf  libcompiler_rt.dylib (103.4) <DFB5CE7F-A36E-36AA-BECE-1392D3D43607> /usr/lib/system/libcompiler_rt.dylib
+       0x1ae9f3000 -        0x1ae9f8077  libsystem_collections.dylib (1786.0.3) <1E8022D4-5A37-3A7A-8936-603E6FA88358> /usr/lib/system/libsystem_collections.dylib
+       0x1ae9f9000 -        0x1ae9fbf1f  libsystem_secinit.dylib (182) <DE037464-4C5D-3E96-A33F-2A4557CC6A20> /usr/lib/system/libsystem_secinit.dylib
+       0x1ae9fc000 -        0x1ae9fe97f  libremovefile.dylib (96) <E6E6DFCF-6B2C-3F30-A59D-816CAB1190CE> /usr/lib/system/libremovefile.dylib
+       0x1ae9ff000 -        0x1ae9ffe27  libkeymgr.dylib (31) <5EC997EF-3ADA-360B-9FCD-5F940C83FA4E> /usr/lib/system/libkeymgr.dylib
+       0x1aea00000 -        0x1aea08af7  libsystem_dnssd.dylib (3111.0.5.0.1) <DE22096F-1E5B-3D6E-8164-771582DD6391> /usr/lib/system/libsystem_dnssd.dylib
+       0x1aea09000 -        0x1aea0df1b  libcache.dylib (95) <80BAE197-E285-3F6E-A1EE-B77FE37D7E5D> /usr/lib/system/libcache.dylib
+       0x1aea0e000 -        0x1aea0f8f3  libSystem.B.dylib (1359) <4FDC9AA6-B344-37FE-B8C6-A4C94A038F57> /usr/lib/libSystem.B.dylib
+       0x1b5570000 -        0x1b5570f2f  libobjcMsgSend2.dylib (973.1) <BD27A84B-C9AE-3282-BBEA-3B6119837B5A> /usr/lib/objc/libobjcMsgSend2.dylib
+       0x1bd570000 -        0x1bd570f2f  libobjcMsgSend3.dylib (973.1) <C0860D68-DDFC-3BD7-8B06-DB0645CBBED4> /usr/lib/objc/libobjcMsgSend3.dylib
+       0x1c5570000 -        0x1c5570f2f  libobjcMsgSend4.dylib (973.1) <A6153BF5-622B-3B01-81B6-F64A365EF613> /usr/lib/objc/libobjcMsgSend4.dylib
+       0x1cd570000 -        0x1cd570f2f  libobjcMsgSend5.dylib (973.1) <3913A71C-B29A-3AEA-820B-BEC40AC1861A> /usr/lib/objc/libobjcMsgSend5.dylib
+       0x1d5570000 -        0x1d5570f2f  libobjcMsgSend6.dylib (973.1) <9BC523A3-E167-3F6C-8CAE-0F3EBA671791> /usr/lib/objc/libobjcMsgSend6.dylib
+       0x1dd570000 -        0x1dd570f2f  libobjcMsgSend7.dylib (973.1) <248B7BCE-5B4C-34C7-A340-43D5228628C5> /usr/lib/objc/libobjcMsgSend7.dylib
+       0x1e5570000 -        0x1e5570f2f  libobjcMsgSend8.dylib (973.1) <3E041BAD-A8E8-3069-B741-78CD1A45B176> /usr/lib/objc/libobjcMsgSend8.dylib
+       0x1ed570000 -        0x1ed570f2f  libobjcMsgSend9.dylib (973.1) <34A67969-21A0-39D6-BB81-8FDA5A2409DB> /usr/lib/objc/libobjcMsgSend9.dylib
+       0x1f5570000 -        0x1f5570f2f  libobjcMsgSend10.dylib (973.1) <678186C0-8EAD-3B35-8CBB-00285B41E4A0> /usr/lib/objc/libobjcMsgSend10.dylib
+       0x1fd570000 -        0x1fd570f2f  libobjcMsgSend11.dylib (973.1) <E05CB08C-E956-36FA-8967-AE8E346A8D2C> /usr/lib/objc/libobjcMsgSend11.dylib
+       0x225570000 -        0x225570f2f  libobjcMsgSend12.dylib (973.1) <10AB03AA-FF1F-3FDC-9DFB-BFC40042C501> /usr/lib/objc/libobjcMsgSend12.dylib
+       0x22d570000 -        0x22d570f2f  libobjcMsgSend13.dylib (973.1) <ABF53427-FA6F-3D0D-8F9D-7AD795CA5C92> /usr/lib/objc/libobjcMsgSend13.dylib
+       0x235570000 -        0x235570f2f  libobjcMsgSend14.dylib (973.1) <9A844C46-A6DA-34D4-8EBF-2AD775C30684> /usr/lib/objc/libobjcMsgSend14.dylib
+       0x23d570000 -        0x23d570f2f  libobjcMsgSend15.dylib (973.1) <7C995666-2B2D-3284-AA0A-EBF7C922838E> /usr/lib/objc/libobjcMsgSend15.dylib
+       0x245570000 -        0x245570f2f  libobjcMsgSend16.dylib (973.1) <B6C0E14B-53AE-3E22-9ED5-1729C49F46F2> /usr/lib/objc/libobjcMsgSend16.dylib
+       0x24d570000 -        0x24d570f2f  libobjcMsgSend17.dylib (973.1) <07B4CF85-251B-301B-832B-20B315A59E19> /usr/lib/objc/libobjcMsgSend17.dylib
+       0x255570000 -        0x255570f2f  libobjcMsgSend18.dylib (973.1) <43E575B7-04DB-3999-A633-1A3B638BA6E3> /usr/lib/objc/libobjcMsgSend18.dylib
+       0x25d570000 -        0x25d570f2f  libobjcMsgSend19.dylib (973.1) <736F4D85-76F7-3B28-8D87-C07E8F7A0EF4> /usr/lib/objc/libobjcMsgSend19.dylib
+       0x265570000 -        0x265570f2f  libobjcMsgSend20.dylib (973.1) <74E67C8B-6BCA-3184-A18E-A97F370052C6> /usr/lib/objc/libobjcMsgSend20.dylib
+       0x26d570000 -        0x26d570f2f  libobjcMsgSend21.dylib (973.1) <CC0D732F-98E7-3888-9E15-70984DA2FB04> /usr/lib/objc/libobjcMsgSend21.dylib
+       0x275570000 -        0x275570f2f  libobjcMsgSend22.dylib (973.1) <85A60286-5DE3-32BA-B18C-2A498B065C88> /usr/lib/objc/libobjcMsgSend22.dylib
+       0x27d570000 -        0x27d570f2f  libobjcMsgSend23.dylib (973.1) <5452A0D2-6B19-39BE-ADDD-80B7BCDE3A98> /usr/lib/objc/libobjcMsgSend23.dylib
+       0x285570000 -        0x285570f2f  libobjcMsgSend24.dylib (973.1) <94BBF2D6-722B-350D-8557-4D25A8E8D53A> /usr/lib/objc/libobjcMsgSend24.dylib
+       0x28d570000 -        0x28d570f2f  libobjcMsgSend25.dylib (973.1) <35481387-5A8E-3AE4-86A6-94CEB3CC8726> /usr/lib/objc/libobjcMsgSend25.dylib
+       0x2a5570000 -        0x2a5570f2f  libobjcMsgSend26.dylib (973.1) <9E0C8664-E7F4-39D1-AAFC-BD92B255E4E8> /usr/lib/objc/libobjcMsgSend26.dylib
+       0x2ad570000 -        0x2ad570f2f  libobjcMsgSend27.dylib (973.1) <FD424935-55A9-3650-955A-EED3441A1D19> /usr/lib/objc/libobjcMsgSend27.dylib
+       0x2b5570000 -        0x2b5570f2f  libobjcMsgSend28.dylib (973.1) <09BA7B97-7DF7-3C7F-932A-B6847662FC49> /usr/lib/objc/libobjcMsgSend28.dylib
+       0x2bd570000 -        0x2bd570f2f  libobjcMsgSend29.dylib (973.1) <36D5BA3F-2139-30B0-8558-556764BE9813> /usr/lib/objc/libobjcMsgSend29.dylib
+       0x2c5570000 -        0x2c5570f2f  libobjcMsgSend30.dylib (973.1) <9F05564A-9D12-372C-98FC-E9F0E6BE4F04> /usr/lib/objc/libobjcMsgSend30.dylib
+       0x2ca28a000 -        0x2ca290fe5  libRosetta.dylib (385) <E359944B-D230-33F9-A04E-0C3B17C3326E> /usr/lib/libRosetta.dylib
+       0x2cac79000 -        0x2cac7c75b  libsystem_darwindirectory.dylib (129.0.1) <61264923-2AA5-3658-B8C4-550C71E9D4B3> /usr/lib/system/libsystem_darwindirectory.dylib
+       0x2cac7d000 -        0x2cac87d9b  libsystem_eligibility.dylib (446.1.3) <EDDE8E9C-A2CF-3931-BBB3-321CB852EB30> /usr/lib/system/libsystem_eligibility.dylib
+       0x2cac88000 -        0x2cac9142b  libsystem_sanitizers.dylib (32) <7138ED99-7AA0-34EA-B35B-20EF6ADB1EED> /usr/lib/system/libsystem_sanitizers.dylib
+       0x2cac92000 -        0x2cac92a13  libsystem_trial.dylib (511) <6AE48824-EC44-3A8C-B501-BE57DBE892E7> /usr/lib/system/libsystem_trial.dylib
+       0x2cd570000 -        0x2cd570f2f  libobjcMsgSend31.dylib (973.1) <0985E20F-78C3-3466-A2B2-DBB95F7104A3> /usr/lib/objc/libobjcMsgSend31.dylib
+       0x2d5570000 -        0x2d5570f2f  libobjcMsgSend32.dylib (973.1) <0D309D58-D576-3E5D-AD4B-6D55AB491702> /usr/lib/objc/libobjcMsgSend32.dylib
+       0x2dd570000 -        0x2dd570f2f  libobjcMsgSend33.dylib (973.1) <346E0484-48FA-369B-8A64-93B5F5341CFE> /usr/lib/objc/libobjcMsgSend33.dylib
+       0x2e5570000 -        0x2e5570f2f  libobjcMsgSend34.dylib (973.1) <6A31F809-BCBE-3E01-A367-E91FDACCE324> /usr/lib/objc/libobjcMsgSend34.dylib

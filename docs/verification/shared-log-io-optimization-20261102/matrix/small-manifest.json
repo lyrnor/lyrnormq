@@ -1,0 +1,328 @@
+{
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "binary": "/Volumes/data/rmqtt/target/release/topology",
+  "sha256": "99b9d0d14d3bcfd9f8b0e3a5674f2bb80c6b4886491ef6662651e58e66c76e0f",
+  "engine_commit": "0cf76096d65a7ca611886df72168a82f6f70d1ef",
+  "benchmark_source_sha256": "b553a4bd1edcb70ed324433db18429b5bc13c02a866b8f4a7538adbfb2d40b87",
+  "queue_dir": "/private/tmp",
+  "method": "Exact 2026-11-02 baseline workloads, sequential execution, three repeats/configuration; production sync unchanged.",
+  "suite": "small",
+  "started": "2026-11-02T14:45:49+0800",
+  "runs": [
+    {
+      "name": "small-r1-f1-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r4-f1-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "4",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r16-f1-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "16",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f4-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "4",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f16-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "16",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f1-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r4-f1-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "4",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r16-f1-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "16",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f4-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "4",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f16-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "16",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f1-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r4-f1-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "4",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r16-f1-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "16",
+        "--fanout",
+        "1",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f4-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "4",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    },
+    {
+      "name": "small-r1-f16-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "/Volumes/data/rmqtt/target/release/topology",
+        "--inputs",
+        "4096",
+        "--rules",
+        "1",
+        "--fanout",
+        "16",
+        "--batch",
+        "64",
+        "--payload-bytes",
+        "128",
+        "--queue-dir",
+        "/private/tmp"
+      ],
+      "returncode": 0
+    }
+  ]
+}

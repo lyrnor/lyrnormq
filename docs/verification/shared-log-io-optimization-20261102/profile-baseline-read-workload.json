@@ -1,0 +1,68 @@
+{
+  "build": {
+    "arch": "aarch64",
+    "debug_assertions": false,
+    "os": "macos"
+  },
+  "config": {
+    "batch_max_records": 64,
+    "clients": 256,
+    "payload_bytes": 1024,
+    "queue_max_bytes": 536870912,
+    "queue_max_records": 200000,
+    "read_rounds": 20,
+    "records": 16384,
+    "segment_bytes": 1048576
+  },
+  "directory": "/private/tmp/egress-log-bench-39640-1793601286759203000-1",
+  "directory_kept": false,
+  "initialization_seconds": 0.028566875,
+  "method": {
+    "append_api_latency": "starts immediately before append_results and ends on return, including sync; record preparation outside call timing",
+    "cache": "read is warm after writes, no cold-cache claim",
+    "durability": "uses production sync_all; not proof of device power-loss behavior",
+    "maintenance": "only explicit maintenance phase; append may include automatic compaction if necessary",
+    "payload_bandwidth": "raw delivery bytes only, excludes frame/JSON metadata and filesystem write amplification",
+    "teardown": "journal drop and owned-directory cleanup occur outside reported stage timings; external /usr/bin/time includes them",
+    "wall_throughput": "includes driver allocation and validation within that stage, excludes initialization/setup for read/metadata/state stages"
+  },
+  "phase": "read",
+  "profile": "release expected; runner must record build command",
+  "schema_version": 2,
+  "seed_append_seconds": 1.203991458,
+  "stages": [
+    {
+      "api_call_latency_ns": {
+        "max": 8779666,
+        "p50": 1180333,
+        "p95": 1437958,
+        "p99": 1746416
+      },
+      "cache_state": "warm OS page cache after append; no cache purge or cold-device claim",
+      "calls": 5120,
+      "engine_items_per_second": 50959.58177830788,
+      "engine_seconds": 6.430194059,
+      "head_snapshot_excluded_from_timing": true,
+      "item_unit": "records",
+      "items": 327680,
+      "mean_engine_ns_per_item": 19623.394955444335,
+      "payload_bytes": 335544320,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "read_consumers_warm_checksum_verified",
+      "unique_records_verified": 16384,
+      "wall_items_per_second": 50768.23533144742,
+      "wall_payload_mib_per_second": 49.57835481586662,
+      "wall_seconds": 6.454429583
+    }
+  ],
+  "stats_after": {
+    "disk_bytes": 21442371,
+    "max_bytes": 536870912,
+    "pending_bytes": 16777216,
+    "pending_records": 16384,
+    "pending_results": 16384,
+    "recovered_records": 0
+  },
+  "storage_model": "shared_rule_result_single_consumer",
+  "tool": "egress-log-bench"
+}
