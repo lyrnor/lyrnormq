@@ -1,0 +1,74 @@
+{
+  "build": {
+    "arch": "aarch64",
+    "debug_assertions": false,
+    "os": "macos"
+  },
+  "config": {
+    "batch_max_records": 64,
+    "clients": 1024,
+    "payload_bytes": 1024,
+    "queue_max_bytes": 536870912,
+    "queue_max_records": 200000,
+    "read_rounds": 1,
+    "records": 65536,
+    "segment_bytes": 1048576
+  },
+  "directory": "/private/tmp/rmqtt-journal-perf-m5uprn2a/egress-log-bench-66493-1793598101939463000-1",
+  "directory_kept": false,
+  "initialization_seconds": 0.026351333,
+  "method": {
+    "append_api_latency": "starts immediately before append_batch and ends on return, including sync; record preparation outside call timing",
+    "cache": "read is warm after writes, no cold-cache claim",
+    "durability": "uses production sync_all; not proof of device power-loss behavior",
+    "maintenance": "only explicit maintenance phase; append may include automatic compaction if necessary",
+    "payload_bandwidth": "raw delivery bytes only, excludes frame/JSON metadata and filesystem write amplification",
+    "teardown": "journal drop and owned-directory cleanup occur outside reported stage timings; external /usr/bin/time includes them",
+    "wall_throughput": "includes driver allocation and validation within that stage, excludes initialization/setup for read/metadata/state stages"
+  },
+  "phase": "maintenance",
+  "profile": "release expected; runner must record build command",
+  "schema_version": 1,
+  "seed_append_seconds": 5.3180837499999996,
+  "stages": [
+    {
+      "after": {
+        "disk_bytes": 78964057,
+        "max_bytes": 536870912,
+        "pending_bytes": 67108864,
+        "pending_records": 65536,
+        "recovered_records": 0
+      },
+      "before": {
+        "disk_bytes": 78964050,
+        "max_bytes": 536870912,
+        "pending_bytes": 67108864,
+        "pending_records": 65536,
+        "recovered_records": 0
+      },
+      "elapsed_ns": 1861969000,
+      "single_observation": true,
+      "stage": "checkpoint_live"
+    },
+    {
+      "elapsed_ns": 183940333,
+      "recovered": {
+        "disk_bytes": 78964057,
+        "max_bytes": 536870912,
+        "pending_bytes": 67108864,
+        "pending_records": 65536,
+        "recovered_records": 65536
+      },
+      "single_observation": true,
+      "stage": "reopen_live_stream_crc"
+    }
+  ],
+  "stats_after": {
+    "disk_bytes": 78964057,
+    "max_bytes": 536870912,
+    "pending_bytes": 67108864,
+    "pending_records": 65536,
+    "recovered_records": 65536
+  },
+  "tool": "egress-log-bench"
+}

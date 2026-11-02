@@ -2301,3 +2301,22 @@ Releaseblackboxtests pass on final62a7b00 candidate, including12durability cases
 Observed concurrency8/16/3 and16requests reusing8TCPconnections retained. Review
 also fixed self-wake capacityspin with required-byte waits and initialization
 cancellation/error storage cleanup. CLI/UI changes included in this validation.
+
+
+### Durable journal performance baseline (2026-11-02)
+
+Added standalone benches/egress-log without production changes. M4/16GiB/macOS,
+internal FileVaultAPFS and externalUSBAPFS,50sequential Releaseprocesses completed
+in199s.Three-run medians,1024appendcalls/case,128/1024B,groups1/8/64;read afterwrite
+withCRC andfullrecordverification. p99 isperAPIbatch,notamortizedpermessage.
+
+128B appendrecords/s internal234/1900/13647,external507/3170/18463. Warmreads
+~25k–60krecords/s. Fullappend/read/begin/completecycle group64 internal4378/s,
+external6212/s (noHTTP/actor).65536x1KiB livecheckpoint~1.86s,reopen~0.18s;
+IOprocesspeakRSS~23MiB,checkpoint~42MiB,OSpagecacheexcluded. No processswaps.
+
+3benchmarktests,fmt,strictclippy,Release/smokepass;all50runs/countchecks/cleanup
+pass. Exactrawresults,machineinfo,commands,rangesandfullpercentiles under
+ docs/verification/egress-log-performance-20261102/README.md. Thesearelocalengine
+measurements,noproductionTPSclaim. Followup:targetLinuxbaseline,profileperrecord
+open/stat/read andgroupcommit/compactionbeforechangingdurabilityorimplementation.

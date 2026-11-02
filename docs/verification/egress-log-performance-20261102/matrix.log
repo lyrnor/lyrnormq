@@ -1,0 +1,50 @@
+1/50 external-io-128b-batch8-run1: append=3170/s p99=4.449ms read=56509/s rss=5.5MiB
+2/50 internal-io-1024b-batch64-run1: append=11299/s p99=13.068ms read=52735/s rss=22.3MiB
+3/50 external-io-128b-batch64-run1: append=20467/s p99=6.113ms read=58656/s rss=22.8MiB
+4/50 internal-io-128b-batch1-run1: append=232/s p99=7.179ms read=25258/s rss=3.3MiB
+5/50 external-io-1024b-batch64-run1: append=17971/s p99=7.088ms read=55655/s rss=22.8MiB
+6/50 external-io-128b-batch1-run1: append=506/s p99=3.387ms read=26011/s rss=3.3MiB
+7/50 internal-io-1024b-batch8-run1: append=1898/s p99=7.897ms read=44871/s rss=5.5MiB
+8/50 internal-io-1024b-batch1-run1: append=235/s p99=7.409ms read=22027/s rss=3.3MiB
+9/50 external-io-1024b-batch1-run1: append=489/s p99=3.587ms read=23388/s rss=3.3MiB
+10/50 external-io-1024b-batch8-run1: append=2918/s p99=4.895ms read=50839/s rss=5.5MiB
+11/50 internal-io-128b-batch64-run1: append=13647/s p99=8.558ms read=55237/s rss=22.8MiB
+12/50 internal-io-128b-batch8-run1: append=1900/s p99=7.056ms read=49176/s rss=5.5MiB
+13/50 internal-io-128b-batch64-run2: append=13396/s p99=9.712ms read=57083/s rss=22.7MiB
+14/50 external-io-128b-batch8-run2: append=3284/s p99=4.368ms read=49957/s rss=5.5MiB
+15/50 external-io-128b-batch1-run2: append=511/s p99=3.485ms read=25178/s rss=3.3MiB
+16/50 internal-io-128b-batch8-run2: append=1880/s p99=7.586ms read=47889/s rss=5.5MiB
+17/50 internal-io-128b-batch1-run2: append=234/s p99=8.666ms read=24750/s rss=3.3MiB
+18/50 internal-io-1024b-batch8-run2: append=2027/s p99=7.928ms read=44971/s rss=5.5MiB
+19/50 external-io-1024b-batch1-run2: append=491/s p99=3.320ms read=24970/s rss=3.3MiB
+20/50 external-io-128b-batch64-run2: append=18463/s p99=6.662ms read=59712/s rss=22.8MiB
+21/50 internal-io-1024b-batch64-run2: append=10844/s p99=15.483ms read=54424/s rss=22.8MiB
+22/50 internal-io-1024b-batch1-run2: append=269/s p99=6.124ms read=26505/s rss=3.3MiB
+23/50 external-io-1024b-batch8-run2: append=2279/s p99=7.090ms read=56742/s rss=5.5MiB
+24/50 external-io-1024b-batch64-run2: append=13490/s p99=9.486ms read=57339/s rss=22.8MiB
+25/50 external-io-1024b-batch1-run3: append=434/s p99=5.925ms read=24158/s rss=3.3MiB
+26/50 internal-io-128b-batch1-run3: append=255/s p99=5.024ms read=25557/s rss=3.3MiB
+27/50 external-io-128b-batch8-run3: append=3098/s p99=3.697ms read=56183/s rss=5.5MiB
+28/50 internal-io-1024b-batch1-run3: append=257/s p99=5.870ms read=24216/s rss=3.3MiB
+29/50 external-io-128b-batch64-run3: append=18304/s p99=6.282ms read=61064/s rss=22.8MiB
+30/50 internal-io-1024b-batch64-run3: append=12466/s p99=10.989ms read=55569/s rss=22.9MiB
+31/50 internal-io-1024b-batch8-run3: append=2088/s p99=6.092ms read=46248/s rss=5.5MiB
+32/50 external-io-128b-batch1-run3: append=507/s p99=2.981ms read=26706/s rss=3.3MiB
+33/50 internal-io-128b-batch8-run3: append=2100/s p99=7.117ms read=50551/s rss=5.5MiB
+34/50 external-io-1024b-batch64-run3: append=14053/s p99=11.910ms read=57192/s rss=22.9MiB
+35/50 external-io-1024b-batch8-run3: append=3097/s p99=4.540ms read=47953/s rss=5.5MiB
+36/50 internal-io-128b-batch64-run3: append=14878/s p99=8.081ms read=61724/s rss=22.7MiB
+37/50 internal-cycle-128b-batch1-run1: 2.92s rss=2.6MiB
+38/50 internal-cycle-128b-batch64-run1: 3.81s rss=2.9MiB
+39/50 external-cycle-128b-batch1-run1: 1.74s rss=2.6MiB
+40/50 external-cycle-128b-batch64-run1: 2.70s rss=2.9MiB
+41/50 internal-cycle-128b-batch1-run2: 2.87s rss=2.6MiB
+42/50 internal-cycle-128b-batch64-run2: 3.82s rss=2.9MiB
+43/50 external-cycle-128b-batch1-run2: 1.81s rss=2.6MiB
+44/50 external-cycle-128b-batch64-run2: 2.69s rss=2.9MiB
+45/50 internal-cycle-128b-batch1-run3: 2.94s rss=2.6MiB
+46/50 internal-cycle-128b-batch64-run3: 3.80s rss=2.9MiB
+47/50 external-cycle-128b-batch1-run3: 1.68s rss=2.6MiB
+48/50 external-cycle-128b-batch64-run3: 2.63s rss=2.8MiB
+49/50 internal-maintenance-1024b-batch64-run1: 7.43s rss=42.0MiB
+50/50 external-maintenance-1024b-batch64-run1: 5.86s rss=42.0MiB

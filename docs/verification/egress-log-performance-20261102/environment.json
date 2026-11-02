@@ -1,0 +1,32 @@
+{
+  "platform": "Darwin arm64",
+  "cpu": "Apple M4, 10 physical/logical cores",
+  "ram_bytes": 17179869184,
+  "os": "macOS 27.0 (26A428)",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "binary_sha256": "053c5d3ca6bb5ee48b63fbf6af95fb6fe95040ae1ab8b789dda060022a74a968",
+  "host_load_before": [
+    4.0439453125,
+    3.6806640625,
+    3.267578125
+  ],
+  "swap_used_before_mib_observed": 6077.12,
+  "internal": {
+    "protocol": "Apple Fabric",
+    "filesystem": "APFS",
+    "location": "internal SSD, FileVault enabled"
+  },
+  "external": {
+    "protocol": "USB",
+    "filesystem": "case-sensitive APFS",
+    "location": "external SSD, FileVault disabled"
+  },
+  "method": "single process at a time, 3 independent runs; 1024 append calls per IO case, 256 complete cycles per cycle case; nearest-rank per-API percentiles; read follows append, no cache purge",
+  "host_load_after": [
+    3.96044921875,
+    4.13916015625,
+    3.576171875
+  ],
+  "total_wall_seconds": 199.38437154097483,
+  "runs_completed": 50
+}

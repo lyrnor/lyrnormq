@@ -1,0 +1,131 @@
+{
+  "build": {
+    "arch": "aarch64",
+    "debug_assertions": false,
+    "os": "macos"
+  },
+  "config": {
+    "batch_max_records": 64,
+    "clients": 256,
+    "payload_bytes": 128,
+    "queue_max_bytes": 536870912,
+    "queue_max_records": 200000,
+    "read_rounds": 1,
+    "records": 16384,
+    "segment_bytes": 1048576
+  },
+  "directory": "/Volumes/data/rmqtt/target/rmqtt-journal-perf-rd4vbbxy/egress-log-bench-66416-1793598088171722000-1",
+  "directory_kept": false,
+  "initialization_seconds": 0.018818708,
+  "method": {
+    "append_api_latency": "starts immediately before append_batch and ends on return, including sync; record preparation outside call timing",
+    "cache": "read is warm after writes, no cold-cache claim",
+    "durability": "uses production sync_all; not proof of device power-loss behavior",
+    "maintenance": "only explicit maintenance phase; append may include automatic compaction if necessary",
+    "payload_bandwidth": "raw delivery bytes only, excludes frame/JSON metadata and filesystem write amplification",
+    "teardown": "journal drop and owned-directory cleanup occur outside reported stage timings; external /usr/bin/time includes them",
+    "wall_throughput": "includes driver allocation and validation within that stage, excludes initialization/setup for read/metadata/state stages"
+  },
+  "phase": "cycle",
+  "profile": "release expected; runner must record build command",
+  "schema_version": 1,
+  "seed_append_seconds": 0.0,
+  "stages": [
+    {
+      "append": {
+        "api_call_latency_ns": {
+          "max": 9930542,
+          "p50": 3193833,
+          "p95": 3789208,
+          "p99": 6328542
+        },
+        "calls": 256,
+        "engine_items_per_second": 19430.09284441695,
+        "engine_seconds": 0.843228086,
+        "item_unit": "records",
+        "items": 16384,
+        "mean_engine_ns_per_item": 51466.55798339844,
+        "payload_bytes": 2097152,
+        "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+        "stage": "cycle_append_api",
+        "wall_items_per_second": 6168.076701901076,
+        "wall_payload_mib_per_second": 0.7529390505250337,
+        "wall_seconds": 2.6562575
+      },
+      "begin_attempt": {
+        "api_call_latency_ns": {
+          "max": 4073292,
+          "p50": 2217458,
+          "p95": 3228209,
+          "p99": 3296583
+        },
+        "calls": 256,
+        "engine_items_per_second": 27429.851845483747,
+        "engine_seconds": 0.59730545,
+        "item_unit": "records",
+        "items": 16384,
+        "mean_engine_ns_per_item": 36456.63146972656,
+        "payload_bytes": 0,
+        "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+        "stage": "cycle_begin_api",
+        "wall_items_per_second": 6168.076411639478,
+        "wall_payload_mib_per_second": 0.0,
+        "wall_seconds": 2.656257625
+      },
+      "complete": {
+        "api_call_latency_ns": {
+          "max": 3322792,
+          "p50": 2249292,
+          "p95": 2931542,
+          "p99": 3292667
+        },
+        "calls": 256,
+        "engine_items_per_second": 27672.366350472104,
+        "engine_seconds": 0.592070797,
+        "item_unit": "records",
+        "items": 16384,
+        "mean_engine_ns_per_item": 36137.13360595703,
+        "payload_bytes": 0,
+        "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+        "stage": "cycle_complete_api",
+        "wall_items_per_second": 6168.076411639478,
+        "wall_payload_mib_per_second": 0.0,
+        "wall_seconds": 2.656257625
+      },
+      "observed_disk_byte_decreases": 0,
+      "read": {
+        "api_call_latency_ns": {
+          "max": 4056125,
+          "p50": 2628583,
+          "p95": 2946875,
+          "p99": 3151416
+        },
+        "calls": 256,
+        "engine_items_per_second": 26387.86827290832,
+        "engine_seconds": 0.620891382,
+        "item_unit": "records",
+        "items": 16384,
+        "mean_engine_ns_per_item": 37896.20251464844,
+        "payload_bytes": 2097152,
+        "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+        "stage": "cycle_read_api",
+        "wall_items_per_second": 6168.076411639478,
+        "wall_payload_mib_per_second": 0.7529390150927097,
+        "wall_seconds": 2.656257625
+      },
+      "records": 16384,
+      "records_per_second": 6168.077765419812,
+      "stage": "bounded_append_read_begin_complete_cycle",
+      "wall_definition": "nested API-stage wall times span the entire cycle; per-API latencies are isolated; automatic compaction included",
+      "wall_seconds": 2.656257042
+    }
+  ],
+  "stats_after": {
+    "disk_bytes": 5219214,
+    "max_bytes": 536870912,
+    "pending_bytes": 0,
+    "pending_records": 0,
+    "recovered_records": 0
+  },
+  "tool": "egress-log-bench"
+}
