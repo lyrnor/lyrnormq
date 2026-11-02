@@ -81,3 +81,14 @@ Full without cloning up to8MiB of raw bodies. Journal may allocate bounded prepa
 metadata/encoded frames but does not own or retain caller payloads after return.
 Existing owned append_results remains source compatible. All three owners must use
 this signature; no second competing API or returned-payload error type is needed.
+
+## Coordinated measurement accessor
+
+Add `Journal::append_data_syncs(&self) -> u64`, a saturating process-local count of
+successful data sync_all calls in append_result_groups (including its single-frame
+append_results wrapper). Increment only after the syscall succeeds, including
+rotation syncs. It excludes initialization, directory sync, state transactions and
+checkpoint writer syncs; keep that exact name/definition in benchmark JSON. It is
+not persisted and is not a replacement for QueueStats or a management endpoint.
+Benchmarks subtract the pre-stage count and report real frames per append data
+sync, never assume one multi-segment group is one syscall. No durable schema change.
