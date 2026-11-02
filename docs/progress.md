@@ -2185,3 +2185,16 @@ keyboard interaction, preserved legacy custom policy/capacity777/disabled state,
 invalid hidden values and correction, actual MQTT->HTTP, 390px mobile and zero
 CSP/console errors. Evidence: docs/verification/webhook-advanced-20261102/README.md.
 Existing user Broker untouched; temporary QA services/browser cleaned up.
+
+
+### New Webhook defaults: single message (2026-11-02)
+
+New outbounds now default to batch_size1/batch_wait_ms0; existing100/50 or custom
+policies are preserved. Batch users opt in through advanced settings. Only the
+frontend authoring factory defaults change; API/SQLite/envelope and other defaults
+remain intact. Explicit model/closed-form literals failed before the factory fix.
+76 frontend tests, TS/Vite/format, Fmt, strict workspace Clippy,620 Rust tests and
+embedded Release build pass. Real UI saved1/0 without opening advanced; a real
+MQTT5 burst of10 messages produced10 POSTs, each containing exactly one event.
+Evidence: docs/verification/webhook-single-default-20261102/README.md. No new
+latency/TPS guarantee or production deployment; temporary QA services cleaned up.

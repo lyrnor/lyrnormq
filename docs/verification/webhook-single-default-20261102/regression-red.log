@@ -1,0 +1,107 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run tests/rules-model.test.ts tests/rules-page.test.tsx
+
+
+ RUN  v3.2.7 /private/tmp/rmqtt-single-default/dashboard/web
+
+ ❯ tests/rules-model.test.ts (10 tests | 1 failed) 8ms
+   × rule form contract validation > defaults new outbounds to one event without batching delay 4ms
+     → expected { batch_size: 100, …(5) } to deeply equal { batch_size: 1, …(5) }
+   ✓ rule form contract validation > validates IDs and UTF8 byte limits 0ms
+   ✓ rule form contract validation > requires allowed URL shape and keeps redacted credentials roundtrippable 1ms
+   ✓ rule form contract validation > rejects header injection, system fields and case-insensitive duplicates 0ms
+   ✓ rule form contract validation > checks action references and all resource limits 0ms
+   ✓ rule form contract validation > blocks deletion of referenced actions and connectors 0ms
+   ✓ rule form contract validation > encodes a distinct sample event as UTF8 bytes without requiring JSON 0ms
+   ✓ automatic internal identifiers > generates bounded distinct namespaced identifiers with the Crypto receiver 0ms
+   ✓ automatic internal identifiers > uses getRandomValues when randomUUID is unavailable 0ms
+   ✓ automatic internal identifiers > retries collisions with a strict bound and reports unavailable crypto safely 1ms
+ ❯ tests/rules-page.test.tsx (23 tests | 1 failed) 688ms
+   ✓ live rule and Webhook management > creates without exposing an ID field 91ms
+   ✓ live rule and Webhook management > shows a plain disabled state without implementation details 4ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage 54ms
+   ✓ live rule and Webhook management > preserves redacted secrets and rejects deleting referenced outbound 50ms
+   ✓ live rule and Webhook management > creates outbound and rule with exact references then disables rule 79ms
+   ✓ live rule and Webhook management > binds only the selected identifier when outbound names are identical 38ms
+   ✓ live rule and Webhook management > rejects unknown outbound types without interpreting them as Webhook 3ms
+   ✓ live rule and Webhook management > SQL dry run only calls test endpoint and escapes output 20ms
+   ✓ live rule and Webhook management > keeps the generated ID across validation failure and a failed HTTP save 46ms
+   ✓ live rule and Webhook management > preserves existing rule identifiers and bindings when renaming 30ms
+   ✓ live rule and Webhook management > shows a controlled creation failure if secure identifiers cannot be generated 8ms
+   ✓ live rule and Webhook management > switches real tab panels through keyboard without writing configuration 12ms
+   ✓ live rule and Webhook management > clears auth on401 and aborts requests when leaving the page 2ms
+   ✓ live rule and Webhook management > polls status without overwriting an open form and stops while hidden 15ms
+   ✓ live rule and Webhook management > marks failed statistics stale and clears that warning after a successful sample 9ms
+   ✓ live rule and Webhook management > shows stopped execution explicitly while keeping published configuration inspectable 19ms
+   ✓ live rule and Webhook management > disables an already-open delete confirmation if execution stops 15ms
+   × Webhook basic and advanced settings > only shows business fields initially and saves the system defaults 29ms
+     → expected { batch_size: 100, …(5) } to deeply equal { batch_size: 1, …(5) }
+   ✓ Webhook basic and advanced settings > retains advanced edits through collapse with no editable queue capacity 56ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 100/wait 50 and queue capacity without opening advanced 31ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 7/wait 15 and queue capacity without opening advanced 28ms
+   ✓ Webhook basic and advanced settings > expands hidden invalid tuning instead of submitting it 39ms
+   ✓ Webhook basic and advanced settings > keeps the rule enable switch and SQL immediately available 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/rules-model.test.ts > rule form contract validation > defaults new outbounds to one event without batching delay
+AssertionError: expected { batch_size: 100, …(5) } to deeply equal { batch_size: 1, …(5) }
+
+- Expected
++ Received
+
+  {
+-   "batch_size": 1,
+-   "batch_wait_ms": 0,
++   "batch_size": 100,
++   "batch_wait_ms": 50,
+    "max_attempts": 3,
+    "queue_capacity": 256,
+    "retry_base_ms": 200,
+    "timeout_ms": 3000,
+  }
+
+ ❯ tests/rules-model.test.ts:41:40
+     39| describe("rule form contract validation", () => {
+     40|   it("defaults new outbounds to one event without batching delay", () …
+     41|     expect(defaultOutbound().delivery).toEqual({
+       |                                        ^
+     42|       batch_size: 1,
+     43|       batch_wait_ms: 0,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/rules-page.test.tsx > Webhook basic and advanced settings > only shows business fields initially and saves the system defaults
+AssertionError: expected { batch_size: 100, …(5) } to deeply equal { batch_size: 1, …(5) }
+
+- Expected
++ Received
+
+  {
+-   "batch_size": 1,
+-   "batch_wait_ms": 0,
++   "batch_size": 100,
++   "batch_wait_ms": 50,
+    "max_attempts": 3,
+    "queue_capacity": 256,
+    "retry_base_ms": 200,
+    "timeout_ms": 3000,
+  }
+
+ ❯ tests/rules-page.test.tsx:572:30
+    570|     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    571|     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(…
+    572|     expect(saved().delivery).toEqual({
+       |                              ^
+    573|       batch_size: 1,
+    574|       batch_wait_ms: 0,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 31 passed (33)
+   Start at  10:11:15
+   Duration  1.67s (transform 109ms, setup 13ms, collect 379ms, tests 696ms, environment 904ms, prepare 92ms)
+

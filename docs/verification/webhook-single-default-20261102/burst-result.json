@@ -1,0 +1,19 @@
+{
+  "messages": 10,
+  "postRequests": 10,
+  "eventsPerRequest": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "batchSize": 1,
+  "batchWaitMs": 0,
+  "allSequencesDelivered": true
+}

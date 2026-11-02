@@ -1,0 +1,6 @@
+{
+  "batchSize": 1,
+  "batchWaitMs": 0,
+  "advancedStayedClosed": true,
+  "consoleErrors": []
+}

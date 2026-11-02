@@ -1,0 +1,35 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/rules-model.test.ts (10 tests) 11ms
+ ✓ tests/model.test.ts (12 tests) 8ms
+ ✓ tests/api.test.ts (8 tests) 16ms
+ ✓ tests/dialog.test.tsx (2 tests) 118ms
+ ✓ tests/polling.test.tsx (6 tests) 413ms
+ ✓ tests/ui-primitives.test.tsx (7 tests) 173ms
+ ✓ tests/single-select.test.tsx (3 tests) 262ms
+stderr | tests/app.test.tsx > memory-only management login > escapes broker strings and labels restored negotiation unknown
+Error: Not implemented: window.scrollTo
+    at module.exports (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at change (/Volumes/data/rmqtt/dashboard/web/src/App.tsx:190:14)
+    at callTheUserObjectsOperation (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at EventTargetImpl._dispatch (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at fireAnEvent (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
+    at SessionHistory._fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
+    at fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
+
+ ✓ tests/app.test.tsx (5 tests) 740ms
+ ✓ tests/rules-page.test.tsx (23 tests) 1200ms
+
+ Test Files  9 passed (9)
+      Tests  76 passed (76)
+   Start at  10:12:03
+   Duration  3.39s (transform 1.37s, setup 156ms, collect 5.14s, tests 2.94s, environment 7.12s, prepare 1.09s)
+

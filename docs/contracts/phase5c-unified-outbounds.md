@@ -17,7 +17,7 @@ GET/PUT /api/v1/rules/config uses:
     "type": "webhook",
     "config": {"url": "https://example.com/events", "headers": {}},
     "delivery": {
-      "batch_size": 100, "batch_wait_ms": 50, "queue_capacity": 256,
+      "batch_size": 1, "batch_wait_ms": 0, "queue_capacity": 256,
       "timeout_ms": 3000, "max_attempts": 3, "retry_base_ms": 200
     }
   }],
@@ -129,3 +129,11 @@ Closed panels unmount controls to avoid hidden invalid/required browser focus
 errors; validation still checks the full policy and reopens invalid advanced
 settings before any request. Existing non-default policies, headers, enabled flags
 and IDs survive basic-only edits. No new dependency or CSP relaxation.
+
+### Single-message authoring defaults (2026-11-02)
+
+New Dashboard-created Webhook outbounds default to batch_size1 and batch_wait_ms0.
+Users needing batching opt in via the collapsed advanced settings. Existing saved
+policies, including100/50, remain unchanged on editing or basic-only saves. Other
+limits/defaults and POST events-array encoding are unchanged; one message produces
+one event per request under the new defaults. No SQLite rewrite or API migration.
