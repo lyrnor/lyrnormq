@@ -25,7 +25,8 @@ os.environ['RMQTT_LOG_FORMAT'] = 'text'
 from admission_helpers import MutualIdentities
 from auth_acl_blackbox import connect_packet as connect311
 from blackbox import frame, receive, string
-from dashboard_blackbox import DashboardBlackbox, DashboardBroker, eventually
+import dashboard_blackbox
+from dashboard_blackbox import DashboardBroker, eventually
 from enhanced_auth_blackbox import authentication
 from http_access_fixture import AccessService, PASSWORD
 from mqtt5_blackbox import ack5, connect5, parse_ack5, props, publication5, readprops
@@ -34,9 +35,9 @@ ROOT = '/api/v1/access-control'
 
 
 class HttpAccessBlackbox(unittest.TestCase):
-    publish = DashboardBlackbox.publish
-    delivery = DashboardBlackbox.delivery
-    barrier = DashboardBlackbox.barrier
+    publish = dashboard_blackbox.DashboardBlackbox.publish
+    delivery = dashboard_blackbox.DashboardBlackbox.delivery
+    barrier = dashboard_blackbox.DashboardBlackbox.barrier
 
     @classmethod
     def setUpClass(cls):
@@ -418,7 +419,7 @@ class HttpAccessBlackbox(unittest.TestCase):
                         if version == 5:
                             header, body = receive(attacker)
                             self.assertEqual(header, 0xe0)
-                            self.assertEqual(body[0], 0x87 if status == 403 else 0x89)
+                            self.assertEqual(body[0], 0x87 if status == 403 else 0x8b)
                         self.assertEqual(attacker.recv(1), b'')
                         self.quiet(observer)
                         self.assertEqual(len(self.service.observations('/acl', client_id=f'attacker-{version}-{status}-{qos}')), 1)
@@ -450,14 +451,19 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.start(ttl=0)
         pub = self.client('unavailable-source')
         for version in (4, 5):
+            self.service.policy = None
             name = f'unavailable-sub-{version}'
             sub = self.client(name, version=version, persistent=True)
             self.subscribe(sub, f'unavailable/{version}/#', qos=1, version=version)
             self.service.policy = lambda path, body: 503 if path == '/acl' and body['action'] == 'subscribe' else None
-            self.subscribe(sub, 'new-unavailable/#', qos=1, version=version,
-                           code=0x80 if version == 4 else 0x89, packet_id=2)
-            self.barrier(sub)
-            self.disconnect(sub)
+            body = struct.pack('!H', 2) + (props() if version == 5 else b'') + string('new-unavailable/#') + bytes([1])
+            sub.sendall(frame(0x82, body))
+            # Unavailability fails the entire current operation. 0x8b is a
+            # DISCONNECT reason, never a legal per-filter SUBACK reason.
+            if version == 5:
+                header, body = receive(sub)
+                self.assertEqual((header, body[0]), (0xe0, 0x8b))
+            self.assertEqual(sub.recv(1), b'')
             self.publish(pub, f'unavailable/{version}/value', b'preserved-queue', 1)
             eventually(lambda: self.pending(name) == 1)
             resumed = self.client(name, version=version, persistent=True, present=True)
@@ -490,7 +496,7 @@ class HttpAccessBlackbox(unittest.TestCase):
         finally:
             release.set()
         header, body = receive(source)
-        self.assertEqual((header, body[0]), (0xe0, 0x89))
+        self.assertEqual((header, body[0]), (0xe0, 0x8b))
         self.quiet(watcher)
         self.assertEqual(self.broker.data('/api/v1/retained?search=late%2F')['total'], 0)
         self.assertEqual(len(self.service.observations('/acl', client_id='late-publisher')), 1)
@@ -671,7 +677,7 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.delivery(ordinary, 'partial/value', b'once-per-recipient', 2)
         self.delivery(shared, 'partial/value', b'once-per-recipient', 2)
         source.sendall(ack5(0x62, 77))
-        parse_ack5(receive(source), 0x70, 77)
+        parse_ack5(receive(source), 0x70, 77, reason=0x92)
         self.barrier(source)
         self.barrier(ordinary)
         self.barrier(shared)
