@@ -149,6 +149,23 @@ class KafkaOutbound(unittest.TestCase):
                 self.replace(public);self.emit(source,[1]);self.drained(1)
                 self.assertNotIn('fixture-password',json.dumps(self.broker.data(CONFIG)));self.assertNotIn('fixture-password',self.broker.logs())
         rows=self.records(8);self.assertEqual(len(rows),8)
+    def test_mtls_encrypted_key_redaction_and_missing_certificate_rejection(self):
+        native=self.kafka.client_config('ssl',mtls=True)
+        target=kafka_outbound(self.topic,[native['bootstrap.servers']],protocol='ssl',ca=native['ssl.ca.pem'])
+        target['config']['security'].update(certificate_pem=native['ssl.certificate.pem'],private_key_pem=native['ssl.key.pem'],private_key_password=native['ssl.key.password'])
+        public=self.start(self.config(target))
+        security=public['outbounds'][0]['config']['security']
+        self.assertEqual(security['private_key_pem'],'[redacted]');self.assertEqual(security['private_key_password'],'[redacted]')
+        source=self.client('mtls-source');self.emit(source,[0]);self.drained(1)
+        self.replace(public);self.emit(source,[1]);self.drained(1)
+        wrong=copy.deepcopy(public);wrong['outbounds'][0]['config']['security']['private_key_password']='incorrect-key-password'
+        self.replace(wrong,400);self.assertEqual(self.broker.data(CONFIG),public)
+        self.assertNotIn('fixture-private-key-password',self.broker.logs());self.assertNotIn('BEGIN ENCRYPTED PRIVATE KEY',json.dumps(self.broker.data(CONFIG)))
+        missing=copy.deepcopy(target)
+        missing['config']['security'].update(certificate_pem=None,private_key_pem=None,private_key_password=None)
+        missing['delivery'].update(timeout_ms=1000,max_attempts=1)
+        self.replace(self.config(missing));self.emit(self.client('no-client-certificate'),[0]);self.drained(0,failed=1)
+        rows=self.records(3,700);self.assertEqual(len(rows),2);self.assertEqual([r['value']['seq'] for r in rows],[0,1])
     def test_bad_sasl_password_cannot_report_delivered(self):
         target=self.target(protocol='sasl_ssl',mechanism='PLAIN');target['config']['security']['password']='intentionally-wrong-test-password';target['delivery'].update(timeout_ms=1000,max_attempts=1)
         self.start(self.config(target));self.emit(self.client('bad-auth'),[0]);self.drained(0,failed=1)

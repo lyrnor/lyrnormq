@@ -22,7 +22,7 @@ resume partial archives. A failed checksum is an error, not a skipped test.
 The fixture has one Kafka broker/controller, 256 MiB maximum heap, three partitions
 per test topic, replication factor one, min ISR one, explicit topic creation, and
 per-message log flush. It exposes ephemeral loopback PLAINTEXT, TLS and SASL/TLS
-listeners. A generated test CA and PKCS12 keystore are used; PLAIN, SCRAM-SHA-256
+listeners, plus a separate mandatory-client-certificate TLS listener. A generated test CA and PKCS12 keystore are used; PLAIN, SCRAM-SHA-256
 and SCRAM-SHA-512 users are disposable fixture credentials. The test process is
 stopped and its data directory removed. This does not certify multi-replica Kafka
 availability or physical power-loss guarantees.
@@ -39,7 +39,7 @@ partition FIFO, multiple clients, raw projected JSON and stable identity headers
 multiple rules/outbounds, protocol budget isolation from held Webhooks, Kafka
 outage/retry, normal and SIGKILL restart with pending records, partial-progress
 recovery with allowed stable-ID duplicates, security modes and wrong credentials/
-CA, key-field terminal failure and configuration atomicity. The precise millisecond
+CA, encrypted client-key mTLS/redaction and missing-certificate rejection, key-field terminal failure and configuration atomicity. The precise millisecond
 Kafka-success/local-completion fault window is supplemented by backend fault tests;
 the blackbox partial-progress kill does not claim it always hits that exact window.
 

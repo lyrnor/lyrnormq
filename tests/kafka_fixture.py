@@ -76,17 +76,18 @@ class KafkaFixture:
         self.java,self.home=tool_paths()
         self.env=dict(os.environ,JAVA_HOME=str(self.java),KAFKA_HEAP_OPTS='-Xms128m -Xmx256m')
         ports=set()
-        while len(ports)<4:ports.add(port())
-        self.port,self.controller,self.ssl,self.sasl=ports
+        while len(ports)<5:ports.add(port())
+        self.port,self.controller,self.ssl,self.sasl,self.mtls=ports
         self.process=None;self.output=None
         self.ca=self.root/'ca.pem'
         self._certificates()
         self.properties=self.root/'server.properties'
         self.properties.write_text('\n'.join([
             'process.roles=broker,controller','node.id=1',f'controller.quorum.voters=1@127.0.0.1:{self.controller}',
-            f'listeners=PLAINTEXT://127.0.0.1:{self.port},CONTROLLER://127.0.0.1:{self.controller},SSL://127.0.0.1:{self.ssl},SASL_SSL://127.0.0.1:{self.sasl}',
-            f'advertised.listeners=PLAINTEXT://127.0.0.1:{self.port},SSL://localhost:{self.ssl},SASL_SSL://localhost:{self.sasl}',
-            'listener.security.protocol.map=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,SSL:SSL,SASL_SSL:SASL_SSL',
+            f'listeners=PLAINTEXT://127.0.0.1:{self.port},CONTROLLER://127.0.0.1:{self.controller},SSL://127.0.0.1:{self.ssl},SASL_SSL://127.0.0.1:{self.sasl},MTLS://127.0.0.1:{self.mtls}',
+            f'advertised.listeners=PLAINTEXT://127.0.0.1:{self.port},SSL://localhost:{self.ssl},SASL_SSL://localhost:{self.sasl},MTLS://localhost:{self.mtls}',
+            'listener.security.protocol.map=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,SSL:SSL,SASL_SSL:SASL_SSL,MTLS:SSL',
+            'listener.name.mtls.ssl.client.auth=required',
             'controller.listener.names=CONTROLLER','inter.broker.listener.name=PLAINTEXT',
             f'log.dirs={self.root}/data','num.partitions=3','offsets.topic.replication.factor=1','transaction.state.log.replication.factor=1','transaction.state.log.min.isr=1','min.insync.replicas=1',
             'auto.create.topics.enable=false','log.flush.interval.messages=1','group.initial.rebalance.delay.ms=0',
@@ -109,6 +110,10 @@ class KafkaFixture:
         (self.root/'extensions').write_text('subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n')
         openssl('x509','-req','-in',str(self.root/'server.csr'),'-CA',str(self.ca),'-CAkey',str(self.root/'ca.key'),'-CAcreateserial','-out',str(self.root/'server.pem'),'-days','2','-extfile',str(self.root/'extensions'))
         openssl('pkcs12','-export','-in',str(self.root/'server.pem'),'-inkey',str(self.root/'server.key'),'-certfile',str(self.ca),'-out',str(self.root/'server.p12'),'-passout','pass:fixture-keystore')
+        openssl('req','-newkey','rsa:2048','-nodes','-keyout',str(self.root/'client.key'),'-out',str(self.root/'client.csr'),'-subj','/CN=rmqtt-kafka-client')
+        (self.root/'client-extensions').write_text('extendedKeyUsage=clientAuth\n')
+        openssl('x509','-req','-in',str(self.root/'client.csr'),'-CA',str(self.ca),'-CAkey',str(self.root/'ca.key'),'-CAcreateserial','-out',str(self.root/'client.pem'),'-days','2','-extfile',str(self.root/'client-extensions'))
+        openssl('pkcs8','-topk8','-in',str(self.root/'client.key'),'-out',str(self.root/'client-encrypted.key'),'-passout','pass:fixture-private-key-password')
         subprocess.run([str(self.java/'bin/keytool'),'-importcert','-noprompt','-alias','fixture-ca','-file',str(self.ca),'-keystore',str(self.root/'trust.p12'),'-storetype','PKCS12','-storepass','fixture-keystore'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=15)
     def cli(self,*args):
         r=subprocess.run([str(self.home/'bin'/args[0]),*args[1:]],env=self.env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=35)
@@ -132,11 +137,12 @@ class KafkaFixture:
             except subprocess.TimeoutExpired:self.process.kill();self.process.wait()
         if self.output:self.output.close();self.output=None
     def close(self):self.stop();self.directory.cleanup()
-    def client_config(self,protocol='plaintext',mechanism=None,password='fixture-password'):
+    def client_config(self,protocol='plaintext',mechanism=None,password='fixture-password',mtls=False):
         result={'bootstrap.servers':self.bootstrap,'security.protocol':protocol.upper()}
         if protocol in ['ssl','sasl_ssl']:
-            result['bootstrap.servers']=f'localhost:{self.sasl if protocol=="sasl_ssl" else self.ssl}'
+            result['bootstrap.servers']=f'localhost:{self.mtls if mtls else self.sasl if protocol=="sasl_ssl" else self.ssl}'
             result['ssl.ca.pem']=self.ca.read_text()
+        if mtls:result.update({'ssl.certificate.pem':(self.root/'client.pem').read_text(),'ssl.key.pem':(self.root/'client-encrypted.key').read_text(),'ssl.key.password':'fixture-private-key-password'})
         if mechanism:result.update({'sasl.mechanism':mechanism,'sasl.username':'fixture','sasl.password':password})
         return result
 
