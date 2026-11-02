@@ -21,10 +21,14 @@ impl SessionEngine {
     pub(super) fn require_access(
         &self,
         principal: &Principal,
+        client_id: &str,
         action: Action,
         resource: &str,
     ) -> Result<(), EngineError> {
-        if self.access.authorize(principal, action, resource) {
+        if self
+            .access
+            .authorize_for_client(principal, client_id, action, resource)
+        {
             Ok(())
         } else {
             Err(EngineError::NotAuthorized)
@@ -32,14 +36,22 @@ impl SessionEngine {
     }
 
     pub(super) fn prune_wills(&mut self) -> bool {
+        if !self.access.reconciles_stored_authorization() {
+            return false;
+        }
         let access = &self.access;
         let before = self.wills.len();
         self.wills.retain(|client_id, record| {
             let owner = Principal {
                 name: record.owner.clone(),
             };
-            access.authorize(&owner, Action::Connect, client_id)
-                && access.authorize(&owner, Action::Publish, &record.will.topic)
+            access.authorize_for_client(&owner, client_id, Action::Connect, client_id)
+                && access.authorize_for_client(
+                    &owner,
+                    client_id,
+                    Action::Publish,
+                    &record.will.topic,
+                )
         });
         self.wills.len() != before
     }
@@ -49,23 +61,34 @@ impl SessionEngine {
     /// for a fresh Publish check at PUBREL; Released outgoing states contain no
     /// payload and may finish the already accepted PUBREL/PUBCOMP handshake.
     pub fn reconcile_authorization(&mut self) -> Result<bool, EngineError> {
+        if !self.access.reconciles_stored_authorization() {
+            return Ok(false);
+        }
         let _span = profiling::span(Operation::Authorization);
         let mut changed = self.prune_wills();
         let access = &self.access;
         for (client_id, session) in &mut self.sessions {
-            let connected = access.authorize(&session.owner, Action::Connect, client_id);
+            let connected =
+                access.authorize_for_client(&session.owner, client_id, Action::Connect, client_id);
             let subscriptions_before = session.subscriptions.len();
             session.subscriptions.retain(|filter, _| {
                 connected
-                    && access.authorize(
+                    && access.authorize_for_client(
                         &session.owner,
+                        client_id,
                         Action::Subscribe,
                         super::shared::acl_filter(filter),
                     )
             });
             let queued_before = session.queued.len();
             session.queued.retain(|message| {
-                connected && access.authorize(&session.owner, Action::Receive, &message.topic)
+                connected
+                    && access.authorize_for_client(
+                        &session.owner,
+                        client_id,
+                        Action::Receive,
+                        &message.topic,
+                    )
             });
             changed |= subscriptions_before != session.subscriptions.len()
                 || queued_before != session.queued.len();
@@ -81,7 +104,14 @@ impl SessionEngine {
                 else {
                     return Err(invalid_record("outgoing state is not a publication"));
                 };
-                if !connected || !access.authorize(&session.owner, Action::Receive, &topic) {
+                if !connected
+                    || !access.authorize_for_client(
+                        &session.owner,
+                        client_id,
+                        Action::Receive,
+                        &topic,
+                    )
+                {
                     revoked.push(*id);
                 }
             }

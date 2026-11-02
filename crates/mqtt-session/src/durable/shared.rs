@@ -96,7 +96,7 @@ impl SessionEngine {
                 .ok_or(EngineError::UnknownSession)?;
             if !self
                 .access
-                .authorize(&session.owner, Action::Connect, client)
+                .authorize_for_client(&session.owner, client, Action::Connect, client)
             {
                 continue;
             }
@@ -105,9 +105,12 @@ impl SessionEngine {
                     continue;
                 }
                 if let Some((_, inner)) = split_shared_filter(filter)
-                    && self
-                        .access
-                        .authorize(&session.owner, Action::Subscribe, inner)
+                    && self.access.authorize_for_client(
+                        &session.owner,
+                        client,
+                        Action::Subscribe,
+                        inner,
+                    )
                 {
                     groups.entry(filter.clone()).or_default().push(index);
                 }
@@ -156,9 +159,12 @@ impl SessionEngine {
                         .ok_or(EngineError::UnknownSession)?;
                     if session.online != online
                         || (!online && !session.persistent)
-                        || !self
-                            .access
-                            .authorize(&session.owner, Action::Receive, &message.topic)
+                        || !self.access.authorize_for_client(
+                            &session.owner,
+                            client,
+                            Action::Receive,
+                            &message.topic,
+                        )
                     {
                         continue;
                     }

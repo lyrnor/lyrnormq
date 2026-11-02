@@ -50,6 +50,8 @@ pub struct BrokerConfig {
     pub access_control: Arc<dyn AccessControl>,
     /// Optional async provider. Session proposals use its cache-only policy.
     pub remote_access: Option<Arc<dyn mqtt_auth::RemoteAccess>>,
+    /// Opt in to the asynchronous built-in PLAIN path for remote authentication.
+    pub remote_plain: bool,
     /// Optional connection-local enhanced authentication provider.
     pub enhanced_auth: Option<Arc<dyn mqtt_auth::EnhancedAuthenticator>>,
     pub storage_path: Option<std::path::PathBuf>,
@@ -83,6 +85,7 @@ impl Default for BrokerConfig {
             protocol_mode: ProtocolMode::Both,
             access_control: Arc::new(AllowAnonymous),
             remote_access: None,
+            remote_plain: false,
             enhanced_auth: None,
             storage_path: None,
             max_sessions: 1024,

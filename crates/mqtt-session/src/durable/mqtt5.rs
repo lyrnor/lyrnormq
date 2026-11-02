@@ -817,12 +817,17 @@ impl SessionEngine {
             )
         };
         if let Packet::Publish { topic, .. } = &frame.packet
-            && (!self
-                .access
-                .authorize(&session.owner, Action::Connect, client_id)
-                || !self
-                    .access
-                    .authorize(&session.owner, Action::Receive, topic))
+            && (!self.access.authorize_for_client(
+                &session.owner,
+                client_id,
+                Action::Connect,
+                client_id,
+            ) || !self.access.authorize_for_client(
+                &session.owner,
+                client_id,
+                Action::Receive,
+                topic,
+            ))
         {
             return Ok(FramePollOutcome {
                 frame: None,

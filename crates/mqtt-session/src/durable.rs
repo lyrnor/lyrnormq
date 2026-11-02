@@ -705,20 +705,24 @@ impl SessionEngine {
                 break;
             }
             if let Some(session) = self.sessions.get(client) {
-                if !self
-                    .access
-                    .authorize(&session.owner, Action::Connect, client)
-                {
+                if !self.access.authorize_for_client(
+                    &session.owner,
+                    client,
+                    Action::Connect,
+                    client,
+                ) {
                     continue;
                 }
                 for (filter, subscription) in &session.subscriptions {
                     if split_shared_filter(filter).is_some() {
                         continue;
                     }
-                    if self
-                        .access
-                        .authorize(&session.owner, Action::Subscribe, filter)
-                    {
+                    if self.access.authorize_for_client(
+                        &session.owner,
+                        client,
+                        Action::Subscribe,
+                        filter,
+                    ) {
                         router.subscribe_qos(index as u64, filter.clone(), subscription.qos);
                     }
                 }
@@ -756,10 +760,12 @@ impl SessionEngine {
                 .sessions
                 .get_mut(client)
                 .ok_or(EngineError::UnknownSession)?;
-            if !self
-                .access
-                .authorize(&target.owner, Action::Receive, &message.topic)
-            {
+            if !self.access.authorize_for_client(
+                &target.owner,
+                client,
+                Action::Receive,
+                &message.topic,
+            ) {
                 continue;
             }
             let mut planned = 0usize;
@@ -872,7 +878,7 @@ impl SessionEngine {
             .owner
             .clone();
         if let Packet::Publish { topic, .. } = &packet {
-            self.require_access(&owner, Action::Publish, topic)?;
+            self.require_access(&owner, client_id, Action::Publish, topic)?;
         }
         if let Packet::PubRel { packet_id } = &packet
             && let Some(pending) = self
@@ -882,7 +888,7 @@ impl SessionEngine {
             && let Packet::Publish { topic, .. } =
                 decode_publish(pending, self.config.max_packet_size)?
         {
-            self.require_access(&owner, Action::Publish, &topic)?;
+            self.require_access(&owner, client_id, Action::Publish, &topic)?;
         }
         self.expire_sessions()?;
         self.reconcile_authorization()?;

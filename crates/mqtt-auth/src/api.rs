@@ -72,6 +72,10 @@ pub trait AccessControl: fmt::Debug + Send + Sync {
     ) -> bool {
         self.authorize(principal, action, resource)
     }
+    /// Point providers check concrete operations rather than sweeping old state.
+    fn reconciles_stored_authorization(&self) -> bool {
+        true
+    }
 }
 
 /// Backward-compatible open anonymous policy. Supplied credentials are refused.

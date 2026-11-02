@@ -13,8 +13,9 @@ impl SessionEngine {
         if !validate_subscription_filter(&subscription.filter) {
             return Ok(0x8f);
         }
-        if !self.access.authorize(
+        if !self.access.authorize_for_client(
             &session.owner,
+            client,
             Action::Subscribe,
             super::shared::acl_filter(&subscription.filter),
         ) {
@@ -34,10 +35,15 @@ impl SessionEngine {
         let mut copies = Vec::new();
         if replay {
             for retained in self.retained.matching(&subscription.filter, qos) {
-                if !self.access.authorize(&owner, Action::Connect, client)
-                    || !self
-                        .access
-                        .authorize(&owner, Action::Receive, &retained.topic)
+                if !self
+                    .access
+                    .authorize_for_client(&owner, client, Action::Connect, client)
+                    || !self.access.authorize_for_client(
+                        &owner,
+                        client,
+                        Action::Receive,
+                        &retained.topic,
+                    )
                 {
                     continue;
                 }
