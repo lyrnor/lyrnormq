@@ -64,6 +64,8 @@ jobs:
       - run: python3 tests/phase3a_wakeup_blackbox.py
       - name: SQL rules and Webhook outbound acceptance
         run: python3 tests/rules_webhook_blackbox.py
+      - name: Bounded outbound HTTP concurrency acceptance
+        run: python3 tests/outbound_concurrency_blackbox.py
       - name: Independent live Dashboard management acceptance
         run: python3 tests/dashboard_blackbox.py
       - name: Copied executable embedded Dashboard acceptance

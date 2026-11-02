@@ -78,7 +78,7 @@ class Webhook:
 
 def config_for(url, sql=None, batch_size=1, queue_capacity=64, **settings):
     delivery = dict(batch_size=batch_size, batch_wait_ms=30, queue_capacity=queue_capacity,
-                    timeout_ms=1000, max_attempts=3, retry_base_ms=10)
+                    timeout_ms=1000, max_attempts=3, retry_base_ms=10, concurrency=1)
     delivery.update(settings)
     return dict(schema_version=2,
                 outbounds=[dict(id='send', name='Send alarms', enabled=True, type='webhook',
@@ -450,7 +450,8 @@ class RulesWebhook(unittest.TestCase):
 
     def legacy_config(self, url):
         modern = config_for(url)
-        outbound = modern['outbounds'][0]
+        outbound = copy.deepcopy(modern['outbounds'][0])
+        outbound['delivery'].pop('concurrency')
         rule = copy.deepcopy(modern['rules'][0])
         rule['action_ids'] = rule.pop('outbound_ids')
         return dict(connectors=[dict(id='alarm', name='Alarm endpoint', **outbound['config'])],
@@ -470,7 +471,7 @@ class RulesWebhook(unittest.TestCase):
         self.seed_legacy_sqlite(self.legacy_config(webhook.url))
         self.start()
         modern = self.stored_config()
-        self.assertEqual(modern, config_for(webhook.url))
+        self.assertEqual(modern, config_for(webhook.url, concurrency=8))
         self.assertEqual(self.broker.data(CONFIG)['outbounds'][0]['config']['headers']['Authorization'], '[redacted]')
         self.assertEqual(self.broker.data(CONFIG)['rules'][0]['outbound_ids'], ['send'])
         self.broker.stop(crash=True)
