@@ -30,3 +30,5 @@ crates/mqtt-egress-core; Webhook owns crates/mqtt-webhook as a protocol adapter 
 Generic scheduling must not depend on HTTP or import reqwest.
 
 Bounded outbound concurrency additionally follows `docs/contracts/phase5d-outbound-concurrency.md`.
+
+Client-ordered outbounds additionally follow `docs/contracts/phase5e-client-ordered-outbounds.md`.
