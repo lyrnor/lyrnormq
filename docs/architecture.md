@@ -798,3 +798,26 @@ admission remains best effort and does not become a coupled MQTT acknowledgement
 Segment size is still configurable independently of grouping. Performance results
 must distinguish group widths, segment sizes, per-group call p99 and per-request
 queued confirmation p99, and retain unchanged single-frame controls.
+
+## Phase5j: Kafka outbounds
+
+[Phase5j](contracts/phase5j-kafka-outbound.md) adds an rdkafka adapter to the existing
+unified outbound configuration. The rule dispatcher, shared result journal,
+consumer references, Group Commit and durable retry state remain generic. Kafka
+receives the projected JSON value with stable delivery/event/rule/client headers;
+its keyed partitioner defaults to trusted source Client ID. One journal delivery
+maps to one Kafka record and completes only on successful delivery report.
+
+Kafka owns a separate bounded attempt pool from HTTP. Native producer queue limits
+are system-managed; protocol batching occurs inside the shared producer. The worker
+does not cancel a native send on a competing outer timeout. Generation replacement
+joins old jobs and awaits native shutdown before activating another sender; native
+creation/destruction occurs on blocking owners and cancelled generations retain
+owner capacity until native cleanup finishes. This prevents background native
+operations from being mistaken for cancelled network work. At-least-once recovery
+and uncertain remote-result limitations remain; no exactly-once or global order.
+
+Build admission includes a static Linux amd64 musl spike with vendored TLS/curl/
+compression and host capability verification. Native features do not imply Kafka
+OAuth or Kerberos are exposed. Dashboard/API configuration is typed and redacted;
+TLS input is bounded inline PEM rather than arbitrary server file paths.

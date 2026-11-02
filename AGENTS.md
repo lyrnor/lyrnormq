@@ -40,3 +40,5 @@ Shared rule-result streams and per-destination consumers supersede per-delivery 
 Journal IO optimization additionally follows `docs/contracts/phase5h-journal-io-optimization.md`, including prevalidated owned-append cache retention, finite caches and unchanged durable frames/sync boundaries.
 
 Multi-frame append Group Commit follows `docs/contracts/phase5i-group-commit.md`; retain per-frame atomicity, all-touched-segment sync before replies, borrowed payloads, FIFO barriers and bounded no-wait aggregation. Do not equate group atomic durability with a cross-frame transaction or logical group calls with sync syscalls.
+
+Kafka outbounds follow `docs/contracts/phase5j-kafka-outbound.md`. Backend owns crates/mqtt-kafka, crates/mqtt-egress and the coordinated mqtt-egress-core timeout/shutdown extensions; UI owns dashboard/web, quality owns tests/CI. Reuse generic durable logs, wait for Kafka delivery reports, preserve native lifecycle fencing before generation replacement, and verify the locked amd64 musl build.

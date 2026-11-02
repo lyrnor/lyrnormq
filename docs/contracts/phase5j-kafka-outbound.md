@@ -43,7 +43,7 @@ Kafka config (deny unknown fields, defaults below; optional fields null/omitted)
 
 - brokers1..16, each explicit hostname:port or [IPv6]:port, ASCII <=255bytes,
   no URL/userinfo/path/query/control/whitespace. Ports1..65535, list bounded.
-- topic1..249bytes matching Kafka ASCII letters/digits/._-, excluding . and ...
+- topic1..249bytes matching Kafka ASCII letters/digits/._-, excluding `.` and `..`.
   Fixed topic in this phase; dynamic Topic templates unsupported.
 - key_field optional top-level SQL-result field name1..128UTF8bytes, no controls;
   absent means exact source MQTT Client ID from trusted envelope metadata.
@@ -156,3 +156,9 @@ use checksum-verified temporary JRE/Kafka archives, no production-server install
 Run fmt, strict workspace+helper Clippy, Rust/frontend tests, embedded Release,
 real blackboxes and final locked Linux amd64 musl build. Record actual environment,
 commands, results and limitations. Do not invent performance data or compatibility.
+
+Internal producer client.id is derived as rmqtt-{outbound_id}, not a new user-facing
+SDK option. KafkaSink constructors validate explicit concurrency1..512 even when
+called outside Config validation. Native authentication callbacks may retain only
+structured error flags for classifying a final failed delivery; never log native
+strings or turn pending enqueue into early successful/terminal completion.
