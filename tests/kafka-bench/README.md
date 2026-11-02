@@ -34,7 +34,8 @@ acceptance suite running. The tool requires permission to bind loopback ports,
 start disposable Java processes and inspect the child writer PID (`ps`). It
 installs no system services. Fixture configuration is fixed by `kafka_fixture.py`:
 one local Kafka 4.2.2 broker/controller, RF=1, min ISR=1, forced per-message log
-flush, and 128..256 MiB Java heap. These measurements are not a production Kafka
+flush, and 128..512 MiB Java heap, 16 MiB cleaner dedupe buffer, and one offsets-topic
+partition. These measurements are not a production Kafka
 capacity claim or an end-to-end MQTT Broker benchmark.
 
 Default matrix: 64 concurrent clients, 64 messages per client (4096 total), exact

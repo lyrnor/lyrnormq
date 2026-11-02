@@ -19,9 +19,11 @@ Override `RMQTT_KAFKA_TOOLS_DIR` if needed; or supply `JAVA_HOME` and `KAFKA_HOM
 to already prepared test distributions. Downloads use bounded retries and can
 resume partial archives. A failed checksum is an error, not a skipped test.
 
-The fixture has one Kafka broker/controller, 256 MiB maximum heap, three partitions
+The fixture has one Kafka broker/controller, 512 MiB maximum heap, three partitions
 per test topic, replication factor one, min ISR one, explicit topic creation, and
-per-message log flush. It exposes ephemeral loopback PLAINTEXT, TLS and SASL/TLS
+per-message log flush. The cleaner dedupe buffer is bounded to 16 MiB and the
+internal offsets topic has one partition, avoiding the default 128 MiB cleaner
+allocation plus 50 offsets logs exhausting the small restart fixture heap. It exposes ephemeral loopback PLAINTEXT, TLS and SASL/TLS
 listeners, plus a separate mandatory-client-certificate TLS listener. A generated test CA and PKCS12 keystore are used; PLAIN, SCRAM-SHA-256
 and SCRAM-SHA-512 users are disposable fixture credentials. The test process is
 stopped and its data directory removed. This does not certify multi-replica Kafka
@@ -54,3 +56,12 @@ record with an explicit key and librdkafka's `murmur2` partitioner, waits for
 `acks=all`, and returns the actual partition/offset. The SDK replacement suite uses
 a separate same-partition-count topic to compare normal, empty and Unicode keys
 against this independent routing oracle. Empty string is distinct from a null key.
+
+The fixture resource regression creates eight three-partition topics, forces
+creation of the compacted internal offsets topic and restarts the same Kafka
+process/data directory. It verifies topic recovery and absence of JVM OOM:
+
+```sh
+KAFKA_CLIENT_BIN="$PWD/target/release/rmqtt-kafka-test-client" \
+  python3 tests/kafka_fixture_restart_test.py -v
+```

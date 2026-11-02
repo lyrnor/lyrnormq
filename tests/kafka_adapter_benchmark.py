@@ -16,7 +16,7 @@ import threading
 import time
 import uuid
 
-from kafka_fixture import KafkaFixture
+from kafka_fixture import KafkaFixture, RESOURCE_LIMITS
 
 
 def checked_json(command, timeout, env=None):
@@ -150,7 +150,8 @@ def main():
     writer, reader = str(args.writer.resolve()), str(args.reader.resolve())
     report = dict(schema_version=1, label=args.label, platform=platform.platform(),
         machine=platform.machine(), cpu_count=os.cpu_count(),
-        fixture='real Apache Kafka 4.2.2; one local broker/controller; RF=1; min ISR=1; forced per-message log flush; Java heap128..256MiB; no production throughput claim',
+        fixture='real Apache Kafka 4.2.2; one local broker/controller; RF=1; min ISR=1; forced per-message log flush; Java heap128..512MiB; cleaner dedupe buffer16MiB; offsets topic1partition; no production throughput claim',
+        fixture_resource_limits=RESOURCE_LIMITS,
         workload='direct KafkaSink; one outstanding send per client; explicit optional same-sink warmup; fixture/readback outside timing',
         warmup_records=args.warmup,
         latency_percentile='nearest rank, successful confirmed calls only; no omission of failed counts',
