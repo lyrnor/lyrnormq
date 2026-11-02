@@ -825,16 +825,22 @@ TLS input is bounded inline PEM rather than arbitrary server file paths.
 
 ## HTTP authentication external contract (implementation pending)
 
-[HTTP v1](http-auth-api.md) freezes Broker-to-service credential verification and
-stable-user-scoped ACL snapshot retrieval. The simplified body uses client_id,
-username/password and stable user_id; subscribe filters also govern Receive as in
-the existing local policy. Correlation, cache TTL and snapshot generations are
-Broker concerns, not mandatory service response fields. Runtime authentication is asynchronous and
-bounded in the planned integration; synchronous session authorization remains local.
-External calls must never execute inside the current AccessControl/session actor.
+[HTTP v1](http-auth-api.md) defines credential verification and per-operation
+remote authorization. Authentication uses client_id/username/password and returns
+a stable user_id. ACL requests contain user_id, client_id, action and topic;
+responses contain only result:allow|deny. A subscribe request carries a filter;
+actual receiving reuses subscribe with the concrete topic, including retained and
+offline replay. A deny applies to that request, not to an entire user's policy.
 
-Allow/Deny/Unavailable are distinct outcomes; transport failure cannot
-become permanent revocation and prune durable state. The wire contract does not
-freeze internal Rust APIs or resolve the pending Will/expiry/recovery barriers.
-Those require an explicit integration contract and regression tests before coding.
+There is no full-policy/snapshot download. Decision caches use the exact source
+configuration generation, user_id, client_id, action and topic. Wildcard requests
+cannot infer other cache entries. TTL is Broker-managed; misses require remote IO
+and can affect operation latency and high-cardinality/fanout throughput. Correlation
+and cache bookkeeping are internal concerns, not mandatory service response fields.
+
+Remote IO must stay outside the existing synchronous AccessControl/session actor.
+A future async prepare/commit contract must recheck decision validity and generation,
+preserve ordering and QoS/outbox atomicity, bound waiters and isolate unavailable
+from explicit operation denial. Will deadlines, expiry/recovery, concrete receive
+checks and publish fanout require explicit integration tests before implementation.
 No HTTP backend, management configuration or UI is implemented in this change.

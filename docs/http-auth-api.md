@@ -1,7 +1,6 @@
 # HTTP 认证与授权接口 v1（简化版）
 
-状态：**接口文档，HTTP 后端尚未实现**。本稿取代此前未实现的复杂草案，不兼容旧草案
-中的body字段。保留两个POST接口，由Broker调用业务服务，URL可以分别配置。
+状态：**接口文档，HTTP 后端尚未实现**。本稿取代此前未实现的草案，ACL改为按具体操作查询，不返回权限列表。保留两个POST接口，由Broker调用业务服务，URL可以分别配置。
 [OpenAPI定义](api/http-auth-v1.openapi.json)。
 
 ## 1. 认证：POST /mqtt/authenticate
@@ -45,7 +44,8 @@
 标准字母表与规范padding，不换行、不用URL-safe形式，解码后最多65535字节。Base64
 不是加密。以上均为虚构示例，实际凭据需要受保护的传输。
 
-认证成功只确认身份，Broker还需取得ACL并通过连接/Will检查，才提交会话与CONNACK。
+认证allow批准该身份使用本次Client ID连接；如果配置了Will，Broker还需对Will的
+Topic完成publish鉴权后，才能提交会话与CONNACK。
 每次连接重新认证，不保存密码、不缓存认证成功。匿名访问必须由Broker显式允许。
 `user_id`在Broker内作为稳定会话身份使用，不自动增加前缀；迁移已有账号时需保持原
 owner一致，例如已有`user:alice`应返回同值。重认证复用同一请求格式，Broker在内部
@@ -54,65 +54,68 @@ HTTP v1只承接普通凭据及已有PLAIN解析结果，不实现自定义多�
 
 ## 2. 权限：POST /mqtt/acl
 
-请求只发用户ID：
+Broker提交“谁要对哪个Topic做什么”，服务只返回允许或拒绝。
 
-```json
-{"user_id":"42"}
-```
-
-常见响应只需发布和订阅权限：
+发布鉴权请求：
 
 ```json
 {
-  "publish": ["devices/device-001/telemetry"],
-  "subscribe": ["devices/device-001/commands/#"]
+  "user_id": "42",
+  "client_id": "device-001",
+  "action": "publish",
+  "topic": "devices/device-001/telemetry"
 }
 ```
 
-数组可省略，省略或空数组均代表没有该类权限。例如`{}`允许已认证身份保持连接，
-但没有任何Topic发布或订阅/接收权限，不能解释为全部允许。
-
-需要显式拒绝或Client ID范围时才增加可选配置：
+订阅鉴权请求：
 
 ```json
 {
-  "client_id_prefix": "device-",
-  "publish": ["devices/#"],
-  "subscribe": ["devices/#"],
-  "deny": {
-    "publish": ["devices/private/#"],
-    "subscribe": ["devices/private/#"]
-  }
+  "user_id": "42",
+  "client_id": "device-001",
+  "action": "subscribe",
+  "topic": "devices/device-001/commands/#"
 }
 ```
 
-账号禁用或需要撤销全部访问（包括连接）时返回：
+允许或拒绝，均为HTTP200：
+
+```json
+{"result":"allow"}
+```
 
 ```json
 {"result":"deny"}
 ```
 
-该拒绝响应不能混入权限数组。正常权限响应不需要result、user_id回显、版本、TTL或
-规则ID。权限只依赖请求中的user_id，不能依赖某条连接或最后登录的Client ID，这样
-同一身份的连接、离线会话和Will才能共用完整策略。
+| 字段 | 约定 |
+| --- | --- |
+| `user_id` | 必填，认证成功返回的稳定用户ID，Broker从已认证身份读取，不信任客户端自报值 |
+| `client_id` | 必填，实际发起操作的有效Client ID；不能只用user_id省略设备维度 |
+| `action` | 必填，`publish`或`subscribe` |
+| `topic` | 必填，1..65535 UTF-8字节；publish为具体Topic Name，subscribe为Topic Filter |
 
-权限规则：
+响应仅有result，不能返回publish/subscribe数组、用户回显、规则ID、TTL或完整策略。
+空对象、未知result或混入旧版权限列表属于非法响应，不能默认允许。
 
-- 默认拒绝，显式deny优先，数组顺序不影响结果。四个权限数组总计最多128项，每项
-  为1..1024 UTF-8字节的合法MQTT Topic Filter，支持`+`和`#`，不做变量或正则替换。
-- `publish`控制发布以及Will发布。`subscribe`同时控制订阅与实际消息接收，沿用现有
-  本地策略语义；Retained回放、离线消息和重发也检查接收权限。v1不单独暴露receive字段。
-- 订阅Filter须被同一条允许Filter完整覆盖，且与任何拒绝Filter匹配的Topic集合没有
-  交集；不推导多个allow的并集覆盖，不能用普通字符串匹配。无法确定时保守拒绝。
-- `#`不隐式允许`$SYS/#`。共享订阅按去掉`$share/<group>/`后的Filter鉴权，规则中不
-  写共享订阅包装；v1不区分订阅组权限。
-- `client_id_prefix`可省略，默认`""`，表示不增加Client ID范围限制。填写时为最多1024
-  UTF-8字节、无控制字符的字面前缀，大小写敏感，不支持通配符。该限制也作用于恢复
-  和Will的Connect检查；初次认证仍可按请求Client ID执行更具体的业务限制。
-- v1不提供按单连接IP、QoS、retain或消息正文的条件表达式，不返回superuser开关。
+操作语义：
 
-例：允许订阅`devices/#`、拒绝订阅`devices/private/#`，请求`devices/#`必须被拒绝，
-请求`devices/public/#`可以通过；实际接收也遵循同一组允许/拒绝规则。
+- Publish的topic必须是合法具体Topic，不包含`+`、`#`。Will使用其原始持久身份和
+  Client ID，以`publish`检查实际Will Topic，不借用后来连接的用户。
+- Subscribe按每个订阅Filter分别查询，允许`+`、`#`；多个Filter分别取得结果，SUBACK
+  保持原顺序。allow只批准该次请求的完整Filter范围，不修改请求Filter。
+- 业务服务如果使用内部Topic规则，必须判断请求Filter的完整权限范围，不能把Filter
+  当成具体Topic做简单匹配。例：允许`devices/#`但拒绝`devices/private/#`时，请求
+  `devices/#`必须拒绝，不能因它与某条allow规则匹配就放行。
+- 对实际消息接收，复用`action:subscribe`，topic填具体的消息Topic，不展开出receive
+  字段。Retained回放、离线消息和应用数据重发也按接收者身份/Client ID检查。服务必须
+  将该具体Topic视为单Topic接收权限；仅订阅成功不代表后续一直允许接收。
+- 共享订阅的初始请求由Broker去掉`$share/<group>/`后发送内部Filter，服务不再剥离
+  包装。实际接收仍发送真实Topic。v1不区分共享订阅组权限。
+- 缓存的`subscribe devices/#`决策不能当成`subscribe devices/a`或任何publish的
+  缓存命中；服务只对本次精确请求作答，Broker不根据通配符推导其他请求的权限。
+- 默认拒绝；请求中的信息仅限这四项。v1不提供按QoS、retain、IP或消息正文的条件。
+  不返回superuser开关，也没有user_id全局撤权响应；deny只拒绝该次具体操作。
 
 ## 3. HTTP与故障约定
 
@@ -125,25 +128,44 @@ HTTP v1只承接普通凭据及已有PLAIN解析结果，不实现自定义多�
   禁止重定向、URL内凭据和查询参数凭据，不将用户输入替换进URL/header。
 - 请求最多1MiB、响应最多64KiB，按流式读取计量，不相信Content-Length；只接受UTF-8
   JSON对象，拒绝压缩响应、重复key、未知字段/枚举及非法字段类型。响应应设置
-  `Cache-Control: no-store`，Broker编译后的策略不属于HTTP缓存。
+  `Cache-Control: no-store`，Broker自己的短期鉴权结果缓存不属于HTTP缓存。
 - 单次请求默认总超时1000ms，可配置100..5000ms，同时受现有握手/重认证期限约束。
   默认不自动重试，不用Retry-After延长当前期限。后端请求、等待与连接池有界并与出站隔离。
 - 只接受合法HTTP200业务响应；其他状态、DNS/TLS故障、超时、截断/超大/非法JSON都归为
   后端不可用，不能转为allow、匿名访问或明确撤权。日志不记录凭据或请求/响应正文。
 
-## 4. 缓存、撤销和恢复
+## 4. 决策缓存、故障和恢复
 
-ACL有效期由Broker配置，默认30秒，可配置1..300秒；业务服务不用返回ttl或revision。
-按“权限来源配置代次 + user_id”合并查询、编译完整快照；Broker自行管理更新代次和
-内容变化，不接受晚到响应覆盖新配置。有效期按单调时钟计算，命中不续期，后台抖动刷新。
-缓存预算默认64MiB，资源不足时有界拒绝新接纳，不能把逐出或缺失当成永久撤权。
+缓存由Broker管理，服务不返回TTL/策略版本。缓存key精确包含：
 
-合法的新快照整体替换旧权限。明确的`result:deny`立即撤销旧授权，不缓存deny。
-有效旧快照最多用到有效期结束；过期且刷新失败时停止依赖该策略的新授权和应用消息
-派发，保留必要协议控制流，不自动延长旧权限，也不调用永久撤权清理去删除耐久数据。
-离线会话和Will可仅凭user_id重新查询权限，不需要持久化客户端密码。
+```text
+权限来源配置代次 + user_id + client_id + action + topic
+```
 
-MQTT3.1.1初次拒绝使用CONNACK4（凭据错误）、5（无权限）、3（服务不可用）；MQTT5
+默认有效期30秒，可配置0..300秒，0表示每次操作实际查询。allow和deny均可缓存；
+有效期按单调时钟计算，命中不续期。后台不再拉取用户的完整策略，同key未命中查询
+可以合并；配置换代/显式失效后的晚到响应不得回填缓存。默认总预算64MiB，包含key
+与在途元数据，限制条目数、并发和等待，不能因Topic变化无限扩张。
+
+有效期内可能继续使用旧决策，权限变化的传播延迟取决于TTL；deny也可能短暂阻止
+刚新增的权限。配置换代使旧缓存失效。一个Topic的deny不得撤销同用户其他Topic的
+授权，也不能当成账号全局禁用或触发整份会话清理。
+
+**缓存未命中会增加HTTP往返时间**。高基数Topic、多Client或大量扇出时会产生更多
+查询，不能继续承诺消息路径没有远程IO或TPS/p99不受影响。并发、合并、缓存命中率、
+高基数/扇出及后端故障下的实测，是下一阶段验收项，不用缓存跨Topic推导换取吞吐。
+
+超时/非200/非法响应为Unavailable，不缓存成deny，不沿用过期allow，也不执行永久
+撤权清理。对应新操作不得当成授权成功；恢复/应用消息派发应保持有界等待或返回
+合法失败，必要协议控制流不因HTTP后台等待而阻塞。具体QoS失败/暂存行为、路由扇出
+和outbox事务屏障必须在内部异步集成契约中逐项冻结，不能只把异步HTTP塞进同步回调。
+
+重启不信任磁盘上的旧决策。恢复连接重新认证，待重放/派发数据按其具体操作和持久
+身份重新鉴权，不需要持久化客户端密码。Unavailable不能用来删除离线消息或Will意图，
+也不授权延长原有Session/Message Expiry或Will的截止时间。
+
+初次连接的认证拒绝或Will鉴权拒绝，MQTT3.1.1使用CONNACK4（凭据错误）、5（无权限）、
+3（服务不可用）；MQTT5
 对应0x86、0x87、0x88，本地接纳过载按既有0x89规则。已建立连接重认证拒绝使用
 DISCONNECT0x87，后端不可用使用0x89；接纳配额错误沿用既有0x97。不能将CONNACK专属
 的0x86/0x88放入DISCONNECT。依据[OASIS MQTT5](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html)。

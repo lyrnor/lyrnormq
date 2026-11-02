@@ -3,7 +3,7 @@
   "info": {
     "title": "RMQTT external HTTP authentication and ACL API",
     "version": "1.0.0",
-    "description": "Simplified v1 replaces the unimplemented earlier draft. Broker is the HTTP client. No api_version, request_id, transport/stage context in body. HTTP backend not implemented. Normative details: ../http-auth-api.md. Bearer is the example service credential; deployment may require mTLS/fixed headers."
+    "description": "Simplified unimplemented v1. Broker calls business service: authenticate credentials, then request point authorization using user_id/client_id/action/topic. Decision cache is exact-key and Broker-managed; misses cause remote IO. Supersedes previous full-policy draft. Normative contract: ../http-auth-api.md."
   },
   "servers": [
     {
@@ -100,8 +100,8 @@
     "/mqtt/acl": {
       "post": {
         "operationId": "fetchAcl",
-        "summary": "Fetch complete user permissions",
-        "description": "Broker calls business service. HTTP200 carries allow/deny or a complete ACL. All other statuses are service failure, not MQTT user decisions. See ../http-auth-api.md.",
+        "summary": "Authorize one client operation on one topic or filter",
+        "description": "Broker asks an exact (user_id, client_id, action, topic) question. Return only allow/deny. No policy arrays, wildcard cache inference or user-wide revocation. Cache misses require bounded asynchronous HTTP outside session actor. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
@@ -122,9 +122,20 @@
                 "$ref": "#/components/schemas/AclRequest"
               },
               "examples": {
-                "user": {
+                "publish": {
                   "value": {
-                    "user_id": "42"
+                    "user_id": "42",
+                    "client_id": "device-001",
+                    "action": "publish",
+                    "topic": "devices/device-001/telemetry"
+                  }
+                },
+                "subscribe": {
+                  "value": {
+                    "user_id": "42",
+                    "client_id": "device-001",
+                    "action": "subscribe",
+                    "topic": "devices/device-001/commands/#"
                   }
                 }
               }
@@ -133,7 +144,7 @@
         },
         "responses": {
           "200": {
-            "description": "Valid business response, <=64KiB. Reject unknown fields, duplicate keys and invalid types. Cache duration and correlation live in Broker configuration/state, not body.",
+            "description": "Exact business decision for this request, <=64KiB. Deny affects this request only. No echo/TTL/full policy; unknown fields or an empty object are invalid.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -148,33 +159,9 @@
                   "$ref": "#/components/schemas/AclResponse"
                 },
                 "examples": {
-                  "basic": {
+                  "allow": {
                     "value": {
-                      "publish": [
-                        "devices/device-001/telemetry"
-                      ],
-                      "subscribe": [
-                        "devices/device-001/commands/#"
-                      ]
-                    }
-                  },
-                  "advanced": {
-                    "value": {
-                      "client_id_prefix": "device-",
-                      "publish": [
-                        "devices/#"
-                      ],
-                      "subscribe": [
-                        "devices/#"
-                      ],
-                      "deny": {
-                        "publish": [
-                          "devices/private/#"
-                        ],
-                        "subscribe": [
-                          "devices/private/#"
-                        ]
-                      }
+                      "result": "allow"
                     }
                   },
                   "deny": {
@@ -325,88 +312,55 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "user_id"
+          "user_id",
+          "client_id",
+          "action",
+          "topic"
         ],
         "properties": {
           "user_id": {
             "$ref": "#/components/schemas/UserId"
-          }
-        }
-      },
-      "DenyFilters": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [],
-        "properties": {
-          "publish": {
-            "type": "array",
-            "default": [],
-            "maxItems": 128,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 1024,
-              "x-max-utf8-bytes": 1024,
-              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
-            }
           },
-          "subscribe": {
-            "type": "array",
-            "default": [],
-            "maxItems": 128,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 1024,
-              "x-max-utf8-bytes": 1024,
-              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
-            }
-          }
-        }
-      },
-      "AclPolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [],
-        "properties": {
-          "publish": {
-            "type": "array",
-            "default": [],
-            "maxItems": 128,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 1024,
-              "x-max-utf8-bytes": 1024,
-              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
-            }
-          },
-          "subscribe": {
-            "type": "array",
-            "default": [],
-            "maxItems": 128,
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 1024,
-              "x-max-utf8-bytes": 1024,
-              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
-            }
-          },
-          "client_id_prefix": {
+          "client_id": {
             "type": "string",
-            "minLength": 0,
-            "maxLength": 1024,
-            "x-max-utf8-bytes": 1024,
-            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
-            "default": ""
+            "minLength": 1,
+            "maxLength": 65535,
+            "x-max-utf8-bytes": 65535
           },
-          "deny": {
-            "$ref": "#/components/schemas/DenyFilters"
+          "action": {
+            "type": "string",
+            "enum": [
+              "publish",
+              "subscribe"
+            ]
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65535,
+            "x-max-utf8-bytes": 65535,
+            "pattern": "^[^\\u0000]+$",
+            "description": "Publish: concrete valid MQTT Topic Name. Subscribe: valid MQTT Topic Filter; concrete Topic used for actual receiving. Broker strips shared wrapper only for initial shared subscription. Service must authorize full requested filter range."
           }
         },
-        "x-max-total-filters": 128,
-        "description": "Complete snapshot. Missing lists mean no permissions. Subscribe lists govern both subscribing and actual receiving, including their deny lists. Missing client_id_prefix means no extra client range restriction. Explicit deny wins. At most128 filters across all four lists."
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "publish"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "topic": {
+                  "pattern": "^[^+#\\u0000]+$"
+                }
+              }
+            }
+          }
+        ]
       },
       "AclDeny": {
         "type": "object",
@@ -424,12 +378,25 @@
       "AclResponse": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/AclPolicy"
+            "$ref": "#/components/schemas/AclAllow"
           },
           {
             "$ref": "#/components/schemas/AclDeny"
           }
         ]
+      },
+      "AclAllow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "const": "allow"
+          }
+        }
       }
     }
   }

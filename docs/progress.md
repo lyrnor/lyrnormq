@@ -2449,18 +2449,19 @@ Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RU
 采集stderr。没有测量或承诺吞吐/p99不变。分支codex/structured-logging。
 
 
-### HTTP authentication API v1 contract (2026-11-02, simplified, implementation pending)
+### HTTP authentication API v1 contract (2026-11-02, point ACL, implementation pending)
 
-按用户反馈简化并替换未实现的原草案。认证常见body仅client_id/username/password，
-二进制密码才用password_base64，两者互斥；成功返回result+稳定user_id，拒绝仅result。
-ACL请求仅user_id，常见响应仅publish/subscribe数组，Subscribe同时限制实际Receive；
-只有需要时增加deny或单个client_id_prefix。原api_version/request_id、连接协议/阶段、
-current_principal、principal回显、revision/ttl、规则ID与多前缀数组均从body移除。
-请求ID仅为可忽略header，缓存时长和代次由Broker管理；用户不存在统一deny，无not_found。
+用户要求ACL请求指定Topic、返回单次决策，已替换先前未实现的权限列表/快照设计。
+认证仍为client_id/username/password，二进制密码可替换为password_base64；成功返回
+result+user_id。ACL请求固定user_id/client_id/action/topic，action=publish|subscribe，
+响应仅result=allow|deny。Subscribe传请求Filter；实际接收复用subscribe+具体Topic。
+初次连接由认证允许，Will须先对具体Topic完成publish鉴权；deny仅拒绝当前操作。
 
-[中文规范](http-auth-api.md)与[OpenAPI3.1](api/http-auth-v1.openapi.json)已同步。
-JSON解析、11个本地引用和8组样例一致性检查通过，没有运行外部完整OpenAPI验证器。
-保留默认拒绝、显式deny优先、故障不等于撤权、稳定会话身份与恢复安全约束。
-仅文档改动，没有执行Rust构建/测试或实现HTTP后端。
-下一步：冻结内部异步集成及Will/到期/恢复屏障，再实现HTTP/管理配置/页面与黑盒。
-PostgreSQL后端仍未实现。分支codex/http-auth-contract。
+决策缓存key包含来源配置代次及全部四项请求字段，不按通配符推导命中；默认30秒，
+可配置0..300秒，allow/deny可缓存，不可用不可缓存成deny。缓存未命中产生HTTP往返，
+高基数/扇出TPS与p99需实测，不再声称消息路径没有远程IO。不返回全量Topic权限。
+[中文规范](http-auth-api.md)与[OpenAPI](api/http-auth-v1.openapi.json)已同步，
+JSON、10个本地引用和8组样例一致性检查通过；未运行完整外部OpenAPI验证器。
+仅改文档，没有实现HTTP后端或执行Rust测试。下一步内部异步prepare/commit、QoS/
+outbox、Receive扇出、Will/到期/恢复屏障必须先冻结再实现；PostgreSQL仍未实现。
+分支codex/http-auth-contract。

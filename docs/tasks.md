@@ -590,10 +590,10 @@ is not an implementation claim. [Evidence](verification/admission-mtls-20261030/
 
 ## HTTP authentication/authorization v1 (contract only)
 
-- [x] Define simplified external POST credential and stable-user ACL wire contracts,
+- [x] Define simplified external POST credential and per-operation topic ACL contracts,
   OpenAPI, examples, business-vs-transport failures, limits and cache semantics.
-- [ ] Freeze internal async provider/ACL snapshot contracts, unavailable-vs-revoked
-  handling, Will deadlines, expiry and restoration barriers before implementation.
+- [ ] Freeze internal async provider/decision prepare-commit contracts, unavailable-vs-denied
+  handling, exact-key cache, receive/fanout, Will deadlines and recovery barriers.
 - [ ] Implement bounded HTTP backend and integrate authenticated session lifecycle.
 - [ ] Add protected management configuration/UI and safe credential handling.
 - [ ] Verify real HTTP/TLS/mTLS, dual versions, reauth, takeover, ACL changes,
