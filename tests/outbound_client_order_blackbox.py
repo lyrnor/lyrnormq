@@ -116,8 +116,9 @@ class ClientOrderedOutbounds(unittest.TestCase):
 
     def test_retry_backoff_releases_single_outbound_slot_for_other_client(self):
         receiver = self.receiver(status=lambda r: 500 if concurrency.sequence(r) == 0 else 204)
-        self.start(concurrency.settings(receiver.url, concurrency=1, max_attempts=2,
-                                        retry_base_ms=10000))
+        config = concurrency.settings(receiver.url, concurrency=1, max_attempts=2,
+                                      retry_base_ms=10000)
+        self.start(config)
         source = self.client('sleeping-retry')
         self.emit(source, [0, 1])
         receiver.tracker.wait(lambda t: len(t.completed) == 1)
@@ -128,8 +129,10 @@ class ClientOrderedOutbounds(unittest.TestCase):
         self.assertEqual(self.outbound()['delivered'], 1)
         self.assertEqual(self.outbound()['retried'], 0)
         self.assertEqual(receiver.tracker.peak, 1)
-        self.replace(dict(schema_version=2, outbounds=[], rules=[]))
+        config['outbounds'][0]['enabled'] = False
+        self.replace(config)
         self.empty()
+        self.assertEqual(self.status()['durable_queue']['pending_records'], 2)
 
     def test_terminal_failure_continues_same_client_after_retry_exhaustion(self):
         gate = threading.Event()
@@ -211,7 +214,7 @@ class ClientOrderedOutbounds(unittest.TestCase):
         self.assertTrue(all(r['size'] <= 1024 * 1024 for r in receiver.tracker.started))
         self.assertEqual(receiver.tracker.peak, 2)
 
-    def test_many_client_lanes_drain_and_replacement_recovers_from_overload(self):
+    def test_many_client_lanes_keep_resident_window_bounded_and_pause_preserves_backlog(self):
         receiver = self.receiver(gate=threading.Event())
         config = concurrency.settings(receiver.url, concurrency=2, queue_capacity=4)
         self.start(config)
@@ -219,23 +222,28 @@ class ClientOrderedOutbounds(unittest.TestCase):
         for n, source in enumerate(sources):
             self.emit(source, [n])
         receiver.tracker.wait(lambda t: t.active == 2)
-        eventually(lambda: self.status()['matched'] == 40)
-        # Former maximum = channel + active batches + one carry-over. Draining
-        # channel entries into lanes must not create a second unbounded queue.
+        eventually(lambda: self.status()['durable_queue']['pending_records'] == 40)
+        # Disk backlog can exceed the resident window, but not escape its memory
+        # bounds. Existing channel + active batches + carry-over allowance is7.
         self.assertLessEqual(self.outbound()['queued'], 4 + 2 * 1 + 1)
-        self.assertGreaterEqual(self.outbound()['dropped'], 33)
+        self.assertEqual(self.outbound()['dropped'], 0)
         self.assertLessEqual(self.status()['queued_bytes'], 16 * 1024 * 1024)
-        self.replace(dict(schema_version=2, outbounds=[], rules=[]))
+        paused = copy.deepcopy(config)
+        paused['outbounds'][0]['enabled'] = False
+        self.replace(paused)
         receiver.tracker.wait(lambda t: t.active == 0)
         self.empty()
+        self.assertEqual(self.status()['durable_queue']['pending_records'], 40)
         receiver.gate.set()
         self.replace(config)
+        receiver.tracker.wait(lambda t: len(t.completed) == 40)
+        self.drained(40)
         for n, source in enumerate(sources[:4]):
             self.emit(source, [100 + n])
-        receiver.tracker.wait(lambda t: len(t.completed) == 4)
-        self.drained(4)
+        receiver.tracker.wait(lambda t: len(t.completed) == 44)
+        self.drained(44)
         self.assertEqual(sorted(concurrency.sequence(r) for r in receiver.tracker.completed),
-                         [100, 101, 102, 103])
+                         list(range(40)) + [100, 101, 102, 103])
         self.assertLessEqual(receiver.tracker.peak, 2)
 
 

@@ -232,6 +232,8 @@ class OutboundConcurrency(unittest.TestCase):
         eventually(lambda: self.status()['queued_events'] == 0 and
                    self.status()['queued_bytes'] == 0 and self.status()['inflight_requests'] == 0)
         self.assertEqual(self.outbound()['inflight_requests'], 0)
+        if 'durable_queue' in self.status():
+            eventually(lambda: self.status()['durable_queue']['pending_records'] == 0)
 
     def test_omitted_old_sqlite_defaults_to_eight_validates_and_recovers(self):
         receiver = self.receiver()
@@ -395,10 +397,13 @@ class OutboundConcurrency(unittest.TestCase):
         receiver.tracker.wait(lambda t: any(r['body']['outbound_id'] == 'fast' for r in t.completed))
         self.assertFalse(any(r['attempt'] > 1 for r in receiver.tracker.started))
         self.assertEqual(self.outbound('fast')['delivered'], 1)
-        self.replace(dict(schema_version=2, outbounds=[], rules=[]))
+        for item in config['outbounds']:
+            item['enabled'] = False
+        self.replace(config)
         eventually(lambda: self.status()['queued_bytes'] == 0 and self.status()['inflight_requests'] == 0)
+        self.assertEqual(self.status()['durable_queue']['pending_records'], 16)
 
-    def test_replacement_cancels_all_blocked_jobs_and_new_generation_progresses(self):
+    def test_replacement_preserves_blocked_jobs_and_rejects_pending_rerouting(self):
         old = self.receiver(gate=threading.Event())
         fresh = self.receiver()
         config = settings(old.url, concurrency=4)
@@ -406,36 +411,52 @@ class OutboundConcurrency(unittest.TestCase):
         sources = [self.client(f'replace-{n}') for n in range(4)]
         for n, source in enumerate(sources):
             self.emit(source, range(n, 12, 4))
-        source = sources[0]
         old.tracker.wait(lambda t: t.active == 4)
-        config['outbounds'][0]['config']['url'] = fresh.url
-        self.replace(config)
+        eventually(lambda: self.status()['durable_queue']['pending_records'] == 12)
+        rerouted = copy.deepcopy(config)
+        rerouted['outbounds'][0]['config']['url'] = fresh.url
+        code, _, _ = self.broker.request(CONFIG, method='PUT', body=json.dumps(rerouted),
+                                         headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 409)
+        self.assertEqual(fresh.tracker.started, [])
+        paused = copy.deepcopy(config)
+        paused['outbounds'][0]['enabled'] = False
+        self.replace(paused)
         old.tracker.wait(lambda t: t.active == 0 and t.closed == 4)
         eventually(lambda: self.status()['inflight_requests'] == 0 and self.status()['queued_events'] == 0 and self.status()['queued_bytes'] == 0)
-        self.assertGreaterEqual(self.status()['dropped'], 12)
-        self.emit(source, [99])
+        self.assertEqual(self.status()['durable_queue']['pending_records'], 12)
+        self.assertEqual(self.status()['dropped'], 0)
+        old.gate.set()
+        self.replace(config)
+        old.tracker.wait(lambda t: len(t.completed) == 12)
+        self.drained(12)
+        self.replace(rerouted)
+        self.emit(sources[0], [99])
         fresh.tracker.wait(lambda t: len(t.completed) == 1)
         self.drained(1)
-        self.assertEqual(len(old.tracker.started), 4)
         self.assertEqual(sequence(fresh.tracker.completed[0]), 99)
 
-    def test_shutdown_cancels_blocked_jobs_and_does_not_replay_volatile_queue(self):
+    def test_shutdown_cancels_blocked_jobs_and_replays_durable_queue(self):
         receiver = self.receiver(gate=threading.Event())
         self.start(settings(receiver.url, concurrency=4))
         for n in range(4):
             self.emit(self.client(f'shutdown-{n}'), range(n, 12, 4))
         receiver.tracker.wait(lambda t: t.active == 4)
+        eventually(lambda: self.status()['durable_queue']['pending_records'] == 12)
+        before = {r['body']['events'][0]['delivery_id'] for r in receiver.tracker.started}
         self.broker.stop()
         receiver.tracker.wait(lambda t: t.active == 0 and t.closed == 4)
         receiver.gate.set()
         self.broker.start()
-        self.assertEqual(self.status()['inflight_requests'], 0)
-        self.assertEqual(self.status()['queued_events'], 0)
+        receiver.tracker.wait(lambda t: len(t.completed) == 12)
+        self.drained(12)
         self.assertEqual(self.broker.data(CONFIG)['outbounds'][0]['delivery']['concurrency'], 4)
+        self.assertEqual(sorted(sequence(r) for r in receiver.tracker.completed), list(range(12)))
+        self.assertTrue(before <= {r['body']['events'][0]['delivery_id'] for r in receiver.tracker.completed})
         self.emit(self.client('after-shutdown'), [99])
-        receiver.tracker.wait(lambda t: len(t.completed) == 1)
-        self.drained(1)
-        self.assertEqual(len(receiver.tracker.started), 5)
+        receiver.tracker.wait(lambda t: len(t.completed) == 13)
+        self.drained(13)
+        self.assertEqual(len(receiver.tracker.started), 17)
 
     def test_parallel_batches_keep_count_and_one_mib_byte_limits(self):
         for large in [False, True]:

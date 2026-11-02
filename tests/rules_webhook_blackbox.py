@@ -104,11 +104,11 @@ class RulesWebhook(unittest.TestCase):
         self.rules_path = self.root / 'private-rules.sqlite'
         self.broker = None
 
-    def start(self, config=None, default=False):
+    def start(self, config=None, default=False, queue_options=()):
         extra = [] if default else ['--rules-config', str(self.rules_path)]
         if default:
             self.rules_path = self.root / 'rmqtt-rules.sqlite'
-        self.broker = DashboardBroker(self.directory.name, extra=extra)
+        self.broker = DashboardBroker(self.directory.name, extra=[*extra, *queue_options])
         self.addCleanup(self.broker.stop)
         broker = self.broker.start()
         if config is not None:
@@ -324,13 +324,13 @@ class RulesWebhook(unittest.TestCase):
 
     def test_slow_target_and_overflow_do_not_block_other_outbound_or_mqtt(self):
         slow, fast = self.webhook(delay=.5), self.webhook()
-        config = config_for(slow.url, queue_capacity=1, timeout_ms=100, max_attempts=1)
+        config = config_for(slow.url, queue_capacity=1, timeout_ms=100, max_attempts=5, retry_base_ms=1000)
         fast_outbound = copy.deepcopy(config['outbounds'][0])
         fast_outbound.update(id='fast', name='Fast outbound', config=dict(url=fast.url, headers={}))
         fast_outbound['delivery'].update(queue_capacity=256, timeout_ms=1000)
         config['outbounds'].append(fast_outbound)
         config['rules'][0]['outbound_ids'].append('fast')
-        self.start(config)
+        self.start(config, queue_options=['--egress-queue-max-records', '16'])
         source = self.client('overflow-source')
         for n in range(60):
             self.publish(source, 'devices/a/telemetry', b'{"temperature":90}', qos=0)
