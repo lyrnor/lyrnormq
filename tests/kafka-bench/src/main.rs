@@ -18,12 +18,13 @@ struct Options {
     records: usize,
     payload: usize,
     timeout_ms: u64,
+    warmup: usize,
 }
 impl Options {
     fn parse(args: &[String]) -> Result<Self> {
-        if args.len() != 7 {
+        if !(7..=8).contains(&args.len()) {
             return Err(invalid(
-                "usage: BROKER TOPIC RUN_ID CLIENTS RECORDS_PER_CLIENT PAYLOAD_BYTES TIMEOUT_MS",
+                "usage: BROKER TOPIC RUN_ID CLIENTS RECORDS_PER_CLIENT PAYLOAD_BYTES TIMEOUT_MS [WARMUP_RECORDS]",
             )
             .into());
         }
@@ -35,12 +36,19 @@ impl Options {
             records: args[4].parse()?,
             payload: args[5].parse()?,
             timeout_ms: args[6].parse()?,
+            warmup: args.get(7).map(|v| v.parse()).transpose()?.unwrap_or(0),
         };
         if !(1..=512).contains(&options.clients)
             || !(1..=10000).contains(&options.records)
-            || options.clients.saturating_mul(options.records) > 10000
+            || options
+                .clients
+                .saturating_mul(options.records)
+                .saturating_add(options.warmup)
+                > 10000
+            || options.warmup > 512
             || !(128..=65536).contains(&options.payload)
-            || options.clients * options.records * options.payload > 12 * 1024 * 1024
+            || (options.clients * options.records + options.warmup) * options.payload
+                > 12 * 1024 * 1024
             || !(1000..=30000).contains(&options.timeout_ms)
             || options.run.is_empty()
             || options.run.len() > 64
@@ -110,6 +118,23 @@ async fn main() -> Result<()> {
         options.timeout_ms,
         options.clients,
     )?);
+    let warmup_start = Instant::now();
+    let mut warmup_options = options.clone();
+    warmup_options.run = format!("warmup-{}", options.run);
+    for index in 0..options.warmup {
+        let bytes = event(
+            &warmup_options,
+            index % options.clients,
+            index / options.clients,
+        )?;
+        if let Err(error) = sink.send(&[bytes.as_slice()]).await {
+            sink.shutdown()
+                .await
+                .map_err(|_| invalid("warmup cleanup failed"))?;
+            return Err(invalid(&format!("warmup did not confirm: {}", error.code)).into());
+        }
+    }
+    let warmup_ms = warmup_start.elapsed().as_secs_f64() * 1000.;
     let barrier = Arc::new(Barrier::new(options.clients + 1));
     let mut jobs = JoinSet::new();
     for client in 0..options.clients {
@@ -158,10 +183,11 @@ async fn main() -> Result<()> {
             "schema_version":1,"run_id":options.run,"clients":options.clients,
             "records_per_client":options.records,"payload_bytes":options.payload,
             "attempted":attempted,"confirmed":latencies.len(),"errors":errors,
+        "warmup":{"confirmed":options.warmup,"elapsed_ms":warmup_ms,"included_in_timed_counts":false},
             "elapsed_seconds":seconds,"confirmed_records_per_second":latencies.len() as f64 / seconds,
             "latency_ms":{"p50":percentile(&latencies,50,100) as f64/1e6,"p95":percentile(&latencies,95,100) as f64/1e6,"p99":percentile(&latencies,99,100) as f64/1e6,"max":latencies.last().copied().unwrap_or(0) as f64/1e6},
             "latency_boundary":"KafkaSink::send entry to final confirmed delivery; successful calls only; includes adapter parsing, lazy connection, SDK buffering and retries; excludes event construction and readback",
-            "throughput_boundary":"barrier release through all send outcomes; excludes adapter construction, shutdown and readback; no warmup",
+            "throughput_boundary":"barrier release through all send outcomes; excludes adapter construction, explicit warmup, shutdown and readback",
             "shutdown_ms":shutdown_ms,"shutdown_error":shutdown_code,
             "runtime_workers":4,"compression":"lz4","linger_ms":1,"batch_bytes":65536,
         })
@@ -213,6 +239,21 @@ mod tests {
         arguments[3] = "512".into();
         arguments[4] = "10000".into();
         assert!(Options::parse(&arguments).is_err());
+        let warm = [
+            "localhost:9092",
+            "events",
+            "run-1",
+            "64",
+            "64",
+            "128",
+            "30000",
+            "64",
+        ]
+        .map(str::to_owned);
+        assert_eq!(Options::parse(&warm).unwrap().warmup, 64);
+        let mut too_many_warmups = warm;
+        too_many_warmups[7] = "513".into();
+        assert!(Options::parse(&too_many_warmups).is_err());
         assert_eq!(percentile(&[1, 2, 3, 4, 5], 99, 100), 5);
         assert_eq!(percentile(&[1, 2, 3, 4], 50, 100), 2);
         assert_eq!(percentile(&[], 99, 100), 0);

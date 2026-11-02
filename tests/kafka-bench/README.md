@@ -22,11 +22,11 @@ python3 tests/kafka_fixture.py --download
 python3 tests/kafka_adapter_benchmark.py \
   --writer /tmp/rmqtt-adapter-before \
   --reader "$PWD/target/release/rmqtt-kafka-test-client" \
-  --label rdkafka-before --output /tmp/rdkafka-before.json
+  --warmup 64 --label rdkafka-before --output /tmp/rdkafka-before.json
 python3 tests/kafka_adapter_benchmark.py \
   --writer /tmp/rmqtt-adapter-after \
   --reader "$PWD/target/release/rmqtt-kafka-test-client" \
-  --label krafka-after --output /tmp/krafka-after.json
+  --warmup 64 --label krafka-after --output /tmp/krafka-after.json
 ```
 
 Run before/after **sequentially**, with no other benchmark, compilation or Kafka
@@ -42,7 +42,13 @@ Default matrix: 64 concurrent clients, 64 messages per client (4096 total), exac
 with keyed distribution. One request per client remains outstanding until its
 final send outcome, matching the existing same-client scheduler. Compression is
 LZ4, linger 1 ms, batch size 64 KiB, per-record policy timeout 30 s, and Tokio uses
-four workers. Client connection setup is deliberately included; there is no warmup.
+four workers. The CLI defaults to zero warmup for explicit cold-session measurement.
+Use `--warmup 64` on **both** revisions for a warmed-session comparison: the same
+sink confirms 64 records on the same topic before the timed barrier. Warmup failures
+abort the run; IDs use a separate `warmup-` prefix, and independent readback verifies
+warmup records separately. They are excluded from timed throughput/latency counts.
+The JSON report includes exact warmup count and elapsed time. Do not compare a cold
+run to a warmed run or interpret cold-session p99 as warmed steady-state latency.
 The runner has a 180-second per-scenario watchdog and finite message, byte,
 partition and process bounds. All processes/files are cleaned up on normal/error
 exit. No rules, source bodies or production configurations are modified.
@@ -51,8 +57,8 @@ exit. No rules, source bodies or production configurations are modified.
 
 - Throughput: confirmed records divided by wall time from releasing the client
   barrier until every send has a final outcome. Excludes adapter construction,
-  shutdown, topic creation and independent readback; includes payload generation
-  and initial/lazy SDK connection work during the workload.
+  explicit warmup, shutdown, topic creation and independent readback; includes payload generation
+  and any SDK connection work remaining during the workload.
 - Latency: `KafkaSink::send` entry to its confirmed delivery result, including
   adapter parsing, SDK buffering/retries and connection setup encountered there.
   Event generation is outside each latency sample. p50/p95/p99 use nearest rank.
@@ -60,7 +66,8 @@ exit. No rules, source bodies or production configurations are modified.
   reported separately, and the runner fails if any send fails.
 - RSS: writer PID's resident memory (`ps rss`, KiB converted to bytes) sampled
   every 50 ms. This is a sampled peak, **not** an exact high-water mark. Kafka JVM,
-  Python runner and independent consumer memory are excluded. Sampling failures
+  Python runner and independent consumer memory are excluded. The sampled peak
+  includes writer startup, optional warmup and shutdown, so it is not steady-only RSS. Sampling failures
   and successful sample counts are included; zero successful samples fail.
 - Readback: outside the timing window. A two-second drain asks for one more than
   the expected count to detect no-fault duplicates. Exact counts/unique stable
@@ -69,7 +76,7 @@ exit. No rules, source bodies or production configurations are modified.
   proves no-fault workload completion, not a physical power-loss guarantee.
 
 The reader returns at most 10,000 records / 16 MiB raw payload, while this runner
-uses at most 9999 records / 12 MiB projected JSON. Default raw payload is 0.5/4 MiB.
+uses at most 9999 records including warmup / 12 MiB projected JSON. Default raw payload is 0.5/4 MiB.
 JSON objects are generated before each latency timer and contain numeric client
 and sequence fields plus deterministic padding to reach the exact payload size.
 
