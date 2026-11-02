@@ -1,0 +1,32 @@
+    Blocking waiting for file lock on build directory
+   Compiling slab v0.4.12
+   Compiling ring v0.17.14
+   Compiling libz-sys v1.1.31
+   Compiling openssl-sys v0.9.118
+   Compiling futures-util v0.3.34
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling hyper-util v0.1.21
+   Compiling rustls-webpki v0.103.16
+   Compiling rustls v0.23.46
+   Compiling libsqlite3-sys v0.39.1
+   Compiling tokio-rustls v0.26.6
+   Compiling tower v0.5.3
+   Compiling num_enum v0.7.6
+   Compiling hyper-rustls v0.27.10
+   Compiling tower-http v0.6.11
+   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-core)
+   Compiling reqwest v0.12.28
+   Compiling tokio-tungstenite v0.28.0
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
+   Compiling rusqlite v0.41.0
+   Compiling mqtt-storage v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-storage)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling axum v0.8.9
+   Compiling curl-sys v0.4.91+curl-8.22.0
+   Compiling rdkafka-sys v4.10.0+2.12.1
+   Compiling rdkafka v0.39.0
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+    Finished `release` profile [optimized] target(s) in 3m 14s

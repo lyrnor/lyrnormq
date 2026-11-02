@@ -1,0 +1,30 @@
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.01s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress-6150c31fef343da6)
+
+running 2 tests
+
+thread 'tests::storage_error_releases_keepalive_while_runtime_remains_alive' (16495789) panicked at crates/mqtt-egress/src/tests.rs:983:14:
+old generation retained idle connection: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tests::storage_error_releases_keepalive_while_runtime_remains_alive' (16495789) panicked at crates/mqtt-egress/src/tests.rs:1012:29:
+called `Result::unwrap()` on an `Err` value: JoinError::Panic(Id(2), "old generation retained idle connection: Elapsed(())", ...)
+
+thread 'tests::explicit_shutdown_releases_keepalive_while_runtime_remains_alive' (16495788) panicked at crates/mqtt-egress/src/tests.rs:983:14:
+old generation retained idle connection: Elapsed(())
+test tests::storage_error_releases_keepalive_while_runtime_remains_alive ... FAILED
+
+thread 'tests::explicit_shutdown_releases_keepalive_while_runtime_remains_alive' (16495788) panicked at crates/mqtt-egress/src/tests.rs:1012:29:
+called `Result::unwrap()` on an `Err` value: JoinError::Panic(Id(1), "old generation retained idle connection: Elapsed(())", ...)
+test tests::explicit_shutdown_releases_keepalive_while_runtime_remains_alive ... FAILED
+
+failures:
+
+failures:
+    tests::explicit_shutdown_releases_keepalive_while_runtime_remains_alive
+    tests::storage_error_releases_keepalive_while_runtime_remains_alive
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 61 filtered out; finished in 2.12s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

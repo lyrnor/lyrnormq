@@ -2406,3 +2406,29 @@ fmt/strictClippy/Release通过。日志66、运行时55包含在Workspace中。�
 [验收、原始数据及复现](verification/group-commit-20261102/README.md)。
 剩余：Linux/NVMe长时基线、真实混合命令聚合程度与p99、持续排空/背压；状态操作
 Group Commit暂未实现，不计作完成。
+
+
+### Kafka outbound and Dashboard (2026-11-02)
+
+先完成rdkafka0.39.0的cargo zigbuild静态探针，再冻结phase5j，后端/React/质量
+真实Agent分别在独立worktree实现。集成a590af6、646d07c后端，0c8a199页面，
+9054992、21f34c1、1fbbd1a质量；975b969修复审查发现的历史绑定字节兼容缺陷。
+1822825隔离复制二进制测试的规则数据库路径，保留全部无解压断言。
+
+复用共享规则结果日志/outbox状态，无新增消息SQLite或每出站正文副本。
+Kafka默认Client ID key、原始SQL JSON value、稳定身份headers，同规则/出站/Client
+确认/最终失败后推进，其他Client并发。单出站默认128、全局512，与HTTP16独立。
+有界生产者、TLS/mTLS、PLAIN/SCRAM256/512、安全占位符编辑和高级调优已接入页面。
+等待delivery report才Complete，重试/重启/SIGKILL可稳定ID重放，仍可能重复。
+
+743项Workspace Rust、96项前端、95项Release独立黑盒（含14项真实Kafka）通过；
+fmt、严格Clippy、helper检查、嵌入React Release通过。确认并修复native并发关闭
+生命周期、旧HTTP连接池滞留及旧Webhook耐久descriptor序列化兼容，不放宽日志校验。
+最终完整Broker本地zigbuild到Linux amd64 musl，通过无解释器/无共享库ELF检查；
+尚未在Linux执行/部署。独立Kafka CI已提交，未宣称远端执行通过。
+[环境、测试、故障证据和复现](verification/kafka-outbound-20261102/README.md)。
+
+剩余：Linux静态产物实际运行验证、隔离环境Kafka多副本故障/长时吞吐与p99基线、
+动态Topic及其他出站类型。未实现Kafka事务/Schema Registry/OAuth/Kerberos，
+不承诺端到端exactly-once。消息落盘前入口仍best effort；终止失败会结束当前投递。
+本轮未部署或合并main，代码保存在codex/kafka-outbound。

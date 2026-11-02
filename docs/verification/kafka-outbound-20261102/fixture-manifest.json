@@ -1,0 +1,13 @@
+{
+  "jre_release": "jdk-21.0.13+9",
+  "java_url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_aarch64_mac_hotspot_21.0.13_9.tar.gz",
+  "java_sha256": "225bab0a09491ef06835488cd942f5d2befa9a0410a2484f0c8bbcf7506ec09a",
+  "kafka_url": "https://downloads.apache.org/kafka/4.2.2/kafka_2.13-4.2.2.tgz",
+  "kafka_sha512": "acb9961f7ec72f5ff1544afdfbcca39030f2c9ca0d80e8466cf961bd83ae2030bafc28d2577f3f1a099b39c06e6252b8886c1eaf6477f2a2aca8be8b68c0b25e",
+  "java_candidates": [
+    "/private/tmp/rmqtt-kafka-fixture-tools/java/jdk-21.0.13+9-jre/Contents/Home/bin/java"
+  ],
+  "kafka_candidates": [
+    "/private/tmp/rmqtt-kafka-fixture-tools/kafka/kafka_2.13-4.2.2"
+  ]
+}

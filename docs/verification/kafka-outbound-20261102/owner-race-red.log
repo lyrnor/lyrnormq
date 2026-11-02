@@ -1,0 +1,57 @@
+   Compiling libc v0.2.191
+   Compiling smallvec v1.16.3
+   Compiling cfg-if v1.0.5
+   Compiling scopeguard v1.2.0
+   Compiling serde_core v1.0.229
+   Compiling lock_api v0.4.14
+   Compiling pin-project-lite v0.2.17
+   Compiling futures-core v0.3.34
+   Compiling num_enum v0.7.6
+   Compiling zmij v1.0.23
+   Compiling itoa v1.0.18
+   Compiling jobserver v0.1.35
+   Compiling parking_lot_core v0.9.12
+   Compiling errno v0.3.14
+   Compiling cc v1.10.0
+   Compiling signal-hook-registry v1.4.8
+   Compiling parking_lot v0.12.5
+   Compiling mio v1.2.4
+   Compiling socket2 v0.6.5
+   Compiling bytes v1.12.1
+   Compiling memchr v2.8.3
+   Compiling openssl-src v300.6.1+3.6.3
+   Compiling cmake v0.1.58
+   Compiling futures-task v0.3.34
+   Compiling tokio v1.54.1
+   Compiling futures-util v0.3.34
+   Compiling serde_json v1.0.154
+   Compiling openssl-sys v0.9.118
+   Compiling libz-sys v1.1.31
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling curl-sys v0.4.91+curl-8.22.0
+   Compiling rdkafka-sys v4.10.0+2.12.1
+   Compiling serde v1.0.229
+   Compiling futures-channel v0.3.34
+   Compiling slab v0.4.12
+   Compiling log v0.4.34
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-egress-core)
+   Compiling rdkafka v0.39.0
+   Compiling mqtt-kafka v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-kafka)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 50.25s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_kafka-4e479d34285eda30)
+
+running 1 test
+
+thread 'owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference' (16338514) panicked at crates/mqtt-kafka/src/owner.rs:214:9:
+second shutdown signaled owner before first released native Arc
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference ... FAILED
+
+failures:
+
+failures:
+    owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p mqtt-kafka --lib`

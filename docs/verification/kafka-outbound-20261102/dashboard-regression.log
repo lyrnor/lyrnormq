@@ -1,0 +1,19 @@
+test_api_authentication_errors_and_secret_redaction (__main__.DashboardBlackbox.test_api_authentication_errors_and_secret_redaction) ... ok
+test_bounded_queries_methods_unknown_paths_and_static_files (__main__.DashboardBlackbox.test_bounded_queries_methods_unknown_paths_and_static_files) ... ok
+test_dual_version_qos_wire_activity_observed_without_mock_data (__main__.DashboardBlackbox.test_dual_version_qos_wire_activity_observed_without_mock_data) ... ok
+test_graceful_abnormal_disconnect_and_clean_session_removal (__main__.DashboardBlackbox.test_graceful_abnormal_disconnect_and_clean_session_removal) ... ok
+test_http_resource_bounds_preserve_established_mqtt_liveness (__main__.DashboardBlackbox.test_http_resource_bounds_preserve_established_mqtt_liveness) ... ok
+test_retained_update_delete_and_expiry_metadata (__main__.DashboardBlackbox.test_retained_update_delete_and_expiry_metadata) ... ok
+test_session_pagination_filters_unicode_and_untrusted_strings (__main__.DashboardBlackbox.test_session_pagination_filters_unicode_and_untrusted_strings) ... ok
+test_sqlite_crash_restores_offline_queue_and_inflight_packet_identifier (__main__.DashboardBlackbox.test_sqlite_crash_restores_offline_queue_and_inflight_packet_identifier) ... ok
+test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash (__main__.DashboardBlackbox.test_sqlite_mqtt311_qos2_awaitcomp_replays_pubrel_after_crash) ... ok
+test_admin_bind_failure_fails_process_without_leaking_token (__main__.DashboardStartupValidation.test_admin_bind_failure_fails_process_without_leaking_token) ... ok
+test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets (__main__.DashboardStartupValidation.test_rejects_auth_policy_and_private_key_hardlinks_in_static_assets) ... ok
+test_rejects_incomplete_duplicate_nonloopback_and_export_combinations (__main__.DashboardStartupValidation.test_rejects_incomplete_duplicate_nonloopback_and_export_combinations) ... ok
+test_rejects_invalid_token_files_and_explicit_invalid_assets (__main__.DashboardStartupValidation.test_rejects_invalid_token_files_and_explicit_invalid_assets) ... ok
+test_rejects_management_secret_exposed_as_unauthenticated_static_asset (__main__.DashboardStartupValidation.test_rejects_management_secret_exposed_as_unauthenticated_static_asset) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 3.493s
+
+OK

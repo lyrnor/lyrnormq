@@ -606,5 +606,8 @@ rule/outbound configuration. Default data directory is the rules database path p
 state survive restart; uncertain remote results may repeat stable delivery IDs.
 Durability begins after journal sync, not MQTT ACK. Bounded pre-append admission
 and disk exhaustion can reject new events; terminal failure ends that delivery.
-See [outbound operation and limits](docs/rules-webhook.md) and
+Kafka outbounds share the same journal and per-rule/client scheduler; configure
+brokers, topic and optional TLS/SASL in the Dashboard. See
+[Kafka setup and delivery semantics](docs/kafka-outbound.md),
+[outbound operation and limits](docs/rules-webhook.md) and
 [acceptance results](docs/verification/durable-outbounds-20261102/README.md).

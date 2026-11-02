@@ -1,0 +1,17 @@
+test_webhook_binding_descriptor_retains_pre_kafka_bytes (__main__.RuleStreams.test_webhook_binding_descriptor_retains_pre_kafka_bytes) ... FAIL
+
+======================================================================
+FAIL: test_webhook_binding_descriptor_retains_pre_kafka_bytes (__main__.RuleStreams.test_webhook_binding_descriptor_retains_pre_kafka_bytes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-kafka-quality/tests/rule_stream_blackbox.py", line 95, in test_webhook_binding_descriptor_retains_pre_kafka_bytes
+    self.assertEqual(bytes(descriptor), v1.descriptor(config['outbounds'][0]),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     'durable Webhook bindings must retain historical serialization bytes')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: b'{"i[190 chars]y":{"batch_size":1,"batch_wait_ms":0,"concurre[79 chars]00}}' != b'{"i[190 chars]y":{"concurrency":4,"batch_size":1,"batch_wait[79 chars]10}}' : durable Webhook bindings must retain historical serialization bytes
+
+----------------------------------------------------------------------
+Ran 1 test in 0.260s
+
+FAILED (failures=1)

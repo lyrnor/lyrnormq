@@ -1,0 +1,9 @@
+{
+  "path": "target/x86_64-unknown-linux-musl/release/rmqtt",
+  "target": "x86_64-unknown-linux-musl",
+  "bytes": 23000952,
+  "sha256": "abe5778d70a2cabcc2b97bd96631d222807d055c8bde4d717930acd09a4d6f2c",
+  "interpreter": false,
+  "needed_shared_libraries": [],
+  "note": "ELF inspection only, not execution on Linux"
+}

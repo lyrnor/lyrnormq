@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "outbounds": [
+    {
+      "id": "out_ad1456d8-1930-415d-b9b0-f7f839d47670",
+      "name": "Kafka 集成验收",
+      "enabled": false,
+      "type": "kafka",
+      "config": {
+        "batch_bytes": 65536,
+        "brokers": [
+          "127.0.0.1:9092"
+        ],
+        "compression": "lz4",
+        "key_field": null,
+        "linger_ms": 1,
+        "security": {
+          "ca_pem": null,
+          "certificate_pem": null,
+          "password": null,
+          "private_key_password": null,
+          "private_key_pem": null,
+          "protocol": "plaintext",
+          "sasl_mechanism": null,
+          "username": null
+        },
+        "topic": "mqtt-ui-check"
+      },
+      "delivery": {
+        "batch_size": 1,
+        "batch_wait_ms": 0,
+        "concurrency": 128,
+        "max_attempts": 3,
+        "queue_capacity": 256,
+        "retry_base_ms": 200,
+        "timeout_ms": 30000
+      }
+    }
+  ],
+  "rules": []
+}

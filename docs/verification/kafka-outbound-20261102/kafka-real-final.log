@@ -1,0 +1,19 @@
+test_bad_sasl_password_cannot_report_delivered (__main__.KafkaOutbound.test_bad_sasl_password_cannot_report_delivered) ... ok
+test_graceful_restart_replays_pending_with_same_delivery_ids (__main__.KafkaOutbound.test_graceful_restart_replays_pending_with_same_delivery_ids) ... ok
+test_invalid_configuration_is_atomic_and_concurrency_defaults_by_type (__main__.KafkaOutbound.test_invalid_configuration_is_atomic_and_concurrency_defaults_by_type) ... ok
+test_kafka_outage_retries_and_retains_client_fifo (__main__.KafkaOutbound.test_kafka_outage_retries_and_retains_client_fifo) ... ok
+test_kafka_progresses_while_all_webhook_slots_are_held (__main__.KafkaOutbound.test_kafka_progresses_while_all_webhook_slots_are_held) ... ok
+test_key_field_invalid_first_value_fails_then_same_client_continues (__main__.KafkaOutbound.test_key_field_invalid_first_value_fails_then_same_client_continues) ... ok
+test_mqtt311_and_5_qos0_1_2_each_emit_one_record (__main__.KafkaOutbound.test_mqtt311_and_5_qos0_1_2_each_emit_one_record) ... ok
+test_mtls_encrypted_key_redaction_and_missing_certificate_rejection (__main__.KafkaOutbound.test_mtls_encrypted_key_redaction_and_missing_certificate_rejection) ... ok
+test_multiple_rules_and_outbounds_share_rule_body_not_producer_ack (__main__.KafkaOutbound.test_multiple_rules_and_outbounds_share_rule_body_not_producer_ack) ... ok
+test_plaintext_fifo_multiple_clients_raw_data_and_stable_headers (__main__.KafkaOutbound.test_plaintext_fifo_multiple_clients_raw_data_and_stable_headers) ... ok
+test_sigkill_partial_progress_recovers_all_ids_allowing_stable_duplicates (__main__.KafkaOutbound.test_sigkill_partial_progress_recovers_all_ids_allowing_stable_duplicates) ... ok
+test_sigkill_replays_pending_with_same_delivery_ids (__main__.KafkaOutbound.test_sigkill_replays_pending_with_same_delivery_ids) ... ok
+test_tls_and_sasl_plain_scram_credentials_survive_redacted_save (__main__.KafkaOutbound.test_tls_and_sasl_plain_scram_credentials_survive_redacted_save) ... ok
+test_tls_wrong_trust_anchor_cannot_report_delivered (__main__.KafkaOutbound.test_tls_wrong_trust_anchor_cannot_report_delivered) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 65.385s
+
+OK

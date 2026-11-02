@@ -1,0 +1,6 @@
+test_webhook_binding_descriptor_retains_pre_kafka_bytes (__main__.RuleStreams.test_webhook_binding_descriptor_retains_pre_kafka_bytes) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.262s
+
+OK

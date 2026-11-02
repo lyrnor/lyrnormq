@@ -1,0 +1,42 @@
+{
+  "suites": [
+    {
+      "log": "concurrency-regression.log",
+      "passed": 10,
+      "exit_code": 0
+    },
+    {
+      "log": "dashboard-embedded-regression.log",
+      "passed": 4,
+      "exit_code": 0
+    },
+    {
+      "log": "dashboard-regression.log",
+      "passed": 14,
+      "exit_code": 0
+    },
+    {
+      "log": "durable-regression.log",
+      "passed": 12,
+      "exit_code": 0
+    },
+    {
+      "log": "order-regression.log",
+      "passed": 9,
+      "exit_code": 0
+    },
+    {
+      "log": "rules-regression.log",
+      "passed": 18,
+      "exit_code": 0
+    },
+    {
+      "log": "shared-stream-regression.log",
+      "passed": 14,
+      "exit_code": 0
+    }
+  ],
+  "existing_blackbox_total": 81,
+  "real_kafka_passed": 14,
+  "combined_blackbox_total": 95
+}

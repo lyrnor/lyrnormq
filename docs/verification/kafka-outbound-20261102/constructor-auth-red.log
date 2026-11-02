@@ -1,0 +1,40 @@
+   Compiling mqtt-kafka v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-kafka)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.62s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_kafka-4e479d34285eda30)
+
+running 5 tests
+test tests::bounded_configuration_and_secret_restoration ... ok
+test adapter::tests::native_authentication_error_is_permanent ... FAILED
+test tests::producer_constructor_rejects_invalid_concurrency_and_identity ... FAILED
+test owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference ... FAILED
+test tests::native_deadline_and_shutdown_are_bounded ... ok
+
+failures:
+
+---- adapter::tests::native_authentication_error_is_permanent stdout ----
+
+thread 'adapter::tests::native_authentication_error_is_permanent' (16343903) panicked at crates/mqtt-kafka/src/adapter.rs:201:9:
+assertion `left == right` failed
+  left: Retryable
+ right: Permanent
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::producer_constructor_rejects_invalid_concurrency_and_identity stdout ----
+
+thread 'tests::producer_constructor_rejects_invalid_concurrency_and_identity' (16343907) panicked at crates/mqtt-kafka/src/tests.rs:58:5:
+assertion failed: KafkaSink::new("valid", c.clone(), 1000, 0).is_err()
+
+---- owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference stdout ----
+
+thread 'owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference' (16343904) panicked at crates/mqtt-kafka/src/owner.rs:214:9:
+second shutdown signaled owner before first released native Arc
+
+
+failures:
+    adapter::tests::native_authentication_error_is_permanent
+    owner::tests::concurrent_shutdown_cannot_finish_while_first_caller_holds_native_reference
+    tests::producer_constructor_rejects_invalid_concurrency_and_identity
+
+test result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
+
+error: test failed, to rerun pass `-p mqtt-kafka --lib`

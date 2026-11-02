@@ -1,0 +1,16 @@
+{
+  "environment": "isolated temporary Broker with embedded React Dashboard, real HTTP API and SQLite; user8766 service untouched",
+  "checks": [
+    "component type dropdown Kafka/Webhook",
+    "Kafka basic Name/Brokers/Topic/security fields",
+    "advanced collapsed by default",
+    "Kafka concurrency128/timeout30000/linger1/batch64KiB defaults",
+    "SASL+TLS conditionally exposes mechanism/user/password/CA/cert/key/passphrase",
+    "save through browser succeeded",
+    "saved configuration reloaded via real API after browser reload and login",
+    "cancel security edit preserved original plaintext configuration",
+    "test outbound remained disabled, no Kafka network messages or prototype data added"
+  ],
+  "public_config_assertions_passed": true,
+  "screenshot": "SASL+TLS drawer visually inspected in CUA during test; no credentials entered"
+}
