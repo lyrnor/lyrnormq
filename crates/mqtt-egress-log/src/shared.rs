@@ -25,6 +25,15 @@ pub(crate) struct Shared {
     heads: BTreeMap<String, BTreeSet<u64>>,
 }
 impl Shared {
+    #[cfg(test)]
+    pub(crate) fn retained_indexes(&self) -> (usize, usize, usize, usize) {
+        (
+            self.bodies.len(),
+            self.consumers.len(),
+            self.lanes.len(),
+            self.heads.len(),
+        )
+    }
     pub fn meta(&self, id: u64) -> Result<ConsumerMeta, QueueError> {
         let (result, c) = self.consumers.get(&id).ok_or(QueueError::InvalidOptions)?;
         let b = self.bodies.get(result).ok_or(QueueError::Corrupt)?;

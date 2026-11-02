@@ -229,6 +229,26 @@ impl Journal {
         self.entries = w.legacy;
         self.shared = w.shared;
         self.next_id = next;
+        self.lanes.clear();
+        self.heads.clear();
+        self.counts.clear();
+        for (id, e) in &self.entries {
+            let lane = self
+                .lanes
+                .entry((e.meta.outbound_id.clone(), e.meta.client_id.clone()))
+                .or_default();
+            if lane.is_empty() {
+                self.heads
+                    .entry(e.meta.outbound_id.clone())
+                    .or_default()
+                    .insert(*id);
+            }
+            lane.push_back(*id);
+            *self.counts.entry(e.meta.outbound_id.clone()).or_default() += 1;
+        }
+        for (_, c) in self.shared.consumers.values() {
+            *self.counts.entry(c.outbound_id.clone()).or_default() += 1;
+        }
         self.pending_bytes = self
             .entries
             .values()

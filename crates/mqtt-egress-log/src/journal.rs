@@ -260,6 +260,7 @@ impl Journal {
         if self
             .entries
             .len()
+            .saturating_add(self.shared.consumers.len())
             .checked_add(records.len())
             .is_none_or(|n| n > self.options.max_records || n > storage::MAX_SEGMENTS - 2)
         {

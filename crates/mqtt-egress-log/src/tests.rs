@@ -811,3 +811,6 @@ fn one_rule_result_fanout_stores_body_only_once() {
     assert_eq!(j.stats().pending_records, 2);
     assert_eq!(j.stats().pending_bytes, body.len() as u64);
 }
+
+#[path = "shared_tests.rs"]
+mod shared_tests;
