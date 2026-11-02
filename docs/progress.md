@@ -2449,15 +2449,18 @@ Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RU
 采集stderr。没有测量或承诺吞吐/p99不变。分支codex/structured-logging。
 
 
-### HTTP authentication API v1 contract (2026-11-02, implementation pending)
+### HTTP authentication API v1 contract (2026-11-02, simplified, implementation pending)
 
-已定义Broker调用外部服务的两个POST接口：/mqtt/authenticate和/mqtt/acl。
-[中文规范](http-auth-api.md)与[OpenAPI3.1](api/http-auth-v1.openapi.json)统一请求/
-响应样例，包含二进制密码Base64、稳定principal、重认证身份约束、ACL默认拒绝/
-deny优先、Subscribe覆盖与拒绝交集、TTL和故障分类。业务判定HTTP200，服务状态
-错误不作为MQTT用户判定，不自动放行或匿名回退。MQTT错误码按OASIS核对包类型。
+按用户反馈简化并替换未实现的原草案。认证常见body仅client_id/username/password，
+二进制密码才用password_base64，两者互斥；成功返回result+稳定user_id，拒绝仅result。
+ACL请求仅user_id，常见响应仅publish/subscribe数组，Subscribe同时限制实际Receive；
+只有需要时增加deny或单个client_id_prefix。原api_version/request_id、连接协议/阶段、
+current_principal、principal回显、revision/ttl、规则ID与多前缀数组均从body移除。
+请求ID仅为可忽略header，缓存时长和代次由Broker管理；用户不存在统一deny，无not_found。
 
-已检查JSON解析、全部本地引用和8份文档样例与OpenAPI嵌入样例一致；没有声称运行
-完整OpenAPI外部校验器。仅文档改动，没有运行Rust构建/测试或实现外部调用。
-下一步：冻结异步集成与Will/到期/恢复屏障，再实现HTTP后端/管理配置/页面和黑盒。
+[中文规范](http-auth-api.md)与[OpenAPI3.1](api/http-auth-v1.openapi.json)已同步。
+JSON解析、11个本地引用和8组样例一致性检查通过，没有运行外部完整OpenAPI验证器。
+保留默认拒绝、显式deny优先、故障不等于撤权、稳定会话身份与恢复安全约束。
+仅文档改动，没有执行Rust构建/测试或实现HTTP后端。
+下一步：冻结内部异步集成及Will/到期/恢复屏障，再实现HTTP/管理配置/页面与黑盒。
 PostgreSQL后端仍未实现。分支codex/http-auth-contract。

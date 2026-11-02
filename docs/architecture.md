@@ -826,11 +826,14 @@ TLS input is bounded inline PEM rather than arbitrary server file paths.
 ## HTTP authentication external contract (implementation pending)
 
 [HTTP v1](http-auth-api.md) freezes Broker-to-service credential verification and
-principal-scoped ACL snapshot retrieval. Runtime authentication is asynchronous and
+stable-user-scoped ACL snapshot retrieval. The simplified body uses client_id,
+username/password and stable user_id; subscribe filters also govern Receive as in
+the existing local policy. Correlation, cache TTL and snapshot generations are
+Broker concerns, not mandatory service response fields. Runtime authentication is asynchronous and
 bounded in the planned integration; synchronous session authorization remains local.
 External calls must never execute inside the current AccessControl/session actor.
 
-Allow/Deny/NotFound/Unavailable are distinct outcomes; transport failure cannot
+Allow/Deny/Unavailable are distinct outcomes; transport failure cannot
 become permanent revocation and prune durable state. The wire contract does not
 freeze internal Rust APIs or resolve the pending Will/expiry/recovery barriers.
 Those require an explicit integration contract and regression tests before coding.

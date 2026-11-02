@@ -3,7 +3,7 @@
   "info": {
     "title": "RMQTT external HTTP authentication and ACL API",
     "version": "1.0.0",
-    "description": "External interface contract only; backend not yet implemented. Broker is HTTP client, business service implements these endpoints. Paths are configurable examples. See ../http-auth-api.md for byte limits, deny/containment/cache/recovery semantics. Bearer is the example service authentication; deployment may additionally require mTLS or configured headers."
+    "description": "Simplified v1 replaces the unimplemented earlier draft. Broker is the HTTP client. No api_version, request_id, transport/stage context in body. HTTP backend not implemented. Normative details: ../http-auth-api.md. Bearer is the example service credential; deployment may require mTLS/fixed headers."
   },
   "servers": [
     {
@@ -19,17 +19,18 @@
     "/mqtt/authenticate": {
       "post": {
         "operationId": "authenticate",
-        "summary": "Validate MQTT credentials and return stable identity",
-        "description": "Business decisions require HTTP200. Every other status is backend unavailable; never implicit allow. Full semantics: ../http-auth-api.md",
+        "summary": "Verify client credentials",
+        "description": "Broker calls business service. HTTP200 carries allow/deny or a complete ACL. All other statuses are service failure, not MQTT user decisions. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
             "name": "X-Request-ID",
-            "required": true,
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/RequestId"
+              "type": "string",
+              "maxLength": 64
             },
-            "description": "Must equal body request_id."
+            "description": "Optional tracing only. Service may ignore; response echo not required."
           }
         ],
         "requestBody": {
@@ -39,26 +40,28 @@
               "schema": {
                 "$ref": "#/components/schemas/AuthRequest"
               },
-              "example": {
-                "api_version": 1,
-                "request_id": "auth-01",
-                "stage": "connect",
-                "client_id": "device-001",
-                "username": "alice",
-                "password_base64": "c2VjcmV0",
-                "mqtt_version": "5.0",
-                "transport": "tls",
-                "peer_ip": "192.0.2.10",
-                "peer_port": 56789,
-                "authentication_method": null,
-                "current_principal": null
+              "examples": {
+                "credentials": {
+                  "value": {
+                    "client_id": "device-001",
+                    "username": "alice",
+                    "password": "secret"
+                  }
+                },
+                "binaryPassword": {
+                  "value": {
+                    "client_id": "device-001",
+                    "username": "alice",
+                    "password_base64": "/wA="
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Complete business decision. Version and request ID must match. ACL principal must match. Duplicate keys and unknown fields are invalid. Response <=64KiB.",
+            "description": "Valid business response, <=64KiB. Reject unknown fields, duplicate keys and invalid types. Cache duration and correlation live in Broker configuration/state, not body.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -75,33 +78,13 @@
                 "examples": {
                   "allow": {
                     "value": {
-                      "api_version": 1,
-                      "request_id": "auth-01",
                       "result": "allow",
-                      "principal": "user:42"
+                      "user_id": "42"
                     }
                   },
-                  "deny-bad_credentials": {
+                  "deny": {
                     "value": {
-                      "api_version": 1,
-                      "request_id": "auth-01",
-                      "result": "deny",
-                      "reason": "bad_credentials"
-                    }
-                  },
-                  "deny-not_authorized": {
-                    "value": {
-                      "api_version": 1,
-                      "request_id": "auth-01",
-                      "result": "deny",
-                      "reason": "not_authorized"
-                    }
-                  },
-                  "not_found": {
-                    "value": {
-                      "api_version": 1,
-                      "request_id": "auth-01",
-                      "result": "not_found"
+                      "result": "deny"
                     }
                   }
                 }
@@ -109,7 +92,7 @@
             }
           },
           "default": {
-            "description": "Backend unavailable or protocol error, not a MQTT user decision. 401/403 service access credentials; 404 endpoint; 429/503 overload/unavailable. Body ignored, never auto-fallback."
+            "description": "Service failure. 401/403 service credentials/access, 404 endpoint, 429/503 overload/unavailable. Never implicit allow, user-not-found or anonymous fallback."
           }
         }
       }
@@ -117,17 +100,18 @@
     "/mqtt/acl": {
       "post": {
         "operationId": "fetchAcl",
-        "summary": "Fetch a complete principal-scoped ACL snapshot",
-        "description": "Business decisions require HTTP200. Every other status is backend unavailable; never implicit allow. Full semantics: ../http-auth-api.md",
+        "summary": "Fetch complete user permissions",
+        "description": "Broker calls business service. HTTP200 carries allow/deny or a complete ACL. All other statuses are service failure, not MQTT user decisions. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
             "name": "X-Request-ID",
-            "required": true,
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/RequestId"
+              "type": "string",
+              "maxLength": 64
             },
-            "description": "Must equal body request_id."
+            "description": "Optional tracing only. Service may ignore; response echo not required."
           }
         ],
         "requestBody": {
@@ -137,17 +121,19 @@
               "schema": {
                 "$ref": "#/components/schemas/AclRequest"
               },
-              "example": {
-                "api_version": 1,
-                "request_id": "acl-01",
-                "principal": "user:42"
+              "examples": {
+                "user": {
+                  "value": {
+                    "user_id": "42"
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Complete business decision. Version and request ID must match. ACL principal must match. Duplicate keys and unknown fields are invalid. Response <=64KiB.",
+            "description": "Valid business response, <=64KiB. Reject unknown fields, duplicate keys and invalid types. Cache duration and correlation live in Broker configuration/state, not body.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -162,60 +148,38 @@
                   "$ref": "#/components/schemas/AclResponse"
                 },
                 "examples": {
-                  "ok": {
+                  "basic": {
                     "value": {
-                      "api_version": 1,
-                      "request_id": "acl-01",
-                      "result": "ok",
-                      "principal": "user:42",
-                      "revision": "policy-17",
-                      "ttl_seconds": 30,
-                      "connect": {
-                        "allow_client_id_prefixes": [
-                          "device-"
-                        ],
-                        "deny_client_id_prefixes": [
-                          "device-blocked-"
-                        ]
-                      },
-                      "rules": [
-                        {
-                          "id": "telemetry",
-                          "effect": "allow",
-                          "actions": [
-                            "publish"
-                          ],
-                          "topic_filter": "devices/device-001/telemetry"
-                        },
-                        {
-                          "id": "commands",
-                          "effect": "allow",
-                          "actions": [
-                            "subscribe",
-                            "receive"
-                          ],
-                          "topic_filter": "devices/device-001/commands/#"
-                        },
-                        {
-                          "id": "system",
-                          "effect": "deny",
-                          "actions": [
-                            "publish",
-                            "subscribe",
-                            "receive"
-                          ],
-                          "topic_filter": "$SYS/#"
-                        }
+                      "publish": [
+                        "devices/device-001/telemetry"
+                      ],
+                      "subscribe": [
+                        "devices/device-001/commands/#"
                       ]
                     }
                   },
-                  "deny-not_authorized": {
+                  "advanced": {
                     "value": {
-                      "api_version": 1,
-                      "request_id": "acl-01",
-                      "result": "deny",
-                      "principal": "user:42",
-                      "reason": "not_authorized"
+                      "client_id_prefix": "device-",
+                      "publish": [
+                        "devices/#"
+                      ],
+                      "subscribe": [
+                        "devices/#"
+                      ],
+                      "deny": {
+                        "publish": [
+                          "devices/private/#"
+                        ],
+                        "subscribe": [
+                          "devices/private/#"
+                        ]
+                      }
+                    }
+                  },
+                  "deny": {
+                    "value": {
+                      "result": "deny"
                     }
                   }
                 }
@@ -223,7 +187,7 @@
             }
           },
           "default": {
-            "description": "Backend unavailable or protocol error, not a MQTT user decision. 401/403 service access credentials; 404 endpoint; 429/503 overload/unavailable. Body ignored, never auto-fallback."
+            "description": "Service failure. 401/403 service credentials/access, 404 endpoint, 429/503 overload/unavailable. Never implicit allow, user-not-found or anonymous fallback."
           }
         }
       }
@@ -234,21 +198,14 @@
       "ServiceToken": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Broker service credential, never MQTT user password."
+        "description": "Broker-to-service credential; not MQTT user password."
       },
       "ClientCertificate": {
         "type": "mutualTLS"
       }
     },
     "schemas": {
-      "RequestId": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 64,
-        "x-max-utf8-bytes": 64,
-        "pattern": "^[A-Za-z0-9_-]+$"
-      },
-      "Principal": {
+      "UserId": {
         "type": "string",
         "minLength": 1,
         "maxLength": 256,
@@ -259,34 +216,9 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "api_version",
-          "request_id",
-          "stage",
-          "client_id",
-          "username",
-          "password_base64",
-          "mqtt_version",
-          "transport",
-          "peer_ip",
-          "peer_port",
-          "authentication_method",
-          "current_principal"
+          "client_id"
         ],
         "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
-          "stage": {
-            "type": "string",
-            "enum": [
-              "connect",
-              "reauthenticate"
-            ]
-          },
           "client_id": {
             "type": "string",
             "minLength": 1,
@@ -306,6 +238,19 @@
               }
             ]
           },
+          "password": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 65535,
+                "x-max-utf8-bytes": 65535
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "password_base64": {
             "oneOf": [
               {
@@ -313,62 +258,7 @@
                 "maxLength": 87380,
                 "contentEncoding": "base64",
                 "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                "description": "Canonical RFC4648 base64; decoded bytes <=65535; null absent, empty string explicitly empty. Never interpret as UTF-8."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "mqtt_version": {
-            "type": "string",
-            "enum": [
-              "3.1.1",
-              "5.0"
-            ]
-          },
-          "transport": {
-            "type": "string",
-            "enum": [
-              "tcp",
-              "tls",
-              "ws",
-              "wss"
-            ]
-          },
-          "peer_ip": {
-            "type": "string",
-            "maxLength": 45,
-            "anyOf": [
-              {
-                "format": "ipv4"
-              },
-              {
-                "format": "ipv6"
-              }
-            ],
-            "description": "Actual TCP peer, no forwarded-header trust, IPv6 brackets or scope IDs."
-          },
-          "peer_port": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 65535
-          },
-          "authentication_method": {
-            "oneOf": [
-              {
-                "const": "PLAIN",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "current_principal": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/Principal"
+                "description": "Only for non-UTF8 passwords. Canonical RFC4648, decoded <=65535 bytes. Never include together with password, including null."
               },
               {
                 "type": "null"
@@ -376,77 +266,27 @@
             ]
           }
         },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "stage": {
-                  "const": "connect"
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "current_principal": {
-                  "type": "null"
-                }
-              }
-            },
-            "else": {
-              "properties": {
-                "current_principal": {
-                  "$ref": "#/components/schemas/Principal"
-                },
-                "mqtt_version": {
-                  "const": "5.0"
-                },
-                "authentication_method": {
-                  "const": "PLAIN"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "authentication_method": {
-                  "const": "PLAIN"
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "mqtt_version": {
-                  "const": "5.0"
-                }
-              }
-            }
-          }
-        ]
+        "not": {
+          "required": [
+            "password",
+            "password_base64"
+          ]
+        }
       },
       "AuthAllow": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "api_version",
-          "request_id",
           "result",
-          "principal"
+          "user_id"
         ],
         "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
           "result": {
-            "const": "allow",
-            "type": "string"
+            "type": "string",
+            "const": "allow"
           },
-          "principal": {
-            "$ref": "#/components/schemas/Principal"
+          "user_id": {
+            "$ref": "#/components/schemas/UserId"
           }
         }
       },
@@ -454,51 +294,20 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "api_version",
-          "request_id",
-          "result",
-          "reason"
+          "result"
         ],
         "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
           "result": {
-            "const": "deny",
-            "type": "string"
+            "type": "string",
+            "const": "deny"
           },
           "reason": {
             "type": "string",
             "enum": [
               "bad_credentials",
               "not_authorized"
-            ]
-          }
-        }
-      },
-      "AuthNotFound": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "api_version",
-          "request_id",
-          "result"
-        ],
-        "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
-          "result": {
-            "const": "not_found",
-            "type": "string"
+            ],
+            "default": "bad_credentials"
           }
         }
       },
@@ -509,9 +318,6 @@
           },
           {
             "$ref": "#/components/schemas/AuthDeny"
-          },
-          {
-            "$ref": "#/components/schemas/AuthNotFound"
           }
         ]
       },
@@ -519,188 +325,106 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "api_version",
-          "request_id",
-          "principal"
+          "user_id"
         ],
         "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
-          "principal": {
-            "$ref": "#/components/schemas/Principal"
+          "user_id": {
+            "$ref": "#/components/schemas/UserId"
           }
         }
       },
-      "ConnectPolicy": {
+      "DenyFilters": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "allow_client_id_prefixes",
-          "deny_client_id_prefixes"
-        ],
+        "required": [],
         "properties": {
-          "allow_client_id_prefixes": {
+          "publish": {
             "type": "array",
+            "default": [],
             "maxItems": 128,
             "items": {
               "type": "string",
-              "minLength": 0,
+              "minLength": 1,
               "maxLength": 1024,
               "x-max-utf8-bytes": 1024,
-              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$"
+              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
             }
           },
-          "deny_client_id_prefixes": {
+          "subscribe": {
             "type": "array",
+            "default": [],
             "maxItems": 128,
             "items": {
               "type": "string",
-              "minLength": 0,
+              "minLength": 1,
               "maxLength": 1024,
               "x-max-utf8-bytes": 1024,
-              "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$"
+              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
             }
           }
         }
       },
-      "AclRule": {
+      "AclPolicy": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "effect",
-          "actions",
-          "topic_filter"
-        ],
+        "required": [],
         "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "x-max-utf8-bytes": 64,
-            "pattern": "^[A-Za-z0-9_-]+$"
-          },
-          "effect": {
-            "type": "string",
-            "enum": [
-              "allow",
-              "deny"
-            ]
-          },
-          "actions": {
+          "publish": {
             "type": "array",
-            "minItems": 1,
-            "maxItems": 3,
-            "uniqueItems": true,
+            "default": [],
+            "maxItems": 128,
             "items": {
               "type": "string",
-              "enum": [
-                "publish",
-                "subscribe",
-                "receive"
-              ]
+              "minLength": 1,
+              "maxLength": 1024,
+              "x-max-utf8-bytes": 1024,
+              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
             }
           },
-          "topic_filter": {
+          "subscribe": {
+            "type": "array",
+            "default": [],
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024,
+              "x-max-utf8-bytes": 1024,
+              "description": "Valid MQTT Topic Filter, no shared-subscription wrapper; semantic MQTT and UTF8-byte validation required."
+            }
+          },
+          "client_id_prefix": {
             "type": "string",
-            "minLength": 1,
+            "minLength": 0,
             "maxLength": 1024,
             "x-max-utf8-bytes": 1024,
-            "description": "Valid MQTT Topic Filter, no shared-subscription wrapper. MQTT validation and byte cap are normative."
+            "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]*$",
+            "default": ""
+          },
+          "deny": {
+            "$ref": "#/components/schemas/DenyFilters"
           }
-        }
-      },
-      "AclOk": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "api_version",
-          "request_id",
-          "result",
-          "principal",
-          "revision",
-          "ttl_seconds",
-          "connect",
-          "rules"
-        ],
-        "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
-          "result": {
-            "const": "ok",
-            "type": "string"
-          },
-          "principal": {
-            "$ref": "#/components/schemas/Principal"
-          },
-          "revision": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128,
-            "x-max-utf8-bytes": 128,
-            "pattern": "^[\\x21-\\x7e]+$"
-          },
-          "ttl_seconds": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 300
-          },
-          "connect": {
-            "$ref": "#/components/schemas/ConnectPolicy"
-          },
-          "rules": {
-            "type": "array",
-            "maxItems": 128,
-            "items": {
-              "$ref": "#/components/schemas/AclRule"
-            }
-          }
-        }
+        },
+        "x-max-total-filters": 128,
+        "description": "Complete snapshot. Missing lists mean no permissions. Subscribe lists govern both subscribing and actual receiving, including their deny lists. Missing client_id_prefix means no extra client range restriction. Explicit deny wins. At most128 filters across all four lists."
       },
       "AclDeny": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "api_version",
-          "request_id",
-          "result",
-          "principal",
-          "reason"
+          "result"
         ],
         "properties": {
-          "api_version": {
-            "type": "integer",
-            "const": 1
-          },
-          "request_id": {
-            "$ref": "#/components/schemas/RequestId"
-          },
           "result": {
-            "const": "deny",
-            "type": "string"
-          },
-          "principal": {
-            "$ref": "#/components/schemas/Principal"
-          },
-          "reason": {
             "type": "string",
-            "const": "not_authorized"
+            "const": "deny"
           }
         }
       },
       "AclResponse": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/AclOk"
+            "$ref": "#/components/schemas/AclPolicy"
           },
           {
             "$ref": "#/components/schemas/AclDeny"
