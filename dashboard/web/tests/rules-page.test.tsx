@@ -11,14 +11,23 @@ import {
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { RulesPage } from "../src/RulesPage";
 import { api, ApiError } from "../src/api";
-import { defaultOutbound, type RulesConfig } from "../src/rules-model";
+import {
+  defaultOutbound,
+  type RulesConfig,
+  type WebhookOutbound,
+} from "../src/rules-model";
 vi.mock("../src/api", async (original) => ({
   ...(await original<typeof import("../src/api")>()),
   api: vi.fn(),
 }));
 const request = vi.mocked(api);
+function firstWebhook(config: RulesConfig): WebhookOutbound {
+  const o = config.outbounds[0];
+  expect(o.type).toBe("webhook");
+  return o as WebhookOutbound;
+}
 const empty: RulesConfig = { schema_version: 2, outbounds: [], rules: [] };
-const populated: RulesConfig = {
+const populated: RulesConfig & { outbounds: WebhookOutbound[] } = {
   schema_version: 2,
   outbounds: [
     {
@@ -154,8 +163,7 @@ describe("live rule and Webhook management", () => {
       ([, , , options]) => options?.method === "PUT",
     );
     expect(
-      (call?.[3]?.body as RulesConfig).outbounds[0].config.headers
-        .Authorization,
+      firstWebhook(call?.[3]?.body as RulesConfig).config.headers.Authorization,
     ).toBe("Bearer private-value");
     const savedOutbound = (call?.[3]?.body as RulesConfig).outbounds[0];
     expect(savedOutbound.id).toMatch(/^out_[A-Za-z0-9-]+$/);
@@ -181,11 +189,11 @@ describe("live rule and Webhook management", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(
-      (
+      firstWebhook(
         request.mock.calls.find(
           ([, , , options]) => options?.method === "PUT",
-        )?.[3]?.body as RulesConfig
-      ).outbounds[0].config.headers.Authorization,
+        )?.[3]?.body as RulesConfig,
+      ).config.headers.Authorization,
     ).toBe("[redacted]");
     expect(
       (
@@ -294,7 +302,7 @@ describe("live rule and Webhook management", () => {
   it("rejects unknown outbound types without interpreting them as Webhook", async () => {
     server({
       ...empty,
-      outbounds: [{ ...defaultOutbound(), type: "kafka" }],
+      outbounds: [{ ...defaultOutbound(), type: "future-kind" }],
     } as unknown as RulesConfig);
     render(<RulesPage token="token" expired={expired} />);
     await waitFor(() =>
@@ -644,7 +652,7 @@ describe("outbound request observations", () => {
 describe("Webhook basic and advanced settings", () => {
   const writes = () =>
     request.mock.calls.filter((call) => call[3]?.method === "PUT");
-  const saved = () => (writes().at(-1)?.[3]?.body as RulesConfig).outbounds[0];
+  const saved = () => firstWebhook(writes().at(-1)?.[3]?.body as RulesConfig);
   async function fresh() {
     server();
     render(<RulesPage token="token" expired={expired} />);
@@ -672,7 +680,6 @@ describe("Webhook basic and advanced settings", () => {
       "最多尝试次数",
       "重试基础间隔（ms）",
       "队列容量（条）",
-      "出站类型",
       "启用",
     ])
       expect(screen.queryByLabelText(label)).toBeNull();

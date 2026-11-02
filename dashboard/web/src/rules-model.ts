@@ -1,3 +1,9 @@
+import {
+  defaultKafkaConfig,
+  validateKafka,
+  type KafkaConfig,
+} from "./kafka-model";
+export type { KafkaConfig, KafkaSecurity, KafkaProtocol } from "./kafka-model";
 export interface RuleDefinition {
   id: string;
   name: string;
@@ -18,13 +24,77 @@ export interface DeliveryPolicy {
   max_attempts: number;
   retry_base_ms: number;
 }
-export interface Outbound {
+interface OutboundBase {
   id: string;
   name: string;
   enabled: boolean;
+  delivery: DeliveryPolicy;
+}
+export interface WebhookOutbound extends OutboundBase {
   type: "webhook";
   config: WebhookConfig;
-  delivery: DeliveryPolicy;
+}
+export interface KafkaOutbound extends OutboundBase {
+  type: "kafka";
+  config: KafkaConfig;
+}
+export type Outbound = WebhookOutbound | KafkaOutbound;
+export const defaultKafkaOutbound = (): KafkaOutbound => ({
+  id: "",
+  name: "",
+  enabled: true,
+  type: "kafka",
+  config: defaultKafkaConfig(),
+  delivery: {
+    concurrency: 128,
+    batch_size: 1,
+    batch_wait_ms: 0,
+    queue_capacity: 256,
+    timeout_ms: 30000,
+    max_attempts: 3,
+    retry_base_ms: 200,
+  },
+});
+export function switchOutboundType(
+  outbound: Outbound,
+  type: Outbound["type"],
+): Outbound {
+  if (outbound.type === type) return outbound;
+  return {
+    ...(type === "kafka" ? defaultKafkaOutbound() : defaultOutbound()),
+    id: outbound.id,
+    name: outbound.name,
+    enabled: outbound.enabled,
+  };
+}
+export function outboundTarget(outbound: Outbound): string {
+  return outbound.type === "kafka"
+    ? `Kafka · ${outbound.config.brokers.join(", ")} / ${outbound.config.topic}`
+    : `Webhook · ${outbound.config.url}`;
+}
+export function outboundError(code: string | null, type: string): string {
+  if (!code) return "—";
+  if (type !== "kafka") return code;
+  const kafkaErrors: Record<string, string> = {
+    kafka_delivery: "Kafka 投递未成功，请检查服务和重试设置",
+    kafka_queue_full: "发送目标暂时繁忙，请稍后重试",
+    kafka_event: "消息格式无法发送，请检查规则输出",
+    kafka_closed: "出站已停止，请检查运行状态",
+    kafka_batch: "发送配置无效，请检查后重试",
+    kafka_cancelled: "发送已暂停，请检查出站状态",
+    kafka_shutdown: "出站暂时无法恢复，请检查运行状态",
+  };
+  if (kafkaErrors[code]) return kafkaErrors[code];
+  if (/auth|sasl|credential/i.test(code))
+    return "Kafka 认证失败，请检查用户名、密码和认证方式";
+  if (/tls|ssl|certificate/i.test(code))
+    return "Kafka 安全连接失败，请检查证书和服务器地址";
+  if (/size|large/i.test(code)) return "消息超出目标允许的大小";
+  if (/key/i.test(code)) return "消息 Key 字段不存在或不是字符串";
+  if (/topic/i.test(code)) return "Kafka Topic 不可用或没有写入权限";
+  if (/timeout|transport|network|connect/i.test(code))
+    return "Kafka 暂时不可达或投递超时";
+  return "Kafka 投递失败，请检查目标配置和运行状态";
 }
 export interface RulesConfig {
   schema_version: 2;
@@ -72,7 +142,7 @@ export interface RuleEvent {
   timestamp_ms: number;
 }
 export const SQL_EXAMPLE = `SELECT client_id, topic AS source_topic, payload.temperature AS temperature\nFROM "devices/+/telemetry"\nWHERE payload.temperature >= 80`;
-export const defaultOutbound = (): Outbound => ({
+export const defaultOutbound = (): WebhookOutbound => ({
   id: "",
   name: "",
   enabled: true,
@@ -180,18 +250,40 @@ export function validateWebhook(connector: WebhookConfig): string | null {
 export function validateOutbound(outbound: Outbound): string | null {
   const identity = validateIdentity(outbound.id, outbound.name);
   if (identity) return identity;
-  if (outbound.type !== "webhook") return "暂不支持此出站类型";
-  const destination = validateWebhook(outbound.config);
+  if (outbound.type !== "webhook" && outbound.type !== "kafka")
+    return "暂不支持此出站类型";
+  const destination =
+    outbound.type === "kafka"
+      ? validateKafka(outbound.config)
+      : validateWebhook(outbound.config);
   if (destination) return destination;
-  return validateDeliveryPolicy(outbound.delivery);
+  return validateDeliveryPolicy(outbound.delivery, outbound.type);
 }
-export function validateDeliveryPolicy(action: DeliveryPolicy): string | null {
+export function validateDeliveryPolicy(
+  action: DeliveryPolicy,
+  type: Outbound["type"] = "webhook",
+): string | null {
+  if (
+    type === "kafka" &&
+    (action.batch_size !== 1 || action.batch_wait_ms !== 0)
+  )
+    return "Kafka 投递参数无效，请重新选择出站类型";
   const bounds: [number, number, number, string][] = [
-    [action.concurrency, 1, 16, "并发请求数"],
+    [
+      action.concurrency,
+      1,
+      type === "kafka" ? 512 : 16,
+      type === "kafka" ? "并发发送数" : "并发请求数",
+    ],
     [action.batch_size, 1, 500, "批量条数"],
     [action.batch_wait_ms, 0, 1000, "批量等待"],
     [action.queue_capacity, 1, 4096, "队列容量"],
-    [action.timeout_ms, 100, 30000, "请求超时"],
+    [
+      action.timeout_ms,
+      type === "kafka" ? 1000 : 100,
+      30000,
+      type === "kafka" ? "投递超时" : "请求超时",
+    ],
     [action.max_attempts, 1, 5, "最多尝试次数"],
     [action.retry_base_ms, 10, 10000, "重试基础间隔"],
   ];
@@ -235,4 +327,35 @@ export function testEvent(
     retain: false,
     timestamp_ms: Date.now(),
   };
+}
+
+export function isSupportedOutbound(value: unknown): value is Outbound {
+  if (!value || typeof value !== "object") return false;
+  const o = value as Outbound;
+  if (!o.config || typeof o.config !== "object") return false;
+  if (o.type === "webhook")
+    return (
+      typeof o.config.url === "string" &&
+      !!o.config.headers &&
+      typeof o.config.headers === "object"
+    );
+  return (
+    o.type === "kafka" &&
+    Array.isArray(o.config.brokers) &&
+    o.config.brokers.every((b) => typeof b === "string") &&
+    typeof o.config.topic === "string" &&
+    !!o.config.security &&
+    typeof o.config.security.protocol === "string"
+  );
+}
+export function validateRulesLimits(config: RulesConfig): string | null {
+  if (config.outbounds.length > 64 || config.rules.length > 128)
+    return "规则或出站数量超出上限";
+  if (
+    config.outbounds.filter((o) => o.type === "kafka" && o.enabled).length > 8
+  )
+    return "最多同时启用 8 个 Kafka 出站";
+  if (encoder.encode(JSON.stringify(config)).length > 64 * 1024)
+    return "配置总大小不能超过 64 KiB，请缩减证书或配置内容";
+  return null;
 }

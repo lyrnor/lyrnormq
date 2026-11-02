@@ -1,3 +1,5 @@
+import { validateKafkaAdvanced } from "./kafka-model";
+import { KafkaFields, KafkaAdvancedFields } from "./KafkaFields";
 import { ChevronDown } from "lucide-react";
 import {
   useCallback,
@@ -37,6 +39,11 @@ import { bytes } from "./model";
 import {
   SQL_EXAMPLE,
   defaultOutbound,
+  switchOutboundType,
+  outboundTarget,
+  outboundError,
+  isSupportedOutbound,
+  validateRulesLimits,
   createResourceId,
   validateName,
   deletionError,
@@ -116,7 +123,7 @@ export function RulesPage({
         if (
           next.schema_version !== 2 ||
           !Array.isArray(next.outbounds) ||
-          next.outbounds.some((outbound) => outbound.type !== "webhook")
+          next.outbounds.some((outbound) => !isSupportedOutbound(outbound))
         ) {
           throw new ApiError(422, "当前配置暂不受支持，请更新页面后重试");
         }
@@ -173,6 +180,11 @@ export function RulesPage({
   }, [load, token, onError]);
   async function save(next: RulesConfig): Promise<boolean> {
     if (saving.current || stopped) return false;
+    const limits = validateRulesLimits(next);
+    if (limits) {
+      setError(limits);
+      return false;
+    }
     saving.current = true;
     requests.current.load?.abort();
     requests.current.save?.abort();
@@ -237,6 +249,8 @@ export function RulesPage({
         ? [...list, value]
         : list.map((item) => (item.id === value.id ? value : item)),
     };
+    const limitIssue = validateRulesLimits(next);
+    if (limitIssue) throw new Error(limitIssue);
     if (await save(next)) setEdit(null);
     else
       throw new Error(
@@ -275,10 +289,7 @@ export function RulesPage({
         <Button
           size="sm"
           variant="ghost"
-          disabled={
-            busy ||
-            (kind === "outbounds" && (item as Outbound).type !== "webhook")
-          }
+          disabled={busy}
           aria-label={`编辑 ${item.name}`}
           onClick={() => setEdit({ kind, value: item, fresh: false })}
         >
@@ -483,9 +494,7 @@ export function RulesPage({
                           </TableCell>
                           <TableCell>
                             <p className="font-mono text-xs">
-                              {action.type === "webhook"
-                                ? `Webhook · ${action.config.url}`
-                                : "暂不支持的出站类型"}
+                              {outboundTarget(action)}
                             </p>
                           </TableCell>
                           <TableCell>
@@ -586,7 +595,7 @@ export function RulesPage({
                       <TableCell key={i}>{count.toLocaleString()}</TableCell>
                     ))}
                     <TableCell className="max-w-52 truncate text-xs text-muted-foreground">
-                      {action.last_error || "—"}
+                      {outboundError(action.last_error, action.type)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -691,13 +700,14 @@ function Editor({
   }, [advancedOpen, focusAdvancedIssue]);
   const [draft, setDraft] = useState(edit.value),
     [error, setError] = useState<string | null>(null);
-  const [headers, setHeaders] = useState(() =>
-    Object.entries(
-      edit.kind === "outbounds" && (edit.value as Outbound).type === "webhook"
-        ? (edit.value as Outbound).config.headers
+  const [headers, setHeaders] = useState(() => {
+    const outbound = edit.value as Outbound;
+    return Object.entries(
+      edit.kind === "outbounds" && outbound.type === "webhook"
+        ? outbound.config.headers
         : {},
-    ).map(([key, value]) => ({ key, value })),
-  );
+    ).map(([key, value]) => ({ key, value }));
+  });
   function patch(value: Record<string, unknown>) {
     setDraft((old) => ({ ...old, ...value }));
   }
@@ -718,20 +728,26 @@ function Editor({
         issue = "存在无效出站引用";
     } else {
       const outbound = draft as Outbound;
-      if (
-        new Set(headers.map((h) => h.key.toLowerCase())).size !== headers.length
-      ) {
-        setError("请求头名称重复");
-        return;
+      if (outbound.type === "webhook") {
+        if (
+          new Set(headers.map((h) => h.key.toLowerCase())).size !==
+          headers.length
+        ) {
+          setError("请求头名称重复");
+          return;
+        }
+        next = {
+          ...outbound,
+          config: {
+            ...outbound.config,
+            headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
+          },
+        };
       }
-      next = {
-        ...outbound,
-        config: {
-          ...outbound.config,
-          headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
-        },
-      };
-      if (validateDeliveryPolicy(outbound.delivery)) {
+      if (
+        validateDeliveryPolicy(outbound.delivery, outbound.type) ||
+        (outbound.type === "kafka" && validateKafkaAdvanced(outbound.config))
+      ) {
         setAdvancedOpen(true);
         setFocusAdvancedIssue(true);
       }
@@ -815,7 +831,7 @@ function Editor({
                     {config.outbounds.filter((other) => other.name === a.name)
                       .length > 1 && (
                       <span className="truncate text-muted-foreground">
-                        Webhook · {a.config.url}
+                        {outboundTarget(a)}
                       </span>
                     )}
                   </Label>
@@ -830,6 +846,34 @@ function Editor({
           </>
         )}
         {edit.kind === "outbounds" && (
+          <Field label="出站类型">
+            <SingleSelect
+              aria-label="出站类型"
+              value={action.type}
+              disabled={busy}
+              options={[
+                { value: "webhook", label: "Webhook" },
+                { value: "kafka", label: "Kafka" },
+              ]}
+              onValueChange={(value) => {
+                if (value !== "webhook" && value !== "kafka") return;
+                if (value === action.type) return;
+                setDraft(switchOutboundType(action, value));
+                setHeaders([]);
+                setError(null);
+                setAdvancedOpen(false);
+              }}
+            />
+          </Field>
+        )}
+        {edit.kind === "outbounds" && action.type === "kafka" && (
+          <KafkaFields
+            value={action.config}
+            onChange={(config) => patch({ config })}
+            busy={busy}
+          />
+        )}
+        {edit.kind === "outbounds" && action.type === "webhook" && (
           <>
             <Field label="Webhook 地址">
               <Input
@@ -933,34 +977,35 @@ function Editor({
                 />
                 <Label htmlFor={enabledId}>启用</Label>
               </div>
-              <Field label="出站类型">
-                <SingleSelect
-                  aria-label="出站类型"
-                  value={action.type}
-                  disabled={busy || !edit.fresh}
-                  onValueChange={(value) => {
-                    if (value === "webhook") patch({ type: "webhook" });
-                  }}
-                  options={[
-                    { value: "webhook", label: "Webhook" },
-                    ...(action.type !== "webhook"
-                      ? [
-                          {
-                            value: action.type,
-                            label: "暂不支持的出站类型",
-                            disabled: true,
-                          },
-                        ]
-                      : []),
-                  ]}
+              {action.type === "kafka" && (
+                <KafkaAdvancedFields
+                  value={action.config}
+                  onChange={(config) => patch({ config })}
+                  busy={busy}
                 />
-              </Field>
+              )}
               {(
                 [
-                  ["concurrency", "并发请求数", 1, 16],
-                  ["batch_size", "批量条数", 1, 500],
-                  ["batch_wait_ms", "批量等待（ms）", 0, 1000],
-                  ["timeout_ms", "请求超时（ms）", 100, 30000],
+                  [
+                    "concurrency",
+                    action.type === "kafka" ? "并发发送数" : "并发请求数",
+                    1,
+                    action.type === "kafka" ? 512 : 16,
+                  ],
+                  ...(action.type === "webhook"
+                    ? ([
+                        ["batch_size", "批量条数", 1, 500],
+                        ["batch_wait_ms", "批量等待（ms）", 0, 1000],
+                      ] as const)
+                    : []),
+                  [
+                    "timeout_ms",
+                    action.type === "kafka"
+                      ? "投递超时（ms）"
+                      : "请求超时（ms）",
+                    action.type === "kafka" ? 1000 : 100,
+                    30000,
+                  ],
                   ["max_attempts", "最多尝试次数", 1, 5],
                   ["retry_base_ms", "重试基础间隔（ms）", 10, 10000],
                 ] as const
