@@ -694,6 +694,16 @@ impl Actor {
             match outcome {
                 Ok(value) => break value,
                 Err(error) => {
+                    // Even an error can have been produced by a speculative
+                    // policy. Only report a verdict from a current attempt.
+                    let error = if attempt.as_ref().is_some_and(|attempt| !attempt.seal()) {
+                        failure(
+                            ReasonCode::SERVER_UNAVAILABLE,
+                            "access policy changed before verdict",
+                        )
+                    } else {
+                        error
+                    };
                     let _ = reply.send(Err(error));
                     return;
                 }

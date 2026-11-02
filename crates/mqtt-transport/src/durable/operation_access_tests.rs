@@ -111,10 +111,13 @@ impl RemoteAccess for Provider {
     }
 }
 async fn worker() -> (Worker, Arc<Remote>) {
+    worker_with_policy(Arc::new(Granted)).await
+}
+async fn worker_with_policy(access_control: Arc<dyn AccessControl>) -> (Worker, Arc<Remote>) {
     let remote = Arc::new(Remote::default());
     let broker = Broker::start(
         BrokerConfig {
-            access_control: Arc::new(Granted),
+            access_control,
             remote_access: Some(Arc::new(Provider(remote.clone()))),
             ..BrokerConfig::default()
         },
@@ -126,7 +129,7 @@ async fn worker() -> (Worker, Arc<Remote>) {
     let worker = Worker::new(broker);
     let (wake, _) = watch::channel(0);
     let (cancel, _) = watch::channel(false);
-    worker
+    let reply = worker
         .request(Operation::Connect {
             client: "source".into(),
             clean: true,
@@ -139,6 +142,7 @@ async fn worker() -> (Worker, Arc<Remote>) {
         })
         .await
         .unwrap();
+    assert!(matches!(reply, Reply::Connected(_)));
     (worker, remote)
 }
 async fn send(worker: &Worker, packet: Packet) -> io::Result<Reply> {
@@ -227,5 +231,39 @@ async fn mixed_subscribe_filters_use_per_filter_denials_and_invalid_packets_neve
         .is_err()
     );
     assert_eq!(remote.calls.load(Ordering::Relaxed), 1);
+    worker.broker.shutdown().await.unwrap();
+}
+
+#[derive(Debug)]
+struct LocalReject;
+impl AccessControl for LocalReject {
+    fn authenticate(&self, _: ConnectInfo<'_>) -> Result<Principal, AuthError> {
+        Err(AuthError::BadCredentials)
+    }
+    fn authorize(&self, _: &Principal, _: Action, _: &str) -> bool {
+        false
+    }
+}
+#[tokio::test]
+async fn authenticated_connect_uses_the_attempt_admission_policy_instead_of_local_credentials() {
+    let (worker, remote) = worker_with_policy(Arc::new(LocalReject)).await;
+    assert_eq!(
+        remote.calls.load(Ordering::Relaxed),
+        0,
+        "CONNECT must not probe remote ACLs"
+    );
+    send(&worker, publication(1, false)).await.unwrap();
+    assert_eq!(remote.calls.load(Ordering::Relaxed), 1);
+    worker.broker.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_denial_from_a_retired_attempt_is_unavailable_instead_of_a_business_verdict() {
+    let (worker, remote) = worker().await;
+    remote.deny.store(true, Ordering::Relaxed);
+    remote.stale.store(true, Ordering::Relaxed);
+    let error = send(&worker, publication(1, false)).await.err().unwrap();
+    assert_eq!(reason(&error), Some(ReasonCode::SERVER_UNAVAILABLE));
+    assert!(worker.broker.retained_for(&[("#".into(), 1)]).is_empty());
     worker.broker.shutdown().await.unwrap();
 }
