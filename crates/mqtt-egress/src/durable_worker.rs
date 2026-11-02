@@ -87,12 +87,12 @@ async fn run(
 ) {
     let mut changed = context.queue.changed.subscribe();
     let mut memory = context.counters.memory_changed.subscribe();
-    let mut jobs = JoinSet::<(String, bool)>::new();
+    let mut jobs = JoinSet::<(String, Option<usize>)>::new();
     let mut busy = BTreeSet::new();
     let mut fair_cursor = None;
     let mut scan = true;
     let mut next_due = None;
-    let mut capacity_blocked = false;
+    let mut capacity_blocked: Option<usize> = None;
     'run: loop {
         if *cancel.borrow() || context.stopped.load(Ordering::Acquire) {
             break;
@@ -111,7 +111,20 @@ async fn run(
                 }
             }
         }
-        if scan && !capacity_blocked && jobs.len() < action.concurrency {
+        if let Some(required) = capacity_blocked {
+            // Observe the epoch before checking availability: a later release
+            // remains unseen, while our own metadata release cannot cause a
+            // retry until the actual payload window fits.
+            let _ = *memory.borrow_and_update();
+            if crate::counters::MAX_BYTES
+                .saturating_sub(context.counters.bytes.load(Ordering::Acquire))
+                >= required
+            {
+                capacity_blocked = None;
+                scan = true;
+            }
+        }
+        if scan && capacity_blocked.is_none() && jobs.len() < action.concurrency {
             scan = false;
             next_due = None;
             // One fair circular pass, never a fixed hash lane. Each bounded RPC
@@ -179,18 +192,19 @@ async fn run(
                 }
             }
         }
-        let wake_due = next_due.filter(|_| jobs.len() < action.concurrency && !capacity_blocked);
+        let wake_due =
+            next_due.filter(|_| jobs.len() < action.concurrency && capacity_blocked.is_none());
         tokio::select! {biased;
             _=cancel.changed()=>break,
             result=jobs.join_next(),if !jobs.is_empty()=>match result{Some(Ok((client,capacity)))=>{busy.remove(&client);capacity_blocked=capacity;scan=true;},Some(Err(_))=>{last_error(&stats,Some("worker_failed"));context.stopped.store(true,Ordering::Release);break},None=>{}},
-            result=memory.changed(),if capacity_blocked=>{if result.is_err(){break}scan=true;capacity_blocked=false;},
-            result=changed.changed()=>{if result.is_err(){break}scan=true;capacity_blocked=false;},
+            result=memory.changed(),if capacity_blocked.is_some()=>{if result.is_err(){break}},
+            result=changed.changed()=>{if result.is_err(){break}scan=true;capacity_blocked=None;},
             _=async { match wake_due{Some(due)=>tokio::time::sleep(Duration::from_millis(due.saturating_sub(now_ms()).min(30000))).await,None=>std::future::pending::<()>().await}}=>{scan=true;next_due=None;},
         }
     }
     jobs.shutdown().await;
 }
-// true means a bounded body window could not be reserved: leave disk work intact.
+// Some(required) leaves disk work intact until that exact memory window fits.
 async fn deliver(
     action: Arc<Outbound>,
     sink: Arc<dyn Sink>,
@@ -198,7 +212,7 @@ async fn deliver(
     context: Arc<Context>,
     mut cancel: watch::Receiver<bool>,
     head: RecordMeta,
-) -> bool {
+) -> Option<usize> {
     if head.failures >= action.max_attempts {
         return terminal(
             &context,
@@ -211,7 +225,7 @@ async fn deliver(
         .await;
     }
     if action.batch_wait_ms > 0 && !head.inflight && head.failures == 0 {
-        tokio::select! {biased;_=cancel.changed()=>return false,_=tokio::time::sleep(Duration::from_millis(action.batch_wait_ms))=>{}}
+        tokio::select! {biased;_=cancel.changed()=>return None,_=tokio::time::sleep(Duration::from_millis(action.batch_wait_ms))=>{}}
     }
     let limits = sink.limits();
     let count = action.batch_size.min(limits.max_events).clamp(1, 64);
@@ -230,19 +244,18 @@ async fn deliver(
         )
         .await;
     }
-    let Some(plan_memory) = Budget::metadata(
-        &context.counters,
-        head.client_id
-            .len()
-            .saturating_add(256)
-            .saturating_mul(count),
-    ) else {
-        return true;
+    let plan_required = head
+        .client_id
+        .len()
+        .saturating_add(256)
+        .saturating_mul(count);
+    let Some(plan_memory) = Budget::metadata(&context.counters, plan_required) else {
+        return Some(plan_required);
     };
-    let plan = tokio::select! {biased;_=cancel.changed()=>return false,plan=context.queue.plan(head.id,count,bytes)=>plan};
+    let plan = tokio::select! {biased;_=cancel.changed()=>return None,plan=context.queue.plan(head.id,count,bytes)=>plan};
     let plan = match plan {
         Ok(plan) => plan,
-        Err(_) => return false,
+        Err(_) => return None,
     };
     let mut packed = limits.overhead;
     let mut raw = 0usize;
@@ -280,14 +293,14 @@ async fn deliver(
     let Some(mut budget) =
         Budget::reserve(&context.counters, reservation, Some(Arc::clone(&stats)))
     else {
-        return true;
+        return Some(reservation);
     };
     let count = take;
     let bytes = raw.max(1);
-    let batch = tokio::select! {biased;_=cancel.changed()=>return false,batch=context.queue.read(head.id,count,bytes)=>batch};
+    let batch = tokio::select! {biased;_=cancel.changed()=>return None,batch=context.queue.read(head.id,count,bytes)=>batch};
     let mut batch = match batch {
         Ok(batch) => batch,
-        Err(_) => return false,
+        Err(_) => return None,
     };
     let mut size = limits.overhead;
     let mut take = 0;
@@ -326,14 +339,14 @@ async fn deliver(
         )
         .await;
     }
-    let permit = tokio::select! {biased;_=cancel.changed()=>return false,permit=Arc::clone(&context.global).acquire_owned()=>permit.ok()};
-    let Some(permit) = permit else { return false };
+    let permit = tokio::select! {biased;_=cancel.changed()=>return None,permit=Arc::clone(&context.global).acquire_owned()=>permit.ok()};
+    let permit = permit?;
     if *cancel.borrow() || context.stopped.load(Ordering::Acquire) {
-        return false;
+        return None;
     }
-    let begun = tokio::select! {biased;_=cancel.changed()=>return false,result=context.queue.begin(ids.clone())=>result};
+    let begun = tokio::select! {biased;_=cancel.changed()=>return None,result=context.queue.begin(ids.clone())=>result};
     if begun.is_err() {
-        return false;
+        return None;
     }
     let response = {
         let _active = AttemptGuard::new(Arc::clone(&context.counters), Arc::clone(&stats));
@@ -346,7 +359,7 @@ async fn deliver(
             .iter()
             .map(|record| record.payload.as_slice())
             .collect();
-        tokio::select! {biased;_=cancel.changed()=>return false,result=tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events))=>match result{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:FailureKind::Retryable,code:"timeout".into()})}}
+        tokio::select! {biased;_=cancel.changed()=>return None,result=tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events))=>match result{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:FailureKind::Retryable,code:"timeout".into()})}}
     };
     drop(permit);
     match response {
@@ -385,7 +398,7 @@ async fn deliver(
                 .min(30000);
             let when = now_ms().saturating_add(delay);
             if context.queue.retry(ids.clone(), when).await.is_err() {
-                return false;
+                return None;
             }
             if failures >= action.max_attempts {
                 terminal(
@@ -399,7 +412,7 @@ async fn deliver(
                 .await
             } else {
                 last_error(&stats, Some(&error.code));
-                false
+                None
             }
         }
     }
@@ -411,7 +424,7 @@ async fn terminal(
     outcome: Completion,
     error: Option<&str>,
     count: usize,
-) -> bool {
+) -> Option<usize> {
     if context.queue.complete(ids, outcome).await.is_ok() {
         match outcome {
             Completion::Delivered => {
@@ -427,7 +440,7 @@ async fn terminal(
         }
         last_error(stats, error);
     }
-    false
+    None
 }
 
 #[cfg(test)]

@@ -360,3 +360,76 @@ async fn memory_release_without_journal_mutation_resumes_durable_head() {
     task.await.unwrap();
     q.close().await;
 }
+
+struct LargeSink(OpaqueSink);
+impl Sink for LargeSink {
+    fn limits(&self) -> mqtt_egress_core::BatchLimits {
+        mqtt_egress_core::BatchLimits {
+            max_bytes: 1024 * 1024,
+            max_events: 1,
+            overhead: 0,
+            separator_bytes: 0,
+        }
+    }
+    fn send<'a>(
+        &'a self,
+        events: &'a [&'a [u8]],
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<(), mqtt_egress_core::SendError>> + Send + 'a>,
+    > {
+        self.0.send(events)
+    }
+}
+#[tokio::test]
+async fn metadata_release_does_not_spin_when_payload_capacity_is_still_unavailable() {
+    let f = Fixture::new();
+    let counters = Arc::new(Counters::default());
+    let stopped = Arc::new(AtomicBool::new(false));
+    let (q, revision) = queue(&f, counters.clone(), stopped.clone()).await;
+    let payload = vec![255; 65536];
+    append(q.clone(), revision, payload.clone()).await;
+    let held = Budget::reserve(&counters, crate::counters::MAX_BYTES - 4096, None).unwrap();
+    let (sent, mut received) = mpsc::channel(4);
+    let sink = Arc::new(LargeSink(OpaqueSink {
+        attempts: AtomicUsize::new(0),
+        fail_first: false,
+        sent,
+    }));
+    let stats = Arc::new(ActionCounters::default());
+    let (cancel, rx) = watch::channel(false);
+    let context = Arc::new(Context {
+        queue: q.clone(),
+        global: Arc::new(Semaphore::new(16)),
+        counters,
+        stopped,
+    });
+    let mut policy = action();
+    policy.concurrency = 1;
+    let task = spawn(policy, sink, stats, context, rx);
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while q.queries() == 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    tokio::time::sleep(Duration::from_millis(120)).await;
+    let queries = q.queries();
+    assert!(received.try_recv().is_err());
+    drop(held);
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(1), received.recv())
+            .await
+            .unwrap()
+            .unwrap(),
+        vec![payload]
+    );
+    drained(&q).await;
+    cancel.send_replace(true);
+    task.await.unwrap();
+    q.close().await;
+    assert!(
+        queries <= 8,
+        "metadata-only budget releases retriggered {queries} actor queries"
+    );
+}
