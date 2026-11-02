@@ -180,6 +180,22 @@ class KafkaOutbound(unittest.TestCase):
         source=self.client('field-source');self.emit(source,[0],device=7);eventually(lambda:self.outbound()['failed']==1)
         self.emit(source,[1,2],device='stable-device');self.drained(2);rows=self.records(2)
         self.assertEqual([r['value']['seq'] for r in rows],[1,2]);self.assertTrue(all(r['key']=='stable-device' and r['headers']['rmqtt-client-id']=='field-source' for r in rows))
+    def test_custom_empty_and_unicode_keys_match_independent_murmur2_partitions(self):
+        oracle='rmqtt-oracle-'+uuid.uuid4().hex
+        self.helper('create',oracle,count=3)
+        keys=['', 'device-42', '设备🔑']
+        partitions={key:self.helper('partition',oracle,count=key)['partition'] for key in keys}
+        target=self.target();target['config']['key_field']='device'
+        self.start(self.config(target,[rule(sql='SELECT payload.seq AS seq, payload.device AS device FROM "kafka/real/#"')]))
+        source=self.client('key-source')
+        for key in keys:self.emit(source,range(8),device=key)
+        self.drained(24);records=self.records(25,1500)
+        self.assertEqual(len(records),24)
+        for key in keys:
+            lane=[r for r in records if r['key']==key]
+            self.assertEqual([r['value']['seq'] for r in lane],list(range(8)))
+            self.assertTrue(all(r['partition']==partitions[key] for r in lane))
+            self.assertTrue(all(r['value']['device']==key and r['headers']['rmqtt-client-id']=='key-source' for r in lane))
     def test_kafka_progresses_while_all_webhook_slots_are_held(self):
         gate=threading.Event();receiver=HttpReceiver(gate=gate);self.addCleanup(receiver.close);self.addCleanup(gate.set)
         http=settings(receiver.url,concurrency=16)['outbounds'][0];http['id']='http'
