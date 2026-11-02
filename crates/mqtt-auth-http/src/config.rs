@@ -25,18 +25,6 @@ impl fmt::Debug for ServiceAuth {
         f.debug_struct("ServiceAuth").finish_non_exhaustive()
     }
 }
-#[derive(Clone, Default, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct TlsOptions {
-    pub ca_pem: Option<String>,
-    pub certificate_pem: Option<String>,
-    pub private_key_pem: Option<String>,
-}
-impl fmt::Debug for TlsOptions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TlsOptions").finish_non_exhaustive()
-    }
-}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct BackendConfig {
@@ -50,7 +38,6 @@ pub struct BackendConfig {
     pub timeout_ms: u64,
     pub max_concurrency: usize,
     pub allow_http: bool,
-    pub tls: TlsOptions,
 }
 impl Default for BackendConfig {
     fn default() -> Self {
@@ -64,7 +51,6 @@ impl Default for BackendConfig {
             timeout_ms: 1000,
             max_concurrency: 128,
             allow_http: false,
-            tls: TlsOptions::default(),
         }
     }
 }
@@ -115,7 +101,6 @@ struct AuthorizationWire {
     timeout_ms: u64,
     max_concurrency: usize,
     allow_http: bool,
-    tls: TlsOptions,
     cache_ttl_seconds: u64,
 }
 impl Default for AuthorizationWire {
@@ -132,7 +117,6 @@ impl Default for AuthorizationWire {
             timeout_ms: b.timeout_ms,
             max_concurrency: b.max_concurrency,
             allow_http: b.allow_http,
-            tls: b.tls,
             cache_ttl_seconds: c.cache_ttl_seconds,
         }
     }
@@ -151,7 +135,6 @@ impl<'de> Deserialize<'de> for AuthorizationConfig {
                 timeout_ms: w.timeout_ms,
                 max_concurrency: w.max_concurrency,
                 allow_http: w.allow_http,
-                tls: w.tls,
             },
             cache_ttl_seconds: w.cache_ttl_seconds,
         })
@@ -203,13 +186,6 @@ impl BackendConfig {
                 || url.password().is_some()
                 || url.query().is_some()
                 || url.fragment().is_some()
-            {
-                return Err(Error::InvalidConfig);
-            }
-            if url.scheme() != "https"
-                && (self.tls.ca_pem.is_some()
-                    || self.tls.certificate_pem.is_some()
-                    || self.tls.private_key_pem.is_some())
             {
                 return Err(Error::InvalidConfig);
             }
@@ -276,49 +252,6 @@ impl BackendConfig {
             }
             ServiceAuth::None => {}
         }
-        if self.tls.certificate_pem.is_some() != self.tls.private_key_pem.is_some() {
-            return Err(Error::InvalidConfig);
-        }
-        for v in [
-            &self.tls.ca_pem,
-            &self.tls.certificate_pem,
-            &self.tls.private_key_pem,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            if !secret(v, 16384)
-                || !v.contains("-----BEGIN ")
-                || v.contains("ENCRYPTED PRIVATE KEY")
-            {
-                return Err(Error::InvalidConfig);
-            }
-        }
-        for pem in [&self.tls.ca_pem, &self.tls.certificate_pem]
-            .into_iter()
-            .flatten()
-        {
-            let mut roots = rustls::RootCertStore::empty();
-            for item in pem_items(pem)? {
-                let rustls_pemfile::Item::X509Certificate(cert) = item else {
-                    return Err(Error::InvalidConfig);
-                };
-                roots.add(cert).map_err(|_| Error::InvalidConfig)?;
-            }
-        }
-        if let Some(pem) = &self.tls.private_key_pem {
-            let items = pem_items(pem)?;
-            if items.len() != 1
-                || !matches!(
-                    items[0],
-                    rustls_pemfile::Item::Pkcs1Key(_)
-                        | rustls_pemfile::Item::Pkcs8Key(_)
-                        | rustls_pemfile::Item::Sec1Key(_)
-                )
-            {
-                return Err(Error::InvalidConfig);
-            }
-        }
         Ok(())
     }
     pub(crate) fn restore(&mut self, old: &Self) -> Result<(), Error> {
@@ -353,9 +286,6 @@ impl BackendConfig {
                 .map(|(_, v)| v);
             restore(v, old)?
         }
-        if let Some(v) = &mut self.tls.private_key_pem {
-            restore(v, old.tls.private_key_pem.as_ref())?
-        }
         Ok(())
     }
     pub(crate) fn redact(&mut self) {
@@ -367,12 +297,34 @@ impl BackendConfig {
         for v in self.headers.values_mut() {
             *v = REDACTED.into()
         }
-        if self.tls.private_key_pem.is_some() {
-            self.tls.private_key_pem = Some(REDACTED.into())
-        }
     }
 }
 impl Config {
+    /// Read the former empty TLS placeholder only from private persisted data.
+    /// Nonempty or unknown TLS options remain an error; request DTOs stay strict.
+    pub(crate) fn from_stored(bytes: &[u8]) -> Result<Self, Error> {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(bytes).map_err(|_| Error::InvalidConfig)?;
+        for stage in ["authentication", "authorization"] {
+            if let Some(backend) = value
+                .get_mut(stage)
+                .and_then(serde_json::Value::as_object_mut)
+                && let Some(tls) = backend.get("tls")
+            {
+                let options = tls.as_object().ok_or(Error::InvalidConfig)?;
+                if options.iter().any(|(key, value)| {
+                    !matches!(
+                        key.as_str(),
+                        "ca_pem" | "certificate_pem" | "private_key_pem"
+                    ) || !value.is_null()
+                }) {
+                    return Err(Error::InvalidConfig);
+                }
+                backend.remove("tls");
+            }
+        }
+        serde_json::from_value(value).map_err(|_| Error::InvalidConfig)
+    }
     pub(crate) fn validate(&self, local_accounts: bool) -> Result<(), Error> {
         if self.schema_version != 1
             || self.authorization.cache_ttl_seconds > 300
@@ -397,38 +349,4 @@ impl Config {
         c.authorization.backend.redact();
         c
     }
-}
-
-// Reject non-certificate PEM in public certificate fields instead of letting a
-// permissive bundle parser ignore private keys or arbitrary trailing text.
-fn pem_items(pem: &str) -> Result<Vec<rustls_pemfile::Item>, Error> {
-    let mut rest = pem.trim();
-    let mut result = Vec::new();
-    while !rest.is_empty() {
-        let label_end = rest
-            .strip_prefix("-----BEGIN ")
-            .and_then(|v| v.find("-----").map(|n| (v, n)))
-            .ok_or(Error::InvalidConfig)?;
-        let label = &label_end.0[..label_end.1];
-        if !matches!(
-            label,
-            "CERTIFICATE" | "PRIVATE KEY" | "RSA PRIVATE KEY" | "EC PRIVATE KEY"
-        ) {
-            return Err(Error::InvalidConfig);
-        }
-        let end = format!("-----END {label}-----");
-        let position = rest.find(&end).ok_or(Error::InvalidConfig)? + end.len();
-        let mut items = rustls_pemfile::read_all(&mut std::io::Cursor::new(&rest[..position]))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| Error::InvalidConfig)?;
-        if items.len() != 1 || result.len() >= 32 {
-            return Err(Error::InvalidConfig);
-        }
-        result.append(&mut items);
-        rest = rest[position..].trim();
-    }
-    if result.is_empty() {
-        return Err(Error::InvalidConfig);
-    }
-    Ok(result)
 }

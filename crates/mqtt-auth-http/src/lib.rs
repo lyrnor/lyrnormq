@@ -11,7 +11,7 @@ mod status;
 mod tests;
 
 pub use client::{AclAction, AclQuery};
-pub use config::{AuthorizationConfig, BackendConfig, Config, ServiceAuth, TlsOptions};
+pub use config::{AuthorizationConfig, BackendConfig, Config, ServiceAuth};
 pub use error::Error;
 pub use runtime::Runtime;
 pub use status::{CacheStatus, ProbeResult, StageStatus, Status};

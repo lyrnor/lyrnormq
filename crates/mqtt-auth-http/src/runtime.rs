@@ -82,9 +82,7 @@ impl Runtime {
             let (store, bytes) = Owner::open(path)?;
             let fresh = bytes.is_none();
             let config = match bytes {
-                Some(bytes) => {
-                    serde_json::from_slice::<Config>(&bytes).map_err(|_| Error::InvalidConfig)?
-                }
+                Some(bytes) => Config::from_stored(&bytes)?,
                 None => Config::default(),
             };
             config.validate(local_accounts)?;

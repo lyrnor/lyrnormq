@@ -165,10 +165,9 @@ fn configuration_is_flat_strict_and_redacts_every_service_secret() {
         token: "secret-token".into(),
     };
     config.authentication.headers = BTreeMap::from([("X-Key".into(), "secret-header".into())]);
-    config.authentication.tls.private_key_pem = Some("secret-key".into());
     let public = config.public();
     let json = serde_json::to_string(&public).unwrap();
-    for secret in ["secret-token", "secret-header", "secret-key"] {
+    for secret in ["secret-token", "secret-header"] {
         assert!(!json.contains(secret));
         assert!(!format!("{config:?}").contains(secret));
     }
@@ -638,19 +637,6 @@ async fn both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only
     r.shutdown().await;
 }
 
-#[test]
-fn certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage() {
-    let mut b = BackendConfig::default();
-    b.tls.ca_pem = Some("-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----".into());
-    assert_eq!(b.validate(false), Err(Error::InvalidConfig));
-    b.tls.ca_pem = None;
-    b.tls.certificate_pem =
-        Some("-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----".into());
-    b.tls.private_key_pem =
-        Some("-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----".into());
-    assert_eq!(b.validate(false), Err(Error::InvalidConfig));
-}
-
 #[tokio::test]
 async fn expiration_refetches_decision_and_acl401_is_never_cached_as_deny() {
     let (_d, r) = runtime().await;
@@ -806,4 +792,140 @@ async fn disabled_http_noop_resolution_has_no_remote_deadline() {
     assert_eq!(stale.resolve().await, Err(RemoteAccessError::Unavailable));
     assert!(!stale.seal());
     runtime.shutdown().await;
+}
+
+#[test]
+fn removed_http_tls_configuration_is_rejected_and_not_emitted() {
+    let wire = serde_json::to_value(Config::default()).unwrap();
+    for stage in ["authentication", "authorization"] {
+        assert!(wire[stage].get("tls").is_none());
+        for tls in [
+            serde_json::json!({}),
+            serde_json::json!({"ca_pem": "old-ca", "certificate_pem": "old-cert", "private_key_pem": "old-key"}),
+        ] {
+            let mut old = wire.clone();
+            old[stage]["tls"] = tls;
+            assert!(serde_json::from_value::<Config>(old).is_err());
+        }
+    }
+}
+
+#[tokio::test]
+async fn persisted_removed_certificate_configuration_is_rejected_without_rewrite() {
+    let directory = Directory::new();
+    let path = directory.path();
+    let mut old = serde_json::to_value(Config::default()).unwrap();
+    old["authentication"]["tls"] = serde_json::json!({"ca_pem": "old-ca", "certificate_pem": "old-cert", "private_key_pem": "old-key"});
+    let bytes = serde_json::to_vec(&old).unwrap();
+    let expected = bytes.clone();
+    let p = path.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut store =
+            mqtt_storage::configuration::ConfigStore::open(&p, crate::config::MAX_CONFIG).unwrap();
+        store.save(&bytes).unwrap();
+    })
+    .await
+    .unwrap();
+    let result = Runtime::open(path.clone(), Arc::new(AllowAnonymous), false).await;
+    assert!(matches!(result, Err(ref e) if e.kind() == std::io::ErrorKind::InvalidInput));
+    tokio::task::spawn_blocking(move || {
+        let store =
+            mqtt_storage::configuration::ConfigStore::open(&path, crate::config::MAX_CONFIG)
+                .unwrap();
+        assert_eq!(store.load().unwrap(), Some(expected));
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn persisted_empty_tls_placeholder_is_loaded_without_policy_changes() {
+    let directory = Directory::new();
+    let path = directory.path();
+    let mut config = Config::default();
+    config.authentication.enabled = true;
+    config.authentication.url = "https://authentication.example/mqtt".into();
+    config.authentication.service_auth = ServiceAuth::Bearer {
+        token: "persistent-service-secret".into(),
+    };
+    config.authorization.backend.enabled = true;
+    config.authorization.backend.url = "https://authorization.example/mqtt".into();
+    config.authorization.cache_ttl_seconds = 47;
+    let expected = serde_json::to_value(config).unwrap();
+    for placeholder in [
+        serde_json::json!({}),
+        serde_json::json!({"ca_pem": null, "certificate_pem": null, "private_key_pem": null}),
+    ] {
+        let mut old = expected.clone();
+        for stage in ["authentication", "authorization"] {
+            old[stage]["tls"] = placeholder.clone();
+        }
+        let bytes = serde_json::to_vec(&old).unwrap();
+        let unchanged = bytes.clone();
+        let p = path.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut store =
+                mqtt_storage::configuration::ConfigStore::open(&p, crate::config::MAX_CONFIG)
+                    .unwrap();
+            store.save(&bytes).unwrap();
+        })
+        .await
+        .unwrap();
+        let runtime = Runtime::open(path.clone(), Arc::new(AllowAnonymous), false)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&runtime.snapshot().config).unwrap(),
+            expected
+        );
+        let p = path.clone();
+        tokio::task::spawn_blocking(move || {
+            let connection = rusqlite::Connection::open_with_flags(
+                p,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+            )
+            .unwrap();
+            let saved: Vec<u8> = connection
+                .query_row(
+                    "SELECT data FROM rule_configuration WHERE id = 1",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(saved, unchanged);
+        })
+        .await
+        .unwrap();
+        runtime
+            .replace(runtime.configuration().await)
+            .await
+            .unwrap();
+        runtime.shutdown().await;
+        let p = path.clone();
+        let expected = expected.clone();
+        tokio::task::spawn_blocking(move || {
+            let store =
+                mqtt_storage::configuration::ConfigStore::open(&p, crate::config::MAX_CONFIG)
+                    .unwrap();
+            let saved: serde_json::Value =
+                serde_json::from_slice(&store.load().unwrap().unwrap()).unwrap();
+            assert_eq!(saved, expected);
+        })
+        .await
+        .unwrap();
+    }
+}
+
+#[test]
+fn stored_tls_normalization_rejects_unknown_or_nonempty_options() {
+    for tls in [
+        serde_json::json!({"unknown": null}),
+        serde_json::json!({"ca_pem": ""}),
+        serde_json::json!({"private_key_pem": "key"}),
+        serde_json::Value::Null,
+    ] {
+        let mut config = serde_json::to_value(Config::default()).unwrap();
+        config["authorization"]["tls"] = tls;
+        assert!(Config::from_stored(&serde_json::to_vec(&config).unwrap()).is_err());
+    }
 }

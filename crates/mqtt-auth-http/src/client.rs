@@ -76,7 +76,7 @@ impl Client {
             value.set_sensitive(true);
             headers.insert(name, value);
         }
-        let mut builder = reqwest::Client::builder()
+        let builder = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_millis(config.timeout_ms))
@@ -85,25 +85,6 @@ impl Client {
             .pool_max_idle_per_host(config.max_concurrency.min(16))
             .tcp_nodelay(true)
             .default_headers(headers);
-        if let Some(pem) = &config.tls.ca_pem {
-            let certs = reqwest::Certificate::from_pem_bundle(pem.as_bytes())
-                .map_err(|_| Error::InvalidConfig)?;
-            if certs.is_empty() {
-                return Err(Error::InvalidConfig);
-            }
-            for cert in certs {
-                builder = builder.add_root_certificate(cert);
-            }
-        }
-        if let (Some(cert), Some(key)) = (&config.tls.certificate_pem, &config.tls.private_key_pem)
-        {
-            let mut pem = cert.clone();
-            pem.push('\n');
-            pem.push_str(key);
-            builder = builder.identity(
-                reqwest::Identity::from_pem(pem.as_bytes()).map_err(|_| Error::InvalidConfig)?,
-            );
-        }
         let inner = builder.build().map_err(|_| Error::InvalidConfig)?;
         Ok(Self {
             inner,
