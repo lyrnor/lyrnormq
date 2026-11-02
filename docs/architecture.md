@@ -825,22 +825,25 @@ TLS input is bounded inline PEM rather than arbitrary server file paths.
 
 ## HTTP authentication external contract (implementation pending)
 
-[HTTP v1](http-auth-api.md) defines credential verification and per-operation
-remote authorization. Authentication uses client_id/username/password and returns
-a stable user_id. ACL requests contain user_id, client_id, action and topic;
-responses contain only result:allow|deny. A subscribe request carries a filter;
-actual receiving reuses subscribe with the concrete topic, including retained and
-offline replay. A deny applies to that request, not to an entire user's policy.
+[HTTP v1](http-auth-api.md) uses MQTT username as the unique stable device identity.
+Authenticate client_id/username/password; authorize client_id/username/action/topic.
+Only HTTP204 allows; HTTP403 denies the current request. No response body, extra
+identity, complete policy download or user echo is required. HTTP401 is a service
+credential fault;429/5xx and other statuses are unavailable, never implicit deny
+or allow. Gateways must reserve403 for business decisions where possible.
 
-There is no full-policy/snapshot download. Decision caches use the exact source
-configuration generation, user_id, client_id, action and topic. Wildcard requests
-cannot infer other cache entries. TTL is Broker-managed; misses require remote IO
-and can affect operation latency and high-cardinality/fanout throughput. Correlation
-and cache bookkeeping are internal concerns, not mandatory service response fields.
+After authentication the internal owner remains user:<username>, compatible with
+local user ownership. Reauthentication cannot switch usernames; restored data and
+Will must recover the original verified username. Username reuse/renaming needs
+explicit migration. This HTTP mode requires a nonempty username, not anonymous.
 
-Remote IO must stay outside the existing synchronous AccessControl/session actor.
-A future async prepare/commit contract must recheck decision validity and generation,
-preserve ordering and QoS/outbox atomicity, bound waiters and isolate unavailable
-from explicit operation denial. Will deadlines, expiry/recovery, concrete receive
-checks and publish fanout require explicit integration tests before implementation.
-No HTTP backend, management configuration or UI is implemented in this change.
+Decision caching uses exact source generation, username, client_id, action and
+topic; wildcard queries cannot imply other grants. TTL stays Broker-managed;
+misses cause remote IO and can affect high-cardinality/fanout throughput and p99.
+A403 only denies its operation, not the device globally. Unavailable is not cached
+as denial and cannot trigger destructive durable-state reconciliation.
+
+Remote IO stays outside synchronous AccessControl/session actors. Internal async
+prepare/commit, generation fencing, cache invalidation, QoS/outbox atomicity,
+Receive/fanout and Will/expiry/recovery contracts remain pending before coding.
+No HTTP backend, management configuration or UI is implemented by this change.

@@ -2449,19 +2449,19 @@ Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RU
 采集stderr。没有测量或承诺吞吐/p99不变。分支codex/structured-logging。
 
 
-### HTTP authentication API v1 contract (2026-11-02, point ACL, implementation pending)
+### HTTP authentication API v1 contract (2026-11-02, username/status-only, implementation pending)
 
-用户要求ACL请求指定Topic、返回单次决策，已替换先前未实现的权限列表/快照设计。
-认证仍为client_id/username/password，二进制密码可替换为password_base64；成功返回
-result+user_id。ACL请求固定user_id/client_id/action/topic，action=publish|subscribe，
-响应仅result=allow|deny。Subscribe传请求Filter；实际接收复用subscribe+具体Topic。
-初次连接由认证允许，Will须先对具体Topic完成publish鉴权；deny仅拒绝当前操作。
+按用户要求以username唯一标识设备，移除额外身份字段与所有响应JSON。认证请求为
+client_id/username/password（二进制密码可替换为password_base64）；ACL请求为
+client_id/username/action/topic。两个接口统一204允许、403拒绝当前请求；401为服务
+访问凭据错误，429/5xx及其他状态为Unavailable，不兼容旧200+JSON结果方案。
+username必填，沿用本地账号256字节边界；Broker内部user:<username>绑定持久身份，
+重认证不得切换设备，恢复/Will不得借用后来连接的账号。HTTP模式不接受匿名设备。
 
-决策缓存key包含来源配置代次及全部四项请求字段，不按通配符推导命中；默认30秒，
-可配置0..300秒，allow/deny可缓存，不可用不可缓存成deny。缓存未命中产生HTTP往返，
-高基数/扇出TPS与p99需实测，不再声称消息路径没有远程IO。不返回全量Topic权限。
-[中文规范](http-auth-api.md)与[OpenAPI](api/http-auth-v1.openapi.json)已同步，
-JSON、10个本地引用和8组样例一致性检查通过；未运行完整外部OpenAPI验证器。
-仅改文档，没有实现HTTP后端或执行Rust测试。下一步内部异步prepare/commit、QoS/
-outbox、Receive扇出、Will/到期/恢复屏障必须先冻结再实现；PostgreSQL仍未实现。
-分支codex/http-auth-contract。
+缓存精确包含来源代次与ACL四项字段，30秒默认，可配0..300秒；只缓存204/403，
+服务错误不缓存成deny。403不推断全局撤权，网关403无法与业务403区分时只拒绝当前
+请求，服务鉴权层应返回401。响应无业务body，错误页有限丢弃且不记录。
+[中文文档](http-auth-api.md)与[OpenAPI](api/http-auth-v1.openapi.json)已同步；
+JSON、4个引用、4份请求样例及状态-only响应一致性通过，未运行完整外部验证器。
+本轮仅文档，无HTTP实现或Rust测试。内部异步prepare/commit、QoS/outbox、接收扇出、
+Will/到期/恢复屏障仍待冻结与实现；PostgreSQL未实现。分支codex/http-auth-contract。

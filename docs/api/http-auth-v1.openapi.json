@@ -3,7 +3,7 @@
   "info": {
     "title": "RMQTT external HTTP authentication and ACL API",
     "version": "1.0.0",
-    "description": "Simplified unimplemented v1. Broker calls business service: authenticate credentials, then request point authorization using user_id/client_id/action/topic. Decision cache is exact-key and Broker-managed; misses cause remote IO. Supersedes previous full-policy draft. Normative contract: ../http-auth-api.md."
+    "description": "Unimplemented v1 external contract. MQTT username uniquely identifies the device. Authenticate client_id/username/password; authorize client_id/username/action/topic. Responses have no required body:204 allows,403 denies,401/429/5xx/other statuses are unavailable. No extra identity or response JSON. Exact-key decision caching is Broker-managed. Normative details: ../http-auth-api.md."
   },
   "servers": [
     {
@@ -20,7 +20,7 @@
       "post": {
         "operationId": "authenticate",
         "summary": "Verify client credentials",
-        "description": "Broker calls business service. HTTP200 carries allow/deny or a complete ACL. All other statuses are service failure, not MQTT user decisions. See ../http-auth-api.md.",
+        "description": "Username uniquely identifies the device. Broker calls business service. Only HTTP204 allows; HTTP403 denies this request, HTTP401 is a service credential error. No response JSON or identity fields. All other statuses are unavailable/protocol errors. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
@@ -44,14 +44,14 @@
                 "credentials": {
                   "value": {
                     "client_id": "device-001",
-                    "username": "alice",
+                    "username": "device-001",
                     "password": "secret"
                   }
                 },
                 "binaryPassword": {
                   "value": {
                     "client_id": "device-001",
-                    "username": "alice",
+                    "username": "device-001",
                     "password_base64": "/wA="
                   }
                 }
@@ -60,8 +60,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Valid business response, <=64KiB. Reject unknown fields, duplicate keys and invalid types. Cache duration and correlation live in Broker configuration/state, not body.",
+          "204": {
+            "description": "Allow. No content. Authentication binds the verified username; ACL permits this exact operation. No response Content-Type or ID echo required.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -69,39 +69,39 @@
                   "const": "no-store"
                 }
               }
-            },
-            "content": {
-              "application/json": {
+            }
+          },
+          "403": {
+            "description": "Deny this authentication or exact ACL operation. Prefer empty body; any error body ignored, never parsed or logged. Does not imply global account revocation.",
+            "headers": {
+              "Cache-Control": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                },
-                "examples": {
-                  "allow": {
-                    "value": {
-                      "result": "allow",
-                      "user_id": "42"
-                    }
-                  },
-                  "deny": {
-                    "value": {
-                      "result": "deny"
-                    }
-                  }
+                  "type": "string",
+                  "const": "no-store"
                 }
               }
             }
           },
+          "401": {
+            "description": "Broker-to-service credentials/access problem. Unavailable; never cache as business deny or fallback to anonymous."
+          },
+          "429": {
+            "description": "Backend rate limit/overload. Unavailable; no automatic retry or deadline extension."
+          },
+          "503": {
+            "description": "Backend unavailable; not an explicit device denial."
+          },
           "default": {
-            "description": "Service failure. 401/403 service credentials/access, 404 endpoint, 429/503 overload/unavailable. Never implicit allow, user-not-found or anonymous fallback."
+            "description": "Unavailable/protocol error. Includes HTTP200, every other 2xx, redirects, bad requests, endpoint404 and other5xx. Never interpret a JSON body as allow/deny. Bound discarded error bodies to4KiB then close."
           }
         }
       }
     },
     "/mqtt/acl": {
       "post": {
-        "operationId": "fetchAcl",
+        "operationId": "authorize",
         "summary": "Authorize one client operation on one topic or filter",
-        "description": "Broker asks an exact (user_id, client_id, action, topic) question. Return only allow/deny. No policy arrays, wildcard cache inference or user-wide revocation. Cache misses require bounded asynchronous HTTP outside session actor. See ../http-auth-api.md.",
+        "description": "Username uniquely identifies the device. Broker calls business service. Only HTTP204 allows; HTTP403 denies this request, HTTP401 is a service credential error. No response JSON or identity fields. All other statuses are unavailable/protocol errors. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
@@ -124,16 +124,16 @@
               "examples": {
                 "publish": {
                   "value": {
-                    "user_id": "42",
                     "client_id": "device-001",
+                    "username": "device-001",
                     "action": "publish",
                     "topic": "devices/device-001/telemetry"
                   }
                 },
                 "subscribe": {
                   "value": {
-                    "user_id": "42",
                     "client_id": "device-001",
+                    "username": "device-001",
                     "action": "subscribe",
                     "topic": "devices/device-001/commands/#"
                   }
@@ -143,8 +143,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Exact business decision for this request, <=64KiB. Deny affects this request only. No echo/TTL/full policy; unknown fields or an empty object are invalid.",
+          "204": {
+            "description": "Allow. No content. Authentication binds the verified username; ACL permits this exact operation. No response Content-Type or ID echo required.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -152,29 +152,30 @@
                   "const": "no-store"
                 }
               }
-            },
-            "content": {
-              "application/json": {
+            }
+          },
+          "403": {
+            "description": "Deny this authentication or exact ACL operation. Prefer empty body; any error body ignored, never parsed or logged. Does not imply global account revocation.",
+            "headers": {
+              "Cache-Control": {
                 "schema": {
-                  "$ref": "#/components/schemas/AclResponse"
-                },
-                "examples": {
-                  "allow": {
-                    "value": {
-                      "result": "allow"
-                    }
-                  },
-                  "deny": {
-                    "value": {
-                      "result": "deny"
-                    }
-                  }
+                  "type": "string",
+                  "const": "no-store"
                 }
               }
             }
           },
+          "401": {
+            "description": "Broker-to-service credentials/access problem. Unavailable; never cache as business deny or fallback to anonymous."
+          },
+          "429": {
+            "description": "Backend rate limit/overload. Unavailable; no automatic retry or deadline extension."
+          },
+          "503": {
+            "description": "Backend unavailable; not an explicit device denial."
+          },
           "default": {
-            "description": "Service failure. 401/403 service credentials/access, 404 endpoint, 429/503 overload/unavailable. Never implicit allow, user-not-found or anonymous fallback."
+            "description": "Unavailable/protocol error. Includes HTTP200, every other 2xx, redirects, bad requests, endpoint404 and other5xx. Never interpret a JSON body as allow/deny. Bound discarded error bodies to4KiB then close."
           }
         }
       }
@@ -192,18 +193,20 @@
       }
     },
     "schemas": {
-      "UserId": {
+      "Username": {
         "type": "string",
         "minLength": 1,
         "maxLength": 256,
         "x-max-utf8-bytes": 256,
-        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+        "description": "Unique stable device identity; exact case-sensitive UTF8. Trusted for ACL only after successful authentication."
       },
       "AuthRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "client_id"
+          "client_id",
+          "username"
         ],
         "properties": {
           "client_id": {
@@ -213,17 +216,7 @@
             "x-max-utf8-bytes": 65535
           },
           "username": {
-            "oneOf": [
-              {
-                "type": "string",
-                "minLength": 0,
-                "maxLength": 65535,
-                "x-max-utf8-bytes": 65535
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/Username"
           },
           "password": {
             "oneOf": [
@@ -260,72 +253,24 @@
           ]
         }
       },
-      "AuthAllow": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "result",
-          "user_id"
-        ],
-        "properties": {
-          "result": {
-            "type": "string",
-            "const": "allow"
-          },
-          "user_id": {
-            "$ref": "#/components/schemas/UserId"
-          }
-        }
-      },
-      "AuthDeny": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "result"
-        ],
-        "properties": {
-          "result": {
-            "type": "string",
-            "const": "deny"
-          },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "bad_credentials",
-              "not_authorized"
-            ],
-            "default": "bad_credentials"
-          }
-        }
-      },
-      "AuthResponse": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/AuthAllow"
-          },
-          {
-            "$ref": "#/components/schemas/AuthDeny"
-          }
-        ]
-      },
       "AclRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "user_id",
           "client_id",
+          "username",
           "action",
           "topic"
         ],
         "properties": {
-          "user_id": {
-            "$ref": "#/components/schemas/UserId"
-          },
           "client_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 65535,
             "x-max-utf8-bytes": 65535
+          },
+          "username": {
+            "$ref": "#/components/schemas/Username"
           },
           "action": {
             "type": "string",
@@ -361,42 +306,6 @@
             }
           }
         ]
-      },
-      "AclDeny": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "result"
-        ],
-        "properties": {
-          "result": {
-            "type": "string",
-            "const": "deny"
-          }
-        }
-      },
-      "AclResponse": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/AclAllow"
-          },
-          {
-            "$ref": "#/components/schemas/AclDeny"
-          }
-        ]
-      },
-      "AclAllow": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "result"
-        ],
-        "properties": {
-          "result": {
-            "type": "string",
-            "const": "allow"
-          }
-        }
       }
     }
   }
