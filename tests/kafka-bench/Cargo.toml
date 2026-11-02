@@ -1,0 +1,13 @@
+[package]
+name = "rmqtt-kafka-adapter-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+mqtt-kafka = { path = "../../crates/mqtt-kafka" }
+mqtt-egress-core = { path = "../../crates/mqtt-egress-core" }
+serde_json = { version = "1", features = ["raw_value"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
