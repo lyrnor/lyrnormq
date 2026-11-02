@@ -772,3 +772,42 @@ fn persistent_metadata_vectors_reject_excess_elements_while_deserializing() {
         serde_json::from_slice::<Transaction>(&serde_json::to_vec(&too_many).unwrap()).is_err()
     );
 }
+
+#[test]
+fn one_rule_result_fanout_stores_body_only_once() {
+    let f = Fixture::new();
+    let mut j = f.open();
+    let revisions = j
+        .bind_all(&[
+            Binding {
+                outbound_id: "x".into(),
+                descriptor: vec![1],
+            },
+            Binding {
+                outbound_id: "y".into(),
+                descriptor: vec![2],
+            },
+        ])
+        .unwrap();
+    let body = b"one-rule-result-must-not-be-copied-per-destination";
+    j.append_results(vec![NewResult {
+        stream_id: "rule".into(),
+        client_id: "source".into(),
+        payload: body.to_vec(),
+        consumers: vec![
+            NewConsumer {
+                outbound_id: "x".into(),
+                revision: revisions["x"],
+                delivery_id: "delivery-x".into(),
+            },
+            NewConsumer {
+                outbound_id: "y".into(),
+                revision: revisions["y"],
+                delivery_id: "delivery-y".into(),
+            },
+        ],
+    }])
+    .unwrap();
+    assert_eq!(j.stats().pending_records, 2);
+    assert_eq!(j.stats().pending_bytes, body.len() as u64);
+}

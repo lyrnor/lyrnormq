@@ -69,6 +69,7 @@ pub struct Record {
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct QueueStats {
     pub pending_records: usize,
+    pub pending_results: usize,
     pub pending_bytes: u64,
     pub disk_bytes: u64,
     pub max_bytes: u64,
@@ -80,6 +81,77 @@ pub enum Completion {
     Failed,
 }
 
+/// One immutable opaque result and its snapshotted destination references.
+#[derive(Clone)]
+pub struct NewResult {
+    pub stream_id: String,
+    pub client_id: String,
+    pub payload: Vec<u8>,
+    pub consumers: Vec<NewConsumer>,
+}
+#[derive(Clone)]
+pub struct NewConsumer {
+    pub outbound_id: String,
+    pub revision: u64,
+    pub delivery_id: String,
+}
+#[derive(Clone, Debug)]
+pub struct ResultIds {
+    pub result_id: u64,
+    pub consumer_ids: Vec<u64>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ConsumerMeta {
+    pub id: u64,
+    pub result_id: u64,
+    pub outbound_id: String,
+    pub revision: u64,
+    pub stream_id: String,
+    pub client_id: String,
+    pub delivery_id: String,
+    pub failures: u32,
+    pub not_before_ms: u64,
+    pub inflight: bool,
+    pub payload_len: usize,
+}
+pub struct ConsumerRecord {
+    pub meta: ConsumerMeta,
+    pub payload: Vec<u8>,
+}
+pub struct LegacyResult {
+    pub stream_id: String,
+    pub result_key: String,
+    pub payload: Vec<u8>,
+    pub delivery_id: String,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ResultMeta {
+    pub id: u64,
+    pub stream_id: String,
+    pub client_id: String,
+    pub payload_len: usize,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StoredConsumer {
+    pub id: u64,
+    pub outbound_id: String,
+    pub revision: u64,
+    pub delivery_id: String,
+    pub failures: u32,
+    pub not_before_ms: u64,
+    pub inflight: bool,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StoredResult {
+    pub meta: ResultMeta,
+    pub checksum: u32,
+    #[serde(deserialize_with = "crate::decode::consumers")]
+    pub consumers: Vec<StoredConsumer>,
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct StoredBinding {
@@ -105,6 +177,30 @@ pub(crate) struct StoredRecord {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) enum Transaction {
+    Results {
+        #[serde(deserialize_with = "crate::decode::results")]
+        results: Vec<StoredResult>,
+        next_id: u64,
+    },
+    Attach {
+        result_id: u64,
+        #[serde(deserialize_with = "crate::decode::consumers")]
+        consumers: Vec<StoredConsumer>,
+        next_id: u64,
+    },
+    ConsumerBegin {
+        #[serde(deserialize_with = "crate::decode::ids")]
+        ids: Vec<u64>,
+    },
+    ConsumerRetry {
+        #[serde(deserialize_with = "crate::decode::ids")]
+        ids: Vec<u64>,
+        not_before_ms: u64,
+    },
+    ConsumerComplete {
+        #[serde(deserialize_with = "crate::decode::ids")]
+        ids: Vec<u64>,
+    },
     Bind {
         #[serde(deserialize_with = "crate::decode::bindings")]
         bindings: Vec<StoredBinding>,

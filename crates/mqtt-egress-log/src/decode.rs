@@ -55,3 +55,14 @@ pub(crate) fn empty_entries<'de, D: Deserializer<'de>>(
 ) -> Result<Vec<crate::model::Entry>, D::Error> {
     bounded::<D, _, 0>(d)
 }
+
+pub(crate) fn results<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Vec<crate::model::StoredResult>, D::Error> {
+    bounded::<D, _, 64>(d)
+}
+pub(crate) fn consumers<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Vec<crate::model::StoredConsumer>, D::Error> {
+    bounded::<D, _, 32>(d)
+}

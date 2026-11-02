@@ -90,7 +90,7 @@ pub(crate) fn write_frame(
     }
     let mut header = [0u8; HEADER as usize];
     header[..4].copy_from_slice(MAGIC);
-    header[4] = 1;
+    header[4] = 2;
     header[8..12].copy_from_slice(&body32.to_le_bytes());
     header[12..16].copy_from_slice(&(!crc).to_le_bytes());
     let header_crc = checksum(&header[..16]);
@@ -116,7 +116,7 @@ pub(crate) fn scan(file: &mut File, offset: u64, max_bytes: u64) -> Result<Scan,
     file.seek(SeekFrom::Start(offset))?;
     let mut header = [0u8; HEADER as usize];
     file.read_exact(&mut header)?;
-    if &header[..4] != MAGIC || header[4] != 1 || header[5..8] != [0, 0, 0] {
+    if &header[..4] != MAGIC || !matches!(header[4], 1 | 2) || header[5..8] != [0, 0, 0] {
         return Err(QueueError::Corrupt);
     }
     let expected_header =

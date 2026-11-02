@@ -14,26 +14,27 @@ use std::{
 /// Exclusive synchronous owner. Methods must run on a blocking thread.
 /// A failed write poisons this owner; reopen to discover the committed prefix.
 pub struct Journal {
-    options: QueueOptions,
-    root: PathBuf,
-    generation: u64,
-    dir: PathBuf,
-    active: File,
-    segment: u64,
-    active_len: u64,
-    physical: u64,
-    _owner: File,
-    bindings: BTreeMap<String, StoredBinding>,
-    entries: BTreeMap<u64, Entry>,
-    lanes: BTreeMap<(String, String), VecDeque<u64>>,
-    heads: BTreeMap<String, BTreeSet<u64>>,
-    counts: BTreeMap<String, usize>,
-    next_id: u64,
-    next_revision: u64,
-    pending_bytes: u64,
-    live_bytes: u64,
-    recovered: usize,
-    poisoned: bool,
+    pub(crate) options: QueueOptions,
+    pub(crate) root: PathBuf,
+    pub(crate) generation: u64,
+    pub(crate) dir: PathBuf,
+    pub(crate) active: File,
+    pub(crate) segment: u64,
+    pub(crate) active_len: u64,
+    pub(crate) physical: u64,
+    pub(crate) _owner: File,
+    pub(crate) bindings: BTreeMap<String, StoredBinding>,
+    pub(crate) shared: crate::shared::Shared,
+    pub(crate) entries: BTreeMap<u64, Entry>,
+    pub(crate) lanes: BTreeMap<(String, String), VecDeque<u64>>,
+    pub(crate) heads: BTreeMap<String, BTreeSet<u64>>,
+    pub(crate) counts: BTreeMap<String, usize>,
+    pub(crate) next_id: u64,
+    pub(crate) next_revision: u64,
+    pub(crate) pending_bytes: u64,
+    pub(crate) live_bytes: u64,
+    pub(crate) recovered: usize,
+    pub(crate) poisoned: bool,
     #[cfg(test)]
     pub(crate) fault: Option<Fault>,
 }
@@ -103,6 +104,7 @@ impl Journal {
             physical,
             _owner: owner,
             bindings: BTreeMap::new(),
+            shared: crate::shared::Shared::default(),
             entries: BTreeMap::new(),
             lanes: BTreeMap::new(),
             heads: BTreeMap::new(),
@@ -149,9 +151,13 @@ impl Journal {
         if !saw {
             return Err(QueueError::Corrupt);
         }
-        journal.recovered = journal.entries.len();
+        journal.recovered = journal.entries.len() + journal.shared.consumers.len();
         journal.recompute_live()?;
-        if journal.entries.len() > journal.options.max_records
+        if journal
+            .entries
+            .len()
+            .saturating_add(journal.shared.consumers.len())
+            > journal.options.max_records
             || journal.live_bytes > journal.options.max_bytes / 2
         {
             return Err(QueueError::Full);
@@ -163,7 +169,7 @@ impl Journal {
     pub(crate) fn retained_indexes(&self) -> (usize, usize, usize) {
         (self.lanes.len(), self.heads.len(), self.counts.len())
     }
-    fn healthy(&self) -> Result<(), QueueError> {
+    pub(crate) fn healthy(&self) -> Result<(), QueueError> {
         if self.poisoned {
             Err(QueueError::Io)
         } else {
@@ -450,7 +456,8 @@ impl Journal {
     }
     pub fn stats(&self) -> QueueStats {
         QueueStats {
-            pending_records: self.entries.len(),
+            pending_records: self.entries.len() + self.shared.consumers.len(),
+            pending_results: self.entries.len() + self.shared.bodies.len(),
             pending_bytes: self.pending_bytes,
             disk_bytes: self.physical + 20,
             max_bytes: self.options.max_bytes,
@@ -466,7 +473,11 @@ impl Journal {
         result
     }
 
-    fn commit(&mut self, txn: Transaction, payloads: &[&[u8]]) -> Result<(), QueueError> {
+    pub(crate) fn commit(
+        &mut self,
+        txn: Transaction,
+        payloads: &[&[u8]],
+    ) -> Result<(), QueueError> {
         let json = format::json(&txn)?;
         let len = format::encoded_len(&json, payloads)?;
         if len > self.options.max_bytes / 2 {
@@ -526,6 +537,65 @@ impl Journal {
         raw_len: u64,
     ) -> Result<(), QueueError> {
         match txn {
+            Transaction::Results { results, next_id } => {
+                return self.apply_results(results, next_id, segment, offset, raw_len);
+            }
+            Transaction::Attach {
+                result_id,
+                consumers,
+                next_id,
+            } => {
+                if raw_len != 0 {
+                    return Err(QueueError::Corrupt);
+                }
+                return self.apply_attach(result_id, consumers, next_id);
+            }
+            Transaction::ConsumerBegin { ids } => {
+                if raw_len != 0 {
+                    return Err(QueueError::Corrupt);
+                }
+                self.shared
+                    .ids_valid(&ids)
+                    .map_err(|_| QueueError::Corrupt)?;
+                for id in ids {
+                    self.shared
+                        .consumers
+                        .get_mut(&id)
+                        .ok_or(QueueError::Corrupt)?
+                        .1
+                        .inflight = true;
+                }
+            }
+            Transaction::ConsumerRetry { ids, not_before_ms } => {
+                if raw_len != 0 {
+                    return Err(QueueError::Corrupt);
+                }
+                self.shared
+                    .ids_valid(&ids)
+                    .map_err(|_| QueueError::Corrupt)?;
+                for id in ids {
+                    let c = &mut self
+                        .shared
+                        .consumers
+                        .get_mut(&id)
+                        .ok_or(QueueError::Corrupt)?
+                        .1;
+                    c.failures = c.failures.checked_add(1).ok_or(QueueError::Corrupt)?;
+                    c.not_before_ms = not_before_ms;
+                    c.inflight = false;
+                }
+            }
+            Transaction::ConsumerComplete { ids } => {
+                if raw_len != 0 {
+                    return Err(QueueError::Corrupt);
+                }
+                self.shared
+                    .ids_valid(&ids)
+                    .map_err(|_| QueueError::Corrupt)?;
+                for id in ids {
+                    self.remove_consumer(id)?;
+                }
+            }
             Transaction::Snapshot {
                 bindings,
                 entries,
@@ -533,6 +603,7 @@ impl Journal {
                 next_revision,
             } => {
                 if !self.entries.is_empty()
+                    || !self.shared.bodies.is_empty()
                     || !self.bindings.is_empty()
                     || !entries.is_empty()
                     || next_id == 0
@@ -557,7 +628,12 @@ impl Journal {
             Transaction::Append { records, next_id } => {
                 if records.is_empty()
                     || records.len() > MAX_GROUP
-                    || self.entries.len().saturating_add(records.len()) > self.options.max_records
+                    || self
+                        .entries
+                        .len()
+                        .saturating_add(self.shared.consumers.len())
+                        .saturating_add(records.len())
+                        > self.options.max_records
                 {
                     return Err(QueueError::Corrupt);
                 }
@@ -692,7 +768,10 @@ impl Journal {
     }
     fn add_entry(&mut self, entry: Entry) -> Result<(), QueueError> {
         let id = entry.meta.id;
-        if self.entries.contains_key(&id) {
+        if self.entries.contains_key(&id)
+            || self.shared.bodies.contains_key(&id)
+            || self.shared.consumers.contains_key(&id)
+        {
             return Err(QueueError::Corrupt);
         }
         let key = (entry.meta.outbound_id.clone(), entry.meta.client_id.clone());
@@ -763,7 +842,7 @@ impl Journal {
             .ok_or(QueueError::Corrupt)?;
         Ok(())
     }
-    fn recompute_live(&mut self) -> Result<(), QueueError> {
+    pub(crate) fn recompute_live(&mut self) -> Result<(), QueueError> {
         let bindings = self
             .bindings
             .values()
@@ -774,10 +853,22 @@ impl Journal {
             .values()
             .try_fold(bindings, |n, e| n.checked_add(entry_cost(&e.meta)))
             .ok_or(QueueError::Corrupt)?;
+        for body in self.shared.bodies.values() {
+            self.live_bytes = self
+                .live_bytes
+                .checked_add(crate::shared::body_cost(&body.meta))
+                .ok_or(QueueError::Corrupt)?;
+        }
+        for (_, c) in self.shared.consumers.values() {
+            self.live_bytes = self
+                .live_bytes
+                .checked_add(crate::shared::consumer_cost(c))
+                .ok_or(QueueError::Corrupt)?;
+        }
         Ok(())
     }
     #[cfg(test)]
-    fn inject(&mut self, fault: Fault) -> Result<(), QueueError> {
+    pub(crate) fn inject(&mut self, fault: Fault) -> Result<(), QueueError> {
         if self.fault == Some(fault) {
             self.fault = None;
             return Err(QueueError::Io);
@@ -785,129 +876,7 @@ impl Journal {
         Ok(())
     }
     fn compact(&mut self) -> Result<(), QueueError> {
-        let generation = self.generation.checked_add(1).ok_or(QueueError::Io)?;
-        let dir = storage::generation(&self.root, generation);
-        storage::directory(&dir)?;
-        let mut segment = 1u64;
-        let mut file = storage::private_file(&storage::segment(&dir, segment), true)?;
-        let mut active_len = 0u64;
-        let mut physical = 0u64;
-        let initial = Transaction::Snapshot {
-            bindings: self.bindings.values().cloned().collect(),
-            entries: Vec::new(),
-            next_id: 1,
-            next_revision: self.next_revision,
-        };
-        let json = format::json(&initial)?;
-        let (_, len) = format::write_frame(&mut file, &json, &[])?;
-        active_len += len;
-        physical += len;
-        let mut rewritten = BTreeMap::new();
-        let mut cursor = None;
-        loop {
-            let mut metas = Vec::new();
-            let mut payloads = Vec::new();
-            let mut bytes = 0usize;
-            for (id, entry) in self
-                .entries
-                .range((cursor.map_or(Unbounded, Excluded), Unbounded))
-                .take(MAX_GROUP)
-            {
-                if !metas.is_empty()
-                    && bytes.saturating_add(entry.meta.payload_len) > MAX_GROUP_BYTES
-                {
-                    break;
-                }
-                let payload = storage::read_payload(
-                    &self.dir,
-                    entry.segment,
-                    entry.offset,
-                    entry.meta.payload_len,
-                    entry.checksum,
-                )?;
-                bytes += payload.len();
-                metas.push((
-                    *id,
-                    StoredRecord {
-                        meta: entry.meta.clone(),
-                        checksum: entry.checksum,
-                    },
-                ));
-                payloads.push(payload);
-            }
-            if metas.is_empty() {
-                break;
-            }
-            let last = metas.last().map(|(id, _)| *id).ok_or(QueueError::Io)?;
-            let txn = Transaction::Append {
-                records: metas.iter().map(|(_, m)| m.clone()).collect(),
-                next_id: last.checked_add(1).ok_or(QueueError::Io)?,
-            };
-            let json = format::json(&txn)?;
-            let refs: Vec<&[u8]> = payloads.iter().map(Vec::as_slice).collect();
-            let len = format::encoded_len(&json, &refs)?;
-            if active_len > 0 && active_len.saturating_add(len) > self.options.segment_bytes {
-                file.sync_all()?;
-                segment = segment.checked_add(1).ok_or(QueueError::Io)?;
-                if segment > storage::MAX_SEGMENTS as u64 {
-                    return Err(QueueError::Full);
-                }
-                file = storage::private_file(&storage::segment(&dir, segment), true)?;
-                active_len = 0;
-            }
-            if physical
-                .checked_add(len)
-                .is_none_or(|n| n.saturating_add(20) > self.options.max_bytes)
-            {
-                return Err(QueueError::Full);
-            }
-            let (mut location, written) = format::write_frame(&mut file, &json, &refs)?;
-            active_len += written;
-            physical += written;
-            for (_, stored) in metas {
-                let StoredRecord { meta, checksum } = stored;
-                let n = meta.payload_len as u64;
-                rewritten.insert(
-                    meta.id,
-                    Entry {
-                        meta,
-                        checksum,
-                        segment,
-                        offset: location,
-                    },
-                );
-                location += n;
-            }
-            cursor = Some(last);
-        }
-        let json = format::json(&Transaction::Watermark {
-            next_id: self.next_id,
-            next_revision: self.next_revision,
-        })?;
-        let (_, len) = format::write_frame(&mut file, &json, &[])?;
-        active_len += len;
-        physical += len;
-        if physical.saturating_add(20) > self.options.max_bytes {
-            return Err(QueueError::Full);
-        }
-        file.sync_all()?;
-        storage::sync_dir(&dir)?;
-        #[cfg(test)]
-        self.inject(Fault::BeforePublish)?;
-        storage::publish(&self.root, generation)?;
-        #[cfg(test)]
-        self.inject(Fault::AfterPublish)?;
-        let old_dir = std::mem::replace(&mut self.dir, dir);
-        let old_file = std::mem::replace(&mut self.active, file);
-        drop(old_file);
-        self.generation = generation;
-        self.segment = segment;
-        self.active_len = active_len;
-        self.physical = physical;
-        self.entries = rewritten;
-        storage::remove_generation(&old_dir)?;
-        storage::sync_dir(&self.root)?;
-        Ok(())
+        self.rewrite_checkpoint()
     }
 }
 fn valid_outbound(id: &str) -> bool {

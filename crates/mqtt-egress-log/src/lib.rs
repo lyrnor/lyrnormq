@@ -7,6 +7,8 @@ mod error;
 mod format;
 mod journal;
 mod model;
+mod rewrite;
+mod shared;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -14,3 +16,5 @@ mod tests;
 pub use error::QueueError;
 pub use journal::Journal;
 pub use model::{Binding, Completion, NewRecord, QueueOptions, QueueStats, Record, RecordMeta};
+
+pub use model::{ConsumerMeta, ConsumerRecord, LegacyResult, NewConsumer, NewResult, ResultIds};
