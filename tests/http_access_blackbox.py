@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent live HTTP auth/ACL, MQTT wire and crash recovery acceptance.
+"""Independent Phase6b HTTP operation admission and MQTT state acceptance.
 
 Run after building an immutable Broker:
  RUST_LOG=warn,rmqtt=info RMQTT_LOG_FORMAT=text RMQTT_BIN=/abs/rmqtt python3 tests/http_access_blackbox.py -v
@@ -211,7 +211,9 @@ class HttpAccessBlackbox(unittest.TestCase):
                 payload = bytes([version, qos]) + b'point-acl'
                 self.publish(pub, topic, payload, qos, version=version)
                 self.delivery(sub, topic, payload, qos, version=version)
-            eventually(lambda: len(self.service.observations('/acl', client_id=f'subscriber-{version}', topic=f'matrix/{version}/2')) >= 1)
+            self.barrier(sub)
+            self.assertEqual(len(self.service.observations('/acl', client_id=f'subscriber-{version}')), 1)
+            self.assertEqual(len(self.service.observations('/acl', client_id=f'publisher-{version}')), 3)
             self.assertTrue(self.service.observations('/acl', username=f'pub-device-{version}', action='publish'))
             self.assertTrue(self.service.observations('/acl', username=f'sub-device-{version}', action='subscribe'))
         self.assert_service_shape()
@@ -270,14 +272,33 @@ class HttpAccessBlackbox(unittest.TestCase):
 
     def test_failed_same_client_login_cannot_take_over_authenticated_connection(self):
         self.start(authz=False)
-        original = self.client('same-client', username='unique-device', persistent=True)
-        failed = self.begin('same-client', username='unique-device', password=b'bad')
-        self.connack(failed, code=0x86)
-        self.barrier(original)
-        replacement = self.client('same-client', username='unique-device', persistent=True, present=True)
-        header, body = receive(original)
-        self.assertEqual((header, body[0]), (0xe0, 0x8e))
-        self.barrier(replacement)
+        for version in (4, 5):
+            name = f'same-client-{version}'
+            original = self.client(name, username='unique-device', persistent=True, version=version)
+            for unavailable in (False, True):
+                self.service.auth_status = 503 if unavailable else None
+                failed = self.begin(name, username='unique-device', password=b'bad', version=version)
+                self.connack(failed, version, code=(3 if unavailable else 4) if version == 4 else (0x88 if unavailable else 0x86))
+                self.barrier(original)
+                self.assertTrue(self.session(name)['online'])
+            self.service.auth_status = None
+            replacement = self.client(name, username='unique-device', persistent=True, present=True, version=version)
+            if version == 5:
+                header, body = receive(original)
+                self.assertEqual((header, body[0]), (0xe0, 0x8e))
+            else:
+                self.assertEqual(original.recv(1), b'')
+            self.barrier(replacement)
+
+    def test_valid_different_username_cannot_resume_another_owners_session(self):
+        self.start(authz=False)
+        for version in (4, 5):
+            name = f'owned-{version}'
+            original = self.client(name, username='owner-device', persistent=True, version=version)
+            other = self.begin(name, username='different-device', persistent=True, version=version)
+            self.connack(other, version, code=5 if version == 4 else 0x87)
+            self.barrier(original)
+            self.assertTrue(self.session(name)['online'])
 
     def test_acl_cache_exact_keys_clear_and_no_cross_filter_inference(self):
         self.start(ttl=30)
@@ -289,7 +310,8 @@ class HttpAccessBlackbox(unittest.TestCase):
             self.publish(a, 'cache/exact', bytes([n]), 1)
             self.delivery(target, 'cache/exact', bytes([n]), 0)
         self.assertEqual(len(self.service.observations('/acl', client_id='cache-a', action='publish', topic='cache/exact')), 1)
-        self.assertEqual(len(self.service.observations('/acl', client_id='cache-target', action='subscribe', topic='cache/exact')), 1)
+        self.assertEqual(len(self.service.observations('/acl', client_id='cache-target', action='subscribe', topic='cache/#')), 1)
+        self.assertEqual(self.service.observations('/acl', client_id='cache-target', topic='cache/exact'), [])
         self.publish(b, 'cache/exact', b'other-client', 1)
         self.delivery(target, 'cache/exact', b'other-client', 0)
         self.assertEqual(len(self.service.observations('/acl', client_id='cache-b', action='publish', topic='cache/exact')), 1)
@@ -350,6 +372,129 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.delivery(sub, 'public/value', b'preserved', 1)
         self.barrier(sub)
 
+    def test_mixed_subscribe_filters_admit_individually_without_denied_retained_replay(self):
+        self.start(ttl=0)
+        pub = self.client('mixed-publisher')
+        self.publish(pub, 'private/retained', b'not-for-denied-filter', 1, retain=True)
+        for version in (4, 5):
+            sub = self.client(f'mixed-{version}', version=version)
+            self.subscribe(sub, 'existing/#', qos=1, version=version)
+            self.service.policy = lambda path, body: 403 if path == '/acl' and body['action'] == 'subscribe' and body['topic'] == 'private/#' else None
+            body = struct.pack('!H', 9) + (props() if version == 5 else b'')
+            for topic in ('public/#', 'private/#'):
+                body += string(topic) + bytes([1])
+            sub.sendall(frame(0x82, body))
+            header, response = receive(sub)
+            self.assertEqual((header, response[:2]), (0x90, b'\x00\x09'))
+            offset = readprops(response, 2)[1] if version == 5 else 2
+            self.assertEqual(response[offset:], bytes([1, 0x80 if version == 4 else 0x87]))
+            self.quiet(sub)
+            for prefix in ('public', 'existing'):
+                self.publish(pub, prefix + '/value', b'still-admitted', 1)
+                self.delivery(sub, prefix + '/value', b'still-admitted', 1, version=version)
+            self.assertEqual(len(self.service.observations('/acl', client_id=f'mixed-{version}')), 3)
+            self.disconnect(sub)
+
+    def test_publish_denied_or_unavailable_all_qos_preserves_retained_and_fanout(self):
+        self.start(ttl=0)
+        admin = self.client('denial-admin')
+        for version in (4, 5):
+            for status in (403, 503):
+                for qos in (0, 1, 2):
+                    with self.subTest(version=version, status=status, qos=qos):
+                        topic = f'protected/{version}/{status}/{qos}'
+                        self.service.policy = None
+                        self.publish(admin, topic, b'preserved', 1, retain=True)
+                        observer = self.client(f'observer-{version}-{status}-{qos}')
+                        self.subscribe(observer, topic, qos=0)
+                        self.delivery(observer, topic, b'preserved', 0)
+                        attacker = self.client(f'attacker-{version}-{status}-{qos}', version=version)
+                        self.service.policy = lambda path, body, status=status: status if path == '/acl' and body['action'] == 'publish' else None
+                        if version == 5:
+                            packet = publication5(topic, b'', qos, 17, retain=True)
+                        else:
+                            packet = frame(0x31 | qos << 1, string(topic) + (struct.pack('!H', 17) if qos else b''))
+                        attacker.sendall(packet)
+                        if version == 5:
+                            header, body = receive(attacker)
+                            self.assertEqual(header, 0xe0)
+                            self.assertEqual(body[0], 0x87 if status == 403 else 0x89)
+                        self.assertEqual(attacker.recv(1), b'')
+                        self.quiet(observer)
+                        self.assertEqual(len(self.service.observations('/acl', client_id=f'attacker-{version}-{status}-{qos}')), 1)
+                        replay = self.client(f'replay-{version}-{status}-{qos}')
+                        self.subscribe(replay, topic, qos=0)
+                        self.delivery(replay, topic, b'preserved', 0)
+                        self.disconnect(observer)
+                        self.disconnect(replay)
+
+    def test_resolved_topic_alias_is_authorized_and_unknown_alias_has_no_rpc(self):
+        self.start(ttl=0)
+        pub = self.client('alias-source')
+        self.publish(pub, 'alias/resolved', b'bind', 1, properties=[(0x23, 1)])
+        self.publish(pub, '', b'use', 1, properties=[(0x23, 1)])
+        calls = self.service.observations('/acl', client_id='alias-source')
+        self.assertEqual([c['body']['topic'] for c in calls], ['alias/resolved', 'alias/resolved'])
+        self.service.policy = lambda path, body: 403 if path == '/acl' else None
+        pub.sendall(publication5('', b'denied', 1, 20, properties=[(0x23, 1)]))
+        header, body = receive(pub)
+        self.assertEqual((header, body[0]), (0xe0, 0x87))
+        self.assertEqual(self.service.observations('/acl', client_id='alias-source')[-1]['body']['topic'], 'alias/resolved')
+        unknown = self.client('alias-unknown')
+        unknown.sendall(publication5('', b'invalid', 1, 21, properties=[(0x23, 2)]))
+        header, body = receive(unknown)
+        self.assertEqual((header, body[0]), (0xe0, 0x94))
+        self.assertEqual(self.service.observations('/acl', client_id='alias-unknown'), [])
+
+    def test_subscribe_unavailable_keeps_existing_subscription_and_queue(self):
+        self.start(ttl=0)
+        pub = self.client('unavailable-source')
+        for version in (4, 5):
+            name = f'unavailable-sub-{version}'
+            sub = self.client(name, version=version, persistent=True)
+            self.subscribe(sub, f'unavailable/{version}/#', qos=1, version=version)
+            self.service.policy = lambda path, body: 503 if path == '/acl' and body['action'] == 'subscribe' else None
+            self.subscribe(sub, 'new-unavailable/#', qos=1, version=version,
+                           code=0x80 if version == 4 else 0x89, packet_id=2)
+            self.barrier(sub)
+            self.disconnect(sub)
+            self.publish(pub, f'unavailable/{version}/value', b'preserved-queue', 1)
+            eventually(lambda: self.pending(name) == 1)
+            resumed = self.client(name, version=version, persistent=True, present=True)
+            self.delivery(resumed, f'unavailable/{version}/value', b'preserved-queue', 1, version=version)
+            self.barrier(resumed)
+            self.assertEqual(len(self.service.observations('/acl', client_id=name)), 2)
+            self.disconnect(resumed)
+
+    def test_pending_publish_generation_change_cannot_install_late_retained_or_fanout(self):
+        self.start(ttl=0)
+        watcher = self.client('late-watcher')
+        self.subscribe(watcher, 'late/#', qos=1)
+        source = self.client('late-publisher')
+        entered = threading.Event()
+        release = threading.Event()
+        def policy(path, body):
+            if path == '/acl' and body['client_id'] == 'late-publisher':
+                entered.set()
+                release.wait(3)
+            return None
+        self.service.policy = policy
+        source.sendall(publication5('late/value', b'never-install', 1, 99, retain=True))
+        try:
+            self.assertTrue(entered.wait(2))
+            self.barrier(watcher)
+            self.quiet(watcher)
+            config = self.request('/config')[2]
+            config['authorization']['headers'] = {'X-Generation': 'changed'}
+            self.replace(config)
+        finally:
+            release.set()
+        header, body = receive(source)
+        self.assertEqual((header, body[0]), (0xe0, 0x89))
+        self.quiet(watcher)
+        self.assertEqual(self.broker.data('/api/v1/retained?search=late%2F')['total'], 0)
+        self.assertEqual(len(self.service.observations('/acl', client_id='late-publisher')), 1)
+
     def test_custom_tls_configuration_is_rejected_and_not_exposed(self):
         self.start(authz=False)
         original = self.request('/config')[2]
@@ -385,55 +530,65 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.assertEqual(service.observations(), [])
         self.assertEqual(self.request('/status')[2]['authentication']['requests_total'], 0)
 
-    def test_retained_and_will_use_original_device_and_actual_topic(self):
+    def test_retained_replay_and_will_do_not_issue_remote_checks(self):
+        # Phase6b supersedes the Phase6a remote Will/actual-send expansion.
         self.start(ttl=0)
         watcher = self.client('will-watcher')
         self.subscribe(watcher, 'will/#', qos=1)
         owner = self.client('will-owner', username='will-device', will=('will/device', b'offline', 1, False))
-        self.assertTrue(self.service.observations('/acl', username='will-device', action='publish', topic='will/device'))
+        calls = len(self.service.observations('/acl'))
+        self.service.policy = lambda path, body: 503 if path == '/acl' else None
         owner.close()
         self.delivery(watcher, 'will/device', b'offline', 1)
+        self.barrier(watcher)
+        self.assertEqual(len(self.service.observations('/acl')), calls)
+        self.service.policy = None
         pub = self.client('retained-owner')
         self.publish(pub, 'retained/value', b'stored', 1, retain=True)
         fresh = self.client('retained-reader')
         self.subscribe(fresh, 'retained/#', qos=1)
         self.delivery(fresh, 'retained/value', b'stored', 1)
-        self.assertTrue(self.service.observations('/acl', username='retained-reader', action='subscribe', topic='retained/value'))
+        self.barrier(fresh)
+        self.assertEqual(len(self.service.observations('/acl', client_id='retained-reader')), 1)
+        self.assertEqual(self.service.observations('/acl', topic='retained/value', action='subscribe'), [])
 
-    def test_receive_unavailable_quarantine_survives_sigkill_then_reconnect(self):
+    def test_existing_queue_survives_unavailable_service_and_restart_without_remote_recovery(self):
+        # Old Phase6a quarantined delivery. Accepted subscriptions now retain grants.
         self.start(ttl=0)
-        sub = self.client('quarantine-target', persistent=True)
-        self.subscribe(sub, 'quarantine/#', qos=2)
+        sub = self.client('queue-target', persistent=True)
+        self.subscribe(sub, 'queue/#', qos=2)
         self.disconnect(sub)
-        self.service.policy = lambda path, body: 503 if path == '/acl' and body['client_id'] == 'quarantine-target' and body['topic'] == 'quarantine/value' else None
-        pub = self.client('quarantine-source')
-        self.publish(pub, 'quarantine/value', b'durable-before-receive-authorization', 2)
-        eventually(lambda: self.pending('quarantine-target') == 1)
-        resumed = self.client('quarantine-target', persistent=True, present=True)
-        eventually(lambda: bool(self.service.observations('/acl', client_id='quarantine-target', topic='quarantine/value')))
-        self.quiet(resumed)
-        self.assertEqual(self.pending('quarantine-target'), 1)
+        pub = self.client('queue-source')
+        self.publish(pub, 'queue/value', b'durable-accepted', 2)
+        eventually(lambda: self.pending('queue-target') == 1)
+        calls = len(self.service.observations('/acl'))
+        self.service.policy = lambda path, body: 503 if path == '/acl' else None
+        all_calls = len(self.service.observations())
         self.broker.stop(crash=True)
         self.broker.start()
-        self.assertEqual(self.pending('quarantine-target'), 1)
-        self.service.policy = None
-        final = self.client('quarantine-target', persistent=True, present=True)
-        self.delivery(final, 'quarantine/value', b'durable-before-receive-authorization', 2)
+        self.assertEqual(len(self.service.observations()), all_calls)
+        self.assertEqual(self.pending('queue-target'), 1)
+        self.assertEqual(len(self.service.observations('/acl')), calls)
+        final = self.client('queue-target', persistent=True, present=True)
+        self.delivery(final, 'queue/value', b'durable-accepted', 2)
         self.barrier(final)
-        eventually(lambda: self.session('quarantine-target')['queued'] == 0 and self.session('quarantine-target')['inflight'] == 0)
+        eventually(lambda: self.pending('queue-target') == 0)
+        self.assertEqual(len(self.service.observations('/acl')), calls)
 
-    def test_shared_denied_member_is_skipped_for_allowed_member(self):
+    def test_shared_filter_denial_excludes_only_unadmitted_member(self):
         self.start(ttl=0)
-        self.service.policy = lambda path, body: 403 if path == '/acl' and body['client_id'] == 'a-denied' and body['action'] == 'subscribe' and body['topic'] == 'shared/value' else None
+        self.service.policy = lambda path, body: 403 if path == '/acl' and body['client_id'] == 'a-denied' and body['action'] == 'subscribe' else None
         denied = self.client('a-denied')
         allowed = self.client('z-allowed')
-        self.subscribe(denied, '$share/workers/shared/#', qos=2)
+        self.subscribe(denied, '$share/workers/shared/#', qos=2, code=0x87)
         self.subscribe(allowed, '$share/workers/shared/#', qos=2)
         pub = self.client('shared-source')
         for qos in range(3):
             self.publish(pub, 'shared/value', bytes([qos]), qos)
             self.delivery(allowed, 'shared/value', bytes([qos]), qos)
             self.quiet(denied)
+        self.assertEqual(len(self.service.observations('/acl', client_id='z-allowed')), 1)
+        self.assertEqual(len(self.service.observations('/acl', client_id='a-denied')), 1)
 
     def test_plain_authentication_and_same_owner_reauthentication(self):
         self.start(authz=True, extra=['--enhanced-auth-plain'])
@@ -496,34 +651,34 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.assertNotEqual(body[1], 0, 'stale configuration admitted CONNECT')
         self.assertEqual(self.broker.data('/api/v1/sessions')['total'], 0)
 
-    def test_shared_unavailable_preflight_preserves_qos2_without_partial_fanout_before_crash(self):
+    def test_accepted_qos2_duplicates_and_shared_fanout_ignore_later_http_failure(self):
+        # The old Phase6a shared preflight delayed PUBCOMP. Phase6b grants the
+        # original PUBLISH once; PUBREL, DUP and recipient ACKs reuse acceptance.
         self.start(ttl=0)
         ordinary = self.client('ordinary-target', persistent=True)
         shared = self.client('shared-target', persistent=True)
         self.subscribe(ordinary, 'partial/#', qos=2)
         self.subscribe(shared, '$share/group/partial/#', qos=2)
-        self.service.policy = lambda path, body: 503 if path == '/acl' and body['client_id'] == 'shared-target' and body['topic'] == 'partial/value' else None
         source = self.client('partial-source', persistent=True)
         source.sendall(publication5('partial/value', b'once-per-recipient', 2, 77))
         parse_ack5(receive(source), 0x50, 77)
+        calls = len(self.service.observations('/acl'))
+        self.service.policy = lambda path, body: 503 if path == '/acl' else None
+        source.sendall(publication5('partial/value', b'once-per-recipient', 2, 77, dup=True))
+        parse_ack5(receive(source), 0x50, 77)
         source.sendall(ack5(0x62, 77))
-        eventually(lambda: bool(self.service.observations('/acl', client_id='shared-target', topic='partial/value')))
-        self.quiet(ordinary, .25)
-        self.quiet(shared, .25)
-        self.quiet(source, .25)
-        self.broker.stop(crash=True)
-        self.service.policy = None
-        self.broker.start()
-        ordinary2 = self.client('ordinary-target', persistent=True, present=True)
-        shared2 = self.client('shared-target', persistent=True, present=True)
-        source2 = self.client('partial-source', persistent=True, present=True)
-        source2.sendall(ack5(0x62, 77))
-        parse_ack5(receive(source2), 0x70, 77)
-        self.delivery(ordinary2, 'partial/value', b'once-per-recipient', 2)
-        self.delivery(shared2, 'partial/value', b'once-per-recipient', 2)
-        self.quiet(ordinary2, .3)
-        self.quiet(shared2, .3)
-        self.barrier(source2)
+        parse_ack5(receive(source), 0x70, 77)
+        self.delivery(ordinary, 'partial/value', b'once-per-recipient', 2)
+        self.delivery(shared, 'partial/value', b'once-per-recipient', 2)
+        source.sendall(ack5(0x62, 77))
+        parse_ack5(receive(source), 0x70, 77)
+        self.barrier(source)
+        self.barrier(ordinary)
+        self.barrier(shared)
+        self.quiet(ordinary)
+        self.quiet(shared)
+        self.assertEqual(len(self.service.observations('/acl')), calls)
+        self.assertEqual(len(self.service.observations('/acl', client_id='partial-source')), 1)
 
 
 if __name__ == '__main__':
