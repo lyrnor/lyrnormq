@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -20,6 +21,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Field } from "./components/ui/field";
 import { SingleSelect } from "./components/ui/single-select";
 import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "./components/ui/collapsible";
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,6 +42,7 @@ import {
   deletionError,
   testEvent,
   validateOutbound,
+  validateDeliveryPolicy,
   validateSql,
   type RuleDefinition,
   type RulesConfig,
@@ -475,11 +482,6 @@ export function RulesPage({
                                 ? `Webhook · ${action.config.url}`
                                 : "暂不支持的出站类型"}
                             </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              每批 {action.delivery.batch_size} 条 / 等待{" "}
-                              {action.delivery.batch_wait_ms} ms · 最多{" "}
-                              {action.delivery.max_attempts} 次尝试
-                            </p>
                           </TableCell>
                           <TableCell>
                             <Badge active={action.enabled}>
@@ -668,6 +670,17 @@ function Editor({
   close: () => void;
 }) {
   const enabledId = useId();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const advancedRef = useRef<HTMLDivElement>(null);
+  const [focusAdvancedIssue, setFocusAdvancedIssue] = useState(false);
+  useEffect(() => {
+    if (!advancedOpen || !focusAdvancedIssue) return;
+    const input =
+      advancedRef.current?.querySelector<HTMLInputElement>("input:invalid");
+    input?.focus();
+    input?.scrollIntoView?.({ block: "nearest" });
+    setFocusAdvancedIssue(false);
+  }, [advancedOpen, focusAdvancedIssue]);
   const [draft, setDraft] = useState(edit.value),
     [error, setError] = useState<string | null>(null);
   const [headers, setHeaders] = useState(() =>
@@ -710,6 +723,10 @@ function Editor({
           headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
         },
       };
+      if (validateDeliveryPolicy(outbound.delivery)) {
+        setAdvancedOpen(true);
+        setFocusAdvancedIssue(true);
+      }
       issue = issue || validateOutbound(next as Outbound);
     }
     if (issue) {
@@ -740,15 +757,17 @@ function Editor({
             required
           />
         </Field>
-        <div className="flex items-center gap-2">
-          <Switch
-            id={enabledId}
-            checked={Boolean(rule.enabled)}
-            onCheckedChange={(checked) => patch({ enabled: checked })}
-            disabled={busy}
-          />
-          <Label htmlFor={enabledId}>启用</Label>
-        </div>
+        {edit.kind === "rules" && (
+          <div className="flex items-center gap-2">
+            <Switch
+              id={enabledId}
+              checked={Boolean(rule.enabled)}
+              onCheckedChange={(checked) => patch({ enabled: checked })}
+              disabled={busy}
+            />
+            <Label htmlFor={enabledId}>启用</Label>
+          </div>
+        )}
         {edit.kind === "rules" && (
           <>
             <Field label="SQL">
@@ -804,29 +823,7 @@ function Editor({
         )}
         {edit.kind === "outbounds" && (
           <>
-            <Field label="出站类型">
-              <SingleSelect
-                aria-label="出站类型"
-                value={action.type}
-                disabled={busy || !edit.fresh}
-                onValueChange={(value) => {
-                  if (value === "webhook") patch({ type: "webhook" });
-                }}
-                options={[
-                  { value: "webhook", label: "Webhook" },
-                  ...(action.type !== "webhook"
-                    ? [
-                        {
-                          value: action.type,
-                          label: "暂不支持的出站类型",
-                          disabled: true,
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            </Field>
-            <Field label="Webhook URL">
+            <Field label="Webhook 地址">
               <Input
                 type="url"
                 value={action.config.url}
@@ -840,7 +837,7 @@ function Editor({
             </Field>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium">请求头</h3>
+                <h3 className="text-xs font-medium">鉴权/请求头</h3>
                 <Button
                   type="button"
                   size="sm"
@@ -897,55 +894,102 @@ function Editor({
                 </div>
               ))}
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                已有凭据显示为
-                [redacted]，保留该值可继续使用原凭据；输入新值才会替换。请求头值不写入浏览器存储。
+                已有凭据已隐藏；保持原值可继续使用，输入新值后替换。
               </p>
             </div>
           </>
         )}
         {edit.kind === "outbounds" && (
-          <>
-            {(
-              [
-                ["batch_size", "批量条数", 1, 500],
-                ["batch_wait_ms", "批量等待（ms）", 0, 1000],
-                ["queue_capacity", "队列容量（条）", 1, 4096],
-                ["timeout_ms", "请求超时（ms）", 100, 30000],
-                ["max_attempts", "最多尝试次数", 1, 5],
-                ["retry_base_ms", "重试基础间隔（ms）", 10, 10000],
-              ] as const
-            ).map(([key, label, min, max]) => (
-              <Field key={key} label={label}>
-                <Input
-                  type="number"
-                  value={
-                    Number.isNaN(action.delivery[key])
-                      ? ""
-                      : action.delivery[key]
-                  }
-                  min={min}
-                  max={max}
-                  step={1}
-                  required
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="group w-full justify-between"
+                disabled={busy}
+              >
+                高级设置
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 transition-transform group-data-[state=open]:rotate-180"
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent ref={advancedRef} className="space-y-5 pt-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id={enabledId}
+                  checked={Boolean(rule.enabled)}
+                  onCheckedChange={(checked) => patch({ enabled: checked })}
                   disabled={busy}
-                  onChange={(e) =>
-                    patch({
-                      delivery: {
-                        ...action.delivery,
-                        [key]:
-                          e.target.value === "" ? NaN : Number(e.target.value),
-                      },
-                    })
-                  }
+                />
+                <Label htmlFor={enabledId}>启用</Label>
+              </div>
+              <Field label="出站类型">
+                <SingleSelect
+                  aria-label="出站类型"
+                  value={action.type}
+                  disabled={busy || !edit.fresh}
+                  onValueChange={(value) => {
+                    if (value === "webhook") patch({ type: "webhook" });
+                  }}
+                  options={[
+                    { value: "webhook", label: "Webhook" },
+                    ...(action.type !== "webhook"
+                      ? [
+                          {
+                            value: action.type,
+                            label: "暂不支持的出站类型",
+                            disabled: true,
+                          },
+                        ]
+                      : []),
+                  ]}
                 />
               </Field>
-            ))}
-            <Alert role="note">
-              <AlertDescription>
-                投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
-              </AlertDescription>
-            </Alert>
-          </>
+              {(
+                [
+                  ["batch_size", "批量条数", 1, 500],
+                  ["batch_wait_ms", "批量等待（ms）", 0, 1000],
+                  ["timeout_ms", "请求超时（ms）", 100, 30000],
+                  ["max_attempts", "最多尝试次数", 1, 5],
+                  ["retry_base_ms", "重试基础间隔（ms）", 10, 10000],
+                ] as const
+              ).map(([key, label, min, max]) => (
+                <Field key={key} label={label}>
+                  <Input
+                    type="number"
+                    value={
+                      Number.isNaN(action.delivery[key])
+                        ? ""
+                        : action.delivery[key]
+                    }
+                    min={min}
+                    max={max}
+                    step={1}
+                    required
+                    disabled={busy}
+                    onChange={(e) =>
+                      patch({
+                        delivery: {
+                          ...action.delivery,
+                          [key]:
+                            e.target.value === ""
+                              ? NaN
+                              : Number(e.target.value),
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              ))}
+              <Alert role="note">
+                <AlertDescription>
+                  投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
+                </AlertDescription>
+              </Alert>
+            </CollapsibleContent>
+          </Collapsible>
         )}
         {error && <Notice>{error}</Notice>}
         <div className="flex gap-2 border-t pt-4">

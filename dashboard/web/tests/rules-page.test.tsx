@@ -136,7 +136,7 @@ describe("live rule and Webhook management", () => {
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Alarm" },
     });
-    fireEvent.change(screen.getByLabelText("Webhook URL"), {
+    fireEvent.change(screen.getByLabelText("Webhook 地址"), {
       target: { value: "https://example.com/hook" },
     });
     fireEvent.click(screen.getByRole("button", { name: "添加请求头" }));
@@ -212,7 +212,7 @@ describe("live rule and Webhook management", () => {
     fireEvent.change(screen.getByLabelText("名称"), {
       target: { value: "Send" },
     });
-    fireEvent.change(screen.getByLabelText("Webhook URL"), {
+    fireEvent.change(screen.getByLabelText("Webhook 地址"), {
       target: { value: "https://example.com/hook" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
@@ -527,5 +527,145 @@ describe("live rule and Webhook management", () => {
       (screen.getByRole("button", { name: "确认删除" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+});
+
+describe("Webhook basic and advanced settings", () => {
+  const writes = () =>
+    request.mock.calls.filter((call) => call[3]?.method === "PUT");
+  const saved = () => (writes().at(-1)?.[3]?.body as RulesConfig).outbounds[0];
+  async function fresh() {
+    server();
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 0" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "新建出站" }));
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "Webhook" },
+    });
+    fireEvent.change(screen.getByLabelText("Webhook 地址"), {
+      target: { value: "https://example.com/hook" },
+    });
+  }
+  it("only shows business fields initially and saves the system defaults", async () => {
+    await fresh();
+    expect(screen.getByRole("button", { name: "添加请求头" })).toBeTruthy();
+    for (const label of [
+      "批量条数",
+      "批量等待（ms）",
+      "请求超时（ms）",
+      "最多尝试次数",
+      "重试基础间隔（ms）",
+      "队列容量（条）",
+      "出站类型",
+      "启用",
+    ])
+      expect(screen.queryByLabelText(label)).toBeNull();
+    const trigger = screen.getByRole("button", { name: "高级设置" });
+    expect(trigger.getAttribute("type")).toBe("button");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(saved().delivery).toEqual(defaultOutbound().delivery);
+  });
+  it("retains advanced edits through collapse with no editable queue capacity", async () => {
+    await fresh();
+    const trigger = screen.getByRole("button", { name: "高级设置" });
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    for (const [label, value] of Object.entries({
+      批量条数: 12,
+      "批量等待（ms）": 25,
+      "请求超时（ms）": 500,
+      最多尝试次数: 2,
+      "重试基础间隔（ms）": 30,
+    }))
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    expect(screen.getByRole("switch", { name: "启用" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "出站类型" })).toBeTruthy();
+    expect(screen.queryByLabelText("队列容量（条）")).toBeNull();
+    fireEvent.click(trigger);
+    expect(screen.queryByLabelText("批量条数")).toBeNull();
+    fireEvent.click(trigger);
+    expect((screen.getByLabelText("批量条数") as HTMLInputElement).value).toBe(
+      "12",
+    );
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(saved().delivery).toEqual({
+      batch_size: 12,
+      batch_wait_ms: 25,
+      timeout_ms: 500,
+      max_attempts: 2,
+      retry_base_ms: 30,
+      queue_capacity: 256,
+    });
+  });
+  it("preserves existing delivery settings and custom queue capacity without opening advanced", async () => {
+    const initial = structuredClone(populated);
+    initial.outbounds[0].enabled = false;
+    initial.outbounds[0].delivery = {
+      batch_size: 7,
+      batch_wait_ms: 15,
+      timeout_ms: 1200,
+      max_attempts: 4,
+      retry_base_ms: 45,
+      queue_capacity: 777,
+    };
+    server(initial);
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 1" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    expect(screen.queryByText(/每批.*等待/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "编辑 Send alarm" }));
+    expect(
+      screen
+        .getByRole("button", { name: "高级设置" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    fireEvent.change(screen.getByLabelText("名称"), {
+      target: { value: "Renamed only" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(saved().delivery).toEqual(initial.outbounds[0].delivery);
+    expect(saved().enabled).toBe(false);
+    expect(saved().id).toBe("send");
+    expect(saved().config.headers.Authorization).toBe("[redacted]");
+  });
+  it("expands hidden invalid tuning instead of submitting it", async () => {
+    await fresh();
+    fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+    fireEvent.change(screen.getByLabelText("批量条数"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "高级设置" })
+          .getAttribute("aria-expanded"),
+      ).toBe("true"),
+    );
+    expect(screen.getByRole("alert").textContent).toContain("批量条数");
+    expect(document.activeElement).toBe(screen.getByLabelText("批量条数"));
+    expect(writes()).toHaveLength(0);
+  });
+  it("keeps the rule enable switch and SQL immediately available", async () => {
+    server();
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    expect(screen.getByRole("switch", { name: "启用" })).toBeTruthy();
+    expect(screen.getByLabelText("SQL")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "高级设置" })).toBeNull();
   });
 });

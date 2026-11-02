@@ -129,7 +129,7 @@ export function validateWebhook(connector: WebhookConfig): string | null {
     )
       return "Webhook 仅支持 HTTP/HTTPS，地址不能含凭据、查询参数或片段；凭据请放请求头";
   } catch {
-    return "请输入有效的 Webhook URL";
+    return "请输入有效的 Webhook 地址";
   }
   const headers = Object.entries(connector.headers);
   if (
@@ -170,7 +170,9 @@ export function validateOutbound(outbound: Outbound): string | null {
   if (outbound.type !== "webhook") return "暂不支持此出站类型";
   const destination = validateWebhook(outbound.config);
   if (destination) return destination;
-  const action = outbound.delivery;
+  return validateDeliveryPolicy(outbound.delivery);
+}
+export function validateDeliveryPolicy(action: DeliveryPolicy): string | null {
   const bounds: [number, number, number, string][] = [
     [action.batch_size, 1, 500, "批量条数"],
     [action.batch_wait_ms, 0, 1000, "批量等待"],
