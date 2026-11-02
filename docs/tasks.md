@@ -586,3 +586,17 @@ This supersedes earlier authentication-rate-limit and mTLS absence statements.
 Metrics/health, certificate reload, multi-listener and performance/long-soak work
 are explicitly excluded by user; no such task is active. Existing future backlog
 is not an implementation claim. [Evidence](verification/admission-mtls-20261030/README.md).
+
+
+## HTTP authentication/authorization v1 (contract only)
+
+- [x] Define external POST credential and principal-scoped ACL wire contracts,
+  OpenAPI, examples, business-vs-transport failures, limits and cache semantics.
+- [ ] Freeze internal async provider/ACL snapshot contracts, unavailable-vs-revoked
+  handling, Will deadlines, expiry and restoration barriers before implementation.
+- [ ] Implement bounded HTTP backend and integrate authenticated session lifecycle.
+- [ ] Add protected management configuration/UI and safe credential handling.
+- [ ] Verify real HTTP/TLS/mTLS, dual versions, reauth, takeover, ACL changes,
+  durable recovery, bounds, fault behavior and musl build; measure performance.
+
+[External contract](http-auth-api.md). No remote backend is implemented yet.

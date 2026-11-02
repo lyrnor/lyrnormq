@@ -821,3 +821,17 @@ Build admission includes a static Linux amd64 musl spike with vendored TLS/curl/
 compression and host capability verification. Native features do not imply Kafka
 OAuth or Kerberos are exposed. Dashboard/API configuration is typed and redacted;
 TLS input is bounded inline PEM rather than arbitrary server file paths.
+
+
+## HTTP authentication external contract (implementation pending)
+
+[HTTP v1](http-auth-api.md) freezes Broker-to-service credential verification and
+principal-scoped ACL snapshot retrieval. Runtime authentication is asynchronous and
+bounded in the planned integration; synchronous session authorization remains local.
+External calls must never execute inside the current AccessControl/session actor.
+
+Allow/Deny/NotFound/Unavailable are distinct outcomes; transport failure cannot
+become permanent revocation and prune durable state. The wire contract does not
+freeze internal Rust APIs or resolve the pending Will/expiry/recovery barriers.
+Those require an explicit integration contract and regression tests before coding.
+No HTTP backend, management configuration or UI is implemented in this change.

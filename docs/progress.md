@@ -2447,3 +2447,17 @@ Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RU
 [证据与复现](verification/structured-logging-20261102/README.md)。
 剩余：按业务故障需要补充安全/限流埋点；文件轮转、热更新尚未实现，当前由运行环境
 采集stderr。没有测量或承诺吞吐/p99不变。分支codex/structured-logging。
+
+
+### HTTP authentication API v1 contract (2026-11-02, implementation pending)
+
+已定义Broker调用外部服务的两个POST接口：/mqtt/authenticate和/mqtt/acl。
+[中文规范](http-auth-api.md)与[OpenAPI3.1](api/http-auth-v1.openapi.json)统一请求/
+响应样例，包含二进制密码Base64、稳定principal、重认证身份约束、ACL默认拒绝/
+deny优先、Subscribe覆盖与拒绝交集、TTL和故障分类。业务判定HTTP200，服务状态
+错误不作为MQTT用户判定，不自动放行或匿名回退。MQTT错误码按OASIS核对包类型。
+
+已检查JSON解析、全部本地引用和8份文档样例与OpenAPI嵌入样例一致；没有声称运行
+完整OpenAPI外部校验器。仅文档改动，没有运行Rust构建/测试或实现外部调用。
+下一步：冻结异步集成与Will/到期/恢复屏障，再实现HTTP后端/管理配置/页面和黑盒。
+PostgreSQL后端仍未实现。分支codex/http-auth-contract。
