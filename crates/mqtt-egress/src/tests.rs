@@ -744,11 +744,13 @@ async fn migrates_old_sqlite_blob_transactionally_and_rejects_new_wire_unknowns(
 fn webhook(endpoint: &Endpoint) -> &mqtt_webhook::WebhookConfig {
     match endpoint {
         Endpoint::Webhook(c) => c,
+        Endpoint::Kafka(_) => panic!("expected Webhook fixture"),
     }
 }
 fn webhook_mut(endpoint: &mut Endpoint) -> &mut mqtt_webhook::WebhookConfig {
     match endpoint {
         Endpoint::Webhook(c) => c,
+        Endpoint::Kafka(_) => panic!("expected Webhook fixture"),
     }
 }
 

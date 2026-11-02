@@ -18,6 +18,14 @@ pub struct SendError {
     pub code: String,
 }
 pub trait Sink: Send + Sync {
+    /// Native adapters may own a delivery deadline that must not be cancelled.
+    fn manages_timeout(&self) -> bool {
+        false
+    }
+    /// Complete native teardown before activating a replacement generation.
+    fn shutdown(&self) -> Pin<Box<dyn Future<Output = Result<(), SendError>> + Send + '_>> {
+        Box::pin(async { Ok(()) })
+    }
     fn limits(&self) -> BatchLimits;
     fn send<'a>(
         &'a self,

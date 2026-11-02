@@ -56,6 +56,7 @@ pub(crate) struct Inner {
     mutation: Arc<Semaphore>,
     tests: Arc<Semaphore>,
     outbound: Arc<Semaphore>,
+    kafka_outbound: Arc<Semaphore>,
     threads: Mutex<Vec<std::thread::JoinHandle<()>>>,
 }
 pub struct Runtime {
@@ -154,11 +155,13 @@ impl PublicationObserver for Observer {
 fn build_snapshot(
     validated: Validated,
     context: Arc<durable_worker::Context>,
+    kafka_outbound: Arc<Semaphore>,
     revisions: &BTreeMap<String, u64>,
 ) -> Arc<Snapshot> {
     let (cancel, _) = watch::channel(false);
     let mut targets = BTreeMap::new();
     let mut tasks = Vec::new();
+    let sinks: Vec<_> = validated.sinks.values().cloned().collect();
     for action in &validated.config.outbounds {
         let stats = Arc::new(ActionCounters::default());
         let Some(sink) = validated.sinks.get(&action.id).cloned() else {
@@ -170,6 +173,17 @@ fn build_snapshot(
             enabled: action.enabled,
         };
         if action.enabled {
+            let context = if matches!(action.endpoint, crate::Endpoint::Kafka(_)) {
+                Arc::new(durable_worker::Context {
+                    queue: Arc::clone(&context.queue),
+                    global: Arc::clone(&kafka_outbound),
+                    counters: Arc::clone(&context.counters),
+                    stopped: Arc::clone(&context.stopped),
+                    codec: context.codec,
+                })
+            } else {
+                Arc::clone(&context)
+            };
             tasks.push(durable_worker::spawn(
                 action.clone(),
                 sink,
@@ -202,6 +216,7 @@ fn build_snapshot(
             cancel,
             targets,
             tasks: Mutex::new(tasks),
+            sinks,
         }),
     })
 }
@@ -242,6 +257,7 @@ impl Runtime {
         // async worker. Transfer this guarded owner to Inner only on success.
         let store = Arc::new(crate::runtime_init::ConfigOwner::new(store, cleanup));
         let outbound = Arc::new(Semaphore::new(crate::config::GLOBAL_CONCURRENCY));
+        let kafka_outbound = Arc::new(Semaphore::new(crate::config::KAFKA_GLOBAL_CONCURRENCY));
         let counters = Arc::new(Counters::default());
         let stopped = Arc::new(AtomicBool::new(false));
         let bindings = durable::bindings(&validated.config).map_err(io::Error::other)?;
@@ -266,7 +282,7 @@ impl Runtime {
             counters: Arc::clone(&counters),
             stopped: Arc::clone(&stopped),
         });
-        let snapshot = build_snapshot(validated, context, &revisions);
+        let snapshot = build_snapshot(validated, context, Arc::clone(&kafka_outbound), &revisions);
         let (senders, receivers): (Vec<_>, Vec<_>) =
             (0..4).map(|_| mpsc::sync_channel(256)).unzip();
         let prefix = format!(
@@ -289,6 +305,7 @@ impl Runtime {
             mutation: Arc::new(Semaphore::new(1)),
             tests: Arc::new(Semaphore::new(3)),
             outbound,
+            kafka_outbound,
             threads: Mutex::new(Vec::new()),
         });
         for (index, receiver) in receivers.into_iter().enumerate() {
@@ -443,7 +460,10 @@ impl Runtime {
                     .read()
                     .unwrap_or_else(PoisonError::into_inner),
             );
-            previous.generation.finish().await;
+            if previous.generation.finish().await.is_err() {
+                inner.stopped.store(true, Ordering::Release);
+                return Err(RuntimeError::Stopped);
+            }
             let context = Arc::new(durable_worker::Context {
                 codec: crate::result_wire::Codec::Rule,
                 queue: Arc::clone(&inner.queue),
@@ -451,7 +471,12 @@ impl Runtime {
                 counters: Arc::clone(&inner.counters),
                 stopped: Arc::clone(&inner.stopped),
             });
-            let next = build_snapshot(validated, context, &revisions);
+            let next = build_snapshot(
+                validated,
+                context,
+                Arc::clone(&inner.kafka_outbound),
+                &revisions,
+            );
             let public = next.config.public();
             *inner
                 .snapshot
@@ -512,7 +537,7 @@ async fn shutdown_inner(inner: Arc<Inner>) {
             .unwrap_or_else(PoisonError::into_inner)
             .generation,
     );
-    generation.finish().await;
+    let _ = generation.finish().await;
     let threads =
         std::mem::take(&mut *inner.threads.lock().unwrap_or_else(PoisonError::into_inner));
     let store = Arc::clone(&inner.store);
@@ -542,7 +567,7 @@ async fn stop_after_storage_error(inner: &Inner) {
     );
     // Do not return a storage failure while old network attempts still own
     // permits/buffers. The mutation task owns its permit even if its caller left.
-    generation.finish().await;
+    let _ = generation.finish().await;
 }
 
 impl Drop for Runtime {

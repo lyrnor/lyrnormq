@@ -31,12 +31,13 @@ pub(crate) struct Generation {
     pub cancel: watch::Sender<bool>,
     pub targets: BTreeMap<String, Target>,
     pub tasks: Mutex<Vec<JoinHandle<()>>>,
+    pub sinks: Vec<Arc<dyn Sink>>,
 }
 impl Generation {
     pub fn cancel(&self) {
         self.cancel.send_replace(true);
     }
-    pub async fn finish(&self) {
+    pub async fn finish(&self) -> Result<(), crate::RuntimeError> {
         self.cancel();
         let tasks = std::mem::take(&mut *self.tasks.lock().unwrap_or_else(PoisonError::into_inner));
         let deadline = Instant::now() + Duration::from_secs(2);
@@ -46,6 +47,22 @@ impl Generation {
                 let _ = task.await;
             }
         }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut closing = JoinSet::new();
+        for sink in &self.sinks {
+            let sink = Arc::clone(sink);
+            closing.spawn(async move { sink.shutdown().await });
+        }
+        while !closing.is_empty() {
+            match tokio::time::timeout_at(deadline, closing.join_next()).await {
+                Ok(Some(Ok(Ok(())))) => {}
+                _ => {
+                    closing.shutdown().await;
+                    return Err(crate::RuntimeError::Stopped);
+                }
+            }
+        }
+        Ok(())
     }
 }
 pub(crate) struct Context {
@@ -373,7 +390,7 @@ async fn deliver(
                 .fetch_add(batch.len() as u64, Ordering::Relaxed);
         }
         let events: Vec<&[u8]> = encoded.iter().map(Vec::as_slice).collect();
-        tokio::select! {biased;_=cancel.changed()=>return None,result=tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events))=>match result{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:FailureKind::Retryable,code:"timeout".into()})}}
+        tokio::select! {biased;_=cancel.changed()=>return None,result=async {if sink.manages_timeout(){sink.send(&events).await}else{match tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events)).await{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:FailureKind::Retryable,code:"timeout".into()})}}}=>result}
     };
     drop(permit);
     match response {

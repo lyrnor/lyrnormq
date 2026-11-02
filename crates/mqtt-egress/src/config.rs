@@ -1,4 +1,5 @@
 use crate::RuntimeError;
+use mqtt_kafka::KafkaConfig;
 use mqtt_rules::{CompiledRule, Rule};
 use mqtt_webhook::WebhookConfig;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ pub const DEFAULT_CONCURRENCY: usize = 8;
 /// Per-outbound bound; actual attempts also share the Runtime request semaphore.
 pub const MAX_CONCURRENCY: usize = 16;
 pub(crate) const GLOBAL_CONCURRENCY: usize = 16;
+pub(crate) const KAFKA_GLOBAL_CONCURRENCY: usize = 512;
 
 fn default_concurrency() -> usize {
     DEFAULT_CONCURRENCY
@@ -34,27 +36,38 @@ pub type PublicConfig = Config;
 #[serde(rename_all = "snake_case")]
 pub enum OutboundType {
     Webhook,
+    Kafka,
 }
 #[derive(Clone, Debug)]
 pub enum Endpoint {
     Webhook(WebhookConfig),
+    Kafka(Box<KafkaConfig>),
 }
 impl Endpoint {
     pub fn validate(&self) -> Result<(), RuntimeError> {
         match self {
             Self::Webhook(c) => c.validate().map_err(|_| RuntimeError::InvalidConfig),
+            Self::Kafka(c) => c.validate().map_err(|_| RuntimeError::InvalidConfig),
         }
     }
     pub fn redact(&mut self) {
         match self {
             Self::Webhook(c) => c.redact(),
+            Self::Kafka(c) => c.redact(),
         }
     }
     pub fn restore(&mut self, old: Option<&Self>) -> Result<(), RuntimeError> {
         match self {
             Self::Webhook(c) => c
-                .restore(old.map(|o| match o {
-                    Self::Webhook(c) => c,
+                .restore(old.and_then(|o| match o {
+                    Self::Webhook(c) => Some(c),
+                    _ => None,
+                }))
+                .map_err(|_| RuntimeError::InvalidConfig),
+            Self::Kafka(c) => c
+                .restore(old.and_then(|o| match o {
+                    Self::Kafka(c) => Some(c.as_ref()),
+                    _ => None,
                 }))
                 .map_err(|_| RuntimeError::InvalidConfig),
         }
@@ -62,6 +75,7 @@ impl Endpoint {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Webhook(_) => "webhook",
+            Self::Kafka(_) => "kafka",
         }
     }
     pub fn sink(
@@ -74,6 +88,14 @@ impl Endpoint {
             Self::Webhook(c) => Ok(std::sync::Arc::new(
                 mqtt_webhook::WebhookSink::new(id, c.clone(), timeout, concurrency)
                     .map_err(|_| RuntimeError::InvalidConfig)?,
+            )),
+            Self::Kafka(c) => Ok(std::sync::Arc::new(
+                mqtt_kafka::KafkaSink::new(id, c.as_ref().clone(), timeout, concurrency).map_err(
+                    |e| match e {
+                        mqtt_kafka::BuildError::Busy => RuntimeError::Busy,
+                        _ => RuntimeError::InvalidConfig,
+                    },
+                )?,
             )),
         }
     }
@@ -95,13 +117,17 @@ struct WireOutbound {
     #[serde(rename = "type")]
     kind: OutboundType,
     config: serde_json::Value,
-    delivery: DeliveryPolicy,
+    delivery: serde_json::Value,
 }
 impl Serialize for Outbound {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let (kind, config) = match &self.endpoint {
             Endpoint::Webhook(c) => (
                 OutboundType::Webhook,
+                serde_json::to_value(c).map_err(serde::ser::Error::custom)?,
+            ),
+            Endpoint::Kafka(c) => (
+                OutboundType::Kafka,
                 serde_json::to_value(c).map_err(serde::ser::Error::custom)?,
             ),
         };
@@ -111,14 +137,22 @@ impl Serialize for Outbound {
             enabled: self.enabled,
             kind,
             config,
-            delivery: self.delivery.clone(),
+            delivery: serde_json::to_value(&self.delivery).map_err(serde::ser::Error::custom)?,
         }
         .serialize(s)
     }
 }
 impl<'de> Deserialize<'de> for Outbound {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let w = WireOutbound::deserialize(d)?;
+        let mut w = WireOutbound::deserialize(d)?;
+        if matches!(w.kind, OutboundType::Kafka)
+            && let Some(delivery) = w.delivery.as_object_mut()
+        {
+            delivery
+                .entry("concurrency")
+                .or_insert(serde_json::json!(128));
+        }
+        let delivery = serde_json::from_value(w.delivery).map_err(serde::de::Error::custom)?;
         Ok(Self {
             id: w.id,
             name: w.name,
@@ -127,8 +161,11 @@ impl<'de> Deserialize<'de> for Outbound {
                 OutboundType::Webhook => Endpoint::Webhook(
                     serde_json::from_value(w.config).map_err(serde::de::Error::custom)?,
                 ),
+                OutboundType::Kafka => Endpoint::Kafka(
+                    serde_json::from_value(w.config).map_err(serde::de::Error::custom)?,
+                ),
             },
-            delivery: w.delivery,
+            delivery,
         })
     }
 }
@@ -200,17 +237,36 @@ impl Config {
         {
             return Err(RuntimeError::InvalidConfig);
         }
+        if self
+            .outbounds
+            .iter()
+            .filter(|o| o.enabled && matches!(o.endpoint, Endpoint::Kafka(_)))
+            .count()
+            > 8
+        {
+            return Err(RuntimeError::InvalidConfig);
+        }
         let mut ids = BTreeSet::new();
         for o in &self.outbounds {
             if !identity(&o.id, &o.name)
                 || !ids.insert(o.id.clone())
-                || !(1..=MAX_CONCURRENCY).contains(&o.concurrency)
+                || !(1..=if matches!(o.endpoint, Endpoint::Kafka(_)) {
+                    512
+                } else {
+                    MAX_CONCURRENCY
+                })
+                    .contains(&o.concurrency)
                 || !(1..=500).contains(&o.batch_size)
                 || o.batch_wait_ms > 1000
                 || !(1..=4096).contains(&o.queue_capacity)
                 || !(100..=30000).contains(&o.timeout_ms)
                 || !(1..=5).contains(&o.max_attempts)
                 || !(10..=10000).contains(&o.retry_base_ms)
+            {
+                return Err(RuntimeError::InvalidConfig);
+            }
+            if matches!(o.endpoint, Endpoint::Kafka(_))
+                && (o.batch_size != 1 || o.batch_wait_ms != 0 || o.timeout_ms < 1000)
             {
                 return Err(RuntimeError::InvalidConfig);
             }

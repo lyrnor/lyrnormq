@@ -1,0 +1,11 @@
+[package]
+name = "mqtt-kafka"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+mqtt-egress-core = { path = "../mqtt-egress-core" }
+tokio.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+rdkafka = { version = "=0.39.0", default-features = false, features = ["tokio", "cmake-build", "curl-static", "ssl-vendored", "libz-static", "zstd"] }

@@ -15,3 +15,5 @@ mqtt-webhook = {path="../mqtt-webhook"}
 mqtt-egress-core = {path="../mqtt-egress-core"}
 
 mqtt-egress-log = { path = "../mqtt-egress-log" }
+
+mqtt-kafka = {path="../mqtt-kafka"}
