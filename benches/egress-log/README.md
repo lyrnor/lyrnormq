@@ -124,3 +124,56 @@ queues. Every run uses 1 MiB segments and a 512 MiB queue budget.
 
 [2026-11-02 measured matrix](../../docs/verification/shared-log-performance-20261102/README.md)
 contains the sequential three-repeat runner, JSON, resource output and environment.
+
+## Multi-frame Group Commit and segment experiments
+
+The separate `group_commit` binary leaves the original `topology` control source
+unchanged. Every frame remains at most64 results. `--group-width 1|4` selects one
+or up to four frames per successful durable API call; a width4 call is a larger
+confirmation barrier, **not the original width1 latency boundary**. All writes use
+production sync. Multiple dirty segments require their own synchronization; the
+public API does not expose physical sync counters, so JSON reports logical group
+calls/frames and observed segment files, never fabricated actual-sync counts.
+
+```sh
+CARGO_TARGET_DIR="$PWD/target" cargo build --release --offline \
+  --manifest-path benches/egress-log/Cargo.toml
+/usr/bin/time -l target/release/group_commit --inputs 4096 --rules 1 --fanout 16 \
+  --group-width 4 --segment-bytes 16777216 --mode direct --queue-dir /private/tmp
+python3 benches/egress-log/run-group-commit-matrix.py --output /private/tmp/new-group-matrix
+```
+
+The default sequential runner performs54 measurements: three repeats of1rule1out,
+4rules1out,1rule16out ×1/16/64MiB segments ×width1/4, each with1KiB payloads.
+The multi-rule case uses16,384 source inputs (65,536 distinct results, over64MiB of
+physical journal) to actually cross the largest segment; other cases use4,096.
+Existing output directories are rejected. Workloads/binary hashes, resource output,
+full readback and cold-reopen counts are retained. The binary conservatively bounds
+pending references at200,000 and estimated live reservation at240MiB, within512MiB
+queue quota. Only bounded groups enter memory. Peak RSS includes readback/cache,
+reopen and cleanup; stage RSS after append is reported separately.
+
+Direct mode reports **per-group durable API call p99**, with sample count. Preparation
+is outside the API timer, inside write wall time. It is not per-request p99 and must
+not be divided by the group's result count. Short cases may have only16 group calls,
+so nearest-rank p99 then equals maximum; use the raw samples/counts honestly.
+
+`--mode concurrent` uses16 producer threads, eight outstanding results per producer,
+a128-slot request channel and a single journal owner. Owner drains only already
+queued requests, without a batching timer. Every request records its own timestamp
+before bounded send. `confirmation_latency` measures that instant through successful
+sync-confirmed API return (including sender backpressure and queueing);
+`observed_reply_latency` also includes reply/thread scheduling. Both are per-result
+latency samples, not batch amortizations. `mean_frames_per_group` reports observed
+aggregation; the configured width is an upper bound, not a guarantee.
+
+```sh
+python3 benches/egress-log/run-group-commit-matrix.py --output /private/tmp/new-confirmation \
+  --mode concurrent --case fanout --segment-mib 16
+```
+
+These are direct journal experiments, not the production actor or HTTP/MQTT TPS.
+No SQL, network calls, completion writes or steady-state queue reclamation are
+included. Independent `group_commit_integrity` tests cover zero-write rejection,
+IDs, cross-segment recovery, byte-compatible frame layout and uncertain torn tails;
+private production tests verify actual synchronization counts and injected failures.
