@@ -6,7 +6,7 @@ per-rule/client FIFO remain normative. No MQTT ACK coupling or early durable ACK
 
 ## Journal API and durability
 
-Add `Journal::append_result_groups(groups: Vec<Vec<NewResult>>) ->
+Add `Journal::append_result_groups(groups: &[Vec<NewResult>]) ->
 Result<Vec<Vec<ResultIds>>, QueueError>`. Existing append_results API/imports remain.
 Each inner vector is one existing Results frame: 1..64 results, existing per-frame
 limits. One call accepts 1..4 frames, at most256results, aggregate raw payload8MiB,
@@ -72,3 +72,12 @@ full-process RSS and durable confirmation latency (queued/confirmed timestamps o
 explicitly named per-group call latency; never divide batchp99). Use same machine,
 Release and production sync, include environment, raw data, limitations. Run fmt,
 strict Clippy, workspace and relevant crash/restart blackboxes before integration.
+
+## Coordinated API clarification: borrowed group input
+
+The new API borrows `&[Vec<NewResult>]` rather than consuming the payload vectors.
+This lets the runtime safely retry validated per-frame subsets after a no-write
+Full without cloning up to8MiB of raw bodies. Journal may allocate bounded prepared
+metadata/encoded frames but does not own or retain caller payloads after return.
+Existing owned append_results remains source compatible. All three owners must use
+this signature; no second competing API or returned-payload error type is needed.
