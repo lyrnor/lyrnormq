@@ -295,3 +295,31 @@ async fn raw_data_headers_keys_timestamps_and_fifo_are_unchanged() {
     }
     sink.shutdown().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn explicitly_empty_sql_key_keeps_murmur2_partition() {
+    use krafka::testing::FakeBroker;
+    use mqtt_egress_core::Sink;
+    let broker = FakeBroker::start().await.unwrap();
+    broker.create_topic("events", 3);
+    let sink = KafkaSink::new(
+        "empty",
+        KafkaConfig {
+            brokers: vec![broker.bootstrap_servers()],
+            topic: "events".into(),
+            key_field: Some("key".into()),
+            ..KafkaConfig::default()
+        },
+        5000,
+        1,
+    )
+    .unwrap();
+    let event=br#"{"event_id":"e","delivery_id":"d","rule_id":"r","client_id":"not-the-key","topic":"t","timestamp_ms":1,"data":{"key":""}}"#;
+    sink.send(&[event]).await.unwrap();
+    let records = broker.all_records("events").unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].key.as_deref(), Some(b"".as_slice()));
+    // Java murmur2(empty)=275646681, positive mask, modulo three.
+    assert_eq!(records[0].partition, 0);
+    sink.shutdown().await.unwrap();
+}

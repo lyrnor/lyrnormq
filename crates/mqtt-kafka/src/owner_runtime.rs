@@ -7,8 +7,28 @@ use krafka::{
 use std::collections::BTreeMap;
 use tokio::task::JoinSet;
 
+fn tls_cause(error: &(dyn std::error::Error + 'static)) -> bool {
+    let mut current = Some(error);
+    for _ in 0..16 {
+        let Some(error) = current else { return false };
+        if error.is::<rustls::Error>() {
+            return true;
+        }
+        if let Some(io) = error.downcast_ref::<std::io::Error>()
+            && io
+                .get_ref()
+                .is_some_and(|inner| inner.is::<rustls::Error>())
+        {
+            return true;
+        }
+        current = error.source();
+    }
+    false
+}
 fn classify(e: KrafkaError) -> SendError {
+    let tls = tls_cause(&e);
     let code = match e {
+        KrafkaError::Auth { .. } if tls => "kafka_tls",
         KrafkaError::Auth { .. } => "kafka_auth",
         KrafkaError::Config { .. } => "kafka_config",
         KrafkaError::Broker { code, .. } => match code {
@@ -161,5 +181,22 @@ mod tests {
         });
         assert_eq!(e.kind, FailureKind::Permanent);
         assert_eq!(e.code, "kafka_auth");
+    }
+}
+
+#[cfg(test)]
+mod tls_error_tests {
+    use super::*;
+    #[test]
+    fn nested_tls_error_retains_controlled_tls_code() {
+        let tls = rustls::Error::InvalidCertificate(rustls::CertificateError::UnknownIssuer);
+        let io = std::io::Error::new(std::io::ErrorKind::InvalidData, tls);
+        let error = KrafkaError::Auth {
+            message: "private-service-detail".into(),
+            source: Some(krafka::error::ArcError::new(io)),
+        };
+        let result = classify(error);
+        assert_eq!(result.code, "kafka_tls");
+        assert_eq!(result.kind, FailureKind::Permanent);
     }
 }
