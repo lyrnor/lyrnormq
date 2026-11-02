@@ -58,3 +58,19 @@ fn configuration_roundtrip_redacts_and_restores_all_kafka_secrets() {
     copy.outbounds[0].id = "new".into();
     assert!(copy.restore_redacted(&c).is_err());
 }
+
+// Frozen pre-Kafka bytes: binding descriptors are durable identities, not JSON
+// semantic objects. Reordering DeliveryPolicy keys must not create a new target.
+#[test]
+fn legacy_webhook_serialization_preserves_exact_durable_descriptor_bytes() {
+    let config = configuration("webhook");
+    let expected = br#"{"id":"send","name":"Send","enabled":false,"type":"webhook","config":{"headers":{},"url":"http://127.0.0.1:1/unused"},"delivery":{"concurrency":8,"batch_size":1,"batch_wait_ms":0,"queue_capacity":256,"timeout_ms":30000,"max_attempts":3,"retry_base_ms":200}}"#;
+    assert_eq!(serde_json::to_vec(&config.outbounds[0]).unwrap(), expected);
+}
+#[test]
+fn legacy_webhook_binding_preserves_exact_durable_descriptor_bytes() {
+    let config = configuration("webhook");
+    let binding = crate::durable::bindings(&config).unwrap().remove(0);
+    let expected_binding = br#"{"id":"send","name":"","enabled":true,"type":"webhook","config":{"headers":{},"url":"http://127.0.0.1:1/unused"},"delivery":{"concurrency":8,"batch_size":1,"batch_wait_ms":0,"queue_capacity":256,"timeout_ms":30000,"max_attempts":3,"retry_base_ms":200}}"#;
+    assert_eq!(binding.descriptor, expected_binding);
+}

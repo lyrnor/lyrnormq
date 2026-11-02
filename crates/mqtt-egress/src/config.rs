@@ -108,9 +108,11 @@ pub struct Outbound {
     pub endpoint: Endpoint,
     pub delivery: DeliveryPolicy,
 }
-#[derive(Serialize, Deserialize)]
+// Deserialize through Value only to apply type-specific defaults. Serialization
+// must retain the pre-Kafka typed policy field order: it is durable binding identity.
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct WireOutbound {
+struct DecodedOutbound {
     id: String,
     name: String,
     enabled: bool,
@@ -118,6 +120,16 @@ struct WireOutbound {
     kind: OutboundType,
     config: serde_json::Value,
     delivery: serde_json::Value,
+}
+#[derive(Serialize)]
+struct EncodedOutbound<'a> {
+    id: &'a str,
+    name: &'a str,
+    enabled: bool,
+    #[serde(rename = "type")]
+    kind: OutboundType,
+    config: serde_json::Value,
+    delivery: &'a DeliveryPolicy,
 }
 impl Serialize for Outbound {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
@@ -131,20 +143,20 @@ impl Serialize for Outbound {
                 serde_json::to_value(c).map_err(serde::ser::Error::custom)?,
             ),
         };
-        WireOutbound {
-            id: self.id.clone(),
-            name: self.name.clone(),
+        EncodedOutbound {
+            id: &self.id,
+            name: &self.name,
             enabled: self.enabled,
             kind,
             config,
-            delivery: serde_json::to_value(&self.delivery).map_err(serde::ser::Error::custom)?,
+            delivery: &self.delivery,
         }
         .serialize(s)
     }
 }
 impl<'de> Deserialize<'de> for Outbound {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let mut w = WireOutbound::deserialize(d)?;
+        let mut w = DecodedOutbound::deserialize(d)?;
         if matches!(w.kind, OutboundType::Kafka)
             && let Some(delivery) = w.delivery.as_object_mut()
         {
