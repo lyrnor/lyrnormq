@@ -1,0 +1,11 @@
+{
+  "scope": "Phase6b scoped HTTP operation admission",
+  "source_revision": "4a479a51d2bb68411158de49083ac847728084f3",
+  "native_sha256": "c3d8750f19c8511fd498d1886f3a51670d251d7ad2dc4091bc4527cdc01dbdd4",
+  "linux_execution": false,
+  "real_http_mqtt_tests": 29,
+  "rust_tests": 814,
+  "frontend_tests": 114,
+  "static_auth_sqlite_tests": 20,
+  "plain_sqlite_tests": 25
+}

@@ -1,0 +1,39 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/api.test.ts (10 tests) 31ms
+ ✓ tests/dialog.test.tsx (2 tests) 86ms
+ ✓ tests/rules-model.test.ts (11 tests) 9ms
+ ✓ tests/ui-primitives.test.tsx (7 tests) 148ms
+ ✓ tests/polling.test.tsx (6 tests) 346ms
+ ✓ tests/single-select.test.tsx (3 tests) 281ms
+stderr | tests/app.test.tsx > memory-only management login > escapes broker strings and labels restored negotiation unknown
+Error: Not implemented: window.scrollTo
+    at module.exports (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at change (/Volumes/data/rmqtt/dashboard/web/src/App.tsx:191:14)
+    at callTheUserObjectsOperation (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at EventTargetImpl._dispatch (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at fireAnEvent (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
+    at SessionHistory._fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
+    at fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
+
+ ✓ tests/kafka-model.test.ts (6 tests) 7ms
+ ✓ tests/access-control-model.test.ts (5 tests) 5ms
+ ✓ tests/model.test.ts (12 tests) 3ms
+ ✓ tests/app.test.tsx (5 tests) 642ms
+ ✓ tests/access-control-page.test.tsx (11 tests) 963ms
+   ✓ HTTP authentication and authorization dashboard > uses basic fields and collapsed tuning, with no editable body/internal storage controls  335ms
+ ✓ tests/kafka-page.test.tsx (7 tests) 1083ms
+ ✓ tests/rules-page.test.tsx (29 tests) 1387ms
+
+ Test Files  13 passed (13)
+      Tests  114 passed (114)
+   Start at  22:39:44
+   Duration  2.66s (transform 757ms, setup 56ms, collect 3.97s, tests 4.99s, environment 6.09s, prepare 891ms)

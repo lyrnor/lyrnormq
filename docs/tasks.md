@@ -600,3 +600,18 @@ is not an implementation claim. [Evidence](verification/admission-mtls-20261030/
 - [ ] Linux runtime verification, multi-replica fault tests and extended load/soak.
 
 [Actual evidence and limits](verification/krafka-migration-20261102/README.md).
+
+
+## Phase6b — scoped HTTP admission completed
+
+- [x] Freeze narrowed user scope, reuse backend/UI/config in isolated worktrees.
+- [x] CONNECT and initialWill admission; PUBLISH/SUBSCRIBE prepare/resolve/seal.
+- [x] Denial/outage has no unauthorized side effects or failed-login takeover.
+- [x] Accepted flows do not repeatHTTP; compact snapshots retain no retired slots.
+- [x] 814Rust/114UI/29realHTTPMQTT +20localauth/25PLAIN compatibility cases passed.
+- [x] StrictClippy/fmt, nativeRelease and static amd64musl build verified.
+- [ ] Future: HTTP backend workload/P99 profiling, PostgreSQL backend if requested.
+
+The historical Phase6a receive/shared-preflight/remote-recovery expansion is
+superseded, not an outstanding prerequisite. No automatic main merge or deployment.
+[Actual evidence](verification/http-admission-20261102/README.md).

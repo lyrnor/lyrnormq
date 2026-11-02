@@ -1,0 +1,1017 @@
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.66s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_auth-107ae7b814cbad30)
+
+running 20 tests
+test containment::tests::requested_language_cannot_escape_grant ... ok
+test enhanced::tests::exact_data_limit_unicode_and_byte_counted_username_bounds ... ok
+test enhanced::tests::resolved_context_is_bounded_before_exchange_allocation_or_verification ... ok
+test policy::tests::anonymous_default_is_compatible_but_configured_rules_default_deny ... ok
+test enhanced::tests::all_debug_and_error_paths_redact_authentication_data ... ok
+test enhanced::tests::malformed_credentials_delegation_and_failure_cannot_retry ... ok
+test enhanced::tests::literal_shared_prefix_policy_is_not_recursively_unwrapped ... ok
+test enhanced::tests::unsupported_method_client_acl_and_anonymous_are_not_bypassed ... ok
+test policy::tests::authenticate_and_authorize_each_resource_kind ... ok
+test policy::tests::debug_and_errors_never_echo_hash_or_password ... ok
+test policy::tests::binary_password_is_not_utf8_or_c_string ... ok
+test policy::tests::missing_unknown_wrong_and_partial_credentials_fail_closed ... ok
+test enhanced::tests::direct_and_challenge_verify_real_argon2_policy_and_finish_once ... ok
+test policy::tests::synthetic_interop_fixtures ... ok
+test policy::tests::all_hash_parameters_are_checked_before_authentication ... ok
+test containment::tests::deep_filters_are_iterative_and_bounded ... ok
+test policy::tests::unknown_fields_duplicates_missing_fields_and_invalid_rules_are_rejected ... ok
+test policy::tests::file_user_name_and_rule_limits_are_enforced ... ok
+test containment::tests::bounded_exhaustive_topic_reference_has_no_false_grants ... ok
+test policy::tests::recommended_hash_parameters_and_explicit_empty_password_work ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_auth_http-2b7775e12ee13808)
+
+running 30 tests
+test tests::configuration_is_flat_strict_and_redacts_every_service_secret ... ok
+test tests::configuration_limits_and_composition_are_fail_closed ... ok
+test tests::acl_only_entry_requires_named_identity_but_preserves_static_connect_rules ... ok
+test tests::both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only_keeps_static_acl ... ok
+test tests::asynchronous_authentication_binds_username_and_classifies_unavailable ... ok
+test tests::cache_clear_and_configuration_change_fence_unsealed_not_admitted_attempts ... ok
+test tests::configuration_restart_and_shutdown_preserve_private_durable_settings ... ok
+test tests::cancelled_configuration_save_stops_old_view_and_restart_loads_actual_commit ... ok
+test tests::actual_http_authentication_uses_status_and_exact_credential_encoding ... ok
+test tests::bounded_attempts_requirements_and_generations_fail_busy_without_allowing ... ok
+test tests::disabled_legacy_path_remains_local_and_uses_no_remote_budget ... ok
+test tests::disabled_http_noop_resolution_has_no_remote_deadline ... ok
+test tests::enabled_http_attempt_keeps_its_bounded_prepare_deadline ... ok
+test tests::legacy_attempt_has_no_http_deadline_but_still_fences_new_configuration ... ok
+test tests::removed_http_tls_configuration_is_rejected_and_not_emitted ... ok
+test tests::admitted_snapshots_never_probe_or_retain_generation_and_attempt_capacity ... ok
+test tests::remote_admitted_state_preserves_old_anonymous_will_without_weakening_entry ... ok
+test tests::new_business_queries_use_new_backend_while_admitted_state_stays_accepted ... ok
+test tests::stored_tls_normalization_rejects_unknown_or_nonempty_options ... ok
+test tests::probe_draft_and_redacted_save_have_no_formal_cache_or_live_stat_effect ... ok
+test tests::persisted_empty_tls_placeholder_is_loaded_without_policy_changes ... ok
+test tests::point_acl_receipts_are_exact_and_never_global_revocation ... ok
+test tests::ttl_zero_pins_only_current_attempt_and_does_not_loop ... ok
+test tests::unknown_and_unavailable_never_become_false_denial ... ok
+test tests::persisted_removed_certificate_configuration_is_rejected_without_rewrite ... ok
+test tests::tls::https_authentication_and_authorization_reject_untrusted_server_certificate ... ok
+test tests::simultaneous_exact_requests_share_one_inflight_call ... ok
+test tests::cancelled_query_releases_flight_and_late_response_cannot_repopulate_clear ... ok
+test tests::stage_concurrency_is_fail_fast_and_a_different_attempt_can_continue ... ok
+test tests::expiration_refetches_decision_and_acl401_is_never_cached_as_deny ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.19s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress-43cf3f32978f12e0)
+
+running 65 tests
+test config::kafka_tests::legacy_webhook_binding_preserves_exact_durable_descriptor_bytes ... ok
+test config::kafka_tests::legacy_webhook_serialization_preserves_exact_durable_descriptor_bytes ... ok
+test config::kafka_tests::configuration_roundtrip_redacts_and_restores_all_kafka_secrets ... ok
+test config::kafka_tests::kafka_policy_defaults_do_not_change_webhook_limits ... ok
+test durable::group_tests::later_stale_binding_rejection_does_not_fall_back_or_acknowledge_earlier_frames ... ok
+test durable::group_tests::contiguous_appends_larger_than_one_frame_share_one_actor_commit ... ok
+test durable_worker::kafka_tests::generation_finish_waits_for_native_cleanup_before_returning ... ok
+test durable::group_tests::full_fallback_releases_admission_and_marks_only_rejected_deliveries_dropped ... ok
+test durable::group_tests::full_group_falls_back_to_per_frame_durable_prefix ... ok
+test durable::group_tests::append_gather_has_a_finite_256_result_boundary ... ok
+test durable::group_tests::read_is_an_ordering_barrier_between_contiguous_append_groups ... ok
+test durable::group_tests::cancelled_reply_does_not_cancel_durable_append_and_close_remains_a_barrier ... ok
+test durable::group_tests::lone_append_does_not_wait_for_more_traffic_and_acknowledged_body_recovers ... ok
+test durable_worker::tests::memory_release_without_journal_mutation_resumes_durable_head ... ok
+test durable_worker::tests::generic_durable_sink_retries_raw_opaque_bytes_and_commits_completion ... ok
+test result_wire::tests::malformed_legacy_or_mismatched_stream_fails_without_identity_fallback ... ok
+test result_wire::tests::migration_and_materialization_preserve_wire_bytes_and_exact_length ... ok
+test durable_worker::kafka_tests::accepted_remote_delivery_with_failed_local_complete_replays_stable_identifier ... ok
+test durable_worker::tests::one_consumer_completion_retains_shared_body_for_another_after_reopen ... ok
+test durable_worker::tests::metadata_release_does_not_spin_when_payload_capacity_is_still_unavailable ... ok
+test durable_worker::kafka_tests::native_delivery_deadline_is_not_cancelled_by_outer_http_timeout ... ok
+test runtime::lifecycle_tests::cancelled_initialization_guard_releases_configuration_on_blocking_pool ... ok
+test durable_worker::tests::idle_outbounds_wait_for_mutations_and_future_retry_deadlines_without_polling ... ok
+test durable_worker::tests::separate_rule_streams_do_not_mix_batches_or_block_one_another ... ok
+test durable_worker::tests::uncertain_generic_attempt_replays_after_reopen_without_exhausting_budget ... ok
+test runtime::lifecycle_tests::failed_journal_initialization_releases_configuration_ownership ... ok
+test runtime::lifecycle_tests::storage_failure_waits_for_generation_cleanup_before_returning ... ok
+test tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget ... ok
+test tests::cancelled_update_and_shutdown_callers_do_not_leave_database_locked ... ok
+test tests::concurrency_defaults_limits_and_sqlite_recovery_preserve_old_policy ... ok
+test tests::delivery_ids_distinguish_rule_action_fanout ... ok
+test tests::batches_only_within_configured_limits ... ok
+test tests::default_configuration_is_real_sqlite_and_releases_ownership ... ok
+test tests::invalid_saved_sqlite_configuration_fails_without_overwriting_payload ... ok
+test tests::explicit_shutdown_releases_keepalive_while_runtime_remains_alive ... ok
+test tests::evaluates_real_sql_and_posts_json_envelope ... ok
+test durable_worker::kafka_tests::durable_client_retry_blocks_its_successor_but_other_client_progresses ... ok
+test tests::migrates_old_sqlite_blob_transactionally_and_rejects_new_wire_unknowns ... ok
+test tests::rejects_configuration_symlink_and_non_sqlite_file ... ok
+test tests::rejects_invalid_and_dangerous_configuration ... ok
+test tests::fixed_shard_preserves_same_publisher_processing_order ... ok
+test tests::accepted_delivery_replays_after_shutdown_with_stable_identity ... ok
+test tests::one_rule_fanout_stores_its_transformed_body_once ... ok
+test tests::failed_sqlite_write_preserves_previous_committed_configuration ... ok
+test tests::permanent_http_error_does_not_retry ... ok
+test tests::persists_configuration_redacts_and_preserves_headers_on_roundtrip ... ok
+test worker::tests::concurrent_jobs_reach_local_cap_and_cancel_without_budget_leaks ... ok
+test worker::tests::generic_worker_obeys_non_http_capabilities_and_error_classes ... ok
+test worker::tests::global_attempt_cap_is_shared_and_waiting_jobs_are_not_inflight ... ok
+test tests::storage_error_releases_keepalive_while_runtime_remains_alive ... ok
+test worker::tests::one_job_drains_accepted_deliveries_sequentially_after_sender_closes ... ok
+test tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work ... ok
+test worker::tests::panicked_child_stops_scheduler_and_releases_every_lane_and_permit ... ok
+test worker::tests::resident_admission_bounds_one_held_client_and_cancel_releases_slots ... ok
+test tests::rejected_configuration_does_not_commit_or_stop_runtime ... ok
+test tests::replacing_configuration_releases_old_keepalive_connection_pool ... ok
+test tests::retry_reuses_event_identifier_and_counts_per_event ... ok
+test worker::tests::retry_backoff_releases_global_slot_and_does_not_block_another_job ... ok
+test worker::tests::same_client_does_not_overlap_even_with_concurrency_three ... ok
+test worker::tests::immediate_success_client_churn_bounds_completed_jobs_and_lane_registry ... ok
+test tests::uncertain_sqlite_write_failure_stops_runtime_and_restores_actual_commit ... ok
+test tests::reconfiguration_pauses_and_retains_committed_pending_deliveries ... ok
+test worker::tests::worker_enforces_time_budget_and_rejects_invalid_adapter_limits ... ok
+test durable::group_tests::metadata_estimate_and_raw_bytes_bound_collection_independently ... ok
+test tests::storage_failure_returns_after_concurrent_attempts_are_cancelled ... ok
+
+test result: ok. 65 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.77s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress_core-5f56beebb75eccc5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress_log-9eef96bfaf95676d)
+
+running 66 tests
+test tests::exclusive_ownership_and_foreign_files_fail_closed ... ok
+test tests::checksum_corruption_in_complete_latest_frame_fails_closed ... ok
+test tests::generic_binary_records_survive_restart_with_stable_identifiers ... ok
+test tests::binding_changes_are_atomic_and_blocked_only_while_pending ... ok
+test tests::corrupted_complete_frame_length_cannot_be_misclassified_as_partial_tail ... ok
+test tests::corrupt_frame_length_and_version_fail_before_large_allocation ... ok
+test tests::group_tests::append_sync_counter_excludes_state_checkpoint_and_reopen_initialization ... ok
+test tests::group_tests::crossing_segments_syncs_each_dirty_segment_before_ack ... ok
+test tests::checkpoint_preserves_live_payloads_states_and_reclaims_old_generation ... ok
+test tests::group_tests::four_frames_share_one_sync_and_recover_all_acknowledged_results ... ok
+test tests::checkpoint_crash_before_and_after_manifest_switch_preserves_exact_records ... ok
+test tests::group_tests::later_invalid_frame_and_aggregate_quota_reject_without_prefix_or_ids ... ok
+test tests::bounded_batch_input_and_escaped_client_identifiers_preserve_reclaim_progress ... ok
+test tests::group_tests::four_single_calls_sync_four_times_and_encoding_is_identical_to_group_commit ... ok
+test tests::group_tests::torn_unacknowledged_second_frame_recovers_only_complete_prefix ... ok
+test tests::group_tests::rotation_sync_failure_recovers_uncertain_synced_prefix_and_no_later_frames ... ok
+test tests::group_tests::grouped_writes_preserve_prevalidated_cached_prefix_across_same_segment_and_rotations ... ok
+test tests::group_tests::aggregate_metadata_bound_rejects_before_any_frame_or_id_is_committed ... ok
+test tests::indexed_heads_are_exact_client_fifo_and_cursor_bounded ... ok
+test tests::invalid_group_never_partially_appends_and_identifiers_do_not_reuse ... ok
+test tests::metadata_preview_and_read_batch_select_identical_prefix_without_payload_reads ... ok
+test tests::group_tests::uncertain_group_failures_poison_without_exposing_logical_state_and_recover_prefix ... ok
+test tests::options_are_finite ... ok
+test tests::latest_incomplete_header_and_body_truncate_only_uncommitted_tail ... ok
+test tests::missing_manifest_never_discards_accepted_generation ... ok
+test tests::persistent_metadata_vectors_reject_excess_elements_while_deserializing ... ok
+test tests::one_rule_result_fanout_stores_body_only_once ... ok
+test tests::orphan_prepared_generation_is_removed_without_replacing_current_data ... ok
+test tests::queue_directory_symlink_is_rejected_but_system_temp_parent_is_supported ... ok
+test tests::private_files_reject_symlinks_hardlinks_and_insecure_permissions ... ok
+test tests::read_cache_tests::crc_slicing_matches_independent_bitwise_reference_and_standard_vector ... ok
+test tests::payload_bitflip_after_open_is_not_sent_or_blessed_by_compaction ... ok
+test tests::read_cache_tests::destinations_share_one_verified_physical_body_read ... ok
+test tests::malformed_orphan_file_and_root_directory_counts_fail_without_deletion ... ok
+test tests::read_cache_tests::evicted_descriptor_reopens_trusted_prefix_without_reloading_body ... ok
+test tests::group_tests::segment_count_preflight_checkpoints_before_writing_group ... ok
+test tests::read_cache_tests::evicted_descriptor_and_external_mutation_are_not_blessed_by_owned_append ... ok
+test tests::group_tests::invalid_group_and_raw_bounds_are_preflighted_without_consuming_ids ... ok
+test tests::read_cache_tests::owned_append_and_interleaved_state_changes_share_one_disk_read ... ok
+test tests::read_cache_tests::failed_write_with_warm_body_poisoned_owner_reopens_exact_durable_state ... ok
+test tests::shared_tests::combined_legacy_and_shared_capacity_is_rejected_before_any_frame_write ... ok
+test tests::read_cache_tests::shared_body_cache_survives_partial_ack_retry_but_not_generation_or_reopen ... ok
+test tests::sealed_segment_incomplete_tail_is_corruption_not_repair ... ok
+test tests::retry_and_uncertain_inflight_state_survive_reopen_and_checkpoint ... ok
+test tests::shared_tests::conflicting_or_malformed_legacy_resolution_preserves_original_files ... ok
+test tests::shared_tests::migration_partial_fanout_does_not_recreate_already_completed_destinations ... ok
+test tests::shared_tests::new_consumer_vectors_and_shared_result_vectors_are_bounded_during_decode ... ok
+test tests::shared_tests::mixed_legacy_and_shared_migration_preserves_fifo_and_legacy_api_remains_usable ... ok
+test tests::shared_tests::same_client_different_streams_have_independent_heads_and_homogeneous_batches ... ok
+test tests::shared_tests::shared_fanout_capacity_and_validation_are_atomic ... ok
+test tests::shared_tests::migration_before_or_after_manifest_failure_recovers_complete_old_or_new_state ... ok
+test tests::full_count_and_physical_capacity_allow_terminal_progress_and_reclaim ... ok
+test tests::shared_tests::shared_live_corruption_is_not_read_or_rechecksummed_by_checkpoint ... ok
+test tests::shared_tests::near_full_v1_migration_fails_closed_until_explicit_capacity_increase ... ok
+test tests::shared_tests::uncertain_shared_append_and_completion_recover_actual_durable_prefix ... ok
+test tests::shared_tests::shared_reference_completion_retry_and_checkpoint_keep_other_consumer_body ... ok
+test tests::shared_tests::v1_migration_deduplicates_body_and_preserves_sparse_consumer_state_ids ... ok
+test tests::uncertain_append_or_terminal_commit_poison_owner_and_replay_actual_prefix ... ok
+test tests::terminal_delivery_evicts_historical_outbound_and_client_index_keys ... ok
+test tests::read_cache_tests::cache_empty_bodies_obey_entry_limit_without_unbounded_eviction_tickets ... ok
+test tests::group_tests::checkpoint_full_is_uncertain_poison_not_a_retryable_preflight_full ... ok
+test tests::shared_tests::sustained_shared_delivery_reclaims_segments_and_all_stream_consumer_indexes ... ok
+test tests::group_tests::checkpoint_preflight_cannot_orphan_any_group_frame ... ok
+test tests::writer_reclaims_before_reader_segment_limit_and_reopens_its_own_output ... ok
+test tests::read_cache_tests::cache_payload_and_descriptor_limits_are_enforced_and_evicted_bodies_reread ... ok
+test tests::sustained_delivery_reclaims_completed_segments_without_accumulation ... ok
+
+test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.61s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_kafka-bc25f6de29f52b38)
+
+running 23 tests
+test owner::runtime::tests::authentication_is_permanent_without_secret_details ... ok
+test adapter::key_tests::top_level_key_selection_does_not_use_metadata_or_accept_nonstring ... ok
+test owner::runtime::tls_error_tests::nested_tls_error_retains_controlled_tls_code ... ok
+test tests::broker_and_security_boundaries_are_explicit ... ok
+test tests::producer_constructor_rejects_invalid_concurrency_and_identity ... ok
+test tests::bounded_configuration_and_secret_restoration ... ok
+test tls_validation::tests::certificate_and_private_key_must_be_paired ... ok
+test tls_validation::tests::encrypted_key_derivation_cost_is_capped_before_decryption ... ok
+test tests::native_deadline_and_shutdown_are_bounded ... ok
+test tls_validation::tests::field_and_pem_section_limits_are_enforced ... ok
+test tls_validation::tests::malformed_ca_and_wrong_pem_sections_are_rejected ... ok
+test tls_validation::tests::mismatched_identity_and_multiple_keys_are_rejected ... ok
+test tls_validation::tests::unknown_sections_and_non_whitespace_outside_pem_are_rejected ... ok
+test tls_validation::tests::valid_identity_and_certificate_bundle_are_accepted_offline ... ok
+test tests::explicitly_empty_sql_key_keeps_murmur2_partition ... ok
+test tests::adapter_rejects_bad_keys_batches_and_header_inflated_records_before_enqueue ... ok
+test tests::raw_data_headers_keys_timestamps_and_fifo_are_unchanged ... ok
+test tls_validation::tests::encrypted_pkcs8_accepts_correct_password_and_rejects_wrong_or_missing_one ... ok
+test tests::lost_ack_retries_deduplicate_and_shutdown_fences_connections ... ok
+test tests::native_queue_full_is_retryable_and_never_success ... ok
+test owner::tests::caller_abort_retains_admission_and_concurrent_close_joins_fence ... ok
+test tests::ambiguous_deadline_fences_old_generation_and_can_reconnect ... ok
+test owner::deadline_tests::stuck_teardown_bounds_rpc_stops_owner_and_retains_capacity_until_fenced ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.02s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_protocol-cc3aec00334fddba)
+
+running 78 tests
+test connect_limits::tests::malformed_later_payload_does_not_change_codec_error ... ok
+test connect_limits::tests::valid_properties_are_available_before_client_payload ... ok
+test connect_limits::tests::assigned_property_is_nonempty_connack_only ... ok
+test connect_limits::tests::canonical_header_prefix_and_version_required ... ok
+test tests::acknowledgement_wire_and_validation ... ok
+test connect_limits::tests::declared_packet_boundary_cannot_borrow_coalesced_bytes ... ok
+test connect_limits::tests::invalid_property_area_is_untrusted ... ok
+test tests::all_packets_roundtrip_and_fragment ... ok
+test tests::binary_will_connect_wire_is_supported ... ok
+test connect_limits::tests::wide_lengths_reuse_property_validation ... ok
+test tests::concatenation_consumes_one_packet ... ok
+test tests::connect_clean_and_persistent_flags_roundtrip_and_fragment ... ok
+test tests::connect_rejections_and_version ... ok
+test tests::credential_wire_order_is_client_will_username_binary_password ... ok
+test tests::credential_connects_roundtrip_binary_empty_and_all_fragments ... ok
+test tests::encoder_checks_invariants ... ok
+test tests::encoder_qos_combinations ... ok
+test tests::credentials_require_username_and_reject_bad_utf8_and_complete_truncations ... ok
+test tests::encoder_metadata_validation_without_decoding ... ok
+test tests::qos_publish_wire_fields ... ok
+test tests::multibyte_remaining_length ... ok
+test tests::reject_invalid_payloads ... ok
+test tests::reject_malformed_headers_and_lengths ... ok
+test tests::retained_publish_wire_roundtrip ... ok
+test tests::will_flag_without_payload_is_malformed ... ok
+test tests::will_rejects_invalid_flags_topics_and_truncated_binary_fields ... ok
+test tests::will_wire_fields_and_u16_payload_boundaries ... ok
+test v5::acceptance_boundary_tests::all_six_ack_contexts_preserve_repeatable_user_pairs_as_opaque_ordered_data ... ok
+test v5::acceptance_boundary_tests::all_six_ack_contexts_reject_duplicate_reason_string_after_valid_singleton ... ok
+test v5::conformance_tests::auth_requires_method_even_when_reason_and_properties_are_omitted ... ok
+test v5::conformance_tests::every_reserved_fixed_header_flag_is_rejected_without_waiting_for_payload ... ok
+test v5::conformance_tests::connect_conditional_fields_and_order_match_independent_wire_fixtures ... ok
+test v5::conformance_tests::subscribe_and_unsubscribe_require_nonempty_valid_utf8_filter_lists ... ok
+test v5::conformance_tests::utf8_bom_is_preserved_and_malformed_scalars_and_nul_are_rejected ... ok
+test v5::payload_role_tests::payload_nul_does_not_relax_the_separate_topic_name_rule ... ok
+test v5::payload_role_tests::optional_receiver_validation_does_not_make_codec_a_payload_producer ... ok
+test v5::payload_role_tests::pfi_utf8_payload_uses_rfc3629_not_mqtt_string_codepoint_restrictions ... ok
+test v5::property_conformance_tests::auth_singleton_property_counterexamples ... ok
+test tests::will_roundtrip_flags_binary_payload_and_all_fragments ... ok
+test v5::property_conformance_tests::boolean_nonzero_and_topic_value_constraints_are_independent_wire_cases ... ok
+test v5::property_conformance_tests::disconnect_singleton_property_counterexamples ... ok
+test v5::property_conformance_tests::connack_singleton_property_counterexamples ... ok
+test v5::property_conformance_tests::connect_singleton_property_counterexamples ... ok
+test v5::property_conformance_tests::publish_singleton_property_counterexamples ... ok
+test v5::property_conformance_tests::typed_truncation_and_wrong_context_are_malformed_not_partial_success ... ok
+test v5::property_conformance_tests::repeatable_user_pairs_keep_order_while_publish_identifiers_keep_multiplicity ... ok
+test v5::property_conformance_tests::will_singleton_property_counterexamples ... ok
+test v5::property_table_tests::utf8_mandatory_invalid_scalars_nul_and_byte_preserving_bom_are_separate ... ok
+test v5::tests::concatenation_consumes_exactly_one_frame_and_password_debug_is_redacted ... ok
+test v5::tests::all_base_frames_round_trip ... ok
+test v5::property_table_tests::table_2_4_each_wire_type_rejects_a_truncated_value_in_every_allowed_column ... ok
+test v5::tests::connect_properties_binary_password_and_will_round_trip ... ok
+test v5::tests::malicious_lengths_headers_and_noncanonical_integers_rejected ... ok
+test v5::tests::metadata_does_not_silently_disappear ... ok
+test v5::tests::every_property_type_and_context_round_trip ... ok
+test v5::tests::negotiated_version_and_bounded_prefix_inspection ... ok
+test v5::tests::omitted_ack_reason_and_properties_forms_decode ... ok
+test v5::tests::phase2h_repeated_publish_identifiers_preserve_multiplicity_and_user_order ... ok
+test v5::tests::reason_codes_are_checked_per_packet_in_both_directions ... ok
+test v5::tests::reserved_subscription_bits_are_malformed_but_option_values_are_protocol_errors ... ok
+test v5::tests::response_topic_semantics_are_distinct_from_utf8_lexical_errors ... ok
+test v5::tests::singleton_context_and_value_validation_is_symmetric ... ok
+test v5::tests::subscription_options_and_topic_alias_syntax ... ok
+test v5::tests::zero_topic_alias_has_specific_wire_reason_and_invalid_header_fails_early ... ok
+test v5::topic_alias_tests::alias_syntax_does_not_bypass_utf8_or_topic_validation ... ok
+test v5::acceptance_boundary_tests::connect_flag_matrix_correlates_will_fields_and_independent_v5_credentials ... ok
+test v5::topic_alias_tests::alias_maximum_is_connect_connack_only_and_will_alias_is_forbidden ... ok
+test v5::property_table_tests::utf8_receiver_policy_accepts_optional_controls_and_rejects_noncharacters ... ok
+test v5::topic_alias_tests::coalesced_bind_and_reference_keep_distinct_packet_boundaries ... ok
+test v5::topic_alias_tests::zero_duplicate_and_missing_alias_have_distinct_protocol_errors ... ok
+test v5::topic_alias_tests::binding_reference_rebinding_and_qos_flags_remain_wire_only ... ok
+test v5::property_table_tests::table_2_4_unassigned_and_multibyte_property_identifiers_are_malformed ... ok
+test v5::tests::phase2h_all_valid_options_preserve_identifier_varint_boundaries ... ok
+test v5::topic_alias_tests::complete_packet_limits_include_alias_and_both_variable_integer_widths ... ok
+test v5::property_table_tests::table_2_4_all_property_packet_columns_are_checked_in_both_wire_directions ... ok
+test v5::acceptance_boundary_tests::every_reason_byte_is_checked_against_its_literal_packet_table ... ok
+test tests::arbitrary_short_inputs_do_not_panic ... ok
+test tests::credential_lengths_are_u16_and_password_debug_is_redacted ... ok
+
+test result: ok. 78 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_router-d2a5e2bf5866fa62)
+
+running 27 tests
+test filter::tests::shared_filter_grammar_and_literal_inner_patterns ... ok
+test filter::tests::plain_pattern_matcher_keeps_share_names_literal_and_system_isolated ... ok
+test filter::tests::wildcard_edges ... ok
+test filter::tests::filter_validation ... ok
+test retained::tests::cloning_and_snapshot_queries_do_not_share_mutable_payloads ... ok
+test retained::tests::count_limit_rejects_new_entries_but_allows_replacement ... ok
+test concurrent::tests::metadata_follows_apply_delete_and_prune ... ok
+test retained::tests::invalid_inputs_never_mutate_existing_data_including_deletions ... ok
+test index::tests::duplicate_ordinary_matches_report_one_client ... ok
+test retained::tests::matching_reuses_wildcards_system_isolation_and_caps_delivery_qos ... ok
+test retained::tests::replacement_deletion_and_utf8_accounting_obey_exact_limits ... ok
+test trie::tests::explicit_plain_pattern_entry_keeps_shared_looking_inner_literal ... ok
+test index::tests::shared_cursor_rotates_after_selected_member_and_survives_departure ... ok
+test index::tests::replace_diffs_ordinary_and_shared_filters ... ok
+test trie::tests::overlapping_qos_uses_maximum_and_replacement_updates_grant ... ok
+test trie::tests::qos_validation_is_atomic_and_system_topics_are_isolated ... ok
+test trie::tests::routing_dedup_and_cleanup ... ok
+test trie::tests::subscription_matches_isolate_system_topics_and_empty_levels ... ok
+test trie::tests::subscription_matches_keep_overlapping_filters_and_replacement_grants ... ok
+test trie::tests::trie_agrees_with_independent_matching ... ok
+test concurrent::tests::concurrent_writers_respect_capacity ... ok
+test trie::tests::qos_cleanup_and_node_reuse_leave_no_stale_grants ... ok
+test trie::tests::qos_trie_matches_reference_across_replacements_and_removals ... ok
+test trie::tests::subscription_matches_agree_with_reference_and_do_not_scan_reverse_index ... ok
+test index::tests::concurrent_replace_and_match_converge ... ok
+test trie::tests::subscription_matches_remain_exact_across_deep_cleanup_and_reuse ... ok
+test trie::tests::deep_topic_is_iterative_and_nodes_are_reused ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_rules-4b77b0f3de735b35)
+
+running 8 tests
+test tests::topic_filters_follow_mqtt_system_topic_rules ... ok
+test tests::arithmetic_results_and_large_float_payloads_fail_safe_range_checks ... ok
+test tests::filters_projects_json_and_metadata ... ok
+test tests::metadata_rules_support_binary_and_null_logic ... ok
+test tests::rejects_unsupported_statements_clauses_functions_and_duplicates ... ok
+test tests::functions_aliases_and_wildcard ... ok
+test tests::generated_arithmetic_and_three_valued_logic_cases_match_reference ... ok
+test tests::limits_and_arithmetic_fail_explicitly ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_session-bc5e3ee8f0fd8aac)
+
+running 211 tests
+test durable::delivery_hint::tests::expired_denied_and_oversized_queue_stays_conservatively_true_without_effects ... ok
+test durable::delivery_hint::tests::hint_is_exactly_online_and_queue_or_replay_not_outgoing ... ok
+test durable::delivery_hint::tests::full_receive_window_does_not_hide_released_pubrel_replay ... ok
+test durable::authorization::tests::recovery_anchor_is_once_and_only_due_will_checks_remote_publish ... ok
+test durable::lifecycle::will_delay_tests::clean_start_ends_an_offline_delayed_session_early ... ok
+test durable::authorization::tests::due_will_cannot_bypass_a_revoked_local_connect_permission ... ok
+test durable::lifecycle::will_delay_tests::capacity_block_marker_is_a_change_and_retries_on_progress_without_due_reset ... ok
+test durable::authorization::tests::shared_selection_still_skips_a_denied_member ... ok
+test durable::authorization::tests::point_policy_does_not_sweep_other_topics_or_prequery_retained_delivery ... ok
+test durable::lifecycle::will_delay_tests::capacity_defer_does_not_start_will_message_ttl ... ok
+test durable::authorization::tests::ordinary_enqueue_is_quarantined_then_only_the_attempted_denied_record_retires ... ok
+test durable::lifecycle::will_delay_tests::clean_start_or_zero_old_session_ends_and_forces_will_on_takeover ... ok
+test durable::lifecycle::will_delay_tests::delayed_will_can_be_replaced_on_cancelled_resume_without_old_publication ... ok
+test durable::lifecycle::will_delay_tests::expired_original_session_is_not_cancellable_by_same_id_resume ... ok
+test durable::lifecycle::will_delay_tests::delayed_will_waits_until_exact_due_and_exposes_due_to_idle_timer ... ok
+test durable::lifecycle::will_delay_tests::normal_disconnect_cancels_but_non_graceful_override_zero_accelerates ... ok
+test durable::lifecycle::will_delay_tests::clean_start_drops_full_old_self_queue_before_forced_will_fanout ... ok
+test durable::lifecycle::will_delay_tests::rollback_cannot_cancel_an_already_observed_due_will_on_resume ... ok
+test durable::lifecycle::will_delay_tests::rejected_owner_or_forbidden_new_will_cannot_cancel_delayed_intent ... ok
+test durable::lifecycle::will_delay_tests::pre_due_same_session_resume_and_active_takeover_cancel_old_will ... ok
+test durable::lifecycle::will_delay_tests::will_delay_uint_max_is_finite_and_normal_disconnect_cancels_it ... ok
+test durable::lifecycle::will_delay_tests::session_expiry_caps_delay_and_zero_expiry_fires_immediately ... ok
+test durable::lifecycle::will_delay_tests::nonzero_client_disconnect_reason_schedules_will_and_obeys_delay ... ok
+test durable::lifecycle::will_delay_tests::zero_ttl_retained_will_replaces_old_value_without_forwarding_expired_payload ... ok
+test durable::message_expiry_tests::delivery_qos0_and_cross_version_waiters_expire_before_first_write ... ok
+test durable::message_expiry_tests::delivery_refresh_after_start_commit_decreases_without_cancelling_started_qos ... ok
+test durable::lifecycle::will_delay_tests::clean_start_preserves_real_external_capacity_deferral ... ok
+test durable::message_expiry_tests::delivery_expiry_before_begin_retires_reserved_id_ticket_and_quota ... ok
+test durable::message_expiry_tests::delivery_stale_retired_ticket_cannot_start_a_later_reservation ... ok
+test durable::message_expiry_tests::ingress_future_timestamp_clamps_and_duplicate_does_not_reset_deadline ... ok
+test durable::message_expiry_tests::discarded_proposal_does_not_advance_original_clock_floor ... ok
+test durable::message_expiry_tests::message_expiry_qos2_duplicate_never_renews_and_expired_pubrel_completes ... ok
+test durable::message_expiry_tests::message_expiry_offline_queue_and_retained_share_original_deadline ... ok
+test durable::message_expiry_tests::ingress_wait_counts_toward_expiry_and_preserves_ack_and_retained_removal ... ok
+test durable::message_expiry_tests::message_expiry_zero_removes_retained_predecessor_without_fanout ... ok
+test durable::lifecycle::will_delay_tests::zero_expiry_takeover_drops_full_old_self_queue_before_will_fanout ... ok
+test durable::message_expiry_tests::new_ingress_after_clock_rollback_rebases_raw_receipt_age ... ok
+test durable::message_expiry_tests::nonzero_disconnect_adapter_marks_active_will_pending ... ok
+test durable::message_expiry_tests::observing_time_without_work_keeps_expiry_and_empty_poll_quiet ... ok
+test durable::mqtt5::upper_bound_tests::check_delivery_size_accepts_when_upper_fits ... ok
+test durable::message_expiry_tests::retained_replay_inherits_remaining_lifetime_and_replacement_clears_deadline ... ok
+test durable::partition::tests::deliver_admits_per_recipient_and_full_queue_rejects_only_that_copy ... ok
+test durable::lifecycle::will_delay_tests::rollback_recovery_anchors_active_will_to_persisted_effective_clock ... ok
+test durable::lifecycle::will_delay_tests::will_message_ttl_starts_at_due_publication_not_at_connect_or_disconnect ... ok
+test durable::message_expiry_tests::committed_message_ttl_cannot_grow_after_clock_rollback_and_restore ... ok
+test durable::message_expiry_tests::message_expiry_restored_deadlines_do_not_restart ... ok
+test durable::partition::tests::deliver_respects_no_local_and_unmatched_filters ... ok
+test durable::lifecycle::will_delay_tests::active_crash_starts_delay_once_capped_by_restored_session_deadline ... ok
+test durable::partition::tests::live_state_bytes_track_the_last_bounds_check ... ok
+test durable::partition::tests::partition_publish_emits_publications_without_local_routing ... ok
+test durable::partition::tests::delivery_scope_separates_ordinary_and_shared_copies ... ok
+test durable::partition::tests::restore_partition_rejects_multi_client_and_retained_rows ... ok
+test durable::mqtt5::upper_bound_tests::publish_frame_upper_bound_covers_exact_v311_and_v5 ... ok
+test durable::message_expiry_tests::delivery_started_qos_retries_survive_expiry_and_publish_properties_reach_zero ... ok
+test durable::partition::tests::retained_rows_round_trip_one_record ... ok
+test durable::lifecycle::will_delay_tests::known_schedule_survives_restarts_and_due_boundary_cannot_cancel ... ok
+test durable::partition::tests::staged_retained_replays_on_subscribe_and_clears_before_snapshot ... ok
+test durable::partition::tests::partition_routing_matches_the_legacy_engine_for_one_subscriber ... ok
+test durable::phase2c_tests::no_will_resume_does_not_bypass_unrecovered_active_will ... ok
+test durable::phase2c_tests::full_outbox_defers_will_without_partial_retained_update_and_retries_once ... ok
+test durable::phase2c_tests::retained_empty_will_deletes_and_persistent_source_can_queue_its_own_will ... ok
+test durable::partition::tests::legacy_engine_splits_into_restorable_partitions ... ok
+test durable::phase2c_tests::graceful_will_is_silent_and_abnormal_binary_will_uses_each_qos ... ok
+test durable::phase2c_tests::full_replay_and_retained_store_failures_discard_the_whole_proposal ... ok
+test durable::phase2c_tests::retained_qos2_updates_only_at_pubrel_and_repeats_do_not_deliver_twice ... ok
+test durable::phase2c_tests::retained_and_clean_will_bytes_participate_in_live_and_snapshot_limits ... ok
+test durable::phase2c_tests::clean_source_active_will_survives_snapshot_and_publishes_on_recovery ... ok
+test durable::phase2c_tests::retained_resubscription_sequence_system_topics_and_reconnect_keep_flags ... ok
+test durable::phase2d_tests::denied_new_will_and_client_prefix_do_not_mutate_existing_connection ... ok
+test durable::phase2c_tests::retained_updates_delete_and_replay_flags_are_independent_of_sessions ... ok
+test durable::phase2d_tests::denied_publish_never_acknowledges_or_updates_deletes_retained_or_qos2 ... ok
+test durable::phase2c_tests::takeover_publishes_old_will_once_then_installs_and_clears_new_will ... ok
+test durable::phase2d_tests::ownership_blocks_live_takeover_and_clean_reset_before_old_will_changes ... ok
+test durable::phase2d_tests::revoked_payloads_are_cancelled_but_released_qos2_can_finish_without_payload ... ok
+test durable::phase2d_tests::revoked_incoming_qos2_pubrel_retains_original_payload_and_has_no_effect ... ok
+test durable::phase2c_tests::schema1_migrates_explicitly_and_schema2_globals_are_required_and_validated ... ok
+test durable::phase2d_tests::revoked_wills_are_removed_on_recovery_without_changing_global_retained_data ... ok
+test durable::phase2d_tests::empty_poll_reports_revoked_queued_and_inflight_deletion_and_frees_ids ... ok
+test durable::phase2d_tests::subscribe_partial_denial_and_retained_receive_checks_are_independent ... ok
+test durable::phase2e_tests::advertised_unsupported_subscription_features_close_before_any_filter_install ... ok
+test durable::phase2d_tests::legacy_schema2_preserves_retained_wills_send_order_and_binds_only_anonymous ... ok
+test durable::phase2e_tests::bridge_live_size_preflight_happens_before_any_recipient_queue_or_source_ack ... ok
+test durable::phase2e_tests::bridge_expired_offline_data_does_not_block_new_version_admission ... ok
+test durable::phase2c_tests::schema1_rejects_retained_wire_that_old_codec_could_not_store ... ok
+test durable::phase2e_tests::disconnect_expiry_override_zero_and_invalid_zero_to_positive ... ok
+test durable::phase2e_tests::finite_deadline_only_runs_offline_and_releases_owner_and_subscriptions ... ok
+test durable::phase2e_tests::bridge_retained_replay_size_preflight_does_not_install_subscription ... ok
+test durable::phase2e_tests::known_offline_v5_recipient_rejects_oversized_bridge_before_outbox_insert ... ok
+test durable::phase2d_tests::ownership_of_pending_clean_will_survives_without_session_record ... ok
+test durable::phase2e_tests::early_pubrec_after_reconnect_does_not_duplicate_automatic_pubrel ... ok
+test durable::phase2e_tests::metadata_survives_duplicate_incoming_restart_retained_and_cross_version_replay ... ok
+test durable::phase2e_tests::bridge_final_poll_guard_preserves_queue_id_and_replay_cursor_on_overflow ... ok
+test durable::phase2e_tests::receive_maximum_one_is_held_through_pubrec_until_pubcomp_and_controls_progress ... ok
+test durable::phase2e_tests::restored_offline_deadline_does_not_extend_and_active_crash_starts_conservatively ... ok
+test durable::phase2e_tests::unsupported_properties_subscription_options_and_unknown_ack_reasons_are_explicit ... ok
+test durable::phase2e_tests::required_schema4_deadline_cannot_be_omitted_for_active_offline_or_infinite_session ... ok
+test durable::phase2e_tests::clean_start_and_expiry_are_independent_including_resumed_zero ... ok
+test durable::phase2e_tests::will_metadata_and_expiry_zero_disconnection_keep_global_retained ... ok
+test durable::phase2e_tests::negative_ack_releases_exchange_metadata_and_connection_quota ... ok
+test durable::phase2g_tests::allocator_collision_query_includes_will_without_session ... ok
+test durable::phase2e_tests::reconnect_lower_quota_replays_order_but_released_control_bypasses_blocked_publish ... ok
+test durable::phase2g_tests::generated_key_does_not_enlarge_synthetic_will_connect ... ok
+test durable::phase2g_tests::multiple_oversize_retained_copies_do_not_consume_replay_capacity ... ok
+test durable::phase2g_tests::exact_limit_accepts_and_plus_one_discards_all_qos ... ok
+test durable::phase2g_tests::maximum_zero_rejected_before_existing_state_changes ... ok
+test durable::phase2g_tests::fitting_peer_copy_still_enforces_real_queue_backpressure ... ok
+test durable::phase2g_tests::peer_discard_does_not_bypass_global_version_growth_admission ... ok
+test durable::phase2g_tests::begin_rechecks_reserved_data_and_retires_every_sidecar ... ok
+test durable::phase2c_tests::pending_self_will_allows_no_will_resume_to_drain_full_outbox_once ... ok
+test durable::phase2g_tests::resumed_oversize_backlog_does_not_block_fitting_admission_before_poll ... ok
+test durable::phase2g_tests::peer_discard_preserves_retained_and_another_recipient ... ok
+test durable::phase2g_tests::retained_replay_prunes_resumed_backlog_before_capacity_check ... ok
+test durable::phase2g_tests::never_polled_tiny_peer_does_not_block_healthy_recipient_with_queue_one ... ok
+test durable::phase2g_tests::restore_and_v311_reconnect_reset_connection_limit ... ok
+test durable::phase2g_tests::smaller_limit_retains_pubrel_only_recovery ... ok
+test durable::phase2h_tests::no_local_excludes_match_before_ids_and_qos ... ok
+test durable::phase2h_tests::no_local_does_not_suppress_subscription_triggered_retained_replay ... ok
+test durable::phase2h_tests::peer_size_counts_ids_without_queue_poison ... ok
+test durable::phase2h_tests::overlap_aggregates_eligible_qos_rap_and_duplicate_identifiers ... ok
+test durable::phase2e_tests::schema3_migration_and_schema4_property_expiry_corruption_are_strict ... ok
+test durable::phase2h_tests::replacement_clears_identifier_and_unsubscribe_removes_record ... ok
+test durable::phase2h_tests::pending_qos2_keeps_publisher_identity_after_restart ... ok
+test durable::phase2h_tests::rap_and_identifier_live_copy ... ok
+test durable::phase2h_tests::retain_handling_two_suppresses_replay ... ok
+test durable::phase2g_tests::smaller_cap_resume_discards_started_and_releases_credit ... ok
+test durable::phase2j_tests::last_member_unsubscribe_prunes_unstarted_group_delivery ... ok
+test durable::phase2h_tests::will_origin_obeys_no_local_and_retained_as_published ... ok
+test durable::phase2j_tests::expired_last_member_prunes_group_and_unstarted_backlog ... ok
+test durable::phase2h_tests::retain_handling_replace_and_replay_identifiers_are_entry_local ... ok
+test durable::phase2j_tests::clean_start_last_member_ends_old_group_incarnation ... ok
+test durable::phase2j_tests::online_preferred_then_offline_qos_and_peer_size_skip ... ok
+test durable::phase2j_tests::qos0_polled_lease_does_not_survive_group_recreation ... ok
+test durable::phase2j_tests::shared_311_creation_rejected_but_existing_membership_resumes ... ok
+test durable::phase2j_tests::ordinary_and_two_groups_count_against_same_queue ... ok
+test durable::phase2h_tests::snapshot_delivery_choice_survives_option_replacement_and_v311_bridge ... ok
+test durable::phase2j_tests::shared_group_and_ordinary_copies_are_independent ... ok
+test durable::phase2j_tests::shared_full_member_is_skipped_and_all_full_is_atomic ... ok
+test durable::phase2h_tests::strict_schema6_options_markers_and_old5_metadata ... ok
+test durable::phase2j_tests::shared_qos1_restart_keeps_recipient_and_negative_ack_never_reassigns ... ok
+test durable::phase2k_tests::mqtt_3_10_4_6_duplicate_unsubscribe_filters_observe_prior_removals ... ok
+test durable::phase2e_tests::bridge_resume_size_boundaries_preserve_legacy_and_allow_drain_or_clean_reset ... ok
+test durable::phase2k_tests::mqtt_3_3_4_6_client_subscription_identifier_cannot_mutate_queues ... ok
+test durable::phase2j_tests::shared_literal_dollar_topic_is_not_recursively_unwrapped_or_matched_by_hash ... ok
+test durable::phase2k_tests::mqtt_3_8_4_multifilter_suback_preserves_id_order_and_sequential_replacement ... ok
+test durable::phase2k_tests::mqtt_unsubscribe_invalid_later_filter_preserves_existing_memberships ... ok
+test durable::phase2k_tests::mqtt_4_4_0_1_unacknowledged_publish_is_only_replayed_after_reconnect ... ok
+test durable::phase2k_tests::mqtt_4_3_2_5_reused_source_qos1_id_is_new_and_recipient_dup_is_independent ... ok
+test durable::phase2j_tests::shared_qos2_selected_owner_resumes_and_last_member_keeps_started_exchange ... ok
+test durable::phase2k_tests::mqtt_3_10_4_3_duplicate_unsubscribe_preserves_started_qos_obligations ... ok
+test durable::phase2l_tests::mqtt_2_2_1_separate_directions_allow_same_id_without_aliasing_exchanges ... ok
+test durable::phase2j_tests::shared_schema7_strict_markers_and_schema6_migration ... ok
+test durable::phase2l_tests::mqtt_2_2_1_4_live_identifiers_survive_restart_until_final_ack ... ok
+test durable::phase2l_tests::mqtt_2_2_1_wrong_stage_ack_preserves_live_identifier_and_original_state ... ok
+test durable::phase2j_tests::shared_round_robin_one_copy_and_no_retained_replay ... ok
+test durable::phase2l_tests::mqtt_2_2_1_5_incoming_qos2_identifiers_and_original_survive_restore ... ok
+test durable::phase2l_tests::mqtt_2_2_1_5_and_6_response_identifiers_preserve_boundaries ... ok
+test durable::phase2d_tests::schema3_requires_valid_matching_owner_and_legacy_schemas_reject_owner_fields ... ok
+test durable::phase2m_tests::retained_replay_remains_retained_for_both_rap_choices_without_shared_replay ... ok
+test durable::phase2l_tests::mqtt_diagnostic_reason_string_does_not_change_disconnect_expiry_or_will ... ok
+test durable::phase2l_tests::mqtt_diagnostic_reason_strings_do_not_control_pubrec_pubrel_pubcomp_state ... ok
+test durable::phase2m_tests::rap_single_and_mixed_ordinary_policy_matrix_preserves_source_and_ids ... ok
+test durable::phase2m_tests::mqtt_4_6_interleaved_sources_preserve_same_source_qos_order_across_recovery ... ok
+test durable::phase2n_rap_tests::captured_single_copy_is_not_split_or_retagged_after_options_become_mixed ... ok
+test durable::phase2n_rap_tests::mixed_rap_copy_metadata_survives_offline_restore_and_subscription_replacement ... ok
+test durable::phase2m_tests::mqtt_4_6_pubrel_resume_does_not_reorder_later_publish_payloads ... ok
+test durable::phase2n_rap_tests::mixed_rap_each_copy_respects_its_grant_and_duplicate_id_occurrence ... ok
+test durable::phase2n_rap_tests::mixed_rap_pair_obeys_receive_maximum_one_with_distinct_packet_identifiers ... ok
+test durable::phase2n_rap_tests::mixed_rap_peer_size_discards_only_the_oversized_copy ... ok
+test durable::phase2n_rap_tests::mixed_rap_ordinary_and_shared_reservations_fail_without_partial_outbox_or_cursor ... ok
+test durable::phase2n_rap_tests::mixed_rap_retained_live_copies_respect_each_subscription_and_identifier ... ok
+test durable::phase2m_tests::pfi_optional_validation_policy_preserves_client_payload_for_publish_and_will ... ok
+test durable::phase2n_rap_tests::mixed_rap_qos2_repeat_pubrel_does_not_duplicate_the_pair ... ok
+test durable::phase2n_rap_tests::new_captured_pair_survives_v311_then_v5_resume_without_retagging ... ok
+test durable::phase2n_rap_tests::no_local_filter_is_removed_before_mixed_rap_detection ... ok
+test durable::phase2n_rap_tests::subscribe_acl_filter_is_removed_before_mixed_rap_detection ... ok
+test durable::phase2n_rap_tests::offline_mixed_rap_pair_keeps_one_source_expiry_and_both_expire ... ok
+test durable::phase2m_tests::rap_shared_and_ordinary_copies_keep_each_subscription_choice ... ok
+test durable::phase2n_rap_tests::v311_recipient_retains_existing_ordinary_collapse_policy ... ok
+test durable::serialization::tests::counting_writer_rejects_whole_chunks_without_partial_advance_or_overflow ... ok
+test durable::serialization::tests::existing_orphan_validation_still_precedes_capacity_for_complete_live_snapshot ... ok
+test durable::phase2n_rap_tests::homogeneous_rap_and_nonretained_source_keep_single_copy_with_all_identifiers ... ok
+test durable::phase2n_rap_tests::ordinary_mixed_rap_and_shared_copies_are_independent ... ok
+test durable::temporal::tests::arithmetic_is_absolute_rounded_and_capped ... ok
+test durable::tests::acknowledgement_before_replay_poll_does_not_leave_stale_cursor ... ok
+test durable::tests::failed_pubrel_proposal_preserves_source_and_all_recipient_outboxes ... ok
+test durable::serialization::tests::invalid_order_priority_and_projection_match_even_before_json_prefix_fits ... ok
+test durable::records::tests::schema5_new_fields_are_required_even_when_nullable ... ok
+test durable::tests::incoming_qos2_survives_restart_and_commits_fanout_once ... ok
+test durable::tests::persistent_subscriptions_offline_queue_and_clean_reset ... ok
+test durable::serialization::tests::live_upper_bound_is_at_least_exact_live_json_size ... ok
+test durable::tests::restore_rejects_subscription_exceeding_reduced_packet_quota ... ok
+test durable::serialization::tests::borrowed_schema_bytes_equal_owned_oracle_for_all_stages_and_metadata ... ok
+test identifiers::tests::storage_scales_with_identifiers_in_use_not_the_identifier_space ... ok
+test incoming::tests::bounded_window_bytes_and_completion_history ... ok
+test incoming::tests::qos2_delivery_once_and_reused_id_is_new_even_with_dup ... ok
+test durable::tests::total_state_limit_covers_clean_sessions_and_all_record_quotas ... ok
+test outgoing::tests::outgoing_errors_preserve_previous_state_and_id_allocation ... ok
+test outgoing::tests::outgoing_qos1_completes_once_and_unknown_acks_are_ignored ... ok
+test outgoing::tests::outgoing_qos2_repeated_pubrec_keeps_id_until_pubcomp ... ok
+test profiling::tests::counters_and_elapsed_conversion_saturate_instead_of_wrapping ... ok
+test durable::tests::restore_rejects_schema_corruption_duplicate_ids_and_invalid_states ... ok
+test profiling::tests::profile_child_probe ... ok
+test durable::records::tests::schema4_migration_preserves_state_and_rejects_unsupported_legacy_metadata ... ok
+test durable::tests::outgoing_qos_replay_preserves_stages_ids_and_send_order ... ok
+test durable::serialization::tests::normalized_recovery_and_reconnected_replay_keep_identical_schema_bytes ... ok
+test durable::serialization::tests::exact_limits_match_owned_oracle_for_escaped_strings_and_counting ... ok
+test durable::phase2g_tests::packet_and_property_length_integer_boundaries_use_complete_size ... ok
+test profiling::tests::opt_in_is_process_scoped_and_disabled_spans_are_noop ... ok
+test durable::phase2m_tests::mqtt_4_6_order_survives_identifier_wrap_restore_and_receive_maximum_one ... ok
+test identifiers::tests::identifiers_exhaust_reuse_and_release ... ok
+test outgoing::tests::outgoing_identifiers_never_reused_until_final_ack ... ok
+
+test result: ok. 211 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_storage-39e9dd08b912cefb)
+
+running 36 tests
+test configuration::tests::crash_worker ... ok
+test configuration::tests::process_kill_recovers_committed_row_and_rolls_back_uncommitted_row ... ok
+test configuration::tests::exclusive_canonical_owner_releases_on_drop ... ok
+test configuration::tests::rejects_zero_limit_directory_and_invalid_blob_rows ... ok
+test configuration::tests::transaction_failure_preserves_previous_configuration ... ok
+test configuration::tests::external_oversize_update_is_rejected_on_load_before_copying ... ok
+test configuration::tests::sqlite_roundtrip_limits_and_private_permissions ... ok
+test configuration::tests::foreign_corrupt_and_unknown_schema_are_rejected_without_rewriting ... ok
+test durable::rows::tests::container1_is_reported_then_migrated_atomically ... ok
+test durable::rows::tests::fresh_store_applies_batches_and_reopens_rows ... ok
+test durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows ... ok
+test durable::rows::tests::open_limits_and_unknown_schemas_fail_closed ... ok
+test durable::rows::tests::row_store_shares_the_exclusive_owner_lock ... ok
+test durable::service::tests::failed_commit_fails_the_group_and_every_later_job ... ok
+test configuration::tests::rejects_database_and_lock_symlinks_without_touching_target ... ok
+test configuration::tests::fixture_serializes_with_durable_crash_helpers ... ok
+test durable::service::tests::full_queue_is_reported_without_blocking ... ok
+test memory::tests::batch_checks_intermediate_capacity_not_only_final_state ... ok
+test memory::tests::batch_preflights_operation_and_input_byte_limits ... ok
+test memory::tests::batch_preserves_namespaces_and_replacement_accounting ... ok
+test memory::tests::batch_rolls_back_changes_when_later_capacity_check_fails ... ok
+test memory::tests::batch_validates_each_key_and_value_and_empty_batch_is_noop ... ok
+test memory::tests::failed_replacement_preserves_old_record_and_accounting ... ok
+test memory::tests::inflight_keys_count_packet_identifier_bytes ... ok
+test memory::tests::namespaces_do_not_collide ... ok
+test memory::tests::replace_at_entry_limit_and_reclaim_bytes ... ok
+test memory::tests::validates_limits_keys_and_sizes_without_mutation ... ok
+test durable::service::tests::legacy_store_cannot_start_a_service ... ok
+test durable::service::tests::queued_jobs_commit_in_one_group_and_complete_in_order ... ok
+test durable::tests::commit_reopen_and_limits_preserve_previous_snapshot ... ok
+test durable::tests::disk_full_sql_error_rolls_back_and_store_can_continue ... ok
+test durable::tests::exclusive_owner_lock_releases_on_drop ... ok
+test durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock ... ok
+test configuration::tests::errors_and_debug_do_not_expose_data_or_paths ... ok
+test durable::tests::rejects_dangling_symlink_but_existing_alias_shares_owner_lock ... ok
+test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resetting ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_transport-5bc46cb0979531ab)
+
+running 166 tests
+test admission::tests::fractional_refill_is_exact_and_clock_cannot_rewind ... ok
+test admission::tests::invalid_admission_limits_rejected_before_semaphore_construction ... ok
+test admission::tests::refill_saturates_without_overflow_and_zero_rate_only_disables_bucket ... ok
+test durable::admission_tests::cancelled_blocking_job_retains_global_cpu_slot_and_cleanup_is_nonblocking ... ok
+test durable::actor_tests::disconnect_protocol_error_is_reported_but_unknown_client_is_done ... ok
+test durable::admission_tests::established_enhanced_reauthentication_exhaustion_is_disconnect_quota ... ok
+test durable::actor_tests::max_sessions_bounds_live_actors ... ok
+test durable::admission_tests::explicit_cancel_discards_late_provider_success_and_slot_recovers ... ok
+test durable::admission_tests::rate_rejection_is_global_cancel_is_free_and_311_maps_server_unavailable ... ok
+test durable::actor_tests::vacant_actor_retires_after_clean_disconnect ... ok
+test durable::aliases::tests::input_duplicate_rejected_and_nonpublishes_are_unchanged ... ok
+test durable::actor_tests::expired_retained_entry_frees_capacity_before_the_periodic_prune ... ok
+test durable::aliases::tests::input_zero_range_unknown_and_independent_connection_fail94 ... ok
+test durable::actor_tests::shared_group_qos1_delivers_exactly_one_copy_per_publication ... ok
+test durable::aliases::tests::output_binding_is_not_visible_until_written_commit ... ok
+test durable::aliases::tests::input_expansion_is_quota97_not_false_wire95 ... ok
+test durable::aliases::tests::output_bounded_round_robin_replacement_and_separate_directions ... ok
+test durable::aliases::tests::input_bind_reference_replace_preserves_every_other_field ... ok
+test durable::aliases::tests::output_zero_budget_v311_controls_short_reference_and_property_order ... ok
+test durable::aliases::tests::output_exact_cap_fallback_does_not_install_phantom_binding ... ok
+test durable::admission_tests::handshake_slot_is_held_until_successful_connack_really_flushes ... ok
+test durable::auth_tests::default_anonymous_policy_refuses_supplied_credentials ... ok
+test durable::auth_tests::security_refusal_precedes_volatile_persistence_capability_without_effects ... ok
+test durable::auth_tests::wrong_owner_or_denied_replacement_will_cannot_cancel_live_connection ... ok
+test durable::enhanced::tests::exact_final_data_cap_and_identity_change_fail_closed ... ok
+test durable::enhanced::tests::initial_plain_direct_challenge_cancel_and_sequence ... ok
+test durable::enhanced::tests::mandatory_method_success_cap_is_preflighted_before_challenge ... ok
+test durable::enhanced::tests::round_and_pending_capacity_are_bounded ... ok
+test durable::actor_tests::persistent_actor_survives_disconnect_and_keeps_queue ... ok
+test durable::enhanced::tests::stale_generation_and_missing_method_cannot_reauthenticate ... ok
+test durable::actor_tests::active_will_left_by_an_unclean_stop_is_published_on_restart ... ok
+test durable::enhanced_tests::incomplete_auth_cannot_takeover_existing_connection_or_accept_publish ... ok
+test durable::auth_tests::empty_poll_commits_revoked_queued_payload_without_waking_empty_receiver ... ok
+test durable::auth_tests::rejected_owner_and_password_leave_persistent_snapshot_unchanged ... ok
+test durable::admission_tests::cancelled_sqlite_connect_retains_cleanup_slot_and_fences_old_generation ... ok
+test durable::enhanced_tests::phase2m_tests::mqtt_3_1_2_1_wrong_protocol_names_close_silently_without_version_guessing ... ok
+test durable::enhanced_tests::mqtt_3_1_2_28_29_problem_and_response_information_choices ... ok
+test durable::enhanced_tests::phase2m_tests::mqtt_3_2_2_8_connack_constructor_is_guarded_for_every_numeric_reason ... ok
+test durable::enhanced_tests::phase2m_tests::unsupported_levels_preserve_legacy_refusal_and_valid_versions_remain_usable ... ok
+test durable::enhanced_tests::phase2n_version_tests::durable_session_can_resume_after_listener_profile_changes_from_311_to_5 ... ok
+test durable::enhanced_tests::phase2m_tests::mqtt_3_1_3_8_no_extra_client_identifier_exclusion_policy_is_configured ... ok
+test durable::enhanced_tests::phase2n_version_tests::rejected_known_protocol_profile_respects_known_peer_packet_caps ... ok
+test durable::enhanced_tests::phase2n_version_tests::explicit_protocol_profiles_select_acceptance_and_refusal_wire_family ... ok
+test durable::enhanced_tests::phase2m_tests::mqtt_3_15_2_2_4_auth_diagnostic_text_cannot_override_exchange_outcomes ... ok
+test durable::enhanced_tests::phase2o_transport_tests::puback_and_pubrec_use_legal_server_success_without_claiming_client_role_validation ... ok
+test durable::enhanced_tests::phase2o_transport_tests::request_problem_zero_does_not_suppress_application_properties_or_echo_control_data ... ok
+test durable::enhanced::tests::deadline_is_checked_after_blocking_provider_returns ... ok
+test durable::enhanced_tests::phase2o_transport_tests::stale_generation_ack_and_lease_cannot_release_new_owner_qos2_window ... ok
+test durable::enhanced_tests::plain_challenge_reauth_preserves_control_progress_and_assigned_id ... ok
+test durable::enhanced_tests::phase2o_transport_tests::server_only_types_are_rejected_in_all_four_receive_states ... ok
+test durable::enhanced_tests::wrong_reauthentication_flushes_legal_reason_and_fires_will ... ok
+test durable::live_tests::advertised_oversize_closed_before_payload ... ok
+test durable::admission_tests::network_auth_timeout_releases_handshake_but_keeps_running_cpu_job_bounded ... ok
+test durable::live_tests::continuous_qos0_delivery_does_not_starve_ping_reads ... ok
+test durable::live_tests::false_shutdown_notification_keeps_server_running ... ok
+test durable::enhanced_tests::initial_enhanced_deadline_reports_authentication_failure ... ok
+test durable::live_tests::incoming_qos2_window_limit_disconnects_without_acknowledging_excess ... ok
+test durable::live_tests::invalid_unsubscribe_filter_closes_connection ... ok
+test durable::enhanced_tests::phase2n_version_tests::rejected_profile_is_gated_before_authentication_takeover_and_will_registration ... ok
+test durable::live_tests::qos_is_downgraded_to_publication_and_subscription_minimum ... ok
+test durable::live_tests::removed_generation_cannot_mutate_routing ... ok
+test durable::live_tests::subscription_limit_and_replacement ... ok
+test durable::live_tests::takeover_removes_old_subscriptions_and_old_cleanup_is_safe ... ok
+test durable::live_tests::wrong_stage_ack_disconnects_and_unknown_pubrel_is_idempotent ... ok
+test durable::live_tests::zero_limits_rejected ... ok
+test durable::management_tests::installed_sessions_subscriptions_retained_and_restart_are_observed ... ok
+test durable::management_tests::retained_reads_hide_expiry_without_copying_or_mutating_payloads ... ok
+test durable::auth_tests::refused_authentication_flushes_connack_and_discards_pipeline_and_will ... ok
+test durable::network::flush_tests::encrypted_flush_shares_the_frame_write_deadline ... ok
+test durable::live_tests::inbound_outbound_packet_identifiers_are_independent ... ok
+test durable::network::flush_tests::management_counts_only_successfully_flushed_output_frames ... ok
+test durable::network::tests::accepted_connack_precedes_priority_disconnect_for_invalid_pipeline ... ok
+test durable::network::tests::actual_ack_write_releases_ticket ... ok
+test durable::network::flush_tests::terminal_close_skips_queued_business_and_bounds_shutdown ... ok
+test durable::network::tests::credits_hold_qos2_until_pubcomp_and_never_release_reused_id_from_stale_ack ... ok
+test durable::enhanced_tests::mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect ... ok
+test durable::network::tests::excess_inbound_qos2_sends_receive_maximum_reason ... ok
+test durable::network::tests::ingress_timestamp_survives_worker_residence_before_acknowledgement ... ok
+test durable::network::tests::phase2g_assigned_connack_must_fit_and_explicit_identifier_has_no_assignment ... ok
+test durable::network::tests::nonzero_disconnect_reason_fires_will_while_normal_zero_cancels ... ok
+test durable::network::tests::phase2g_empty_identifier_is_assigned_and_connection_uses_resolved_key ... ok
+test durable::network::tests::phase2g_connack_too_small_refuses_without_taking_over_old_connection ... ok
+test durable::network::tests::phase2g_malformed_payload_obeys_already_valid_connect_maximum ... ok
+test durable::network::tests::phase2g_generated_key_is_used_for_authentication_and_authorization ... ok
+test durable::network::tests::phase2g_positive_peer_maximum_is_accepted_at_exact_connack_boundary ... ok
+test durable::network::tests::phase2h_identifier_capability_preserves_handshake_size_and_other_limits ... ok
+test durable::network::tests::phase2g_writer_guard_checks_complete_data_and_control_frames_before_bytes ... ok
+test durable::network::tests::receive_maximum_counts_qos2_duplicates_once_and_rejects_mixed_qos_identifier ... ok
+test durable::network::tests::terminal_finishes_current_frame_then_discards_queue_and_unwritten_ack_credit ... ok
+test durable::network::tests::topic_alias_binding_cap_fallback_does_not_create_unsent_mapping ... ok
+test durable::network::tests::topic_alias_qos2_binding_changes_do_not_replace_original_exchange ... ok
+test durable::network::tests::topic_alias_writer_binds_reuses_replaces_and_keeps_input_map_independent ... ok
+test durable::observer_tests::full_observer_does_not_fail_publisher_or_require_recipients ... ok
+test durable::observer_tests::hook_observes_unsubscribed_publications_but_never_expired_ones ... ok
+test durable::operation_access_tests::a_denial_from_a_retired_attempt_is_unavailable_instead_of_a_business_verdict ... ok
+test durable::operation_access_tests::accepted_connect_will_is_checked_once_and_publication_never_rechecks_http ... ok
+test durable::operation_access_tests::accepted_qos2_duplicate_and_pubrel_never_recheck_http ... ok
+test durable::operation_access_tests::authenticated_connect_uses_the_attempt_admission_policy_instead_of_local_credentials ... ok
+test durable::operation_access_tests::connect_will_denial_or_unavailability_cannot_replace_the_existing_connection ... ok
+test durable::operation_access_tests::mixed_subscribe_filters_use_per_filter_denials_and_invalid_packets_never_call_remote ... ok
+test durable::operation_access_tests::operation_denial_unavailability_and_stale_results_have_no_retained_effect ... ok
+test durable::operation_access_tests::rejected_credentials_never_probe_the_new_will ... ok
+test durable::operation_access_tests::stale_connect_keeps_connack_unavailable_reason_and_preserves_the_existing_connection ... ok
+test durable::phase3_tests::full_slow_qos_queue_preserves_control_and_takeover_in_memory ... ok
+test durable::phase3_tests::full_slow_qos_queue_preserves_control_and_takeover_in_sqlite ... ok
+test durable::phase3a_tests::external_qos0_lease_is_still_validated_when_filter_selects_no_notifications ... ok
+test durable::phase3a_tests::notify_targets_only_installed_online_queued_or_replay_work ... ok
+test durable::phase3a_tests::qos0_frames_drain_through_capacity_one_output_without_client_input ... ok
+test durable::phase3a_tests::released_pubrel_replay_is_not_filtered_when_publish_receive_window_is_full ... ok
+test durable::network::phase3_tests::full_output_queue_drain_timeout_preserves_unwritten_credits_and_releases_guard ... ok
+test durable::remote_plain::tests::assigned_identifier_precedes_http_and_bad_credentials_use_connack_reason ... ok
+test durable::remote_plain::tests::cancelled_http_authentication_cannot_create_or_take_over_a_session ... ok
+test durable::phase3a_tests::will_delay_and_session_expiry_tick_notify_newly_ready_recipient_without_input ... ok
+test durable::remote_plain::tests::http_credentials_are_not_serialized_behind_argon_cpu_slot_or_manager_lock ... ok
+test durable::remote_plain::tests::plain_parser_preserves_existing_sasl_identity_constraints ... ok
+test durable::remote_plain::tests::unavailable_initial_authentication_uses_server_unavailable_in_both_versions ... ok
+test durable::remote_plain::tests::plain_challenge_and_reauthentication_use_decoded_credentials_and_reject_owner_change ... ok
+test durable::tests::closing_connection_aborts_a_blocked_writer_instead_of_draining_queue ... ok
+test durable::tests::ack_before_replay_is_queued_discards_obsolete_publish ... ok
+test durable::tests::committed_delivery_reopens_with_same_id_and_dup ... ok
+test durable::tests::established_version_error_does_not_flush_business_queue ... ok
+test durable::tests::empty_poll_commits_and_notifies_pending_will_progress ... ok
+test durable::tests::expiry_tick_commits_removal_without_any_client_reconnect ... ok
+test durable::tests::expiry_tick_uses_restored_floor_and_empty_ticks_stay_quiet ... ok
+test durable::tests::full_recipient_drops_only_its_own_copy ... ok
+test durable::tests::phase2g_allocator_bounds_collisions_and_never_uses_pending_will_identifier ... ok
+test durable::live_tests::qos2_full_outgoing_window_keeps_ack_reads_live ... ok
+test durable::tests::volatile_runtime_refuses_persistent_connect_and_keeps_global_retained ... ok
+test management::handle::tests::busy_and_unavailable_have_stable_typed_error_causes ... ok
+test durable::tests::graceful_will_clear_takeover_and_stale_cleanup_are_committed ... ok
+test management::handle::tests::metadata_paging_is_ordered_and_does_not_copy_queued_payloads ... ok
+test management::handle::tests::eight_query_jobs_hold_permits_after_caller_cancellation ... ok
+test management::tests::unattached_queries_fail_without_fabricated_state ... ok
+test management::handle::tests::query_bounds_and_stop_are_enforced ... ok
+test durable::tests::stale_generation_cleanup_cannot_delete_replacement_session ... ok
+test durable::enhanced_tests::phase2n_version_tests::unknown_version_refusal_does_not_takeover_publish_pipeline_or_fire_will ... ok
+test durable::actor_tests::concurrent_connects_do_not_serialize_behind_one_worker ... ok
+test tls::tests::identity_bounds_and_exact_key_cardinality ... ok
+test tls::mtls_tests::client_roots_are_nonempty_strict_and_independently_bounded ... ok
+test tls::mtls_tests::original_constructor_still_accepts_clients_without_certificates ... ok
+test websocket::tests::canonical_extended_lengths_stream_without_payload_accumulation_in_guard ... ok
+test tls::mtls_tests::trusted_certificate_without_matching_private_key_is_rejected ... ok
+test websocket::tests::endpoint_limits_fail_closed ... ok
+test websocket::tests::flush_reaches_underlying_socket_and_chunks_obey_message_bound ... ok
+test websocket::tests::fragmented_text_and_nonminimal_lengths_fail_before_message_completion ... ok
+test durable::live_tests::handshake_timeout_and_connection_capacity ... ok
+test websocket::tests::framing_errors_flush_typed_close_before_returning_error ... ok
+test tls::tests::verified_tls12_tls13_share_both_mqtt_paths ... ok
+test websocket::tests::normal_shutdown_sends_close1000_and_remote_close_is_eof ... ok
+test websocket::tests::one_byte_message_budget_still_allows_full_size_ping ... ok
+test websocket::tests::fragments_empty_binary_and_control_flatten_without_eof ... ok
+test websocket::tests::empty_message_flood_yields_to_timers ... ok
+test websocket::tests::split_reader_control_flush_and_mqtt_writer_make_full_duplex_progress ... ok
+test websocket::tests::ungraceful_ws_close_does_not_wait_for_peer_transport_eof ... ok
+test tls::mtls_tests::mandatory_client_auth_requires_trusted_valid_client_purpose_in_both_tls_versions ... ok
+test websocket::tests::upgrade_preserves_pipeline_and_selects_mqtt_from_tokens ... ok
+test websocket::tests::upgrade_rejects_path_subprotocol_key_and_header_overflow ... ok
+test websocket::tests::incomplete_fragment_flood_yields_to_mqtt_deadlines ... ok
+test websocket::tests::ping_flush_is_bounded_without_mqtt_output ... ok
+test durable::network::tests::terminal_timeout_bounds_blocked_current_frame_and_closes_instead_of_appending ... ok
+test durable::enhanced_tests::reauth_timeout_is_absolute_despite_ping_traffic ... ok
+test websocket::tests::wss_shutdown_waits_for_ws_echo_and_delayed_tls_close_notify ... ok
+test websocket::tests::shutdown_bounds_missing_ws_ack_and_missing_transport_eof ... ok
+test tls::tests::idle_tls_handshake_holds_permit_times_out_and_shutdown_interrupts ... ok
+test durable::network::tests::blocked_writer_expires_only_unstarted_delivery_and_keeps_started_replay ... ok
+test durable::enhanced_tests::mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_reason ... ok
+
+test result: ok. 166 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s
+
+     Running unittests src/lib.rs (target/debug/deps/mqtt_webhook-e2fc2fab81726470)
+
+running 1 test
+test adapter::tests::custom_headers_are_sensitive_and_debug_is_redacted ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/rmqtt-077f8a2cd4744805)
+
+running 37 tests
+test admin::http::tests::management_busy_and_not_ready_have_distinct_statuses ... ok
+test admin::rules::tests::rule_failures_have_redacted_typed_statuses ... ok
+test admin::access_control::tests::public_failures_never_return_raw_provider_or_storage_errors ... ok
+test admin::http::tests::query_validation_enforces_limits_and_rejects_duplicates_and_unknowns ... ok
+test admin::http::tests::authorization_requires_one_exact_bearer_header ... ok
+test admin::rules::tests::disabled_rules_are_explicit_without_creating_a_runtime ... ok
+test admin::access_control::tests::credential_fields_preserve_binary_absence_empty_and_exclusivity ... ok
+test admin::tests::static_symlinks_and_token_symlinks_are_rejected ... ok
+test cli::tests::access_config_path_is_private_sibling_and_never_created_by_export ... ok
+test cli::tests::admission_limits_have_explicit_defaults_and_rate_can_be_disabled ... ok
+test cli::tests::client_ca_requires_server_identity_and_rejects_duplicate_or_empty_paths ... ok
+test admin::tests::builtin_bundle_contains_production_entry_and_linked_assets ... ok
+test cli::tests::durable_outbound_queue_cli_accepts_explicit_limits ... ok
+test cli::tests::durable_outbound_queue_limits_and_paths_are_bounded ... ok
+test cli::tests::enhanced_plain_is_explicit_and_combines_with_existing_policy ... ok
+test admin::tests::token_input_is_bounded_and_errors_do_not_disclose_secrets ... ok
+test cli::tests::export_state_is_a_leading_subcommand_requiring_storage ... ok
+test cli::tests::management_is_opt_in_loopback_and_requires_complete_options ... ok
+test cli::tests::persistent_storage_is_opt_in_and_has_explicit_bounds ... ok
+test cli::tests::policy_path_is_opt_in_and_parsed_without_reading_the_file ... ok
+test cli::tests::protocol_profile_defaults_to_both_and_requires_an_explicit_valid_value ... ok
+test auth_policy::tests::rejects_nonregular_or_oversized_input_before_parsing ... ok
+test cli::tests::rejects_invalid_resource_boundaries_and_missing_values ... ok
+test cli::tests::rules_config_defaults_for_serving_and_rejects_invalid_combinations ... ok
+test cli::tests::supports_limits_without_changing_unset_defaults ... ok
+test admin::tests::outbound_queue_directory_cannot_be_loaded_as_public_assets ... ok
+test cli::tests::tls_identity_requires_one_complete_pair_without_reading_files ... ok
+test auth_policy::tests::reads_valid_policy_and_rejects_invalid_or_missing_file ... ok
+test cli::tests::websocket_selection_supports_plain_and_tls_without_reading_identity ... ok
+test cli::tests::topic_alias_budget_defaults_but_can_be_disabled_or_use_full_range ... ok
+test cli::tests::websocket_rejects_incomplete_duplicate_invalid_and_export_configuration ... ok
+test logging::tests::default_and_target_filters_have_predictable_levels ... ok
+test logging::tests::invalid_settings_fail_without_echoing_supplied_values ... ok
+test admin::tests::static_input_has_file_and_total_limits_and_needs_index ... ok
+test tls_identity::tests::bounded_file_reader_rejects_special_missing_and_oversized_inputs ... ok
+test admin::access_control::tests::external_credential_denial_is_json_success_without_live_side_effects ... ok
+test admin::tests::sqlite_configuration_and_companion_aliases_cannot_be_static_assets ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/logging.rs (target/debug/deps/logging-1649595505bcd62c)
+
+running 3 tests
+test help_remains_stdout_and_invalid_logging_settings_fail_without_echoing_values ... ok
+test json_lifecycle_is_structured_and_flushed_on_shutdown ... ok
+test error_filter_suppresses_info_without_changing_broker_lifecycle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running unittests src/lib.rs (target/debug/deps/rmqtt_loadgen-4e129a7ae768d5c4)
+
+running 26 tests
+test engine::tests::receive_maximum_does_not_throttle_qos0 ... ok
+test engine::tests::absolute_rate_schedule_has_no_deadline_reset ... ok
+test engine::tests::packet_ids_are_not_reused_while_outstanding ... ok
+test engine::tests::completed_duplicate_cannot_change_measurement_cohort ... ok
+test engine::tests::rejects_wrong_ack_phase_identifier_and_header ... ok
+test config::tests::limits ... ok
+test metrics::tests::aggregate_writes_cannot_mask_events_on_an_unwritten_record ... ok
+test metrics::tests::global_and_per_pair_sample_bounds_are_enforced ... ok
+test metrics::tests::impossible_timestamps_never_saturate_into_zero_latency ... ok
+test engine::tests::duplicate_delivery_does_not_inflate_unique_throughput ... ok
+test metrics::tests::early_failed_horizon_never_divides_by_zero ... ok
+test engine::tests::qos0_ack_is_not_fabricated_and_write_can_fail ... ok
+test engine::tests::qos2_requires_pubcomp_and_delivery_for_credit ... ok
+test metrics::tests::late_completion_never_inflates_offering_window_tps ... ok
+test metrics::tests::incomplete_and_unsent_work_is_explicit_and_unsuccessful ... ok
+test metrics::tests::event_exactly_at_window_end_is_late ... ok
+test metrics::tests::duplicates_are_visible_but_do_not_multiply_samples_or_unique_tps ... ok
+test engine::tests::client_ids_fit_mqtt311_required_range_and_remain_distinct ... ok
+test metrics::tests::nearest_rank_tail_not_interpolation_or_average_of_pair_percentiles ... ok
+test metrics::tests::empty_distributions_and_qos0_ack_are_null ... ok
+test metrics::tests::omitted_sequence_rejected_even_if_counters_were_also_decremented ... ok
+test metrics::tests::qos2_pubrec_alone_is_never_final_source_success ... ok
+test metrics::tests::one_message_has_six_explicit_duration_semantics ... ok
+test metrics::tests::record_drop_duplicate_and_counter_corruption_rejected ... ok
+test metrics::tests::rate_plan_mismatch_and_failed_pairs_not_passed_as_capacity ... ok
+test payload::tests::roundtrip_and_corruption ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/rmqtt_loadgen-ec7b86a6802e508a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli.rs (target/debug/deps/cli-91ea32f46f44f6bd)
+
+running 4 tests
+test cli_existing_output_is_never_overwritten ... ok
+test cli_raw_reservation_failure_does_not_leave_blank_report ... ok
+test cli_measured_failure_has_nonzero_exit_and_failure_json ... ok
+test cli_raw_samples_independently_reproduce_all_percentiles ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/independent_wire.rs (target/debug/deps/independent_wire-c5ba99c8df1d5442)
+
+running 13 tests
+test abrupt_source_disconnect_cannot_complete_attempt ... ok
+test negative_mqtt5_ack_is_not_positive_confirmation ... ok
+test corrupt_payload_is_not_an_application_delivery ... ok
+test exhausted_sample_budget_is_explicit ... ok
+test wrong_ack_identifier_is_never_success ... ok
+test qos2_pubrec_is_not_source_completion ... ok
+test qos2_delivery_waits_for_subscriber_pubrel ... ok
+test stalled_ack_is_bounded_and_incomplete_sample_is_retained ... ok
+test duplicate_qos1_publish_is_acknowledged_but_not_new_delivery ... ok
+test qos0_credit_waits_for_delivery_and_late_sample_survives_drain ... ok
+test fixed_rate_retains_lag_and_unsent_deadlines ... ok
+test multiple_pairs_window_four_and_warmup_preserve_sample_boundaries ... ok
+test both_versions_all_qos_actual_delivery_and_final_confirmation ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+   Doc-tests mqtt_auth
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_auth_http
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_egress
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_egress_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_egress_log
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_kafka
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_router
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_rules
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_session
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_storage
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_transport
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_webhook
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests rmqtt_loadgen
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

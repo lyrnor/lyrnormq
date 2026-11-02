@@ -50,6 +50,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         options.auth_policy.is_some(),
     )
     .await?;
+    options.config.access_control = access.admitted_policy();
     options.config.remote_access = Some(access.clone());
     options.config.remote_plain = options.enhanced_auth_plain;
     if options.enhanced_auth_plain {

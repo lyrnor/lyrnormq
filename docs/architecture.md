@@ -847,3 +847,22 @@ real teardown, and prevents replacement activation unless actual completion is
 observed. This bounds callers without falsely treating detached background sends
 as canceled. SDK logs are suppressed on owner and blocking workers; public errors
 remain controlled. At-least-once crash replay and terminal failure semantics remain.
+
+
+## Phase6b: scoped HTTP admission
+
+[Phase6b](contracts/phase6b-http-admission.md) integrates the existing HTTP backend
+and management UI at operation entry. CONNECT authenticates, then a new Will gets
+one Publish decision. PUBLISH/SUBSCRIBE run cloned scoped probes, async resolve,
+rerun and seal before first effect. Failure does not mutate the existing session
+or retained/routing state. Compact accepted policies release all provider-generation
+slots and are used by subsequent QoS/control, shared routing and recovery without
+HTTP calls. The current client actor may await bounded HTTP; no global lock is held.
+The prior receive-time remote ACL/shared preflight/recovery expansion is superseded,
+not an implemented claim. Public settings and durable schemas remain unchanged.
+
+Protected management exposes configuration/status/draft probes/cache clear, with
+private SQLite and redacted service credentials. HTTP authentication401 and ACL403
+are distinct; failures never imply cached global revocation. Optional static policy
+continues as configured fallback; remote identity uses existing user:<username>.
+[Actual814Rust/114UI/29HTTPMQTT acceptance](verification/http-admission-20261102/README.md).

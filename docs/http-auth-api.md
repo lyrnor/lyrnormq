@@ -1,6 +1,6 @@
 # HTTP 认证与授权接口 v1
 
-状态：**接口文档，HTTP 后端尚未实现**。本稿替代此前未实现的草案。
+状态：**Phase6b 已实现并通过实际 HTTP/MQTT 验收**。当前范围为 CONNECT 认证与 PUBLISH/SUBSCRIBE 授权。
 两个POST接口由Broker调用业务服务，URL可分别配置。设备由username唯一标识，
 不要求客户端或服务提供额外身份字段。[OpenAPI定义](api/http-auth-v1.openapi.json)。
 
@@ -31,7 +31,8 @@ username，不支持匿名设备；不改变其他既有认证模式的匿名访
 
 认证成功返回`204 No Content`，凭据错误或设备未通过认证返回`401 Unauthorized`，均无需JSON响应body。
 成功表示服务已经验证该username的凭据并批准使用本次Client ID连接，Broker才信任
-这个设备身份。如果有Will，还需对Will Topic完成publish鉴权后再提交会话和CONNACK。
+这个设备身份。CONNECT 携带 Will 时，在 CONNACK 前对 Will Topic 做一次发布授权，
+防止它绕过 PUBLISH 限制；后续 Will 发送不再访问 HTTP。
 每次连接实际认证，不缓存成功或保存密码。账号不存在、禁用、密码错误统一返回401。
 
 Broker内部身份沿用`user:<username>`，外部接口不传内部身份。username大小写敏感，
@@ -70,15 +71,15 @@ client_id为实际操作的MQTT客户端；action为`publish|subscribe`；topic�
 允许返回204，拒绝返回403，不返回JSON、Topic列表或完整策略。拒绝只针对本次请求，
 不代表设备全局撤权，不得因此清理其他Topic或整个持久会话。
 
-- Publish的topic必须合法且没有`+`、`#`。Will按原持久设备身份/Client ID，以publish
-  检查真实Will Topic，不借用后来连接的username。
+- Publish 的 topic 必须合法且没有 `+`、`#`；先按现有协议逻辑解析 Topic Alias，
+  再对具体主题鉴权，拒绝前不修改保留消息或进行路由。
 - Subscribe每个Filter分别查询，支持`+`、`#`；SUBACK保持原顺序。允许表示批准请求
   Filter的整个范围。服务不能把Filter当成具体Topic简单匹配：若允许`devices/#`但
   拒绝`devices/private/#`，请求`devices/#`必须拒绝。
-- 实际接收复用`action:subscribe`、传具体消息Topic；Retained、离线消息和应用数据
-  重发也按接收者鉴权。订阅成功不意味着永久允许接收。
+- 授权发生在操作入口。已接受的订阅、保留消息回放、离线消息及出站重传不逐条
+  重新请求 HTTP；本阶段不实现追溯撤销旧订阅或接收时重新鉴权。
 - 共享订阅的初始请求由Broker去掉`$share/<group>/`后传内部Filter；服务不再次剥离。
-  实际接收仍传真实Topic，v1不区分订阅组。
+  v1 不区分订阅组，选取接收成员时不额外请求 HTTP。
 - `subscribe devices/#`的允许不能当成`subscribe devices/a`或publish的缓存命中。
   v1不增加QoS、retain、IP、消息正文、superuser等条件或返回字段。
 
@@ -106,8 +107,8 @@ Cache-Control: no-store
 ```
 
 204按[HTTP规范](https://www.rfc-editor.org/rfc/rfc9110.html#name-204-no-content)不携带
-body；401/403也无需业务JSON，附带的错误正文不参与判定、不记录。最多有界丢弃4KiB
-用于连接复用，超限或无法在期限内排空则关闭连接，不能为读错误页拖延决定。
+body；401/403 也无需业务 JSON，附带正文不参与判定、不记录。收到响应头即判定，
+随后丢弃响应体句柄，不等待或解析错误页，不能为读取正文拖延决定。
 响应不要求Content-Type或request ID回显；401按HTTP规范携带适用的WWW-Authenticate
 challenge，Broker不会据此自动重试、更换服务凭据或转发设备密码。
 
@@ -140,15 +141,20 @@ challenge，Broker不会据此自动重试、更换服务凭据或转发设备�
 不可用不缓存为deny，不沿用过期allow，不执行永久撤权清理。新操作不得当成授权成功，
 必要ACK/控制流不能被全局HTTP等待阻塞，不能根据一个Topic的403清理其他授权。
 
-重启不信任旧缓存。连接重新认证；离线数据/Will按可信持久身份恢复原username后，对
-具体操作重新鉴权，不存储设备密码。无法恢复设备身份或服务不可用不能用作删除离线
-消息/Will的理由，也不能延长Session/Message Expiry或Will截止时间。
+重启不信任旧缓存；重连重新认证，新的发布与订阅重新鉴权，不保存设备密码。
+启动恢复、已接受的离线队列、Will 和 QoS 握手不额外请求 HTTP，不因 HTTP 故障
+清理旧状态，也不延长 Session/Message Expiry 或 Will 截止时间。
 
 MQTT错误映射：初次认证401统一为凭据错误（MQTT3.1.1 CONNACK4、MQTT5 0x86）；
-Will ACL403为无权限（5、0x87）；后端不可用为服务不可用（3、0x88）；本地接纳过载
+CONNECT 策略拒绝为无权限（5、0x87）；认证后端不可用为服务不可用（3、0x88）；本地接纳过载
 沿用既有规则。已连接重认证401使用DISCONNECT0x87，后端不可用使用0x89，重认证
 接纳配额错误沿用0x97，不将CONNACK专属码放入DISCONNECT。其他操作拒绝按其合法
 包类型处理，不把HTTP401/403直接作为MQTT码。
 
-本轮只有外部接口。内部异步prepare/commit、缓存失效、Receive/扇出、QoS/outbox、
-Will/到期/恢复屏障仍须先冻结再测试；禁止在同步AccessControl或会话actor内执行HTTP。
+已连接的 PUBLISH/SUBSCRIBE 遇到 HTTP 服务不可用时，MQTT5 使用 DISCONNECT
+0x89；MQTT3.1.1 使用现有拒绝/断连语义。不得发送成功响应或提交未授权副作用。
+已接受的 QoS2 DUP/PUBREL、ACK 等控制流不重复调用 HTTP；已完成后的新 QoS1
+PUBLISH 仍属于新操作，不能只凭 DUP 位绕过授权。
+
+内部实现遵循 [Phase6b 契约](contracts/phase6b-http-admission.md)：异步 HTTP 等待
+只发生于当前操作准备阶段，不持有全局锁；已提交引擎不保存 HTTP 探测对象。

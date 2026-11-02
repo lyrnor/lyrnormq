@@ -28,7 +28,7 @@ a clone, resolve missing point decisions, rerun unchanged base, seal before firs
 side effect. Recheck cancellation/generation before installing CONNECT or a late
 business result. Install no speculative proposal, including speculative errors.
 
-Once accepted, existing QoS handshakes, DUP retransmissions, PUBREL/PUBACK/PUBREC/
+Once accepted, existing QoS handshakes, outgoing DUP retransmissions, PUBREL/PUBACK/PUBREC/
 PUBCOMP, polling, delivery, retained replay and Will expiry do not issue fresh HTTP
 ACLs. A duplicate inbound QoS exchange reuses the already-admitted exchange. Failed
 requests leave existing state intact. HTTP changes affect subsequent new operations;
@@ -39,8 +39,10 @@ bypassed: a different username cannot resume another username's persistent state
 No per-recipient HTTP checks on actual send, shared selection/fallback or recovery.
 Already-admitted subscriptions follow existing matcher/shared/NoLocal semantics.
 No startup HTTP calls or permission-based pruning of stored sessions/queues/Will.
-CONNECT need not add a remote Will ACL call; delayed Will uses existing accepted
-state and local semantics. Do not claim retroactive HTTP revocation of old grants.
+A new CONNECT carrying a Will authorizes its Publish topic once before CONNACK,
+using the same admission attempt; otherwise Will could bypass denied PUBLISH ACL.
+Denied/unavailable Will admission cannot replace an old connection/session. Delayed
+Will delivery/recovery performs no new HTTP call and uses that accepted state. Do not claim retroactive HTTP revocation of old grants.
 
 ## API coordination
 
@@ -82,3 +84,38 @@ existing queued/retained/Will and shared routing generate no receive-time RPCs.
 Run fmt, strictClippy/workspace/frontend tests, real HTTP/MQTT scoped blackbox,
 local static-auth regressions, native Release and locked musl static build.
 Record actual counts/results and remaining limits; do not merge/push automatically.
+
+## Duplicate exchange clarification
+
+Transport may use SessionEngine::has_incoming_exchange(client,packet_id)->bool, a
+read-only query for a still-pending accepted inbound QoS2 exchange. The core still
+validates duplicate/PID-in-use rules and cannot route changed duplicate contents.
+An inbound QoS1 PUBLISH after its exchange completed is a new admission, even if
+DUP is set: DUP alone is not an application deduplication key. No durable schema
+change or unlimited past-packet ledger is introduced.
+
+CONNECT entry must check the strict attempt.policy() Connect decision and seal
+before installation. Admitted snapshots apply only to trusted accepted state;
+internal Connect checks in that state must not revoke an older anonymous Will or
+queue merely because HTTP was enabled later. Any remote-mode admitted snapshot
+skips whole-session reconciliation; both-disabled uses unchanged local fallback.
+
+## Wire refusal clarification
+
+An HTTP operation preparation failure on an established connection uses MQTT5
+DISCONNECT ServerBusy0x89, not ServerShuttingDown0x8b; the broker is still running.
+Pre-CONNECT HTTP authentication unavailability retains CONNACK ServerUnavailable
+0x88. Existing unrelated storage/worker fatal shutdown mappings are unchanged.
+The completed/unknown QoS2 PUBREL response may be PUBCOMP PacketIdentifierNotFound
+0x92, without a new HTTP call. Shared SUBSCRIBE ACL resources retain existing core
+semantics: the inner filter without $share/group wrapper, not a receiver topic.
+
+## Will admission and named identity clarification
+
+A Will is a future publication requested in CONNECT. Its topic therefore needs one
+initial Publish ACL decision, never a receive/expiry/recovery-time decision. This
+is an entry check, not the canceled delayed-Will/recovery expansion. Authentication
+401 stops before any Will ACL. With HTTP ACL enabled, newly admitted identities must
+have the existing valid user:<username> mapping even when authentication is local;
+anonymous clients cannot create new uncheckable grants. Existing admitted anonymous
+state still uses the non-probing accepted policy and is not retroactively removed.

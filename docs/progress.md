@@ -2476,3 +2476,19 @@ Final scope:760 Rust,96 UI and16real Kafka cases passed; strict Clippy/fmt, Rele
 and Linux amd64 musl static build/inspection passed. HTTP development is preserved
 on codex/http-access-integration-wip (7026380), with the full integration gate still
 pending. [Final merge acceptance](verification/main-publish-20261102/README.md).
+
+
+### Phase6b — scoped HTTP admission completed (2026-11-02)
+
+Supersedes the historical contract-only/expanded Phase6a status. Reused HTTP runtime,
+cache, SQLite configuration and Dashboard; integrated CONNECT authentication and
+PUBLISH/SUBSCRIBE admission before effects. NewWill checks once at CONNECT; ACKs,
+accepted QoS2 retries, delivery/shared/retained replay and recovery do not re-query.
+Compact admitted policies release old generations; stopped/unavailable services
+fail new operations closed without revoking accepted state. No durable schema change.
+
+814Rust/114UI/29realHTTPMQTT cases,20local-auth/25PLAIN SQLite regressions, strict
+Clippy/fmt, native Release and locked Linux amd64musl static build passed.
+[Evidence/reproduction/limits](verification/http-admission-20261102/README.md).
+No performance benchmark or main merge/push/deployment in this phase; no PostgreSQL,
+receive-time/retroactive HTTP revocation or HTTP custom TLS identity.
