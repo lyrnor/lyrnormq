@@ -6,6 +6,7 @@ use std::{
     net::{TcpListener, TcpStream},
     path::PathBuf,
     process::{Child, Command, Stdio},
+    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -45,13 +46,15 @@ fn help_remains_stdout_and_invalid_logging_settings_fail_without_echoing_values(
 }
 
 fn lifecycle(filter: &str, json: bool) -> Vec<String> {
+    static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
     let root = std::env::temp_dir().join(format!(
-        "rmqtt-logging-{}-{}",
+        "rmqtt-logging-{}-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
+            .as_nanos(),
+        NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
     ));
     fs::create_dir(&root).unwrap();
     let reservation = TcpListener::bind("127.0.0.1:0").unwrap();

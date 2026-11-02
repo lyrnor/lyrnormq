@@ -600,3 +600,18 @@ is not an implementation claim. [Evidence](verification/admission-mtls-20261030/
   durable recovery, bounds, fault behavior and musl build; measure performance.
 
 [External contract](http-auth-api.md). No remote backend is implemented yet.
+
+
+## Phase5k — krafka outbound replacement
+
+- [x] Freeze replacement/public/durable/deadline contract before isolated writers.
+- [x] Replace production SDK with krafka/rustls, retain configured TLS/SASL/codecs.
+- [x] Confirm append/dedup only; bounded admission, unknown-outcome and lifecycle fencing.
+- [x] Offline TLS validation, encrypted PKCS8 cost limits, resource/cancel/shutdown regressions.
+- [x] 801 Rust tests, strict Clippy/fmt,16real Kafka interoperability/recovery cases.
+- [x] Profile-equivalent native/musl build, static ELF and no production OpenSSL tree.
+- [x] Three alternating paired short benchmark runs with independent readback/RSS.
+- [ ] Profile measured throughput/single-partition tail regressions; no automatic gain claim.
+- [ ] Linux runtime verification, multi-replica fault tests and extended load/soak.
+
+[Actual evidence and limits](verification/krafka-migration-20261102/README.md).

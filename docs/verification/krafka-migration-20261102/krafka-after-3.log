@@ -1,0 +1,4 @@
+{"label": "krafka-after-3", "partitions": 1, "payload_bytes": 128, "confirmed": 4096, "tps": 8836.025506283499, "p99_ms": 8.9145, "sampled_peak_rss_bytes": 10452992}
+{"label": "krafka-after-3", "partitions": 1, "payload_bytes": 1024, "confirmed": 4096, "tps": 8357.437565977925, "p99_ms": 11.615917, "sampled_peak_rss_bytes": 10829824}
+{"label": "krafka-after-3", "partitions": 12, "payload_bytes": 128, "confirmed": 4096, "tps": 1272.8406029447553, "p99_ms": 60.611625, "sampled_peak_rss_bytes": 10321920}
+{"label": "krafka-after-3", "partitions": 12, "payload_bytes": 1024, "confirmed": 4096, "tps": 1200.7224415090275, "p99_ms": 95.736083, "sampled_peak_rss_bytes": 10731520}

@@ -1,0 +1,21 @@
+   Compiling tls-validation-harness v0.1.0 (/private/tmp/rmqtt-krafka-tls/.tls-harness)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running unittests src/lib.rs (target/krafka-tls/debug/deps/tls_validation_harness-ab855967703ca061)
+
+running 8 tests
+test tls_validation::tests::encrypted_key_derivation_cost_is_capped_before_decryption ... ok
+test tls_validation::tests::certificate_and_private_key_must_be_paired ... ok
+test tls_validation::tests::field_and_pem_section_limits_are_enforced ... ok
+test tls_validation::tests::malformed_ca_and_wrong_pem_sections_are_rejected ... ok
+test tls_validation::tests::unknown_sections_and_non_whitespace_outside_pem_are_rejected ... ok
+test tls_validation::tests::mismatched_identity_and_multiple_keys_are_rejected ... ok
+test tls_validation::tests::valid_identity_and_certificate_bundle_are_accepted_offline ... ok
+test tls_validation::tests::encrypted_pkcs8_accepts_correct_password_and_rejects_wrong_or_missing_one ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+   Doc-tests tls_validation_harness
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

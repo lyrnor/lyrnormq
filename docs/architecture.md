@@ -823,6 +823,33 @@ OAuth or Kerberos are exposed. Dashboard/API configuration is typed and redacted
 TLS input is bounded inline PEM rather than arbitrary server file paths.
 
 
+## Phase5k: krafka replacement
+
+[Phase5k](contracts/phase5k-krafka-migration.md) supersedes the Phase5j native SDK
+implementation. Kafka outbounds now use pinned krafka0.28.1 with rustls/ring,
+Zstd encoding and bounded encrypted PKCS8 validation. Production dependency paths
+contain no librdkafka, OpenSSL crypto library or libcurl. The independent Kafka
+acceptance reader still uses rdkafka as an interoperability oracle.
+
+Each outbound has a dedicated owner thread and private current-thread Tokio
+runtime. Connections and idempotent producer initialization are lazy. Records use
+acks=All, idempotent delivery, configured batching and stable Murmur2 keys. Both
+owner admission (512records/8MiB) and SDK buffers (8MiB) are bounded; canceled
+callers do not release resources still owned by active work. Explicit CA material
+is exclusive; absent CA uses native trust roots loaded on an SDK blocking worker.
+Public config and journal schema, rule-result sharing and generic lane scheduling
+remain unchanged.
+
+Only persisted/deduplicated confirmation completes journal delivery. Unknown or
+fatal outcomes destroy the private runtime before normal retry replies. Policy
+expiry includes queue/init/enqueue/delivery; error reporting allows5s additional
+cleanup. An overrun stops the owner, retains its slot/record/byte permits until
+real teardown, and prevents replacement activation unless actual completion is
+observed. This bounds callers without falsely treating detached background sends
+as canceled. SDK logs are suppressed on owner and blocking workers; public errors
+remain controlled. At-least-once crash replay and terminal failure semantics remain.
+
+
 ## HTTP authentication external contract (implementation pending)
 
 [HTTP v1](http-auth-api.md) uses MQTT username as the unique stable device identity.

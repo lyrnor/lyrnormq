@@ -2465,3 +2465,24 @@ username必填，沿用本地账号256字节边界；Broker内部user:<username>
 JSON、4个引用、4份请求样例及状态-only响应一致性通过，未运行完整外部验证器。
 本轮仅文档，无HTTP实现或Rust测试。内部异步prepare/commit、QoS/outbox、接收扇出、
 Will/到期/恢复屏障仍待冻结与实现；PostgreSQL未实现。分支codex/http-auth-contract。
+
+
+### Phase5k — krafka replacement (2026-11-02)
+
+Production Kafka SDK is now pinned krafka0.28.1/rustls-ring; librdkafka/OpenSSL/
+libcurl are absent from production dependencies. Existing SQL output bodies,
+durable shared logs, configuration and per-client lanes remain unchanged. Private
+owner runtime fences uncertain delivery/background tasks before retries or
+replacement; admission512/8MiB, SDK buffer8MiB, owner16 and connection64 bounds.
+
+801 Rust tests, strict Clippy/fmt,16real Kafka cases (15+codec) and static Linux
+amd64 musl build/ELF inspection passed. Three paired benchmark runs independently
+verified49152records per SDK, no errors; lower RSS and binary size, but measured
+TPS declines3.7..20.2% in this local flush-heavy workload. Multi-partition P99
+improved; single-partition median-run P99 worsened. No universal performance gain
+or MQTT end-to-end TPS claim. Linux artifact23.03→18.45MiB.
+
+[Reproduction, complete metrics, regressions and limits](verification/krafka-migration-20261102/README.md).
+Remaining: Linux execution, multi-replica fault/long-soak and performance profiling;
+at-least-once replay remains. Preexisting HTTP management changes were preserved;
+this phase does not complete that separate integration gate. No deployment/main merge.

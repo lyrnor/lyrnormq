@@ -1,0 +1,4 @@
+{"label": "rdkafka-before-3", "partitions": 1, "payload_bytes": 128, "confirmed": 4096, "tps": 10810.524312514195, "p99_ms": 7.778917, "sampled_peak_rss_bytes": 13189120}
+{"label": "rdkafka-before-3", "partitions": 1, "payload_bytes": 1024, "confirmed": 4096, "tps": 8181.037409870774, "p99_ms": 10.998458, "sampled_peak_rss_bytes": 13697024}
+{"label": "rdkafka-before-3", "partitions": 12, "payload_bytes": 128, "confirmed": 4096, "tps": 1354.0944621387866, "p99_ms": 179.892833, "sampled_peak_rss_bytes": 13352960}
+{"label": "rdkafka-before-3", "partitions": 12, "payload_bytes": 1024, "confirmed": 4096, "tps": 1414.3670422799541, "p99_ms": 149.146625, "sampled_peak_rss_bytes": 13631488}

@@ -1,0 +1,62 @@
+test_eight_topics_and_internal_offsets_survive_restart (__main__.FixtureRestart.test_eight_topics_and_internal_offsets_survive_restart) ... FAIL
+
+======================================================================
+FAIL: test_eight_topics_and_internal_offsets_survive_restart (__main__.FixtureRestart.test_eight_topics_and_internal_offsets_survive_restart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-krafka-quality/tests/kafka_fixture_restart_test.py", line 36, in test_eight_topics_and_internal_offsets_survive_restart
+    fixture.start()
+    ~~~~~~~~~~~~~^^
+  File "/private/tmp/rmqtt-krafka-quality/tests/kafka_fixture.py", line 125, in start
+    wait_port(self.port,self.process,self.log)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-krafka-quality/tests/kafka_fixture.py", line 66, in wait_port
+    if process.poll() is not None:raise AssertionError(f'Kafka exited: {log.read_text()[-8000:]}')
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Kafka exited: g.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,824] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-44, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=44, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 6ms (67/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,827] INFO [LogLoader partition=__consumer_offsets-21, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,827] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-21, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=21, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 4ms (68/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,831] INFO [LogLoader partition=__consumer_offsets-19, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,831] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-19, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=19, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 4ms (69/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,835] INFO [LogLoader partition=__consumer_offsets-26, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,835] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-26, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=26, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 4ms (70/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,838] INFO [LogLoader partition=__consumer_offsets-10, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,838] INFO [LogLoader partition=fixture-restart-2-2, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,838] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-10, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=10, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 3ms (71/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,839] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/fixture-restart-2-2, topicId=Wo72fo5mRfCtMOjwGm1eSA, topic=fixture-restart-2, partition=2, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 4ms (72/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,846] INFO [LogLoader partition=__consumer_offsets-17, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,846] INFO [LogLoader partition=__consumer_offsets-28, dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data] Loading producer state till offset 0 (org.apache.kafka.storage.internals.log.UnifiedLog)
+[2026-11-02 21:42:50,846] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-17, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=17, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 5ms (73/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,847] INFO Completed load of Log(dir=/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data/__consumer_offsets-28, topicId=WkJ4ZcMsTuOZji86lhmiOw, topic=__consumer_offsets, partition=28, highWatermark=0, lastStableOffset=0, logStartOffset=0, logEndOffset=0) with 1 segments, local-log-start-offset 0 and log-end-offset 0 in 5ms (74/74 completed in /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-real-kafka-64zcorkb/data) (kafka.log.LogManager)
+[2026-11-02 21:42:50,851] INFO Loaded 74 logs in 271ms (kafka.log.LogManager)
+[2026-11-02 21:42:50,854] INFO Starting log cleanup with a period of 300000 ms. (kafka.log.LogManager)
+[2026-11-02 21:42:50,858] INFO Starting log flusher with a default period of 9223372036854775807 ms. (kafka.log.LogManager)
+[2026-11-02 21:42:50,885] ERROR Encountered fatal fault: Error starting LogManager (org.apache.kafka.server.fault.ProcessTerminatingFaultHandler)
+java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:64)
+	at java.base/java.nio.ByteBuffer.allocate(ByteBuffer.java:363)
+	at org.apache.kafka.storage.internals.log.SkimpyOffsetMap.<init>(SkimpyOffsetMap.java:78)
+	at org.apache.kafka.storage.internals.log.LogCleaner$CleanerThread.<init>(LogCleaner.java:480)
+	at org.apache.kafka.storage.internals.log.LogCleaner.lambda$startup$0(LogCleaner.java:209)
+	at org.apache.kafka.storage.internals.log.LogCleaner$$Lambda$1143/0x00000098015e6360.accept(Unknown Source)
+	at java.base/java.util.stream.Streams$RangeIntSpliterator.forEachRemaining(Streams.java:104)
+	at java.base/java.util.stream.IntPipeline$Head.forEach(IntPipeline.java:617)
+	at org.apache.kafka.storage.internals.log.LogCleaner.startup(LogCleaner.java:207)
+	at kafka.log.LogManager.startupWithConfigOverrides(LogManager.scala:636)
+	at kafka.log.LogManager.startup(LogManager.scala:579)
+	at kafka.server.metadata.BrokerMetadataPublisher.initializeManagers(BrokerMetadataPublisher.scala:344)
+	at kafka.server.metadata.BrokerMetadataPublisher.onMetadataUpdate(BrokerMetadataPublisher.scala:141)
+	at org.apache.kafka.image.loader.MetadataLoader.initializeNewPublishers(MetadataLoader.java:332)
+	at org.apache.kafka.image.loader.MetadataLoader.lambda$scheduleInitializeNewPublishers$0(MetadataLoader.java:288)
+	at org.apache.kafka.image.loader.MetadataLoader$$Lambda$700/0x000000980141e518.run(Unknown Source)
+	at org.apache.kafka.queue.KafkaEventQueue$EventContext.run(KafkaEventQueue.java:134)
+	at org.apache.kafka.queue.KafkaEventQueue$EventHandler.handleEvents(KafkaEventQueue.java:217)
+	at org.apache.kafka.queue.KafkaEventQueue$EventHandler.run(KafkaEventQueue.java:188)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+
+----------------------------------------------------------------------
+Ran 1 test in 12.978s
+
+FAILED (failures=1)
