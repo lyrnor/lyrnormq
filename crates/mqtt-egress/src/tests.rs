@@ -450,36 +450,40 @@ async fn fixed_shard_preserves_same_publisher_processing_order() {
 }
 
 #[tokio::test]
-async fn reconfiguration_cancels_old_generation_and_counts_abandoned_events() {
+async fn reconfiguration_pauses_and_retains_committed_pending_deliveries() {
     let f = Fixture::new();
     let (url, mut rx, stop, server) = server(vec![200], Duration::from_millis(300)).await;
     let runtime = Runtime::open(f.path()).await.unwrap();
     runtime.replace(config(url)).await.unwrap();
-    for _ in 0..20 {
-        runtime.observer().observe(
-            "devices/a/telemetry",
-            br#"{"temperature":90}"#,
-            "same-client",
-            0,
-            false,
-        );
-    }
-    receive(&mut rx).await;
-    runtime.replace(Config::default()).await.unwrap();
-    for _ in 0..100 {
-        if runtime.status().await.queued_events == 0 {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(5)).await;
-    }
-    assert_eq!(runtime.status().await.queued_events, 0);
-    assert!(runtime.status().await.dropped > 0);
-    assert!(runtime.configuration().await.rules.is_empty());
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"temperature":90}"#,
+        "same-client",
+        0,
+        false,
+    );
+    let original = body(&receive(&mut rx).await);
+    assert!(matches!(
+        runtime.replace(Config::default()).await,
+        Err(RuntimeError::Busy)
+    ));
+    let mut paused = runtime.configuration().await;
+    paused.outbounds[0].enabled = false;
+    runtime.replace(paused.clone()).await.unwrap();
+    assert_eq!(runtime.status().await.inflight_requests, 0);
+    assert_eq!(runtime.status().await.durable_queue.pending_records, 1);
+    paused.outbounds[0].enabled = true;
+    runtime.replace(paused).await.unwrap();
+    let replayed = body(&receive(&mut rx).await);
+    assert_eq!(
+        original["events"][0]["delivery_id"],
+        replayed["events"][0]["delivery_id"]
+    );
+    delivered(&runtime, 1).await;
     runtime.shutdown().await;
     let _ = stop.send(true);
     server.await.unwrap();
 }
-
 #[tokio::test]
 async fn uncertain_sqlite_write_failure_stops_runtime_and_restores_actual_commit() {
     fn committed_then_failed(
@@ -825,7 +829,7 @@ async fn storage_failure_returns_after_concurrent_attempts_are_cancelled() {
     .unwrap();
     assert!(matches!(
         runtime
-            .replace_test_write(Config::default(), fail_write)
+            .replace_test_write(runtime.configuration().await, fail_write)
             .await,
         Err(RuntimeError::Storage)
     ));
@@ -839,6 +843,37 @@ async fn storage_failure_returns_after_concurrent_attempts_are_cancelled() {
     assert_eq!(stopped.outbounds[0].queued, 0);
     runtime.shutdown().await;
     assert_eq!(runtime.status().await.queued_bytes, 0);
+    let _ = stop.send(true);
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn accepted_delivery_replays_after_shutdown_with_stable_identity() {
+    let f = Fixture::new();
+    let (url, mut requests, stop, server) = server(vec![200], Duration::from_millis(300)).await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut policy = config(url);
+    policy.outbounds[0].timeout_ms = 10000;
+    runtime.replace(policy).await.unwrap();
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"temperature":90}"#,
+        "survivor",
+        0,
+        false,
+    );
+    let original = body(&receive(&mut requests).await);
+    runtime.shutdown().await;
+    drop(runtime);
+    let resumed = Runtime::open(f.path()).await.unwrap();
+    let replayed = body(&receive(&mut requests).await);
+    assert_eq!(
+        original["events"][0]["delivery_id"],
+        replayed["events"][0]["delivery_id"]
+    );
+    assert_eq!(original["events"][0], replayed["events"][0]);
+    delivered(&resumed, 1).await;
+    resumed.shutdown().await;
     let _ = stop.send(true);
     server.await.unwrap();
 }

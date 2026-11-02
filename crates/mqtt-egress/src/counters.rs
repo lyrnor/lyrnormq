@@ -5,8 +5,8 @@ use std::sync::{
 };
 
 pub(crate) const MAX_BYTES: usize = 16 * 1024 * 1024;
-#[derive(Default)]
 pub(crate) struct Counters {
+    pub memory_changed: tokio::sync::watch::Sender<u64>,
     pub inflight_requests: AtomicUsize,
     pub bytes: AtomicUsize,
     pub queued: AtomicUsize,
@@ -14,6 +14,21 @@ pub(crate) struct Counters {
     pub matched: AtomicU64,
     pub dropped: AtomicU64,
     pub errors: AtomicU64,
+}
+impl Default for Counters {
+    fn default() -> Self {
+        let (memory_changed, _) = tokio::sync::watch::channel(0u64);
+        Self {
+            memory_changed,
+            inflight_requests: AtomicUsize::default(),
+            bytes: AtomicUsize::default(),
+            queued: AtomicUsize::default(),
+            received: AtomicU64::default(),
+            matched: AtomicU64::default(),
+            dropped: AtomicU64::default(),
+            errors: AtomicU64::default(),
+        }
+    }
 }
 #[derive(Default)]
 pub(crate) struct ActionCounters {
@@ -41,6 +56,7 @@ pub struct Status {
     pub dropped: u64,
     pub errors: u64,
     pub outbounds: Vec<ActionStatus>,
+    pub durable_queue: mqtt_egress_log::QueueStats,
 }
 #[derive(Debug, Serialize)]
 pub struct ActionStatus {
@@ -49,6 +65,7 @@ pub struct ActionStatus {
     pub kind: &'static str,
     pub id: String,
     pub queued: usize,
+    pub durable_queued: usize,
     pub delivered: u64,
     pub failed: u64,
     pub retried: u64,
@@ -62,6 +79,7 @@ impl ActionCounters {
             kind,
             id,
             queued: self.queued.load(Ordering::Relaxed),
+            durable_queued: 0,
             delivered: self.delivered.load(Ordering::Relaxed),
             failed: self.failed.load(Ordering::Relaxed),
             retried: self.retried.load(Ordering::Relaxed),
@@ -78,6 +96,7 @@ pub(crate) struct Budget {
     counters: Arc<Counters>,
     bytes: usize,
     action: Option<Arc<ActionCounters>>,
+    events: usize,
 }
 impl Budget {
     pub fn reserve(
@@ -109,16 +128,38 @@ impl Budget {
             counters: Arc::clone(counters),
             bytes,
             action,
+            events: 1,
         })
+    }
+}
+impl Budget {
+    pub fn metadata(counters: &Arc<Counters>, bytes: usize) -> Option<Self> {
+        let mut budget = Self::reserve(counters, bytes, None)?;
+        counters.queued.fetch_sub(1, Ordering::Relaxed);
+        budget.events = 0;
+        Some(budget)
+    }
+    pub fn set_events(&mut self, events: usize) {
+        let extra = events.saturating_sub(self.events);
+        self.counters.queued.fetch_add(extra, Ordering::Relaxed);
+        if let Some(action) = &self.action {
+            action.queued.fetch_add(extra, Ordering::Relaxed);
+        }
+        self.events = events;
     }
 }
 impl Drop for Budget {
     fn drop(&mut self) {
         self.counters.bytes.fetch_sub(self.bytes, Ordering::AcqRel);
-        self.counters.queued.fetch_sub(1, Ordering::Relaxed);
+        self.counters
+            .queued
+            .fetch_sub(self.events, Ordering::Relaxed);
         if let Some(action) = &self.action {
-            action.queued.fetch_sub(1, Ordering::Relaxed);
+            action.queued.fetch_sub(self.events, Ordering::Relaxed);
         }
+        self.counters
+            .memory_changed
+            .send_modify(|epoch| *epoch = epoch.wrapping_add(1));
     }
 }
 

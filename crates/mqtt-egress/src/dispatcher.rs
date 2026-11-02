@@ -1,7 +1,6 @@
 use crate::{
     counters::Budget,
     runtime::{Inner, Snapshot},
-    worker::Delivery,
 };
 use mqtt_rules::Event;
 use serde::Serialize;
@@ -72,6 +71,9 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                         let Some(target) = work.snapshot.generation.targets.get(action_id) else {
                             continue;
                         };
+                        if !target.enabled {
+                            continue;
+                        }
                         let delivery_id = format!("{}:{}:{}", work.id, rule.id, action_id);
                         let wire = WireEvent {
                             event_id: &work.id,
@@ -85,7 +87,7 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                             data: &output,
                         };
                         let encoded = match serde_json::to_vec(&wire) {
-                            Ok(bytes) if bytes.len() <= crate::worker::MAX_REQUEST => bytes,
+                            Ok(bytes) if bytes.len() <= crate::durable_worker::MAX_REQUEST => bytes,
                             _ => {
                                 inner.counters.errors.fetch_add(1, Ordering::Relaxed);
                                 target.stats.failed.fetch_add(1, Ordering::Relaxed);
@@ -107,17 +109,22 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                             inner.counters.dropped.fetch_add(1, Ordering::Relaxed);
                             continue;
                         };
-                        let delivery = Delivery::new(
-                            &work.event.client_id,
-                            encoded,
+                        let record = mqtt_egress_log::NewRecord {
+                            outbound_id: action_id.clone(),
+                            revision: target.revision,
+                            client_id: work.event.client_id.clone(),
+                            payload: encoded,
+                        };
+                        inner.queue.enqueue(
+                            record,
                             budget,
                             Arc::clone(&target.stats),
                             Arc::clone(&inner.counters),
                         );
-                        target.try_send(delivery);
                     }
                 }
                 work.complete = !cancelled;
+                drop(work);
             }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,

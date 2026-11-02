@@ -1,13 +1,16 @@
-//! Bounded asynchronous best-effort SQL-to-outbound execution.
-//! Configuration is durable; queued events and execution counters are not.
+//! Bounded asynchronous SQL-to-outbound execution with a generic durable journal.
+//! MQTT admission remains best effort; committed outbound deliveries survive restart.
 mod config;
 mod counters;
 mod dispatcher;
+mod durable;
+mod durable_worker;
 mod error;
 mod persistence;
 mod runtime;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
 mod worker;
 
 pub use config::{
@@ -17,3 +20,5 @@ pub use config::{
 pub use counters::{ActionStatus, Status};
 pub use error::RuntimeError;
 pub use runtime::Runtime;
+
+pub use mqtt_egress_log::QueueOptions;

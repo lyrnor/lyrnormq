@@ -4,15 +4,13 @@ use crate::{
 };
 use mqtt_egress_core::Sink;
 use std::{
-    sync::{Arc, Mutex, PoisonError, atomic::Ordering},
+    sync::{Arc, PoisonError, atomic::Ordering},
     time::Duration,
 };
 use tokio::{
     sync::{Semaphore, mpsc, watch},
     task::{JoinHandle, JoinSet},
 };
-
-pub(crate) const MAX_REQUEST: usize = 1024 * 1024;
 
 pub(crate) struct Delivery {
     pub encoded: Vec<u8>,
@@ -85,27 +83,6 @@ impl Target {
         };
         delivery.resident = Some(slot);
         self.sender.send(delivery).await
-    }
-}
-pub(crate) struct Generation {
-    pub cancel: watch::Sender<bool>,
-    pub targets: std::collections::BTreeMap<String, Target>,
-    pub tasks: Mutex<Vec<JoinHandle<()>>>,
-}
-impl Generation {
-    pub fn cancel(&self) {
-        self.cancel.send_replace(true);
-    }
-    pub async fn finish(&self) {
-        self.cancel();
-        let tasks = std::mem::take(&mut *self.tasks.lock().unwrap_or_else(PoisonError::into_inner));
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
-        for mut task in tasks {
-            if tokio::time::timeout_at(deadline, &mut task).await.is_err() {
-                task.abort();
-                let _ = task.await;
-            }
-        }
     }
 }
 fn resident_limit(action: &Outbound, limits: &mqtt_egress_core::BatchLimits) -> usize {

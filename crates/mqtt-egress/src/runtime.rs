@@ -3,8 +3,9 @@ use crate::{
     config::{MAX_CONFIG, Validated},
     counters::{ActionCounters, Budget, Counters, Status},
     dispatcher::{self, Work},
+    durable::{self, Queue},
+    durable_worker::{self, Generation, Target},
     persistence,
-    worker::{self, Generation},
 };
 use mqtt_rules::{CompiledRule, Event, Rule};
 use mqtt_storage::configuration::ConfigStore;
@@ -48,7 +49,8 @@ pub(crate) struct Inner {
     pub snapshot: RwLock<Arc<Snapshot>>,
     senders: Vec<SyncSender<Work>>,
     pub counters: Arc<Counters>,
-    pub stopped: AtomicBool,
+    pub stopped: Arc<AtomicBool>,
+    pub queue: Arc<Queue>,
     sequence: AtomicU64,
     prefix: String,
     mutation: Arc<Semaphore>,
@@ -149,24 +151,34 @@ impl PublicationObserver for Observer {
         let _ = inner.senders[shard].try_send(work);
     }
 }
-fn build_snapshot(validated: Validated, outbound: &Arc<Semaphore>) -> Arc<Snapshot> {
+fn build_snapshot(
+    validated: Validated,
+    context: Arc<durable_worker::Context>,
+    revisions: &BTreeMap<String, u64>,
+) -> Arc<Snapshot> {
     let (cancel, _) = watch::channel(false);
     let mut targets = BTreeMap::new();
     let mut tasks = Vec::new();
-    for action in validated.config.outbounds.iter().filter(|a| a.enabled) {
+    for action in &validated.config.outbounds {
         let stats = Arc::new(ActionCounters::default());
         let Some(sink) = validated.sinks.get(&action.id).cloned() else {
             continue;
         };
-        let (target, task) = worker::spawn(
-            action.clone(),
-            sink,
-            Arc::clone(outbound),
-            stats,
-            cancel.subscribe(),
-        );
+        let target = Target {
+            stats: Arc::clone(&stats),
+            revision: revisions.get(&action.id).copied().unwrap_or(0),
+            enabled: action.enabled,
+        };
+        if action.enabled {
+            tasks.push(durable_worker::spawn(
+                action.clone(),
+                sink,
+                stats,
+                Arc::clone(&context),
+                cancel.subscribe(),
+            ));
+        }
         targets.insert(action.id.clone(), target);
-        tasks.push(task);
     }
     let mut exact: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     let mut wildcard = Vec::new();
@@ -194,8 +206,17 @@ fn build_snapshot(validated: Validated, outbound: &Arc<Semaphore>) -> Arc<Snapsh
     })
 }
 impl Runtime {
-    /// Open the configuration SQLite database. Missing databases start empty.
+    /// Open configuration plus its sibling generic durable outbound journal.
     pub async fn open(path: PathBuf) -> io::Result<Arc<Self>> {
+        let mut directory = path.as_os_str().to_os_string();
+        directory.push(".outbound-queue");
+        Self::open_with_queue(path, crate::QueueOptions::new(PathBuf::from(directory))).await
+    }
+    /// Open with explicit journal directory and bounded disk/record limits.
+    pub async fn open_with_queue(
+        path: PathBuf,
+        options: crate::QueueOptions,
+    ) -> io::Result<Arc<Self>> {
         let (store, validated) = tokio::task::spawn_blocking(move || {
             let mut store =
                 ConfigStore::open(&path, MAX_CONFIG).map_err(|_| RuntimeError::Storage)?;
@@ -217,7 +238,24 @@ impl Runtime {
         .map_err(|_| io::Error::other("rule runtime initialization failed"))?
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
         let outbound = Arc::new(Semaphore::new(crate::config::GLOBAL_CONCURRENCY));
-        let snapshot = build_snapshot(validated, &outbound);
+        let counters = Arc::new(Counters::default());
+        let stopped = Arc::new(AtomicBool::new(false));
+        let bindings = durable::bindings(&validated.config).map_err(io::Error::other)?;
+        let (queue, revisions) = Queue::open(
+            options,
+            bindings,
+            Arc::clone(&counters),
+            Arc::clone(&stopped),
+        )
+        .await
+        .map_err(io::Error::other)?;
+        let context = Arc::new(durable_worker::Context {
+            queue: Arc::clone(&queue),
+            global: Arc::clone(&outbound),
+            counters: Arc::clone(&counters),
+            stopped: Arc::clone(&stopped),
+        });
+        let snapshot = build_snapshot(validated, context, &revisions);
         let (senders, receivers): (Vec<_>, Vec<_>) =
             (0..4).map(|_| mpsc::sync_channel(256)).unzip();
         let prefix = format!(
@@ -232,8 +270,9 @@ impl Runtime {
             store: Arc::new(Mutex::new(Some(store))),
             snapshot: RwLock::new(snapshot),
             senders,
-            counters: Arc::new(Counters::default()),
-            stopped: AtomicBool::new(false),
+            counters,
+            stopped,
+            queue,
             sequence: AtomicU64::new(1),
             prefix,
             mutation: Arc::new(Semaphore::new(1)),
@@ -299,19 +338,22 @@ impl Runtime {
             matched: c.matched.load(Ordering::Relaxed),
             dropped: c.dropped.load(Ordering::Relaxed),
             errors: c.errors.load(Ordering::Relaxed),
+            durable_queue: self.inner.queue.stats(),
             outbounds: snapshot
                 .config
                 .outbounds
                 .iter()
                 .map(|a| {
-                    snapshot
+                    let mut view = snapshot
                         .generation
                         .targets
                         .get(&a.id)
                         .map(|target| target.stats.view(a.id.clone(), a.endpoint.kind()))
                         .unwrap_or_else(|| {
                             ActionCounters::default().view(a.id.clone(), a.endpoint.kind())
-                        })
+                        });
+                    view.durable_queued = self.inner.queue.pending(&a.id);
+                    view
                 })
                 .collect(),
         }
@@ -352,25 +394,31 @@ impl Runtime {
                 .config
                 .clone();
             config.restore_redacted(&previous)?;
+            let validated = tokio::task::spawn_blocking(move || config.validate())
+                .await
+                .map_err(|_| RuntimeError::Storage)??;
+            let bindings = durable::bindings(&validated.config)?;
+            let revisions = match inner.queue.bind(bindings).await {
+                Ok(revisions) => revisions,
+                Err(mqtt_egress_log::QueueError::BindingConflict) => {
+                    return Err(RuntimeError::Busy);
+                }
+                Err(_) => {
+                    stop_after_storage_error(&inner).await;
+                    return Err(RuntimeError::Storage);
+                }
+            };
             let store = Arc::clone(&inner.store);
             let saved = tokio::task::spawn_blocking(move || {
-                // Validation failures do not change storage or stop a healthy runtime.
-                let validated = config.validate().map_err(|error| (error, false))?;
-
-                let mut guard = store.lock().map_err(|_| (RuntimeError::Storage, true))?;
-                let store = guard.as_mut().ok_or((RuntimeError::Storage, true))?;
-                write(store, &validated.config).map_err(|error| (error, true))?;
-                Ok::<_, (RuntimeError, bool)>(validated)
+                let mut guard = store.lock().map_err(|_| RuntimeError::Storage)?;
+                let store = guard.as_mut().ok_or(RuntimeError::Storage)?;
+                write(store, &validated.config)?;
+                Ok::<_, RuntimeError>(validated)
             })
             .await;
             let validated = match saved {
-                Ok(Ok(result)) => result,
-                Ok(Err((error, false))) => return Err(error),
-                Ok(Err((error, true))) => {
-                    stop_after_storage_error(&inner).await;
-                    return Err(error);
-                }
-                Err(_) => {
+                Ok(Ok(validated)) => validated,
+                _ => {
                     stop_after_storage_error(&inner).await;
                     return Err(RuntimeError::Storage);
                 }
@@ -378,16 +426,27 @@ impl Runtime {
             if inner.stopped.load(Ordering::Acquire) {
                 return Err(RuntimeError::Stopped);
             }
-            let next = build_snapshot(validated, &inner.outbound);
-            let public = next.config.public();
-            let previous = std::mem::replace(
-                &mut *inner
+            // Old claims are completely joined before the next generation can
+            // replay the same journal head. Cancellation never completes records.
+            let previous = Arc::clone(
+                &inner
                     .snapshot
-                    .write()
+                    .read()
                     .unwrap_or_else(PoisonError::into_inner),
-                next,
             );
             previous.generation.finish().await;
+            let context = Arc::new(durable_worker::Context {
+                queue: Arc::clone(&inner.queue),
+                global: Arc::clone(&inner.outbound),
+                counters: Arc::clone(&inner.counters),
+                stopped: Arc::clone(&inner.stopped),
+            });
+            let next = build_snapshot(validated, context, &revisions);
+            let public = next.config.public();
+            *inner
+                .snapshot
+                .write()
+                .unwrap_or_else(PoisonError::into_inner) = next;
             Ok(public)
         })
         .await
@@ -458,6 +517,7 @@ async fn shutdown_inner(inner: Arc<Inner>) {
         }),
     )
     .await;
+    inner.queue.close().await;
 }
 
 async fn stop_after_storage_error(inner: &Inner) {
