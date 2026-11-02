@@ -268,8 +268,10 @@ class OutboundConcurrency(unittest.TestCase):
         gate = threading.Event()
         receiver = self.receiver(gate=gate)
         self.start(settings(receiver.url, concurrency=3))
-        source = self.client('parallel')
-        self.emit(source, range(10))
+        sources = [self.client(f'parallel-{n}') for n in range(3)]
+        for n, source in enumerate(sources):
+            self.emit(source, range(n, 10, 3))
+        source = sources[0]
         receiver.tracker.wait(lambda t: t.active == 3)
         self.assertEqual(self.status()['inflight_requests'], 3)
         self.assertEqual(self.outbound()['inflight_requests'], 3)
@@ -288,8 +290,9 @@ class OutboundConcurrency(unittest.TestCase):
         config = settings(receiver.url)
         config['outbounds'][0]['delivery'].pop('concurrency')
         self.start(config)
-        source = self.client('pool')
-        self.emit(source, range(8))
+        sources = [self.client(f'pool-{n}') for n in range(8)]
+        for n, source in enumerate(sources):
+            self.emit(source, [n])
         receiver.tracker.wait(lambda t: t.active == 8)
         self.assertEqual(self.status()['inflight_requests'], 8)
         first_connections = receiver.tracker.connections
@@ -298,7 +301,8 @@ class OutboundConcurrency(unittest.TestCase):
         receiver.tracker.wait(lambda t: len(t.completed) == 8)
         self.drained(8)
         receiver.gate = threading.Event()
-        self.emit(source, range(8, 16))
+        for n, source in enumerate(sources):
+            self.emit(source, [n + 8])
         receiver.tracker.wait(lambda t: t.active == 8)
         self.assertEqual(receiver.tracker.connections, first_connections)
         receiver.gate.set()
@@ -319,7 +323,8 @@ class OutboundConcurrency(unittest.TestCase):
             config['outbounds'].append(extra)
             config['rules'][0]['outbound_ids'].append(identity)
         self.start(config)
-        self.emit(self.client('global'), range(8))
+        for n in range(8):
+            self.emit(self.client(f'global-{n}'), [n])
         tracker.wait(lambda t: t.active == 16)
         self.assertEqual(self.status()['inflight_requests'], 16)
         self.assertTrue(all(item['inflight_requests'] <= 16 for item in self.status()['outbounds']))
@@ -340,7 +345,8 @@ class OutboundConcurrency(unittest.TestCase):
             return None
         receiver = self.receiver(hold=hold, status=lambda r: 500 if sequence(r) == 0 and r['attempt'] == 1 else 204)
         self.start(settings(receiver.url, concurrency=2, max_attempts=2))
-        self.emit(self.client('retry'), [0, 1])
+        self.emit(self.client('retry-slow'), [0])
+        self.emit(self.client('retry-fast'), [1])
         receiver.tracker.wait(lambda t: any(sequence(r) == 1 for r in t.completed))
         self.assertFalse(first_gate.is_set())
         self.assertEqual(self.outbound()['delivered'], 1)
@@ -379,8 +385,9 @@ class OutboundConcurrency(unittest.TestCase):
         config['rules'].append(dict(id='fast-rule', name='Fast rule', enabled=True,
                                    sql='SELECT payload.seq AS seq FROM "concurrency/fast"', outbound_ids=['fast']))
         self.start(config)
-        source = self.client('backoff')
-        self.emit(source, range(16), topic='concurrency/slow')
+        for n in range(16):
+            self.emit(self.client(f'backoff-{n}'), [n], topic='concurrency/slow')
+        source = self.client('backoff-fast')
         receiver.tracker.wait(lambda t: len(t.completed) == 16)
         eventually(lambda: self.status()['inflight_requests'] == 0 and self.outbound()['queued'] == 16)
         self.assertEqual(len(receiver.tracker.started), 16)
@@ -396,8 +403,10 @@ class OutboundConcurrency(unittest.TestCase):
         fresh = self.receiver()
         config = settings(old.url, concurrency=4)
         self.start(config)
-        source = self.client('replace')
-        self.emit(source, range(12))
+        sources = [self.client(f'replace-{n}') for n in range(4)]
+        for n, source in enumerate(sources):
+            self.emit(source, range(n, 12, 4))
+        source = sources[0]
         old.tracker.wait(lambda t: t.active == 4)
         config['outbounds'][0]['config']['url'] = fresh.url
         self.replace(config)
@@ -413,7 +422,8 @@ class OutboundConcurrency(unittest.TestCase):
     def test_shutdown_cancels_blocked_jobs_and_does_not_replay_volatile_queue(self):
         receiver = self.receiver(gate=threading.Event())
         self.start(settings(receiver.url, concurrency=4))
-        self.emit(self.client('shutdown'), range(12))
+        for n in range(4):
+            self.emit(self.client(f'shutdown-{n}'), range(n, 12, 4))
         receiver.tracker.wait(lambda t: t.active == 4)
         self.broker.stop()
         receiver.tracker.wait(lambda t: t.active == 0 and t.closed == 4)
@@ -442,9 +452,10 @@ class OutboundConcurrency(unittest.TestCase):
                     self.root = Path(self.directory.name)
                     self.rules_path = self.root / 'outbounds.sqlite'
                 self.start(settings(receiver.url, concurrency=2, batch_size=3, batch_wait_ms=50))
-                source = self.client(f'batch-{large}')
                 count = 3 if large else 7
-                self.emit(source, range(count), blob='z' * 600000 if large else None)
+                for n, values in enumerate(([0, 1], [2]) if large else (range(4), range(4, 7))):
+                    self.emit(self.client(f'batch-{large}-{n}'), values,
+                              blob='z' * 600000 if large else None)
                 receiver.tracker.wait(lambda t: t.active == 2)
                 self.assertTrue(all(len(r['body']['events']) == (1 if large else 3)
                                     for r in receiver.tracker.started))
