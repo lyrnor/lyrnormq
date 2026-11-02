@@ -18,7 +18,6 @@ const endpoint: BackendConfig = {
   timeout_ms: 1000,
   max_concurrency: 128,
   allow_http: false,
-  tls: { ca_pem: null, certificate_pem: null, private_key_pem: null },
 };
 const stage: StageStatus = {
   enabled: true,
@@ -83,7 +82,7 @@ describe("HTTP access-control form validation", () => {
     draft.headers = [{ name: "X-Key", value: "x\r\nInjected:y" }];
     expect(validateAccessDraft(draft)).toContain("换行");
   });
-  it("bounds numeric values, paired TLS files, and refuses encrypted keys", () => {
+  it("bounds numeric values and accepts HTTPS without certificate options", () => {
     const draft = accessDraft(endpoint);
     for (const timeout of [99, 5001, NaN, 100.5]) {
       draft.value.timeout_ms = timeout;
@@ -93,13 +92,10 @@ describe("HTTP access-control form validation", () => {
     draft.value.max_concurrency = 257;
     expect(validateAccessDraft(draft)).toContain("并发");
     draft.value.max_concurrency = 128;
-    draft.value.tls.certificate_pem = "-----BEGIN CERTIFICATE-----\nx";
-    expect(validateAccessDraft(draft)).toContain("成对");
-    draft.value.tls.private_key_pem = "[redacted]";
+    draft.value.enabled = true;
+    draft.value.url = "https://auth.example.com/authenticate";
     expect(validateAccessDraft(draft)).toBeNull();
-    draft.value.tls.private_key_pem =
-      "-----BEGIN ENCRYPTED PRIVATE KEY-----\nx";
-    expect(validateAccessDraft(draft)).toContain("未加密");
+    expect(draftValue(draft)).not.toHaveProperty("tls");
     const authorization = accessDraft({ ...endpoint, cache_ttl_seconds: 0 });
     expect(validateAccessDraft(authorization)).toBeNull();
     if ("cache_ttl_seconds" in authorization.value)
@@ -114,8 +110,8 @@ describe("HTTP access-control form validation", () => {
       password: "",
     });
     const draft = accessDraft(endpoint);
-    draft.value.tls.ca_pem = "changed";
-    expect(endpoint.tls.ca_pem).toBeNull();
+    draft.value.headers["X-Test"] = "changed";
+    expect(endpoint.headers).toEqual({});
   });
   it("never labels a fresh enabled backend healthy or classifies denials as service errors", () => {
     expect(stageHealth(stage)).toBe("暂无调用结果");

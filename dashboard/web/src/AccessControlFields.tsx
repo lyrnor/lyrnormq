@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
@@ -13,7 +13,6 @@ import { SingleSelect } from "./components/ui/single-select";
 import { Switch } from "./components/ui/switch";
 import {
   changeServiceAuth,
-  utf8Bytes,
   type AccessDraft,
   type ServiceAuth,
 } from "./access-control-model";
@@ -46,138 +45,23 @@ function Fold({
   );
 }
 
-function PemFile({
-  label,
-  value,
-  secret = false,
-  disabled,
-  onChange,
-  onReadingChange,
-}: {
-  label: string;
-  value: string | null;
-  secret?: boolean;
-  disabled: boolean;
-  onChange: (value: string | null) => void;
-  onReadingChange: (reading: boolean) => void;
-}) {
-  const [error, setError] = useState<string | null>(null);
-  const [reading, setReading] = useState(false);
-  const epoch = useRef(0),
-    readingRef = useRef(false),
-    readingCallback = useRef(onReadingChange);
-  readingCallback.current = onReadingChange;
-  const markReading = (value: boolean) => {
-    readingRef.current = value;
-    setReading(value);
-    readingCallback.current(value);
-  };
-  useEffect(
-    () => () => {
-      epoch.current++;
-      if (readingRef.current) readingCallback.current(false);
-    },
-    [],
-  );
-  return (
-    <div className="grid gap-2">
-      <Field label={label}>
-        <Input
-          type="file"
-          accept=".pem,.crt,.cer,.key"
-          disabled={disabled || reading}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            const current = ++epoch.current;
-            setError(null);
-            if (!file) return;
-            if (file.size > 16384) {
-              setError("每个文件最多 16 KiB。");
-              return;
-            }
-            markReading(true);
-            void file
-              .text()
-              .then((text) => {
-                if (epoch.current !== current) return;
-                if (utf8Bytes(text) > 16384 || !text.includes("-----BEGIN ")) {
-                  setError("请选择有效的 PEM 文件。");
-                  return;
-                }
-                if (secret && text.includes("ENCRYPTED")) {
-                  setError("目前仅支持未加密的客户端私钥。");
-                  return;
-                }
-                onChange(text);
-              })
-              .catch(() => {
-                if (epoch.current === current)
-                  setError("无法读取文件，请重新选择。");
-              })
-              .finally(() => {
-                if (epoch.current === current) markReading(false);
-              });
-          }}
-        />
-      </Field>
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span>
-          {reading ? "正在读取…" : value ? "已配置" : "未配置（可选）"}
-        </span>
-        {value && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={disabled}
-            onClick={() => {
-              epoch.current++;
-              markReading(false);
-              setError(null);
-              onChange(null);
-            }}
-          >
-            移除{label}
-          </Button>
-        )}
-      </div>
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-    </div>
-  );
-}
-
 export function AccessControlFields({
   draft,
   onChange,
   busy,
-  onReadingChange,
 }: {
   draft: AccessDraft;
   onChange: (draft: AccessDraft) => void;
   busy: boolean;
-  onReadingChange: (reading: boolean) => void;
 }) {
   const c = draft.value,
     s = c.service_auth;
-  const readingFiles = useRef(new Set<string>());
-  const fileReading = (label: string, reading: boolean) => {
-    if (reading) readingFiles.current.add(label);
-    else readingFiles.current.delete(label);
-    onReadingChange(readingFiles.current.size > 0);
-  };
   const [headersOpen, setHeadersOpen] = useState(s.type === "headers");
   useEffect(() => {
     if (s.type === "headers") setHeadersOpen(true);
   }, [s.type]);
   const patch = (value: Partial<typeof c>) =>
     onChange({ ...draft, value: { ...c, ...value } });
-  const tls = (value: Partial<typeof c.tls>) =>
-    patch({ tls: { ...c.tls, ...value } });
   return (
     <div className="grid gap-5">
       <Field label="名称">
@@ -393,34 +277,6 @@ export function AccessControlFields({
             </AlertDescription>
           </Alert>
         )}
-        <div className="grid gap-4 border-t pt-4">
-          <p className="text-sm font-medium">HTTPS 证书（可选）</p>
-          <PemFile
-            onReadingChange={(reading) => fileReading("ca", reading)}
-            label="CA 证书"
-            value={c.tls.ca_pem}
-            disabled={busy}
-            onChange={(value) => tls({ ca_pem: value })}
-          />
-          <PemFile
-            onReadingChange={(reading) => fileReading("certificate", reading)}
-            label="客户端证书"
-            value={c.tls.certificate_pem}
-            disabled={busy}
-            onChange={(value) => tls({ certificate_pem: value })}
-          />
-          <PemFile
-            onReadingChange={(reading) => fileReading("key", reading)}
-            label="客户端私钥"
-            value={c.tls.private_key_pem}
-            secret
-            disabled={busy}
-            onChange={(value) => tls({ private_key_pem: value })}
-          />
-          <p className="text-xs text-muted-foreground">
-            上传 PEM 文件。客户端证书与未加密私钥需成对提供。
-          </p>
-        </div>
       </Fold>
     </div>
   );

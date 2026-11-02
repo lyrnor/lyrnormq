@@ -34,7 +34,6 @@ const config: AccessConfig = {
     timeout_ms: 1000,
     max_concurrency: 128,
     allow_http: false,
-    tls: { ca_pem: null, certificate_pem: null, private_key_pem: null },
   },
   authorization: {
     type: "http",
@@ -47,7 +46,6 @@ const config: AccessConfig = {
     max_concurrency: 128,
     allow_http: false,
     cache_ttl_seconds: 30,
-    tls: { ca_pem: null, certificate_pem: null, private_key_pem: null },
   },
 };
 const baseStage = {
@@ -340,44 +338,53 @@ describe("HTTP authentication and authorization dashboard", () => {
     await ready();
     expect(screen.getByLabelText("名称")).toBeTruthy();
   });
-  it("does not save stale certificate settings while an uploaded file is still reading", async () => {
+  it("omits certificate controls and TLS configuration from both saved forms and probes", async () => {
     server();
     render(<AccessControlPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
-    let finish: (text: string) => void = () => {};
-    const file = new File(["certificate"], "ca.pem", {
-      type: "application/x-pem-file",
-    });
-    Object.defineProperty(file, "text", {
-      value: () =>
-        new Promise<string>((resolve) => {
-          finish = resolve;
-        }),
-    });
-    fireEvent.change(screen.getByLabelText("CA 证书"), {
-      target: { files: [file] },
-    });
-    expect(
-      (screen.getByRole("button", { name: "保存" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    await act(async () => {
-      finish("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----");
-    });
-    expect(
-      (screen.getByRole("button", { name: "保存" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    await screen.findByText("认证配置已保存。");
-    expect(
-      request.mock.calls.find(
-        ([, , , options]) => options?.method === "PUT",
-      )?.[3]?.body,
-    ).toMatchObject({
-      authentication: { tls: { ca_pem: expect.stringContaining("fixture") } },
-    });
+    for (const name of ["认证", "授权"]) {
+      await tab(name);
+      fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+      expect(screen.queryByText("HTTPS 证书（可选）")).toBeNull();
+      expect(screen.queryByLabelText("CA 证书")).toBeNull();
+      expect(screen.queryByLabelText("客户端证书")).toBeNull();
+      expect(screen.queryByLabelText("客户端私钥")).toBeNull();
+      expect(document.querySelector('input[type="file"]')).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "保存" }));
+      await screen.findByText(`${name}配置已保存。`);
+      const saved = request.mock.calls
+        .filter(([, , , options]) => options?.method === "PUT")
+        .at(-1)?.[3]?.body as AccessConfig;
+      expect(saved.authentication).not.toHaveProperty("tls");
+      expect(saved.authorization).not.toHaveProperty("tls");
+      fireEvent.click(screen.getByRole("button", { name: `测试${name}` }));
+      const drawer = screen.getByRole("dialog");
+      fireEvent.change(within(drawer).getByLabelText("Client ID"), {
+        target: { value: "client" },
+      });
+      fireEvent.change(within(drawer).getByLabelText("设备 Username"), {
+        target: { value: "device" },
+      });
+      if (name === "授权")
+        fireEvent.change(within(drawer).getByLabelText("Topic"), {
+          target: { value: "devices/one" },
+        });
+      fireEvent.click(within(drawer).getByRole("button", { name: "开始测试" }));
+      await waitFor(() =>
+        expect(
+          request.mock.calls.some(([path]) =>
+            path.endsWith(
+              `/test/${name === "认证" ? "authentication" : "authorization"}`,
+            ),
+          ),
+        ).toBe(true),
+      );
+      const probe = request.mock.calls
+        .filter(([path]) => path.includes("/test/"))
+        .at(-1)?.[3]?.body as { config: unknown };
+      expect(probe.config).not.toHaveProperty("tls");
+      fireEvent.click(within(drawer).getByRole("button", { name: "关闭详情" }));
+    }
   });
   it("cancels an in-flight draft test when the drawer closes", async () => {
     server();

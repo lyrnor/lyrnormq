@@ -64,9 +64,7 @@ export function AccessControlPage({
   const [stage, setStage] = useState<AccessStage>("authentication");
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true),
-    [writingBusy, setBusy] = useState(false),
-    [filesBusy, setFilesBusy] = useState(false);
-  const busy = writingBusy || filesBusy;
+    [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null),
     [statusError, setStatusError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null),
@@ -154,7 +152,7 @@ export function AccessControlPage({
   }, [token, expired, refresh]);
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (!config || !drafts || writing.current || filesBusy) return;
+    if (!config || !drafts || writing.current) return;
     const invalid = validateAccessDraft(drafts[stage]);
     if (invalid) {
       setError(invalid);
@@ -363,7 +361,6 @@ export function AccessControlPage({
                 draft={draft}
                 onChange={update}
                 busy={busy}
-                onReadingChange={setFilesBusy}
               />
               <Collapsible className="rounded-lg border">
                 <CollapsibleTrigger className="w-full px-4 py-3 text-left text-sm font-medium">
@@ -448,7 +445,7 @@ export function AccessControlPage({
                     取消
                   </Button>
                   <Button type="submit" disabled={busy}>
-                    {writingBusy ? "正在处理…" : "保存"}
+                    {busy ? "正在处理…" : "保存"}
                   </Button>
                 </div>
               </div>

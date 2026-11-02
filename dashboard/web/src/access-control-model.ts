@@ -13,11 +13,6 @@ export interface BackendConfig {
   timeout_ms: number;
   max_concurrency: number;
   allow_http: boolean;
-  tls: {
-    ca_pem: string | null;
-    certificate_pem: string | null;
-    private_key_pem: string | null;
-  };
 }
 export interface AuthorizationConfig extends BackendConfig {
   cache_ttl_seconds: number;
@@ -189,17 +184,6 @@ export function validateAccessDraft(
     headerBytes += utf8Bytes(h.name) + utf8Bytes(h.value);
   }
   if (headerBytes > 16384) return "请求头内容过大，请减少后重试。";
-  const t = c.tls;
-  if (!!t.certificate_pem !== !!t.private_key_pem)
-    return "客户端证书和私钥需要成对配置。";
-  for (const [kind, value] of Object.entries(t)) {
-    if (!value) continue;
-    if (kind === "private_key_pem" && value === "[redacted]") continue;
-    if (utf8Bytes(value) > 16384 || !value.includes("-----BEGIN "))
-      return "请选择有效的 PEM 文件，每个文件最多 16 KiB。";
-    if (kind === "private_key_pem" && value.includes("ENCRYPTED"))
-      return "目前仅支持未加密的客户端私钥。";
-  }
   return null;
 }
 export function stageHealth(status: StageStatus | undefined): string {
