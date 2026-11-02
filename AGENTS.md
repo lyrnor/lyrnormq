@@ -34,3 +34,5 @@ Bounded outbound concurrency additionally follows `docs/contracts/phase5d-outbou
 Client-ordered outbounds additionally follow `docs/contracts/phase5e-client-ordered-outbounds.md`.
 
 Generic durable outbound queues additionally follow `docs/contracts/phase5f-durable-outbound-queue.md`. Storage owner for this phase owns crates/mqtt-egress-log; coordinator also owns the small Dashboard status integration.
+
+Shared rule-result streams and per-destination consumers supersede per-delivery bodies via `docs/contracts/phase5g-rule-result-streams.md`; log owner owns crates/mqtt-egress-log, runtime owner crates/mqtt-egress, quality owns tests/benches/CI in separate worktrees.
