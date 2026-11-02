@@ -100,7 +100,7 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                         };
                         let Some(budget) = Budget::reserve(
                             &inner.counters,
-                            encoded.len(),
+                            encoded.len().saturating_add(work.event.client_id.len()),
                             Some(Arc::clone(&target.stats)),
                         ) else {
                             target.stats.dropped.fetch_add(1, Ordering::Relaxed);
@@ -108,12 +108,13 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                             continue;
                         };
                         let delivery = Delivery::new(
+                            &work.event.client_id,
                             encoded,
                             budget,
                             Arc::clone(&target.stats),
                             Arc::clone(&inner.counters),
                         );
-                        let _ = target.sender.try_send(delivery);
+                        target.try_send(delivery);
                     }
                 }
                 work.complete = !cancelled;

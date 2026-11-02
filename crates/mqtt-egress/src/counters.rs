@@ -17,6 +17,10 @@ pub(crate) struct Counters {
 }
 #[derive(Default)]
 pub(crate) struct ActionCounters {
+    #[cfg(test)]
+    pub peak_lanes: AtomicUsize,
+    #[cfg(test)]
+    pub peak_jobs: AtomicUsize,
     pub inflight_requests: AtomicUsize,
     pub queued: AtomicUsize,
     pub delivered: AtomicU64,

@@ -76,8 +76,8 @@ async fn generic_worker_obeys_non_http_capabilities_and_error_classes() {
         for _ in 0..2 {
             let budget = Budget::reserve(&counters, 2, Some(stats.clone())).unwrap();
             target
-                .sender
                 .send(Delivery::new(
+                    "same-client",
                     b"{}".to_vec(),
                     budget,
                     stats.clone(),
@@ -166,8 +166,8 @@ async fn worker_enforces_time_budget_and_rejects_invalid_adapter_limits() {
         );
         let budget = Budget::reserve(&counters, 2, Some(stats.clone())).unwrap();
         target
-            .sender
             .send(Delivery::new(
+                "same-client",
                 b"{}".to_vec(),
                 budget,
                 stats.clone(),
@@ -244,11 +244,11 @@ fn action(concurrency: usize) -> crate::Outbound {
     }
 }
 async fn enqueue(target: &Target, counters: &Arc<Counters>, count: usize) {
-    for _ in 0..count {
+    for index in 0..count {
         let budget = Budget::reserve(counters, 2, Some(target.stats.clone())).unwrap();
         target
-            .sender
             .send(Delivery::new(
+                &format!("client-{index}"),
                 b"{}".to_vec(),
                 budget,
                 target.stats.clone(),
@@ -394,7 +394,7 @@ async fn retry_backoff_releases_global_slot_and_does_not_block_another_job() {
     let stats = Arc::new(ActionCounters::default());
     let global = Arc::new(Semaphore::new(1));
     let (cancel, rx) = watch::channel(false);
-    let mut policy = action(2);
+    let mut policy = action(1);
     policy.max_attempts = 2;
     policy.retry_base_ms = 1000;
     let (target, task) = spawn(policy, sink, global.clone(), stats.clone(), rx);
@@ -407,11 +407,22 @@ async fn retry_backoff_releases_global_slot_and_does_not_block_another_job() {
                     .unwrap(),
                 b'0'
             );
+            let budget = Budget::reserve(&counters, 1, Some(stats.clone())).unwrap();
+            target
+                .send(Delivery::new(
+                    "client-48",
+                    vec![b'2'],
+                    budget,
+                    stats.clone(),
+                    counters.clone(),
+                ))
+                .await
+                .unwrap();
         }
         let budget = Budget::reserve(&counters, 1, Some(stats.clone())).unwrap();
         target
-            .sender
             .send(Delivery::new(
+                &format!("client-{value}"),
                 vec![value],
                 budget,
                 stats.clone(),
@@ -425,6 +436,12 @@ async fn retry_backoff_releases_global_slot_and_does_not_block_another_job() {
         .expect("healthy job waited for retry backoff")
         .unwrap();
     assert_eq!(healthy, b'1');
+    assert!(
+        tokio::time::timeout(Duration::from_millis(30), requests.recv())
+            .await
+            .is_err(),
+        "same-client successor escaped its predecessor retry backoff"
+    );
     tokio::time::timeout(Duration::from_secs(1), async {
         while stats.delivered.load(Ordering::Relaxed) != 1 {
             tokio::task::yield_now().await;
@@ -437,7 +454,7 @@ async fn retry_backoff_releases_global_slot_and_does_not_block_another_job() {
     assert_eq!(stats.retried.load(Ordering::Relaxed), 0);
     cancel.send_replace(true);
     task.await.unwrap();
-    assert_eq!(stats.dropped.load(Ordering::Relaxed), 1);
+    assert_eq!(stats.dropped.load(Ordering::Relaxed), 2);
     assert_eq!(stats.failed.load(Ordering::Relaxed), 0);
     assert_eq!(counters.bytes.load(Ordering::Relaxed), 0);
 }
@@ -477,6 +494,221 @@ async fn one_job_drains_accepted_deliveries_sequentially_after_sender_closes() {
     task.await.unwrap();
     assert_eq!(stats.delivered.load(Ordering::Relaxed), 3);
     assert_eq!(stats.dropped.load(Ordering::Relaxed), 0);
+    assert_eq!(stats.inflight_requests.load(Ordering::Relaxed), 0);
+    assert_eq!(counters.bytes.load(Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+async fn same_client_does_not_overlap_even_with_concurrency_three() {
+    let (entered, mut requests) = tokio::sync::mpsc::channel(8);
+    let release = Arc::new(Semaphore::new(0));
+    let sink = Arc::new(HeldSink {
+        entered,
+        release: release.clone(),
+    });
+    let counters = Arc::new(Counters::default());
+    let stats = Arc::new(ActionCounters::default());
+    let (cancel, rx) = watch::channel(false);
+    let (target, task) = spawn(
+        action(3),
+        sink,
+        Arc::new(Semaphore::new(16)),
+        stats.clone(),
+        rx,
+    );
+    for _ in 0..3 {
+        let budget = Budget::reserve(&counters, 2, Some(stats.clone())).unwrap();
+        target
+            .send(Delivery::new(
+                "one",
+                b"{}".to_vec(),
+                budget,
+                stats.clone(),
+                counters.clone(),
+            ))
+            .await
+            .unwrap();
+    }
+    requests.recv().await.unwrap();
+    let overlap = tokio::time::timeout(Duration::from_millis(40), requests.recv()).await;
+    cancel.send_replace(true);
+    task.await.unwrap();
+    assert!(
+        overlap.is_err(),
+        "one client's successor started before its predecessor completed"
+    );
+    assert_eq!(stats.queued.load(Ordering::Relaxed), 0);
+    assert_eq!(counters.bytes.load(Ordering::Relaxed), 0);
+}
+
+struct FastSink;
+impl Sink for FastSink {
+    fn limits(&self) -> BatchLimits {
+        BatchLimits {
+            max_bytes: 1024,
+            max_events: 1,
+            overhead: 0,
+            separator_bytes: 0,
+        }
+    }
+    fn send<'a>(
+        &'a self,
+        _: &'a [&'a [u8]],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), SendError>> + Send + 'a>>
+    {
+        Box::pin(std::future::ready(Ok(())))
+    }
+}
+
+#[tokio::test]
+async fn immediate_success_client_churn_bounds_completed_jobs_and_lane_registry() {
+    let counters = Arc::new(Counters::default());
+    let stats = Arc::new(ActionCounters::default());
+    let (_cancel, rx) = watch::channel(false);
+    let mut policy = action(4);
+    policy.queue_capacity = 4;
+    let cap = resident_limit(&policy, &FastSink.limits());
+    let (target, task) = spawn(
+        policy,
+        Arc::new(FastSink),
+        Arc::new(Semaphore::new(16)),
+        stats.clone(),
+        rx,
+    );
+    for index in 0..5000 {
+        let client = format!("one-shot-{index}");
+        let budget = Budget::reserve(&counters, client.len() + 2, Some(stats.clone())).unwrap();
+        target
+            .send(Delivery::new(
+                &client,
+                b"{}".to_vec(),
+                budget,
+                stats.clone(),
+                counters.clone(),
+            ))
+            .await
+            .unwrap();
+    }
+    drop(target);
+    tokio::time::timeout(Duration::from_secs(5), task)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stats.delivered.load(Ordering::Relaxed), 5000);
+    assert!(stats.peak_lanes.load(Ordering::Relaxed) > 0);
+    assert!(stats.peak_jobs.load(Ordering::Relaxed) > 0);
+    assert!(stats.peak_lanes.load(Ordering::Relaxed) <= cap);
+    assert!(stats.peak_jobs.load(Ordering::Relaxed) <= cap);
+    assert_eq!(counters.bytes.load(Ordering::Relaxed), 0);
+    assert_eq!(stats.queued.load(Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+async fn resident_admission_bounds_one_held_client_and_cancel_releases_slots() {
+    let counters = Arc::new(Counters::default());
+    let stats = Arc::new(ActionCounters::default());
+    let (entered, mut requests) = mpsc::channel(8);
+    let sink = Arc::new(HeldSink {
+        entered,
+        release: Arc::new(Semaphore::new(0)),
+    });
+    let mut policy = action(1);
+    policy.queue_capacity = 2;
+    let cap = resident_limit(&policy, &sink.limits());
+    let (cancel, rx) = watch::channel(false);
+    let (target, task) = spawn(
+        policy,
+        sink,
+        Arc::new(Semaphore::new(16)),
+        stats.clone(),
+        rx,
+    );
+    for _ in 0..cap {
+        let budget = Budget::reserve(&counters, 3, Some(stats.clone())).unwrap();
+        target
+            .send(Delivery::new(
+                "a",
+                b"{}".to_vec(),
+                budget,
+                stats.clone(),
+                counters.clone(),
+            ))
+            .await
+            .unwrap();
+    }
+    requests.recv().await.unwrap();
+    assert_eq!(target.resident.available_permits(), 0);
+    assert_eq!(stats.inflight_requests.load(Ordering::Relaxed), 1);
+    for _ in 0..3 {
+        let budget = Budget::reserve(&counters, 3, Some(stats.clone())).unwrap();
+        target.try_send(Delivery::new(
+            "a",
+            b"{}".to_vec(),
+            budget,
+            stats.clone(),
+            counters.clone(),
+        ));
+    }
+    assert_eq!(stats.queued.load(Ordering::Relaxed), cap);
+    assert_eq!(stats.dropped.load(Ordering::Relaxed), 3);
+    cancel.send_replace(true);
+    task.await.unwrap();
+    assert_eq!(target.resident.available_permits(), cap);
+    assert_eq!(stats.dropped.load(Ordering::Relaxed), cap as u64 + 3);
+    assert_eq!(counters.bytes.load(Ordering::Relaxed), 0);
+    assert_eq!(stats.queued.load(Ordering::Relaxed), 0);
+}
+
+struct PanicSink;
+impl Sink for PanicSink {
+    fn limits(&self) -> BatchLimits {
+        FastSink.limits()
+    }
+    fn send<'a>(
+        &'a self,
+        _: &'a [&'a [u8]],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), SendError>> + Send + 'a>>
+    {
+        Box::pin(async { panic!("intentional adapter panic") })
+    }
+}
+#[tokio::test]
+async fn panicked_child_stops_scheduler_and_releases_every_lane_and_permit() {
+    let counters = Arc::new(Counters::default());
+    let stats = Arc::new(ActionCounters::default());
+    let (_cancel, rx) = watch::channel(false);
+    let policy = action(2);
+    let cap = resident_limit(&policy, &PanicSink.limits());
+    let global = Arc::new(Semaphore::new(16));
+    let (target, task) = spawn(
+        policy,
+        Arc::new(PanicSink),
+        global.clone(),
+        stats.clone(),
+        rx,
+    );
+    for _ in 0..6 {
+        let budget = Budget::reserve(&counters, 3, Some(stats.clone())).unwrap();
+        target.try_send(Delivery::new(
+            "a",
+            b"{}".to_vec(),
+            budget,
+            stats.clone(),
+            counters.clone(),
+        ));
+    }
+    tokio::time::timeout(Duration::from_secs(1), task)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        stats.last_error.lock().unwrap().as_deref(),
+        Some("worker_failed")
+    );
+    assert_eq!(target.resident.available_permits(), cap);
+    assert_eq!(global.available_permits(), 16);
+    assert_eq!(stats.dropped.load(Ordering::Relaxed), 6);
+    assert_eq!(stats.queued.load(Ordering::Relaxed), 0);
     assert_eq!(stats.inflight_requests.load(Ordering::Relaxed), 0);
     assert_eq!(counters.bytes.load(Ordering::Relaxed), 0);
 }

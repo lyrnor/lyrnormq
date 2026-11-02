@@ -136,7 +136,7 @@ impl<'de> Deserialize<'de> for Outbound {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeliveryPolicy {
-    /// Maximum live batch jobs, including global-permit wait and retry backoff.
+    /// Maximum active outbound attempts; retry backoff does not hold a slot.
     #[serde(default = "default_concurrency")]
     pub concurrency: usize,
     pub batch_size: usize,

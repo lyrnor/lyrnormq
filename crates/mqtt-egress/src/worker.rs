@@ -16,6 +16,8 @@ pub(crate) const MAX_REQUEST: usize = 1024 * 1024;
 
 pub(crate) struct Delivery {
     pub encoded: Vec<u8>,
+    pub client_id: Arc<str>,
+    resident: Option<tokio::sync::OwnedSemaphorePermit>,
     pub _budget: Budget,
     pub stats: Arc<ActionCounters>,
     pub counters: Arc<Counters>,
@@ -23,6 +25,7 @@ pub(crate) struct Delivery {
 }
 impl Delivery {
     pub fn new(
+        client_id: &str,
         encoded: Vec<u8>,
         budget: Budget,
         stats: Arc<ActionCounters>,
@@ -30,6 +33,8 @@ impl Delivery {
     ) -> Self {
         Self {
             encoded,
+            client_id: Arc::from(client_id),
+            resident: None,
             _budget: budget,
             stats,
             counters,
@@ -61,8 +66,26 @@ impl Drop for Delivery {
 }
 #[derive(Clone)]
 pub(crate) struct Target {
-    pub sender: mpsc::Sender<Delivery>,
+    sender: mpsc::Sender<Delivery>,
+    resident: Arc<Semaphore>,
     pub stats: Arc<ActionCounters>,
+}
+impl Target {
+    pub fn try_send(&self, mut delivery: Delivery) {
+        let Ok(slot) = Arc::clone(&self.resident).try_acquire_owned() else {
+            return;
+        };
+        delivery.resident = Some(slot);
+        let _ = self.sender.try_send(delivery);
+    }
+    #[cfg(test)]
+    async fn send(&self, mut delivery: Delivery) -> Result<(), mpsc::error::SendError<Delivery>> {
+        let Ok(slot) = Arc::clone(&self.resident).acquire_owned().await else {
+            return Err(mpsc::error::SendError(delivery));
+        };
+        delivery.resident = Some(slot);
+        self.sender.send(delivery).await
+    }
 }
 pub(crate) struct Generation {
     pub cancel: watch::Sender<bool>,
@@ -85,6 +108,18 @@ impl Generation {
         }
     }
 }
+fn resident_limit(action: &Outbound, limits: &mqtt_egress_core::BatchLimits) -> usize {
+    action
+        .queue_capacity
+        .saturating_add(
+            action
+                .concurrency
+                .clamp(1, crate::MAX_CONCURRENCY)
+                .saturating_mul(action.batch_size.min(limits.max_events)),
+        )
+        .saturating_add(1)
+}
+
 pub(crate) fn spawn(
     action: Outbound,
     sink: Arc<dyn Sink>,
@@ -93,122 +128,19 @@ pub(crate) fn spawn(
     cancel: watch::Receiver<bool>,
 ) -> (Target, JoinHandle<()>) {
     let (sender, receiver) = mpsc::channel(action.queue_capacity);
+    let resident_limit = resident_limit(&action, &sink.limits());
     let target = Target {
+        resident: Arc::new(Semaphore::new(resident_limit)),
         sender,
         stats: Arc::clone(&stats),
     };
-    let task = tokio::spawn(run(action, sink, global, stats, cancel, receiver));
+    let task = tokio::spawn(scheduler::run(
+        action, sink, global, stats, cancel, receiver,
+    ));
     (target, task)
 }
-async fn run(
-    action: Outbound,
-    sink: Arc<dyn Sink>,
-    global: Arc<Semaphore>,
-    stats: Arc<ActionCounters>,
-    mut cancel: watch::Receiver<bool>,
-    mut receiver: mpsc::Receiver<Delivery>,
-) {
-    let action = Arc::new(action);
-    // The public configuration validator enforces these bounds. Keep this private
-    // entry point bounded even if an internal caller bypasses validation.
-    let concurrency = action.concurrency.clamp(1, crate::MAX_CONCURRENCY);
-    let mut jobs = JoinSet::new();
-    let mut pending = None;
-    let mut cancelled = false;
-    'collect: loop {
-        if *cancel.borrow() || cancel.has_changed().is_err() {
-            cancelled = true;
-            break;
-        }
-        // Reserve a job slot before removing anything else from the input queue.
-        // Jobs include permit wait and retry backoff, not only active sends.
-        while jobs.len() >= concurrency {
-            tokio::select! {biased;
-                _ = cancel.changed() => { cancelled = true; break 'collect; }
-                result = jobs.join_next() => record_join(result, &stats),
-            }
-        }
-        while let Some(result) = jobs.try_join_next() {
-            record_join(Some(result), &stats);
-        }
-        let first = if let Some(item) = pending.take() {
-            Some(item)
-        } else {
-            tokio::select! {biased;
-                _ = cancel.changed() => {cancelled = true; None},
-                item = receiver.recv() => item,
-            }
-        };
-        let Some(first) = first else {
-            break;
-        };
-        let limits = sink.limits();
-        let size = limits.overhead.checked_add(first.encoded.len());
-        if limits.max_events == 0 || size.is_none() {
-            let mut first = first;
-            first.complete(false, Some("invalid_batch_limits"));
-            continue;
-        }
-        let mut size = size.unwrap_or(usize::MAX);
-        if size > limits.max_bytes {
-            let mut first = first;
-            first.complete(false, Some("request_too_large"));
-            continue;
-        }
-        let mut batch = vec![first];
-        let deadline = tokio::time::Instant::now() + Duration::from_millis(action.batch_wait_ms);
-        while batch.len() < action.batch_size.min(limits.max_events) {
-            let next = match receiver.try_recv() {
-                Ok(item) => Some(item),
-                Err(mpsc::error::TryRecvError::Disconnected) => None,
-                Err(mpsc::error::TryRecvError::Empty) if action.batch_wait_ms > 0 => {
-                    tokio::select! {biased;_ = cancel.changed()=>None,item=tokio::time::timeout_at(deadline,receiver.recv())=>item.ok().flatten()}
-                }
-                Err(mpsc::error::TryRecvError::Empty) => None,
-            };
-            let Some(item) = next else {
-                break;
-            };
-            if size
-                .checked_add(limits.separator_bytes)
-                .and_then(|size| size.checked_add(item.encoded.len()))
-                .is_none_or(|size| size > limits.max_bytes)
-            {
-                pending = Some(item);
-                break;
-            }
-            size += limits.separator_bytes + item.encoded.len();
-            batch.push(item);
-        }
-        if *cancel.borrow() || cancel.has_changed().is_err() {
-            cancelled = true;
-            break;
-        }
-        jobs.spawn(send_batch(
-            Arc::clone(&action),
-            Arc::clone(&sink),
-            Arc::clone(&global),
-            Arc::clone(&stats),
-            cancel.clone(),
-            batch,
-            size,
-        ));
-    }
-    // Drop the carry-over and queued records before returning. No detached child
-    // outlives its generation, including during replacement or storage failure.
-    drop(pending);
-    drop(receiver);
-    if cancelled {
-        jobs.shutdown().await;
-    } else {
-        while !jobs.is_empty() {
-            tokio::select! {biased;
-                _ = cancel.changed() => { jobs.shutdown().await; break; }
-                result = jobs.join_next() => record_join(result, &stats),
-            }
-        }
-    }
-}
+#[path = "worker_scheduler.rs"]
+mod scheduler;
 
 fn record_join(result: Option<Result<(), tokio::task::JoinError>>, stats: &ActionCounters) {
     if result.is_some_and(|result| result.is_err()) {
@@ -219,13 +151,19 @@ fn record_join(result: Option<Result<(), tokio::task::JoinError>>, stats: &Actio
     }
 }
 
+#[derive(Clone)]
+struct AttemptLimits {
+    global: Arc<Semaphore>,
+    local: Arc<Semaphore>,
+}
+
 async fn send_batch(
     action: Arc<Outbound>,
     sink: Arc<dyn Sink>,
-    global: Arc<Semaphore>,
+    attempts: AttemptLimits,
     stats: Arc<ActionCounters>,
     mut cancel: watch::Receiver<bool>,
-    mut batch: Vec<Delivery>,
+    batch: &mut [Delivery],
     size: usize,
 ) {
     let Some(first) = batch.first() else {
@@ -250,7 +188,14 @@ async fn send_batch(
         }
         // Every retry reacquires its own permit; backoff never holds the global
         // request budget. Scope both guards around this one adapter future.
-        let permit = tokio::select! {biased;_ = cancel.changed()=>None,p=Arc::clone(&global).acquire_owned()=>p.ok()};
+        let local_permit = tokio::select! {biased;
+            _ = cancel.changed() => None,
+            permit = Arc::clone(&attempts.local).acquire_owned() => permit.ok(),
+        };
+        let Some(local_permit) = local_permit else {
+            return;
+        };
+        let permit = tokio::select! {biased;_ = cancel.changed()=>None,p=Arc::clone(&attempts.global).acquire_owned()=>p.ok()};
         let Some(global_permit) = permit else {
             return;
         };
@@ -281,6 +226,7 @@ async fn send_batch(
             }
         };
         drop(global_permit);
+        drop(local_permit);
         if !retry {
             break;
         }
@@ -288,7 +234,7 @@ async fn send_batch(
     if *cancel.borrow() {
         return;
     }
-    for item in &mut batch {
+    for item in batch.iter_mut() {
         match &result {
             Ok(()) => item.complete(true, None),
             Err(error) => item.complete(false, Some(error)),

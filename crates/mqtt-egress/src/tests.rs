@@ -806,11 +806,11 @@ async fn storage_failure_returns_after_concurrent_attempts_are_cancelled() {
     policy.outbounds[0].timeout_ms = 10000;
     runtime.replace(policy).await.unwrap();
     let observer = runtime.observer();
-    for _ in 0..3 {
+    for client in 0..3 {
         observer.observe(
             "devices/a/telemetry",
             br#"{"temperature":90}"#,
-            "same",
+            &format!("source-{client}"),
             0,
             false,
         );
