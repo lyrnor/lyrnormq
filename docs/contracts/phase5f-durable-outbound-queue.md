@@ -63,7 +63,12 @@ no full payload reload into RAM at startup, no full-state clone per mutation or
 per-send scan of all payloads. Metadata indexed for exact perclient heads. All
 record/count/length/file limits checked before allocation and mutations; bound
 metadata, channels, task/lane/claim counts, resident bodies and aggregate memory.
-Defaults segment1MiB, physical256MiB, pending100000. Max delivery payload1MiB;
+Defaults segment1MiB, physical256MiB, pending100000. Valid ranges:
+segment4096..64MiB,max_bytes>=4*segment and<=1TiB,max_records1..1000000.
+Encoded live queue capacity is at most half physical max_bytes, reserving state
+progress; atomic compaction may transiently use up to2*max_bytes plus small control
+files. Durable runtime batch count additionally capped64 (configured count remains
+an upper bound), matching atomic journal state-operation bounds. Max delivery payload1MiB;
 client<=65535B,outbound<=64B,descriptor<=64KiB,at most32bindings. Journal group max
 64records/8MiB payload; metadata operations likewise finite. Full queue rejectsNEW
 appends, increments admission drops/errors, retains old records. Reserve enough
@@ -103,6 +108,11 @@ Journal::append_batch(Vec<NewRecord>)->Result<Vec<u64>,QueueError>
 Journal::heads(outbound_id:&str,after:Option<u64>,limit:usize)->Vec<RecordMeta>
   Returns perclient EARLIESTpendingrecord only, increasingheadID aftercursor,
   boundedlimit; caller wraps cursor at end forfairness. No claims in disk layer.
+Journal::batch_metas(head_id:u64,limit:usize,max_payload_bytes:usize)->Result<Vec<RecordMeta>,QueueError>
+  Preview same prefix/state criteria as read_batch, metadata only/no payload IO.
+  Coordinator-approved addition before implementation: reserve exact planned body
+  and identity bytes, then read only that planned count/byte window. Avoid both
+  1MiB reservation for tiny messages and heuristic truncation of valid batches.
 Journal::read_batch(head_id:u64,limit:usize,max_payload_bytes:usize)->Result<Vec<Record>,QueueError>
   Sameclient prefix fromhead, do not combine differing failure/deadline/inflightstate.
 Journal::begin_attempt(ids:&[u64])->Result<(),QueueError>
