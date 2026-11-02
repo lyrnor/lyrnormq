@@ -47,12 +47,14 @@ class EmbeddedBroker(DashboardBroker):
         self.cwd = self.root / 'empty-runtime'
         self.cwd.mkdir()
         self.override = override
+        self.rules_path = self.root / 'rules.sqlite'
         self.runtime_environment = dict(os.environ, PATH=str(self.root / 'no-node-runtime'))
 
     def command(self):
         command = [str(self.executable), '--listen', f'127.0.0.1:{self.port}',
                    '--admin-listen', f'127.0.0.1:{self.admin}',
-                   '--admin-token-file', str(self.token_path)]
+                   '--admin-token-file', str(self.token_path),
+                   '--rules-config', str(self.rules_path)]
         if self.override is not None:
             command += ['--dashboard-dir', str(self.override)]
         return command
@@ -134,6 +136,9 @@ class EmbeddedDashboardBlackbox(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(data['ready'])
         self.assertEqual(data['online_sessions'], 0)
+        self.assertTrue(broker.data('/api/v1/rules/status')['running'])
+        self.assertTrue(broker.rules_path.is_file())
+        self.assertNotEqual(broker.rules_path.parent, broker.cwd)
         with socket.create_connection(('127.0.0.1', broker.port), timeout=3) as client:
             client.settimeout(3)
             client.sendall(connect5('standalone-live-client'))
