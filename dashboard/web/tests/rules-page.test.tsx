@@ -549,6 +549,11 @@ describe("outbound request observations", () => {
       "2",
       "6",
     ]);
+    expect(
+      screen.getByRole("columnheader", { name: "待完成（消息）" }),
+    ).toBeTruthy();
+    expect(screen.getByText("待完成事件")).toBeTruthy();
+    expect(screen.getByText(/待完成包含排队、发送和重试中的消息/)).toBeTruthy();
     expect(screen.getByText(/进行中按请求数/)).toBeTruthy();
   });
 });

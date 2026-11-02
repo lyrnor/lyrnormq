@@ -300,7 +300,7 @@ export function RulesPage({
     ? ([
         ["接入事件", status.received],
         ["规则命中", status.matched],
-        ["排队事件", status.queued_events],
+        ["待完成事件", status.queued_events],
         ["丢弃", status.dropped],
         ["处理失败", status.errors],
       ] as const)
@@ -551,7 +551,7 @@ export function RulesPage({
                   {[
                     "出站",
                     "进行中（请求）",
-                    "排队",
+                    "待完成（消息）",
                     "已发送",
                     "失败",
                     "重试",
@@ -590,7 +590,7 @@ export function RulesPage({
             {status.outbounds.length === 0 && <Empty>暂无出站执行统计</Empty>}
           </div>
           <p className="px-5 pb-4 text-[11px] leading-relaxed text-muted-foreground">
-            进行中按请求数，排队、发送、失败、重试和丢弃按消息条数统计；服务重启后统计重新开始。
+            待完成包含排队、发送和重试中的消息；进行中按请求数，其余按消息条数统计。服务重启后统计重新开始。
           </p>
         </Panel>
       )}
