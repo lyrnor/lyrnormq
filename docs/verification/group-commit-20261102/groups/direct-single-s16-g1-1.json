@@ -1,0 +1,63 @@
+{
+  "actual_append_data_sync_calls": 64,
+  "config": {
+    "fanout": 1,
+    "frame_max_results": 64,
+    "group_max_frames": 1,
+    "inputs": 4096,
+    "mode": "direct",
+    "payload_bytes": 1024,
+    "rules": 1,
+    "segment_bytes": 16777216
+  },
+  "debug_assertions": false,
+  "frames_per_append_data_sync": 1.0,
+  "method": "Production sync_all, unchanged durable frames, single journal owner. Full readback and reopen after timing. External time includes verification/reopen/cleanup. Groupwidth4 is a different aggregation boundary than width1, not an equal-latency comparison. No SQL/HTTP/MQTT.",
+  "reopen_verified_results": 4096,
+  "rss_kib": {
+    "after_append": 6304,
+    "after_read": 6576,
+    "initial": 2400
+  },
+  "schema_version": 1,
+  "segment_files_after_append": 1,
+  "stats_after_append": {
+    "disk_bytes": 5198529,
+    "max_bytes": 536870912,
+    "pending_bytes": 4194304,
+    "pending_records": 4096,
+    "pending_results": 4096,
+    "recovered_records": 0
+  },
+  "sync_count_note": "Successful data sync_all calls within append group paths, including rotations. Excludes initialization, directory sync, state operations, checkpoint and reopen. Logical group calls can touch several segments and require multiple data syncs.",
+  "tool": "egress-group-commit",
+  "verified_deliveries": 4096,
+  "writing": {
+    "calls": {
+      "api_call_latency_ns": {
+        "max": 7203917,
+        "p50": 3997916,
+        "p95": 6100666,
+        "p99": 7203917
+      },
+      "calls": 64,
+      "engine_items_per_second": 14833.02668996012,
+      "engine_seconds": 0.27614054,
+      "item_unit": "rule_results",
+      "items": 4096,
+      "mean_engine_ns_per_item": 67417.1240234375,
+      "payload_bytes": 4194304,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "durable_group_call",
+      "wall_items_per_second": 14670.336041489543,
+      "wall_payload_mib_per_second": 14.326500040517132,
+      "wall_seconds": 0.279202875
+    },
+    "confirmation_latency": null,
+    "frames_submitted": 64,
+    "latency_definition": "per complete group API call until durable return; NOT per-request enqueue latency; preparation outside API timer but inside wall throughput",
+    "logical_group_calls": 64,
+    "mean_frames_per_group": 1.0,
+    "mode": "direct"
+  }
+}

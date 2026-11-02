@@ -2377,3 +2377,32 @@ fmt、严格Clippy、Release构建通过。新回归旧版4次读盘失败，优
 较短，非隔离M4实测，不是生产TPS承诺。未部署或合并main。
 [完整数据、环境、限制及复现](verification/shared-log-io-optimization-20261102/README.md)。
 剩余：隔离Linux/NVMe基线、持续入队/排空与确认写入、缓存工作集/调度局部性profiling。
+
+
+### Multi-frame Group Commit and segment acceptance (2026-11-02)
+
+先冻结phase5i与借用输入/真实同步计数契约，日志、运行时、质量Agent分别在独立
+worktree实施。集成dacd4e6+84620d0日志、a5ebed5运行时、4622acf+3ae3ec1质量。
+Journal新增borrowed append_result_groups，最多4个旧Results帧，每帧64结果；全量
+预检后写入、所有脏段sync成功才apply/reply。帧格式及原子扇出保持，失败仍poison、
+允许未确认完整前缀冷恢复，非跨帧事务。可信正文缓存按段保留，无全状态/正文clone。
+
+Actor仅聚合已排队连续Append，最大256结果/8MiB raw/16MiB估算；不等定时窗口，
+其余命令FIFO屏障不变。纯预检Full逐帧fallback保留可接受前缀；checkpoint自身Full
+依旧poison后Io停止。追加数据sync计数含轮转、排除state/checkpoint/init/dirsync。
+
+722项Workspace Rust、29项独立基准/完整性、62项Release MQTT/Webhook黑盒通过，
+fmt/strictClippy/Release通过。日志66、运行时55包含在Workspace中。覆盖4帧1sync、
+跨4段4sync、后帧错误零写入/不耗ID、部分写/首段sync后失败、撕尾、poison恢复、
+96/300请求聚合、屏障/低负载/取消/admission与Full前缀、旧新帧逐字节兼容。
+
+完成54次分段×组宽直接测量、6次逐请求确认、原39控制（三轮/配置），无覆盖旧数据。
+16MiB段组宽1→4，1KiB正文：单规则单出站15,530→55,406结果/s，四规则13,804→46,700，
+单规则16出站11,925→38,075；写完RSS分别增加约0.25/0.33/0.95MiB。并发确认吞吐
+13,332→18,012/s、确认p99 12.24→13.64ms，明确未获延迟改善。历史单条控制下降
+额外6次旧新交替诊断约257→257/s，保留全部原始数据，不伪称逐条同步加速。
+默认Group Commit已生效，默认分段保留1MiB兼容小容量；提供16MiB现有CLI调优命令。
+64MiB无稳定全面优势，非隔离M4数据不是生产TPS承诺。未部署、重启或合并main。
+[验收、原始数据及复现](verification/group-commit-20261102/README.md)。
+剩余：Linux/NVMe长时基线、真实混合命令聚合程度与p99、持续排空/背压；状态操作
+Group Commit暂未实现，不计作完成。

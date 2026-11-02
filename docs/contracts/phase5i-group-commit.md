@@ -92,3 +92,8 @@ checkpoint writer syncs; keep that exact name/definition in benchmark JSON. It i
 not persisted and is not a replacement for QueueStats or a management endpoint.
 Benchmarks subtract the pre-stage count and report real frames per append data
 sync, never assume one multi-segment group is one syscall. No durable schema change.
+
+A pure capacity preflight Full leaves the owner usable for smaller fallback frames.
+If the pre-write checkpoint itself fails Full, existing checkpoint semantics poison
+the owner: fallback immediately receives Io and stops. Do not promise every Full
+allows continued writing; no group frames/IDs have been accepted in either case.

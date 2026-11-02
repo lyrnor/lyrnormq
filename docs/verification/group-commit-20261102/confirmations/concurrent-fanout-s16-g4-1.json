@@ -1,0 +1,107 @@
+{
+  "actual_append_data_sync_calls": 46,
+  "config": {
+    "fanout": 16,
+    "frame_max_results": 64,
+    "group_max_frames": 4,
+    "inputs": 4096,
+    "mode": "concurrent",
+    "payload_bytes": 1024,
+    "rules": 1,
+    "segment_bytes": 16777216
+  },
+  "debug_assertions": false,
+  "frames_per_append_data_sync": 1.8043478260869565,
+  "method": "Production sync_all, unchanged durable frames, single journal owner. Full readback and reopen after timing. External time includes verification/reopen/cleanup. Groupwidth4 is a different aggregation boundary than width1, not an equal-latency comparison. No SQL/HTTP/MQTT.",
+  "reopen_verified_results": 4096,
+  "rss_kib": {
+    "after_append": 26192,
+    "after_read": 31088,
+    "initial": 2448
+  },
+  "schema_version": 1,
+  "segment_files_after_append": 1,
+  "stats_after_append": {
+    "disk_bytes": 12940662,
+    "max_bytes": 536870912,
+    "pending_bytes": 4194304,
+    "pending_records": 65536,
+    "pending_results": 4096,
+    "recovered_records": 0
+  },
+  "sync_count_note": "Successful data sync_all calls within append group paths, including rotations. Excludes initialization, directory sync, state operations, checkpoint and reopen. Logical group calls can touch several segments and require multiple data syncs.",
+  "tool": "egress-group-commit",
+  "verified_deliveries": 65536,
+  "writing": {
+    "calls": {
+      "api_call_latency_ns": {
+        "max": 7965583,
+        "p50": 5025958,
+        "p95": 6919583,
+        "p99": 7965583
+      },
+      "calls": 46,
+      "engine_items_per_second": 17296.82236512239,
+      "engine_seconds": 0.236806502,
+      "item_unit": "rule_results",
+      "items": 4096,
+      "mean_engine_ns_per_item": 57814.08740234375,
+      "payload_bytes": 4194304,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "durable_group_call",
+      "wall_items_per_second": 16868.572205542383,
+      "wall_payload_mib_per_second": 16.473215044474983,
+      "wall_seconds": 0.242818417
+    },
+    "confirmation_latency": {
+      "api_call_latency_ns": {
+        "max": 13713292,
+        "p50": 5893959,
+        "p95": 12048500,
+        "p99": 13644042
+      },
+      "calls": 4096,
+      "engine_items_per_second": 148.01991414608278,
+      "engine_seconds": 27.671952275,
+      "item_unit": "rule_results",
+      "items": 4096,
+      "mean_engine_ns_per_item": 6755847.723388672,
+      "payload_bytes": 0,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "enqueue_to_sync_confirmed",
+      "wall_items_per_second": 16868.569287806906,
+      "wall_payload_mib_per_second": 0.0,
+      "wall_seconds": 0.242818459
+    },
+    "frames_submitted": 83,
+    "latency_definition": "each request timestamp before bounded send through successful sync-confirmed group return; includes sender backpressure/queueing; observed metric also includes reply scheduling. Owner gathers only queued requests; no artificial wait.",
+    "logical_group_calls": 46,
+    "mean_frames_per_group": 1.8043478260869565,
+    "mode": "concurrent",
+    "observed_reply_latency": {
+      "api_call_latency_ns": {
+        "max": 14018250,
+        "p50": 5967542,
+        "p95": 12060708,
+        "p99": 13923917
+      },
+      "calls": 4096,
+      "engine_items_per_second": 146.32464023542235,
+      "engine_seconds": 27.992551312,
+      "item_unit": "rule_results",
+      "items": 4096,
+      "mean_engine_ns_per_item": 6834118.97265625,
+      "payload_bytes": 0,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "enqueue_to_reply_observed",
+      "wall_items_per_second": 16868.572205542383,
+      "wall_payload_mib_per_second": 0.0,
+      "wall_seconds": 0.242818417
+    },
+    "per_producer_outstanding": 8,
+    "pipeline_results_per_second": 16868.578041016368,
+    "pipeline_seconds": 0.242818333,
+    "producer_count": 16,
+    "request_channel_capacity": 128
+  }
+}

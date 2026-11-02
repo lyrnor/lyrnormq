@@ -38,3 +38,5 @@ Generic durable outbound queues additionally follow `docs/contracts/phase5f-dura
 Shared rule-result streams and per-destination consumers supersede per-delivery bodies via `docs/contracts/phase5g-rule-result-streams.md`; log owner owns crates/mqtt-egress-log, runtime owner crates/mqtt-egress, quality owns tests/benches/CI in separate worktrees.
 
 Journal IO optimization additionally follows `docs/contracts/phase5h-journal-io-optimization.md`, including prevalidated owned-append cache retention, finite caches and unchanged durable frames/sync boundaries.
+
+Multi-frame append Group Commit follows `docs/contracts/phase5i-group-commit.md`; retain per-frame atomicity, all-touched-segment sync before replies, borrowed payloads, FIFO barriers and bounded no-wait aggregation. Do not equate group atomic durability with a cross-frame transaction or logical group calls with sync syscalls.

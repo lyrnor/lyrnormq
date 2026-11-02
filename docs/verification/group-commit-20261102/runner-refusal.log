@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-groupcommit-quality/benches/egress-log/run-group-commit-matrix.py", line 72, in <module>
+    main()
+    ~~~~^^
+  File "/private/tmp/rmqtt-groupcommit-quality/benches/egress-log/run-group-commit-matrix.py", line 26, in main
+    out.mkdir(parents=True, exist_ok=False)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pathlib/__init__.py", line 1011, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileExistsError: [Errno 17] File exists: '/private/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/groupmatrix-refusal-4e4otque'

@@ -1,0 +1,191 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling smallvec v1.16.3
+   Compiling itoa v1.0.18
+   Compiling find-msvc-tools v0.1.15
+   Compiling shlex v2.0.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling bytes v1.12.1
+   Compiling subtle v2.6.1
+   Compiling parking_lot_core v0.9.12
+   Compiling cc v1.10.0
+   Compiling pin-project-lite v0.2.17
+   Compiling zeroize v1.9.1
+   Compiling version_check v0.9.5
+   Compiling scopeguard v1.2.0
+   Compiling futures-core v0.3.34
+   Compiling serde_core v1.0.229
+   Compiling lock_api v0.4.14
+   Compiling typenum v1.20.1
+   Compiling generic-array v0.14.7
+   Compiling http v1.5.0
+   Compiling serde v1.0.229
+   Compiling zmij v1.0.23
+   Compiling httparse v1.10.1
+   Compiling litemap v0.8.3
+   Compiling writeable v0.6.4
+   Compiling rustls-pki-types v1.15.1
+   Compiling futures-task v0.3.34
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.4.0
+   Compiling futures-sink v0.3.34
+   Compiling icu_normalizer_data v2.4.0
+   Compiling once_cell v1.21.4
+   Compiling getrandom v0.2.17
+   Compiling errno v0.3.14
+   Compiling syn v3.0.9
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.4
+   Compiling signal-hook-registry v1.4.8
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling slab v0.4.12
+   Compiling serde_json v1.0.154
+   Compiling digest v0.10.7
+   Compiling parking_lot v0.12.5
+   Compiling ring v0.17.14
+   Compiling futures-util v0.3.34
+   Compiling percent-encoding v2.3.2
+   Compiling zerocopy v0.8.63
+   Compiling untrusted v0.9.0
+   Compiling getrandom v0.3.4
+   Compiling memchr v2.8.3
+   Compiling http-body v1.1.0
+   Compiling log v0.4.34
+   Compiling rustls v0.23.46
+   Compiling tower-service v0.3.3
+   Compiling bitflags v2.13.2
+   Compiling try-lock v0.2.5
+   Compiling pkg-config v0.3.34
+   Compiling vcpkg v0.2.15
+   Compiling rand_core v0.9.5
+   Compiling want v0.3.2
+   Compiling form_urlencoded v1.2.2
+   Compiling rand_core v0.6.4
+   Compiling tracing-core v0.1.36
+   Compiling thiserror v2.0.21
+   Compiling atomic-waker v1.1.2
+   Compiling base64ct v1.8.3
+   Compiling foldhash v0.2.0
+   Compiling libsqlite3-sys v0.39.1
+   Compiling hashbrown v0.17.1
+   Compiling password-hash v0.5.0
+   Compiling tracing v0.1.44
+   Compiling blake2 v0.10.6
+   Compiling cpufeatures v0.2.17
+   Compiling sync_wrapper v1.0.2
+   Compiling futures-channel v0.3.34
+   Compiling tower-layer v0.3.3
+   Compiling mqtt-router v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-router)
+   Compiling base64 v0.23.1
+   Compiling ipnet v2.12.2
+   Compiling hashlink v0.12.2
+   Compiling argon2 v0.5.3
+   Compiling sha1 v0.10.7
+   Compiling webpki-roots v1.0.11
+   Compiling ryu v1.0.23
+   Compiling fallible-iterator v0.3.0
+   Compiling base64 v0.22.1
+   Compiling utf-8 v0.7.6
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling data-encoding v2.11.1
+   Compiling http-body-util v0.1.5
+   Compiling sqlparser v0.53.0
+   Compiling rustls-pemfile v2.2.0
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-egress-core)
+   Compiling synstructure v0.14.0
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerovec-derive v0.11.7
+   Compiling displaydoc v0.2.7
+   Compiling tokio-macros v2.7.2
+   Compiling serde_derive v1.0.229
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.9.0
+   Compiling thiserror-impl v2.0.21
+   Compiling tokio v1.54.1
+   Compiling rustls-webpki v0.103.16
+   Compiling rand v0.9.5
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling tungstenite v0.28.0
+   Compiling tinystr v0.8.5
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.4.0
+   Compiling icu_locale_core v2.4.0
+   Compiling rusqlite v0.41.0
+   Compiling mqtt-auth v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-auth)
+   Compiling serde_urlencoded v0.7.1
+   Compiling mqtt-protocol v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-protocol)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-egress-log)
+   Compiling icu_provider v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling icu_normalizer v2.4.0
+   Compiling mqtt-session v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-session)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-storage)
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling tokio-rustls v0.26.6
+   Compiling hyper v1.12.0
+   Compiling tower v0.5.3
+   Compiling tokio-tungstenite v0.28.0
+   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-rules)
+   Compiling tower-http v0.6.11
+   Compiling hyper-util v0.1.21
+   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-transport)
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.12.28
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-webhook)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-egress)
+warning: variable does not need to be mutable
+  --> crates/mqtt-egress/src/durable_group_tests.rs:40:6
+   |
+40 |  let mut reopened=Journal::open(QueueOptions::new(f.0.clone())).unwrap();assert_eq!(reopened.stats().pending_records,96);
+   |      ----^^^^^^^^
+   |      |
+   |      help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `mqtt-egress` (lib test) generated 1 warning (run `cargo fix --lib -p mqtt-egress --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.69s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_egress-d9ed1ca6f32348d7)
+
+running 5 tests
+test durable::group_tests::contiguous_appends_larger_than_one_frame_share_one_actor_commit ... FAILED
+test durable::group_tests::full_group_falls_back_to_per_frame_durable_prefix ... ok
+test durable::group_tests::read_is_an_ordering_barrier_between_contiguous_append_groups ... ok
+test durable::group_tests::append_gather_has_a_finite_256_result_boundary ... FAILED
+test durable::group_tests::cancelled_reply_does_not_cancel_durable_append_and_close_remains_a_barrier ... ok
+
+failures:
+
+---- durable::group_tests::contiguous_appends_larger_than_one_frame_share_one_actor_commit stdout ----
+
+thread 'durable::group_tests::contiguous_appends_larger_than_one_frame_share_one_actor_commit' (16047668) panicked at crates/mqtt-egress/src/durable_group_tests.rs:37:30:
+assertion `left == right` failed: 96 queued appends must be one group, not two durable actor batches
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- durable::group_tests::append_gather_has_a_finite_256_result_boundary stdout ----
+
+thread 'durable::group_tests::append_gather_has_a_finite_256_result_boundary' (16047666) panicked at crates/mqtt-egress/src/durable_group_tests.rs:46:2:
+assertion `left == right` failed
+  left: 5
+ right: 2
+
+
+failures:
+    durable::group_tests::append_gather_has_a_finite_256_result_boundary
+    durable::group_tests::contiguous_appends_larger_than_one_frame_share_one_actor_commit
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

@@ -1,0 +1,61 @@
+   Compiling egress-log-bench v0.1.0 (/private/tmp/rmqtt-groupcommit-quality/benches/egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.75s
+     Running unittests src/main.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/egress_log_bench-12f7c78a86ddc342)
+
+running 3 tests
+test metrics::tests::rank_is_not_batch_amortized ... ok
+test config::tests::rejects_oversized_work_and_preserves_parent_topology ... ok
+test run::tests::verified_smoke_covers_reads_and_durable_state ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running unittests src/bin/group_commit.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/group_commit-9221fae33157c5e8)
+
+running 3 tests
+test tests::bounded_cli ... ok
+test metrics::tests::rank_is_not_batch_amortized ... ok
+test tests::direct_group_and_concurrent_confirmations_are_real_and_recover ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running unittests src/bin/topology.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/topology-151a17938fb1f665)
+
+running 3 tests
+test tests::rejects_unbounded_dataset ... ok
+test metrics::tests::rank_is_not_batch_amortized ... ok
+test tests::distinct_rules_shared_fanout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/group_commit_integrity.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/group_commit_integrity-c83deff4ac1b34f7)
+
+running 8 tests
+test later_capacity_failure_is_zero_append_and_smaller_fallback_can_commit ... ok
+test live_byte_budget_rejection_does_not_publish_an_earlier_frame ... ok
+test later_stale_binding_is_rejected_before_any_frame_or_id_is_consumed ... ok
+test uncertain_group_tail_fixture_recovers_complete_frames_only ... ok
+test successful_group_survives_cross_segment_reopen_with_identical_consumer_ids ... ok
+test grouped_append_preserves_cached_prefix_through_retry_partial_completion_and_checkpoint ... ok
+test group_and_existing_separate_frame_api_emit_identical_durable_bytes ... ok
+test shape_and_aggregate_payload_bounds_do_not_append_prefix ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+
+     Running tests/shared_cache_integrity.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/shared_cache_integrity-5f56bea6818fc17c)
+
+running 12 tests
+test legal_append_does_not_bless_preexisting_external_body_mutation ... ok
+test hardlink_after_warm_read_fails_closed ... ok
+test same_length_mutation_after_first_destination_is_not_hidden ... ok
+test permissions_change_after_warm_read_fails_closed ... ok
+test legal_append_after_warm_read_preserves_old_and_new_result_bytes ... ok
+test restoring_mtime_after_mutation_does_not_revalidate_cached_bytes ... ok
+test different_inode_at_same_path_cannot_return_old_cached_body ... ok
+test partial_completion_retry_checkpoint_and_reopen_preserve_remaining_reference ... ok
+test empty_body_fanout_survives_checkpoint_and_restart ... ok
+test truncated_body_after_warm_read_fails_closed ... ok
+test symlink_replacement_after_warm_read_fails_closed ... ok
+test cache_pressure_does_not_lose_rule_bodies_or_consumer_heads ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.39s
+

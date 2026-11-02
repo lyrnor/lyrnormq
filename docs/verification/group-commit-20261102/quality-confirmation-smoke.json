@@ -1,0 +1,107 @@
+{
+  "actual_append_data_sync_calls": 3,
+  "config": {
+    "fanout": 2,
+    "frame_max_results": 64,
+    "group_max_frames": 4,
+    "inputs": 129,
+    "mode": "concurrent",
+    "payload_bytes": 1024,
+    "rules": 2,
+    "segment_bytes": 1048576
+  },
+  "debug_assertions": false,
+  "frames_per_append_data_sync": 2.0,
+  "method": "Production sync_all, unchanged durable frames, single journal owner. Full readback and reopen after timing. External time includes verification/reopen/cleanup. Groupwidth4 is a different aggregation boundary than width1, not an equal-latency comparison. No SQL/HTTP/MQTT.",
+  "reopen_verified_results": 258,
+  "rss_kib": {
+    "after_append": 3712,
+    "after_read": 4176,
+    "initial": 2448
+  },
+  "schema_version": 1,
+  "segment_files_after_append": 1,
+  "stats_after_append": {
+    "disk_bytes": 358010,
+    "max_bytes": 536870912,
+    "pending_bytes": 264192,
+    "pending_records": 516,
+    "pending_results": 258,
+    "recovered_records": 0
+  },
+  "sync_count_note": "Successful data sync_all calls within append group paths, including rotations. Excludes initialization, directory sync, state operations, checkpoint and reopen. Logical group calls can touch several segments and require multiple data syncs.",
+  "tool": "egress-group-commit",
+  "verified_deliveries": 516,
+  "writing": {
+    "calls": {
+      "api_call_latency_ns": {
+        "max": 5286917,
+        "p50": 5048917,
+        "p95": 5286917,
+        "p99": 5286917
+      },
+      "calls": 3,
+      "engine_items_per_second": 18692.88616858288,
+      "engine_seconds": 0.013802042,
+      "item_unit": "rule_results",
+      "items": 258,
+      "mean_engine_ns_per_item": 53496.28682170543,
+      "payload_bytes": 264192,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "durable_group_call",
+      "wall_items_per_second": 18112.518333659544,
+      "wall_payload_mib_per_second": 17.688006185214398,
+      "wall_seconds": 0.014244292
+    },
+    "confirmation_latency": {
+      "api_call_latency_ns": {
+        "max": 10390542,
+        "p50": 5166334,
+        "p95": 10383125,
+        "p99": 10390125
+      },
+      "calls": 258,
+      "engine_items_per_second": 173.9782778854705,
+      "engine_seconds": 1.482943751,
+      "item_unit": "rule_results",
+      "items": 258,
+      "mean_engine_ns_per_item": 5747843.996124031,
+      "payload_bytes": 0,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "enqueue_to_sync_confirmed",
+      "wall_items_per_second": 18112.571739473824,
+      "wall_payload_mib_per_second": 0.0,
+      "wall_seconds": 0.01424425
+    },
+    "frames_submitted": 6,
+    "latency_definition": "each request timestamp before bounded send through successful sync-confirmed group return; includes sender backpressure/queueing; observed metric also includes reply scheduling. Owner gathers only queued requests; no artificial wait.",
+    "logical_group_calls": 3,
+    "mean_frames_per_group": 2.0,
+    "mode": "concurrent",
+    "observed_reply_latency": {
+      "api_call_latency_ns": {
+        "max": 10407792,
+        "p50": 5190250,
+        "p95": 10395667,
+        "p99": 10405625
+      },
+      "calls": 258,
+      "engine_items_per_second": 172.86874762710423,
+      "engine_seconds": 1.492461787,
+      "item_unit": "rule_results",
+      "items": 258,
+      "mean_engine_ns_per_item": 5784735.608527131,
+      "payload_bytes": 0,
+      "percentile_method": "nearest-rank, ceil(p*N/100), measured per API call; not per-record percentiles",
+      "stage": "enqueue_to_reply_observed",
+      "wall_items_per_second": 18112.518333659544,
+      "wall_payload_mib_per_second": 0.0,
+      "wall_seconds": 0.014244292
+    },
+    "per_producer_outstanding": 8,
+    "pipeline_results_per_second": 18112.6785520472,
+    "pipeline_seconds": 0.014244166,
+    "producer_count": 16,
+    "request_channel_capacity": 128
+  }
+}

@@ -775,3 +775,26 @@ prevalidated immutable prefix, with per-segment trust bookkeeping rather than a
 scan of the full body cache. Platforms without reliable fingerprints use the
 previous checked read path. Cache sharing depends on working-set locality, and
 process recovery always starts cold.
+
+## Phase5i: Append Group Commit
+
+[Phase5i](contracts/phase5i-group-commit.md) adds borrowed multi-frame append input
+without changing stored Results frames. The blocking runtime drains contiguous
+queued Append requests only, at most256results/8MiB raw/16MiB conservative estimated
+input, splits at64results and stops at every non-Append FIFO barrier. Empty inboxes
+submit immediately; there is no aggregation timer. Borrowed groups allow safe
+per-frame Full fallback without copying the retained raw bodies.
+
+The journal validates all frames and aggregate quotas before writing, then appends
+up to four independently atomic frames. It synchronizes every touched segment and
+only then applies deltas/replies. Rotation syncs dirty previous segments before
+closing them. A failed write poisons the owner; recovery may expose an uncertain
+complete-frame prefix. This is a shared durability barrier, not an all-or-nothing
+multi-frame transaction. State operations remain on their prior sync path. A
+process-local append-data-sync accessor measures result-write barriers only and
+excludes directory/state/checkpoint/initialization syncs. Queued MQTT observer
+admission remains best effort and does not become a coupled MQTT acknowledgement.
+
+Segment size is still configurable independently of grouping. Performance results
+must distinguish group widths, segment sizes, per-group call p99 and per-request
+queued confirmation p99, and retain unchanged single-frame controls.

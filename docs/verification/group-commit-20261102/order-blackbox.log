@@ -1,0 +1,14 @@
+test_batches_are_client_homogeneous_and_fifo (__main__.ClientOrderedOutbounds.test_batches_are_client_homogeneous_and_fifo) ... ok
+test_many_client_lanes_keep_resident_window_bounded_and_pause_preserves_backlog (__main__.ClientOrderedOutbounds.test_many_client_lanes_keep_resident_window_bounded_and_pause_preserves_backlog) ... ok
+test_multiple_rules_have_independent_client_lanes (__main__.ClientOrderedOutbounds.test_multiple_rules_have_independent_client_lanes) ... ok
+test_reconnected_source_keeps_same_client_lane (__main__.ClientOrderedOutbounds.test_reconnected_source_keeps_same_client_lane) ... ok
+test_retry_backoff_releases_single_outbound_slot_for_other_client (__main__.ClientOrderedOutbounds.test_retry_backoff_releases_single_outbound_slot_for_other_client) ... ok
+test_retry_blocks_only_own_client_and_keeps_delivery_identity (__main__.ClientOrderedOutbounds.test_retry_blocks_only_own_client_and_keeps_delivery_identity) ... ok
+test_same_client_fifo_across_topics_while_other_client_overlaps (__main__.ClientOrderedOutbounds.test_same_client_fifo_across_topics_while_other_client_overlaps) ... ok
+test_terminal_failure_continues_same_client_after_retry_exhaustion (__main__.ClientOrderedOutbounds.test_terminal_failure_continues_same_client_after_retry_exhaustion) ... ok
+test_unrecoverable_failure_continues_without_retry (__main__.ClientOrderedOutbounds.test_unrecoverable_failure_continues_without_retry) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 3.826s
+
+OK

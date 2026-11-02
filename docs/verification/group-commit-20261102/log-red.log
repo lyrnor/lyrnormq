@@ -1,0 +1,115 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling syn v3.0.9
+   Compiling serde_derive v1.0.229
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-groupcommit-log/crates/mqtt-egress-log)
+error[E0609]: no field `group_data_syncs` on type `journal::Journal`
+ --> crates/mqtt-egress-log/src/group_tests.rs:7:15
+  |
+7 |  let before=j.group_data_syncs;let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,1);assert_eq!(id...
+  |               ^^^^^^^^^^^^^^^^ unknown field
+  |
+  = note: available fields are: `options`, `root`, `generation`, `dir`, `active` ... and 18 others
+
+error[E0599]: no method named `append_result_groups` found for struct `journal::Journal` in the current scope
+  --> crates/mqtt-egress-log/src/group_tests.rs:7:42
+   |
+ 7 |  let before=j.group_data_syncs;let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,1);assert_eq!(i...
+   |                                          ^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: crates/mqtt-egress-log/src/journal.rs:17:1
+   |
+17 | pub struct Journal {
+   | ------------------ method `append_result_groups` not found for this struct
+   |
+help: there is a method `append_results` with a similar name
+   |
+ 7 -  let before=j.group_data_syncs;let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,1);assert_eq!(ids.len(),4);assert_eq!(j.stats().pending_results,4);
+ 7 +  let before=j.group_data_syncs;let ids=j.append_results(&groups).unwrap();assert_eq!(j.group_data_syncs-before,1);assert_eq!(ids.len(),4);assert_eq!(j.stats().pending_results,4);
+   |
+
+error[E0609]: no field `group_data_syncs` on type `journal::Journal`
+ --> crates/mqtt-egress-log/src/group_tests.rs:7:94
+  |
+7 |  let before=j.group_data_syncs;let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,1);assert_eq!(id...
+  |                                                                                              ^^^^^^^^^^^^^^^^ unknown field
+  |
+  = note: available fields are: `options`, `root`, `generation`, `dir`, `active` ... and 18 others
+
+error[E0599]: no method named `append_result_groups` found for struct `journal::Journal` in the current scope
+  --> crates/mqtt-egress-log/src/group_tests.rs:14:15
+   |
+14 |  assert_eq!(j.append_result_groups(&groups).unwrap_err(),QueueError::StaleBinding);assert_eq!(j.stats().disk_bytes,before.disk_bytes...
+   |               ^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: crates/mqtt-egress-log/src/journal.rs:17:1
+   |
+17 | pub struct Journal {
+   | ------------------ method `append_result_groups` not found for this struct
+   |
+help: there is a method `append_results` with a similar name
+   |
+14 -  assert_eq!(j.append_result_groups(&groups).unwrap_err(),QueueError::StaleBinding);assert_eq!(j.stats().disk_bytes,before.disk_bytes);assert_eq!(j.next_id,next);assert_eq!(j.stats().pending_results,0);
+14 +  assert_eq!(j.append_results(&groups).unwrap_err(),QueueError::StaleBinding);assert_eq!(j.stats().disk_bytes,before.disk_bytes);assert_eq!(j.next_id,next);assert_eq!(j.stats().pending_results,0);
+   |
+
+error[E0599]: no method named `append_result_groups` found for struct `journal::Journal` in the current scope
+  --> crates/mqtt-egress-log/src/group_tests.rs:16:15
+   |
+16 |  assert_eq!(j.append_result_groups(&groups).unwrap_err(),QueueError::Full);assert_eq!(j.stats().disk_bytes,before.disk_bytes);assert...
+   |               ^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: crates/mqtt-egress-log/src/journal.rs:17:1
+   |
+17 | pub struct Journal {
+   | ------------------ method `append_result_groups` not found for this struct
+   |
+help: there is a method `append_results` with a similar name
+   |
+16 -  assert_eq!(j.append_result_groups(&groups).unwrap_err(),QueueError::Full);assert_eq!(j.stats().disk_bytes,before.disk_bytes);assert_eq!(j.next_id,next);assert_eq!(j.stats().pending_results,0);
+16 +  assert_eq!(j.append_results(&groups).unwrap_err(),QueueError::Full);assert_eq!(j.stats().disk_bytes,before.disk_bytes);assert_eq!(j.next_id,next);assert_eq!(j.stats().pending_results,0);
+   |
+
+error[E0609]: no field `group_data_syncs` on type `journal::Journal`
+  --> crates/mqtt-egress-log/src/group_tests.rs:20:153
+   |
+20 | ...vec![result(rev,i,3000)]).collect();let before=j.group_data_syncs;
+   |                                                     ^^^^^^^^^^^^^^^^ unknown field
+   |
+   = note: available fields are: `options`, `root`, `generation`, `dir`, `active` ... and 18 others
+
+error[E0599]: no method named `append_result_groups` found for struct `journal::Journal` in the current scope
+  --> crates/mqtt-egress-log/src/group_tests.rs:21:12
+   |
+21 |  let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,4);drop(j);let j=f.open();assert_eq!(j.stats(...
+   |            ^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: crates/mqtt-egress-log/src/journal.rs:17:1
+   |
+17 | pub struct Journal {
+   | ------------------ method `append_result_groups` not found for this struct
+   |
+help: there is a method `append_results` with a similar name
+   |
+21 -  let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,4);drop(j);let j=f.open();assert_eq!(j.stats().pending_results,4);for (i,g) in ids.iter().enumerate(){assert_eq!(j.read_consumers(g[0].consumer_ids[0],1,4096).unwrap()[0].payload,vec![i as u8;3000]);}
+21 +  let ids=j.append_results(&groups).unwrap();assert_eq!(j.group_data_syncs-before,4);drop(j);let j=f.open();assert_eq!(j.stats().pending_results,4);for (i,g) in ids.iter().enumerate(){assert_eq!(j.read_consumers(g[0].consumer_ids[0],1,4096).unwrap()[0].payload,vec![i as u8;3000]);}
+   |
+
+error[E0609]: no field `group_data_syncs` on type `journal::Journal`
+  --> crates/mqtt-egress-log/src/group_tests.rs:21:64
+   |
+21 |  let ids=j.append_result_groups(&groups).unwrap();assert_eq!(j.group_data_syncs-before,4);drop(j);let j=f.open();assert_eq!(j.stats(...
+   |                                                                ^^^^^^^^^^^^^^^^ unknown field
+   |
+   = note: available fields are: `options`, `root`, `generation`, `dir`, `active` ... and 18 others
+
+Some errors have detailed explanations: E0599, E0609.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `mqtt-egress-log` (lib test) due to 8 previous errors

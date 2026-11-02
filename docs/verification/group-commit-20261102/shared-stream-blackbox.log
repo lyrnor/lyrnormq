@@ -1,0 +1,18 @@
+test_batches_never_mix_rules_and_each_rule_retains_client_fifo (__main__.RuleStreams.test_batches_never_mix_rules_and_each_rule_retains_client_fifo) ... ok
+test_distinct_rule_results_are_stored_once_despite_fanout (__main__.RuleStreams.test_distinct_rule_results_are_stored_once_despite_fanout) ... ok
+test_fanout_capacity_rejection_is_atomic_and_runtime_can_continue (__main__.RuleStreams.test_fanout_capacity_rejection_is_atomic_and_runtime_can_continue) ... ok
+test_retry_blocks_only_rule_destination_client_and_keeps_id (__main__.RuleStreams.test_retry_blocks_only_rule_destination_client_and_keeps_id) ... ok
+test_rule_delete_and_edit_preserve_accepted_result_and_original_recipients (__main__.RuleStreams.test_rule_delete_and_edit_preserve_accepted_result_and_original_recipients) ... ok
+test_same_outbound_rules_and_other_outbound_progress_independently (__main__.RuleStreams.test_same_outbound_rules_and_other_outbound_progress_independently) ... ok
+test_sigkill_partial_fanout_does_not_replay_completed_destination (__main__.RuleStreams.test_sigkill_partial_fanout_does_not_replay_completed_destination) ... ok
+test_terminal_failure_keeps_shared_body_for_remaining_consumer (__main__.RuleStreams.test_terminal_failure_keeps_shared_body_for_remaining_consumer) ... ok
+test_v1_client_metadata_mismatch_fails_closed (__main__.RuleStreams.test_v1_client_metadata_mismatch_fails_closed) ... ok
+test_v1_conflicting_result_bodies_fail_closed (__main__.RuleStreams.test_v1_conflicting_result_bodies_fail_closed) ... ok
+test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive (__main__.RuleStreams.test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive) ... ok
+test_v1_non_rule_payload_fails_closed_without_erasing_old_files (__main__.RuleStreams.test_v1_non_rule_payload_fails_closed_without_erasing_old_files) ... ok
+test_v1_partial_completion_retry_deadline_and_budget_preserved (__main__.RuleStreams.test_v1_partial_completion_retry_deadline_and_budget_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 6.400s
+
+OK
