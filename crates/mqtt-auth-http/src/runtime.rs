@@ -78,20 +78,33 @@ impl Runtime {
             .clone()
             .try_acquire_owned()
             .map_err(|_| io::Error::other(Error::Busy))?;
-        let (store, generation, fresh) = tokio::task::spawn_blocking(move || {
+        let (store, prepared) = tokio::task::spawn_blocking(move || {
             let (store, bytes) = Owner::open(path)?;
-            let fresh = bytes.is_none();
-            let config = match bytes {
-                Some(bytes) => Config::from_stored(&bytes)?,
-                None => Config::default(),
-            };
-            config.validate(local_accounts)?;
-            let generation = Generation::build(1, config, slot)?;
-            Ok::<_, Error>((store, generation, fresh))
+            let prepared = (|| {
+                let fresh = bytes.is_none();
+                let config = match bytes {
+                    Some(bytes) => Config::from_stored(&bytes)?,
+                    None => Config::default(),
+                };
+                config.validate(local_accounts)?;
+                let generation = Generation::build(1, config, slot)?;
+                Ok::<_, Error>((generation, fresh))
+            })();
+            Ok::<_, Error>((store, prepared))
         })
         .await
         .map_err(|_| io::Error::other(Error::Storage))?
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        let (generation, fresh) = match prepared {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                // Report validation/preparation failure only after the blocking
+                // owner has released SQLite and its exclusive file lock. Drop
+                // remains the cancellation fallback if this future is aborted.
+                store.close().await;
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, error));
+            }
+        };
         let runtime = Arc::new(Self {
             shared: Arc::new(Shared {
                 current: RwLock::new(Arc::new(generation)),

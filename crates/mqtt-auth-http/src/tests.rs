@@ -826,16 +826,20 @@ async fn persisted_removed_certificate_configuration_is_rejected_without_rewrite
     })
     .await
     .unwrap();
-    let result = Runtime::open(path.clone(), Arc::new(AllowAnonymous), false).await;
-    assert!(matches!(result, Err(ref e) if e.kind() == std::io::ErrorKind::InvalidInput));
-    tokio::task::spawn_blocking(move || {
-        let store =
-            mqtt_storage::configuration::ConfigStore::open(&path, crate::config::MAX_CONFIG)
-                .unwrap();
-        assert_eq!(store.load().unwrap(), Some(expected));
-    })
-    .await
-    .unwrap();
+    for _ in 0..32 {
+        let result = Runtime::open(path.clone(), Arc::new(AllowAnonymous), false).await;
+        assert!(matches!(result, Err(ref e) if e.kind() == std::io::ErrorKind::InvalidInput));
+        let p = path.clone();
+        let expected = expected.clone();
+        tokio::task::spawn_blocking(move || {
+            let store =
+                mqtt_storage::configuration::ConfigStore::open(&p, crate::config::MAX_CONFIG)
+                    .unwrap();
+            assert_eq!(store.load().unwrap(), Some(expected));
+        })
+        .await
+        .unwrap();
+    }
 }
 
 #[tokio::test]
