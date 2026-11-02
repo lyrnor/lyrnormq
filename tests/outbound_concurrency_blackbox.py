@@ -242,6 +242,7 @@ class OutboundConcurrency(unittest.TestCase):
             database.execute('PRAGMA application_id=1380795206')
             database.execute('PRAGMA user_version=1')
             database.execute('INSERT INTO rule_configuration VALUES(1, ?)', (json.dumps(old).encode(),))
+        database.close()
         self.start()
         public = self.broker.data(CONFIG)
         self.assertEqual(public['outbounds'][0]['delivery'].get('concurrency'), 8)
