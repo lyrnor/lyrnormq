@@ -746,3 +746,64 @@ async fn cancelled_configuration_save_stops_old_view_and_restart_loads_actual_co
     assert!(!reopened.is_stopped());
     reopened.shutdown().await;
 }
+
+#[tokio::test(start_paused = true)]
+async fn legacy_attempt_has_no_http_deadline_but_still_fences_new_configuration() {
+    let (_directory, runtime) = runtime().await;
+    let admitted = runtime.begin();
+    assert!(!admitted.remote_authentication());
+    tokio::time::advance(Duration::from_secs(6)).await;
+    runtime.clear_cache().await;
+    assert!(!admitted.pending());
+    assert!(
+        admitted.seal(),
+        "disabled HTTP must not shorten legacy admission"
+    );
+
+    let stale = runtime.begin();
+    let mut changed = Config::default();
+    changed.authentication.name = "Updated local policy label".into();
+    runtime.replace(changed).await.unwrap();
+    tokio::time::advance(Duration::from_secs(6)).await;
+    assert!(
+        !stale.seal(),
+        "a changed generation must still reject local admission"
+    );
+    runtime.shutdown().await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn enabled_http_attempt_keeps_its_bounded_prepare_deadline() {
+    let (_directory, runtime) = runtime().await;
+    let mut config = Config::default();
+    config.authentication.enabled = true;
+    config.authentication.url = "http://127.0.0.1:1/authenticate".into();
+    config.authentication.allow_http = true;
+    runtime.replace(config).await.unwrap();
+    let attempt = runtime.begin();
+    assert!(attempt.remote_authentication());
+    tokio::time::advance(Duration::from_secs(6)).await;
+    assert!(
+        !attempt.seal(),
+        "active HTTP admission must retain its finite deadline"
+    );
+    runtime.shutdown().await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn disabled_http_noop_resolution_has_no_remote_deadline() {
+    let (_directory, runtime) = runtime().await;
+    let attempt = runtime.begin();
+    tokio::time::advance(Duration::from_secs(6)).await;
+    assert!(!attempt.pending());
+    assert_eq!(attempt.resolve().await, Ok(()));
+    assert!(attempt.seal());
+
+    let stale = runtime.begin();
+    let mut changed = Config::default();
+    changed.authentication.name = "Changed before noop resolution".into();
+    runtime.replace(changed).await.unwrap();
+    assert_eq!(stale.resolve().await, Err(RemoteAccessError::Unavailable));
+    assert!(!stale.seal());
+    runtime.shutdown().await;
+}

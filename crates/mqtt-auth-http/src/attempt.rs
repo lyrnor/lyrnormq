@@ -93,6 +93,11 @@ impl Inner {
             && (!self.generation.config.authorization.backend.enabled
                 || self.shared.cache.epoch() == self.epoch)
     }
+    fn deadline_expired(&self) -> bool {
+        (self.generation.config.authentication.enabled
+            || self.generation.config.authorization.backend.enabled)
+            && tokio::time::Instant::now() >= self.deadline
+    }
     fn reserve(&self, bytes: usize) -> bool {
         let mut n = self.shared.attempt_bytes.load(Ordering::Acquire);
         loop {
@@ -273,7 +278,7 @@ impl AccessAttempt for Attempt {
     }
     fn resolve(&self) -> AccessFuture<'_, Result<(), RemoteAccessError>> {
         Box::pin(async move {
-            if !self.inner.current() || tokio::time::Instant::now() >= self.inner.deadline {
+            if !self.inner.current() || self.inner.deadline_expired() {
                 return Err(RemoteAccessError::Unavailable);
             }
             let missing = {
@@ -356,9 +361,7 @@ impl AccessAttempt for Attempt {
             return true;
         }
         if !self.inner.current()
-            || (self.inner.generation.config.authentication.enabled
-                || self.inner.generation.config.authorization.backend.enabled)
-                && tokio::time::Instant::now() >= self.inner.deadline
+            || self.inner.deadline_expired()
             || s.answers.values().any(|r| {
                 r.as_ref()
                     .is_none_or(|r| r.epoch != self.inner.epoch || !r.valid())
