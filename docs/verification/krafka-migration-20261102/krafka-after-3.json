@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "label": "krafka-after-3",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "cpu_count": 10,
+  "fixture": "real Apache Kafka 4.2.2; one local broker/controller; RF=1; min ISR=1; forced per-message log flush; Java heap128..512MiB; cleaner dedupe buffer16MiB; offsets topic1partition; no production throughput claim",
+  "fixture_resource_limits": {
+    "heap_min_mib": 128,
+    "heap_max_mib": 512,
+    "cleaner_dedupe_bytes": 16777216,
+    "offsets_partitions": 1
+  },
+  "workload": "direct KafkaSink; one outstanding send per client; explicit optional same-sink warmup; fixture/readback outside timing",
+  "warmup_records": 64,
+  "latency_percentile": "nearest rank, successful confirmed calls only; no omission of failed counts",
+  "scenarios": [
+    {
+      "attempted": 4096,
+      "batch_bytes": 65536,
+      "clients": 64,
+      "compression": "lz4",
+      "confirmed": 4096,
+      "confirmed_records_per_second": 8836.025506283499,
+      "elapsed_seconds": 0.463556833,
+      "errors": {},
+      "latency_boundary": "KafkaSink::send entry to final confirmed delivery; successful calls only; includes adapter parsing, lazy connection, SDK buffering and retries; excludes event construction and readback",
+      "latency_ms": {
+        "max": 9.003834,
+        "p50": 7.059792,
+        "p95": 8.630209,
+        "p99": 8.9145
+      },
+      "linger_ms": 1,
+      "payload_bytes": 128,
+      "records_per_client": 64,
+      "run_id": "bench-83ea4be442f74d85b4f65f7ef7d8e4e6",
+      "runtime_workers": 4,
+      "schema_version": 1,
+      "shutdown_error": null,
+      "shutdown_ms": 0.113542,
+      "throughput_boundary": "barrier release through all send outcomes; excludes adapter construction, explicit warmup, shutdown and readback",
+      "warmup": {
+        "confirmed": 64,
+        "elapsed_ms": 613.047458,
+        "included_in_timed_counts": false,
+        "readback": {
+          "count": 64,
+          "unique_delivery_ids": 64,
+          "exact_payload_bytes": 128,
+          "per_client_fifo": true,
+          "key_partition_consistent": true,
+          "headers_verified": true,
+          "observed_partitions": [
+            0
+          ]
+        }
+      },
+      "writer_rss": {
+        "peak_bytes": 10452992,
+        "samples": 18,
+        "failures": 0,
+        "method": "ps rss KiB of writer PID sampled every 50ms; sampled peak, not exact high-water mark; excludes Kafka and reader"
+      },
+      "readback": {
+        "count": 4096,
+        "unique_delivery_ids": 4096,
+        "exact_payload_bytes": 128,
+        "per_client_fifo": true,
+        "key_partition_consistent": true,
+        "headers_verified": true,
+        "observed_partitions": [
+          0
+        ]
+      },
+      "partitions": 1
+    },
+    {
+      "attempted": 4096,
+      "batch_bytes": 65536,
+      "clients": 64,
+      "compression": "lz4",
+      "confirmed": 4096,
+      "confirmed_records_per_second": 8357.437565977925,
+      "elapsed_seconds": 0.490102375,
+      "errors": {},
+      "latency_boundary": "KafkaSink::send entry to final confirmed delivery; successful calls only; includes adapter parsing, lazy connection, SDK buffering and retries; excludes event construction and readback",
+      "latency_ms": {
+        "max": 12.199833,
+        "p50": 7.926333,
+        "p95": 8.971292,
+        "p99": 11.615917
+      },
+      "linger_ms": 1,
+      "payload_bytes": 1024,
+      "records_per_client": 64,
+      "run_id": "bench-c450f3a8021a4aafa1b4be60b24e9d1b",
+      "runtime_workers": 4,
+      "schema_version": 1,
+      "shutdown_error": null,
+      "shutdown_ms": 0.128291,
+      "throughput_boundary": "barrier release through all send outcomes; excludes adapter construction, explicit warmup, shutdown and readback",
+      "warmup": {
+        "confirmed": 64,
+        "elapsed_ms": 458.93879100000004,
+        "included_in_timed_counts": false,
+        "readback": {
+          "count": 64,
+          "unique_delivery_ids": 64,
+          "exact_payload_bytes": 1024,
+          "per_client_fifo": true,
+          "key_partition_consistent": true,
+          "headers_verified": true,
+          "observed_partitions": [
+            0
+          ]
+        }
+      },
+      "writer_rss": {
+        "peak_bytes": 10829824,
+        "samples": 16,
+        "failures": 0,
+        "method": "ps rss KiB of writer PID sampled every 50ms; sampled peak, not exact high-water mark; excludes Kafka and reader"
+      },
+      "readback": {
+        "count": 4096,
+        "unique_delivery_ids": 4096,
+        "exact_payload_bytes": 1024,
+        "per_client_fifo": true,
+        "key_partition_consistent": true,
+        "headers_verified": true,
+        "observed_partitions": [
+          0
+        ]
+      },
+      "partitions": 1
+    },
+    {
+      "attempted": 4096,
+      "batch_bytes": 65536,
+      "clients": 64,
+      "compression": "lz4",
+      "confirmed": 4096,
+      "confirmed_records_per_second": 1272.8406029447553,
+      "elapsed_seconds": 3.217999167,
+      "errors": {},
+      "latency_boundary": "KafkaSink::send entry to final confirmed delivery; successful calls only; includes adapter parsing, lazy connection, SDK buffering and retries; excludes event construction and readback",
+      "latency_ms": {
+        "max": 61.032584,
+        "p50": 50.355291,
+        "p95": 56.001125,
+        "p99": 60.611625
+      },
+      "linger_ms": 1,
+      "payload_bytes": 128,
+      "records_per_client": 64,
+      "run_id": "bench-d81e9a17569d4dc489f90c9b5164f7fd",
+      "runtime_workers": 4,
+      "schema_version": 1,
+      "shutdown_error": null,
+      "shutdown_ms": 0.170625,
+      "throughput_boundary": "barrier release through all send outcomes; excludes adapter construction, explicit warmup, shutdown and readback",
+      "warmup": {
+        "confirmed": 64,
+        "elapsed_ms": 411.515042,
+        "included_in_timed_counts": false,
+        "readback": {
+          "count": 64,
+          "unique_delivery_ids": 64,
+          "exact_payload_bytes": 128,
+          "per_client_fifo": true,
+          "key_partition_consistent": true,
+          "headers_verified": true,
+          "observed_partitions": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        }
+      },
+      "writer_rss": {
+        "peak_bytes": 10321920,
+        "samples": 56,
+        "failures": 0,
+        "method": "ps rss KiB of writer PID sampled every 50ms; sampled peak, not exact high-water mark; excludes Kafka and reader"
+      },
+      "readback": {
+        "count": 4096,
+        "unique_delivery_ids": 4096,
+        "exact_payload_bytes": 128,
+        "per_client_fifo": true,
+        "key_partition_consistent": true,
+        "headers_verified": true,
+        "observed_partitions": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      "partitions": 12
+    },
+    {
+      "attempted": 4096,
+      "batch_bytes": 65536,
+      "clients": 64,
+      "compression": "lz4",
+      "confirmed": 4096,
+      "confirmed_records_per_second": 1200.7224415090275,
+      "elapsed_seconds": 3.411279625,
+      "errors": {},
+      "latency_boundary": "KafkaSink::send entry to final confirmed delivery; successful calls only; includes adapter parsing, lazy connection, SDK buffering and retries; excludes event construction and readback",
+      "latency_ms": {
+        "max": 102.83475,
+        "p50": 50.717708,
+        "p95": 68.550083,
+        "p99": 95.736083
+      },
+      "linger_ms": 1,
+      "payload_bytes": 1024,
+      "records_per_client": 64,
+      "run_id": "bench-c028ba13f5004872a8a909ef260a50d4",
+      "runtime_workers": 4,
+      "schema_version": 1,
+      "shutdown_error": null,
+      "shutdown_ms": 0.134792,
+      "throughput_boundary": "barrier release through all send outcomes; excludes adapter construction, explicit warmup, shutdown and readback",
+      "warmup": {
+        "confirmed": 64,
+        "elapsed_ms": 485.69791699999996,
+        "included_in_timed_counts": false,
+        "readback": {
+          "count": 64,
+          "unique_delivery_ids": 64,
+          "exact_payload_bytes": 1024,
+          "per_client_fifo": true,
+          "key_partition_consistent": true,
+          "headers_verified": true,
+          "observed_partitions": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        }
+      },
+      "writer_rss": {
+        "peak_bytes": 10731520,
+        "samples": 60,
+        "failures": 0,
+        "method": "ps rss KiB of writer PID sampled every 50ms; sampled peak, not exact high-water mark; excludes Kafka and reader"
+      },
+      "readback": {
+        "count": 4096,
+        "unique_delivery_ids": 4096,
+        "exact_payload_bytes": 1024,
+        "per_client_fifo": true,
+        "key_partition_consistent": true,
+        "headers_verified": true,
+        "observed_partitions": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      "partitions": 12
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+    Checking mqtt-protocol v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-protocol)
+    Checking mqtt-auth v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth)
+   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+    Checking mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
+    Checking mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
+    Checking mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+    Checking mqtt-session v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-session)
+    Checking mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+    Checking mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+    Checking rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.54s

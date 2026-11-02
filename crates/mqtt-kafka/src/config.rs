@@ -15,14 +15,6 @@ impl SecurityProtocol {
     pub(crate) fn sasl(self) -> bool {
         matches!(self, Self::SaslPlaintext | Self::SaslSsl)
     }
-    pub(crate) fn native(self) -> &'static str {
-        match self {
-            Self::Plaintext => "plaintext",
-            Self::Ssl => "ssl",
-            Self::SaslPlaintext => "sasl_plaintext",
-            Self::SaslSsl => "sasl_ssl",
-        }
-    }
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -49,15 +41,7 @@ pub enum Compression {
     Lz4,
     Zstd,
 }
-impl Compression {
-    pub(crate) fn native(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Lz4 => "lz4",
-            Self::Zstd => "zstd",
-        }
-    }
-}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct KafkaConfig {

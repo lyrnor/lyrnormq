@@ -1,0 +1,12 @@
+   Compiling mqtt-auth v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling mqtt-session v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-session)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+warning: linker stderr: ignoring deprecated linker optimization setting '1'
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `rmqtt` (bin "rmqtt") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 20.57s

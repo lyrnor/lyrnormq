@@ -128,6 +128,48 @@ class KafkaOutbound(unittest.TestCase):
             self.barrier(source)
         self.drained(6);rows=self.records(6);self.assertEqual(len(rows),6)
         for version in [4,5]:self.assertEqual([r['value']['seq'] for r in rows if r['key']==f'mqtt-{version}'],[0,1,2])
+    def test_none_lz4_zstd_records_preserve_fifo_across_configuration_replacement(self):
+        target=self.target();target['config']['compression']='none'
+        self.start(self.config(target));source=self.client('codec-source')
+        for generation,codec in enumerate(['none','lz4','zstd']):
+            with self.subTest(codec=codec):
+                if generation:
+                    target['config']['compression']=codec
+                    self.replace(self.config(target))
+                self.assertEqual(self.broker.data(CONFIG)['outbounds'][0]['config']['compression'],codec)
+                self.emit(source,range(generation*3,generation*3+3))
+                self.drained(3)
+        rows=self.records(10,1500);self.assertEqual(len(rows),9)
+        self.assertEqual([row['value']['seq'] for row in rows],list(range(9)))
+        self.assertEqual(len({row['partition'] for row in rows}),1)
+        delivery_ids=set();event_ids=set()
+        for seq,row in enumerate(rows):
+            self.assertEqual(row['key'],'codec-source')
+            self.assertEqual(row['value'],{'seq':seq,'marker':f'fixture-{seq}'})
+            headers=row['headers']
+            self.assertEqual(headers['rmqtt-client-id'],'codec-source')
+            self.assertEqual(headers['rmqtt-rule-id'],'route')
+            self.assertEqual(headers['rmqtt-topic'],'kafka/real/events')
+            self.assertTrue(headers['rmqtt-delivery-id']);self.assertTrue(headers['rmqtt-event-id'])
+            delivery_ids.add(headers['rmqtt-delivery-id']);event_ids.add(headers['rmqtt-event-id'])
+        self.assertEqual(len(delivery_ids),9);self.assertEqual(len(event_ids),9)
+        # Independent Kafka RecordBatch v2 framing: low three attributes bits
+        # identify the codec (0:none, 3:LZ4, 4:Zstd). Readback alone could pass
+        # if an adapter silently ignored the requested compression setting.
+        codecs=set()
+        for segment in (self.kafka.root/'data').glob(self.topic+'-*/*.log'):
+            self.assertLessEqual(segment.stat().st_size,4*1024*1024)
+            data=segment.read_bytes();offset=0
+            while offset+12<=len(data):
+                length=struct.unpack_from('>i',data,offset+8)[0]
+                if length==0:
+                    self.assertFalse(any(data[offset:]));break
+                self.assertGreaterEqual(length,49)
+                self.assertLessEqual(offset+12+length,len(data))
+                self.assertEqual(data[offset+16],2)
+                codecs.add(struct.unpack_from('>H',data,offset+21)[0]&7)
+                offset+=12+length
+        self.assertEqual(codecs,{0,3,4})
     def test_multiple_rules_and_outbounds_share_rule_body_not_producer_ack(self):
         other=self.target('mirror');config=self.config();config['outbounds'].append(other)
         config['rules']=[rule('one',('send','mirror'),sql='SELECT payload.seq AS seq, payload.marker AS marker FROM "kafka/real/#"'),rule('two',('send',),sql='SELECT payload.seq AS seq, payload.other AS other FROM "kafka/real/#"')]
@@ -180,6 +222,22 @@ class KafkaOutbound(unittest.TestCase):
         source=self.client('field-source');self.emit(source,[0],device=7);eventually(lambda:self.outbound()['failed']==1)
         self.emit(source,[1,2],device='stable-device');self.drained(2);rows=self.records(2)
         self.assertEqual([r['value']['seq'] for r in rows],[1,2]);self.assertTrue(all(r['key']=='stable-device' and r['headers']['rmqtt-client-id']=='field-source' for r in rows))
+    def test_custom_empty_and_unicode_keys_match_independent_murmur2_partitions(self):
+        oracle='rmqtt-oracle-'+uuid.uuid4().hex
+        self.helper('create',oracle,count=3)
+        keys=['', 'device-42', '设备🔑']
+        partitions={key:self.helper('partition',oracle,count=key)['partition'] for key in keys}
+        target=self.target();target['config']['key_field']='device'
+        self.start(self.config(target,[rule(sql='SELECT payload.seq AS seq, payload.device AS device FROM "kafka/real/#"')]))
+        source=self.client('key-source')
+        for key in keys:self.emit(source,range(8),device=key)
+        self.drained(24);records=self.records(25,1500)
+        self.assertEqual(len(records),24)
+        for key in keys:
+            lane=[r for r in records if r['key']==key]
+            self.assertEqual([r['value']['seq'] for r in lane],list(range(8)))
+            self.assertTrue(all(r['partition']==partitions[key] for r in lane))
+            self.assertTrue(all(r['value']['device']==key and r['headers']['rmqtt-client-id']=='key-source' for r in lane))
     def test_kafka_progresses_while_all_webhook_slots_are_held(self):
         gate=threading.Event();receiver=HttpReceiver(gate=gate);self.addCleanup(receiver.close);self.addCleanup(gate.set)
         http=settings(receiver.url,concurrency=16)['outbounds'][0];http['id']='http'

@@ -14,6 +14,8 @@ import tempfile
 import time
 
 TOOLS=Path(os.environ.get('RMQTT_KAFKA_TOOLS_DIR', '/private/tmp/rmqtt-kafka-fixture-tools' if platform.system()=='Darwin' else '/tmp/rmqtt-kafka-fixture-tools'))
+RESOURCE_LIMITS=dict(heap_min_mib=128,heap_max_mib=512,cleaner_dedupe_bytes=16*1024*1024,offsets_partitions=1)
+
 
 def curl(url,path,resume=False):
     command=['curl','--fail','--location','--retry','3','--retry-all-errors','--silent','--show-error','--connect-timeout','30']
@@ -74,7 +76,7 @@ class KafkaFixture:
         self.directory=tempfile.TemporaryDirectory(prefix='rmqtt-real-kafka-')
         self.root=Path(self.directory.name)
         self.java,self.home=tool_paths()
-        self.env=dict(os.environ,JAVA_HOME=str(self.java),KAFKA_HEAP_OPTS='-Xms128m -Xmx256m')
+        self.env=dict(os.environ,JAVA_HOME=str(self.java),KAFKA_HEAP_OPTS=f'-Xms{RESOURCE_LIMITS["heap_min_mib"]}m -Xmx{RESOURCE_LIMITS["heap_max_mib"]}m')
         ports=set()
         while len(ports)<5:ports.add(port())
         self.port,self.controller,self.ssl,self.sasl,self.mtls=ports
@@ -91,6 +93,8 @@ class KafkaFixture:
             'controller.listener.names=CONTROLLER','inter.broker.listener.name=PLAINTEXT',
             f'log.dirs={self.root}/data','num.partitions=3','offsets.topic.replication.factor=1','transaction.state.log.replication.factor=1','transaction.state.log.min.isr=1','min.insync.replicas=1',
             'auto.create.topics.enable=false','log.flush.interval.messages=1','group.initial.rebalance.delay.ms=0',
+            f'log.cleaner.dedupe.buffer.size={RESOURCE_LIMITS["cleaner_dedupe_bytes"]}',
+            f'offsets.topic.num.partitions={RESOURCE_LIMITS["offsets_partitions"]}',
             'ssl.keystore.type=PKCS12',f'ssl.keystore.location={self.root}/server.p12','ssl.keystore.password=fixture-keystore','ssl.key.password=fixture-keystore',
             'ssl.truststore.type=PKCS12',f'ssl.truststore.location={self.root}/trust.p12','ssl.truststore.password=fixture-keystore',
             'sasl.enabled.mechanisms=PLAIN,SCRAM-SHA-256,SCRAM-SHA-512',

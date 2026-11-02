@@ -1,0 +1,36 @@
+{
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "machine_model": "Mac16,12",
+  "logical_cpu_count": 10,
+  "ram_bytes": 17179869184,
+  "kafka": "4.2.2 single broker/controller RF1 minISR1 forced per-message flush",
+  "jre": "21.0.13+9",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "execution": "macOS loopback real Kafka; Linux ELF inspected, not executed or deployed",
+  "binaries": {
+    "baseline-native": {
+      "bytes": 26226832,
+      "sha256": "b8badea3148987af41fdb0e1abe06449470a0d1c0fdd615a7ee8de5eb04d0797"
+    },
+    "final-native": {
+      "bytes": 22289568,
+      "sha256": "2b45eaa544290a215ba630711f7941932793233d905b45ff6bc959b8bfa5cc01"
+    },
+    "baseline-linux": {
+      "bytes": 24153128,
+      "sha256": "4b2e8c99b818e9ad67f8526859f054c2a7835af1e37e7235fbaa724ade6fa356"
+    },
+    "final-linux": {
+      "bytes": 19343608,
+      "sha256": "4a79a595ce9a9eea106eab7e8b59f698635f25c2a07eac594a17d455e2f42719"
+    }
+  },
+  "production_revision": "5e48320",
+  "preexisting_http_sources_in_tested_working_tree": {
+    "bin/rmqtt/Cargo.toml": "be2108c59cfc6224f2230ecdf01b1759842fb61ab4ed7d626c371ca0c2f7e757",
+    "bin/rmqtt/src/main.rs": "1c9916b25355a76cd802c690594cf31195950d815b83eafb944c0f6cf648690b",
+    "bin/rmqtt/src/cli.rs": "710823b3ae7054f30613f643996b90ae5e80db58e5512fe4d8ee11f0c6d6cfd9",
+    "bin/rmqtt/src/admin/access_control.rs": "337b17d90616abbf853b9886a05cf69818e300926a6e0df64ed4b125b03eea98",
+    "bin/rmqtt/src/admin/access_control_tests.rs": "d1a92f953315f799da01a88a691714707dd98b5dd11efcae6c5be24f0103739a"
+  }
+}

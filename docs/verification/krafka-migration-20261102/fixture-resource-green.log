@@ -1,0 +1,6 @@
+test_eight_topics_and_internal_offsets_survive_restart (__main__.FixtureRestart.test_eight_topics_and_internal_offsets_survive_restart) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 13.986s
+
+OK

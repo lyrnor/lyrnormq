@@ -1,0 +1,6 @@
+test_none_lz4_zstd_records_preserve_fifo_across_configuration_replacement (__main__.KafkaOutbound.test_none_lz4_zstd_records_preserve_fifo_across_configuration_replacement) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 7.419s
+
+OK

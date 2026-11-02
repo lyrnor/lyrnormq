@@ -1,10 +1,6 @@
 use crate::{KafkaConfig, owner::Owner};
+use krafka::Record;
 use mqtt_egress_core::{BatchLimits, FailureKind, SendError, Sink};
-use rdkafka::{
-    error::{KafkaError, RDKafkaErrorCode},
-    message::{Header, OwnedHeaders},
-    producer::FutureRecord,
-};
 use serde::Deserialize;
 use serde_json::value::RawValue;
 use std::borrow::Cow;
@@ -77,84 +73,22 @@ impl KafkaSink {
             return Err(permanent("request_too_large"));
         }
         let timestamp = i64::try_from(event.timestamp_ms).map_err(|_| permanent("kafka_event"))?;
-        let mut headers = OwnedHeaders::new();
-        for (k, v) in pairs {
-            headers = headers.insert(Header {
-                key: k,
-                value: Some(v),
-            });
+        let mut record = Record::new(
+            self.config.topic.clone(),
+            event.data.get().as_bytes().to_vec(),
+        )
+        .key(key.into_bytes())
+        .timestamp(timestamp);
+        for (key, value) in pairs {
+            record = record.header(key, value.as_bytes().to_vec());
         }
-        // Borrow native producer only for immediate enqueue. The owner thread retains
-        // its final Arc and owns purge/destruction; no native reference survives await.
-        let future = {
-            let guard = self
-                .owner
-                .producer
-                .lock()
-                .map_err(|_| retryable("kafka_closed"))?;
-            let producer = guard.as_ref().ok_or_else(|| retryable("kafka_closed"))?;
-            producer
-                .send_result(
-                    FutureRecord::to(&self.config.topic)
-                        .payload(event.data.get())
-                        .key(&key)
-                        .headers(headers)
-                        .timestamp(timestamp),
-                )
-                .map_err(|(e, _)| classify(e))?
-        };
-        match future.await {
-            Ok(Ok(_)) => {
-                self.owner
-                    .security_failure
-                    .store(0, std::sync::atomic::Ordering::Relaxed);
-                Ok(())
-            }
-            Ok(Err((e, _))) => {
-                let error = match self
-                    .owner
-                    .security_failure
-                    .load(std::sync::atomic::Ordering::Relaxed)
-                {
-                    1 => permanent("kafka_auth"),
-                    2 => permanent("kafka_tls"),
-                    _ => classify(e),
-                };
-                Err(error)
-            }
-            Err(_) => Err(retryable("kafka_cancelled")),
-        }
+        self.owner.send(record).await
     }
 }
 fn permanent(code: &str) -> SendError {
     SendError {
         kind: FailureKind::Permanent,
         code: code.into(),
-    }
-}
-fn retryable(code: &str) -> SendError {
-    SendError {
-        kind: FailureKind::Retryable,
-        code: code.into(),
-    }
-}
-fn classify(e: KafkaError) -> SendError {
-    let code = e.rdkafka_error_code();
-    match code {
-        Some(
-            RDKafkaErrorCode::TopicAuthorizationFailed
-            | RDKafkaErrorCode::ClusterAuthorizationFailed
-            | RDKafkaErrorCode::Authentication
-            | RDKafkaErrorCode::SaslAuthenticationFailed
-            | RDKafkaErrorCode::UnsupportedSASLMechanism,
-        ) => permanent("kafka_auth"),
-        Some(RDKafkaErrorCode::MessageSizeTooLarge | RDKafkaErrorCode::InvalidMessageSize) => {
-            permanent("request_too_large")
-        }
-        Some(RDKafkaErrorCode::InvalidTopic) => permanent("kafka_topic"),
-        Some(RDKafkaErrorCode::SSL) => permanent("kafka_tls"),
-        Some(RDKafkaErrorCode::QueueFull) => retryable("kafka_queue_full"),
-        _ => retryable("kafka_delivery"),
     }
 }
 impl Sink for KafkaSink {
@@ -220,17 +154,6 @@ fn data_key(data: &str, field: &str) -> Result<String, SendError> {
     Ok(value)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn native_authentication_error_is_permanent() {
-        assert_eq!(
-            classify(KafkaError::Global(RDKafkaErrorCode::Authentication)).kind,
-            FailureKind::Permanent
-        );
-    }
-}
 #[cfg(test)]
 mod key_tests {
     use super::*;
