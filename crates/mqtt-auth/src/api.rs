@@ -62,6 +62,16 @@ impl std::error::Error for AuthError {}
 pub trait AccessControl: fmt::Debug + Send + Sync {
     fn authenticate(&self, info: ConnectInfo<'_>) -> Result<Principal, AuthError>;
     fn authorize(&self, principal: &Principal, action: Action, resource: &str) -> bool;
+    /// Contextual policy hook. Legacy policies retain their original behavior.
+    fn authorize_for_client(
+        &self,
+        principal: &Principal,
+        _client_id: &str,
+        action: Action,
+        resource: &str,
+    ) -> bool {
+        self.authorize(principal, action, resource)
+    }
 }
 
 /// Backward-compatible open anonymous policy. Supplied credentials are refused.

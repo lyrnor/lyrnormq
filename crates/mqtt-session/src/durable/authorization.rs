@@ -6,6 +6,11 @@ use mqtt_auth::{Action, Principal};
 use mqtt_protocol::Packet;
 
 impl SessionEngine {
+    /// Bind a synchronous speculative policy to a proposal without changing rows.
+    pub fn set_access_control(&mut self, access: std::sync::Arc<dyn mqtt_auth::AccessControl>) {
+        self.access = access;
+    }
+
     pub(super) fn validate_owner(owner: &str) -> Result<(), EngineError> {
         if owner.is_empty() || owner.len() > 65535 || owner.contains('\0') {
             return Err(invalid_record("invalid principal identity"));
