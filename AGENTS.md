@@ -32,3 +32,5 @@ Generic scheduling must not depend on HTTP or import reqwest.
 Bounded outbound concurrency additionally follows `docs/contracts/phase5d-outbound-concurrency.md`.
 
 Client-ordered outbounds additionally follow `docs/contracts/phase5e-client-ordered-outbounds.md`.
+
+Generic durable outbound queues additionally follow `docs/contracts/phase5f-durable-outbound-queue.md`. Storage owner for this phase owns crates/mqtt-egress-log; coordinator also owns the small Dashboard status integration.
