@@ -1,0 +1,18 @@
+[package]
+name = "mqtt-auth-postgres"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+mqtt-auth = { path = "../mqtt-auth" }
+mqtt-router = { path = "../mqtt-router" }
+tokio.workspace = true
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+argon2 = "0.5"
+zeroize = "1"
+
+[dev-dependencies]
+serde_json = "1"

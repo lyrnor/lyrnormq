@@ -144,3 +144,35 @@ jobs:
         with:
           name: fuzz-failure-inputs
           path: /tmp/rmqtt-fuzz-artifacts/
+
+  postgres-access:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 15432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build embedded Dashboard
+        working-directory: dashboard/web
+        run: npm ci && npm run build
+      - run: cargo test --locked -p mqtt-auth-postgres -- --include-ignored
+      - run: cargo clippy --locked -p mqtt-auth-postgres -p mqtt-auth-http --all-targets -- -D warnings
+      - run: cargo check --locked -p rmqtt --no-default-features
+      - run: cargo build --locked -p rmqtt
+      - name: PostgreSQL MQTT and management acceptance
+        env:
+          RMQTT_BIN: ${{ github.workspace }}/target/debug/rmqtt
+        run: python3 tests/postgres_access_blackbox.py -v

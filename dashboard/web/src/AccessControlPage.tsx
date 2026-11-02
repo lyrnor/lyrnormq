@@ -20,6 +20,7 @@ import { Field } from "./components/ui/field";
 import { Switch } from "./components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { AccessControlFields } from "./AccessControlFields";
+import { PostgresConnectionTest } from "./PostgresConnectionTest";
 import { AccessControlTest } from "./AccessControlTest";
 import {
   ACCESS_PATH,
@@ -169,8 +170,8 @@ export function AccessControlPage({
     ) {
       setError(
         stage === "authentication"
-          ? "请先停用 HTTP 授权，再停用 HTTP 认证，或先配置本地账号。"
-          : "请先保存并启用 HTTP 认证，或配置本地账号后再启用 HTTP 授权。",
+          ? "请先停用 授权，再停用 认证，或先配置本地账号。"
+          : "请先保存并启用 认证，或配置本地账号后再启用 授权。",
       );
       return;
     }
@@ -262,15 +263,15 @@ export function AccessControlPage({
   const localAccounts = configuration?.instance.auth_policy;
   const fallback =
     !config.authentication.enabled && !config.authorization.enabled
-      ? "HTTP 认证与授权均未启用，当前使用原有认证与授权策略。"
+      ? "认证与授权均未启用，当前使用原有认证与授权策略。"
       : !config.authorization.enabled &&
           localAccounts === false &&
           config.authentication.enabled
-        ? "HTTP 认证通过的设备当前可以发布和订阅所有主题。启用 HTTP 授权可设置访问限制。"
+        ? "认证通过的设备当前可以发布和订阅所有主题。启用 授权可设置访问限制。"
         : !config.authorization.enabled
           ? localAccounts === true
-            ? "HTTP 授权未启用，当前使用本地授权策略。"
-            : "HTTP 授权未启用，具体权限由当前认证策略决定。"
+            ? "授权未启用，当前使用本地授权策略。"
+            : "授权未启用，具体权限由当前认证策略决定。"
           : null;
   return (
     <div className="grid gap-5">
@@ -304,7 +305,10 @@ export function AccessControlPage({
         <TabsContent value={stage} className="grid gap-5">
           <Card className="gap-4 p-5 shadow-none">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">HTTP {label}</h2>
+              <h2 className="text-base font-semibold">
+                {draft.value.type === "postgresql" ? "PostgreSQL" : "HTTP"}{" "}
+                {label}
+              </h2>
               <Badge
                 variant={
                   current?.last_result === "unavailable" && current.enabled
@@ -316,9 +320,11 @@ export function AccessControlPage({
               </Badge>
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              {stage === "authentication"
-                ? "校验设备用户名和密码，通过返回 204，拒绝返回 401。"
-                : "校验设备对指定 Topic 的操作权限，允许返回 204，拒绝返回 403。"}
+              {draft.value.type === "postgresql"
+                ? "使用配置的 SQL 查询业务数据，数据库异常时拒绝本次新操作。"
+                : stage === "authentication"
+                  ? "校验设备用户名和密码，通过返回 204，拒绝返回 401。"
+                  : "校验设备对指定 Topic 的操作权限，允许返回 204，拒绝返回 403。"}
             </p>
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               {[
@@ -335,6 +341,12 @@ export function AccessControlPage({
                 </div>
               ))}
             </div>
+            {current?.pool_connections !== undefined && (
+              <p className="text-xs text-muted-foreground">
+                数据库连接：{current.pool_connections}，空闲：
+                {current.pool_idle_connections ?? 0}
+              </p>
+            )}
             {statusError && (
               <p className="text-xs text-muted-foreground">{statusError}</p>
             )}
@@ -346,7 +358,7 @@ export function AccessControlPage({
             >
               <div className="flex items-center justify-between gap-4 border-b pb-4">
                 <h3 className="font-semibold">{label}服务</h3>
-                <Field label={`启用 HTTP ${label}`}>
+                <Field label={`启用${label}`}>
                   <Switch
                     checked={draft.value.enabled}
                     disabled={busy}
@@ -359,43 +371,56 @@ export function AccessControlPage({
               <AccessControlFields
                 key={stage}
                 draft={draft}
+                postgresAvailable={status?.postgresql_available !== false}
                 onChange={update}
                 busy={busy}
               />
-              <Collapsible className="rounded-lg border">
-                <CollapsibleTrigger className="w-full px-4 py-3 text-left text-sm font-medium">
-                  查看接口示例
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="border-t p-4 text-xs leading-relaxed text-muted-foreground">
-                    <p>由 Broker 调用你的服务，请求内容自动生成。</p>
-                    <pre className="mt-3 overflow-auto rounded-md bg-muted p-3 text-foreground">
-                      {JSON.stringify(
-                        stage === "authentication"
-                          ? {
-                              client_id: "device-001",
-                              username: "device-001",
-                              password: "******",
-                            }
-                          : {
-                              client_id: "device-001",
-                              username: "device-001",
-                              action: "publish",
-                              topic: "devices/device-001/telemetry",
-                            },
-                        null,
-                        2,
-                      )}
-                    </pre>
-                    <p className="mt-3">
-                      {stage === "authentication"
-                        ? "返回 204 表示认证通过，401 表示认证失败。"
-                        : "返回 204 表示允许，403 表示拒绝当前操作。"}
-                      不需要响应内容。
-                    </p>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+              {draft.value.type === "postgresql" && (
+                <PostgresConnectionTest
+                  key={stage}
+                  draft={draft}
+                  stage={stage}
+                  token={token}
+                  expired={expired}
+                  disabled={busy}
+                />
+              )}
+              {draft.value.type === "http" && (
+                <Collapsible className="rounded-lg border">
+                  <CollapsibleTrigger className="w-full px-4 py-3 text-left text-sm font-medium">
+                    查看接口示例
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border-t p-4 text-xs leading-relaxed text-muted-foreground">
+                      <p>由 Broker 调用你的服务，请求内容自动生成。</p>
+                      <pre className="mt-3 overflow-auto rounded-md bg-muted p-3 text-foreground">
+                        {JSON.stringify(
+                          stage === "authentication"
+                            ? {
+                                client_id: "device-001",
+                                username: "device-001",
+                                password: "******",
+                              }
+                            : {
+                                client_id: "device-001",
+                                username: "device-001",
+                                action: "publish",
+                                topic: "devices/device-001/telemetry",
+                              },
+                          null,
+                          2,
+                        )}
+                      </pre>
+                      <p className="mt-3">
+                        {stage === "authentication"
+                          ? "返回 204 表示认证通过，401 表示认证失败。"
+                          : "返回 204 表示允许，403 表示拒绝当前操作。"}
+                        不需要响应内容。
+                      </p>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
               {stage === "authorization" && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
                   <div>

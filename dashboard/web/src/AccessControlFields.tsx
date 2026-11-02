@@ -13,6 +13,7 @@ import { SingleSelect } from "./components/ui/single-select";
 import { Switch } from "./components/ui/switch";
 import {
   changeServiceAuth,
+  postgresDefaults,
   type AccessDraft,
   type ServiceAuth,
 } from "./access-control-model";
@@ -45,14 +46,18 @@ function Fold({
   );
 }
 
+import { PostgresAccessFields } from "./PostgresAccessFields";
+
 export function AccessControlFields({
   draft,
   onChange,
   busy,
+  postgresAvailable = true,
 }: {
   draft: AccessDraft;
   onChange: (draft: AccessDraft) => void;
   busy: boolean;
+  postgresAvailable?: boolean;
 }) {
   const c = draft.value,
     s = c.service_auth;
@@ -73,149 +78,190 @@ export function AccessControlFields({
           required
         />
       </Field>
-      <Field label="请求地址">
-        <Input
-          type="url"
-          value={c.url}
-          maxLength={2048}
-          placeholder="https://example.com/mqtt/authenticate"
-          disabled={busy}
-          onChange={(e) => patch({ url: e.target.value })}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </Field>
-      <Field label="服务鉴权">
+      <Field label="后端类型">
         <SingleSelect
-          value={s.type}
+          value={c.type}
           disabled={busy}
           options={[
-            { value: "none", label: "无" },
-            { value: "bearer", label: "Bearer Token" },
-            { value: "basic", label: "Basic Auth" },
-            { value: "headers", label: "自定义请求头" },
+            { value: "http", label: "HTTP" },
+            ...(postgresAvailable
+              ? [{ value: "postgresql", label: "PostgreSQL" }]
+              : []),
           ]}
           onValueChange={(value) =>
-            patch({
-              service_auth: changeServiceAuth(value as ServiceAuth["type"]),
+            onChange({
+              ...draft,
+              headers: [],
+              value: {
+                ...c,
+                type: value as "http" | "postgresql",
+                url: "",
+                service_auth: { type: "none" },
+                headers: {},
+                allow_http: false,
+                postgres:
+                  value === "postgresql"
+                    ? postgresDefaults("cache_ttl_seconds" in c)
+                    : undefined,
+              },
             })
           }
         />
       </Field>
-      {s.type === "bearer" && (
-        <Field label="服务 Token">
-          <Input
-            type="password"
-            value={s.token}
-            disabled={busy}
-            maxLength={1024}
-            autoComplete="off"
-            onChange={(e) =>
-              patch({ service_auth: { ...s, token: e.target.value } })
-            }
-          />
-        </Field>
-      )}
-      {s.type === "basic" && (
+      {c.type === "postgresql" ? (
+        <PostgresAccessFields
+          value={c.postgres ?? postgresDefaults("cache_ttl_seconds" in c)}
+          authorization={"cache_ttl_seconds" in c}
+          busy={busy}
+          onChange={(postgres) => patch({ postgres })}
+        />
+      ) : (
         <>
-          <Field label="服务用户名">
+          <Field label="请求地址">
             <Input
-              value={s.username}
+              type="url"
+              value={c.url}
+              maxLength={2048}
+              placeholder="https://example.com/mqtt/authenticate"
               disabled={busy}
-              maxLength={256}
+              onChange={(e) => patch({ url: e.target.value })}
               autoComplete="off"
-              onChange={(e) =>
-                patch({ service_auth: { ...s, username: e.target.value } })
-              }
-            />
-          </Field>
-          <Field label="服务密码">
-            <Input
-              type="password"
-              value={s.password}
-              disabled={busy}
-              maxLength={1024}
-              autoComplete="new-password"
-              onChange={(e) =>
-                patch({ service_auth: { ...s, password: e.target.value } })
-              }
-            />
-          </Field>
-        </>
-      )}
-      {(s.type === "bearer" || s.type === "basic") && (
-        <p className="-mt-3 text-xs text-muted-foreground">
-          这是 Broker
-          访问服务的凭据，与设备登录密码分开。已有凭据已隐藏，输入新值即可替换。
-        </p>
-      )}
-      <Fold title="请求头" open={headersOpen} onOpenChange={setHeadersOpen}>
-        {draft.headers.map((header, index) => (
-          <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-            <Input
-              aria-label={`请求头名称 ${index + 1}`}
-              placeholder="名称"
-              value={header.name}
-              disabled={busy}
-              onChange={(e) =>
-                onChange({
-                  ...draft,
-                  headers: draft.headers.map((v, i) =>
-                    i === index ? { ...v, name: e.target.value } : v,
-                  ),
-                })
-              }
               spellCheck={false}
             />
-            <Input
-              aria-label={`请求头值 ${index + 1}`}
-              type="password"
-              placeholder="值"
-              value={header.value}
+          </Field>
+          <Field label="服务鉴权">
+            <SingleSelect
+              value={s.type}
               disabled={busy}
-              autoComplete="off"
-              onChange={(e) =>
-                onChange({
-                  ...draft,
-                  headers: draft.headers.map((v, i) =>
-                    i === index ? { ...v, value: e.target.value } : v,
-                  ),
+              options={[
+                { value: "none", label: "无" },
+                { value: "bearer", label: "Bearer Token" },
+                { value: "basic", label: "Basic Auth" },
+                { value: "headers", label: "自定义请求头" },
+              ]}
+              onValueChange={(value) =>
+                patch({
+                  service_auth: changeServiceAuth(value as ServiceAuth["type"]),
                 })
               }
             />
+          </Field>
+          {s.type === "bearer" && (
+            <Field label="服务 Token">
+              <Input
+                type="password"
+                value={s.token}
+                disabled={busy}
+                maxLength={1024}
+                autoComplete="off"
+                onChange={(e) =>
+                  patch({ service_auth: { ...s, token: e.target.value } })
+                }
+              />
+            </Field>
+          )}
+          {s.type === "basic" && (
+            <>
+              <Field label="服务用户名">
+                <Input
+                  value={s.username}
+                  disabled={busy}
+                  maxLength={256}
+                  autoComplete="off"
+                  onChange={(e) =>
+                    patch({ service_auth: { ...s, username: e.target.value } })
+                  }
+                />
+              </Field>
+              <Field label="服务密码">
+                <Input
+                  type="password"
+                  value={s.password}
+                  disabled={busy}
+                  maxLength={1024}
+                  autoComplete="new-password"
+                  onChange={(e) =>
+                    patch({ service_auth: { ...s, password: e.target.value } })
+                  }
+                />
+              </Field>
+            </>
+          )}
+          {(s.type === "bearer" || s.type === "basic") && (
+            <p className="-mt-3 text-xs text-muted-foreground">
+              这是 Broker
+              访问服务的凭据，与设备登录密码分开。已有凭据已隐藏，输入新值即可替换。
+            </p>
+          )}
+          <Fold title="请求头" open={headersOpen} onOpenChange={setHeadersOpen}>
+            {draft.headers.map((header, index) => (
+              <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                <Input
+                  aria-label={`请求头名称 ${index + 1}`}
+                  placeholder="名称"
+                  value={header.name}
+                  disabled={busy}
+                  onChange={(e) =>
+                    onChange({
+                      ...draft,
+                      headers: draft.headers.map((v, i) =>
+                        i === index ? { ...v, name: e.target.value } : v,
+                      ),
+                    })
+                  }
+                  spellCheck={false}
+                />
+                <Input
+                  aria-label={`请求头值 ${index + 1}`}
+                  type="password"
+                  placeholder="值"
+                  value={header.value}
+                  disabled={busy}
+                  autoComplete="off"
+                  onChange={(e) =>
+                    onChange({
+                      ...draft,
+                      headers: draft.headers.map((v, i) =>
+                        i === index ? { ...v, value: e.target.value } : v,
+                      ),
+                    })
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`移除请求头 ${index + 1}`}
+                  disabled={busy}
+                  onClick={() =>
+                    onChange({
+                      ...draft,
+                      headers: draft.headers.filter((_, i) => i !== index),
+                    })
+                  }
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={`移除请求头 ${index + 1}`}
-              disabled={busy}
+              variant="outline"
+              className="w-fit"
+              disabled={busy || draft.headers.length >= 32}
               onClick={() =>
                 onChange({
                   ...draft,
-                  headers: draft.headers.filter((_, i) => i !== index),
+                  headers: [...draft.headers, { name: "", value: "" }],
                 })
               }
             >
-              <Trash2 className="size-4" />
+              <Plus className="size-4" />
+              添加请求头
             </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          className="w-fit"
-          disabled={busy || draft.headers.length >= 32}
-          onClick={() =>
-            onChange({
-              ...draft,
-              headers: [...draft.headers, { name: "", value: "" }],
-            })
-          }
-        >
-          <Plus className="size-4" />
-          添加请求头
-        </Button>
-      </Fold>
+          </Fold>
+        </>
+      )}
       <Fold title="高级设置">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="请求超时（ms）">
@@ -263,19 +309,23 @@ export function AccessControlFields({
             </p>
           </>
         )}
-        <Field label="允许明文 HTTP">
-          <Switch
-            checked={c.allow_http}
-            disabled={busy}
-            onCheckedChange={(checked) => patch({ allow_http: checked })}
-          />
-        </Field>
-        {c.allow_http && (
-          <Alert>
-            <AlertDescription>
-              明文连接无法保护传输中的设备密码和服务凭据，请仅在可信网络中使用。
-            </AlertDescription>
-          </Alert>
+        {c.type === "http" && (
+          <>
+            <Field label="允许明文 HTTP">
+              <Switch
+                checked={c.allow_http}
+                disabled={busy}
+                onCheckedChange={(checked) => patch({ allow_http: checked })}
+              />
+            </Field>
+            {c.allow_http && (
+              <Alert>
+                <AlertDescription>
+                  明文连接无法保护传输中的设备密码和服务凭据，请仅在可信网络中使用。
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
         )}
       </Fold>
     </div>

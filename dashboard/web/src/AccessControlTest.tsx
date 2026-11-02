@@ -182,7 +182,9 @@ export function AccessControlTest({
             <AlertDescription>
               <strong>
                 {result.result === "unavailable"
-                  ? "服务异常，请检查地址、网络和服务鉴权。"
+                  ? draft.value.type === "postgresql"
+                    ? "数据库异常，请检查连接、SQL 和返回列。"
+                    : "服务异常，请检查地址、网络和服务鉴权。"
                   : result.result === "deny"
                     ? `${label === "认证" ? "认证失败" : "拒绝当前操作"}`
                     : `${label === "认证" ? "认证通过" : "允许当前操作"}`}

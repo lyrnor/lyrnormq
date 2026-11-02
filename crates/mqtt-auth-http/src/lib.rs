@@ -1,11 +1,14 @@
-//! Bounded HTTP device authentication and exact-operation authorization.
+//! Bounded HTTP/PostgreSQL device authentication and exact-operation authorization.
 mod attempt;
+mod backend;
 mod cache;
 mod client;
 mod config;
 mod error;
 mod persistence;
 mod policy;
+#[cfg(all(test, feature = "postgres-auth"))]
+mod postgres_tests;
 mod runtime;
 mod status;
 #[cfg(test)]

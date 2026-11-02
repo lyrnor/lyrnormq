@@ -71,6 +71,13 @@ struct AuthorizationTest {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Empty {}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConnectionTest {
+    // Also accept the authorization form's optional cache TTL.
+    config: AuthorizationConfig,
+    stage: String,
+}
 
 fn failure(cause: Error) -> Response {
     let (status, code, message) = match cause {
@@ -123,6 +130,7 @@ pub(super) async fn dispatch(state: &State, request: Request) -> Response {
         "/api/v1/access-control/status" => method == Method::GET,
         "/api/v1/access-control/test/authentication"
         | "/api/v1/access-control/test/authorization"
+        | "/api/v1/access-control/test/connection"
         | "/api/v1/access-control/cache/clear" => method == Method::POST,
         _ => {
             return error(
@@ -195,6 +203,22 @@ pub(super) async fn dispatch(state: &State, request: Request) -> Response {
             return malformed();
         }
         return Json(runtime.clear_cache().await).into_response();
+    }
+    if path.ends_with("/test/connection") {
+        let test: ConnectionTest = match serde_json::from_slice(&bytes) {
+            Ok(test) => test,
+            Err(_) => return malformed(),
+        };
+        if !matches!(test.stage.as_str(), "authentication" | "authorization") {
+            return malformed();
+        }
+        return match runtime
+            .probe_connection(test.config.backend, test.stage == "authorization")
+            .await
+        {
+            Ok(result) => Json(result).into_response(),
+            Err(cause) => failure(cause),
+        };
     }
     if path.ends_with("/test/authentication") {
         let test: AuthenticationTest = match serde_json::from_slice(&bytes) {

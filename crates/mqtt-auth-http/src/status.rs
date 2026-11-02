@@ -6,6 +6,10 @@ use std::sync::{
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct StageStatus {
     pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pool_connections: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pool_idle_connections: Option<usize>,
     pub requests_total: u64,
     pub allowed_total: u64,
     pub denied_total: u64,
@@ -24,6 +28,7 @@ pub struct CacheStatus {
 }
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Status {
+    pub postgresql_available: bool,
     pub authentication: StageStatus,
     pub authorization: StageStatus,
     pub cache: CacheStatus,
@@ -73,6 +78,8 @@ impl Counters {
         let last = self.last.lock().unwrap_or_else(PoisonError::into_inner);
         StageStatus {
             enabled,
+            pool_connections: None,
+            pool_idle_connections: None,
             requests_total: self.requests.load(Ordering::Relaxed),
             allowed_total: self.allowed.load(Ordering::Relaxed),
             denied_total: self.denied.load(Ordering::Relaxed),

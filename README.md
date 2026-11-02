@@ -626,3 +626,11 @@ The [HTTP authentication and ACL v1 contract](docs/http-auth-api.md) and
 [OpenAPI definition](docs/api/http-auth-v1.openapi.json) define the next backend
 integration. This is documentation only; the current Broker does not implement
 these external HTTP calls.
+
+
+### PostgreSQL authentication and authorization
+
+The Dashboard supports independently selecting HTTP or PostgreSQL for authentication
+and authorization. PostgreSQL uses SQLx, configurable parameterized SQL and output
+column aliases, with Argon2id password verification and bounded MQTT ACL evaluation.
+No fixed business tables are required. See [configuration, SQL contracts and limits](docs/postgres-auth.md).

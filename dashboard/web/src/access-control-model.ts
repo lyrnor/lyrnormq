@@ -3,8 +3,35 @@ export type ServiceAuth =
   | { type: "none" | "headers" }
   | { type: "bearer"; token: string }
   | { type: "basic"; username: string; password: string };
+export interface PostgresConfig {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  tls_mode: "verify_full" | "disable";
+  ca_pem: string | null;
+  max_connections: number;
+  query: string;
+}
+export function postgresDefaults(authorization: boolean): PostgresConfig {
+  return {
+    host: "localhost",
+    port: 5432,
+    database: "mqtt",
+    username: "mqtt",
+    password: "",
+    tls_mode: "verify_full",
+    ca_pem: null,
+    max_connections: 8,
+    query: authorization
+      ? "SELECT effect, topic_filter, priority FROM mqtt_acl WHERE username = $1 AND (client_id IS NULL OR client_id = $2) AND action = $3 AND enabled = TRUE"
+      : "SELECT password_hash FROM mqtt_users WHERE username = $1 AND enabled = TRUE",
+  };
+}
 export interface BackendConfig {
-  type: "http";
+  type: "http" | "postgresql";
+  postgres?: PostgresConfig;
   enabled: boolean;
   name: string;
   url: string;
@@ -23,6 +50,8 @@ export interface AccessConfig {
   authorization: AuthorizationConfig;
 }
 export interface StageStatus {
+  pool_connections?: number;
+  pool_idle_connections?: number;
   enabled: boolean;
   requests_total: number;
   allowed_total: number;
@@ -40,6 +69,7 @@ export interface CacheStatus {
   inflight: number;
 }
 export interface AccessStatus {
+  postgresql_available?: boolean;
   authentication: StageStatus;
   authorization: StageStatus;
   cache: CacheStatus;
@@ -110,7 +140,7 @@ export function validateAccessDraft(
   const c = draft.value;
   if (!c.name.trim() || utf8Bytes(c.name) > 128 || control.test(c.name))
     return "名称不能为空，且最多 128 字节。";
-  if (c.url || c.enabled || probe) {
+  if (c.type === "http" && (c.url || c.enabled || probe)) {
     let url: URL;
     try {
       url = new URL(c.url);
@@ -153,6 +183,40 @@ export function validateAccessDraft(
       c.cache_ttl_seconds > 300)
   )
     return "缓存时间应为 0–300 秒，0 表示不缓存。";
+  if (c.type === "postgresql") {
+    const p = c.postgres;
+    if (
+      !p ||
+      !p.host ||
+      utf8Bytes(p.host) > 253 ||
+      /[\s/]/.test(p.host) ||
+      control.test(p.host) ||
+      !p.database ||
+      utf8Bytes(p.database) > 128 ||
+      control.test(p.database) ||
+      !p.username ||
+      utf8Bytes(p.username) > 128 ||
+      control.test(p.username)
+    )
+      return "请填写有效的 PostgreSQL 主机、数据库和用户名。";
+    if (!Number.isInteger(p.port) || p.port < 1 || p.port > 65535)
+      return "数据库端口应为 1–65535。";
+    if (
+      !Number.isInteger(p.max_connections) ||
+      p.max_connections < 1 ||
+      p.max_connections > 32
+    )
+      return "连接池上限应为 1–32。";
+    if (utf8Bytes(p.password) > 1024 || p.password.includes("\0"))
+      return "数据库密码最多 1024 字节。";
+    if (!p.query.trim() || utf8Bytes(p.query) > 16384 || p.query.includes("\0"))
+      return "请填写查询 SQL，最多 16384 字节。";
+    if (!["verify_full", "disable"].includes(p.tls_mode))
+      return "请选择有效的 TLS 模式。";
+    if (p.ca_pem !== null && (!p.ca_pem || utf8Bytes(p.ca_pem) > 16384))
+      return "CA 证书最多 16384 字节。";
+    return null;
+  }
   const s = c.service_auth;
   if (
     s.type === "bearer" &&

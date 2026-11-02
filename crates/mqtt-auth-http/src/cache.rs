@@ -1,4 +1,4 @@
-use crate::{AclQuery, CacheStatus, client::Client};
+use crate::{AclQuery, CacheStatus, backend::Client};
 use mqtt_auth::RemoteAccessError;
 use std::{
     collections::BTreeMap,

@@ -1,6 +1,6 @@
 use crate::{
     AclQuery, AuthorizationConfig, BackendConfig, CacheStatus, Config, Error, ProbeResult, Status,
-    attempt::Attempt, cache::Cache, client::Client, persistence::Owner,
+    attempt::Attempt, backend::Client, cache::Cache, persistence::Owner,
 };
 use mqtt_auth::{AccessAttempt, AccessControl, ConnectInfo, RemoteAccess};
 use std::{
@@ -152,14 +152,15 @@ impl Runtime {
     pub async fn status(&self) -> Status {
         let g = self.snapshot();
         Status {
+            postgresql_available: cfg!(feature = "postgres-auth"),
             authentication: g
                 .authentication
                 .as_ref()
-                .map_or_else(Default::default, |c| c.counters.status(true)),
+                .map_or_else(Default::default, |c| c.status()),
             authorization: g
                 .authorization
                 .as_ref()
-                .map_or_else(Default::default, |c| c.counters.status(true)),
+                .map_or_else(Default::default, |c| c.status()),
             cache: self.shared.cache.status(),
         }
     }
@@ -215,6 +216,29 @@ impl Runtime {
     }
     pub async fn clear_cache(&self) -> CacheStatus {
         self.shared.cache.clear()
+    }
+    pub async fn probe_connection(
+        &self,
+        mut config: BackendConfig,
+        authorization: bool,
+    ) -> Result<ProbeResult, Error> {
+        if self.is_stopped() {
+            return Err(Error::Stopped);
+        }
+        let _slot = probe_slots()
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Busy)?;
+        let old = self.snapshot();
+        config.restore(if authorization {
+            &old.config.authorization.backend
+        } else {
+            &old.config.authentication
+        })?;
+        let client = tokio::task::spawn_blocking(move || Client::build(&config, true))
+            .await
+            .map_err(|_| Error::InvalidConfig)??;
+        client.probe_connection().await
     }
     pub async fn probe_authentication(
         &self,

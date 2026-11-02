@@ -125,7 +125,7 @@ describe("HTTP authentication and authorization dashboard", () => {
     expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
       "HTTP 认证",
     );
-    expect(screen.getByRole("switch", { name: "启用 HTTP 认证" })).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "启用认证" })).toBeTruthy();
     expect(screen.queryByLabelText("请求超时（ms）")).toBeNull();
     expect(screen.queryByLabelText("ID")).toBeNull();
     expect(screen.queryByText(/SQLite|outbox|队列容量|SDK/)).toBeNull();
@@ -323,7 +323,7 @@ describe("HTTP authentication and authorization dashboard", () => {
     server();
     render(<AccessControlPage token="token" expired={expired} />);
     await ready();
-    fireEvent.click(screen.getByRole("switch", { name: "启用 HTTP 认证" }));
+    fireEvent.click(screen.getByRole("switch", { name: "启用认证" }));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await screen.findByText("认证配置已保存。");
     expect(screen.getByText("暂无调用结果")).toBeTruthy();
@@ -421,5 +421,51 @@ describe("HTTP authentication and authorization dashboard", () => {
       });
     });
     expect(screen.queryByText("认证通过")).toBeNull();
+  });
+});
+
+describe("PostgreSQL authentication dashboard", () => {
+  it("switches backends, saves custom SQL and offers database connection testing", async () => {
+    const saved = server();
+    render(<AccessControlPage token="token" expired={expired} />);
+    await ready();
+    await select("后端类型", "PostgreSQL");
+    expect(screen.queryByLabelText("请求地址")).toBeNull();
+    expect(screen.getByLabelText("数据库主机")).toBeTruthy();
+    expect(screen.getByLabelText("数据库 TLS")).toBeTruthy();
+    const sql =
+      "SELECT credential AS password_hash FROM accounts WHERE login = $1";
+    fireEvent.change(screen.getByLabelText("查询 SQL"), {
+      target: { value: sql },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await screen.findByText("认证配置已保存。");
+    expect(saved().authentication.type).toBe("postgresql");
+    expect(saved().authentication.postgres?.query).toBe(sql);
+    fireEvent.click(screen.getByRole("button", { name: "测试数据库连接" }));
+    await screen.findByText(/数据库连接失败/);
+    expect(
+      request.mock.calls.some(
+        ([path, , , options]) =>
+          path.endsWith("/test/connection") &&
+          (options?.body as { stage?: string })?.stage === "authentication",
+      ),
+    ).toBe(true);
+    expect(localStorage.length).toBe(0);
+  });
+});
+
+describe("compiled access backend availability", () => {
+  it("hides PostgreSQL when the broker was built without it", async () => {
+    server(config, { ...status, postgresql_available: false });
+    render(<AccessControlPage token="token" expired={expired} />);
+    await ready();
+    fireEvent.keyDown(screen.getByRole("button", { name: "后端类型" }), {
+      key: "ArrowDown",
+    });
+    await screen.findByRole("menuitemradio", { name: "HTTP" });
+    expect(
+      screen.queryByRole("menuitemradio", { name: "PostgreSQL" }),
+    ).toBeNull();
   });
 });

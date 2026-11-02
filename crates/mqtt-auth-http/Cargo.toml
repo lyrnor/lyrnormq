@@ -4,7 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["postgres-auth"]
+postgres-auth = ["dep:mqtt-auth-postgres"]
+
 [dependencies]
+mqtt-auth-postgres = { path = "../mqtt-auth-postgres", optional = true }
 mqtt-auth = { path = "../mqtt-auth" }
 mqtt-storage = { path = "../mqtt-storage" }
 mqtt-router = { path = "../mqtt-router" }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   accessDraft,
+  postgresDefaults,
   changeServiceAuth,
   draftValue,
   stageHealth,
@@ -122,5 +123,27 @@ describe("HTTP access-control form validation", () => {
     expect(
       stageHealth({ ...stage, requests_total: 1, last_result: "unavailable" }),
     ).toBe("服务异常");
+  });
+});
+
+describe("PostgreSQL access-control configuration", () => {
+  it("accepts configurable SQL/aliases and validates pool and secret limits", () => {
+    const draft = accessDraft({
+      ...endpoint,
+      type: "postgresql",
+      postgres: postgresDefaults(false),
+    });
+    expect(validateAccessDraft(draft, true)).toBeNull();
+    const p = draft.value.postgres!;
+    p.query =
+      "SELECT existing_password AS password_hash FROM business_users WHERE account=$1";
+    p.password = "[redacted]";
+    expect(validateAccessDraft(draft, true)).toBeNull();
+    expect(draftValue(draft).postgres?.query).toContain("business_users");
+    p.max_connections = 33;
+    expect(validateAccessDraft(draft)).toContain("连接池");
+    p.max_connections = 8;
+    p.query = " ";
+    expect(validateAccessDraft(draft)).toContain("SQL");
   });
 });

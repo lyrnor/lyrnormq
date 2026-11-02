@@ -38,6 +38,9 @@ pub struct BackendConfig {
     pub timeout_ms: u64,
     pub max_concurrency: usize,
     pub allow_http: bool,
+    #[cfg(feature = "postgres-auth")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub postgres: Option<mqtt_auth_postgres::Config>,
 }
 impl Default for BackendConfig {
     fn default() -> Self {
@@ -51,6 +54,8 @@ impl Default for BackendConfig {
             timeout_ms: 1000,
             max_concurrency: 128,
             allow_http: false,
+            #[cfg(feature = "postgres-auth")]
+            postgres: None,
         }
     }
 }
@@ -101,6 +106,8 @@ struct AuthorizationWire {
     timeout_ms: u64,
     max_concurrency: usize,
     allow_http: bool,
+    #[cfg(feature = "postgres-auth")]
+    postgres: Option<mqtt_auth_postgres::Config>,
     cache_ttl_seconds: u64,
 }
 impl Default for AuthorizationWire {
@@ -117,6 +124,8 @@ impl Default for AuthorizationWire {
             timeout_ms: b.timeout_ms,
             max_concurrency: b.max_concurrency,
             allow_http: b.allow_http,
+            #[cfg(feature = "postgres-auth")]
+            postgres: b.postgres,
             cache_ttl_seconds: c.cache_ttl_seconds,
         }
     }
@@ -135,6 +144,8 @@ impl<'de> Deserialize<'de> for AuthorizationConfig {
                 timeout_ms: w.timeout_ms,
                 max_concurrency: w.max_concurrency,
                 allow_http: w.allow_http,
+                #[cfg(feature = "postgres-auth")]
+                postgres: w.postgres,
             },
             cache_ttl_seconds: w.cache_ttl_seconds,
         })
@@ -161,13 +172,23 @@ fn secret(s: &str, max: usize) -> bool {
 }
 impl BackendConfig {
     pub(crate) fn validate(&self, force: bool) -> Result<(), Error> {
-        if self.kind != "http"
-            || self.name.is_empty()
+        if self.name.is_empty()
             || self.name.len() > 128
             || self.name.chars().any(char::is_control)
             || !(100..=5000).contains(&self.timeout_ms)
             || !(1..=256).contains(&self.max_concurrency)
         {
+            return Err(Error::InvalidConfig);
+        }
+        #[cfg(feature = "postgres-auth")]
+        if self.kind == "postgresql" {
+            let c = self.postgres.as_ref().ok_or(Error::InvalidConfig)?;
+            if !c.validate() {
+                return Err(Error::InvalidConfig);
+            }
+            return Ok(());
+        }
+        if self.kind != "http" {
             return Err(Error::InvalidConfig);
         }
         if force || self.enabled || !self.url.is_empty() {
@@ -264,6 +285,17 @@ impl BackendConfig {
             }
             Ok(())
         }
+        #[cfg(feature = "postgres-auth")]
+        if self.kind == "postgresql" {
+            let current = self.postgres.as_mut().ok_or(Error::InvalidConfig)?;
+            if current.password == REDACTED {
+                let previous = (old.kind == "postgresql")
+                    .then_some(old.postgres.as_ref())
+                    .flatten()
+                    .ok_or(Error::InvalidConfig)?;
+                current.password = previous.password.clone();
+            }
+        }
         match (&mut self.service_auth, &old.service_auth) {
             (ServiceAuth::Bearer { token }, ServiceAuth::Bearer { token: previous }) => {
                 restore(token, Some(previous))?
@@ -289,6 +321,10 @@ impl BackendConfig {
         Ok(())
     }
     pub(crate) fn redact(&mut self) {
+        #[cfg(feature = "postgres-auth")]
+        if let Some(c) = &mut self.postgres {
+            c.password = REDACTED.into();
+        }
         match &mut self.service_auth {
             ServiceAuth::Bearer { token } => *token = REDACTED.into(),
             ServiceAuth::Basic { password, .. } => *password = REDACTED.into(),
