@@ -1,0 +1,11 @@
+    Checking mqtt-router v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-router)
+    Checking mqtt-protocol v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-protocol)
+    Checking mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress-core)
+    Checking mqtt-storage v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-storage)
+    Checking mqtt-webhook v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-webhook)
+    Checking mqtt-auth v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-auth)
+    Checking mqtt-rules v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-rules)
+    Checking mqtt-session v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-session)
+    Checking mqtt-transport v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-transport)
+    Checking mqtt-egress v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.18s

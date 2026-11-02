@@ -1,0 +1,18 @@
+test_blocked_request_does_not_stall_other_and_retry_keeps_identity (__main__.OutboundConcurrency.test_blocked_request_does_not_stall_other_and_retry_keeps_identity) ... ok
+test_default_eight_reuses_keepalive_pool_across_two_bursts (__main__.OutboundConcurrency.test_default_eight_reuses_keepalive_pool_across_two_bursts) ... ok
+test_global_sixteen_across_same_and_different_hosts (__main__.OutboundConcurrency.test_global_sixteen_across_same_and_different_hosts) ... ok
+test_omitted_old_sqlite_defaults_to_eight_validates_and_recovers (__main__.OutboundConcurrency.test_omitted_old_sqlite_defaults_to_eight_validates_and_recovers) ... ok
+test_parallel_batches_keep_count_and_one_mib_byte_limits (__main__.OutboundConcurrency.test_parallel_batches_keep_count_and_one_mib_byte_limits) ... ok
+test_replacement_cancels_all_blocked_jobs_and_new_generation_progresses (__main__.OutboundConcurrency.test_replacement_cancels_all_blocked_jobs_and_new_generation_progresses) ... ok
+test_retry_backoff_releases_global_permits_for_other_outbound (__main__.OutboundConcurrency.test_retry_backoff_releases_global_permits_for_other_outbound) ... ok
+test_same_outbound_reaches_three_but_never_exceeds_and_mqtt_stays_live (__main__.OutboundConcurrency.test_same_outbound_reaches_three_but_never_exceeds_and_mqtt_stays_live) ... ok
+test_shutdown_cancels_blocked_jobs_and_does_not_replay_volatile_queue (__main__.OutboundConcurrency.test_shutdown_cancels_blocked_jobs_and_does_not_replay_volatile_queue) ... ok
+test_single_mode_preserves_order_including_retry (__main__.OutboundConcurrency.test_single_mode_preserves_order_including_retry) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 2.675s
+
+OK
+measured default peak=8, requests=16, accepted TCP connections=8
+measured global peak=16, completed=24, per-outbound peaks={'other-host': 5, 'send': 7, 'same-host': 6}
+measured same-outbound peak=3, completed=11

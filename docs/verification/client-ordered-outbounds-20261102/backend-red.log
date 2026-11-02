@@ -1,0 +1,28 @@
+   Compiling mqtt-router v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-router)
+   Compiling mqtt-protocol v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-protocol)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-storage)
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress-core)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-webhook)
+   Compiling mqtt-auth v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-auth)
+   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-rules)
+   Compiling mqtt-session v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-session)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-transport)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.92s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-c1dff689ded4e4cf)
+
+running 1 test
+
+thread 'worker::tests::same_client_does_not_overlap_even_with_concurrency_three' (15397061) panicked at crates/mqtt-egress/src/worker_tests.rs:498:5:
+one client's successor started before its predecessor completed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test worker::tests::same_client_does_not_overlap_even_with_concurrency_three ... FAILED
+
+failures:
+
+failures:
+    worker::tests::same_client_does_not_overlap_even_with_concurrency_three
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

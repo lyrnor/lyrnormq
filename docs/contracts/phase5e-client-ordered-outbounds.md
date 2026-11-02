@@ -54,7 +54,7 @@ lib.rs remains module declarations/docs/reexports only; new modules encouraged.
 
 ## Ownership and independent acceptance
 
-Backend owns crates/mqtt-egress/** (and internal egess-core changes only if agreed).
+Backend owns crates/mqtt-egress/** (and internal egress-core changes only if agreed).
 Public API/schema and adapter interface should stay compatible; internal Delivery
 constructor and Target admission can change. Coordinator owns docs/root/integration.
 UI owner owns dashboard/web/**: update help to client FIFO/different-client parallel,

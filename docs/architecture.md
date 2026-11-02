@@ -697,3 +697,21 @@ concurrency; pool expiry remains30s. HTTP classification/body behavior is unchan
 Concurrent arrival/completion order can vary; concurrency1 gives sequential batch
 execution/retries. SQL enqueue order and MQTT delivery guarantees remain unchanged.
 Old missing fields normalize8 without changing saved batching, IDs or secrets.
+
+
+## Phase5e: Client-ordered outbound scheduling
+
+[Phase5e](contracts/phase5e-client-ordered-outbounds.md) supersedes Phase5d's
+unordered batch scheduler. Internal source-client metadata selects exact client
+lanes per outbound/generation. One client batch owns its lane through attempts and
+retry backoff; only terminal success/failure releases the next batch. Different
+clients progress concurrently, with homogeneous-client batches. Backoff holds no
+HTTP-attempt permit: configured concurrency now bounds attempts, not sleeping jobs.
+Concurrency1 does not imply global FIFO across retrying clients.
+
+Aggregate resident-event admission, byte reservations, bounded lane/task state and
+idle-lane removal prevent moving backlog into an unbounded map. Source client ID
+bytes count toward reservations. Cancel/replacement/shutdown/storage error release
+all child jobs and local resources. Configuration/API/SQLite schemas, shared adapter
+pools and MQTT ACK/session/outbox behavior remain unchanged. No durable delivery or
+remote business-processing ordering guarantee is added.

@@ -1,0 +1,74 @@
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress-core)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-webhook)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.75s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-c1dff689ded4e4cf)
+
+running 33 tests
+test tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget ... ok
+test runtime::lifecycle_tests::storage_failure_waits_for_generation_cleanup_before_returning ... ok
+test tests::batches_only_within_configured_limits ... ok
+test tests::delivery_ids_distinguish_rule_action_fanout ... ok
+test tests::fixed_shard_preserves_same_publisher_processing_order ... ok
+test tests::invalid_saved_sqlite_configuration_fails_without_overwriting_payload ... ok
+test tests::evaluates_real_sql_and_posts_json_envelope ... ok
+test tests::rejects_configuration_symlink_and_non_sqlite_file ... ok
+test tests::rejects_invalid_and_dangerous_configuration ... ok
+test tests::concurrency_defaults_limits_and_sqlite_recovery_preserve_old_policy ... ok
+test tests::default_configuration_is_real_sqlite_and_releases_ownership ... ok
+test tests::failed_sqlite_write_preserves_previous_committed_configuration ... ok
+test tests::permanent_http_error_does_not_retry ... ok
+test tests::migrates_old_sqlite_blob_transactionally_and_rejects_new_wire_unknowns ... ok
+test tests::replacing_configuration_releases_old_keepalive_connection_pool ... ok
+test worker::tests::concurrent_jobs_reach_local_cap_and_cancel_without_budget_leaks ... ok
+test worker::tests::generic_worker_obeys_non_http_capabilities_and_error_classes ... ok
+test tests::cancelled_update_and_shutdown_callers_do_not_leave_database_locked ... ok
+test worker::tests::global_attempt_cap_is_shared_and_waiting_jobs_are_not_inflight ... ok
+test worker::tests::panicked_child_stops_scheduler_and_releases_every_lane_and_permit ... ok
+test worker::tests::resident_admission_bounds_one_held_client_and_cancel_releases_slots ... ok
+test worker::tests::one_job_drains_accepted_deliveries_sequentially_after_sender_closes ... ok
+test worker::tests::retry_backoff_releases_global_slot_and_does_not_block_another_job ... ok
+test worker::tests::immediate_success_client_churn_bounds_completed_jobs_and_lane_registry ... ok
+test tests::persists_configuration_redacts_and_preserves_headers_on_roundtrip ... ok
+test tests::retry_reuses_event_identifier_and_counts_per_event ... ok
+test tests::test_mode_has_no_network_side_effect_and_stopped_runtime_rejects_work ... ok
+test tests::rejected_configuration_does_not_commit_or_stop_runtime ... ok
+test worker::tests::same_client_does_not_overlap_even_with_concurrency_three ... ok
+test tests::reconfiguration_cancels_old_generation_and_counts_abandoned_events ... ok
+test tests::uncertain_sqlite_write_failure_stops_runtime_and_restores_actual_commit ... ok
+test worker::tests::worker_enforces_time_budget_and_rejects_invalid_adapter_limits ... ok
+test tests::storage_failure_returns_after_concurrent_attempts_are_cancelled ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s
+
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_core-5f56beebb75eccc5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_webhook-583ba3b92d8abc78)
+
+running 1 test
+test adapter::tests::custom_headers_are_sensitive_and_debug_is_redacted ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_egress
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_egress_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests mqtt_webhook
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

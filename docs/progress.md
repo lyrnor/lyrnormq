@@ -2223,3 +2223,30 @@ all local budgets;390px layout and CSP/console checks pass. No production TPS/p9
 claim. Evidence: docs/verification/outbound-concurrency-20261102/README.md.
 Remaining: dedicated end-to-end throughput/p99 tuning and durable outbound delivery
 are separate future work. Existing user service untouched; own QA processes closed.
+
+
+### Client-ordered concurrent outbounds (2026-11-02)
+
+Frozen phase5e contract at8a2dfcd; isolated backend, independent HTTP quality and
+Dashboard worktrees implemented it. Exact(outbound,sourceClientID) lanes preserve
+admitted event order across topics/rules/reconnects in a generation. Homogeneous
+batches execute one at a time perclient; differentclients overlap. Backoff releases
+both outbound and global attempt permits, including concurrency1. Terminalfailure
+countsfailed and continues the nextclientbatch. No new UI setting/API/schema or
+MQTT session/ACK/outbox change. Dashboard explains clientordering and retryisolation.
+
+Aggregate resident-event admission bounds channel+lanes+jobs. Completed JoinSet
+results retain batch reservations until reaped, fixing a review-discovered metadata
+retention gap; eager reaping and idle-lane removal prevent clientchurn accumulation.
+5000immediate-success clients verified lane/job peaks<=cap9; saturation,cancel and
+panicking-child tests verify counters/slots/bytescleanup. ClientID metadata counts
+against globalbytebudget. Exactkeys avoid unrelatedclient hashbucket serialization.
+
+Acceptance evidence: docs/verification/client-ordered-outbounds-20261102/README.md.
+Queued delivery remains volatile/best effort; durability and productionTPS/p99
+benchmarking remain separate work. No production service restarted or main merge.
+
+Final validation: Fmt,strict workspaceClippy,631Rusttests,81frontendtests,TS/Vite/
+Prettier and embeddedRelease pass.107Releaseblackboxtests pass, including9neworder
+and10existingconcurrency cases. ActualHTTP peaks8/16/3 and16requests over8TCP
+connections retained. Independent review found no remaining integration blockers.

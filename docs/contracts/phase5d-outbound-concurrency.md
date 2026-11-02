@@ -1,5 +1,7 @@
 # Phase5d — Bounded concurrent outbound requests (frozen 2026-11-02)
 
+**Scheduling/ordering superseded by [Phase5e](phase5e-client-ordered-outbounds.md).**
+
 Scope: generic outbound batch scheduling and existing Webhook connection-pool
 capacity, advanced UI and real concurrency acceptance. MQTT connection concurrency,
 SQL shard admission, session/ACK/outbox schemas and volatile queue semantics stay

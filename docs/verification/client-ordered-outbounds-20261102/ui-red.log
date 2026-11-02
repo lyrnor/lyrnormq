@@ -1,0 +1,61 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --run tests/rules-page.test.tsx
+
+
+ RUN  v3.2.7 /private/tmp/rmqtt-client-order-ui/dashboard/web
+
+ ❯ tests/rules-page.test.tsx (27 tests | 1 failed) 2385ms
+   ✓ live rule and Webhook management > creates without exposing an ID field 126ms
+   ✓ live rule and Webhook management > shows a plain disabled state without implementation details 10ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage 175ms
+   ✓ live rule and Webhook management > preserves redacted secrets and rejects deleting referenced outbound 208ms
+   ✓ live rule and Webhook management > creates outbound and rule with exact references then disables rule 226ms
+   ✓ live rule and Webhook management > binds only the selected identifier when outbound names are identical 97ms
+   ✓ live rule and Webhook management > rejects unknown outbound types without interpreting them as Webhook 7ms
+   ✓ live rule and Webhook management > SQL dry run only calls test endpoint and escapes output 45ms
+   ✓ live rule and Webhook management > keeps the generated ID across validation failure and a failed HTTP save 111ms
+   ✓ live rule and Webhook management > preserves existing rule identifiers and bindings when renaming 81ms
+   ✓ live rule and Webhook management > shows a controlled creation failure if secure identifiers cannot be generated 27ms
+   ✓ live rule and Webhook management > switches real tab panels through keyboard without writing configuration 63ms
+   ✓ live rule and Webhook management > clears auth on401 and aborts requests when leaving the page 3ms
+   ✓ live rule and Webhook management > polls status without overwriting an open form and stops while hidden 83ms
+   ✓ live rule and Webhook management > marks failed statistics stale and clears that warning after a successful sample 30ms
+   ✓ live rule and Webhook management > shows stopped execution explicitly while keeping published configuration inspectable 64ms
+   ✓ live rule and Webhook management > disables an already-open delete confirmation if execution stops 47ms
+   ✓ outbound request observations > labels in-progress attempts as requests independently of message counts 33ms
+   ✓ Webhook basic and advanced settings > only shows business fields initially and saves the system defaults 80ms
+   ✓ Webhook basic and advanced settings > retains advanced edits through collapse with no editable queue capacity 182ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 100/wait 50/concurrency 1 without opening advanced 77ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 7/wait 15/concurrency 16 without opening advanced 73ms
+   ✓ Webhook basic and advanced settings > expands hidden invalid tuning instead of submitting it 142ms
+   ✓ Webhook basic and advanced settings > rejects hidden concurrency 0 and focuses the expanded field 151ms
+   ✓ Webhook basic and advanced settings > rejects hidden concurrency 17 and focuses the expanded field 136ms
+   × Webhook basic and advanced settings > explains delivery order only inside the advanced panel 78ms
+     → expected '并发发送可能改变消息到达顺序；需要按顺序发送时设为 1。 投递失败后将按设…' to contain '同一客户端的消息按顺序发送，不同客户端可并发发送'
+   ✓ Webhook basic and advanced settings > keeps the rule enable switch and SQL immediately available 30ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/rules-page.test.tsx > Webhook basic and advanced settings > explains delivery order only inside the advanced panel
+AssertionError: expected '并发发送可能改变消息到达顺序；需要按顺序发送时设为 1。 投递失败后将按设…' to contain '同一客户端的消息按顺序发送，不同客户端可并发发送'
+
+Expected: "同一客户端的消息按顺序发送，不同客户端可并发发送"
+Received: "并发发送可能改变消息到达顺序；需要按顺序发送时设为 1。 投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。"
+
+ ❯ tests/rules-page.test.tsx:735:30
+    733|     fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+    734|     const note = screen.getByRole("note");
+    735|     expect(note.textContent).toContain("同一客户端的消息按顺序发送，不同客户端可并发发送");
+       |                              ^
+    736|     expect(note.textContent).toContain("重试只等待当前客户端，最终失败后继续下一条");
+    737|     expect(note.textContent).toContain("并发请求数限制同时发送的请求数量");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 26 passed (27)
+   Start at  11:00:24
+   Duration  4.28s (transform 286ms, setup 26ms, collect 774ms, tests 2.38s, environment 700ms, prepare 79ms)
+

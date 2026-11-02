@@ -1,0 +1,159 @@
+test_batches_are_client_homogeneous_and_fifo (__main__.ClientOrderedOutbounds.test_batches_are_client_homogeneous_and_fifo) ... FAIL
+test_many_client_lanes_drain_and_replacement_recovers_from_overload (__main__.ClientOrderedOutbounds.test_many_client_lanes_drain_and_replacement_recovers_from_overload) ... ok
+test_multiple_rules_share_one_client_lane (__main__.ClientOrderedOutbounds.test_multiple_rules_share_one_client_lane) ... FAIL
+test_reconnected_source_keeps_same_client_lane (__main__.ClientOrderedOutbounds.test_reconnected_source_keeps_same_client_lane) ... FAIL
+test_retry_backoff_releases_single_outbound_slot_for_other_client (__main__.ClientOrderedOutbounds.test_retry_backoff_releases_single_outbound_slot_for_other_client) ... FAIL
+test_retry_blocks_only_own_client_and_keeps_delivery_identity (__main__.ClientOrderedOutbounds.test_retry_blocks_only_own_client_and_keeps_delivery_identity) ... FAIL
+test_same_client_fifo_across_topics_while_other_client_overlaps (__main__.ClientOrderedOutbounds.test_same_client_fifo_across_topics_while_other_client_overlaps) ... FAIL
+test_terminal_failure_continues_same_client_after_retry_exhaustion (__main__.ClientOrderedOutbounds.test_terminal_failure_continues_same_client_after_retry_exhaustion) ... FAIL
+test_unrecoverable_failure_continues_without_retry (__main__.ClientOrderedOutbounds.test_unrecoverable_failure_continues_without_retry) ... FAIL
+
+======================================================================
+FAIL: test_batches_are_client_homogeneous_and_fifo (__main__.ClientOrderedOutbounds.test_batches_are_client_homogeneous_and_fifo)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 200, in test_batches_are_client_homogeneous_and_fifo
+    self.assertEqual({events(r)[0]['client_id'] for r in receiver.tracker.started},
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     {'batch-first', 'batch-second'})
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Items in the second set but not the first:
+'batch-second'
+
+======================================================================
+FAIL: test_multiple_rules_share_one_client_lane (__main__.ClientOrderedOutbounds.test_multiple_rules_share_one_client_lane)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 182, in test_multiple_rules_share_one_client_lane
+    self.assertEqual([(e['data']['seq'], e['rule_id']) for e in own], [(0, 'hot')])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [(1, 'hot'), (1, 'second'), (0, 'second'), (0, 'hot')] != [(0, 'hot')]
+
+First differing element 0:
+(1, 'hot')
+(0, 'hot')
+
+First list contains 3 additional elements.
+First extra element 1:
+(1, 'second')
+
+- [(1, 'hot'), (1, 'second'), (0, 'second'), (0, 'hot')]
++ [(0, 'hot')]
+
+======================================================================
+FAIL: test_reconnected_source_keeps_same_client_lane (__main__.ClientOrderedOutbounds.test_reconnected_source_keeps_same_client_lane)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 79, in test_reconnected_source_keeps_same_client_lane
+    self.assertEqual(sorted(seqs(receiver.tracker)), [0, 90])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [0, 1, 90] != [0, 90]
+
+First differing element 1:
+1
+90
+
+First list contains 1 additional elements.
+First extra element 2:
+90
+
+- [0, 1, 90]
+?     ---
+
++ [0, 90]
+
+======================================================================
+FAIL: test_retry_backoff_releases_single_outbound_slot_for_other_client (__main__.ClientOrderedOutbounds.test_retry_backoff_releases_single_outbound_slot_for_other_client)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 126, in test_retry_backoff_releases_single_outbound_slot_for_other_client
+    receiver.tracker.wait(lambda t: any(concurrency.sequence(r) == 90 for r in t.completed))
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_concurrency_blackbox.py", line 41, in wait
+    raise AssertionError(f'HTTP barrier timed out: active={self.active}, '
+                         f'started={len(self.started)}, completed={len(self.completed)}, '
+                         f'peak={self.peak}, closed={self.closed}')
+AssertionError: HTTP barrier timed out: active=0, started=1, completed=1, peak=1, closed=0
+
+======================================================================
+FAIL: test_retry_blocks_only_own_client_and_keeps_delivery_identity (__main__.ClientOrderedOutbounds.test_retry_blocks_only_own_client_and_keeps_delivery_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 100, in test_retry_blocks_only_own_client_and_keeps_delivery_identity
+    self.assertEqual(sorted(seqs(receiver.tracker)), [0, 90])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [0, 1, 2, 90] != [0, 90]
+
+First differing element 1:
+1
+90
+
+First list contains 2 additional elements.
+First extra element 2:
+2
+
+- [0, 1, 2, 90]
++ [0, 90]
+
+======================================================================
+FAIL: test_same_client_fifo_across_topics_while_other_client_overlaps (__main__.ClientOrderedOutbounds.test_same_client_fifo_across_topics_while_other_client_overlaps)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 55, in test_same_client_fifo_across_topics_while_other_client_overlaps
+    self.assertEqual(sorted(seqs(receiver.tracker)), [0, 90],
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     'later messages from held client must not start')
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [0, 1, 2, 90] != [0, 90]
+
+First differing element 1:
+1
+90
+
+First list contains 2 additional elements.
+First extra element 2:
+2
+
+- [0, 1, 2, 90]
++ [0, 90] : later messages from held client must not start
+
+======================================================================
+FAIL: test_terminal_failure_continues_same_client_after_retry_exhaustion (__main__.ClientOrderedOutbounds.test_terminal_failure_continues_same_client_after_retry_exhaustion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 142, in test_terminal_failure_continues_same_client_after_retry_exhaustion
+    self.assertEqual(seqs(receiver.tracker), [0])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [0, 1] != [0]
+
+First list contains 1 additional elements.
+First extra element 1:
+1
+
+- [0, 1]
++ [0]
+
+======================================================================
+FAIL: test_unrecoverable_failure_continues_without_retry (__main__.ClientOrderedOutbounds.test_unrecoverable_failure_continues_without_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-client-order-quality/tests/outbound_client_order_blackbox.py", line 158, in test_unrecoverable_failure_continues_without_retry
+    self.assertEqual(seqs(receiver.tracker), [0])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [1, 0] != [0]
+
+First differing element 0:
+1
+0
+
+First list contains 1 additional elements.
+First extra element 1:
+0
+
+- [1, 0]
++ [0]
+
+----------------------------------------------------------------------
+Ran 9 tests in 6.752s
+
+FAILED (failures=8)
