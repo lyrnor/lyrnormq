@@ -96,6 +96,7 @@ struct Pending {
     version: u64,
     rerun: Rerun,
     response: Reply,
+    admitted: Option<Arc<dyn mqtt_auth::AccessControl>>,
     reply: oneshot::Sender<ResultReply>,
 }
 
@@ -562,7 +563,31 @@ impl Actor {
         if reply.is_closed() {
             return;
         }
-        let mut proposal = self.engine.clone();
+        let connect_attempt = match &request {
+            Request::Connect(connect) => connect.access_attempt.clone(),
+            _ => None,
+        };
+        let attempt = connect_attempt
+            .clone()
+            .or_else(|| operation_access::attempt(&request, &self.engine, &self.broker.config));
+        let admitted = attempt.as_ref().map(|attempt| attempt.admitted_policy());
+        let connect_lifecycle = match &request {
+            Request::Connect(connect) => Some((connect.cancel.clone(), connect.deadline)),
+            _ => None,
+        };
+        if let (Some(attempt), Request::Connect(connect), Some(principal)) =
+            (&connect_attempt, &request, &principal)
+            && !attempt.policy().authorize_for_client(
+                principal,
+                &connect.client,
+                mqtt_auth::Action::Connect,
+                &connect.client,
+            )
+        {
+            let _ = reply.send(Ok(refusal(connect, ReasonCode::NOT_AUTHORIZED)));
+            return;
+        }
+        let mut proposal;
         let rerun = match &request {
             Request::Handle {
                 client,
@@ -585,32 +610,115 @@ impl Actor {
             }
             _ => None,
         };
-        let outcome = (|| {
-            if let Some(entries) = staged.clone() {
-                proposal.stage_retained(entries).map_err(model_error)?;
+        let max_preparations = match &request {
+            Request::Handle {
+                frame:
+                    Frame {
+                        packet: Packet::Subscribe { filters, .. },
+                        ..
+                    },
+                ..
+            } => filters.len().saturating_add(2),
+            _ => 2,
+        };
+        let mut preparations = 0usize;
+        let mut current_request = request;
+        let mut current_principal = principal;
+        let (response, effects) = loop {
+            proposal = self.engine.clone();
+            if let Some(attempt) = &attempt {
+                proposal.set_access_control(operation_access::policy(
+                    &current_request,
+                    attempt.as_ref(),
+                ));
             }
-            let mut effects = Effects::default();
-            let response = apply(
-                &mut proposal,
-                request,
-                principal,
-                &self.online,
-                &self.broker,
-                &mut effects,
-            )?;
-            housekeeping(&mut proposal, &mut effects)?;
-            if staged.is_some() {
-                proposal.clear_staged_retained().map_err(model_error)?;
+            let outcome = (|| {
+                if let Some(entries) = staged.clone() {
+                    proposal.stage_retained(entries).map_err(model_error)?;
+                }
+                let mut effects = Effects::default();
+                let response = apply(
+                    &mut proposal,
+                    current_request,
+                    current_principal.take(),
+                    &self.online,
+                    &self.broker,
+                    &mut effects,
+                );
+                if let Some(admitted) = &admitted {
+                    proposal.set_access_control(Arc::clone(admitted));
+                }
+                let response = response?;
+                housekeeping(&mut proposal, &mut effects)?;
+                if staged.is_some() {
+                    proposal.clear_staged_retained().map_err(model_error)?;
+                }
+                Ok::<_, io::Error>((response, effects))
+            })();
+            if let Some(attempt) = &attempt
+                && attempt.pending()
+            {
+                preparations = preparations.saturating_add(1);
+                if preparations >= max_preparations {
+                    let _ = reply.send(Err(failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "operation access preparation exhausted",
+                    )));
+                    return;
+                }
+                if attempt.resolve().await.is_err() {
+                    let _ = reply.send(Err(failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "operation access service unavailable",
+                    )));
+                    return;
+                }
+                if reply.is_closed() {
+                    return;
+                }
+                let Some(rerun) = &rerun else {
+                    let _ = reply.send(Err(failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "unexpected pending CONNECT authorization",
+                    )));
+                    return;
+                };
+                if let Err(error) = valid_generation(&self.online, &rerun.client, rerun.generation)
+                {
+                    let _ = reply.send(Err(error));
+                    return;
+                }
+                current_request = rerun.request();
+                continue;
             }
-            Ok::<_, io::Error>((response, effects))
-        })();
-        let (response, effects) = match outcome {
-            Ok(value) => value,
-            Err(error) => {
-                let _ = reply.send(Err(error));
-                return;
+            match outcome {
+                Ok(value) => break value,
+                Err(error) => {
+                    let _ = reply.send(Err(error));
+                    return;
+                }
             }
         };
+        if reply.is_closed()
+            || connect_lifecycle
+                .as_ref()
+                .is_some_and(|(cancel, deadline)| {
+                    *cancel.borrow() || deadline.is_some_and(|at| std::time::Instant::now() >= at)
+                })
+        {
+            let _ = reply.send(Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "operation cancelled",
+            )));
+            return;
+        }
+        if attempt.as_ref().is_some_and(|attempt| !attempt.seal()) {
+            let _ = reply.send(Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "access policy changed before admission",
+            )));
+            return;
+        }
         let publications = proposal.take_publications();
         let wait = rerun.is_some() && publications.iter().any(|p| p.qos > 0);
         let mut durability = Vec::new();
@@ -643,6 +751,7 @@ impl Actor {
                     version: self.version,
                     rerun,
                     response,
+                    admitted,
                     reply,
                 },
             );
@@ -691,6 +800,9 @@ impl Actor {
             )
         } else {
             let mut proposal = self.engine.clone();
+            if let Some(admitted) = &pending.admitted {
+                proposal.set_access_control(Arc::clone(admitted));
+            }
             let mut effects = Effects::default();
             let outcome = apply(
                 &mut proposal,

@@ -6,6 +6,16 @@ use mqtt_auth::{Action, Principal};
 use mqtt_protocol::Packet;
 
 impl SessionEngine {
+    /// Whether an accepted inbound QoS2 exchange still awaits PUBREL.
+    /// This is runtime state inspection and does not authorize a new operation.
+    pub fn has_incoming_exchange(&self, client_id: &str, packet_id: u16) -> bool {
+        super::identifier(packet_id).ok().is_some_and(|id| {
+            self.sessions
+                .get(client_id)
+                .is_some_and(|session| session.incoming.pending.contains_key(&id))
+        })
+    }
+
     /// Trusted stored principal for preparing an individual recipient ticket.
     pub fn principal(&self, client_id: &str) -> Option<Principal> {
         self.sessions

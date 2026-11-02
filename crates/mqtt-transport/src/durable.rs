@@ -33,6 +33,7 @@ mod broker;
 mod enhanced;
 pub(crate) mod export;
 mod network;
+mod operation_access;
 mod remote_plain;
 #[cfg(test)]
 use mqtt_session::durable::Clock;
@@ -1649,3 +1650,6 @@ mod management_tests;
 
 #[cfg(test)]
 mod observer_tests;
+
+#[cfg(test)]
+mod operation_access_tests;
