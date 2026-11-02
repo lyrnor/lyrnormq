@@ -12,6 +12,7 @@
     "delivery": {
       "batch_size": 1,
       "batch_wait_ms": 0,
+      "concurrency": 8,
       "queue_capacity": 256,
       "timeout_ms": 3000,
       "max_attempts": 3,

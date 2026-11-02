@@ -28,3 +28,5 @@ Unified rules/outbounds follow `docs/contracts/phase5c-unified-outbounds.md`, wh
 supersedes the connector/action model. Egress owner owns crates/mqtt-egress and
 crates/mqtt-egress-core; Webhook owns crates/mqtt-webhook as a protocol adapter only.
 Generic scheduling must not depend on HTTP or import reqwest.
+
+Bounded outbound concurrency additionally follows `docs/contracts/phase5d-outbound-concurrency.md`.

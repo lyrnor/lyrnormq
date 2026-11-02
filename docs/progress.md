@@ -2198,3 +2198,28 @@ embedded Release build pass. Real UI saved1/0 without opening advanced; a real
 MQTT5 burst of10 messages produced10 POSTs, each containing exactly one event.
 Evidence: docs/verification/webhook-single-default-20261102/README.md. No new
 latency/TPS guarantee or production deployment; temporary QA services cleaned up.
+
+
+### Bounded concurrent outbound requests (2026-11-02)
+
+Frozen phase5d contract; backend, UI and independent quality work integrated from
+separate worktrees. Each outbound defaults to8 concurrent requests, advanced1..16;
+global local-attempt limit16 spans all outbounds/generations. Shared reqwest pools
+match per-outbound concurrency. Single-message defaults1/0 remain. Existing missing
+concurrency defaults8 without changing SQLite schema or other explicit policies.
+Set1 for ordered sending including retries; higher values may reorder completion.
+
+Structured bounded jobs preserve retries/delivery IDs, cancellation, byte budgets
+and exact terminal accounting. Backoff releases global permits. Storage failure,
+replacement and shutdown clean up children. Dashboard separates active requests
+from pending messages; queue capacity stays system-managed. MQTT ACK/session/outbox
+and best-effort volatile outbound delivery remain unchanged.
+
+Fmt, strict workspace Clippy,627 Rust tests,81 frontend tests,TS/Vite/format and
+embedded Release build pass.98 Release black-box tests pass. Actual HTTP peaks:
+default8,global16,configured3;16 requests reused8 TCP connections on204 responses.
+Real Chrome showed3 concurrently held requests in receiver/API/UI, then drained
+all local budgets;390px layout and CSP/console checks pass. No production TPS/p99
+claim. Evidence: docs/verification/outbound-concurrency-20261102/README.md.
+Remaining: dedicated end-to-end throughput/p99 tuning and durable outbound delivery
+are separate future work. Existing user service untouched; own QA processes closed.

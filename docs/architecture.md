@@ -679,3 +679,21 @@ Bearer/loopback/CSP policy. React assets remain embedded in the release binary.
 Event queues/counters remain volatile best-effort. No durable action outbox,
 Kafka/PostgreSQL/Redis, plugins, windowing or dead-letter replay is implemented.
 This refactor adds no performance certification or change to MQTT ACK/outbox schema.
+
+## Phase5d: Bounded outbound request concurrency
+
+[Phase5d](contracts/phase5d-outbound-concurrency.md) adds optional
+delivery.concurrency (default8,1..16) to the existing version2 policy. A single
+collector forms batches, with bounded structured concurrent jobs per outbound.
+Jobs retain byte reservations through global-permit waiting, attempts and backoff.
+Each attempt holds a shared global permit (total16) and timeout; backoff releases
+the permit, allowing unrelated jobs to progress. Cancellation/replacement/shutdown
+cancel and join every child before owner cleanup. No mutex receiver across await,
+unbounded per-event spawn or MQTT admission-path changes.
+
+Actual-attempt RAII counters expose inflight_requests globally/per outbound.
+Webhook jobs share a single sink Client whose idle-per-host capacity matches
+concurrency; pool expiry remains30s. HTTP classification/body behavior is unchanged.
+Concurrent arrival/completion order can vary; concurrency1 gives sequential batch
+execution/retries. SQL enqueue order and MQTT delivery guarantees remain unchanged.
+Old missing fields normalize8 without changing saved batching, IDs or secrets.

@@ -1,0 +1,21 @@
+{
+  "newDefaultConcurrency": 8,
+  "batchSize": 1,
+  "batchWaitMs": 0,
+  "basicRemainsCollapsed": true,
+  "configuredConcurrency": 3,
+  "apiInflight": 3,
+  "receiverPeak": 3,
+  "receiverActive": 3,
+  "uiInflightColumn": 3,
+  "completedAfterRelease": 6,
+  "allBudgetsDrained": true,
+  "mobile": {
+    "width": 390,
+    "document": 390,
+    "concurrency": "3",
+    "queueEditable": false
+  },
+  "cspViolations": [],
+  "consoleErrors": []
+}

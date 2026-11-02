@@ -56,7 +56,12 @@ actual attempts holding global permits while inside sink.send, excludes queued
 batches/backoff, and uses a cancellation-safe RAII guard. Counts are sampled; sums
 across separate atomic reads need not match during transitions. Global count<=16;
 each outbound count<=its configured concurrency. Existing queued/delivered/failed/
-retried/dropped remain message counts. No counter changes on MQTT ACK path.
+retried/dropped remain message counts. Retried increments when a retry attempt
+actually starts after permit acquisition, not when entering backoff. Queued is the
+existing pending-message reservation count (includes sends and retry backoff), not
+just receiver-channel occupancy. No counter changes on MQTT ACK path.
+Counters limit local attempts; remote business work may continue after a timeout/
+cancellation, so receivers still need delivery_id idempotency.
 
 ## UI owner
 

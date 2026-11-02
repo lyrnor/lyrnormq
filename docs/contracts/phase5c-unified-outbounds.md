@@ -1,3 +1,5 @@
+> Request scheduling and concurrency superseded by [Phase5d](phase5d-outbound-concurrency.md).
+
 # Phase5c — Unified outbounds and extensible execution (frozen 2026-10-30)
 
 Supersedes Phase5a connector/action model; Phase5b SQLite container and MQTT durable
