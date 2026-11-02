@@ -1,5 +1,5 @@
 //! Shared immutable bodies and independently acknowledged consumer indexes.
-use crate::{Journal, QueueError, format, model::*};
+use crate::{Journal, QueueError, model::*};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     ops::Bound::{Excluded, Unbounded},
@@ -192,7 +192,7 @@ pub(crate) fn consumer_cost(c: &StoredConsumer) -> u64 {
         .saturating_mul(6)
         .saturating_add(512)
 }
-fn valid_stream(s: &str) -> bool {
+pub(crate) fn valid_stream(s: &str) -> bool {
     !s.is_empty() && s.len() <= 64
 }
 pub(crate) fn valid_consumer(c: &StoredConsumer) -> bool {
@@ -211,100 +211,8 @@ impl Journal {
         &mut self,
         results: Vec<NewResult>,
     ) -> Result<Vec<ResultIds>, QueueError> {
-        self.healthy()?;
-        if results.is_empty() || results.len() > MAX_GROUP {
-            return Err(QueueError::InvalidOptions);
-        }
-        let mut next = self.next_id;
-        let mut stored = Vec::with_capacity(results.len());
-        let mut outputs = Vec::with_capacity(results.len());
-        let mut raw = 0usize;
-        let mut added = 0u64;
-        let mut references = 0usize;
-        for r in &results {
-            if !valid_stream(&r.stream_id)
-                || r.client_id.len() > 65535
-                || r.payload.len() > MAX_RECORD_PAYLOAD
-                || r.consumers.is_empty()
-                || r.consumers.len() > 32
-            {
-                return Err(QueueError::InvalidOptions);
-            }
-            raw = raw.checked_add(r.payload.len()).ok_or(QueueError::Full)?;
-            if raw > MAX_GROUP_BYTES {
-                return Err(QueueError::Full);
-            }
-            let id = next;
-            next = next.checked_add(1).ok_or(QueueError::Full)?;
-            let meta = ResultMeta {
-                id,
-                stream_id: r.stream_id.clone(),
-                client_id: r.client_id.clone(),
-                payload_len: r.payload.len(),
-            };
-            let mut consumers = Vec::with_capacity(r.consumers.len());
-            let mut destinations = BTreeSet::new();
-            for c in &r.consumers {
-                let c = StoredConsumer {
-                    id: next,
-                    outbound_id: c.outbound_id.clone(),
-                    revision: c.revision,
-                    delivery_id: c.delivery_id.clone(),
-                    failures: 0,
-                    not_before_ms: 0,
-                    inflight: false,
-                };
-                next = next.checked_add(1).ok_or(QueueError::Full)?;
-                if !valid_consumer(&c) || !destinations.insert(c.outbound_id.clone()) {
-                    return Err(QueueError::InvalidOptions);
-                }
-                if self
-                    .bindings
-                    .get(&c.outbound_id)
-                    .is_none_or(|b| b.revision != c.revision)
-                {
-                    return Err(QueueError::StaleBinding);
-                }
-                added = added
-                    .checked_add(consumer_cost(&c))
-                    .ok_or(QueueError::Full)?;
-                consumers.push(c);
-            }
-            references = references
-                .checked_add(consumers.len())
-                .ok_or(QueueError::Full)?;
-            added = added
-                .checked_add(body_cost(&meta))
-                .ok_or(QueueError::Full)?;
-            outputs.push(ResultIds {
-                result_id: id,
-                consumer_ids: consumers.iter().map(|c| c.id).collect(),
-            });
-            stored.push(StoredResult {
-                meta,
-                checksum: format::checksum(&r.payload),
-                consumers,
-            });
-        }
-        if self
-            .entries
-            .len()
-            .saturating_add(self.shared.consumers.len())
-            .saturating_add(references)
-            > self.options.max_records
-            || self.live_bytes.saturating_add(added) > self.options.max_bytes / 2
-        {
-            return Err(QueueError::Full);
-        }
-        let payloads: Vec<_> = results.iter().map(|r| r.payload.as_slice()).collect();
-        self.commit(
-            Transaction::Results {
-                results: stored,
-                next_id: next,
-            },
-            &payloads,
-        )?;
-        Ok(outputs)
+        let mut outputs = self.append_result_groups(&[results])?;
+        outputs.pop().ok_or(QueueError::Corrupt)
     }
     pub fn consumer_heads(
         &self,

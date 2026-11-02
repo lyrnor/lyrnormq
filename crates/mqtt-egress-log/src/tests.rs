@@ -818,3 +818,6 @@ mod shared_tests;
 #[cfg(unix)]
 #[path = "read_cache_tests.rs"]
 mod read_cache_tests;
+
+#[path = "group_tests.rs"]
+mod group_tests;

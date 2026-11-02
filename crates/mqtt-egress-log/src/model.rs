@@ -242,6 +242,7 @@ pub(crate) enum Transaction {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Fault {
     AfterWrite,
+    AfterGroupSecondWrite,
     AfterSync,
     BeforePublish,
     AfterPublish,

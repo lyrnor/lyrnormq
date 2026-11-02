@@ -325,4 +325,4 @@ mod platform {
         }
     }
 }
-pub(crate) use platform::ReadCache;
+pub(crate) use platform::{AppendCheck, ReadCache};

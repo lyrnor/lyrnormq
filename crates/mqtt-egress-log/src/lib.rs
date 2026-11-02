@@ -5,6 +5,7 @@
 mod decode;
 mod error;
 mod format;
+mod grouped;
 mod journal;
 mod model;
 mod read_cache;
