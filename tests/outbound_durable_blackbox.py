@@ -8,6 +8,7 @@ HTTP body acceptance before a withheld response models uncertain remote executio
 import copy
 from contextlib import closing
 import json
+import os
 from pathlib import Path
 import sqlite3
 import threading
@@ -314,6 +315,44 @@ class DurableOutbounds(unittest.TestCase):
         receiver.tracker.wait(lambda t: len(t.completed) == 9)
         self.drained()
         self.assertTrue(queue_dir.is_dir())
+
+    @unittest.skipIf(not hasattr(os, 'getuid') or os.getuid() == 0,
+                     'permission-failure injection requires an unprivileged Unix user')
+    def test_rotation_io_failure_stops_outbound_without_sending_uncommitted_message(self):
+        receiver = self.receiver(gate=threading.Event())
+        self.start(concurrency.settings(receiver.url, concurrency=2), extra=[
+            '--egress-queue-segment-bytes', '4096', '--egress-queue-max-bytes', '1048576'])
+        source = self.client('storage-failure')
+        self.emit(source, [0])
+        receiver.tracker.wait(lambda t: len(t.started) == 1)
+        self.committed(1)
+        queue_dir = Path(str(self.rules_path) + '.outbound-queue')
+        generations = list(queue_dir.glob('generation-*'))
+        self.assertTrue(generations)
+        for path in generations:
+            self.addCleanup(lambda directory=path: directory.chmod(0o700) if directory.exists() else None)
+            path.chmod(0o500)
+        try:
+            # A >segment-sized append must create a new segment, which now fails.
+            # Existing open log descriptors are deliberately not closed/deleted.
+            self.emit(self.client('not-committed'), [90], blob='f' * 6000)
+            eventually(lambda: not self.status()['running'])
+            receiver.tracker.wait(lambda t: t.active == 0)
+            self.assertGreater(self.status()['errors'], 0)
+            self.assertEqual(self.queue()['pending_records'], 1)
+            self.assertEqual([concurrency.sequence(r) for r in receiver.tracker.started], [0])
+            self.barrier(source)  # MQTT remains usable despite stopped outbounds.
+        finally:
+            for path in generations:
+                if path.exists():
+                    path.chmod(0o700)
+        self.broker.stop()
+        receiver.gate.set()
+        self.broker.start()
+        receiver.tracker.wait(lambda t: len(t.completed) == 1)
+        self.drained()
+        self.assertTrue(self.status()['running'])
+        self.assertEqual([concurrency.sequence(r) for r in receiver.tracker.started], [0, 0])
 
     def test_small_disk_limit_can_complete_reclaim_and_accept_again(self):
         receiver = self.receiver(gate=threading.Event())
