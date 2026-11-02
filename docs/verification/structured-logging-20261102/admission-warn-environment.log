@@ -1,0 +1,40 @@
+test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) ... 
+  test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) (mqtt=4) ... ERROR
+  test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) (mqtt=5) ... ERROR
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-5_os_l5r'>
+  _warnings.warn(warn_message, ResourceWarning)
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-fpc72pcy'>
+  _warnings.warn(warn_message, ResourceWarning)
+
+======================================================================
+ERROR: test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) (mqtt=4)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Volumes/data/rmqtt/tests/admission_mtls_blackbox.py", line 282, in test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect
+    broker=self.broker(extra=['--auth-rate-per-second','0','--max-handshakes','1',
+                             '--handshake-timeout-ms','100'],persistent=True)
+  File "/Volumes/data/rmqtt/tests/admission_mtls_blackbox.py", line 56, in broker
+    return broker.start()
+           ~~~~~~~~~~~~^^
+  File "/Volumes/data/rmqtt/tests/admission_helpers.py", line 99, in start
+    raise TimeoutError('no broker listening confirmation')
+TimeoutError: no broker listening confirmation
+
+======================================================================
+ERROR: test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) (mqtt=5)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Volumes/data/rmqtt/tests/admission_mtls_blackbox.py", line 282, in test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect
+    broker=self.broker(extra=['--auth-rate-per-second','0','--max-handshakes','1',
+                             '--handshake-timeout-ms','100'],persistent=True)
+  File "/Volumes/data/rmqtt/tests/admission_mtls_blackbox.py", line 56, in broker
+    return broker.start()
+           ~~~~~~~~~~~~^^
+  File "/Volumes/data/rmqtt/tests/admission_helpers.py", line 99, in start
+    raise TimeoutError('no broker listening confirmation')
+TimeoutError: no broker listening confirmation
+
+----------------------------------------------------------------------
+Ran 1 test in 16.260s
+
+FAILED (errors=2)

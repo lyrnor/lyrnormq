@@ -1,0 +1,24 @@
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.41s
+     Running tests/logging.rs (target/debug/deps/logging-5b83bf0ad3fa1fd0)
+
+running 1 test
+test json_lifecycle_is_structured_and_flushed_on_shutdown ... FAILED
+
+failures:
+
+---- json_lifecycle_is_structured_and_flushed_on_shutdown stdout ----
+
+thread 'json_lifecycle_is_structured_and_flushed_on_shutdown' (16778748) panicked at bin/rmqtt/tests/logging.rs:126:5:
+assertion `left == right` failed
+  left: String("rules_started")
+ right: "mqtt_listening"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    json_lifecycle_is_structured_and_flushed_on_shutdown
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.25s
+
+error: test failed, to rerun pass `-p rmqtt --test logging`

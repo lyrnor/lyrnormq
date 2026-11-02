@@ -9,6 +9,9 @@ mqtt-egress = { path = "../../crates/mqtt-egress" }
 mqtt-auth = { path = "../../crates/mqtt-auth" }
 mqtt-transport = { path = "../../crates/mqtt-transport" }
 tokio.workspace = true
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "std", "tracing-log"] }
+tracing-appender = { version = "0.2", default-features = false }
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio", "service"] }

@@ -2432,3 +2432,18 @@ fmt、严格Clippy、helper检查、嵌入React Release通过。确认并修复n
 动态Topic及其他出站类型。未实现Kafka事务/Schema Registry/OAuth/Kerberos，
 不承诺端到端exactly-once。消息落盘前入口仍best effort；终止失败会结束当前投递。
 本轮未部署或合并main，代码保存在codex/kafka-outbound。
+
+
+### Structured process logging (2026-11-02)
+
+接入tracing/subscriber/appender，默认Broker INFO/依赖WARN，支持RUST_LOG静态模块
+过滤和JSON事件。stderr后台有界8192条，拥堵丢日志；guard在Tokio runtime外，
+保留stdout帮助/导出与CLI错误诊断，不改业务耐久日志。生命周期事件不记录消息正文
+或凭据，没有新增逐包/逐连接INFO。日志首行就绪标记回归先RED后GREEN。
+
+748项Rust、30项Release管理/嵌入/mTLS黑盒、fmt、严格Clippy通过；宿主Release与
+Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RUST_LOG=warn导致
+依赖INFO行的旧监督器等待超时，正式验收显式设定rmqtt=info，未放宽安全验证。
+[证据与复现](verification/structured-logging-20261102/README.md)。
+剩余：按业务故障需要补充安全/限流埋点；文件轮转、热更新尚未实现，当前由运行环境
+采集stderr。没有测量或承诺吞吐/p99不变。分支codex/structured-logging。

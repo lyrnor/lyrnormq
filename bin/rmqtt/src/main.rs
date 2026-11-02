@@ -2,14 +2,27 @@ mod admin;
 mod allocator;
 mod auth_policy;
 mod cli;
+mod logging;
 mod tls_identity;
 
 use mqtt_transport::{export_state, serve, serve_tls, serve_ws, serve_wss};
 use std::{error::Error, io::Write};
 use tokio::{net::TcpListener, sync::watch};
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
+    // The writer guard outlives the runtime; flushing never blocks a Tokio worker.
+    let _logging = logging::init()?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    let result = runtime.block_on(run());
+    if result.is_err() {
+        tracing::error!(event = "broker_failed", "broker stopped with an error");
+    }
+    result
+}
+
+async fn run() -> Result<(), Box<dyn Error>> {
     let Some(mut options) = cli::parse(std::env::args().skip(1))? else {
         println!("{}", cli::USAGE);
         return Ok(());
@@ -60,7 +73,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await??;
         options = returned;
         let listener = TcpListener::bind(address).await?;
-        eprintln!(
+        tracing::info!(
+            event = "management_listening",
+            address = %listener.local_addr()?,
             "rmqtt management on {} (loopback, bearer authentication)",
             listener.local_addr()?
         );
@@ -93,15 +108,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (true, false) => "WS",
         (true, true) => "WSS",
     };
-    eprintln!(
+    tracing::info!(
+        event = "mqtt_listening",
+        address = %listener.local_addr()?,
+        transport,
         "rmqtt listening on {} ({transport})",
         listener.local_addr()?
     );
+    if rules.is_some() {
+        tracing::info!(
+            event = "rules_started",
+            "rules and durable outbound queue ready"
+        );
+    }
     let (tx, rx) = watch::channel(false);
     let signal_tx = tx.clone();
     tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            let _ = signal_tx.send(true);
+        match tokio::signal::ctrl_c().await {
+            Ok(()) => {
+                tracing::info!(event = "shutdown_requested", "shutdown requested");
+                let _ = signal_tx.send(true);
+            }
+            Err(error) => {
+                tracing::error!(event = "signal_failed", error_kind = ?error.kind(), "shutdown signal handler failed");
+            }
         }
     });
     let mqtt_rx = rx.clone();
@@ -147,5 +177,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     result?;
     other?;
+    tracing::info!(event = "broker_stopped", "broker stopped");
     Ok(())
 }

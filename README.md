@@ -611,3 +611,10 @@ brokers, topic and optional TLS/SASL in the Dashboard. See
 [Kafka setup and delivery semantics](docs/kafka-outbound.md),
 [outbound operation and limits](docs/rules-webhook.md) and
 [acceptance results](docs/verification/durable-outbounds-20261102/README.md).
+
+
+### Logging
+
+Structured stderr logs use tracing, with `RUST_LOG` target/level filtering and
+`RMQTT_LOG_FORMAT=json` for JSON events. Output runs on a bounded background writer.
+See [configuration and limits](docs/logging.md).
