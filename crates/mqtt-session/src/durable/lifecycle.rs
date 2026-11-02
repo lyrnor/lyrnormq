@@ -381,14 +381,21 @@ impl SessionEngine {
         for id in pending {
             if !self.access.reconciles_stored_authorization()
                 && let Some(record) = self.wills.get(&id)
-                && !self.access.authorize_for_client(
+                && (!self.access.authorize_for_client(
+                    &Principal {
+                        name: record.owner.clone(),
+                    },
+                    &id,
+                    Action::Connect,
+                    &id,
+                ) || !self.access.authorize_for_client(
                     &Principal {
                         name: record.owner.clone(),
                     },
                     &id,
                     Action::Publish,
                     &record.will.topic,
-                )
+                ))
             {
                 self.wills.remove(&id);
                 progressed = true;

@@ -264,6 +264,42 @@ fn recovery_anchor_is_once_and_only_due_will_checks_remote_publish() {
     assert!(engine.wills.is_empty());
     assert_eq!(
         *policy.calls.lock().unwrap(),
-        vec![("source".into(), Action::Publish, "will/source".into())]
+        vec![
+            ("source".into(), Action::Connect, "source".into()),
+            ("source".into(), Action::Publish, "will/source".into())
+        ]
+    );
+}
+
+#[test]
+fn due_will_cannot_bypass_a_revoked_local_connect_permission() {
+    let policy = Arc::new(PointPolicy::default());
+    let mut engine = SessionEngine::new_with_access(config(), policy.clone()).unwrap();
+    connect(
+        &mut engine,
+        "source",
+        Some(Will {
+            topic: "will/private".into(),
+            payload: vec![1],
+            qos: 1,
+            retain: true,
+        }),
+    );
+    engine.anchor_recovered_wills();
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push(("source".into(), Action::Connect, "source".into()));
+    policy.calls.lock().unwrap().clear();
+    engine.retry_wills().unwrap();
+    assert!(
+        engine.retained_entries().is_empty(),
+        "revoked owner must not publish retained Will"
+    );
+    assert!(engine.wills.is_empty());
+    assert_eq!(
+        *policy.calls.lock().unwrap(),
+        vec![("source".into(), Action::Connect, "source".into())]
     );
 }

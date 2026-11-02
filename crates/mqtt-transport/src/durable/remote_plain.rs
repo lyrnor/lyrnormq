@@ -366,7 +366,6 @@ impl Worker {
                         Action::Connect,
                         &established.client,
                     )
-                    || !attempt.seal()
                 {
                     return Err(remote_error(RemoteAccessError::NotAuthorized, true));
                 }
@@ -438,3 +437,7 @@ impl Worker {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "remote_plain_tests.rs"]
+mod tests;
