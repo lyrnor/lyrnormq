@@ -6,6 +6,7 @@ use rdkafka::{
     config::RDKafkaLogLevel,
     consumer::{BaseConsumer, Consumer},
     message::Headers,
+    producer::{FutureProducer, FutureRecord},
 };
 use serde_json::{Value, json};
 use std::{
@@ -37,9 +38,10 @@ fn config(path: &str) -> Result<ClientConfig> {
 async fn main() -> Result<()> {
     let a: Vec<_> = std::env::args().skip(1).collect();
     if a.len() < 3 {
-        return Err(
-            invalid("usage: create|consume CONFIG TOPIC [COUNT|PARTITIONS] [TIMEOUT_MS]").into(),
-        );
+        return Err(invalid(
+            "usage: create|consume|partition CONFIG TOPIC [COUNT|PARTITIONS|KEY] [TIMEOUT_MS]",
+        )
+        .into());
     }
     let mut c = config(&a[1])?;
     match a[0].as_str() {
@@ -59,6 +61,30 @@ async fn main() -> Result<()> {
                 result.map_err(|_| invalid("topic creation failed"))?;
             }
             println!("{}", json!({"created":a[2],"partitions":partitions}));
+        }
+        "partition" => {
+            let key = a.get(3).ok_or_else(|| invalid("missing partition key"))?;
+            if key.len() > 1024 {
+                return Err(invalid("partition oracle key bound").into());
+            }
+            c.set("partitioner", "murmur2")
+                .set("acks", "all")
+                .set("enable.idempotence", "true")
+                .set("message.timeout.ms", "5000")
+                .set("queue.buffering.max.messages", "16")
+                .set("queue.buffering.max.kbytes", "1024");
+            let producer: FutureProducer = c.create()?;
+            let delivery = producer
+                .send(
+                    FutureRecord::to(&a[2]).key(key.as_str()).payload(b"{}"),
+                    Duration::from_secs(5),
+                )
+                .await
+                .map_err(|_| invalid("partition oracle delivery failed"))?;
+            println!(
+                "{}",
+                json!({"partition":delivery.partition,"offset":delivery.offset})
+            );
         }
         "consume" => {
             let count = a

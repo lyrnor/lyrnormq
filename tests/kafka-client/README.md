@@ -48,3 +48,9 @@ CARGO_TARGET_DIR="$PWD/target" cargo fmt --manifest-path tests/kafka-client/Carg
 CARGO_TARGET_DIR="$PWD/target" cargo clippy --offline --manifest-path tests/kafka-client/Cargo.toml --all-targets -- -D warnings
 CARGO_TARGET_DIR="$PWD/target" cargo test --offline --manifest-path tests/kafka-client/Cargo.toml
 ```
+
+The bounded `partition CONFIG TOPIC KEY` operation produces one disposable `{}`
+record with an explicit key and librdkafka's `murmur2` partitioner, waits for
+`acks=all`, and returns the actual partition/offset. The SDK replacement suite uses
+a separate same-partition-count topic to compare normal, empty and Unicode keys
+against this independent routing oracle. Empty string is distinct from a null key.
