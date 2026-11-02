@@ -49,6 +49,9 @@ jobs:
       - name: Download checksum-verified Apache Kafka and temporary JRE
         timeout-minutes: 8
         run: python3 tests/kafka_fixture.py --download
+      - name: Kafka fixture resource and restart regression
+        timeout-minutes: 2
+        run: python3 tests/kafka_fixture_restart_test.py -v
       - name: Real Kafka wire, security and crash-recovery acceptance
         timeout-minutes: 5
         run: |
