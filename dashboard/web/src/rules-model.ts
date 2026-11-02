@@ -10,6 +10,7 @@ export interface WebhookConfig {
   headers: Record<string, string>;
 }
 export interface DeliveryPolicy {
+  concurrency: number;
   batch_size: number;
   batch_wait_ms: number;
   queue_capacity: number;
@@ -31,6 +32,7 @@ export interface RulesConfig {
   rules: RuleDefinition[];
 }
 export interface OutboundStatus {
+  inflight_requests: number;
   type: string;
   id: string;
   queued: number;
@@ -41,6 +43,7 @@ export interface OutboundStatus {
   last_error: string | null;
 }
 export interface RulesStatus {
+  inflight_requests: number;
   running: boolean;
   mode: "best_effort";
   queued_events: number;
@@ -67,6 +70,7 @@ export const defaultOutbound = (): Outbound => ({
   type: "webhook",
   config: { url: "", headers: {} },
   delivery: {
+    concurrency: 8,
     batch_size: 1,
     batch_wait_ms: 0,
     queue_capacity: 256,
@@ -174,6 +178,7 @@ export function validateOutbound(outbound: Outbound): string | null {
 }
 export function validateDeliveryPolicy(action: DeliveryPolicy): string | null {
   const bounds: [number, number, number, string][] = [
+    [action.concurrency, 1, 16, "并发请求数"],
     [action.batch_size, 1, 500, "批量条数"],
     [action.batch_wait_ms, 0, 1000, "批量等待"],
     [action.queue_capacity, 1, 4096, "队列容量"],

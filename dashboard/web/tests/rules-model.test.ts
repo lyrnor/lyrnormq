@@ -41,6 +41,7 @@ describe("rule form contract validation", () => {
     expect(defaultOutbound().delivery).toEqual({
       batch_size: 1,
       batch_wait_ms: 0,
+      concurrency: 8,
       queue_capacity: 256,
       timeout_ms: 3000,
       max_attempts: 3,
@@ -88,6 +89,9 @@ describe("rule form contract validation", () => {
       validateOutbound({ ...action, type: "unknown" as "webhook" }),
     ).not.toBeNull();
     for (const patch of [
+      { concurrency: 0 },
+      { concurrency: 17 },
+      { concurrency: 1.5 },
       { batch_size: 501 },
       { batch_wait_ms: 1001 },
       { queue_capacity: 0 },
@@ -101,6 +105,15 @@ describe("rule form contract validation", () => {
           delivery: { ...action.delivery, ...patch },
         }),
       ).not.toBeNull();
+  });
+  it("accepts sequential and maximum request concurrency", () => {
+    for (const concurrency of [1, 16])
+      expect(
+        validateOutbound({
+          ...action,
+          delivery: { ...action.delivery, concurrency },
+        }),
+      ).toBeNull();
   });
   it("blocks deletion of referenced actions and connectors", () => {
     expect(deletionError("outbounds", "send", config)).toContain("绑定");

@@ -537,6 +537,7 @@ export function RulesPage({
           title="出站执行状态"
           extra={
             <span className="text-[10px] text-muted-foreground">
+              进行中 {status.inflight_requests.toLocaleString()} 个请求 ·{" "}
               {sampledAt
                 ? `最近采样 ${new Date(sampledAt).toLocaleTimeString()}`
                 : "等待采样"}
@@ -549,6 +550,7 @@ export function RulesPage({
                 <TableRow>
                   {[
                     "出站",
+                    "进行中（请求）",
                     "排队",
                     "已发送",
                     "失败",
@@ -569,6 +571,7 @@ export function RulesPage({
                       )?.name ?? "不可用出站"}
                     </TableCell>
                     {[
+                      action.inflight_requests,
                       action.queued,
                       action.delivered,
                       action.failed,
@@ -587,7 +590,7 @@ export function RulesPage({
             {status.outbounds.length === 0 && <Empty>暂无出站执行统计</Empty>}
           </div>
           <p className="px-5 pb-4 text-[11px] leading-relaxed text-muted-foreground">
-            统计单位为消息条数，重试次数按参与重试的消息计算；服务重启后统计重新开始。
+            进行中按请求数，排队、发送、失败、重试和丢弃按消息条数统计；服务重启后统计重新开始。
           </p>
         </Panel>
       )}
@@ -949,6 +952,7 @@ function Editor({
               </Field>
               {(
                 [
+                  ["concurrency", "并发请求数", 1, 16],
                   ["batch_size", "批量条数", 1, 500],
                   ["batch_wait_ms", "批量等待（ms）", 0, 1000],
                   ["timeout_ms", "请求超时（ms）", 100, 30000],
@@ -985,6 +989,7 @@ function Editor({
               ))}
               <Alert role="note">
                 <AlertDescription>
+                  并发发送可能改变消息到达顺序；需要按顺序发送时设为 1。
                   投递失败后将按设置重试。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
                 </AlertDescription>
               </Alert>

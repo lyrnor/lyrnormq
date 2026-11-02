@@ -44,6 +44,7 @@ const populated: RulesConfig = {
 const status = {
   running: true,
   mode: "best_effort",
+  inflight_requests: 3,
   queued_events: 2,
   queued_bytes: 128,
   received: 12,
@@ -54,6 +55,7 @@ const status = {
     {
       id: "send",
       type: "webhook",
+      inflight_requests: 3,
       queued: 2,
       delivered: 6,
       failed: 0,
@@ -530,6 +532,27 @@ describe("live rule and Webhook management", () => {
   });
 });
 
+describe("outbound request observations", () => {
+  it("labels in-progress attempts as requests independently of message counts", async () => {
+    server(populated);
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    const table = screen
+      .getByRole("columnheader", { name: "进行中（请求）" })
+      .closest("table")!;
+    const cells = within(within(table).getAllByRole("row")[1]).getAllByRole(
+      "cell",
+    );
+    expect(cells.map((cell) => cell.textContent).slice(0, 4)).toEqual([
+      "Send alarm",
+      "3",
+      "2",
+      "6",
+    ]);
+    expect(screen.getByText(/进行中按请求数/)).toBeTruthy();
+  });
+});
+
 describe("Webhook basic and advanced settings", () => {
   const writes = () =>
     request.mock.calls.filter((call) => call[3]?.method === "PUT");
@@ -554,6 +577,7 @@ describe("Webhook basic and advanced settings", () => {
     await fresh();
     expect(screen.getByRole("button", { name: "添加请求头" })).toBeTruthy();
     for (const label of [
+      "并发请求数",
       "批量条数",
       "批量等待（ms）",
       "请求超时（ms）",
@@ -572,6 +596,7 @@ describe("Webhook basic and advanced settings", () => {
     expect(saved().delivery).toEqual({
       batch_size: 1,
       batch_wait_ms: 0,
+      concurrency: 8,
       queue_capacity: 256,
       timeout_ms: 3000,
       max_attempts: 3,
@@ -584,6 +609,7 @@ describe("Webhook basic and advanced settings", () => {
     fireEvent.click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     for (const [label, value] of Object.entries({
+      并发请求数: 4,
       批量条数: 12,
       "批量等待（ms）": 25,
       "请求超时（ms）": 500,
@@ -604,6 +630,7 @@ describe("Webhook basic and advanced settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(saved().delivery).toEqual({
+      concurrency: 4,
       batch_size: 12,
       batch_wait_ms: 25,
       timeout_ms: 500,
@@ -613,14 +640,15 @@ describe("Webhook basic and advanced settings", () => {
     });
   });
   it.each([
-    [100, 50],
-    [7, 15],
+    [100, 50, 1],
+    [7, 15, 16],
   ])(
-    "preserves existing batch %i/wait %i and queue capacity without opening advanced",
-    async (batchSize, batchWaitMs) => {
+    "preserves existing batch %i/wait %i/concurrency %i without opening advanced",
+    async (batchSize, batchWaitMs, concurrency) => {
       const initial = structuredClone(populated);
       initial.outbounds[0].enabled = false;
       initial.outbounds[0].delivery = {
+        concurrency,
         batch_size: batchSize,
         batch_wait_ms: batchWaitMs,
         timeout_ms: 1200,
@@ -671,6 +699,34 @@ describe("Webhook basic and advanced settings", () => {
     expect(screen.getByRole("alert").textContent).toContain("批量条数");
     expect(document.activeElement).toBe(screen.getByLabelText("批量条数"));
     expect(writes()).toHaveLength(0);
+  });
+  it.each([0, 17])(
+    "rejects hidden concurrency %i and focuses the expanded field",
+    async (concurrency) => {
+      await fresh();
+      fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+      fireEvent.change(screen.getByLabelText("并发请求数"), {
+        target: { value: concurrency },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+      fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole("button", { name: "高级设置" })
+            .getAttribute("aria-expanded"),
+        ).toBe("true"),
+      );
+      expect(screen.getByRole("alert").textContent).toContain("并发请求数");
+      expect(document.activeElement).toBe(screen.getByLabelText("并发请求数"));
+      expect(writes()).toHaveLength(0);
+    },
+  );
+  it("explains delivery order only inside the advanced panel", async () => {
+    await fresh();
+    expect(screen.queryByText(/需要按顺序发送时/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
+    expect(screen.getByText(/需要按顺序发送时.*1/)).toBeTruthy();
   });
   it("keeps the rule enable switch and SQL immediately available", async () => {
     server();
