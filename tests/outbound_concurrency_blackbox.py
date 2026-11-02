@@ -391,7 +391,7 @@ class OutboundConcurrency(unittest.TestCase):
             self.emit(self.client(f'backoff-{n}'), [n], topic='concurrency/slow')
         source = self.client('backoff-fast')
         receiver.tracker.wait(lambda t: len(t.completed) == 16)
-        eventually(lambda: self.status()['inflight_requests'] == 0 and self.outbound()['queued'] == 16)
+        eventually(lambda: self.status()['inflight_requests'] == 0 and self.outbound()['durable_queued'] == 16)
         self.assertEqual(len(receiver.tracker.started), 16)
         self.emit(source, [99], topic='concurrency/fast')
         receiver.tracker.wait(lambda t: any(r['body']['outbound_id'] == 'fast' for r in t.completed))
