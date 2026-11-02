@@ -80,7 +80,7 @@ fn shared_body_cache_survives_partial_ack_retry_but_not_generation_or_reopen() {
         .unwrap();
     let reads = crate::storage::test_payload_reads();
     j.read_consumers(ids.consumer_ids[1], 1, 1024).unwrap();
-    assert_eq!(crate::storage::test_payload_reads(), reads + 1); // state append changes fingerprint
+    assert_eq!(crate::storage::test_payload_reads(), reads); // trusted state append preserves prefix cache
     j.begin_consumers(&[ids.consumer_ids[1]]).unwrap();
     j.retry_consumers(&[ids.consumer_ids[1]], 42).unwrap();
     assert_eq!(j.consumer_heads("y", None, 1)[0].failures, 1);
@@ -202,4 +202,93 @@ fn cache_empty_bodies_obey_entry_limit_without_unbounded_eviction_tickets() {
     let stats = j.reads.lock().unwrap().stats();
     assert_eq!(stats.0, 0);
     assert_eq!(stats.4, 0);
+}
+
+#[test]
+fn owned_append_and_interleaved_state_changes_share_one_disk_read() {
+    let f = Fixture::new();
+    let mut j = f.open();
+    let ids = shared(&mut j, b"prefix shared across writes");
+    let before = crate::storage::test_payload_reads();
+    j.read_consumers(ids.consumer_ids[0], 1, 1024).unwrap();
+    j.begin_consumers(&[ids.consumer_ids[0]]).unwrap();
+    j.retry_consumers(&[ids.consumer_ids[0]], 1).unwrap();
+    let _ = shared(&mut j, b"another result");
+    assert_eq!(
+        j.read_consumers(ids.consumer_ids[1], 1, 1024).unwrap()[0].payload,
+        b"prefix shared across writes"
+    );
+    j.complete_consumers(&[ids.consumer_ids[0]], Completion::Delivered)
+        .unwrap();
+    j.read_consumers(ids.consumer_ids[1], 1, 1024).unwrap();
+    assert_eq!(crate::storage::test_payload_reads(), before + 1);
+}
+#[test]
+fn evicted_descriptor_and_external_mutation_are_not_blessed_by_owned_append() {
+    for evict in [false, true] {
+        let f = Fixture::new();
+        let mut j = f.open();
+        let ids = shared(&mut j, b"unaltered prefix");
+        j.read_consumers(ids.consumer_ids[0], 1, 1024).unwrap();
+        if evict {
+            j.reads.get_mut().unwrap().evict_descriptors();
+        }
+        let body = j.shared.bodies.get(&ids.result_id).unwrap();
+        let mut file =
+            crate::storage::private_file(&crate::storage::segment(&j.dir, body.segment), false)
+                .unwrap();
+        file.seek(SeekFrom::Start(body.offset)).unwrap();
+        file.write_all(b"X").unwrap();
+        file.sync_all().unwrap();
+        let _ = shared(
+            &mut j,
+            b"legitimate append cannot bless old tampered prefix",
+        );
+        assert!(matches!(
+            j.read_consumers(ids.consumer_ids[1], 1, 1024),
+            Err(QueueError::Corrupt)
+        ));
+    }
+}
+#[test]
+fn evicted_descriptor_reopens_trusted_prefix_without_reloading_body() {
+    let f = Fixture::new();
+    let mut j = f.open();
+    let ids = shared(&mut j, b"prefix");
+    j.read_consumers(ids.consumer_ids[0], 1, 1024).unwrap();
+    let before = crate::storage::test_payload_reads();
+    j.reads.get_mut().unwrap().evict_descriptors();
+    let _ = shared(&mut j, b"owned append");
+    j.read_consumers(ids.consumer_ids[1], 1, 1024).unwrap();
+    assert_eq!(crate::storage::test_payload_reads(), before);
+}
+
+#[test]
+fn failed_write_with_warm_body_poisoned_owner_reopens_exact_durable_state() {
+    for fault in [
+        crate::model::Fault::AfterWrite,
+        crate::model::Fault::AfterSync,
+    ] {
+        let f = Fixture::new();
+        let mut j = f.open();
+        let ids = shared(&mut j, b"warm durable prefix");
+        j.read_consumers(ids.consumer_ids[0], 1, 1024).unwrap();
+        j.fault = Some(fault);
+        assert!(matches!(
+            j.begin_consumers(&[ids.consumer_ids[0]]),
+            Err(QueueError::Io)
+        ));
+        assert!(matches!(
+            j.read_consumers(ids.consumer_ids[1], 1, 1024),
+            Err(QueueError::Io)
+        ));
+        drop(j);
+        let j = f.open();
+        assert_eq!(j.stats().pending_records, 2);
+        assert_eq!(
+            j.read_consumers(ids.consumer_ids[1], 1, 1024).unwrap()[0].payload,
+            b"warm durable prefix"
+        );
+        assert!(j.consumer_metas(ids.consumer_ids[0], 1, 1024).unwrap()[0].inflight);
+    }
 }

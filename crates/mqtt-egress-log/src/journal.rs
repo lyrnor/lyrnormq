@@ -512,12 +512,21 @@ impl Journal {
                 self.active_len = 0;
                 storage::sync_dir(&self.dir)?;
             }
+            let cache_check = self
+                .reads
+                .get_mut()
+                .map_err(|_| QueueError::Io)?
+                .before_append(&self.dir, self.segment, self.active_len)?;
             let (offset, written) = format::write_frame(&mut self.active, &json, payloads)?;
             #[cfg(test)]
             self.inject(Fault::AfterWrite)?;
             self.active.sync_all()?;
             #[cfg(test)]
             self.inject(Fault::AfterSync)?;
+            self.reads
+                .get_mut()
+                .map_err(|_| QueueError::Io)?
+                .after_append(&self.dir, cache_check, self.active_len + written)?;
             self.active_len += written;
             self.physical += written;
             self.apply(
