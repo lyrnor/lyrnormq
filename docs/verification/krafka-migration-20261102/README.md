@@ -1,5 +1,9 @@
 # krafka replacement — actual acceptance, 2026-11-02
 
+Stable-main publication was separately verified after excluding unfinished HTTP
+work: [760 Rust / 96 UI / 16 real Kafka acceptance](../main-publish-20261102/README.md).
+The original801-test working-branch evidence and comparison below remain historical.
+
 Replaced production rdkafka0.39/librdkafka2.12.1 with pinned krafka0.28.1. Public
 configuration, durable result journal, stable IDs and per-client scheduling remain
 unchanged. Uses rustls/ring, explicit CA or native roots, TLS/mTLS, bounded encrypted

@@ -2467,3 +2467,12 @@ or MQTT end-to-end TPS claim. Linux artifact23.03→18.45MiB.
 Remaining: Linux execution, multi-replica fault/long-soak and performance profiling;
 at-least-once replay remains. Preexisting HTTP management changes were preserved;
 this phase does not complete that separate integration gate. No deployment/main merge.
+
+
+### Stable main publication (2026-11-02)
+
+Kafka replacement integrated from stable main, excluding unfinished HTTP integration.
+Final scope:760 Rust,96 UI and16real Kafka cases passed; strict Clippy/fmt, Release
+and Linux amd64 musl static build/inspection passed. HTTP development is preserved
+on codex/http-access-integration-wip (7026380), with the full integration gate still
+pending. [Final merge acceptance](verification/main-publish-20261102/README.md).
