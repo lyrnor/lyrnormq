@@ -162,3 +162,10 @@ SDK option. KafkaSink constructors validate explicit concurrency1..512 even when
 called outside Config validation. Native authentication callbacks may retain only
 structured error flags for classifying a final failed delivery; never log native
 strings or turn pending enqueue into early successful/terminal completion.
+
+Upgrade compatibility gate: existing Webhook Outbound serialization, including typed
+DeliveryPolicy declaration field order, remains byte-for-byte unchanged because
+durable Binding descriptors compare those bytes. Kafka-specific defaults may use
+a read-only wire helper; never route existing serialization through sorted JSON
+Value objects. Both legacy v1 fixture recovery and pending v2 queue restart must
+pass unchanged. Do not weaken binding identity checks or change the durable schema.
