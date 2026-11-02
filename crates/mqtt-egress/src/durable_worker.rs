@@ -5,7 +5,7 @@ use crate::{
     durable::Queue,
 };
 use mqtt_egress_core::{FailureKind, Sink};
-use mqtt_egress_log::{Completion, RecordMeta};
+use mqtt_egress_log::{Completion, ConsumerMeta as RecordMeta};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{
@@ -53,6 +53,7 @@ pub(crate) struct Context {
     pub global: Arc<Semaphore>,
     pub counters: Arc<Counters>,
     pub stopped: Arc<AtomicBool>,
+    pub codec: crate::result_wire::Codec,
 }
 pub(crate) fn spawn(
     action: Outbound,
@@ -87,7 +88,7 @@ async fn run(
 ) {
     let mut changed = context.queue.changed.subscribe();
     let mut memory = context.counters.memory_changed.subscribe();
-    let mut jobs = JoinSet::<(String, Option<usize>)>::new();
+    let mut jobs = JoinSet::<((String, String), Option<usize>)>::new();
     let mut busy = BTreeSet::new();
     let mut fair_cursor = None;
     let mut scan = true;
@@ -157,7 +158,7 @@ async fn run(
                         break;
                     }
                     cursor = Some(head.id);
-                    if busy.contains(&head.client_id) {
+                    if busy.contains(&(head.stream_id.clone(), head.client_id.clone())) {
                         continue;
                     }
                     if !head.inflight
@@ -170,7 +171,7 @@ async fn run(
                             }));
                         continue;
                     }
-                    busy.insert(head.client_id.clone());
+                    busy.insert((head.stream_id.clone(), head.client_id.clone()));
                     fair_cursor = Some(head.id);
                     let job_action = Arc::clone(&action);
                     let sink = Arc::clone(&sink);
@@ -178,7 +179,7 @@ async fn run(
                     let context = Arc::clone(&context);
                     let cancel = cancel.clone();
                     jobs.spawn(async move {
-                        let key = head.client_id.clone();
+                        let key = (head.stream_id.clone(), head.client_id.clone());
                         let capacity =
                             deliver(job_action, sink, stats, context, cancel, head).await;
                         (key, capacity)
@@ -233,7 +234,14 @@ async fn deliver(
         .max_bytes
         .saturating_sub(limits.overhead)
         .min(1024 * 1024);
-    if limits.max_events == 0 || head.payload_len > bytes {
+    let head_wire = match context.codec.wire_len(&head) {
+        Ok(length) => length,
+        Err(_) => {
+            invalid_result(&context, &stats);
+            return None;
+        }
+    };
+    if limits.max_events == 0 || head_wire > bytes {
         return terminal(
             &context,
             &stats,
@@ -247,7 +255,8 @@ async fn deliver(
     let plan_required = head
         .client_id
         .len()
-        .saturating_add(256)
+        .saturating_add(head.stream_id.len())
+        .saturating_add(512)
         .saturating_mul(count);
     let Some(plan_memory) = Budget::metadata(&context.counters, plan_required) else {
         return Some(plan_required);
@@ -259,16 +268,25 @@ async fn deliver(
     };
     let mut packed = limits.overhead;
     let mut raw = 0usize;
+    let mut rendered = 0usize;
     let mut take = 0;
     for record in &plan {
+        let wire_len = match context.codec.wire_len(record) {
+            Ok(length) => length,
+            Err(_) => {
+                invalid_result(&context, &stats);
+                return None;
+            }
+        };
         let next = packed
             .checked_add(if take == 0 { 0 } else { limits.separator_bytes })
-            .and_then(|n| n.checked_add(record.payload_len));
+            .and_then(|n| n.checked_add(wire_len));
         if next.is_none_or(|n| n > limits.max_bytes) {
             break;
         }
         packed = next.unwrap_or(usize::MAX);
         raw = raw.saturating_add(record.payload_len);
+        rendered = rendered.saturating_add(wire_len);
         take += 1;
     }
     if take == 0 {
@@ -284,12 +302,16 @@ async fn deliver(
     }
     drop(plan);
     drop(plan_memory);
-    let reservation = raw.saturating_add(
-        head.client_id
-            .len()
-            .saturating_add(256)
-            .saturating_mul(take),
-    );
+    let reservation = raw
+        .saturating_mul(2)
+        .saturating_add(rendered)
+        .saturating_add(
+            head.client_id
+                .len()
+                .saturating_add(head.stream_id.len())
+                .saturating_add(512)
+                .saturating_mul(take),
+        );
     let Some(mut budget) =
         Budget::reserve(&context.counters, reservation, Some(Arc::clone(&stats)))
     else {
@@ -298,34 +320,29 @@ async fn deliver(
     let count = take;
     let bytes = raw.max(1);
     let batch = tokio::select! {biased;_=cancel.changed()=>return None,batch=context.queue.read(head.id,count,bytes)=>batch};
-    let mut batch = match batch {
+    let batch = match batch {
         Ok(batch) => batch,
         Err(_) => return None,
     };
-    let mut size = limits.overhead;
-    let mut take = 0;
-    for record in &batch {
-        let next = size
-            .checked_add(if take == 0 { 0 } else { limits.separator_bytes })
-            .and_then(|n| n.checked_add(record.payload.len()));
-        if next.is_none_or(|n| n > limits.max_bytes) {
-            break;
-        }
-        size = next.unwrap_or(usize::MAX);
-        take += 1;
-    }
-    batch.truncate(take);
     if batch.is_empty() {
-        return terminal(
-            &context,
-            &stats,
-            vec![head.id],
-            Completion::Failed,
-            Some("request_too_large"),
-            1,
-        )
-        .await;
+        invalid_result(&context, &stats);
+        return None;
     }
+    let mut encoded = Vec::with_capacity(batch.len());
+    for record in &batch {
+        if record.meta.stream_id != head.stream_id || record.meta.client_id != head.client_id {
+            invalid_result(&context, &stats);
+            return None;
+        }
+        match context.codec.encode(&record.payload, &record.meta) {
+            Ok(bytes) => encoded.push(bytes),
+            Err(_) => {
+                invalid_result(&context, &stats);
+                return None;
+            }
+        }
+    }
+    let size = packed;
     budget.set_events(batch.len());
     let ids: Vec<_> = batch.iter().map(|r| r.meta.id).collect();
     if head.failures >= action.max_attempts {
@@ -355,10 +372,7 @@ async fn deliver(
                 .retried
                 .fetch_add(batch.len() as u64, Ordering::Relaxed);
         }
-        let events: Vec<&[u8]> = batch
-            .iter()
-            .map(|record| record.payload.as_slice())
-            .collect();
+        let events: Vec<&[u8]> = encoded.iter().map(Vec::as_slice).collect();
         tokio::select! {biased;_=cancel.changed()=>return None,result=tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events))=>match result{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:FailureKind::Retryable,code:"timeout".into()})}}
     };
     drop(permit);
@@ -416,6 +430,15 @@ async fn deliver(
             }
         }
     }
+}
+fn invalid_result(context: &Context, stats: &ActionCounters) {
+    last_error(stats, Some("invalid_rule_result"));
+    context.counters.errors.fetch_add(1, Ordering::Relaxed);
+    context.stopped.store(true, Ordering::Release);
+    context
+        .queue
+        .changed
+        .send_modify(|epoch| *epoch = epoch.wrapping_add(1));
 }
 async fn terminal(
     context: &Context,

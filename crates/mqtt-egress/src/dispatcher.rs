@@ -29,9 +29,8 @@ impl Drop for Work {
     }
 }
 #[derive(Serialize)]
-struct WireEvent<'a> {
+struct RuleResult<'a> {
     event_id: &'a str,
-    delivery_id: &'a str,
     rule_id: &'a str,
     topic: &'a str,
     client_id: &'a str,
@@ -67,29 +66,36 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                         }
                     };
                     inner.counters.matched.fetch_add(1, Ordering::Relaxed);
-                    for action_id in &rule.outbound_ids {
-                        let Some(target) = work.snapshot.generation.targets.get(action_id) else {
-                            continue;
-                        };
-                        if !target.enabled {
-                            continue;
-                        }
-                        let delivery_id = format!("{}:{}:{}", work.id, rule.id, action_id);
-                        let wire = WireEvent {
-                            event_id: &work.id,
-                            delivery_id: &delivery_id,
-                            rule_id: &rule.id,
-                            topic: &work.event.topic,
-                            client_id: &work.event.client_id,
-                            qos: work.event.qos,
-                            retain: work.event.retain,
-                            timestamp_ms: work.event.timestamp_ms,
-                            data: &output,
-                        };
-                        let encoded = match serde_json::to_vec(&wire) {
-                            Ok(bytes) if bytes.len() <= crate::durable_worker::MAX_REQUEST => bytes,
-                            _ => {
-                                inner.counters.errors.fetch_add(1, Ordering::Relaxed);
+                    let targets: Vec<_> = rule
+                        .outbound_ids
+                        .iter()
+                        .filter_map(|id| {
+                            work.snapshot
+                                .generation
+                                .targets
+                                .get(id)
+                                .filter(|target| target.enabled)
+                                .map(|target| (id, target))
+                        })
+                        .collect();
+                    if targets.is_empty() {
+                        continue;
+                    }
+                    let wire = RuleResult {
+                        event_id: &work.id,
+                        rule_id: &rule.id,
+                        topic: &work.event.topic,
+                        client_id: &work.event.client_id,
+                        qos: work.event.qos,
+                        retain: work.event.retain,
+                        timestamp_ms: work.event.timestamp_ms,
+                        data: &output,
+                    };
+                    let encoded = match serde_json::to_vec(&wire) {
+                        Ok(bytes) if bytes.len() <= crate::durable_worker::MAX_REQUEST => bytes,
+                        _ => {
+                            inner.counters.errors.fetch_add(1, Ordering::Relaxed);
+                            for (_, target) in targets {
                                 target.stats.failed.fetch_add(1, Ordering::Relaxed);
                                 *target
                                     .stats
@@ -97,31 +103,71 @@ pub(crate) fn run(inner: Arc<Inner>, receiver: Receiver<Work>) {
                                     .lock()
                                     .unwrap_or_else(std::sync::PoisonError::into_inner) =
                                     Some("request_too_large".into());
-                                continue;
                             }
-                        };
-                        let Some(budget) = Budget::reserve(
-                            &inner.counters,
-                            encoded.len().saturating_add(work.event.client_id.len()),
-                            Some(Arc::clone(&target.stats)),
-                        ) else {
-                            target.stats.dropped.fetch_add(1, Ordering::Relaxed);
-                            inner.counters.dropped.fetch_add(1, Ordering::Relaxed);
                             continue;
-                        };
-                        let record = mqtt_egress_log::NewRecord {
+                        }
+                    };
+                    let mut consumers = Vec::with_capacity(targets.len());
+                    let mut stats = Vec::with_capacity(targets.len());
+                    let mut metadata_bytes =
+                        work.event.client_id.len().saturating_add(rule.id.len());
+                    for (action_id, target) in targets {
+                        let delivery_id = format!("{}:{}:{}", work.id, rule.id, action_id);
+                        let extra =
+                            crate::result_wire::delivery_extra(&delivery_id).unwrap_or(usize::MAX);
+                        if encoded
+                            .len()
+                            .checked_add(extra)
+                            .is_none_or(|n| n > crate::durable_worker::MAX_REQUEST)
+                        {
+                            target.stats.failed.fetch_add(1, Ordering::Relaxed);
+                            inner.counters.errors.fetch_add(1, Ordering::Relaxed);
+                            *target
+                                .stats
+                                .last_error
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                                Some("request_too_large".into());
+                            continue;
+                        }
+                        metadata_bytes = metadata_bytes
+                            .saturating_add(action_id.len())
+                            .saturating_add(delivery_id.len())
+                            .saturating_add(256);
+                        consumers.push(mqtt_egress_log::NewConsumer {
                             outbound_id: action_id.clone(),
                             revision: target.revision,
-                            client_id: work.event.client_id.clone(),
-                            payload: encoded,
-                        };
-                        inner.queue.enqueue(
-                            record,
-                            budget,
-                            Arc::clone(&target.stats),
-                            Arc::clone(&inner.counters),
-                        );
+                            delivery_id,
+                        });
+                        stats.push(Arc::clone(&target.stats));
                     }
+                    if consumers.is_empty() {
+                        continue;
+                    }
+                    let Some(mut budget) = Budget::reserve(
+                        &inner.counters,
+                        encoded.len().saturating_add(metadata_bytes),
+                        None,
+                    ) else {
+                        for target in &stats {
+                            target.dropped.fetch_add(1, Ordering::Relaxed);
+                        }
+                        inner
+                            .counters
+                            .dropped
+                            .fetch_add(stats.len() as u64, Ordering::Relaxed);
+                        continue;
+                    };
+                    budget.set_events(consumers.len());
+                    let record = mqtt_egress_log::NewResult {
+                        stream_id: rule.id.clone(),
+                        client_id: work.event.client_id.clone(),
+                        payload: encoded,
+                        consumers,
+                    };
+                    inner
+                        .queue
+                        .enqueue(record, budget, stats, Arc::clone(&inner.counters));
                 }
                 work.complete = !cancelled;
                 drop(work);

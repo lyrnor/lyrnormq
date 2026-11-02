@@ -877,3 +877,61 @@ async fn accepted_delivery_replays_after_shutdown_with_stable_identity() {
     let _ = stop.send(true);
     server.await.unwrap();
 }
+
+#[tokio::test]
+async fn one_rule_fanout_stores_its_transformed_body_once() {
+    fn occurrences(path: &std::path::Path, marker: &[u8]) -> usize {
+        std::fs::read_dir(path)
+            .unwrap()
+            .map(|entry| {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    occurrences(&path, marker)
+                } else if path.extension().is_some_and(|e| e == "log") {
+                    std::fs::read(path)
+                        .unwrap()
+                        .windows(marker.len())
+                        .filter(|w| *w == marker)
+                        .count()
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+    let f = Fixture::new();
+    let (url, mut first, stop_first, task_first) = server(vec![200], Duration::from_secs(30)).await;
+    let (second_url, mut second, stop_second, task_second) =
+        server(vec![200], Duration::from_secs(30)).await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut policy = config(url);
+    let mut destination = policy.outbounds[0].clone();
+    destination.id = "second".into();
+    webhook_mut(&mut destination.endpoint).url = second_url;
+    policy.outbounds.push(destination);
+    policy.rules[0].outbound_ids.push("second".into());
+    policy.rules[0].sql = "SELECT payload.marker AS marker FROM \"devices/#\"".into();
+    runtime.replace(policy).await.unwrap();
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"marker":"shared-rule-result-body-marker"}"#,
+        "device-a",
+        0,
+        false,
+    );
+    let _ = receive(&mut first).await;
+    let _ = receive(&mut second).await;
+    let queue = std::path::PathBuf::from(format!("{}.outbound-queue", f.path().display()));
+    let copies = occurrences(&queue, b"shared-rule-result-body-marker");
+    runtime.shutdown().await;
+    stop_first.send_replace(true);
+    stop_second.send_replace(true);
+    task_first.abort();
+    task_second.abort();
+    let _ = task_first.await;
+    let _ = task_second.await;
+    assert_eq!(
+        copies, 1,
+        "one transformed result was copied once for every destination"
+    );
+}

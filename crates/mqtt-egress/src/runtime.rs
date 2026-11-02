@@ -260,6 +260,7 @@ impl Runtime {
             }
         };
         let context = Arc::new(durable_worker::Context {
+            codec: crate::result_wire::Codec::Rule,
             queue: Arc::clone(&queue),
             global: Arc::clone(&outbound),
             counters: Arc::clone(&counters),
@@ -444,6 +445,7 @@ impl Runtime {
             );
             previous.generation.finish().await;
             let context = Arc::new(durable_worker::Context {
+                codec: crate::result_wire::Codec::Rule,
                 queue: Arc::clone(&inner.queue),
                 global: Arc::clone(&inner.outbound),
                 counters: Arc::clone(&inner.counters),

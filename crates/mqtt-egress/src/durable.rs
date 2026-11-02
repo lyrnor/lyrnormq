@@ -4,8 +4,8 @@ use crate::{
     counters::{ActionCounters, Budget, Counters},
 };
 use mqtt_egress_log::{
-    Binding, Completion, Journal, NewRecord, QueueError, QueueOptions, QueueStats, Record,
-    RecordMeta,
+    Binding, Completion, ConsumerMeta, ConsumerRecord, Journal, NewResult, QueueError,
+    QueueOptions, QueueStats,
 };
 use std::{
     collections::BTreeMap,
@@ -19,10 +19,10 @@ use tokio::sync::{mpsc, oneshot, watch};
 type Reply<T> = oneshot::Sender<Result<T, QueueError>>;
 enum Command {
     Bind(Vec<Binding>, Reply<BTreeMap<String, u64>>),
-    Append(NewRecord, Option<Reply<()>>, Option<Admission>),
-    Plan(u64, usize, usize, Reply<Vec<RecordMeta>>),
-    Heads(String, Option<u64>, usize, Reply<Vec<RecordMeta>>),
-    Read(u64, usize, usize, Reply<Vec<Record>>),
+    Append(NewResult, Option<Reply<()>>, Option<Admission>),
+    Plan(u64, usize, usize, Reply<Vec<ConsumerMeta>>),
+    Heads(String, Option<u64>, usize, Reply<Vec<ConsumerMeta>>),
+    Read(u64, usize, usize, Reply<Vec<ConsumerRecord>>),
     Begin(Vec<u64>, Reply<()>),
     Retry(Vec<u64>, u64, Reply<()>),
     Complete(Vec<u64>, Completion, Reply<()>),
@@ -30,18 +30,26 @@ enum Command {
 }
 struct Admission {
     _budget: Budget,
-    stats: Arc<ActionCounters>,
+    stats: Vec<Arc<ActionCounters>>,
     counters: Arc<Counters>,
     committed: bool,
 }
 impl Drop for Admission {
     fn drop(&mut self) {
+        for stats in &self.stats {
+            stats.queued.fetch_sub(1, Ordering::Relaxed);
+            if !self.committed {
+                stats.dropped.fetch_add(1, Ordering::Relaxed);
+            }
+        }
         if !self.committed {
-            self.stats.dropped.fetch_add(1, Ordering::Relaxed);
-            self.counters.dropped.fetch_add(1, Ordering::Relaxed);
+            self.counters
+                .dropped
+                .fetch_add(self.stats.len() as u64, Ordering::Relaxed);
         }
     }
 }
+
 struct View {
     stats: QueueStats,
     pending: BTreeMap<String, usize>,
@@ -66,6 +74,7 @@ impl Queue {
         let opened = tokio::task::spawn_blocking(move || {
             let mut journal = Journal::open(options)?;
             let revisions = journal.bind_all(&bindings)?;
+            journal.migrate_legacy(crate::result_wire::resolve_legacy)?;
             Ok::<_, QueueError>((journal, revisions, bindings))
         })
         .await
@@ -131,7 +140,7 @@ impl Queue {
         self.request(|tx| Command::Bind(bindings, tx)).await
     }
     #[cfg(test)]
-    pub fn append(&self, record: NewRecord) -> Result<(), QueueError> {
+    pub fn append(&self, record: NewResult) -> Result<(), QueueError> {
         if self.stopped.load(Ordering::Acquire) || self.closed.load(Ordering::Acquire) {
             return Err(QueueError::Io);
         }
@@ -143,11 +152,14 @@ impl Queue {
     }
     pub fn enqueue(
         &self,
-        record: NewRecord,
+        record: NewResult,
         budget: Budget,
-        stats: Arc<ActionCounters>,
+        stats: Vec<Arc<ActionCounters>>,
         counters: Arc<Counters>,
     ) {
+        for item in &stats {
+            item.queued.fetch_add(1, Ordering::Relaxed);
+        }
         let pending = Admission {
             _budget: budget,
             stats,
@@ -166,7 +178,7 @@ impl Queue {
         id: u64,
         count: usize,
         bytes: usize,
-    ) -> Result<Vec<RecordMeta>, QueueError> {
+    ) -> Result<Vec<ConsumerMeta>, QueueError> {
         self.request(|tx| Command::Plan(id, count, bytes, tx)).await
     }
     pub async fn heads(
@@ -174,7 +186,7 @@ impl Queue {
         outbound: String,
         after: Option<u64>,
         limit: usize,
-    ) -> Result<Vec<RecordMeta>, QueueError> {
+    ) -> Result<Vec<ConsumerMeta>, QueueError> {
         self.request(|tx| Command::Heads(outbound, after, limit, tx))
             .await
     }
@@ -183,7 +195,7 @@ impl Queue {
         id: u64,
         count: usize,
         bytes: usize,
-    ) -> Result<Vec<Record>, QueueError> {
+    ) -> Result<Vec<ConsumerRecord>, QueueError> {
         self.request(|tx| Command::Read(id, count, bytes, tx)).await
     }
     pub async fn begin(&self, ids: Vec<u64>) -> Result<(), QueueError> {
@@ -301,7 +313,7 @@ fn run(
                     Err(_) => break,
                 }
             }
-            let result = checked(journal.append_batch(records), &stopped, &counters);
+            let result = checked(journal.append_results(records), &stopped, &counters);
             refresh(&journal, &view);
             let result = result.map(|_| ());
             for (reply, mut admission) in replies {
@@ -339,18 +351,18 @@ fn run(
                 {
                     view.lock().unwrap_or_else(PoisonError::into_inner).queries += 1;
                 }
-                let _ = reply.send(Ok(journal.heads(&id, after, limit)));
+                let _ = reply.send(Ok(journal.consumer_heads(&id, after, limit)));
             }
             Command::Plan(id, count, bytes, reply) => {
                 let _ = reply.send(checked(
-                    journal.batch_metas(id, count, bytes),
+                    journal.consumer_metas(id, count, bytes),
                     &stopped,
                     &counters,
                 ));
             }
             Command::Read(id, count, bytes, reply) => {
                 let _ = reply.send(checked(
-                    journal.read_batch(id, count, bytes),
+                    journal.read_consumers(id, count, bytes),
                     &stopped,
                     &counters,
                 ));
@@ -372,14 +384,18 @@ fn run(
                         Err(_) => break,
                     }
                 }
-                let result = checked(journal.begin_attempt(&ids), &stopped, &counters);
+                let result = checked(journal.begin_consumers(&ids), &stopped, &counters);
                 refresh(&journal, &view);
                 for reply in replies {
                     let _ = reply.send(result);
                 }
             }
             Command::Retry(ids, when, reply) => {
-                let _ = reply.send(checked(journal.retry(&ids, when), &stopped, &counters));
+                let _ = reply.send(checked(
+                    journal.retry_consumers(&ids, when),
+                    &stopped,
+                    &counters,
+                ));
             }
             Command::Complete(mut ids, outcome, reply) => {
                 let mut replies = vec![reply];
@@ -403,7 +419,11 @@ fn run(
                         Err(_) => break,
                     }
                 }
-                let result = checked(journal.complete(&ids, outcome), &stopped, &counters);
+                let result = checked(
+                    journal.complete_consumers(&ids, outcome),
+                    &stopped,
+                    &counters,
+                );
                 refresh(&journal, &view);
                 for reply in replies {
                     let _ = reply.send(result);

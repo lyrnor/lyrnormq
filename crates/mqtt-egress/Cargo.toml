@@ -10,7 +10,7 @@ mqtt-rules = { path = "../mqtt-rules" }
 mqtt-transport = { path = "../mqtt-transport" }
 tokio.workspace = true
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["raw_value"] }
 mqtt-webhook = {path="../mqtt-webhook"}
 mqtt-egress-core = {path="../mqtt-egress-core"}
 
