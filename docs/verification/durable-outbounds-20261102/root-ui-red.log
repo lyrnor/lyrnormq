@@ -1,0 +1,62 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run --run tests/rules-page.test.tsx
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ❯ tests/rules-page.test.tsx (28 tests | 1 failed) 867ms
+   ✓ live rule and Webhook management > creates without exposing an ID field 71ms
+   ✓ live rule and Webhook management > shows a plain disabled state without implementation details 5ms
+   ✓ live rule and Webhook management > creates outbound with password inputs, never writes credentials into storage 60ms
+   ✓ live rule and Webhook management > preserves redacted secrets and rejects deleting referenced outbound 53ms
+   ✓ live rule and Webhook management > creates outbound and rule with exact references then disables rule 76ms
+   ✓ live rule and Webhook management > binds only the selected identifier when outbound names are identical 37ms
+   ✓ live rule and Webhook management > rejects unknown outbound types without interpreting them as Webhook 3ms
+   ✓ live rule and Webhook management > SQL dry run only calls test endpoint and escapes output 20ms
+   ✓ live rule and Webhook management > keeps the generated ID across validation failure and a failed HTTP save 41ms
+   ✓ live rule and Webhook management > preserves existing rule identifiers and bindings when renaming 28ms
+   ✓ live rule and Webhook management > shows a controlled creation failure if secure identifiers cannot be generated 8ms
+   ✓ live rule and Webhook management > switches real tab panels through keyboard without writing configuration 12ms
+   ✓ live rule and Webhook management > clears auth on401 and aborts requests when leaving the page 2ms
+   ✓ live rule and Webhook management > polls status without overwriting an open form and stops while hidden 17ms
+   ✓ live rule and Webhook management > marks failed statistics stale and clears that warning after a successful sample 5ms
+   ✓ live rule and Webhook management > shows stopped execution explicitly while keeping published configuration inspectable 20ms
+   ✓ live rule and Webhook management > disables an already-open delete confirmation if execution stops 14ms
+   × outbound request observations > shows durable backlog even when the memory window is empty 10ms
+     → expected '待完成事件0' to contain '321'
+   ✓ outbound request observations > labels in-progress attempts as requests independently of message counts 13ms
+   ✓ Webhook basic and advanced settings > only shows business fields initially and saves the system defaults 35ms
+   ✓ Webhook basic and advanced settings > retains advanced edits through collapse with no editable queue capacity 90ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 100/wait 50/concurrency 1 without opening advanced 35ms
+   ✓ Webhook basic and advanced settings > preserves existing batch 7/wait 15/concurrency 16 without opening advanced 37ms
+   ✓ Webhook basic and advanced settings > expands hidden invalid tuning instead of submitting it 52ms
+   ✓ Webhook basic and advanced settings > rejects hidden concurrency 0 and focuses the expanded field 49ms
+   ✓ Webhook basic and advanced settings > rejects hidden concurrency 17 and focuses the expanded field 42ms
+   ✓ Webhook basic and advanced settings > explains delivery order only inside the advanced panel 18ms
+   ✓ Webhook basic and advanced settings > keeps the rule enable switch and SQL immediately available 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/rules-page.test.tsx > outbound request observations > shows durable backlog even when the memory window is empty
+AssertionError: expected '待完成事件0' to contain '321'
+
+Expected: "321"
+Received: "待完成事件0"
+
+ ❯ tests/rules-page.test.tsx:555:66
+    553|     render(<RulesPage token="token" expired={expired} />);
+    554|     await ready();
+    555|     expect(screen.getByText("待完成事件").parentElement?.textContent).toCon…
+       |                                                                  ^
+    556|     expect(screen.getByText("待发送数据量").parentElement?.textContent).toCo…
+    557|     const table = screen.getByRole("columnheader", { name: "待完成（消息）" }…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 27 passed (28)
+   Start at  11:17:22
+   Duration  1.40s (transform 98ms, setup 6ms, collect 217ms, tests 867ms, environment 141ms, prepare 36ms)
+

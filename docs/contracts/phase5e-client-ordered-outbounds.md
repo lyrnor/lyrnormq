@@ -1,5 +1,7 @@
 # Phase5e — Client-ordered outbound delivery (frozen 2026-11-02)
 
+**Volatile queue/lifecycle superseded by [Phase5f](phase5f-durable-outbound-queue.md).**
+
 Supersedes phase5d scheduling and ordering only. User requests same-client FIFO,
 different-client concurrency, retries block only their client, terminal failure
 continues to next message. No durable queue, schema/API shape, MQTT ACK/session/

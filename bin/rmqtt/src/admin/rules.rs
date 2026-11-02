@@ -33,12 +33,12 @@ fn failure(error_kind: RuntimeError) -> Response {
         RuntimeError::Busy => error(
             StatusCode::CONFLICT,
             "rules_busy",
-            "Configuration update or SQL test capacity exhausted",
+            "Configuration is busy, test capacity is exhausted, or pending deliveries prevent changing the outbound",
         ),
         RuntimeError::Storage => error(
             StatusCode::SERVICE_UNAVAILABLE,
             "rules_storage",
-            "Rule configuration could not be persisted",
+            "Rule configuration or outbound queue storage failed",
         ),
         RuntimeError::Stopped => error(
             StatusCode::SERVICE_UNAVAILABLE,

@@ -1,0 +1,25 @@
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.35s
+     Running unittests src/main.rs (target/debug/deps/rmqtt-920d88991ecd28fe)
+
+running 1 test
+test cli::tests::durable_outbound_queue_cli_accepts_explicit_limits ... FAILED
+
+failures:
+
+---- cli::tests::durable_outbound_queue_cli_accepts_explicit_limits stdout ----
+
+thread 'cli::tests::durable_outbound_queue_cli_accepts_explicit_limits' (15475308) panicked at bin/rmqtt/src/cli.rs:332:9:
+assertion failed: parse(args(&["--egress-queue-dir", "deliveries",
+                        "--egress-queue-segment-bytes", "4096",
+                        "--egress-queue-max-bytes", "1048576",
+                        "--egress-queue-max-records", "8"])).is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cli::tests::durable_outbound_queue_cli_accepts_explicit_limits
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p rmqtt --bin rmqtt`

@@ -1,0 +1,22 @@
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-durable-egress-log/crates/mqtt-egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.53s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+
+running 1 test
+test tests::malformed_orphan_file_and_root_directory_counts_fail_without_deletion ... FAILED
+
+failures:
+
+---- tests::malformed_orphan_file_and_root_directory_counts_fail_without_deletion stdout ----
+
+thread 'tests::malformed_orphan_file_and_root_directory_counts_fail_without_deletion' (15522311) panicked at crates/mqtt-egress-log/src/tests.rs:685:43:
+called `Result::unwrap_err()` on an `Ok` value: Journal { .. }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::malformed_orphan_file_and_root_directory_counts_fail_without_deletion
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p mqtt-egress-log --lib`

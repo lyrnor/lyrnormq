@@ -1,5 +1,7 @@
 # Phase5d — Bounded concurrent outbound requests (frozen 2026-11-02)
 
+**Volatile queue/lifecycle superseded by [Phase5f](phase5f-durable-outbound-queue.md).**
+
 **Scheduling/ordering superseded by [Phase5e](phase5e-client-ordered-outbounds.md).**
 
 Scope: generic outbound batch scheduling and existing Webhook connection-pool

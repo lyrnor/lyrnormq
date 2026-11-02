@@ -69,7 +69,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None
     };
     let rules = if let Some(path) = options.rules_config.clone() {
-        let runtime = mqtt_egress::Runtime::open(path).await?;
+        let directory = options
+            .queue_directory()
+            .ok_or("outbound queue directory required")?;
+        let mut queue = mqtt_egress::QueueOptions::new(directory);
+        queue.segment_bytes = options.egress_queue_segment_bytes;
+        queue.max_bytes = options.egress_queue_max_bytes;
+        queue.max_records = options.egress_queue_max_records;
+        let runtime = mqtt_egress::Runtime::open_with_queue(path, queue).await?;
         options.config.publication_observer = Some(runtime.observer());
         if let Some((_, state)) = &mut admin {
             let state = std::sync::Arc::get_mut(state)

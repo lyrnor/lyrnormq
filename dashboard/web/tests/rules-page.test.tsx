@@ -533,6 +533,39 @@ describe("live rule and Webhook management", () => {
 });
 
 describe("outbound request observations", () => {
+  it("shows durable backlog even when the memory window is empty", async () => {
+    const observed = {
+      ...status,
+      queued_events: 0,
+      queued_bytes: 0,
+      durable_queue: {
+        pending_records: 321,
+        pending_bytes: 2048,
+        disk_bytes: 4096,
+        max_bytes: 268435456,
+        recovered_records: 321,
+      },
+      outbounds: [{ ...status.outbounds[0], queued: 0, durable_queued: 321 }],
+    };
+    request.mockImplementation(
+      async (path) => (path.endsWith("config") ? populated : observed) as never,
+    );
+    render(<RulesPage token="token" expired={expired} />);
+    await ready();
+    expect(screen.getByText("待完成事件").parentElement?.textContent).toContain(
+      "321",
+    );
+    expect(
+      screen.getByText("待发送数据量").parentElement?.textContent,
+    ).toContain("2.0 KiB");
+    const table = screen
+      .getByRole("columnheader", { name: "待完成（消息）" })
+      .closest("table")!;
+    const cells = within(within(table).getAllByRole("row")[1]).getAllByRole(
+      "cell",
+    );
+    expect(cells[2].textContent).toBe("321");
+  });
   it("labels in-progress attempts as requests independently of message counts", async () => {
     server(populated);
     render(<RulesPage token="token" expired={expired} />);

@@ -1,0 +1,28 @@
+   Compiling mqtt-router v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-router)
+   Compiling mqtt-protocol v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-protocol)
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-egress-core)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-storage)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-webhook)
+   Compiling mqtt-auth v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-auth)
+   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-rules)
+   Compiling mqtt-session v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-session)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-transport)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.78s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-c1dff689ded4e4cf)
+
+running 1 test
+
+thread 'tests::accepted_delivery_replays_after_shutdown_with_stable_identity' (15477101) panicked at crates/mqtt-egress/src/tests.rs:115:10:
+called `Result::unwrap()` on an `Err` value: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::accepted_delivery_replays_after_shutdown_with_stable_identity ... FAILED
+
+failures:
+
+failures:
+    tests::accepted_delivery_replays_after_shutdown_with_stable_identity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 33 filtered out; finished in 5.12s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

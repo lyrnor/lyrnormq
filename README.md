@@ -594,3 +594,16 @@ Phase3 adds reproducible local load drivers and bounded slow-consumer/recovery
 tests. See [performance methods and evidence](docs/performance/README.md) and
 [Phase3 contract](docs/contracts/phase3.md). ACK-only stress and receipt-feedback
 baselines use different offered loads and are reported separately.
+
+
+### Durable outbound queue
+
+SQL rule outputs use a shared protocol-independent segmented append journal before
+any outbound adapter sends them. Queue payloads are not SQLite rows; SQLite retains
+rule/outbound configuration. Default data directory is the rules database path plus
+`.outbound-queue`. Same-client FIFO, cross-client concurrency and persisted retry
+state survive restart; uncertain remote results may repeat stable delivery IDs.
+Durability begins after journal sync, not MQTT ACK. Bounded pre-append admission
+and disk exhaustion can reject new events; terminal failure ends that delivery.
+See [outbound operation and limits](docs/rules-webhook.md) and
+[acceptance results](docs/verification/durable-outbounds-20261102/README.md).

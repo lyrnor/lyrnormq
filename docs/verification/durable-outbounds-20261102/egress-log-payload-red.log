@@ -1,0 +1,25 @@
+    Blocking waiting for file lock on build directory
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-durable-egress-log/crates/mqtt-egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.80s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+
+running 1 test
+test tests::payload_bitflip_after_open_is_not_sent_or_blessed_by_compaction ... FAILED
+
+failures:
+
+---- tests::payload_bitflip_after_open_is_not_sent_or_blessed_by_compaction stdout ----
+
+thread 'tests::payload_bitflip_after_open_is_not_sent_or_blessed_by_compaction' (15500691) panicked at crates/mqtt-egress-log/src/tests.rs:493:13:
+assertion `left == right` failed
+  left: None
+ right: Some(Corrupt)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::payload_bitflip_after_open_is_not_sent_or_blessed_by_compaction
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.16s
+
+error: test failed, to rerun pass `-p mqtt-egress-log --lib`

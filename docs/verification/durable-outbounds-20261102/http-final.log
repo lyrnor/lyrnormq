@@ -1,0 +1,17 @@
+test_crash_during_retry_repeats_uncertain_attempt_then_continues_client (__main__.DurableOutbounds.test_crash_during_retry_repeats_uncertain_attempt_then_continues_client) ... ok
+test_disable_pauses_and_rule_or_name_edit_preserves_pending_records (__main__.DurableOutbounds.test_disable_pauses_and_rule_or_name_edit_preserves_pending_records) ... ok
+test_disk_backlog_exceeds_resident_window_without_blocking_another_client (__main__.DurableOutbounds.test_disk_backlog_exceeds_resident_window_without_blocking_another_client) ... ok
+test_full_record_limit_retains_old_messages_and_recovers_capacity (__main__.DurableOutbounds.test_full_record_limit_retains_old_messages_and_recovers_capacity) ... ok
+test_graceful_restart_replays_committed_backlog_with_stable_identity (__main__.DurableOutbounds.test_graceful_restart_replays_committed_backlog_with_stable_identity) ... ok
+test_messages_live_in_private_log_files_not_configuration_sqlite (__main__.DurableOutbounds.test_messages_live_in_private_log_files_not_configuration_sqlite) ... ok
+test_pending_binding_changes_and_removal_return_409_without_sqlite_commit (__main__.DurableOutbounds.test_pending_binding_changes_and_removal_return_409_without_sqlite_commit) ... ok
+test_restart_preserves_retry_deadline_and_finite_failure_budget (__main__.DurableOutbounds.test_restart_preserves_retry_deadline_and_finite_failure_budget) ... ok
+test_rotation_io_failure_stops_outbound_without_sending_uncommitted_message (__main__.DurableOutbounds.test_rotation_io_failure_stops_outbound_without_sending_uncommitted_message) ... ok
+test_sigkill_keeps_client_fifo_and_other_client_progress (__main__.DurableOutbounds.test_sigkill_keeps_client_fifo_and_other_client_progress) ... ok
+test_small_disk_limit_can_complete_reclaim_and_accept_again (__main__.DurableOutbounds.test_small_disk_limit_can_complete_reclaim_and_accept_again) ... ok
+test_uncertain_remote_acceptance_repeats_same_delivery_not_a_new_event (__main__.DurableOutbounds.test_uncertain_remote_acceptance_repeats_same_delivery_not_a_new_event) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 9.849s
+
+OK

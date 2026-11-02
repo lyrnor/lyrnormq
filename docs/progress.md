@@ -2250,3 +2250,54 @@ Final validation: Fmt,strict workspaceClippy,631Rusttests,81frontendtests,TS/Vit
 Prettier and embeddedRelease pass.107Releaseblackboxtests pass, including9neworder
 and10existingconcurrency cases. ActualHTTP peaks8/16/3 and16requests over8TCP
 connections retained. Independent review found no remaining integration blockers.
+
+
+### Generic durable outbound queue (2026-11-02)
+
+Frozen phase5f contract before implementation, including a coordinated metadata
+preview API addition before its callers changed. Storage, common runtime and
+independent quality used separate Git worktrees/branches. New mqtt-egress-log has
+no HTTP, Sink, SQLite or Tokio dependency. All production outbound adapters now
+consume committed records through the shared durable scheduler; message bodies
+are segmented append files, SQLite continues to store configuration only.
+
+Per-outbound/exactClientID FIFO persists across restart. Different clients remain
+parallel; known failure counts/absolute retry deadlines survive crash, uncertain
+in-flight attempts replay stable delivery IDs, terminal completion is synchronized
+before advancing a lane. Final failure still continues the next record. The
+blocking actor coalesces appends, begin markers and compatible terminal outcomes.
+Bounded metadata preview reserves exact body windows before reading payloads;
+perclient disk heads avoid a single slow client's backlog filling RAM. Idle waits
+use watch notifications/deadlines, not read-triggered feedback or periodic polling.
+
+Versioned header/body/payload checksums, private ownership lock, strict tail vs
+complete-corruption behavior and atomic generation manifests protect recovery.
+Checkpoint compaction streams bounded groups and reclaims old generations only
+after publication sync. Missing manifests fail closed without deleting messages.
+Directory/file/object counts and decode vectors are bounded; completed historical
+outbound indexes are removed. Physical file-byte limits reserve half for progress,
+compaction transiently allows up to2x plus small control files; filesystems may
+allocate additional block/inode metadata. Overflow rejects new records.
+
+Pending target changes/removals return409 before SQLite save. Disable pauses and
+retains backlog, rename/rule changes preserve saved work. Generations stop/join
+before replacement claims. CLI provides queue directory/segment/byte/record limits;
+Dashboard backlog uses durable counts and survives restart. No implementation
+banner, message body/credential read endpoint or static-data exposure was added.
+
+Durability starts at synchronized append, not MQTT ACK. Pre-append admission is
+still bounded best effort; no MQTT/outbound atomic transaction, replicated queue,
+dead-letter replay or production TPS/p99 certification is claimed. Remaining work:
+measure group-commit/compaction latency and throughput under real backlog, consider
+more efficient readiness indexing for many retrying clients, and separately design
+optional ACK-coupled admission/dead-letter operations if requested.
+
+Evidence: docs/verification/durable-outbounds-20261102/README.md. Existing user
+services untouched; all tests use temporary local Broker/log/SQLite/HTTP resources.
+
+Final phase5f validation: Fmt,strict workspaceClippy,670Rusttests(including28journal
+and41egress),82frontendtests,TS/Vite/Prettier and embeddedRelease pass.119/119
+Releaseblackboxtests pass on final62a7b00 candidate, including12durability cases.
+Observed concurrency8/16/3 and16requests reusing8TCPconnections retained. Review
+also fixed self-wake capacityspin with required-byte waits and initialization
+cancellation/error storage cleanup. CLI/UI changes included in this validation.

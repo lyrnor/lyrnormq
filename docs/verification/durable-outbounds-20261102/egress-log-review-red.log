@@ -1,0 +1,60 @@
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-durable-egress-log/crates/mqtt-egress-log)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.42s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+
+running 19 tests
+test tests::exclusive_ownership_and_foreign_files_fail_closed ... ok
+test tests::generic_binary_records_survive_restart_with_stable_identifiers ... ok
+test tests::checksum_corruption_in_complete_latest_frame_fails_closed ... ok
+test tests::binding_changes_are_atomic_and_blocked_only_while_pending ... ok
+test tests::corrupted_complete_frame_length_cannot_be_misclassified_as_partial_tail ... FAILED
+test tests::options_are_finite ... ok
+test tests::indexed_heads_are_exact_client_fifo_and_cursor_bounded ... ok
+test tests::invalid_group_never_partially_appends_and_identifiers_do_not_reuse ... ok
+test tests::corrupt_frame_length_and_version_fail_before_large_allocation ... ok
+test tests::queue_directory_symlink_is_rejected_but_system_temp_parent_is_supported ... ok
+test tests::private_files_reject_symlinks_hardlinks_and_insecure_permissions ... FAILED
+test tests::orphan_prepared_generation_is_removed_without_replacing_current_data ... ok
+test tests::missing_manifest_never_discards_accepted_generation ... FAILED
+test tests::checkpoint_preserves_live_payloads_states_and_reclaims_old_generation ... ok
+test tests::sealed_segment_incomplete_tail_is_corruption_not_repair ... ok
+test tests::latest_incomplete_header_and_body_truncate_only_uncommitted_tail ... ok
+test tests::retry_and_uncertain_inflight_state_survive_reopen_and_checkpoint ... ok
+test tests::full_count_and_physical_capacity_allow_terminal_progress_and_reclaim ... ok
+test tests::sustained_delivery_reclaims_completed_segments_without_accumulation ... FAILED
+
+failures:
+
+---- tests::corrupted_complete_frame_length_cannot_be_misclassified_as_partial_tail stdout ----
+
+thread 'tests::corrupted_complete_frame_length_cannot_be_misclassified_as_partial_tail' (15495728) panicked at crates/mqtt-egress-log/src/tests.rs:473:43:
+called `Result::unwrap_err()` on an `Ok` value: Journal { .. }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tests::private_files_reject_symlinks_hardlinks_and_insecure_permissions stdout ----
+
+thread 'tests::private_files_reject_symlinks_hardlinks_and_insecure_permissions' (15495754) panicked at crates/mqtt-egress-log/src/tests.rs:413:5:
+assertion `left == right` failed
+  left: Corrupt
+ right: Io
+
+---- tests::missing_manifest_never_discards_accepted_generation stdout ----
+
+thread 'tests::missing_manifest_never_discards_accepted_generation' (15495747) panicked at crates/mqtt-egress-log/src/tests.rs:458:43:
+called `Result::unwrap_err()` on an `Ok` value: Journal { .. }
+
+---- tests::sustained_delivery_reclaims_completed_segments_without_accumulation stdout ----
+
+thread 'tests::sustained_delivery_reclaims_completed_segments_without_accumulation' (15495758) panicked at crates/mqtt-egress-log/src/tests.rs:278:9:
+assertion failed: j.stats().disk_bytes <= 65536
+
+
+failures:
+    tests::corrupted_complete_frame_length_cannot_be_misclassified_as_partial_tail
+    tests::missing_manifest_never_discards_accepted_generation
+    tests::private_files_reject_symlinks_hardlinks_and_insecure_permissions
+    tests::sustained_delivery_reclaims_completed_segments_without_accumulation
+
+test result: FAILED. 15 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.23s
+
+error: test failed, to rerun pass `-p mqtt-egress-log --lib`

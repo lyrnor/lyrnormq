@@ -1,0 +1,19 @@
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.12s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-051ca85e2a1b8d0d)
+
+running 1 test
+
+thread 'durable_worker::tests::metadata_release_does_not_spin_when_payload_capacity_is_still_unavailable' (15565334) panicked at crates/mqtt-egress/src/durable_worker_tests.rs:431:5:
+metadata-only budget releases retriggered 6665 actor queries
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test durable_worker::tests::metadata_release_does_not_spin_when_payload_capacity_is_still_unavailable ... FAILED
+
+failures:
+
+failures:
+    durable_worker::tests::metadata_release_does_not_spin_when_payload_capacity_is_still_unavailable
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `-p mqtt-egress --lib`

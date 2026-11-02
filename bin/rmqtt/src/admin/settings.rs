@@ -61,6 +61,22 @@ pub fn prepare(
         Some(root) => assets::load(root)?,
         None => assets::embedded()?,
     };
+    // Existing queue contents may include payloads and binding credentials. Static
+    // assets are copied into memory at startup; never copy a file from that tree.
+    if let Some(directory) = options.queue_directory()
+        && let Ok(directory) = fs::canonicalize(directory)
+    {
+        for asset in assets.values() {
+            if let Some(source) = &asset.source
+                && fs::canonicalize(source)?.starts_with(&directory)
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "outbound queue data cannot be a dashboard asset",
+                ));
+            }
+        }
+    }
     // Even a hard-linked token with a .js name must never become a public asset.
     if assets
         .values()

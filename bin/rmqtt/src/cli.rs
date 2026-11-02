@@ -1,7 +1,7 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
 
 pub struct Options {
     pub address: String,
@@ -9,6 +9,10 @@ pub struct Options {
     pub admin_token_file: Option<PathBuf>,
     pub dashboard_dir: Option<PathBuf>,
     pub rules_config: Option<PathBuf>,
+    pub egress_queue_dir: Option<PathBuf>,
+    pub egress_queue_segment_bytes: u64,
+    pub egress_queue_max_bytes: u64,
+    pub egress_queue_max_records: usize,
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
     pub tls_client_ca: Option<PathBuf>,
@@ -19,6 +23,19 @@ pub struct Options {
     /// Print the merged stored state of a stopped broker instead of serving.
     pub export_state: bool,
     pub config: BrokerConfig,
+}
+
+impl Options {
+    /// The queue directory is independent of the SQLite configuration contents.
+    pub fn queue_directory(&self) -> Option<PathBuf> {
+        self.egress_queue_dir.clone().or_else(|| {
+            self.rules_config.as_ref().map(|path| {
+                let mut directory = path.as_os_str().to_os_string();
+                directory.push(".outbound-queue");
+                PathBuf::from(directory)
+            })
+        })
+    }
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -43,6 +60,10 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         admin_token_file: None,
         dashboard_dir: None,
         rules_config: None,
+        egress_queue_dir: None,
+        egress_queue_segment_bytes: 1024 * 1024,
+        egress_queue_max_bytes: 256 * 1024 * 1024,
+        egress_queue_max_records: 100_000,
         tls_cert: None,
         tls_key: None,
         tls_client_ca: None,
@@ -57,6 +78,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut ws_path_set = false;
     let mut ws_limit_set = false;
     let mut admission_seen = [false; 4];
+    let mut queue_seen = [false; 4];
     while let Some(option) = args.next() {
         if std::mem::take(&mut first) && option == "export-state" {
             options.export_state = true;
@@ -83,6 +105,10 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 | "--admin-token-file"
                 | "--dashboard-dir"
                 | "--rules-config"
+                | "--egress-queue-dir"
+                | "--egress-queue-segment-bytes"
+                | "--egress-queue-max-bytes"
+                | "--egress-queue-max-records"
                 | "--tls-cert"
                 | "--tls-key"
                 | "--tls-client-ca"
@@ -112,6 +138,40 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         let value = args
             .next()
             .ok_or_else(|| invalid(format!("missing value for {option}")))?;
+        let queue_index = match option.as_str() {
+            "--egress-queue-dir" => Some(0),
+            "--egress-queue-segment-bytes" => Some(1),
+            "--egress-queue-max-bytes" => Some(2),
+            "--egress-queue-max-records" => Some(3),
+            _ => None,
+        };
+        if let Some(index) = queue_index {
+            if std::mem::replace(&mut queue_seen[index], true) {
+                return Err(invalid(format!("{option} cannot be repeated")));
+            }
+            if index == 0 {
+                if value.is_empty() {
+                    return Err(invalid("--egress-queue-dir requires a nonempty path"));
+                }
+                options.egress_queue_dir = Some(PathBuf::from(value));
+            } else {
+                let number = value
+                    .parse::<u64>()
+                    .map_err(|_| invalid(format!("{option} requires a positive integer")))?;
+                match index {
+                    1 => options.egress_queue_segment_bytes = number,
+                    2 => options.egress_queue_max_bytes = number,
+                    3 => {
+                        options.egress_queue_max_records =
+                            usize::try_from(number).map_err(|_| {
+                                invalid("--egress-queue-max-records exceeds platform limits")
+                            })?
+                    }
+                    _ => return Err(invalid("unrecognized queue option")),
+                }
+            }
+            continue;
+        }
         match option.as_str() {
             "--admin-listen" => {
                 let address: std::net::SocketAddr = value
@@ -284,6 +344,20 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             _ => return Err(invalid("unrecognized numeric option")),
         }
     }
+    if !(4096..=64 * 1024 * 1024).contains(&options.egress_queue_segment_bytes)
+        || options.egress_queue_max_bytes < options.egress_queue_segment_bytes.saturating_mul(4)
+        || options.egress_queue_max_bytes > 1024 * 1024 * 1024 * 1024
+        || !(1..=1_000_000).contains(&options.egress_queue_max_records)
+    {
+        return Err(invalid(
+            "invalid outbound queue limits: segment 4096..67108864, capacity at least four segments and at most 1 TiB, records 1..1000000",
+        ));
+    }
+    if options.export_state && queue_seen.into_iter().any(|set| set) {
+        return Err(invalid(
+            "outbound queue options cannot combine with export-state",
+        ));
+    }
     if (ws_path_set || ws_limit_set) && !options.websocket {
         return Err(invalid("WebSocket options require --websocket"));
     }
@@ -326,6 +400,64 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn durable_outbound_queue_cli_accepts_explicit_limits() {
+        assert!(
+            parse(args(&[
+                "--egress-queue-dir",
+                "deliveries",
+                "--egress-queue-segment-bytes",
+                "4096",
+                "--egress-queue-max-bytes",
+                "1048576",
+                "--egress-queue-max-records",
+                "8",
+            ]))
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn durable_outbound_queue_limits_and_paths_are_bounded() {
+        let defaults = parse(args(&[])).unwrap().unwrap();
+        assert_eq!(
+            defaults.queue_directory(),
+            Some(PathBuf::from("rmqtt-rules.sqlite.outbound-queue"))
+        );
+        assert_eq!(defaults.egress_queue_max_bytes, 256 * 1024 * 1024);
+        let custom = parse(args(&[
+            "--rules-config",
+            "custom.sqlite",
+            "--egress-queue-dir",
+            "deliveries",
+            "--egress-queue-max-records",
+            "8",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert_eq!(custom.queue_directory(), Some(PathBuf::from("deliveries")));
+        assert_eq!(custom.egress_queue_max_records, 8);
+        for invalid in [
+            vec!["--egress-queue-dir", ""],
+            vec!["--egress-queue-dir", "a", "--egress-queue-dir", "b"],
+            vec!["--egress-queue-segment-bytes", "0"],
+            vec!["--egress-queue-segment-bytes", "4095"],
+            vec!["--egress-queue-max-bytes", "18446744073709551616"],
+            vec!["--egress-queue-max-bytes", "1024"],
+            vec!["--egress-queue-max-records", "0"],
+            vec!["--egress-queue-max-records", "1000001"],
+            vec![
+                "export-state",
+                "--storage-path",
+                "state.sqlite",
+                "--egress-queue-dir",
+                "deliveries",
+            ],
+        ] {
+            assert!(parse(args(&invalid)).is_err(), "{invalid:?}");
+        }
+    }
 
     fn args(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).into()).collect()

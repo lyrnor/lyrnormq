@@ -300,7 +300,10 @@ export function RulesPage({
     ? ([
         ["接入事件", status.received],
         ["规则命中", status.matched],
-        ["待完成事件", status.queued_events],
+        [
+          "待完成事件",
+          status.durable_queue?.pending_records ?? status.queued_events,
+        ],
         ["丢弃", status.dropped],
         ["处理失败", status.errors],
       ] as const)
@@ -362,7 +365,9 @@ export function RulesPage({
           <div className="rounded-xl border bg-card p-4">
             <p className="text-xs text-muted-foreground">待发送数据量</p>
             <p className="mt-2 text-xl font-semibold">
-              {bytes(status.queued_bytes)}
+              {bytes(
+                status.durable_queue?.pending_bytes ?? status.queued_bytes,
+              )}
             </p>
           </div>
         </section>
@@ -572,7 +577,7 @@ export function RulesPage({
                     </TableCell>
                     {[
                       action.inflight_requests,
-                      action.queued,
+                      action.durable_queued ?? action.queued,
                       action.delivered,
                       action.failed,
                       action.retried,
@@ -590,7 +595,7 @@ export function RulesPage({
             {status.outbounds.length === 0 && <Empty>暂无出站执行统计</Empty>}
           </div>
           <p className="px-5 pb-4 text-[11px] leading-relaxed text-muted-foreground">
-            待完成包含排队、发送和重试中的消息；进行中按请求数，其余按消息条数统计。服务重启后统计重新开始。
+            待完成包含排队、发送和重试中的消息，重启后继续发送；进行中按请求数，其余按消息条数统计。发送、失败等累计统计在服务重启后重新开始。
           </p>
         </Panel>
       )}
@@ -990,7 +995,7 @@ function Editor({
               <Alert role="note">
                 <AlertDescription>
                   同一客户端的消息按顺序发送，不同客户端可并发发送。并发请求数限制同时发送的请求数量。
-                  重试只等待当前客户端，最终失败后继续下一条。服务中断或待发送消息过多时，部分消息可能无法送达；接收方应避免重复处理。
+                  重试只等待当前客户端，最终失败后继续下一条。已保存的待发送消息会在重启后继续发送；接纳前过载仍可能丢失消息，接收方应避免重复处理。
                 </AlertDescription>
               </Alert>
             </CollapsibleContent>

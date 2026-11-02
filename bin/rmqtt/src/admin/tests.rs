@@ -109,3 +109,37 @@ fn sqlite_configuration_and_companion_aliases_cannot_be_static_assets() {
         );
     }
 }
+
+#[test]
+fn outbound_queue_directory_cannot_be_loaded_as_public_assets() {
+    use mqtt_transport::management::ManagementHandle;
+    let dir = Fixture::new();
+    let token = dir.0.join("token");
+    std::fs::write(&token, b"test-only-0123456789abcdef0123456789abcdef").unwrap();
+    let web = dir.0.join("web");
+    let queue = web.join("queue");
+    std::fs::create_dir_all(&queue).unwrap();
+    std::fs::write(web.join("index.html"), b"<html></html>").unwrap();
+    std::fs::write(queue.join("state.json"), b"private payload or credentials").unwrap();
+    let options = crate::cli::parse([
+        "--admin-listen".into(),
+        "127.0.0.1:0".into(),
+        "--admin-token-file".into(),
+        token.to_string_lossy().into_owned(),
+        "--dashboard-dir".into(),
+        web.to_string_lossy().into_owned(),
+        "--egress-queue-dir".into(),
+        queue.to_string_lossy().into_owned(),
+    ])
+    .unwrap()
+    .unwrap();
+    assert!(
+        super::settings::prepare(
+            &options,
+            "127.0.0.1:0".into(),
+            ManagementHandle::new(),
+            None
+        )
+        .is_err()
+    );
+}

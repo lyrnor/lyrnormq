@@ -715,3 +715,24 @@ bytes count toward reservations. Cancel/replacement/shutdown/storage error relea
 all child jobs and local resources. Configuration/API/SQLite schemas, shared adapter
 pools and MQTT ACK/session/outbox behavior remain unchanged. No durable delivery or
 remote business-processing ordering guarantee is added.
+
+
+## Phase5f: Generic durable outbound queue
+
+[Phase5f](contracts/phase5f-durable-outbound-queue.md) adds mqtt-egress-log, a
+synchronous segmented append journal with opaque bindings, source-client metadata
+and delivery bytes. It has no Sink/HTTP/SQLite dependency. A bounded blocking actor
+owns disk IO; the common outbound scheduler commits enqueue before invoking any
+adapter and terminal completion before advancing a client. Payloads remain on disk
+outside bounded windows; indexed perclient heads avoid a slowclient backlog blocking
+other clients. Retry deadlines and known failure counts survive restart, while
+uncertain in-flight attempts replay stable delivery IDs.
+
+Configuration remains in SQLite. Binding revisions reject stale appenders and
+pending target mutations; disabled outputs retain backlog. Generations cancel/join
+before new claims. Checksummed framed transactions, synchronized checkpoints/manifest
+and live-segment reclamation provide crash recovery with strict corruption checks.
+Admission, metadata, memory windows and disk have finite limits; no MQTT ACK coupling
+or replicated durability is claimed. Dashboard backlog uses durable counts, keeping
+memory reservation counters distinct. Previous volatile-queue statements are
+historical and superseded by this phase.

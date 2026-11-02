@@ -1,0 +1,11 @@
+   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-egress)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.76s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-051ca85e2a1b8d0d)
+
+running 3 tests
+test durable_worker::tests::uncertain_generic_attempt_replays_after_reopen_without_exhausting_budget ... ok
+test durable_worker::tests::generic_durable_sink_retries_raw_opaque_bytes_and_commits_completion ... ok
+test durable_worker::tests::idle_outbounds_wait_for_mutations_and_future_retry_deadlines_without_polling ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.25s
+

@@ -36,6 +36,7 @@ export interface OutboundStatus {
   type: string;
   id: string;
   queued: number;
+  durable_queued?: number;
   delivered: number;
   failed: number;
   retried: number;
@@ -48,6 +49,13 @@ export interface RulesStatus {
   mode: "best_effort";
   queued_events: number;
   queued_bytes: number;
+  durable_queue?: {
+    pending_records: number;
+    pending_bytes: number;
+    disk_bytes: number;
+    max_bytes: number;
+    recovered_records: number;
+  };
   received: number;
   matched: number;
   dropped: number;

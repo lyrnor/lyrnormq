@@ -721,6 +721,7 @@ name = "mqtt-egress"
 version = "0.1.0"
 dependencies = [
  "mqtt-egress-core",
+ "mqtt-egress-log",
  "mqtt-rules",
  "mqtt-storage",
  "mqtt-transport",
@@ -733,6 +734,14 @@ dependencies = [
 [[package]]
 name = "mqtt-egress-core"
 version = "0.1.0"
+
+[[package]]
+name = "mqtt-egress-log"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "mqtt-protocol"
