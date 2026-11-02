@@ -1,0 +1,11 @@
+[package]
+name = "egress-log-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+mqtt-egress-log = { path = "../../crates/mqtt-egress-log" }
+serde_json = "1"
