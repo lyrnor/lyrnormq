@@ -634,6 +634,11 @@ async fn both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only
         !a.policy()
             .authorize_for_client(&principal(), "one", Action::Publish, "devices/a")
     );
+    let admitted = a.admitted_policy();
+    assert!(!admitted.reconciles_stored_authorization());
+    for action in [Action::Connect, Action::Publish, Action::Receive] {
+        assert!(!admitted.authorize_for_client(&principal(), "one", action, "devices/a"));
+    }
     r.shutdown().await;
 }
 
@@ -995,5 +1000,55 @@ async fn new_business_queries_use_new_backend_while_admitted_state_stays_accepte
     assert!(!authorize(&r, query("devices/a")).await.unwrap());
     assert_eq!(old.count(), 1);
     assert_eq!(new.count(), 1);
+    r.shutdown().await;
+}
+
+#[tokio::test]
+async fn remote_admitted_state_preserves_old_anonymous_will_without_weakening_entry() {
+    let (_d, r) = runtime().await;
+    let s = Server::new(503).await;
+    for authorization in [false, true] {
+        let config = Config {
+            authentication: s.backend(),
+            authorization: AuthorizationConfig {
+                backend: BackendConfig {
+                    enabled: authorization,
+                    ..s.backend()
+                },
+                cache_ttl_seconds: 0,
+            },
+            ..Config::default()
+        };
+        r.replace(config).await.unwrap();
+        let old = Principal::anonymous();
+        let admitted = r.admitted_policy();
+        assert!(!admitted.reconciles_stored_authorization());
+        for action in [
+            Action::Connect,
+            Action::Publish,
+            Action::Subscribe,
+            Action::Receive,
+        ] {
+            assert!(admitted.authorize_for_client(&old, "old", action, "old/will"));
+        }
+        let attempt = r.begin();
+        assert!(
+            !attempt
+                .policy()
+                .authorize_for_client(&old, "new", Action::Connect, "new")
+        );
+        assert_eq!(
+            attempt
+                .authenticate(ConnectInfo {
+                    client_id: "new",
+                    username: None,
+                    password: None
+                })
+                .await,
+            Err(RemoteAccessError::BadCredentials)
+        );
+        assert!(!attempt.pending());
+        assert_eq!(s.count(), 0);
+    }
     r.shutdown().await;
 }

@@ -1,8 +1,5 @@
 //! Compact policy for accepted state, independent of HTTP runtime lifetimes.
-use crate::{
-    client::username,
-    runtime::{Generation, Shared},
-};
+use crate::runtime::{Generation, Shared};
 use mqtt_auth::{AccessControl, Action, AuthError, ConnectInfo, Principal};
 use std::sync::Arc;
 
@@ -55,26 +52,17 @@ impl AccessControl for AdmittedPolicy {
         action: Action,
         resource: &str,
     ) -> bool {
-        if matches!(action, Action::Connect) {
-            if self.authentication && (self.authorization || !self.local_accounts) {
-                return username(principal).is_some();
-            }
-            return self
-                .fallback
-                .authorize_for_client(principal, client, action, resource);
-        }
-        // Point grants were checked before admission. Recovery and accepted flows
-        // must never turn provider unavailability/configuration into revocation.
-        if self.authorization {
+        // This policy is used only for trusted accepted state. New CONNECT
+        // admission uses the strict attempt probe before installing this policy.
+        // In particular, old anonymous Will/session identities survive enabling
+        // HTTP authentication without being treated as new credentials.
+        if self.authorization || (self.authentication && !self.local_accounts) {
             return true;
-        }
-        if self.authentication && !self.local_accounts {
-            return username(principal).is_some();
         }
         self.fallback
             .authorize_for_client(principal, client, action, resource)
     }
     fn reconciles_stored_authorization(&self) -> bool {
-        !self.authorization && self.fallback.reconciles_stored_authorization()
+        false
     }
 }
