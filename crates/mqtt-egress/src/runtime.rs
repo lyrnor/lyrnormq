@@ -45,7 +45,7 @@ impl Snapshot {
     }
 }
 pub(crate) struct Inner {
-    store: Arc<Mutex<Option<ConfigStore>>>,
+    store: Arc<crate::runtime_init::ConfigOwner>,
     pub snapshot: RwLock<Arc<Snapshot>>,
     senders: Vec<SyncSender<Work>>,
     pub counters: Arc<Counters>,
@@ -217,6 +217,7 @@ impl Runtime {
         path: PathBuf,
         options: crate::QueueOptions,
     ) -> io::Result<Arc<Self>> {
+        let cleanup = tokio::runtime::Handle::try_current().map_err(io::Error::other)?;
         let (store, validated) = tokio::task::spawn_blocking(move || {
             let mut store =
                 ConfigStore::open(&path, MAX_CONFIG).map_err(|_| RuntimeError::Storage)?;
@@ -237,18 +238,27 @@ impl Runtime {
         .await
         .map_err(|_| io::Error::other("rule runtime initialization failed"))?
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+        // Cancellation or any later startup error must not close SQLite on an
+        // async worker. Transfer this guarded owner to Inner only on success.
+        let store = Arc::new(crate::runtime_init::ConfigOwner::new(store, cleanup));
         let outbound = Arc::new(Semaphore::new(crate::config::GLOBAL_CONCURRENCY));
         let counters = Arc::new(Counters::default());
         let stopped = Arc::new(AtomicBool::new(false));
         let bindings = durable::bindings(&validated.config).map_err(io::Error::other)?;
-        let (queue, revisions) = Queue::open(
+        let (queue, revisions) = match Queue::open(
             options,
             bindings,
             Arc::clone(&counters),
             Arc::clone(&stopped),
         )
         .await
-        .map_err(io::Error::other)?;
+        {
+            Ok(opened) => opened,
+            Err(error) => {
+                store.close().await;
+                return Err(io::Error::other(error));
+            }
+        };
         let context = Arc::new(durable_worker::Context {
             queue: Arc::clone(&queue),
             global: Arc::clone(&outbound),
@@ -267,7 +277,7 @@ impl Runtime {
                 .as_nanos()
         );
         let inner = Arc::new(Inner {
-            store: Arc::new(Mutex::new(Some(store))),
+            store,
             snapshot: RwLock::new(snapshot),
             senders,
             counters,
@@ -289,12 +299,10 @@ impl Runtime {
                 Ok(thread) => thread,
                 Err(error) => {
                     inner.stopped.store(true, Ordering::Release);
-                    inner
-                        .snapshot
-                        .read()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .generation
-                        .cancel();
+                    let cleanup = Arc::clone(&inner);
+                    // This task owns cleanup if the initializing caller is
+                    // cancelled, including when no dispatcher thread started.
+                    let _ = tokio::spawn(async move { shutdown_inner(cleanup).await }).await;
                     return Err(error);
                 }
             };

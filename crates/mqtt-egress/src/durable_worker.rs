@@ -345,7 +345,7 @@ async fn deliver(
         return None;
     }
     let begun = tokio::select! {biased;_=cancel.changed()=>return None,result=context.queue.begin(ids.clone())=>result};
-    if begun.is_err() {
+    if begun.is_err() || *cancel.borrow() || context.stopped.load(Ordering::Acquire) {
         return None;
     }
     let response = {

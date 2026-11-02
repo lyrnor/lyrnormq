@@ -8,6 +8,7 @@ mod durable_worker;
 mod error;
 mod persistence;
 mod runtime;
+mod runtime_init;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

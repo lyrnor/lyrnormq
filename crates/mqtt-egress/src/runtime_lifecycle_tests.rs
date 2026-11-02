@@ -42,3 +42,94 @@ async fn storage_failure_waits_for_generation_cleanup_before_returning() {
     drop(runtime);
     std::fs::remove_dir_all(directory).unwrap();
 }
+
+#[tokio::test]
+async fn failed_journal_initialization_releases_configuration_ownership() {
+    let directory = std::env::temp_dir().join(format!(
+        "rmqtt-init-failure-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("rules.sqlite");
+    let mut options = crate::QueueOptions::new(directory.join("queue"));
+    options.segment_bytes = 0;
+    assert!(
+        Runtime::open_with_queue(path.clone(), options.clone())
+            .await
+            .is_err()
+    );
+    let reopened = path.clone();
+    assert!(
+        tokio::task::spawn_blocking(move || ConfigStore::open(&reopened, MAX_CONFIG).is_ok())
+            .await
+            .unwrap()
+    );
+    options.segment_bytes = 1024 * 1024;
+    let (held, _) = Queue::open(
+        options.clone(),
+        vec![],
+        Arc::new(Counters::default()),
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await
+    .unwrap();
+    assert!(
+        Runtime::open_with_queue(path.clone(), options)
+            .await
+            .is_err()
+    );
+    assert!(
+        tokio::task::spawn_blocking(move || ConfigStore::open(&path, MAX_CONFIG).is_ok())
+            .await
+            .unwrap()
+    );
+    held.close().await;
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[tokio::test]
+async fn cancelled_initialization_guard_releases_configuration_on_blocking_pool() {
+    let directory = std::env::temp_dir().join(format!(
+        "rmqtt-init-cancel-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("rules.sqlite");
+    let opened = path.clone();
+    let store = tokio::task::spawn_blocking(move || ConfigStore::open(&opened, MAX_CONFIG))
+        .await
+        .unwrap()
+        .unwrap();
+    let owner = crate::runtime_init::ConfigOwner::new(store, tokio::runtime::Handle::current());
+    let (ready, started) = tokio::sync::oneshot::channel();
+    let task = tokio::spawn(async move {
+        let _owner = owner;
+        let _ = ready.send(());
+        std::future::pending::<()>().await;
+    });
+    started.await.unwrap();
+    task.abort();
+    let _ = task.await;
+    assert!(
+        tokio::task::spawn_blocking(move || {
+            for _ in 0..100 {
+                if ConfigStore::open(&path, MAX_CONFIG).is_ok() {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            false
+        })
+        .await
+        .unwrap()
+    );
+    std::fs::remove_dir_all(directory).unwrap();
+}
