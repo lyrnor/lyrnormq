@@ -44,3 +44,8 @@ Multi-frame append Group Commit follows `docs/contracts/phase5i-group-commit.md`
 Kafka outbounds follow `docs/contracts/phase5j-kafka-outbound.md`. Backend owns crates/mqtt-kafka, crates/mqtt-egress and the coordinated mqtt-egress-core timeout/shutdown extensions; UI owns dashboard/web, quality owns tests/CI. Reuse generic durable logs, wait for Kafka delivery reports, preserve native lifecycle fencing before generation replacement, and verify the locked amd64 musl build.
 
 HTTP access control follows docs/contracts/phase6a-http-access-control.md. Backend owns crates/mqtt-auth-http; integration owns coordinated mqtt-auth hooks, mqtt-session and mqtt-transport for this phase; UI owns dashboard/web; coordinator owns bin/rmqtt, workspace/lock, management and final independent tests. Use assigned independent worktrees, async point decisions outside synchronous core, never treat unavailable as permanent denial or weaken QoS/outbox recovery.
+
+Kafka SDK replacement additionally follows docs/contracts/phase5k-krafka-migration.md.
+Backend owns crates/mqtt-kafka only; quality owns Kafka tests/CI; coordinator owns
+lock/docs/build integration. Preserve public and durable schemas, bounded lazy
+connection, confirmed delivery, same-client FIFO and SDK lifecycle fencing.
