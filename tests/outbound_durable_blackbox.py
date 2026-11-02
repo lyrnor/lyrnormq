@@ -283,6 +283,8 @@ class DurableOutbounds(unittest.TestCase):
         self.committed(40)
         self.emit(self.client('disk-independent'), [90])
         receiver.tracker.wait(lambda t: any(concurrency.sequence(r) == 90 for r in t.completed))
+        # Receiver completion precedes the Broker's durable terminal commit.
+        eventually(lambda: self.queue()['pending_records'] == 40)
         self.assertEqual(self.queue()['pending_records'], 40)
         self.assertGreater(self.queue()['pending_bytes'], 1_000_000)
         self.assertLess(self.status()['queued_bytes'], self.queue()['pending_bytes'])
