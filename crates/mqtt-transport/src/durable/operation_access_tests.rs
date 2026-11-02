@@ -173,7 +173,7 @@ async fn operation_denial_unavailability_and_stale_results_have_no_retained_effe
     remote.deny.store(false, Ordering::Relaxed);
     remote.unavailable.store(true, Ordering::Relaxed);
     let error = send(&worker, publication(1, false)).await.err().unwrap();
-    assert_eq!(reason(&error), Some(ReasonCode::SERVER_UNAVAILABLE));
+    assert_eq!(reason(&error), Some(ReasonCode::SERVER_BUSY));
     assert!(worker.broker.retained_for(&[("#".into(), 1)]).is_empty());
     remote.unavailable.store(false, Ordering::Relaxed);
     remote.stale.store(true, Ordering::Relaxed);
@@ -263,7 +263,33 @@ async fn a_denial_from_a_retired_attempt_is_unavailable_instead_of_a_business_ve
     remote.deny.store(true, Ordering::Relaxed);
     remote.stale.store(true, Ordering::Relaxed);
     let error = send(&worker, publication(1, false)).await.err().unwrap();
-    assert_eq!(reason(&error), Some(ReasonCode::SERVER_UNAVAILABLE));
+    assert_eq!(reason(&error), Some(ReasonCode::SERVER_BUSY));
     assert!(worker.broker.retained_for(&[("#".into(), 1)]).is_empty());
+    worker.broker.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn stale_connect_keeps_connack_unavailable_reason_and_preserves_the_existing_connection() {
+    let (worker, remote) = worker().await;
+    remote.stale.store(true, Ordering::Relaxed);
+    let (wake, _) = watch::channel(0);
+    let (cancel, _) = watch::channel(false);
+    let error = worker
+        .request(Operation::Connect {
+            client: "source".into(),
+            clean: true,
+            will: None,
+            username: Some("device".into()),
+            password: None,
+            generation: 2,
+            wake,
+            cancel,
+        })
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(reason(&error), Some(ReasonCode::SERVER_UNAVAILABLE));
+    remote.stale.store(false, Ordering::Relaxed);
+    send(&worker, publication(1, false)).await.unwrap();
     worker.broker.shutdown().await.unwrap();
 }

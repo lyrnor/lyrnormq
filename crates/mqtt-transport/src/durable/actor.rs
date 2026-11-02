@@ -563,6 +563,13 @@ impl Actor {
         if reply.is_closed() {
             return;
         }
+        // A failed business admission does not mean that the broker is shutting
+        // down. CONNECT uses the CONNACK-specific unavailable reason instead.
+        let admission_failure_reason = if matches!(&request, Request::Connect(_)) {
+            ReasonCode::SERVER_UNAVAILABLE
+        } else {
+            ReasonCode::SERVER_BUSY
+        };
         let connect_attempt = match &request {
             Request::Connect(connect) => connect.access_attempt.clone(),
             _ => None,
@@ -661,14 +668,14 @@ impl Actor {
                 preparations = preparations.saturating_add(1);
                 if preparations >= max_preparations {
                     let _ = reply.send(Err(failure(
-                        ReasonCode::SERVER_UNAVAILABLE,
+                        admission_failure_reason,
                         "operation access preparation exhausted",
                     )));
                     return;
                 }
                 if attempt.resolve().await.is_err() {
                     let _ = reply.send(Err(failure(
-                        ReasonCode::SERVER_UNAVAILABLE,
+                        admission_failure_reason,
                         "operation access service unavailable",
                     )));
                     return;
@@ -678,7 +685,7 @@ impl Actor {
                 }
                 let Some(rerun) = &rerun else {
                     let _ = reply.send(Err(failure(
-                        ReasonCode::SERVER_UNAVAILABLE,
+                        admission_failure_reason,
                         "unexpected pending CONNECT authorization",
                     )));
                     return;
@@ -698,7 +705,7 @@ impl Actor {
                     // policy. Only report a verdict from a current attempt.
                     let error = if attempt.as_ref().is_some_and(|attempt| !attempt.seal()) {
                         failure(
-                            ReasonCode::SERVER_UNAVAILABLE,
+                            admission_failure_reason,
                             "access policy changed before verdict",
                         )
                     } else {
@@ -717,14 +724,14 @@ impl Actor {
                 })
         {
             let _ = reply.send(Err(failure(
-                ReasonCode::SERVER_UNAVAILABLE,
+                admission_failure_reason,
                 "operation cancelled",
             )));
             return;
         }
         if attempt.as_ref().is_some_and(|attempt| !attempt.seal()) {
             let _ = reply.send(Err(failure(
-                ReasonCode::SERVER_UNAVAILABLE,
+                admission_failure_reason,
                 "access policy changed before admission",
             )));
             return;
