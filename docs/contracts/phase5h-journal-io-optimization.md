@@ -42,3 +42,21 @@ blackboxes. Re-run the exact prior 39-case sequential topology matrix using the
 unchanged workload/configuration/production sync, preserving baseline artifacts.
 Report write result/s, read delivery/s, per-call latency, stage/peak RSS and actual
 log bytes, on the same machine/filesystem; no Broker TPS claim or dropped results.
+
+## Coordinated clarification: trusted append-only prefix (2026-11-02)
+
+To preserve useful cache sharing when runtime Begin/Complete/Append interleave with
+reads, an owned successful append may advance a cached segment fingerprint only
+following a pre-write path/descriptor/security/fingerprint validation. If changed,
+invalidate affected body entries before writing. If a descriptor was evicted, the
+newly opened file must be compared with body-entry fingerprints; reopening is not
+proof that old cached bytes remain valid. Save the validated pre-write fingerprint.
+After successful flush+sync, validate the same identity and expected append length;
+advance only bodies that matched that saved fingerprint. A failure must not bless
+or seed cache data. Rotation cannot transfer trust to another inode/segment, and
+generation replacement clears descriptors/bodies. Keep the exclusive-owner threat
+model; this is an advisory cache, not protection from a concurrent privileged writer.
+Tests must cover warm→external tamper→owned append→read, warm→owned append→fanout hit,
+and descriptor eviction→tamper→owned append. On platforms without reliable identity
+and change fingerprints, bypass descriptor/body caching and retain existing checked
+file reads; do not claim this optimization is portable based on length/mtime alone.
