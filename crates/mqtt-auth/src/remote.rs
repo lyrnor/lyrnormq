@@ -32,6 +32,10 @@ pub trait RemoteAccess: fmt::Debug + Send + Sync {
 pub trait AccessAttempt: fmt::Debug + Send + Sync {
     /// Cache-only probe; unknown decisions are speculative until resolved/sealed.
     fn policy(&self) -> Arc<dyn AccessControl>;
+    /// Non-probing policy for accepted state; must not retain HTTP attempt budgets.
+    fn admitted_policy(&self) -> Arc<dyn AccessControl> {
+        self.policy()
+    }
     fn remote_authentication(&self) -> bool;
     fn authenticate<'a>(
         &'a self,

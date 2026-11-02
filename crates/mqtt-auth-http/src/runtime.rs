@@ -134,6 +134,11 @@ impl Runtime {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
+    /// Non-probing policy for startup recovery and already accepted state.
+    /// The snapshot retains no HTTP client, configuration generation or attempt.
+    pub fn admitted_policy(&self) -> Arc<dyn AccessControl> {
+        crate::policy::AdmittedPolicy::snapshot(&self.shared, &self.snapshot())
+    }
     pub fn is_stopped(&self) -> bool {
         self.shared.stopped.load(Ordering::Acquire)
     }

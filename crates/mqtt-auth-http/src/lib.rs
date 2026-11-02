@@ -5,6 +5,7 @@ mod client;
 mod config;
 mod error;
 mod persistence;
+mod policy;
 mod runtime;
 mod status;
 #[cfg(test)]

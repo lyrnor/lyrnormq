@@ -933,3 +933,67 @@ fn stored_tls_normalization_rejects_unknown_or_nonempty_options() {
         assert!(Config::from_stored(&serde_json::to_vec(&config).unwrap()).is_err());
     }
 }
+
+#[tokio::test]
+async fn admitted_snapshots_never_probe_or_retain_generation_and_attempt_capacity() {
+    let (_d, r) = runtime().await;
+    let s = Server::new(204).await;
+    enable(&r, &s, 0).await;
+    let attempt = r.begin();
+    let probe = attempt.policy();
+    assert!(probe.authorize_for_client(&principal(), "one", Action::Receive, "devices/a"));
+    assert!(!attempt.pending());
+    assert!(probe.authorize_for_client(&principal(), "one", Action::Publish, "devices/a"));
+    attempt.resolve().await.unwrap();
+    assert!(attempt.seal());
+    let admitted = attempt.admitted_policy();
+    let startup = r.admitted_policy();
+    drop(probe);
+    drop(attempt);
+    assert_eq!(r.shared.attempts.available_permits(), 256);
+    assert_eq!(r.shared.attempt_bytes.load(Ordering::Acquire), 0);
+    let mut snapshots = vec![admitted, startup];
+    for _ in 0..8 {
+        snapshots.push(r.begin().admitted_policy());
+        let mut config = r.configuration().await;
+        config.authentication.name.push('x');
+        r.replace(config).await.unwrap();
+    }
+    s.code.store(503, Ordering::Relaxed);
+    r.clear_cache().await;
+    for snapshot in snapshots {
+        assert!(!snapshot.reconciles_stored_authorization());
+        for action in [Action::Publish, Action::Subscribe, Action::Receive] {
+            assert!(snapshot.authorize_for_client(&principal(), "one", action, "devices/a"));
+        }
+        assert!(snapshot.authorize_for_client(
+            &Principal::anonymous(),
+            "old",
+            Action::Receive,
+            "devices/a"
+        ));
+    }
+    assert_eq!(s.count(), 1);
+    assert_eq!(
+        authorize(&r, query("devices/a")).await,
+        Err(RemoteAccessError::Unavailable)
+    );
+    assert_eq!(s.count(), 2);
+    r.shutdown().await;
+}
+
+#[tokio::test]
+async fn new_business_queries_use_new_backend_while_admitted_state_stays_accepted() {
+    let (_d, r) = runtime().await;
+    let old = Server::new(204).await;
+    let new = Server::new(403).await;
+    enable(&r, &old, 30).await;
+    assert!(authorize(&r, query("devices/a")).await.unwrap());
+    let accepted = r.begin().admitted_policy();
+    enable(&r, &new, 30).await;
+    assert!(accepted.authorize_for_client(&principal(), "one", Action::Publish, "devices/a"));
+    assert!(!authorize(&r, query("devices/a")).await.unwrap());
+    assert_eq!(old.count(), 1);
+    assert_eq!(new.count(), 1);
+    r.shutdown().await;
+}

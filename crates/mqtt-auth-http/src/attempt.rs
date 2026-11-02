@@ -24,6 +24,7 @@ struct State {
 struct Inner {
     shared: Arc<Shared>,
     generation: Arc<Generation>,
+    admitted_policy: Arc<dyn AccessControl>,
     epoch: u64,
     state: Mutex<State>,
     deadline: tokio::time::Instant,
@@ -57,6 +58,7 @@ impl fmt::Debug for Policy {
 }
 impl Attempt {
     pub fn new(shared: Arc<Shared>, generation: Arc<Generation>) -> Self {
+        let admitted_policy = crate::policy::AdmittedPolicy::snapshot(&shared, &generation);
         let remote = generation.authentication.is_some() || generation.authorization.is_some();
         let permit = remote
             .then(|| shared.attempts.clone().try_acquire_owned().ok())
@@ -67,6 +69,7 @@ impl Attempt {
             inner: Arc::new(Inner {
                 shared,
                 generation,
+                admitted_policy,
                 epoch,
                 state: Mutex::new(State {
                     answers: BTreeMap::new(),
@@ -122,6 +125,11 @@ impl Inner {
         action: Action,
         resource: &str,
     ) -> bool {
+        if matches!(action, Action::Receive) {
+            return self
+                .admitted_policy
+                .authorize_for_client(principal, client, action, resource);
+        }
         let config = &self.generation.config;
         if matches!(action, Action::Connect) {
             return if config.authentication.enabled
@@ -225,6 +233,9 @@ impl AccessAttempt for Attempt {
         Arc::new(Policy {
             inner: self.inner.clone(),
         })
+    }
+    fn admitted_policy(&self) -> Arc<dyn AccessControl> {
+        self.inner.admitted_policy.clone()
     }
     fn remote_authentication(&self) -> bool {
         self.inner.generation.config.authentication.enabled
