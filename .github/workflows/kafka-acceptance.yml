@@ -1,0 +1,58 @@
+name: Kafka outbound acceptance
+
+on: [push, pull_request]
+
+jobs:
+  kafka:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_BUILD_JOBS: '2'
+      RMQTT_KAFKA_TOOLS_DIR: /tmp/rmqtt-kafka-fixture-tools
+      RMQTT_BIN: ${{ github.workspace }}/target/release/rmqtt
+      KAFKA_CLIENT_BIN: ${{ github.workspace }}/target/release/rmqtt-kafka-test-client
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native build and disposable fixture prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential cmake pkg-config perl python3 openssl curl ca-certificates
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: dashboard/web/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Build embedded Dashboard
+        working-directory: dashboard/web
+        run: |
+          npm ci
+          npm run build
+      - name: Build production Broker with committed dependency lock
+        run: cargo build --release --locked -p rmqtt
+      - name: Check and build standalone real Kafka consumer
+        run: |
+          cargo fmt --manifest-path tests/kafka-client/Cargo.toml -- --check
+          cargo clippy --locked --manifest-path tests/kafka-client/Cargo.toml --all-targets -- -D warnings
+          cargo test --locked --manifest-path tests/kafka-client/Cargo.toml
+          cargo build --release --locked --manifest-path tests/kafka-client/Cargo.toml
+      - name: Download checksum-verified Apache Kafka and temporary JRE
+        timeout-minutes: 8
+        run: python3 tests/kafka_fixture.py --download
+      - name: Real Kafka wire, security and crash-recovery acceptance
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          python3 tests/kafka_outbound_blackbox.py -v 2>&1 | tee /tmp/rmqtt-kafka-acceptance.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kafka-acceptance-evidence
+          path: |
+            /tmp/rmqtt-kafka-acceptance.log
+            /tmp/rmqtt-kafka-fixture-tools/manifest.json
+          if-no-files-found: ignore
+          retention-days: 7

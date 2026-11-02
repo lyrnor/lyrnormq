@@ -83,6 +83,18 @@ class RuleStreams(unittest.TestCase):
     def bytes(self):
         return b''.join(path.read_bytes() for path in sorted(self.queue_root().glob('generation-*/segment-*.log')))
 
+    def test_webhook_binding_descriptor_retains_pre_kafka_bytes(self):
+        receiver = self.receiver()
+        config = self.config(receiver)
+        self.start(config)
+        bindings = [binding for _, transaction, _ in v1.frames(self.queue_root())
+                    for binding in transaction.get('Bind', {}).get('bindings', [])]
+        self.assertTrue(bindings, 'configuration must durably bind the outbound')
+        descriptor = next(binding['descriptor'] for binding in bindings
+                          if binding['outbound_id'] == 'send')
+        self.assertEqual(bytes(descriptor), v1.descriptor(config['outbounds'][0]),
+                         'durable Webhook bindings must retain historical serialization bytes')
+
     def test_distinct_rule_results_are_stored_once_despite_fanout(self):
         first = self.receiver(gate=threading.Event())
         second = self.receiver(gate=threading.Event())
