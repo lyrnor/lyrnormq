@@ -159,6 +159,10 @@ impl Journal {
         storage::clean_other_generations(&journal.root, journal.generation)?;
         Ok(journal)
     }
+    #[cfg(test)]
+    pub(crate) fn retained_indexes(&self) -> (usize, usize, usize) {
+        (self.lanes.len(), self.heads.len(), self.counts.len())
+    }
     fn healthy(&self) -> Result<(), QueueError> {
         if self.poisoned {
             Err(QueueError::Io)
@@ -734,6 +738,9 @@ impl Journal {
             if let Some(next) = lane.front() {
                 heads.insert(*next);
             }
+            if heads.is_empty() {
+                self.heads.remove(&entry.meta.outbound_id);
+            }
         }
         if lane.is_empty() {
             self.lanes.remove(&key);
@@ -743,6 +750,9 @@ impl Journal {
             .get_mut(&entry.meta.outbound_id)
             .ok_or(QueueError::Corrupt)?;
         *count = count.checked_sub(1).ok_or(QueueError::Corrupt)?;
+        if *count == 0 {
+            self.counts.remove(&entry.meta.outbound_id);
+        }
         self.pending_bytes = self
             .pending_bytes
             .checked_sub(entry.meta.payload_len as u64)

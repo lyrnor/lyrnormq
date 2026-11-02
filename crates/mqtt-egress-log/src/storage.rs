@@ -181,17 +181,19 @@ pub(crate) fn files(dir: &Path, max_bytes: u64) -> Result<Vec<(u64, u64)>, Queue
     Ok(result)
 }
 pub(crate) fn clean_other_generations(root: &Path, current: u64) -> Result<(), QueueError> {
-    for e in fs::read_dir(root)? {
-        let e = e?;
-        let name = e.file_name();
-        let name = name.to_str().ok_or(QueueError::Corrupt)?;
-        if matches!(name, "OWNERSHIP" | "CURRENT") {
-            drop(private_file(&e.path(), false)?);
-            continue;
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(root)? {
+        if entries.len() >= 16 {
+            return Err(QueueError::Corrupt);
         }
-        if name == "CURRENT.tmp" {
-            drop(private_file(&e.path(), false)?);
-            fs::remove_file(e.path())?;
+        entries.push(entry?);
+    }
+    // Bound and validate the whole root before removing even harmless orphans.
+    for entry in &entries {
+        let name = entry.file_name();
+        let name = name.to_str().ok_or(QueueError::Corrupt)?;
+        if matches!(name, "OWNERSHIP" | "CURRENT" | "CURRENT.tmp") {
+            drop(private_file(&entry.path(), false)?);
             continue;
         }
         let id = name
@@ -200,29 +202,65 @@ pub(crate) fn clean_other_generations(root: &Path, current: u64) -> Result<(), Q
             .and_then(|s| s.parse::<u64>().ok())
             .filter(|n| *n > 0)
             .ok_or(QueueError::Corrupt)?;
-        let meta = fs::symlink_metadata(e.path())?;
+        let meta = fs::symlink_metadata(entry.path())?;
         if !meta.is_dir() || meta.file_type().is_symlink() {
             return Err(QueueError::Io);
         }
+        #[cfg(unix)]
+        if meta.permissions().mode() & 0o077 != 0 {
+            return Err(QueueError::Io);
+        }
         if id != current {
-            remove_generation(&e.path())?;
+            validate_generation_children(&entry.path())?;
+        }
+    }
+    for entry in entries {
+        let name = entry.file_name();
+        let name = name.to_str().ok_or(QueueError::Corrupt)?;
+        if matches!(name, "OWNERSHIP" | "CURRENT") {
+            continue;
+        }
+        if name == "CURRENT.tmp" {
+            fs::remove_file(entry.path())?;
+            continue;
+        }
+        let id = name
+            .strip_prefix("generation-")
+            .and_then(|s| s.parse::<u64>().ok())
+            .ok_or(QueueError::Corrupt)?;
+        if id != current {
+            remove_generation(&entry.path())?;
         }
     }
     sync_dir(root)
 }
-pub(crate) fn remove_generation(dir: &Path) -> Result<(), QueueError> {
-    // Validate every child before deleting anything. Never recursively follow paths.
-    let list = fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
-    for e in &list {
-        let n = e.file_name();
-        let n = n.to_str().ok_or(QueueError::Corrupt)?;
-        if !n.starts_with("segment-") || !n.ends_with(".log") {
+fn validate_generation_children(dir: &Path) -> Result<Vec<PathBuf>, QueueError> {
+    let mut list = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        if list.len() >= MAX_SEGMENTS {
             return Err(QueueError::Corrupt);
         }
-        drop(private_file(&e.path(), false)?);
+        let entry = entry?;
+        let name = entry.file_name();
+        let name = name.to_str().ok_or(QueueError::Corrupt)?;
+        if name
+            .strip_prefix("segment-")
+            .and_then(|s| s.strip_suffix(".log"))
+            .filter(|s| s.len() == 20)
+            .and_then(|s| s.parse::<u64>().ok())
+            .is_none_or(|n| n == 0)
+        {
+            return Err(QueueError::Corrupt);
+        }
+        drop(private_file(&entry.path(), false)?);
+        list.push(entry.path());
     }
-    for e in list {
-        fs::remove_file(e.path())?;
+    Ok(list)
+}
+pub(crate) fn remove_generation(dir: &Path) -> Result<(), QueueError> {
+    // Never recursively follow paths or allocate before the count bound.
+    for path in validate_generation_children(dir)? {
+        fs::remove_file(path)?;
     }
     fs::remove_dir(dir)?;
     Ok(())

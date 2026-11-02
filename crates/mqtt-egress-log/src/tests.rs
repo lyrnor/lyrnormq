@@ -668,3 +668,107 @@ fn writer_reclaims_before_reader_segment_limit_and_reopens_its_own_output() {
     j.checkpoint().unwrap();
     assert_eq!(j.stats().pending_records, 0);
 }
+
+#[test]
+fn malformed_orphan_file_and_root_directory_counts_fail_without_deletion() {
+    let f = Fixture::new();
+    drop(f.open());
+    let root = fs::canonicalize(&f.path).unwrap();
+    let orphan = crate::storage::generation(&root, 99);
+    crate::storage::directory(&orphan).unwrap();
+    for n in 1..=crate::storage::MAX_SEGMENTS + 1 {
+        drop(
+            crate::storage::private_file(&crate::storage::segment(&orphan, n as u64), true)
+                .unwrap(),
+        );
+    }
+    assert_eq!(Journal::open(f.options()).unwrap_err(), QueueError::Corrupt);
+    assert_eq!(
+        fs::read_dir(&orphan).unwrap().count(),
+        crate::storage::MAX_SEGMENTS + 1
+    );
+    let f = Fixture::new();
+    drop(f.open());
+    let root = fs::canonicalize(&f.path).unwrap();
+    for n in 2..20 {
+        crate::storage::directory(&crate::storage::generation(&root, n)).unwrap();
+    }
+    assert_eq!(Journal::open(f.options()).unwrap_err(), QueueError::Corrupt);
+    assert_eq!(
+        fs::read_dir(root)
+            .unwrap()
+            .filter(|e| e
+                .as_ref()
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("generation-"))
+            .count(),
+        19
+    );
+}
+
+#[test]
+fn terminal_delivery_evicts_historical_outbound_and_client_index_keys() {
+    let f = Fixture::new();
+    let mut j = f.open();
+    for n in 0..40 {
+        let name = format!("outbound-{n}");
+        let rev = bind(&mut j, &name);
+        let id = j
+            .append_batch(vec![input(&name, rev, "one-shot-client", b"x")])
+            .unwrap()[0];
+        j.complete(&[id], Completion::Delivered).unwrap();
+        assert_eq!(j.retained_indexes(), (0, 0, 0));
+    }
+}
+
+#[test]
+fn persistent_metadata_vectors_reject_excess_elements_while_deserializing() {
+    use crate::model::{StoredBinding, StoredRecord, Transaction};
+    let binding = StoredBinding {
+        outbound_id: "target".into(),
+        revision: 1,
+        descriptor: b"opaque".to_vec(),
+    };
+    let too_many = Transaction::Bind {
+        bindings: vec![binding.clone(); 33],
+        next_revision: 2,
+    };
+    assert!(
+        serde_json::from_slice::<Transaction>(&serde_json::to_vec(&too_many).unwrap()).is_err()
+    );
+    let mut huge = binding;
+    huge.descriptor = vec![255; 65537];
+    let too_large = Transaction::Bind {
+        bindings: vec![huge],
+        next_revision: 2,
+    };
+    assert!(
+        serde_json::from_slice::<Transaction>(&serde_json::to_vec(&too_large).unwrap()).is_err()
+    );
+    let too_many = Transaction::Begin { ids: vec![1; 65] };
+    assert!(
+        serde_json::from_slice::<Transaction>(&serde_json::to_vec(&too_many).unwrap()).is_err()
+    );
+    let record = StoredRecord {
+        meta: RecordMeta {
+            id: 1,
+            outbound_id: "target".into(),
+            revision: 1,
+            client_id: "a".into(),
+            failures: 0,
+            not_before_ms: 0,
+            inflight: false,
+            payload_len: 0,
+        },
+        checksum: 0,
+    };
+    let too_many = Transaction::Append {
+        records: vec![record; 65],
+        next_id: 2,
+    };
+    assert!(
+        serde_json::from_slice::<Transaction>(&serde_json::to_vec(&too_many).unwrap()).is_err()
+    );
+}

@@ -2,6 +2,7 @@
 //!
 //! Execute disk methods only on a dedicated blocking owner. Payloads are opaque;
 //! no adapter, network, SQL or MQTT acknowledgement semantics live here.
+mod decode;
 mod error;
 mod format;
 mod journal;

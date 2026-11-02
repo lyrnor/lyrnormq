@@ -5,7 +5,7 @@ use std::path::PathBuf;
 pub(crate) const MAX_RECORD_PAYLOAD: usize = 1024 * 1024;
 pub(crate) const MAX_GROUP: usize = 64;
 pub(crate) const MAX_GROUP_BYTES: usize = 8 * 1024 * 1024;
-pub(crate) const MAX_META: usize = 128 * 1024 * 1024;
+pub(crate) const MAX_META: usize = 32 * 1024 * 1024;
 
 /// Physical active-generation budget. Compaction may temporarily use at most
 /// another `max_bytes` before the atomically published generation replaces it.
@@ -85,6 +85,7 @@ pub enum Completion {
 pub(crate) struct StoredBinding {
     pub outbound_id: String,
     pub revision: u64,
+    #[serde(deserialize_with = "crate::decode::descriptor")]
     pub descriptor: Vec<u8>,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -105,21 +106,26 @@ pub(crate) struct StoredRecord {
 #[serde(deny_unknown_fields)]
 pub(crate) enum Transaction {
     Bind {
+        #[serde(deserialize_with = "crate::decode::bindings")]
         bindings: Vec<StoredBinding>,
         next_revision: u64,
     },
     Append {
+        #[serde(deserialize_with = "crate::decode::records")]
         records: Vec<StoredRecord>,
         next_id: u64,
     },
     Begin {
+        #[serde(deserialize_with = "crate::decode::ids")]
         ids: Vec<u64>,
     },
     Retry {
+        #[serde(deserialize_with = "crate::decode::ids")]
         ids: Vec<u64>,
         not_before_ms: u64,
     },
     Complete {
+        #[serde(deserialize_with = "crate::decode::ids")]
         ids: Vec<u64>,
     },
     Watermark {
@@ -127,7 +133,9 @@ pub(crate) enum Transaction {
         next_revision: u64,
     },
     Snapshot {
+        #[serde(deserialize_with = "crate::decode::bindings")]
         bindings: Vec<StoredBinding>,
+        #[serde(deserialize_with = "crate::decode::empty_entries")]
         entries: Vec<Entry>,
         next_id: u64,
         next_revision: u64,
