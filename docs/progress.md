@@ -2343,3 +2343,16 @@ fmt、严格 Clippy、TypeScript/Vite、Prettier 和嵌入前端的 Release 构�
 统计单位已更新，没有合并 main 或重启生产服务。验收证据：
 [规则结果共享日志验收](verification/rule-result-streams-20261102/README.md)。
 剩余：新模型 Linux 性能基线、队列 profiling；可选 ACK 耦合准入、死信和复制队列。
+
+
+### Shared-result journal performance matrix (2026-11-02)
+
+新增独立 topology 基准，直接复用生产共享结果/消费者 API，无生产代码改动。
+完成多规则及单规则多出站、1 KiB/128 字节、组提交/逐条同步，共 39 次顺序 Release
+测量（三轮/配置），核对所有消费者正文及唯一结果计数。6 项基准测试、fmt、严格 Clippy 通过。
+1 KiB、64 条组提交：写入约 9,885–13,744 结果/s，读取约 45,856–57,060 投递/s。
+同为 65,536 引用，16 规则单出站与单规则 16 出站分别峰值 RSS 52.12/23.95 MiB，
+日志 79.53/12.34 MiB。逐条同步约 272–287 结果/s，明确与组提交分开报告。
+这是 M4 本机热缓存、直接引擎测量，不是 MQTT/Webhook 生产 TPS。
+[完整环境、原始数据及复现命令](verification/shared-log-performance-20261102/README.md)。
+后续：Linux/NVMe 目标基线、持续排空/状态写入、文件读取路径 profiling；本轮未部署。

@@ -1,0 +1,431 @@
+[
+  {
+    "suite": "grouped",
+    "rules": 1,
+    "fanout": 1,
+    "config": {
+      "batch": 64,
+      "fanout": 1,
+      "inputs": 4096,
+      "payload_bytes": 1024,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 4096,
+    "references": 4096,
+    "write_results_s": 13744.376449451202,
+    "write_results_s_range": [
+      13432.084514570828,
+      13950.767557368794
+    ],
+    "read_deliveries_s": 45855.70809581743,
+    "append_p99_ms": 10.457834,
+    "read_p99_ms": 3.096458,
+    "rss_after_append_mib": 5.8125,
+    "rss_after_read_mib": 6.125,
+    "peak_rss_mib": 6.171875,
+    "peak_rss_mib_range": [
+      6.15625,
+      6.171875
+    ],
+    "disk_mib": 4.957703590393066,
+    "write_references_s": 13744.376449451202,
+    "source_input_equivalent_s": 13744.376449451202
+  },
+  {
+    "suite": "grouped",
+    "rules": 1,
+    "fanout": 4,
+    "config": {
+      "batch": 64,
+      "fanout": 4,
+      "inputs": 4096,
+      "payload_bytes": 1024,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 4096,
+    "references": 16384,
+    "write_results_s": 12200.17551155811,
+    "write_results_s_range": [
+      12043.602168017753,
+      12416.684983500056
+    ],
+    "read_deliveries_s": 54688.30188049451,
+    "append_p99_ms": 9.976292,
+    "read_p99_ms": 2.175625,
+    "rss_after_append_mib": 9.234375,
+    "rss_after_read_mib": 9.515625,
+    "peak_rss_mib": 9.5625,
+    "peak_rss_mib_range": [
+      9.515625,
+      9.578125
+    ],
+    "disk_mib": 6.417943954467773,
+    "write_references_s": 48800.70204623244,
+    "source_input_equivalent_s": 12200.17551155811
+  },
+  {
+    "suite": "grouped",
+    "rules": 1,
+    "fanout": 16,
+    "config": {
+      "batch": 64,
+      "fanout": 16,
+      "inputs": 4096,
+      "payload_bytes": 1024,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 4096,
+    "references": 65536,
+    "write_results_s": 9884.84076048839,
+    "write_results_s_range": [
+      9543.355895704586,
+      10495.879707378666
+    ],
+    "read_deliveries_s": 57059.63648296061,
+    "append_p99_ms": 11.982042,
+    "read_p99_ms": 1.327792,
+    "rss_after_append_mib": 23.59375,
+    "rss_after_read_mib": 23.90625,
+    "peak_rss_mib": 23.953125,
+    "peak_rss_mib_range": [
+      23.8125,
+      23.96875
+    ],
+    "disk_mib": 12.339930534362793,
+    "write_references_s": 158157.45216781425,
+    "source_input_equivalent_s": 9884.84076048839
+  },
+  {
+    "suite": "grouped",
+    "rules": 4,
+    "fanout": 1,
+    "config": {
+      "batch": 64,
+      "fanout": 1,
+      "inputs": 4096,
+      "payload_bytes": 1024,
+      "rules": 4,
+      "segment_bytes": 1048576
+    },
+    "results": 16384,
+    "references": 16384,
+    "write_results_s": 12584.037922262494,
+    "write_results_s_range": [
+      12431.837135758506,
+      12815.254407810235
+    ],
+    "read_deliveries_s": 53752.39907481833,
+    "append_p99_ms": 10.057875,
+    "read_p99_ms": 2.337875,
+    "rss_after_append_mib": 15.03125,
+    "rss_after_read_mib": 15.265625,
+    "peak_rss_mib": 15.3125,
+    "peak_rss_mib_range": [
+      15.296875,
+      15.34375
+    ],
+    "disk_mib": 19.85509490966797,
+    "write_references_s": 12584.037922262494,
+    "source_input_equivalent_s": 3146.0094805656236
+  },
+  {
+    "suite": "grouped",
+    "rules": 16,
+    "fanout": 1,
+    "config": {
+      "batch": 64,
+      "fanout": 1,
+      "inputs": 4096,
+      "payload_bytes": 1024,
+      "rules": 16,
+      "segment_bytes": 1048576
+    },
+    "results": 65536,
+    "references": 65536,
+    "write_results_s": 12087.882556008539,
+    "write_results_s_range": [
+      11996.223997394862,
+      12236.79998758156
+    ],
+    "read_deliveries_s": 56576.74482157443,
+    "append_p99_ms": 11.182625,
+    "read_p99_ms": 1.89475,
+    "rss_after_append_mib": 51.859375,
+    "rss_after_read_mib": 51.625,
+    "peak_rss_mib": 52.125,
+    "peak_rss_mib_range": [
+      51.765625,
+      52.1875
+    ],
+    "disk_mib": 79.5283432006836,
+    "write_references_s": 12087.882556008539,
+    "source_input_equivalent_s": 755.4926597505337
+  },
+  {
+    "suite": "single",
+    "rules": 1,
+    "fanout": 1,
+    "config": {
+      "batch": 1,
+      "fanout": 1,
+      "inputs": 2048,
+      "payload_bytes": 1024,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 2048,
+    "references": 2048,
+    "write_results_s": 280.9495057567641,
+    "write_results_s_range": [
+      263.10933902129335,
+      319.98125319832235
+    ],
+    "read_deliveries_s": 31454.38148629509,
+    "append_p99_ms": 6.020375,
+    "read_p99_ms": 0.073667,
+    "rss_after_append_mib": 4.640625,
+    "rss_after_read_mib": 4.859375,
+    "peak_rss_mib": 4.890625,
+    "peak_rss_mib_range": [
+      4.40625,
+      4.90625
+    ],
+    "disk_mib": 2.611294746398926,
+    "write_references_s": 280.9495057567641,
+    "source_input_equivalent_s": 280.9495057567641
+  },
+  {
+    "suite": "single",
+    "rules": 1,
+    "fanout": 4,
+    "config": {
+      "batch": 1,
+      "fanout": 4,
+      "inputs": 2048,
+      "payload_bytes": 1024,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 2048,
+    "references": 8192,
+    "write_results_s": 287.48301348430397,
+    "write_results_s_range": [
+      235.9492626811755,
+      300.0463804897035
+    ],
+    "read_deliveries_s": 46604.31685683374,
+    "append_p99_ms": 7.433041,
+    "read_p99_ms": 0.055709,
+    "rss_after_append_mib": 7.484375,
+    "rss_after_read_mib": 7.78125,
+    "peak_rss_mib": 7.8125,
+    "peak_rss_mib_range": [
+      7.3125,
+      7.828125
+    ],
+    "disk_mib": 3.335536003112793,
+    "write_references_s": 1149.9320539372159,
+    "source_input_equivalent_s": 287.48301348430397
+  },
+  {
+    "suite": "single",
+    "rules": 4,
+    "fanout": 1,
+    "config": {
+      "batch": 1,
+      "fanout": 1,
+      "inputs": 2048,
+      "payload_bytes": 1024,
+      "rules": 4,
+      "segment_bytes": 1048576
+    },
+    "results": 8192,
+    "references": 8192,
+    "write_results_s": 272.45616883442784,
+    "write_results_s_range": [
+      265.46293118379435,
+      299.1399916984774
+    ],
+    "read_deliveries_s": 46412.08572525258,
+    "append_p99_ms": 6.013916,
+    "read_p99_ms": 0.045459,
+    "rss_after_append_mib": 8.484375,
+    "rss_after_read_mib": 10.0625,
+    "peak_rss_mib": 10.421875,
+    "peak_rss_mib_range": [
+      10.40625,
+      10.90625
+    ],
+    "disk_mib": 10.458269119262695,
+    "write_references_s": 272.45616883442784,
+    "source_input_equivalent_s": 68.11404220860696
+  },
+  {
+    "suite": "small",
+    "rules": 1,
+    "fanout": 1,
+    "config": {
+      "batch": 64,
+      "fanout": 1,
+      "inputs": 4096,
+      "payload_bytes": 128,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 4096,
+    "references": 4096,
+    "write_results_s": 16253.148630901584,
+    "write_results_s_range": [
+      15828.669614462686,
+      17219.945056856068
+    ],
+    "read_deliveries_s": 50468.59959185245,
+    "append_p99_ms": 10.504209,
+    "read_p99_ms": 2.454,
+    "rss_after_append_mib": 5.765625,
+    "rss_after_read_mib": 6.0,
+    "peak_rss_mib": 6.03125,
+    "peak_rss_mib_range": [
+      6.015625,
+      6.09375
+    ],
+    "disk_mib": 1.4538030624389648,
+    "write_references_s": 16253.148630901584,
+    "source_input_equivalent_s": 16253.148630901584
+  },
+  {
+    "suite": "small",
+    "rules": 1,
+    "fanout": 4,
+    "config": {
+      "batch": 64,
+      "fanout": 4,
+      "inputs": 4096,
+      "payload_bytes": 128,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 4096,
+    "references": 16384,
+    "write_results_s": 15390.971964717055,
+    "write_results_s_range": [
+      15067.760816630846,
+      15396.918924659034
+    ],
+    "read_deliveries_s": 59938.320453776985,
+    "append_p99_ms": 7.818917,
+    "read_p99_ms": 2.186958,
+    "rss_after_append_mib": 9.140625,
+    "rss_after_read_mib": 9.375,
+    "peak_rss_mib": 9.40625,
+    "peak_rss_mib_range": [
+      9.390625,
+      9.46875
+    ],
+    "disk_mib": 2.914043426513672,
+    "write_references_s": 61563.88785886822,
+    "source_input_equivalent_s": 15390.971964717055
+  },
+  {
+    "suite": "small",
+    "rules": 1,
+    "fanout": 16,
+    "config": {
+      "batch": 64,
+      "fanout": 16,
+      "inputs": 4096,
+      "payload_bytes": 128,
+      "rules": 1,
+      "segment_bytes": 1048576
+    },
+    "results": 4096,
+    "references": 65536,
+    "write_results_s": 11961.522189438425,
+    "write_results_s_range": [
+      10788.667816167264,
+      12040.463128653788
+    ],
+    "read_deliveries_s": 62440.46945640584,
+    "append_p99_ms": 9.91875,
+    "read_p99_ms": 1.435625,
+    "rss_after_append_mib": 23.546875,
+    "rss_after_read_mib": 23.765625,
+    "peak_rss_mib": 23.828125,
+    "peak_rss_mib_range": [
+      23.6875,
+      23.828125
+    ],
+    "disk_mib": 8.836030006408691,
+    "write_references_s": 191384.3550310148,
+    "source_input_equivalent_s": 11961.522189438425
+  },
+  {
+    "suite": "small",
+    "rules": 4,
+    "fanout": 1,
+    "config": {
+      "batch": 64,
+      "fanout": 1,
+      "inputs": 4096,
+      "payload_bytes": 128,
+      "rules": 4,
+      "segment_bytes": 1048576
+    },
+    "results": 16384,
+    "references": 16384,
+    "write_results_s": 14040.599390651354,
+    "write_results_s_range": [
+      13633.661573000114,
+      14676.422686072126
+    ],
+    "read_deliveries_s": 58796.82545948477,
+    "append_p99_ms": 9.911584,
+    "read_p99_ms": 2.821792,
+    "rss_after_append_mib": 14.90625,
+    "rss_after_read_mib": 15.171875,
+    "peak_rss_mib": 15.203125,
+    "peak_rss_mib_range": [
+      15.203125,
+      15.3125
+    ],
+    "disk_mib": 5.839521408081055,
+    "write_references_s": 14040.599390651354,
+    "source_input_equivalent_s": 3510.1498476628385
+  },
+  {
+    "suite": "small",
+    "rules": 16,
+    "fanout": 1,
+    "config": {
+      "batch": 64,
+      "fanout": 1,
+      "inputs": 4096,
+      "payload_bytes": 128,
+      "rules": 16,
+      "segment_bytes": 1048576
+    },
+    "results": 65536,
+    "references": 65536,
+    "write_results_s": 13703.342683253799,
+    "write_results_s_range": [
+      13510.797006044739,
+      14920.931905207415
+    ],
+    "read_deliveries_s": 62467.20486042436,
+    "append_p99_ms": 9.910958,
+    "read_p99_ms": 1.67475,
+    "rss_after_append_mib": 51.78125,
+    "rss_after_read_mib": 52.015625,
+    "peak_rss_mib": 52.09375,
+    "peak_rss_mib_range": [
+      52.046875,
+      52.15625
+    ],
+    "disk_mib": 23.465839385986328,
+    "write_references_s": 13703.342683253799,
+    "source_input_equivalent_s": 856.4589177033624
+  }
+]

@@ -87,3 +87,40 @@ CARGO_TARGET_DIR="$PWD/target" cargo test --offline --manifest-path benches/egre
 
 Tests verify nearest-rank calculation, bounded CLI input, payload verification,
 state completion, reopen correctness and cleanup of generated directories.
+
+## Multiple rules and shared fanout
+
+The `topology` binary exercises production shared APIs with distinct bodies per
+`(rule,input)` and all destination references in the same durable append. It verifies
+all destinations read every result, checks rule/client isolation and validates
+unique-body byte accounting. This directly measures the journal; it does not time
+SQL evaluation or HTTP delivery.
+
+```sh
+CARGO_TARGET_DIR="$PWD/target" cargo build --release --offline \
+  --manifest-path benches/egress-log/Cargo.toml
+/usr/bin/time -l target/release/topology --queue-dir /private/tmp \
+  --inputs 4096 --rules 1 --fanout 16 --batch 64 --payload-bytes 1024
+```
+
+Each input matches every configured rule, each result targets every configured
+outbound. `--inputs 4096 --rules 16 --fanout 1` writes 65,536 different results;
+`--rules 1 --fanout 16` writes 4,096 results and the same 65,536 delivery references.
+The append item unit is **rule results**; multiply by fanout for admitted references,
+or divide by rules for synthetic source-input equivalents. Read units are **consumer
+deliveries**: fanout consumers each read the body through the current production API.
+Read wall time includes bounded head-page traversal and validation; API latency
+excludes driver work. Reads are warm OS-cache reads with CRC, never a cold-disk claim.
+Every append retains production `sync_all`; `--batch 1` is a separate durability
+boundary, not equivalent to group commit at 64 results.
+
+RSS is sampled using `ps` outside stage timings (KiB); unavailable permissions produce
+null rather than zero. External macOS `time -l` reports peak RSS in **bytes** over the
+whole process, including setup/read/cleanup. This is not Broker RSS, page-cache size,
+or isolated index allocation. Dataset admission is conservatively capped at 200,000
+references and an estimated 240 MiB; only a bounded append/read batch is materialized.
+Temporary child directories are exclusive and automatically cleaned, never existing
+queues. Every run uses 1 MiB segments and a 512 MiB queue budget.
+
+[2026-11-02 measured matrix](../../docs/verification/shared-log-performance-20261102/README.md)
+contains the sequential three-repeat runner, JSON, resource output and environment.
