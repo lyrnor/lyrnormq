@@ -188,8 +188,7 @@ async fn send_batch(
             }
             let response = tokio::select! {biased;
                 _ = cancel.changed() => return,
-                result = tokio::time::timeout(Duration::from_millis(action.timeout_ms), sink.send(&events)) =>
-                    match result { Ok(result) => result, Err(_) => Err(mqtt_egress_core::SendError {kind:mqtt_egress_core::FailureKind::Retryable,code:"timeout".into()}) },
+                result = async {if sink.manages_timeout(){sink.send(&events).await}else{match tokio::time::timeout(Duration::from_millis(action.timeout_ms), sink.send(&events)).await{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:mqtt_egress_core::FailureKind::Retryable,code:"timeout".into()})}}}=>result,
             };
             match response {
                 Ok(()) => {

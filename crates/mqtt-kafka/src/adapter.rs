@@ -231,3 +231,26 @@ mod tests {
         );
     }
 }
+#[cfg(test)]
+mod key_tests {
+    use super::*;
+    #[test]
+    fn top_level_key_selection_does_not_use_metadata_or_accept_nonstring() {
+        assert_eq!(
+            data_key(r#"{"huge":[1,2,{"nested":true}],"id":"device\\\"é"}"#, "id").unwrap(),
+            "device\\\"é"
+        );
+        for value in [
+            r#"{"id":2}"#,
+            r#"{"id":null}"#,
+            r#"{}"#,
+            r#"["id"]"#,
+            r#"{"id":"a","id":"b"}"#,
+        ] {
+            assert_eq!(
+                data_key(value, "id").unwrap_err().kind,
+                FailureKind::Permanent
+            );
+        }
+    }
+}

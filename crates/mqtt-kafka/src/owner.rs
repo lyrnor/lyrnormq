@@ -247,3 +247,24 @@ mod tests {
         );
     }
 }
+#[cfg(test)]
+mod callback_tests {
+    use super::*;
+    #[test]
+    fn error_callback_keeps_only_structured_security_status() {
+        let status = Arc::new(AtomicUsize::new(0));
+        let ctx = Quiet {
+            security_failure: Arc::clone(&status),
+        };
+        ctx.error(
+            KafkaError::Global(rdkafka::error::RDKafkaErrorCode::Authentication),
+            "secret-password",
+        );
+        assert_eq!(status.load(Ordering::Relaxed), 1);
+        ctx.error(
+            KafkaError::Global(rdkafka::error::RDKafkaErrorCode::SSL),
+            "private-key-pem",
+        );
+        assert_eq!(status.load(Ordering::Relaxed), 2);
+    }
+}

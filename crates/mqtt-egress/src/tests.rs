@@ -937,3 +937,87 @@ async fn one_rule_fanout_stores_its_transformed_body_once() {
         "one transformed result was copied once for every destination"
     );
 }
+
+async fn keepalive_pool_shutdown_fixture(storage_error: bool) {
+    let f = Fixture::new();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/hook", listener.local_addr().unwrap());
+    let (responded, ready) = tokio::sync::oneshot::channel();
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut bytes = Vec::new();
+        let mut end = None;
+        loop {
+            let mut chunk = [0u8; 4096];
+            let n = stream.read(&mut chunk).await.unwrap();
+            assert!(n > 0);
+            bytes.extend_from_slice(&chunk[..n]);
+            if end.is_none()
+                && let Some(index) = bytes.windows(4).position(|w| w == b"\r\n\r\n")
+            {
+                let headers = String::from_utf8_lossy(&bytes[..index]);
+                let length = headers
+                    .lines()
+                    .find_map(|line| {
+                        line.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(str::trim)
+                            .and_then(|v| v.parse::<usize>().ok())
+                    })
+                    .unwrap_or(0);
+                end = Some(index + 4 + length);
+            }
+            if end.is_some_and(|end| bytes.len() >= end) {
+                break;
+            }
+            assert!(bytes.len() < 2 * 1024 * 1024);
+        }
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n")
+            .await
+            .unwrap();
+        let _ = responded.send(());
+        let mut byte = [0u8; 1];
+        tokio::time::timeout(Duration::from_secs(2), stream.read(&mut byte))
+            .await
+            .expect("old generation retained idle connection")
+            .unwrap()
+    });
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    runtime.replace(config(url)).await.unwrap();
+    runtime.observer().observe(
+        "devices/a/telemetry",
+        br#"{"temperature":90}"#,
+        "device-a",
+        0,
+        false,
+    );
+    ready.await.unwrap();
+    delivered(&runtime, 1).await;
+    if storage_error {
+        fn fail(
+            _: &mut mqtt_storage::configuration::ConfigStore,
+            _: &Config,
+        ) -> Result<(), RuntimeError> {
+            Err(RuntimeError::Storage)
+        }
+        assert!(matches!(
+            runtime.replace_test_write(Config::default(), fail).await,
+            Err(RuntimeError::Storage)
+        ));
+    } else {
+        runtime.shutdown().await;
+    }
+    assert!(!runtime.status().await.running);
+    assert_eq!(server.await.unwrap(), 0);
+    runtime.shutdown().await;
+}
+
+#[tokio::test]
+async fn explicit_shutdown_releases_keepalive_while_runtime_remains_alive() {
+    keepalive_pool_shutdown_fixture(false).await;
+}
+#[tokio::test]
+async fn storage_error_releases_keepalive_while_runtime_remains_alive() {
+    keepalive_pool_shutdown_fixture(true).await;
+}

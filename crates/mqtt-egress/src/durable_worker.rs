@@ -31,7 +31,7 @@ pub(crate) struct Generation {
     pub cancel: watch::Sender<bool>,
     pub targets: BTreeMap<String, Target>,
     pub tasks: Mutex<Vec<JoinHandle<()>>>,
-    pub sinks: Vec<Arc<dyn Sink>>,
+    pub sinks: Mutex<Vec<Arc<dyn Sink>>>,
 }
 impl Generation {
     pub fn cancel(&self) {
@@ -49,8 +49,8 @@ impl Generation {
         }
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut closing = JoinSet::new();
-        for sink in &self.sinks {
-            let sink = Arc::clone(sink);
+        let sinks = std::mem::take(&mut *self.sinks.lock().unwrap_or_else(PoisonError::into_inner));
+        for sink in sinks {
             closing.spawn(async move { sink.shutdown().await });
         }
         while !closing.is_empty() {
@@ -486,3 +486,7 @@ async fn terminal(
 #[cfg(test)]
 #[path = "durable_worker_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "durable_kafka_tests.rs"]
+mod kafka_tests;

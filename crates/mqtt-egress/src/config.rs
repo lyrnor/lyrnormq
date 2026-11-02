@@ -307,3 +307,7 @@ impl Config {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "config_kafka_tests.rs"]
+mod kafka_tests;

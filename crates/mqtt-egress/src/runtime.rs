@@ -216,7 +216,7 @@ fn build_snapshot(
             cancel,
             targets,
             tasks: Mutex::new(tasks),
-            sinks,
+            sinks: Mutex::new(sinks),
         }),
     })
 }
