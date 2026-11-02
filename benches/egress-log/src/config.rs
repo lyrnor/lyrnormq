@@ -138,7 +138,7 @@ impl Config {
             return Err(invalid("dataset exceeds max-records"));
         }
         let conservative = (resident as u64)
-            .checked_mul(config.payload as u64 + 1400)
+            .checked_mul(config.payload as u64 + 2200)
             .ok_or_else(|| invalid("dataset size overflow"))?;
         if conservative + 8192 > config.max_bytes / 2 {
             return Err(invalid(
@@ -172,5 +172,16 @@ mod tests {
         .unwrap();
         assert_eq!(c.clients, 1024);
         assert_eq!(c.max_bytes, 512 * 1024 * 1024);
+        assert!(
+            parse(&[
+                "--records",
+                "100000",
+                "--batch",
+                "64",
+                "--payload-bytes",
+                "1024"
+            ])
+            .is_err()
+        );
     }
 }
