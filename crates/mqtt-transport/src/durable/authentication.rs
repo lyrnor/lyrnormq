@@ -297,6 +297,15 @@ impl Worker {
         let reply = match step {
             Authenticated::Reply(reply) => *reply,
             Authenticated::Connect { request, principal } => {
+                if let Some(reason) = admit_will(&request, &principal).await {
+                    return Ok(refusal(&request, reason));
+                }
+                if entry.cancelled.load(Ordering::Acquire) {
+                    return Err(failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "authentication cancelled",
+                    ));
+                }
                 let client = request.client.clone();
                 let overload = refusal(&request, ReasonCode::SERVER_BUSY);
                 let (adopt, adopted) = oneshot::channel();
@@ -381,4 +390,54 @@ impl Worker {
         guard.armed = false;
         Ok(reply)
     }
+}
+
+/// A new Will is a future publish admitted exactly once, after credentials pass.
+/// Expiry, recovery and control packets use the accepted non-probing snapshot.
+async fn admit_will(
+    request: &ConnectRequest,
+    principal: &mqtt_auth::Principal,
+) -> Option<ReasonCode> {
+    let (Some(will), Some(attempt)) = (&request.will, &request.access_attempt) else {
+        return None;
+    };
+    let unavailable = || Some(ReasonCode::SERVER_UNAVAILABLE);
+    for _ in 0..2 {
+        if *request.cancel.borrow()
+            || request
+                .deadline
+                .is_some_and(|at| std::time::Instant::now() >= at)
+        {
+            return unavailable();
+        }
+        let allowed = attempt.policy().authorize_for_client(
+            principal,
+            &request.client,
+            mqtt_auth::Action::Publish,
+            &will.topic,
+        );
+        if !attempt.pending() {
+            return if allowed {
+                None // The actor seals all authentication and Will receipts together.
+            } else if attempt.seal() {
+                Some(ReasonCode::NOT_AUTHORIZED)
+            } else {
+                unavailable()
+            };
+        }
+        let resolved = match request.deadline {
+            Some(deadline) => {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                tokio::time::timeout(remaining, attempt.resolve())
+                    .await
+                    .ok()
+                    .is_some_and(|result| result.is_ok())
+            }
+            None => attempt.resolve().await.is_ok(),
+        };
+        if !resolved {
+            return unavailable();
+        }
+    }
+    unavailable()
 }

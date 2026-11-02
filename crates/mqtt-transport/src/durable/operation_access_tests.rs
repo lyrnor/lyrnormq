@@ -293,3 +293,76 @@ async fn stale_connect_keeps_connack_unavailable_reason_and_preserves_the_existi
     send(&worker, publication(1, false)).await.unwrap();
     worker.broker.shutdown().await.unwrap();
 }
+
+async fn reconnect_with_will(worker: &Worker) -> io::Result<Reply> {
+    let (wake, _) = watch::channel(0);
+    let (cancel, _) = watch::channel(false);
+    worker
+        .request(Operation::Connect {
+            client: "source".into(),
+            clean: true,
+            will: Some(Will {
+                topic: "last/source".into(),
+                payload: vec![1],
+                qos: 1,
+                retain: true,
+            }),
+            username: Some("device".into()),
+            password: None,
+            generation: 2,
+            wake,
+            cancel,
+        })
+        .await
+}
+#[tokio::test]
+async fn connect_will_denial_or_unavailability_cannot_replace_the_existing_connection() {
+    let (worker, remote) = worker().await;
+    remote.deny.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        reconnect_with_will(&worker).await.unwrap(),
+        Reply::Rejected(ConnectRefusal::NotAuthorized)
+    ));
+    assert_eq!(remote.calls.load(Ordering::Relaxed), 1);
+    remote.deny.store(false, Ordering::Relaxed);
+    send(&worker, publication(0, false)).await.unwrap();
+    remote.unavailable.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        reconnect_with_will(&worker).await.unwrap(),
+        Reply::Rejected(ConnectRefusal::ServerBusy)
+    ));
+    remote.unavailable.store(false, Ordering::Relaxed);
+    send(&worker, publication(0, false)).await.unwrap();
+    assert!(
+        worker
+            .broker
+            .retained_for(&[("last/#".into(), 1)])
+            .is_empty()
+    );
+    worker.broker.shutdown().await.unwrap();
+}
+#[tokio::test]
+async fn accepted_connect_will_is_checked_once_and_publication_never_rechecks_http() {
+    let (worker, remote) = worker().await;
+    assert!(matches!(
+        reconnect_with_will(&worker).await.unwrap(),
+        Reply::Connected(_)
+    ));
+    assert_eq!(remote.calls.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        *remote.resources.lock().unwrap(),
+        vec![(Action::Publish, "last/source".into())]
+    );
+    remote.unavailable.store(true, Ordering::Relaxed);
+    worker
+        .request(Operation::Disconnect {
+            client: "source".into(),
+            generation: 2,
+            graceful: false,
+        })
+        .await
+        .unwrap();
+    assert_eq!(remote.calls.load(Ordering::Relaxed), 1);
+    assert_eq!(worker.broker.retained_for(&[("last/#".into(), 1)]).len(), 1);
+    worker.broker.shutdown().await.unwrap();
+}
