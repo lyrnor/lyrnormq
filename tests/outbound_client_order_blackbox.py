@@ -167,7 +167,7 @@ class ClientOrderedOutbounds(unittest.TestCase):
         self.assertEqual(self.outbound()['failed'], 1)
         self.assertEqual(self.outbound()['retried'], 0)
 
-    def test_multiple_rules_share_one_client_lane(self):
+    def test_multiple_rules_have_independent_client_lanes(self):
         gate = threading.Event()
         receiver = self.receiver(hold=lambda r: gate if events(r)[0]['data']['seq'] == 0 and events(r)[0]['rule_id'] == 'hot' else None)
         config = concurrency.settings(receiver.url, concurrency=8)
@@ -177,19 +177,20 @@ class ClientOrderedOutbounds(unittest.TestCase):
         self.start(config)
         source = self.client('many-rules')
         self.emit(source, [0, 1])
-        receiver.tracker.wait(lambda t: len(t.started) >= 1)
+        receiver.tracker.wait(lambda t: sum(events(r)[0]['rule_id'] == 'second' for r in t.completed) == 2)
         eventually(lambda: self.status()['matched'] == 4)
+        own = [e for r in receiver.tracker.started for e in events(r) if e['client_id'] == 'many-rules']
+        self.assertEqual([(e['data']['seq'], e['rule_id']) for e in own if e['rule_id'] == 'hot'], [(0, 'hot')])
+        self.assertEqual([e['data']['seq'] for e in own if e['rule_id'] == 'second'], [0, 1])
         self.emit(self.client('other-rule-client'), [90])
         receiver.tracker.wait(lambda t: sum(e['client_id'] == 'other-rule-client'
                                           for r in t.completed for e in events(r)) == 2)
-        own = [e for r in receiver.tracker.started for e in events(r) if e['client_id'] == 'many-rules']
-        self.assertEqual([(e['data']['seq'], e['rule_id']) for e in own], [(0, 'hot')])
         gate.set()
         receiver.tracker.wait(lambda t: len(t.completed) == 6)
         self.drained(6)
         own = [e for r in receiver.tracker.started for e in events(r) if e['client_id'] == 'many-rules']
-        self.assertEqual([(e['data']['seq'], e['rule_id']) for e in own],
-                         [(0, 'hot'), (0, 'second'), (1, 'hot'), (1, 'second')])
+        for rule in ['hot', 'second']:
+            self.assertEqual([e['data']['seq'] for e in own if e['rule_id'] == rule], [0, 1])
         self.assertEqual(len({e['delivery_id'] for e in own}), 4)
 
     def test_batches_are_client_homogeneous_and_fifo(self):
