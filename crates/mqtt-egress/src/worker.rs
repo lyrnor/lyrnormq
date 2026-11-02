@@ -1,6 +1,6 @@
 use crate::{
     Outbound,
-    counters::{ActionCounters, Budget, Counters},
+    counters::{ActionCounters, AttemptGuard, Budget, Counters},
 };
 use mqtt_egress_core::Sink;
 use std::{
@@ -9,7 +9,7 @@ use std::{
 };
 use tokio::{
     sync::{Semaphore, mpsc, watch},
-    task::JoinHandle,
+    task::{JoinHandle, JoinSet},
 };
 
 pub(crate) const MAX_REQUEST: usize = 1024 * 1024;
@@ -108,15 +108,36 @@ async fn run(
     mut cancel: watch::Receiver<bool>,
     mut receiver: mpsc::Receiver<Delivery>,
 ) {
+    let action = Arc::new(action);
+    // The public configuration validator enforces these bounds. Keep this private
+    // entry point bounded even if an internal caller bypasses validation.
+    let concurrency = action.concurrency.clamp(1, crate::MAX_CONCURRENCY);
+    let mut jobs = JoinSet::new();
     let mut pending = None;
-    loop {
-        if *cancel.borrow() {
+    let mut cancelled = false;
+    'collect: loop {
+        if *cancel.borrow() || cancel.has_changed().is_err() {
+            cancelled = true;
             break;
+        }
+        // Reserve a job slot before removing anything else from the input queue.
+        // Jobs include permit wait and retry backoff, not only active sends.
+        while jobs.len() >= concurrency {
+            tokio::select! {biased;
+                _ = cancel.changed() => { cancelled = true; break 'collect; }
+                result = jobs.join_next() => record_join(result, &stats),
+            }
+        }
+        while let Some(result) = jobs.try_join_next() {
+            record_join(Some(result), &stats);
         }
         let first = if let Some(item) = pending.take() {
             Some(item)
         } else {
-            tokio::select! {biased; _=cancel.changed()=>None,item=receiver.recv()=>item}
+            tokio::select! {biased;
+                _ = cancel.changed() => {cancelled = true; None},
+                item = receiver.recv() => item,
+            }
         };
         let Some(first) = first else {
             break;
@@ -159,34 +180,96 @@ async fn run(
             size += limits.separator_bytes + item.encoded.len();
             batch.push(item);
         }
-        if *cancel.borrow() {
+        if *cancel.borrow() || cancel.has_changed().is_err() {
+            cancelled = true;
             break;
         }
-        let events: Vec<&[u8]> = batch.iter().map(|item| item.encoded.as_slice()).collect();
-        let mut result = Err("transport".to_owned());
-        for attempt in 0..action.max_attempts {
-            if *cancel.borrow() {
-                break;
+        jobs.spawn(send_batch(
+            Arc::clone(&action),
+            Arc::clone(&sink),
+            Arc::clone(&global),
+            Arc::clone(&stats),
+            cancel.clone(),
+            batch,
+            size,
+        ));
+    }
+    // Drop the carry-over and queued records before returning. No detached child
+    // outlives its generation, including during replacement or storage failure.
+    drop(pending);
+    drop(receiver);
+    if cancelled {
+        jobs.shutdown().await;
+    } else {
+        while !jobs.is_empty() {
+            tokio::select! {biased;
+                _ = cancel.changed() => { jobs.shutdown().await; break; }
+                result = jobs.join_next() => record_join(result, &stats),
             }
+        }
+    }
+}
+
+fn record_join(result: Option<Result<(), tokio::task::JoinError>>, stats: &ActionCounters) {
+    if result.is_some_and(|result| result.is_err()) {
+        *stats
+            .last_error
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some("worker_failed".into());
+    }
+}
+
+async fn send_batch(
+    action: Arc<Outbound>,
+    sink: Arc<dyn Sink>,
+    global: Arc<Semaphore>,
+    stats: Arc<ActionCounters>,
+    mut cancel: watch::Receiver<bool>,
+    mut batch: Vec<Delivery>,
+    size: usize,
+) {
+    let Some(first) = batch.first() else {
+        return;
+    };
+    let counters = Arc::clone(&first.counters);
+    let events: Vec<&[u8]> = batch.iter().map(|item| item.encoded.as_slice()).collect();
+    let mut result = Err("transport".to_owned());
+    for attempt in 0..action.max_attempts {
+        if *cancel.borrow() {
+            return;
+        }
+        if attempt > 0 {
+            let scale = 1u64 << attempt.min(5);
+            let jitter = (size as u64 + attempt as u64 * 37) % action.retry_base_ms.max(1);
+            let delay = action
+                .retry_base_ms
+                .saturating_mul(scale)
+                .saturating_add(jitter)
+                .min(30000);
+            tokio::select! {biased;_ = cancel.changed()=>return,_=tokio::time::sleep(Duration::from_millis(delay))=>{}}
+        }
+        // Every retry reacquires its own permit; backoff never holds the global
+        // request budget. Scope both guards around this one adapter future.
+        let permit = tokio::select! {biased;_ = cancel.changed()=>None,p=Arc::clone(&global).acquire_owned()=>p.ok()};
+        let Some(global_permit) = permit else {
+            return;
+        };
+        if *cancel.borrow() {
+            return;
+        }
+        let retry = {
+            let _active = AttemptGuard::new(Arc::clone(&counters), Arc::clone(&stats));
             if attempt > 0 {
                 stats
                     .retried
                     .fetch_add(batch.len() as u64, Ordering::Relaxed);
-                let scale = 1u64 << attempt.min(5);
-                let jitter = (size as u64 + attempt as u64 * 37) % action.retry_base_ms.max(1);
-                let delay = action
-                    .retry_base_ms
-                    .saturating_mul(scale)
-                    .saturating_add(jitter)
-                    .min(30000);
-                tokio::select! {biased;_ = cancel.changed()=>break,_=tokio::time::sleep(Duration::from_millis(delay))=>{}}
             }
-            let permit = tokio::select! {biased;_ = cancel.changed()=>None,p=Arc::clone(&global).acquire_owned()=>p.ok()};
-            let Some(_permit) = permit else {
-                break;
+            let response = tokio::select! {biased;
+                _ = cancel.changed() => return,
+                result = tokio::time::timeout(Duration::from_millis(action.timeout_ms), sink.send(&events)) =>
+                    match result { Ok(result) => result, Err(_) => Err(mqtt_egress_core::SendError {kind:mqtt_egress_core::FailureKind::Retryable,code:"timeout".into()}) },
             };
-            let response = tokio::select! {biased;_=cancel.changed()=>break,result=tokio::time::timeout(Duration::from_millis(action.timeout_ms),sink.send(&events))=>match result{Ok(result)=>result,Err(_)=>Err(mqtt_egress_core::SendError{kind:mqtt_egress_core::FailureKind::Retryable,code:"timeout".into()})}};
-            let retry = match response {
+            match response {
                 Ok(()) => {
                     result = Ok(());
                     false
@@ -195,19 +278,20 @@ async fn run(
                     result = Err(error.code);
                     error.kind == mqtt_egress_core::FailureKind::Retryable
                 }
-            };
-            if !retry {
-                break;
             }
-        }
-        if *cancel.borrow() {
+        };
+        drop(global_permit);
+        if !retry {
             break;
         }
-        for item in &mut batch {
-            match &result {
-                Ok(()) => item.complete(true, None),
-                Err(error) => item.complete(false, Some(error)),
-            }
+    }
+    if *cancel.borrow() {
+        return;
+    }
+    for item in &mut batch {
+        match &result {
+            Ok(()) => item.complete(true, None),
+            Err(error) => item.complete(false, Some(error)),
         }
     }
 }

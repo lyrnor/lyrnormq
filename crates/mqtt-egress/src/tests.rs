@@ -34,7 +34,7 @@ impl Drop for Fixture {
     }
 }
 fn config(url: String) -> Config {
-    Config{schema_version:2,outbounds:vec![Outbound{id:"send".into(),name:"Send".into(),endpoint:Endpoint::Webhook(mqtt_webhook::WebhookConfig{url,headers:BTreeMap::from([("Authorization".into(),"Bearer test-secret".into())])}),enabled:true,delivery:DeliveryPolicy{batch_size:1,batch_wait_ms:0,queue_capacity:64,timeout_ms:1000,max_attempts:3,retry_base_ms:10}}],rules:vec![Rule{id:"hot".into(),name:"Hot".into(),sql:"SELECT client_id, payload.temperature AS temperature FROM \"devices/+/telemetry\" WHERE payload.temperature >= 80".into(),enabled:true,outbound_ids:vec!["send".into()]}]}
+    Config{schema_version:2,outbounds:vec![Outbound{id:"send".into(),name:"Send".into(),endpoint:Endpoint::Webhook(mqtt_webhook::WebhookConfig{url,headers:BTreeMap::from([("Authorization".into(),"Bearer test-secret".into())])}),enabled:true,delivery:DeliveryPolicy{concurrency:1,batch_size:1,batch_wait_ms:0,queue_capacity:64,timeout_ms:1000,max_attempts:3,retry_base_ms:10}}],rules:vec![Rule{id:"hot".into(),name:"Hot".into(),sql:"SELECT client_id, payload.temperature AS temperature FROM \"devices/+/telemetry\" WHERE payload.temperature >= 80".into(),enabled:true,outbound_ids:vec!["send".into()]}]}
 }
 async fn server(
     codes: Vec<u16>,
@@ -715,6 +715,7 @@ async fn migrates_old_sqlite_blob_transactionally_and_rejects_new_wire_unknowns(
     let runtime = Runtime::open(f.path()).await.unwrap();
     let public = runtime.configuration().await;
     assert_eq!(public.schema_version, 2);
+    assert_eq!(public.outbounds[0].concurrency, 8);
     assert_eq!(public.rules[0].outbound_ids, vec!["a"]);
     assert_eq!(
         webhook(&public.outbounds[0].endpoint).headers["Authorization"],
@@ -745,4 +746,99 @@ fn webhook_mut(endpoint: &mut Endpoint) -> &mut mqtt_webhook::WebhookConfig {
     match endpoint {
         Endpoint::Webhook(c) => c,
     }
+}
+
+#[tokio::test]
+async fn concurrency_defaults_limits_and_sqlite_recovery_preserve_old_policy() {
+    let f = Fixture::new();
+    let mut old = serde_json::to_value(config("http://127.0.0.1:1/".into())).unwrap();
+    old["outbounds"][0]["delivery"]
+        .as_object_mut()
+        .unwrap()
+        .remove("concurrency");
+    old["outbounds"][0]["delivery"]["batch_size"] = 100.into();
+    old["outbounds"][0]["delivery"]["batch_wait_ms"] = 50.into();
+    let decoded: Config = serde_json::from_value(old.clone()).unwrap();
+    assert_eq!(decoded.outbounds[0].concurrency, 8);
+    for invalid in [0, 17] {
+        let mut invalid_config = decoded.clone();
+        invalid_config.outbounds[0].concurrency = invalid;
+        assert!(invalid_config.validate().is_err());
+    }
+    {
+        let mut store = mqtt_storage::configuration::ConfigStore::open(&f.path(), 65536).unwrap();
+        store.save(&serde_json::to_vec(&old).unwrap()).unwrap();
+    }
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut restored = runtime.configuration().await;
+    assert_eq!(restored.outbounds[0].concurrency, 8);
+    assert_eq!(restored.outbounds[0].batch_size, 100);
+    assert_eq!(restored.outbounds[0].batch_wait_ms, 50);
+    assert_eq!(runtime.status().await.inflight_requests, 0);
+    assert_eq!(runtime.status().await.outbounds[0].inflight_requests, 0);
+    restored.outbounds[0].concurrency = 3;
+    runtime.replace(restored).await.unwrap();
+    runtime.shutdown().await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let restored = runtime.configuration().await;
+    assert_eq!(restored.outbounds[0].concurrency, 3);
+    assert_eq!(restored.outbounds[0].batch_size, 100);
+    assert_eq!(
+        webhook(&restored.outbounds[0].endpoint).headers["Authorization"],
+        "[redacted]"
+    );
+    runtime.shutdown().await;
+}
+
+#[tokio::test]
+async fn storage_failure_returns_after_concurrent_attempts_are_cancelled() {
+    fn fail_write(
+        _: &mut mqtt_storage::configuration::ConfigStore,
+        _: &Config,
+    ) -> Result<(), RuntimeError> {
+        Err(RuntimeError::Storage)
+    }
+    let f = Fixture::new();
+    let (url, mut requests, stop, server) = server(vec![200], Duration::from_secs(1)).await;
+    let runtime = Runtime::open(f.path()).await.unwrap();
+    let mut policy = config(url);
+    policy.outbounds[0].concurrency = 3;
+    policy.outbounds[0].timeout_ms = 10000;
+    runtime.replace(policy).await.unwrap();
+    let observer = runtime.observer();
+    for _ in 0..3 {
+        observer.observe(
+            "devices/a/telemetry",
+            br#"{"temperature":90}"#,
+            "same",
+            0,
+            false,
+        );
+    }
+    let _ = receive(&mut requests).await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while runtime.status().await.inflight_requests != 3 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(matches!(
+        runtime
+            .replace_test_write(Config::default(), fail_write)
+            .await,
+        Err(RuntimeError::Storage)
+    ));
+    let stopped = runtime.status().await;
+    assert!(!stopped.running);
+    assert_eq!(
+        stopped.inflight_requests, 0,
+        "storage failure returned before active requests were cancelled"
+    );
+    assert_eq!(stopped.outbounds[0].inflight_requests, 0);
+    assert_eq!(stopped.outbounds[0].queued, 0);
+    runtime.shutdown().await;
+    assert_eq!(runtime.status().await.queued_bytes, 0);
+    let _ = stop.send(true);
+    server.await.unwrap();
 }

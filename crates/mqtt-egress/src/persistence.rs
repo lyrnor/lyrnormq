@@ -100,6 +100,7 @@ fn migrate(bytes: &[u8]) -> Result<Config, RuntimeError> {
                 headers: c.headers.clone(),
             }),
             delivery: DeliveryPolicy {
+                concurrency: crate::DEFAULT_CONCURRENCY,
                 batch_size: a.batch_size,
                 batch_wait_ms: a.batch_wait_ms,
                 queue_capacity: a.queue_capacity,

@@ -7,6 +7,7 @@ use std::sync::{
 pub(crate) const MAX_BYTES: usize = 16 * 1024 * 1024;
 #[derive(Default)]
 pub(crate) struct Counters {
+    pub inflight_requests: AtomicUsize,
     pub bytes: AtomicUsize,
     pub queued: AtomicUsize,
     pub received: AtomicU64,
@@ -16,6 +17,7 @@ pub(crate) struct Counters {
 }
 #[derive(Default)]
 pub(crate) struct ActionCounters {
+    pub inflight_requests: AtomicUsize,
     pub queued: AtomicUsize,
     pub delivered: AtomicU64,
     pub failed: AtomicU64,
@@ -25,6 +27,7 @@ pub(crate) struct ActionCounters {
 }
 #[derive(Debug, Serialize)]
 pub struct Status {
+    pub inflight_requests: usize,
     pub mode: &'static str,
     pub running: bool,
     pub queued_events: usize,
@@ -37,6 +40,7 @@ pub struct Status {
 }
 #[derive(Debug, Serialize)]
 pub struct ActionStatus {
+    pub inflight_requests: usize,
     #[serde(rename = "type")]
     pub kind: &'static str,
     pub id: String,
@@ -50,6 +54,7 @@ pub struct ActionStatus {
 impl ActionCounters {
     pub fn view(&self, id: String, kind: &'static str) -> ActionStatus {
         ActionStatus {
+            inflight_requests: self.inflight_requests.load(Ordering::Relaxed),
             kind,
             id,
             queued: self.queued.load(Ordering::Relaxed),
@@ -110,5 +115,28 @@ impl Drop for Budget {
         if let Some(action) = &self.action {
             action.queued.fetch_sub(1, Ordering::Relaxed);
         }
+    }
+}
+
+/// Counts only an attempt that already owns a global request permit.
+pub(crate) struct AttemptGuard {
+    counters: Arc<Counters>,
+    action: Arc<ActionCounters>,
+}
+impl AttemptGuard {
+    pub fn new(counters: Arc<Counters>, action: Arc<ActionCounters>) -> Self {
+        counters.inflight_requests.fetch_add(1, Ordering::Relaxed);
+        action.inflight_requests.fetch_add(1, Ordering::Relaxed);
+        Self { counters, action }
+    }
+}
+impl Drop for AttemptGuard {
+    fn drop(&mut self) {
+        self.counters
+            .inflight_requests
+            .fetch_sub(1, Ordering::Relaxed);
+        self.action
+            .inflight_requests
+            .fetch_sub(1, Ordering::Relaxed);
     }
 }

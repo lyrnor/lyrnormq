@@ -10,7 +10,10 @@ mod runtime;
 mod tests;
 mod worker;
 
-pub use config::{Config, DeliveryPolicy, Endpoint, Outbound, OutboundType, PublicConfig};
+pub use config::{
+    Config, DEFAULT_CONCURRENCY, DeliveryPolicy, Endpoint, MAX_CONCURRENCY, Outbound, OutboundType,
+    PublicConfig,
+};
 pub use counters::{ActionStatus, Status};
 pub use error::RuntimeError;
 pub use runtime::Runtime;

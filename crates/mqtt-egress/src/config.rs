@@ -4,6 +4,15 @@ use mqtt_webhook::WebhookConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 pub const MAX_CONFIG: usize = 64 * 1024;
+/// Applied to new policies and legacy records that omit the concurrency field.
+pub const DEFAULT_CONCURRENCY: usize = 8;
+/// Per-outbound bound; actual attempts also share the Runtime request semaphore.
+pub const MAX_CONCURRENCY: usize = 16;
+pub(crate) const GLOBAL_CONCURRENCY: usize = 16;
+
+fn default_concurrency() -> usize {
+    DEFAULT_CONCURRENCY
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -59,10 +68,11 @@ impl Endpoint {
         &self,
         id: &str,
         timeout: u64,
+        concurrency: usize,
     ) -> Result<std::sync::Arc<dyn mqtt_egress_core::Sink>, RuntimeError> {
         match self {
             Self::Webhook(c) => Ok(std::sync::Arc::new(
-                mqtt_webhook::WebhookSink::new(id, c.clone(), timeout)
+                mqtt_webhook::WebhookSink::new(id, c.clone(), timeout, concurrency)
                     .map_err(|_| RuntimeError::InvalidConfig)?,
             )),
         }
@@ -126,6 +136,9 @@ impl<'de> Deserialize<'de> for Outbound {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeliveryPolicy {
+    /// Maximum live batch jobs, including global-permit wait and retry backoff.
+    #[serde(default = "default_concurrency")]
+    pub concurrency: usize,
     pub batch_size: usize,
     pub batch_wait_ms: u64,
     pub queue_capacity: usize,
@@ -191,6 +204,7 @@ impl Config {
         for o in &self.outbounds {
             if !identity(&o.id, &o.name)
                 || !ids.insert(o.id.clone())
+                || !(1..=MAX_CONCURRENCY).contains(&o.concurrency)
                 || !(1..=500).contains(&o.batch_size)
                 || o.batch_wait_ms > 1000
                 || !(1..=4096).contains(&o.queue_capacity)
@@ -225,7 +239,10 @@ impl Config {
         }
         let mut sinks = std::collections::BTreeMap::new();
         for o in self.outbounds.iter().filter(|o| o.enabled) {
-            sinks.insert(o.id.clone(), o.endpoint.sink(&o.id, o.timeout_ms)?);
+            sinks.insert(
+                o.id.clone(),
+                o.endpoint.sink(&o.id, o.timeout_ms, o.concurrency)?,
+            );
         }
         Ok(Validated {
             sinks,

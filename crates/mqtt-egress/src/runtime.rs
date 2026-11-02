@@ -216,7 +216,7 @@ impl Runtime {
         .await
         .map_err(|_| io::Error::other("rule runtime initialization failed"))?
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-        let outbound = Arc::new(Semaphore::new(16));
+        let outbound = Arc::new(Semaphore::new(crate::config::GLOBAL_CONCURRENCY));
         let snapshot = build_snapshot(validated, &outbound);
         let (senders, receivers): (Vec<_>, Vec<_>) =
             (0..4).map(|_| mpsc::sync_channel(256)).unzip();
@@ -290,6 +290,7 @@ impl Runtime {
         );
         let c = &self.inner.counters;
         Status {
+            inflight_requests: c.inflight_requests.load(Ordering::Relaxed),
             mode: "best_effort",
             running: !self.inner.stopped.load(Ordering::Acquire),
             queued_events: c.queued.load(Ordering::Relaxed),
@@ -366,11 +367,11 @@ impl Runtime {
                 Ok(Ok(result)) => result,
                 Ok(Err((error, false))) => return Err(error),
                 Ok(Err((error, true))) => {
-                    stop_after_storage_error(&inner);
+                    stop_after_storage_error(&inner).await;
                     return Err(error);
                 }
                 Err(_) => {
-                    stop_after_storage_error(&inner);
+                    stop_after_storage_error(&inner).await;
                     return Err(RuntimeError::Storage);
                 }
             };
@@ -459,16 +460,21 @@ async fn shutdown_inner(inner: Arc<Inner>) {
     .await;
 }
 
-fn stop_after_storage_error(inner: &Inner) {
+async fn stop_after_storage_error(inner: &Inner) {
     inner.stopped.store(true, Ordering::Release);
     inner.counters.errors.fetch_add(1, Ordering::Relaxed);
-    inner
-        .snapshot
-        .read()
-        .unwrap_or_else(PoisonError::into_inner)
-        .generation
-        .cancel();
+    let generation = Arc::clone(
+        &inner
+            .snapshot
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .generation,
+    );
+    // Do not return a storage failure while old network attempts still own
+    // permits/buffers. The mutation task owns its permit even if its caller left.
+    generation.finish().await;
 }
+
 impl Drop for Runtime {
     fn drop(&mut self) {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
@@ -486,3 +492,7 @@ impl Drop for Runtime {
             .cancel();
     }
 }
+
+#[cfg(test)]
+#[path = "runtime_lifecycle_tests.rs"]
+mod lifecycle_tests;

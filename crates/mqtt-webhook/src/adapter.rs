@@ -98,12 +98,17 @@ pub struct WebhookSink {
     timeout: Duration,
 }
 impl WebhookSink {
-    pub fn new(id: &str, config: WebhookConfig, timeout_ms: u64) -> Result<Self, ConfigError> {
+    pub fn new(
+        id: &str,
+        config: WebhookConfig,
+        timeout_ms: u64,
+        concurrency: usize,
+    ) -> Result<Self, ConfigError> {
         config.validate()?;
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
-            .pool_max_idle_per_host(1)
+            .pool_max_idle_per_host(concurrency)
             .pool_idle_timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
             .build()
