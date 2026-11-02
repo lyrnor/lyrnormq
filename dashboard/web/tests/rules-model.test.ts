@@ -37,6 +37,16 @@ const config: RulesConfig = {
   ],
 };
 describe("rule form contract validation", () => {
+  it("defaults new outbounds to one event without batching delay", () => {
+    expect(defaultOutbound().delivery).toEqual({
+      batch_size: 1,
+      batch_wait_ms: 0,
+      queue_capacity: 256,
+      timeout_ms: 3000,
+      max_attempts: 3,
+      retry_base_ms: 200,
+    });
+  });
   it("validates IDs and UTF8 byte limits", () => {
     expect(validateIdentity("valid-id_1", "中文")).toBeNull();
     for (const id of ["", "spaces bad", "../other", "x".repeat(65)])

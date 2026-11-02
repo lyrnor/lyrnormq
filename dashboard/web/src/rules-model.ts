@@ -67,8 +67,8 @@ export const defaultOutbound = (): Outbound => ({
   type: "webhook",
   config: { url: "", headers: {} },
   delivery: {
-    batch_size: 100,
-    batch_wait_ms: 50,
+    batch_size: 1,
+    batch_wait_ms: 0,
     queue_capacity: 256,
     timeout_ms: 3000,
     max_attempts: 3,

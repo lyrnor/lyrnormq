@@ -569,7 +569,14 @@ describe("Webhook basic and advanced settings", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(saved().delivery).toEqual(defaultOutbound().delivery);
+    expect(saved().delivery).toEqual({
+      batch_size: 1,
+      batch_wait_ms: 0,
+      queue_capacity: 256,
+      timeout_ms: 3000,
+      max_attempts: 3,
+      retry_base_ms: 200,
+    });
   });
   it("retains advanced edits through collapse with no editable queue capacity", async () => {
     await fresh();
@@ -605,41 +612,47 @@ describe("Webhook basic and advanced settings", () => {
       queue_capacity: 256,
     });
   });
-  it("preserves existing delivery settings and custom queue capacity without opening advanced", async () => {
-    const initial = structuredClone(populated);
-    initial.outbounds[0].enabled = false;
-    initial.outbounds[0].delivery = {
-      batch_size: 7,
-      batch_wait_ms: 15,
-      timeout_ms: 1200,
-      max_attempts: 4,
-      retry_base_ms: 45,
-      queue_capacity: 777,
-    };
-    server(initial);
-    render(<RulesPage token="token" expired={expired} />);
-    await ready();
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 1" }), {
-      button: 0,
-      ctrlKey: false,
-    });
-    expect(screen.queryByText(/每批.*等待/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "编辑 Send alarm" }));
-    expect(
-      screen
-        .getByRole("button", { name: "高级设置" })
-        .getAttribute("aria-expanded"),
-    ).toBe("false");
-    fireEvent.change(screen.getByLabelText("名称"), {
-      target: { value: "Renamed only" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(saved().delivery).toEqual(initial.outbounds[0].delivery);
-    expect(saved().enabled).toBe(false);
-    expect(saved().id).toBe("send");
-    expect(saved().config.headers.Authorization).toBe("[redacted]");
-  });
+  it.each([
+    [100, 50],
+    [7, 15],
+  ])(
+    "preserves existing batch %i/wait %i and queue capacity without opening advanced",
+    async (batchSize, batchWaitMs) => {
+      const initial = structuredClone(populated);
+      initial.outbounds[0].enabled = false;
+      initial.outbounds[0].delivery = {
+        batch_size: batchSize,
+        batch_wait_ms: batchWaitMs,
+        timeout_ms: 1200,
+        max_attempts: 4,
+        retry_base_ms: 45,
+        queue_capacity: 777,
+      };
+      server(initial);
+      render(<RulesPage token="token" expired={expired} />);
+      await ready();
+      fireEvent.mouseDown(screen.getByRole("tab", { name: "出站 1" }), {
+        button: 0,
+        ctrlKey: false,
+      });
+      expect(screen.queryByText(/每批.*等待/)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "编辑 Send alarm" }));
+      expect(
+        screen
+          .getByRole("button", { name: "高级设置" })
+          .getAttribute("aria-expanded"),
+      ).toBe("false");
+      fireEvent.change(screen.getByLabelText("名称"), {
+        target: { value: "Renamed only" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "保存并应用" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(saved().delivery).toEqual(initial.outbounds[0].delivery);
+      expect(saved().enabled).toBe(false);
+      expect(saved().id).toBe("send");
+      expect(saved().config.headers.Authorization).toBe("[redacted]");
+    },
+  );
   it("expands hidden invalid tuning instead of submitting it", async () => {
     await fresh();
     fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
