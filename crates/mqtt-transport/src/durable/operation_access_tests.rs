@@ -22,6 +22,7 @@ impl AccessControl for Granted {
 struct Remote {
     calls: AtomicUsize,
     deny: AtomicBool,
+    bad_credentials: AtomicBool,
     unavailable: AtomicBool,
     stale: AtomicBool,
     resources: Mutex<Vec<(Action, String)>>,
@@ -76,6 +77,9 @@ impl AccessAttempt for Handle {
         _: ConnectInfo<'a>,
     ) -> AccessFuture<'a, Result<Principal, RemoteAccessError>> {
         Box::pin(async {
+            if self.0.remote.bad_credentials.load(Ordering::Relaxed) {
+                return Err(RemoteAccessError::BadCredentials);
+            }
             Ok(Principal {
                 name: "user:device".into(),
             })
@@ -364,5 +368,20 @@ async fn accepted_connect_will_is_checked_once_and_publication_never_rechecks_ht
         .unwrap();
     assert_eq!(remote.calls.load(Ordering::Relaxed), 1);
     assert_eq!(worker.broker.retained_for(&[("last/#".into(), 1)]).len(), 1);
+    worker.broker.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn rejected_credentials_never_probe_the_new_will() {
+    let (worker, remote) = worker().await;
+    remote.bad_credentials.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        reconnect_with_will(&worker).await.unwrap(),
+        Reply::Rejected(ConnectRefusal::BadCredentials)
+    ));
+    assert_eq!(remote.calls.load(Ordering::Relaxed), 0);
+    assert!(remote.resources.lock().unwrap().is_empty());
+    remote.bad_credentials.store(false, Ordering::Relaxed);
+    send(&worker, publication(0, false)).await.unwrap();
     worker.broker.shutdown().await.unwrap();
 }
