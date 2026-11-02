@@ -121,7 +121,7 @@ impl SessionEngine {
         self.expire_sessions()?;
         self.validate_client(client_id)?;
         Self::validate_owner(&principal.name).map_err(|_| EngineError::NotAuthorized)?;
-        self.require_access(&principal, Action::Connect, client_id)?;
+        self.require_access(&principal, client_id, Action::Connect, client_id)?;
         if self
             .sessions
             .get(client_id)
@@ -135,7 +135,7 @@ impl SessionEngine {
         }
         if let Some(will) = &will {
             self.validate_will(client_id, will)?;
-            self.require_access(&principal, Action::Publish, &will.topic)?;
+            self.require_access(&principal, client_id, Action::Publish, &will.topic)?;
         }
         if !options.clean_start
             && let Some(session) = self.sessions.get(client_id)
@@ -333,11 +333,19 @@ impl SessionEngine {
             record.timer_blocked = false;
         }
         self.prune_shared_state();
-        self.retry_wills()?;
+        if self.access.reconciles_stored_authorization() {
+            self.retry_wills()?;
+        }
         self.ensure_bounds()
     }
     /// Called once on startup after restore, before the startup commit and ready.
     pub fn recover_wills(&mut self) -> Result<(), EngineError> {
+        self.anchor_recovered_wills();
+        self.retry_wills()?;
+        self.ensure_bounds()
+    }
+    /// Anchor active-at-crash intents once before asynchronous preparation.
+    pub fn anchor_recovered_wills(&mut self) {
         let now = self.effective_now();
         for (client_id, record) in &mut self.wills {
             if !record.pending {
@@ -353,8 +361,6 @@ impl SessionEngine {
                 record.timer_blocked = false;
             }
         }
-        self.retry_wills()?;
-        self.ensure_bounds()
     }
     /// Tries each pending Will on a separate bounded clone. A full recipient or
     /// retained store defers it unchanged; any other error is not swallowed.
@@ -373,6 +379,28 @@ impl SessionEngine {
             })
             .collect();
         for id in pending {
+            if !self.access.reconciles_stored_authorization()
+                && let Some(record) = self.wills.get(&id)
+                && (!self.access.authorize_for_client(
+                    &Principal {
+                        name: record.owner.clone(),
+                    },
+                    &id,
+                    Action::Connect,
+                    &id,
+                ) || !self.access.authorize_for_client(
+                    &Principal {
+                        name: record.owner.clone(),
+                    },
+                    &id,
+                    Action::Publish,
+                    &record.will.topic,
+                ))
+            {
+                self.wills.remove(&id);
+                progressed = true;
+                continue;
+            }
             let mut proposal = self.clone();
             let record = proposal
                 .wills

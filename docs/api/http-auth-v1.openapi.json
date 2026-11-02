@@ -1,0 +1,328 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RMQTT external HTTP authentication and ACL API",
+    "version": "1.0.0",
+    "description": "Unimplemented v1. Username uniquely identifies the device. Authentication:204 success,401 credential denial; ACL:204 allow,403 operation denial.401 at ACL is service credential fault;403 at authentication is unavailable. No response JSON. Cache only ACL204/403 by exact source/username/client_id/action/topic. Normative details: ../http-auth-api.md."
+  },
+  "servers": [
+    {
+      "url": "https://auth.example.com"
+    }
+  ],
+  "security": [
+    {
+      "ServiceToken": []
+    }
+  ],
+  "paths": {
+    "/mqtt/authenticate": {
+      "post": {
+        "operationId": "authenticate",
+        "summary": "Verify client credentials",
+        "description": "Authenticate supplied username/password. Only204 succeeds;401 rejects this login.403/429/5xx/other statuses are unavailable. No response JSON or additional identity. Gateway401 cannot be distinguished from device401; never infer global revocation. See ../http-auth-api.md.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Optional tracing only. Service may ignore; response echo not required."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthRequest"
+              },
+              "examples": {
+                "credentials": {
+                  "value": {
+                    "client_id": "device-001",
+                    "username": "device-001",
+                    "password": "secret"
+                  }
+                },
+                "binaryPassword": {
+                  "value": {
+                    "client_id": "device-001",
+                    "username": "device-001",
+                    "password_base64": "/wA="
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Allow. No content. Authentication binds the verified username; ACL permits this exact operation. No response Content-Type or ID echo required.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Service access forbidden or authentication endpoint contract mismatch. Unavailable, not an explicit device credential decision; no automatic fallback.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication refused: wrong credentials, missing/disabled account. Do not cache; never delete an existing session. A gateway401 also refuses this attempt without inferring permanent revocation.",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Applicable HTTP authentication challenge. Broker does not automatically retry or forward device passwords based on it."
+              }
+            }
+          },
+          "429": {
+            "description": "Backend rate limit/overload. Unavailable; no automatic retry or deadline extension."
+          },
+          "503": {
+            "description": "Backend unavailable; not an explicit device denial."
+          },
+          "default": {
+            "description": "Unavailable/protocol error. Includes HTTP200, every other 2xx, redirects, bad requests, endpoint404 and other5xx. Never interpret a JSON body as allow/deny. Bound discarded error bodies to4KiB then close."
+          }
+        }
+      }
+    },
+    "/mqtt/acl": {
+      "post": {
+        "operationId": "authorize",
+        "summary": "Authorize one client operation on one topic or filter",
+        "description": "Authorize exact client_id/username/action/topic.204 allows,403 denies only this operation.401 is service access failure, never cached as deny. Other statuses unavailable. No response JSON. See ../http-auth-api.md.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Optional tracing only. Service may ignore; response echo not required."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AclRequest"
+              },
+              "examples": {
+                "publish": {
+                  "value": {
+                    "client_id": "device-001",
+                    "username": "device-001",
+                    "action": "publish",
+                    "topic": "devices/device-001/telemetry"
+                  }
+                },
+                "subscribe": {
+                  "value": {
+                    "client_id": "device-001",
+                    "username": "device-001",
+                    "action": "subscribe",
+                    "topic": "devices/device-001/commands/#"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Allow. No content. Authentication binds the verified username; ACL permits this exact operation. No response Content-Type or ID echo required.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Deny this exact ACL operation. Do not infer global account revocation. Error body ignored and not logged.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Broker-to-ACL-service credentials/access fault. Unavailable; never cache as deny.",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Applicable HTTP authentication challenge. Broker does not automatically retry or forward device passwords based on it."
+              }
+            }
+          },
+          "429": {
+            "description": "Backend rate limit/overload. Unavailable; no automatic retry or deadline extension."
+          },
+          "503": {
+            "description": "Backend unavailable; not an explicit device denial."
+          },
+          "default": {
+            "description": "Unavailable/protocol error. Includes HTTP200, every other 2xx, redirects, bad requests, endpoint404 and other5xx. Never interpret a JSON body as allow/deny. Bound discarded error bodies to4KiB then close."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ServiceToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Broker-to-service credential; not MQTT user password."
+      },
+      "ClientCertificate": {
+        "type": "mutualTLS"
+      }
+    },
+    "schemas": {
+      "Username": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "x-max-utf8-bytes": 256,
+        "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$",
+        "description": "Unique stable device identity; exact case-sensitive UTF8. Trusted for ACL only after successful authentication."
+      },
+      "AuthRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_id",
+          "username"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65535,
+            "x-max-utf8-bytes": 65535
+          },
+          "username": {
+            "$ref": "#/components/schemas/Username"
+          },
+          "password": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 0,
+                "maxLength": 65535,
+                "x-max-utf8-bytes": 65535
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "password_base64": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 87380,
+                "contentEncoding": "base64",
+                "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                "description": "Only for non-UTF8 passwords. Canonical RFC4648, decoded <=65535 bytes. Never include together with password, including null."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "not": {
+          "required": [
+            "password",
+            "password_base64"
+          ]
+        }
+      },
+      "AclRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client_id",
+          "username",
+          "action",
+          "topic"
+        ],
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65535,
+            "x-max-utf8-bytes": 65535
+          },
+          "username": {
+            "$ref": "#/components/schemas/Username"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "publish",
+              "subscribe"
+            ]
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65535,
+            "x-max-utf8-bytes": 65535,
+            "pattern": "^[^\\u0000]+$",
+            "description": "Publish: concrete valid MQTT Topic Name. Subscribe: valid MQTT Topic Filter; concrete Topic used for actual receiving. Broker strips shared wrapper only for initial shared subscription. Service must authorize full requested filter range."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "publish"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "topic": {
+                  "pattern": "^[^+#\\u0000]+$"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+[package]
+name = "mqtt-auth-http"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+mqtt-auth = { path = "../mqtt-auth" }
+mqtt-storage = { path = "../mqtt-storage" }
+mqtt-router = { path = "../mqtt-router" }
+tokio.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+
+[dev-dependencies]
+rustls-pemfile = "2.2"
+tokio = { workspace = true, features = ["test-util"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }

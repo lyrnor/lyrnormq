@@ -1,0 +1,24 @@
+   Compiling mqtt-auth-http v0.1.0 (/private/tmp/rmqtt-http-access-backend/crates/mqtt-auth-http)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.89s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_auth_http-d40b80e3b8e2cfef)
+
+running 1 test
+test tests::certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage ... FAILED
+
+failures:
+
+---- tests::certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage stdout ----
+
+thread 'tests::certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage' (16898673) panicked at crates/mqtt-auth-http/src/tests.rs:645:5:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(InvalidConfig)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p mqtt-auth-http --lib`

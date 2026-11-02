@@ -78,14 +78,18 @@ impl Admission {
         self.handshakes.clone().try_acquire_owned().ok()
     }
     pub(crate) fn authentication(&self) -> Option<OwnedSemaphorePermit> {
-        if !self
-            .bucket
+        if !self.charge_authentication() {
+            return None;
+        }
+        self.authentication_task()
+    }
+    pub(crate) fn charge_authentication(&self) -> bool {
+        self.bucket
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .charge(Instant::now())
-        {
-            return None;
-        }
+    }
+    pub(crate) fn authentication_task(&self) -> Option<OwnedSemaphorePermit> {
         self.auth.clone().try_acquire_owned().ok()
     }
 }

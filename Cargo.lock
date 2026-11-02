@@ -1003,6 +1003,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mqtt-auth-http"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "mqtt-auth",
+ "mqtt-router",
+ "mqtt-storage",
+ "reqwest",
+ "rusqlite",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-rustls",
+]
+
+[[package]]
 name = "mqtt-egress"
 version = "0.1.0"
 dependencies = [
@@ -1471,11 +1488,13 @@ name = "rmqtt"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "hyper",
  "hyper-util",
  "include_dir",
  "mimalloc",
  "mqtt-auth",
+ "mqtt-auth-http",
  "mqtt-egress",
  "mqtt-rules",
  "mqtt-transport",

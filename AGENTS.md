@@ -47,3 +47,6 @@ Kafka SDK replacement additionally follows docs/contracts/phase5k-krafka-migrati
 Backend owns crates/mqtt-kafka only; quality owns Kafka tests/CI; coordinator owns
 lock/docs/build integration. Preserve public and durable schemas, bounded lazy
 connection, confirmed delivery, same-client FIFO and SDK lifecycle fencing.
+
+HTTP access work additionally follows docs/contracts/phase6b-http-admission.md, which
+supersedes phase6a receive/shared/recovery expansion for the narrowed user scope.

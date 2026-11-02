@@ -1,7 +1,7 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
 
 pub struct Options {
     pub address: String,
@@ -9,6 +9,7 @@ pub struct Options {
     pub admin_token_file: Option<PathBuf>,
     pub dashboard_dir: Option<PathBuf>,
     pub rules_config: Option<PathBuf>,
+    pub access_control_config: Option<PathBuf>,
     pub egress_queue_dir: Option<PathBuf>,
     pub egress_queue_segment_bytes: u64,
     pub egress_queue_max_bytes: u64,
@@ -60,6 +61,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         admin_token_file: None,
         dashboard_dir: None,
         rules_config: None,
+        access_control_config: None,
         egress_queue_dir: None,
         egress_queue_segment_bytes: 1024 * 1024,
         egress_queue_max_bytes: 256 * 1024 * 1024,
@@ -105,6 +107,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 | "--admin-token-file"
                 | "--dashboard-dir"
                 | "--rules-config"
+                | "--access-control-config"
                 | "--egress-queue-dir"
                 | "--egress-queue-segment-bytes"
                 | "--egress-queue-max-bytes"
@@ -182,10 +185,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 }
                 continue;
             }
-            "--admin-token-file" | "--dashboard-dir" | "--rules-config" => {
+            "--admin-token-file"
+            | "--dashboard-dir"
+            | "--rules-config"
+            | "--access-control-config" => {
                 let target = match option.as_str() {
                     "--admin-token-file" => &mut options.admin_token_file,
                     "--rules-config" => &mut options.rules_config,
+                    "--access-control-config" => &mut options.access_control_config,
                     _ => &mut options.dashboard_dir,
                 };
                 if value.is_empty() || target.replace(PathBuf::from(value)).is_some() {
@@ -391,8 +398,21 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     if options.export_state && options.rules_config.is_some() {
         return Err(invalid("rules cannot combine with export-state"));
     }
+    if options.export_state && options.access_control_config.is_some() {
+        return Err(invalid("access control cannot combine with export-state"));
+    }
     if !options.export_state && options.rules_config.is_none() {
         options.rules_config = Some(PathBuf::from("rmqtt-rules.sqlite"));
+    }
+    if !options.export_state && options.access_control_config.is_none() {
+        let mut path = options
+            .rules_config
+            .as_ref()
+            .ok_or_else(|| invalid("rules configuration path required"))?
+            .as_os_str()
+            .to_os_string();
+        path.push(".access.sqlite");
+        options.access_control_config = Some(PathBuf::from(path));
     }
     Ok(Some(options))
 }
@@ -400,6 +420,45 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn access_config_path_is_private_sibling_and_never_created_by_export() {
+        let defaults = parse(args(&[])).unwrap().unwrap();
+        assert_eq!(
+            defaults.access_control_config,
+            Some(PathBuf::from("rmqtt-rules.sqlite.access.sqlite"))
+        );
+        let options = parse(args(&["--rules-config", "isolated/rules.sqlite"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            options.access_control_config,
+            Some(PathBuf::from("isolated/rules.sqlite.access.sqlite"))
+        );
+        for input in [
+            vec!["--access-control-config", ""],
+            vec!["--access-control-config"],
+            vec![
+                "--access-control-config",
+                "a",
+                "--access-control-config",
+                "b",
+            ],
+            vec![
+                "export-state",
+                "--storage-path",
+                "sessions.sqlite",
+                "--access-control-config",
+                "a",
+            ],
+        ] {
+            assert!(parse(args(&input)).is_err());
+        }
+        let options = parse(args(&["export-state", "--storage-path", "sessions.sqlite"]))
+            .unwrap()
+            .unwrap();
+        assert!(options.access_control_config.is_none());
+    }
 
     #[test]
     fn durable_outbound_queue_cli_accepts_explicit_limits() {

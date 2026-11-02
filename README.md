@@ -618,3 +618,11 @@ brokers, topic and optional TLS/SASL in the Dashboard. See
 Structured stderr logs use tracing, with `RUST_LOG` target/level filtering and
 `RMQTT_LOG_FORMAT=json` for JSON events. Output runs on a bounded background writer.
 See [configuration and limits](docs/logging.md).
+
+
+### External HTTP authentication contract
+
+The [HTTP authentication and ACL v1 contract](docs/http-auth-api.md) and
+[OpenAPI definition](docs/api/http-auth-v1.openapi.json) define the next backend
+integration. This is documentation only; the current Broker does not implement
+these external HTTP calls.

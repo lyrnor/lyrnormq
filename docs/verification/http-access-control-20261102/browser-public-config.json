@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "authentication": {
+    "type": "http",
+    "enabled": false,
+    "name": "HTTP 认证验收",
+    "url": "http://127.0.0.1:55252/authenticate",
+    "service_auth": {
+      "type": "none"
+    },
+    "headers": {},
+    "timeout_ms": 1000,
+    "max_concurrency": 128,
+    "allow_http": true,
+    "tls": {
+      "ca_pem": null,
+      "certificate_pem": null,
+      "private_key_pem": null
+    }
+  },
+  "authorization": {
+    "type": "http",
+    "enabled": false,
+    "name": "HTTP 授权",
+    "url": "",
+    "service_auth": {
+      "type": "none"
+    },
+    "headers": {},
+    "timeout_ms": 1000,
+    "max_concurrency": 128,
+    "allow_http": false,
+    "tls": {
+      "ca_pem": null,
+      "certificate_pem": null,
+      "private_key_pem": null
+    },
+    "cache_ttl_seconds": 30
+  }
+}

@@ -1,0 +1,22 @@
+   Compiling mqtt-auth-http v0.1.0 (/private/tmp/rmqtt-http-access-backend/crates/mqtt-auth-http)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s
+     Running unittests src/lib.rs (target/debug/deps/mqtt_auth_http-ae62e755c43c74e9)
+
+running 1 test
+test tests::both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only_keeps_static_acl ... FAILED
+
+failures:
+
+---- tests::both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only_keeps_static_acl stdout ----
+
+thread 'tests::both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only_keeps_static_acl' (16887010) panicked at crates/mqtt-auth-http/src/tests.rs:618:5:
+assertion failed: a.policy().authorize_for_client(&principal(), "one", Action::Connect, "one")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only_keeps_static_acl
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p mqtt-auth-http --lib`

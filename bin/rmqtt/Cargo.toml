@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+mqtt-auth-http = { path = "../../crates/mqtt-auth-http" }
+base64 = "0.22"
 mqtt-rules = { path = "../../crates/mqtt-rules" }
 mqtt-egress = { path = "../../crates/mqtt-egress" }
 mqtt-auth = { path = "../../crates/mqtt-auth" }

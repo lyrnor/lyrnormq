@@ -41,6 +41,17 @@ async fn run() -> Result<(), Box<dyn Error>> {
         let policy = tokio::task::spawn_blocking(move || auth_policy::load(&path)).await??;
         options.config.access_control = std::sync::Arc::new(policy);
     }
+    let access = mqtt_auth_http::Runtime::open(
+        options
+            .access_control_config
+            .clone()
+            .ok_or("access configuration path required")?,
+        options.config.access_control.clone(),
+        options.auth_policy.is_some(),
+    )
+    .await?;
+    options.config.remote_access = Some(access.clone());
+    options.config.remote_plain = options.enhanced_auth_plain;
     if options.enhanced_auth_plain {
         options.config.enhanced_auth = Some(std::sync::Arc::new(
             mqtt_auth::PlainAuthenticator::new(options.config.access_control.clone()),
@@ -83,6 +94,11 @@ async fn run() -> Result<(), Box<dyn Error>> {
     } else {
         None
     };
+    if let Some((_, state)) = &mut admin {
+        let state = std::sync::Arc::get_mut(state)
+            .ok_or("management state unexpectedly shared during startup")?;
+        state.access_control = Some(access.clone());
+    }
     let rules = if let Some(path) = options.rules_config.clone() {
         let directory = options
             .queue_directory()
@@ -175,6 +191,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
     if let Some(runtime) = rules {
         runtime.shutdown().await;
     }
+    access.shutdown().await;
     result?;
     other?;
     tracing::info!(event = "broker_stopped", "broker stopped");

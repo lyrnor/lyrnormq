@@ -557,6 +557,12 @@ impl SessionEngine {
         self.require_online(client_id)?;
         let mut changed = self.expire_sessions()?;
         changed |= self.reconcile_authorization()?;
+        if self.point_delivery_denied(client_id)? {
+            return Ok(DeliveryPollOutcome {
+                delivery: None,
+                changed: true,
+            });
+        }
         let now = self.effective_now();
         let session = self
             .sessions
@@ -817,13 +823,28 @@ impl SessionEngine {
             )
         };
         if let Packet::Publish { topic, .. } = &frame.packet
-            && (!self
-                .access
-                .authorize(&session.owner, Action::Connect, client_id)
-                || !self
-                    .access
-                    .authorize(&session.owner, Action::Receive, topic))
+            && (!self.access.authorize_for_client(
+                &session.owner,
+                client_id,
+                Action::Connect,
+                client_id,
+            ) || !self.access.authorize_for_client(
+                &session.owner,
+                client_id,
+                Action::Receive,
+                topic,
+            ))
         {
+            // Retire only the attempted publication. Released QoS2 control
+            // packets bypass this check and may finish their handshake.
+            if let Packet::Publish {
+                packet_id: Some(id),
+                ..
+            } = &frame.packet
+            {
+                session.retire_outgoing(identifier(*id)?);
+                changed = true;
+            }
             return Ok(FramePollOutcome {
                 frame: None,
                 changed,

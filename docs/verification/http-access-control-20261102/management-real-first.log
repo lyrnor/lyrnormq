@@ -1,0 +1,9 @@
+test_management_probes_drafts_redaction_and_external401_do_not_logout (__main__.HttpAccessBlackbox.test_management_probes_drafts_redaction_and_external401_do_not_logout) ... ok
+test_invalid_config_and_ambiguous_probe_credentials_are_atomic (__main__.HttpAccessBlackbox.test_invalid_config_and_ambiguous_probe_credentials_are_atomic) ... ok
+test_probe_unknown_status_and_acl401_are_unavailable_not_business_denials (__main__.HttpAccessBlackbox.test_probe_unknown_status_and_acl401_are_unavailable_not_business_denials) ... ok
+test_https_mtls_inline_credentials_and_wrong_trust_anchor (__main__.HttpAccessBlackbox.test_https_mtls_inline_credentials_and_wrong_trust_anchor) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.297s
+
+OK

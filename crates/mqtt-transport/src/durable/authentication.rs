@@ -26,7 +26,8 @@ impl Entry {
 }
 #[derive(Default)]
 pub(super) struct State {
-    manager: Mutex<enhanced::Manager>,
+    pub(super) manager: Mutex<enhanced::Manager>,
+    pub(super) plain: remote_plain::State,
     entries: Mutex<HashMap<u64, Arc<Entry>>>,
 }
 impl State {
@@ -66,6 +67,7 @@ impl State {
             });
     }
     pub(super) fn cancel(&self, generation: u64) {
+        self.plain.cancel(generation);
         if let Some(entry) = self
             .entries
             .lock()
@@ -134,7 +136,7 @@ impl Worker {
             slot.lock().unwrap_or_else(PoisonError::into_inner).take();
         }
     }
-    pub(super) async fn authenticate(&self, request: Request) -> io::Result<Reply> {
+    pub(super) async fn authenticate(&self, mut request: Request) -> io::Result<Reply> {
         let generation = match &request {
             Request::Connect(request) => request.generation,
             Request::Authenticate { generation, .. } => *generation,
@@ -152,9 +154,23 @@ impl Worker {
             )),
             _ => Ok(Reply::FrameRejected(ReasonCode::SERVER_BUSY)),
         };
-        // Charge every received CONNECT/AUTH once, even if CPU admission fails.
-        let Some(permit) = self.broker.admission.authentication() else {
-            return busy();
+        let attempt = self
+            .broker
+            .config
+            .remote_access
+            .as_ref()
+            .map(|remote| remote.begin());
+        let remote = remote_plain::handles(self, &request, attempt.as_deref());
+        let permit = if remote {
+            if !self.broker.admission.charge_authentication() {
+                return busy();
+            }
+            None
+        } else {
+            let Some(permit) = self.broker.admission.authentication() else {
+                return busy();
+            };
+            Some(permit)
         };
         let entry = match self
             .auth
@@ -163,6 +179,9 @@ impl Worker {
             Ok(entry) => entry,
             Err(_) => return busy(),
         };
+        if let Request::Connect(request) = &mut request {
+            request.access_attempt = attempt.clone();
+        }
         let mut guard = CancelOnDrop {
             state: self.auth.clone(),
             entry: entry.clone(),
@@ -172,82 +191,103 @@ impl Worker {
         let broker = self.broker.clone();
         let auth = self.auth.clone();
         let job_entry = entry.clone();
-        let step = tokio::task::spawn_blocking(move || -> io::Result<Authenticated> {
-            let _permit = permit; // The JOB owns this even after its caller disappears.
-            let mut manager = auth.manager.lock().unwrap_or_else(PoisonError::into_inner);
-            auth.sweep(&mut manager);
-            if job_entry.cancelled.load(Ordering::Acquire) {
-                return Err(failure(
-                    ReasonCode::SERVER_UNAVAILABLE,
-                    "authentication cancelled",
-                ));
-            }
-            let outcome = (|| {
-                let mut request = request;
-                if let Request::Connect(connect) = &mut request
-                    && connect.options.version == ProtocolVersion::V5
-                    && connect.client.is_empty()
-                {
-                    connect.client = manager.assigned_identifier(|id| broker.contains(id))?;
-                    connect.assigned = true;
-                }
-                let config = &broker.config;
-                let mut request = match manager.process(request, config, |client, generation| {
-                    broker.is_current(client, generation)
-                })? {
-                    enhanced::Processed::Ready(Request::Connect(request)) => request,
-                    enhanced::Processed::Ready(_) => {
-                        return Err(io::Error::other("unprocessed authentication command"));
-                    }
-                    enhanced::Processed::Reply(reply) => {
-                        return Ok(Authenticated::Reply(Box::new(reply)));
-                    }
-                };
-                if let Some(reason) = connect_policy(&request, config) {
-                    return Ok(Authenticated::Reply(Box::new(refusal(&request, reason))));
-                }
-                let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
-                    config.access_control.authenticate(ConnectInfo {
-                        client_id: &request.client,
-                        username: request.username.as_deref(),
-                        password: request.password.as_ref().map(Password::as_bytes),
-                    })
-                });
-                let principal = match authenticated {
-                    Ok(principal) => principal,
-                    Err(error) => {
-                        return Ok(Authenticated::Reply(Box::new(refusal(
-                            &request,
-                            match error {
-                                AuthError::BadCredentials => ReasonCode::BAD_USER_NAME_OR_PASSWORD,
-                                AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
-                            },
-                        ))));
-                    }
-                };
-                if request.authentication.is_some() {
-                    manager.install(enhanced::Established::from_request(
-                        &request,
-                        principal.clone(),
+        let step = if remote {
+            self.remote_step(
+                request,
+                attempt.clone().ok_or_else(|| {
+                    failure(ReasonCode::SERVER_UNAVAILABLE, "remote access stopped")
+                })?,
+            )
+            .await?
+        } else {
+            tokio::task::spawn_blocking(move || -> io::Result<Authenticated> {
+                let _permit = permit; // The JOB owns this even after its caller disappears.
+                let mut manager = auth.manager.lock().unwrap_or_else(PoisonError::into_inner);
+                auth.sweep(&mut manager);
+                if job_entry.cancelled.load(Ordering::Acquire) {
+                    return Err(failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "authentication cancelled",
                     ));
                 }
-                Ok(Authenticated::Connect {
-                    request: Box::new(request),
-                    principal,
-                })
-            })();
-            auth.sweep(&mut manager);
-            if job_entry.cancelled.load(Ordering::Acquire) {
-                manager.cancel(generation);
-                return Err(failure(
-                    ReasonCode::SERVER_UNAVAILABLE,
-                    "authentication cancelled",
-                ));
-            }
-            outcome
-        })
-        .await
-        .map_err(io::Error::other)??;
+                let outcome = (|| {
+                    let mut request = request;
+                    if let Request::Connect(connect) = &mut request
+                        && connect.options.version == ProtocolVersion::V5
+                        && connect.client.is_empty()
+                    {
+                        connect.client = manager.assigned_identifier(|id| broker.contains(id))?;
+                        connect.assigned = true;
+                    }
+                    let config = &broker.config;
+                    let mut request =
+                        match manager.process(request, config, |client, generation| {
+                            broker.is_current(client, generation)
+                        })? {
+                            enhanced::Processed::Ready(Request::Connect(request)) => request,
+                            enhanced::Processed::Ready(_) => {
+                                return Err(io::Error::other("unprocessed authentication command"));
+                            }
+                            enhanced::Processed::Reply(reply) => {
+                                return Ok(Authenticated::Reply(Box::new(reply)));
+                            }
+                        };
+                    if let Some(reason) = connect_policy(&request, config) {
+                        return Ok(Authenticated::Reply(Box::new(refusal(&request, reason))));
+                    }
+                    let authenticated = request.authenticated.take().map(Ok).unwrap_or_else(|| {
+                        config.access_control.authenticate(ConnectInfo {
+                            client_id: &request.client,
+                            username: request.username.as_deref(),
+                            password: request.password.as_ref().map(Password::as_bytes),
+                        })
+                    });
+                    let principal = match authenticated {
+                        Ok(principal) => principal,
+                        Err(error) => {
+                            return Ok(Authenticated::Reply(Box::new(refusal(
+                                &request,
+                                match error {
+                                    AuthError::BadCredentials => {
+                                        ReasonCode::BAD_USER_NAME_OR_PASSWORD
+                                    }
+                                    AuthError::NotAuthorized => ReasonCode::NOT_AUTHORIZED,
+                                },
+                            ))));
+                        }
+                    };
+                    if request.authentication.is_some() {
+                        manager.install(enhanced::Established::from_request(
+                            &request,
+                            principal.clone(),
+                        ));
+                    }
+                    Ok(Authenticated::Connect {
+                        request: Box::new(request),
+                        principal,
+                    })
+                })();
+                auth.sweep(&mut manager);
+                if job_entry.cancelled.load(Ordering::Acquire) {
+                    manager.cancel(generation);
+                    return Err(failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "authentication cancelled",
+                    ));
+                }
+                outcome
+            })
+            .await
+            .map_err(io::Error::other)??
+        };
+        if matches!(&step,Authenticated::Reply(reply) if matches!(**reply,Reply::AuthComplete(_)))
+            && attempt.as_ref().is_some_and(|attempt| !attempt.seal())
+        {
+            return Err(failure(
+                ReasonCode::SERVER_BUSY,
+                "access policy changed during authentication",
+            ));
+        }
         if entry.cancelled.load(Ordering::Acquire) {
             return Err(failure(
                 ReasonCode::SERVER_UNAVAILABLE,
