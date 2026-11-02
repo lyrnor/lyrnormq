@@ -2453,14 +2453,14 @@ Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RU
 
 按用户要求以username唯一标识设备，移除额外身份字段与所有响应JSON。认证请求为
 client_id/username/password（二进制密码可替换为password_base64）；ACL请求为
-client_id/username/action/topic。两个接口统一204允许、403拒绝当前请求；401为服务
-访问凭据错误，429/5xx及其他状态为Unavailable，不兼容旧200+JSON结果方案。
+client_id/username/action/topic。认证接口204通过、401拒绝；ACL接口204允许、403拒绝，均无业务body。ACL401、
+认证403、429/5xx及其他意外状态为Unavailable，不兼容旧200+JSON结果方案。
 username必填，沿用本地账号256字节边界；Broker内部user:<username>绑定持久身份，
 重认证不得切换设备，恢复/Will不得借用后来连接的账号。HTTP模式不接受匿名设备。
 
-缓存精确包含来源代次与ACL四项字段，30秒默认，可配0..300秒；只缓存204/403，
-服务错误不缓存成deny。403不推断全局撤权，网关403无法与业务403区分时只拒绝当前
-请求，服务鉴权层应返回401。响应无业务body，错误页有限丢弃且不记录。
+缓存精确包含来源代次与ACL四项字段，30秒默认，可配0..300秒；只缓存ACL204/403，
+服务错误不缓存成deny，认证从不缓存。网关401与设备认证401仅凭状态不可区分，
+统一拒绝本次登录，不推断全局撤权；ACL403只拒绝当前操作。错误页有限丢弃且不记录。
 [中文文档](http-auth-api.md)与[OpenAPI](api/http-auth-v1.openapi.json)已同步；
 JSON、4个引用、4份请求样例及状态-only响应一致性通过，未运行完整外部验证器。
 本轮仅文档，无HTTP实现或Rust测试。内部异步prepare/commit、QoS/outbox、接收扇出、

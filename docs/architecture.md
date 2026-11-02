@@ -827,10 +827,12 @@ TLS input is bounded inline PEM rather than arbitrary server file paths.
 
 [HTTP v1](http-auth-api.md) uses MQTT username as the unique stable device identity.
 Authenticate client_id/username/password; authorize client_id/username/action/topic.
-Only HTTP204 allows; HTTP403 denies the current request. No response body, extra
-identity, complete policy download or user echo is required. HTTP401 is a service
-credential fault;429/5xx and other statuses are unavailable, never implicit deny
-or allow. Gateways must reserve403 for business decisions where possible.
+Only HTTP204 allows. Authentication401 rejects login; ACL403 denies the current
+operation. No response body, extra
+identity, complete policy download or user echo is required. ACL401 is a service
+credential fault, authentication403 is unavailable;429/5xx and other unexpected
+statuses are unavailable. A gateway401 at authentication cannot be distinguished
+from device denial; it rejects only that attempt without global state cleanup.
 
 After authentication the internal owner remains user:<username>, compatible with
 local user ownership. Reauthentication cannot switch usernames; restored data and

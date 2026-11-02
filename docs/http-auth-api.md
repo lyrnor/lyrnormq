@@ -29,10 +29,10 @@ username，不支持匿名设备；不改变其他既有认证模式的匿名访
 与规范padding，不换行、不用URL-safe形式，解码后最多65535字节。Base64不是加密。
 以上为虚构凭据，实际需要受保护的传输。
 
-认证成功返回`204 No Content`，拒绝返回`403 Forbidden`，均无需JSON响应body。
+认证成功返回`204 No Content`，凭据错误或设备未通过认证返回`401 Unauthorized`，均无需JSON响应body。
 成功表示服务已经验证该username的凭据并批准使用本次Client ID连接，Broker才信任
 这个设备身份。如果有Will，还需对Will Topic完成publish鉴权后再提交会话和CONNACK。
-每次连接实际认证，不缓存成功或保存密码。账号不存在、禁用、密码错误统一返回403。
+每次连接实际认证，不缓存成功或保存密码。账号不存在、禁用、密码错误统一返回401。
 
 Broker内部身份沿用`user:<username>`，外部接口不传内部身份。username大小写敏感，
 不裁剪或归一化。重认证复用同一格式，但username必须与当前认证身份一致，不能借机
@@ -82,41 +82,38 @@ client_id为实际操作的MQTT客户端；action为`publish|subscribe`；topic�
 - `subscribe devices/#`的允许不能当成`subscribe devices/a`或publish的缓存命中。
   v1不增加QoS、retain、IP、消息正文、superuser等条件或返回字段。
 
-## 3. 统一响应：仅看HTTP状态码
+## 3. 响应：仅看HTTP状态码
 
-两个接口使用同一映射，不解析业务响应body：
+不需要JSON响应body，按接口分别解释：
 
-| HTTP状态 | Broker解释 | 是否缓存为ACL决策 |
+| HTTP状态 | 认证 `/mqtt/authenticate` | ACL `/mqtt/acl` |
 | --- | --- | --- |
-| `204 No Content` | 允许 | 可缓存allow |
-| `403 Forbidden` | 拒绝当前认证/操作 | 仅ACL可缓存deny；认证不缓存 |
-| `401 Unauthorized` | Broker访问服务的凭据有问题 | 否 |
-| `429`、`5xx` | 服务过载或不可用 | 否 |
-| 其他状态，包括`200`、其他`2xx`、`3xx`、`400`、`404` | 不符合接口或请求/路由有误 | 否 |
-| DNS/TLS/连接错误、超时、HTTP协议错误 | 服务不可用 | 否 |
+| `204 No Content` | 认证通过 | 允许当前操作 |
+| `401 Unauthorized` | 认证失败，账号/密码错误、不存在或禁用 | Broker访问ACL服务的凭据问题，Unavailable |
+| `403 Forbidden` | 服务访问被禁止或不符合认证接口约定，Unavailable | 拒绝当前操作 |
+| `429`、`5xx` | 服务过载/不可用 | 服务过载/不可用 |
+| 其他状态，包括`200`、其他`2xx`、`3xx`、`400`、`404` | 请求/路由/协议问题，Unavailable | 请求/路由/协议问题，Unavailable |
+| DNS/TLS/连接错误、超时、HTTP协议错误 | Unavailable | Unavailable |
 
-示例：
+认证不缓存结果。ACL只缓存204的allow和403的deny，401或服务故障不缓存成deny。
+只认204允许，不把所有2xx视为成功，不兼容旧的200+JSON方案。
+
+通过示例：
 
 ```http
 HTTP/1.1 204 No Content
 Cache-Control: no-store
 ```
 
-```http
-HTTP/1.1 403 Forbidden
-Cache-Control: no-store
-Content-Length: 0
-```
-
 204按[HTTP规范](https://www.rfc-editor.org/rfc/rfc9110.html#name-204-no-content)不携带
-body；403建议也不携带body。不要求响应Content-Type或request ID回显。附带的拒绝/
-错误正文不用于决策、不解析JSON、不写日志，最多有界丢弃4KiB用于连接复用；超限或
-不能在期限内排空则关闭该连接，不能为了读错误页拖延决定。403的拒绝结论不因附带
-错误页而变为允许。只认204允许，不能把所有2xx都当作成功。
+body；401/403也无需业务JSON，附带的错误正文不参与判定、不记录。最多有界丢弃4KiB
+用于连接复用，超限或无法在期限内排空则关闭连接，不能为读错误页拖延决定。
+响应不要求Content-Type或request ID回显；401按HTTP规范携带适用的WWW-Authenticate
+challenge，Broker不会据此自动重试、更换服务凭据或转发设备密码。
 
-服务鉴权层/网关应以401表示Broker服务凭据失效，将403留给业务拒绝。只依据状态码
-无法区分网关403和业务403：若网关返回403，Broker也会拒绝当前请求，但不会据此
-推断永久撤权或清理会话。服务故障应返回429/5xx，不要伪造403。
+仅凭状态码无法区分认证端点的设备401与服务鉴权网关401，Broker统一拒绝本次登录，
+不据此认定设备永久禁用或清理已有会话。ACL端点的网关403同样会被视为当前操作拒绝，
+不触发全局撤权。服务/网关故障应使用429/5xx，并保留独立运维诊断，不伪造业务拒绝。
 
 ## 4. 传输与限额
 
@@ -147,11 +144,11 @@ body；403建议也不携带body。不要求响应Content-Type或request ID回�
 具体操作重新鉴权，不存储设备密码。无法恢复设备身份或服务不可用不能用作删除离线
 消息/Will的理由，也不能延长Session/Message Expiry或Will截止时间。
 
-MQTT错误映射：初次认证403统一为凭据错误（MQTT3.1.1 CONNACK4、MQTT5 0x86）；
+MQTT错误映射：初次认证401统一为凭据错误（MQTT3.1.1 CONNACK4、MQTT5 0x86）；
 Will ACL403为无权限（5、0x87）；后端不可用为服务不可用（3、0x88）；本地接纳过载
-沿用既有规则。已连接重认证403使用DISCONNECT0x87，后端不可用使用0x89，重认证
+沿用既有规则。已连接重认证401使用DISCONNECT0x87，后端不可用使用0x89，重认证
 接纳配额错误沿用0x97，不将CONNACK专属码放入DISCONNECT。其他操作拒绝按其合法
-包类型处理，不把HTTP403直接作为MQTT码。
+包类型处理，不把HTTP401/403直接作为MQTT码。
 
 本轮只有外部接口。内部异步prepare/commit、缓存失效、Receive/扇出、QoS/outbox、
 Will/到期/恢复屏障仍须先冻结再测试；禁止在同步AccessControl或会话actor内执行HTTP。

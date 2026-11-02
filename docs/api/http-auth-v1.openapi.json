@@ -3,7 +3,7 @@
   "info": {
     "title": "RMQTT external HTTP authentication and ACL API",
     "version": "1.0.0",
-    "description": "Unimplemented v1 external contract. MQTT username uniquely identifies the device. Authenticate client_id/username/password; authorize client_id/username/action/topic. Responses have no required body:204 allows,403 denies,401/429/5xx/other statuses are unavailable. No extra identity or response JSON. Exact-key decision caching is Broker-managed. Normative details: ../http-auth-api.md."
+    "description": "Unimplemented v1. Username uniquely identifies the device. Authentication:204 success,401 credential denial; ACL:204 allow,403 operation denial.401 at ACL is service credential fault;403 at authentication is unavailable. No response JSON. Cache only ACL204/403 by exact source/username/client_id/action/topic. Normative details: ../http-auth-api.md."
   },
   "servers": [
     {
@@ -20,7 +20,7 @@
       "post": {
         "operationId": "authenticate",
         "summary": "Verify client credentials",
-        "description": "Username uniquely identifies the device. Broker calls business service. Only HTTP204 allows; HTTP403 denies this request, HTTP401 is a service credential error. No response JSON or identity fields. All other statuses are unavailable/protocol errors. See ../http-auth-api.md.",
+        "description": "Authenticate supplied username/password. Only204 succeeds;401 rejects this login.403/429/5xx/other statuses are unavailable. No response JSON or additional identity. Gateway401 cannot be distinguished from device401; never infer global revocation. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
@@ -72,7 +72,7 @@
             }
           },
           "403": {
-            "description": "Deny this authentication or exact ACL operation. Prefer empty body; any error body ignored, never parsed or logged. Does not imply global account revocation.",
+            "description": "Service access forbidden or authentication endpoint contract mismatch. Unavailable, not an explicit device credential decision; no automatic fallback.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -83,7 +83,15 @@
             }
           },
           "401": {
-            "description": "Broker-to-service credentials/access problem. Unavailable; never cache as business deny or fallback to anonymous."
+            "description": "Authentication refused: wrong credentials, missing/disabled account. Do not cache; never delete an existing session. A gateway401 also refuses this attempt without inferring permanent revocation.",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Applicable HTTP authentication challenge. Broker does not automatically retry or forward device passwords based on it."
+              }
+            }
           },
           "429": {
             "description": "Backend rate limit/overload. Unavailable; no automatic retry or deadline extension."
@@ -101,7 +109,7 @@
       "post": {
         "operationId": "authorize",
         "summary": "Authorize one client operation on one topic or filter",
-        "description": "Username uniquely identifies the device. Broker calls business service. Only HTTP204 allows; HTTP403 denies this request, HTTP401 is a service credential error. No response JSON or identity fields. All other statuses are unavailable/protocol errors. See ../http-auth-api.md.",
+        "description": "Authorize exact client_id/username/action/topic.204 allows,403 denies only this operation.401 is service access failure, never cached as deny. Other statuses unavailable. No response JSON. See ../http-auth-api.md.",
         "parameters": [
           {
             "in": "header",
@@ -155,7 +163,7 @@
             }
           },
           "403": {
-            "description": "Deny this authentication or exact ACL operation. Prefer empty body; any error body ignored, never parsed or logged. Does not imply global account revocation.",
+            "description": "Deny this exact ACL operation. Do not infer global account revocation. Error body ignored and not logged.",
             "headers": {
               "Cache-Control": {
                 "schema": {
@@ -166,7 +174,15 @@
             }
           },
           "401": {
-            "description": "Broker-to-service credentials/access problem. Unavailable; never cache as business deny or fallback to anonymous."
+            "description": "Broker-to-ACL-service credentials/access fault. Unavailable; never cache as deny.",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Applicable HTTP authentication challenge. Broker does not automatically retry or forward device passwords based on it."
+              }
+            }
           },
           "429": {
             "description": "Backend rate limit/overload. Unavailable; no automatic retry or deadline extension."

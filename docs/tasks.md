@@ -591,7 +591,7 @@ is not an implementation claim. [Evidence](verification/admission-mtls-20261030/
 ## HTTP authentication/authorization v1 (contract only)
 
 - [x] Define username-based POST credential and per-operation topic ACL contracts,
-  OpenAPI, request examples, status-only204/403 decisions, failures and cache semantics.
+  OpenAPI, request examples, status-only authentication204/401 and ACL204/403 decisions, failures and cache semantics.
 - [ ] Freeze internal async provider/decision prepare-commit contracts, unavailable-vs-denied
   handling, exact-key cache, receive/fanout, Will deadlines and recovery barriers.
 - [ ] Implement bounded HTTP backend and integrate authenticated session lifecycle.
