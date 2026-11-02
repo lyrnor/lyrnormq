@@ -76,6 +76,12 @@ jobs:
         run: python3 tests/dashboard_blackbox.py
       - name: Copied executable embedded Dashboard acceptance
         run: python3 tests/dashboard_embedded.py
+      - name: Independent HTTP authentication and topic authorization acceptance
+        timeout-minutes: 5
+        env:
+          RUST_LOG: warn,rmqtt=info
+          RMQTT_LOG_FORMAT: text
+        run: python3 tests/http_access_blackbox.py -v
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/websocket_paho.py
       - run: python3 tests/paho_interop.py
