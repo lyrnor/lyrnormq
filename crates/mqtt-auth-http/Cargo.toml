@@ -14,3 +14,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 rustls-pemfile = "2.2"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+
+[dev-dependencies]
+rusqlite = { version = "0.41", features = ["bundled"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }

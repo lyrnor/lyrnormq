@@ -637,3 +637,112 @@ async fn both_http_stages_do_not_require_duplicate_static_accounts_but_auth_only
     );
     r.shutdown().await;
 }
+
+#[test]
+fn certificate_fields_reject_private_keys_or_unknown_pem_before_public_storage() {
+    let mut b = BackendConfig::default();
+    b.tls.ca_pem = Some("-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----".into());
+    assert_eq!(b.validate(false), Err(Error::InvalidConfig));
+    b.tls.ca_pem = None;
+    b.tls.certificate_pem =
+        Some("-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----".into());
+    b.tls.private_key_pem =
+        Some("-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----".into());
+    assert_eq!(b.validate(false), Err(Error::InvalidConfig));
+}
+
+#[tokio::test]
+async fn expiration_refetches_decision_and_acl401_is_never_cached_as_deny() {
+    let (_d, r) = runtime().await;
+    let s = Server::new(403).await;
+    enable(&r, &s, 1).await;
+    assert!(!authorize(&r, query("devices/a")).await.unwrap());
+    s.code.store(204, Ordering::Relaxed);
+    assert!(!authorize(&r, query("devices/a")).await.unwrap());
+    assert_eq!(s.count(), 1);
+    tokio::time::sleep(Duration::from_millis(1100)).await;
+    assert!(authorize(&r, query("devices/a")).await.unwrap());
+    assert_eq!(s.count(), 2);
+    s.code.store(401, Ordering::Relaxed);
+    assert_eq!(
+        authorize(&r, query("devices/acl-service-fault")).await,
+        Err(RemoteAccessError::Unavailable)
+    );
+    assert_eq!(r.status().await.cache.entries, 1);
+    s.code.store(204, Ordering::Relaxed);
+    assert!(
+        authorize(&r, query("devices/acl-service-fault"))
+            .await
+            .unwrap()
+    );
+    r.shutdown().await;
+}
+
+#[tokio::test]
+async fn stage_concurrency_is_fail_fast_and_a_different_attempt_can_continue() {
+    let (_d, r) = runtime().await;
+    let s = Server::new(204).await;
+    s.delay.store(200, Ordering::Relaxed);
+    let mut config = Config {
+        authentication: s.backend(),
+        authorization: AuthorizationConfig {
+            backend: s.backend(),
+            cache_ttl_seconds: 30,
+        },
+        ..Config::default()
+    };
+    config.authorization.backend.max_concurrency = 1;
+    r.replace(config).await.unwrap();
+    let rr = r.clone();
+    let first = tokio::spawn(async move { authorize(&rr, query("devices/one")).await });
+    s.received(1).await;
+    assert_eq!(
+        authorize(&r, query("devices/two")).await,
+        Err(RemoteAccessError::Busy)
+    );
+    assert!(first.await.unwrap().unwrap());
+    assert!(authorize(&r, query("devices/two")).await.unwrap());
+    r.shutdown().await;
+}
+
+mod tls;
+
+#[tokio::test]
+async fn cancelled_configuration_save_stops_old_view_and_restart_loads_actual_commit() {
+    let d = Directory::new();
+    let s = Server::new(204).await;
+    let r = Runtime::open(d.path(), Arc::new(AllowAnonymous), false)
+        .await
+        .unwrap();
+    let connection = rusqlite::Connection::open(d.path()).unwrap();
+    connection.execute_batch("BEGIN IMMEDIATE").unwrap();
+    let previous = r.config_writes_for_test();
+    let rr = r.clone();
+    let config = Config {
+        authentication: s.backend(),
+        ..Config::default()
+    };
+    let save = tokio::spawn(async move { rr.replace(config).await });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while r.config_writes_for_test() == previous {
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+    })
+    .await
+    .unwrap();
+    save.abort();
+    assert!(save.await.unwrap_err().is_cancelled());
+    assert!(r.is_stopped());
+    assert!(!r.configuration().await.authentication.enabled);
+    assert!(!r.begin().seal());
+    connection.execute_batch("ROLLBACK").unwrap();
+    drop(connection);
+    r.shutdown().await;
+    drop(r);
+    let reopened = Runtime::open(d.path(), Arc::new(AllowAnonymous), false)
+        .await
+        .unwrap();
+    assert!(reopened.configuration().await.authentication.enabled);
+    assert!(!reopened.is_stopped());
+    reopened.shutdown().await;
+}

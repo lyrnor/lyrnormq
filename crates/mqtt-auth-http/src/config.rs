@@ -294,6 +294,31 @@ impl BackendConfig {
                 return Err(Error::InvalidConfig);
             }
         }
+        for pem in [&self.tls.ca_pem, &self.tls.certificate_pem]
+            .into_iter()
+            .flatten()
+        {
+            let mut roots = rustls::RootCertStore::empty();
+            for item in pem_items(pem)? {
+                let rustls_pemfile::Item::X509Certificate(cert) = item else {
+                    return Err(Error::InvalidConfig);
+                };
+                roots.add(cert).map_err(|_| Error::InvalidConfig)?;
+            }
+        }
+        if let Some(pem) = &self.tls.private_key_pem {
+            let items = pem_items(pem)?;
+            if items.len() != 1
+                || !matches!(
+                    items[0],
+                    rustls_pemfile::Item::Pkcs1Key(_)
+                        | rustls_pemfile::Item::Pkcs8Key(_)
+                        | rustls_pemfile::Item::Sec1Key(_)
+                )
+            {
+                return Err(Error::InvalidConfig);
+            }
+        }
         Ok(())
     }
     pub(crate) fn restore(&mut self, old: &Self) -> Result<(), Error> {
@@ -372,4 +397,38 @@ impl Config {
         c.authorization.backend.redact();
         c
     }
+}
+
+// Reject non-certificate PEM in public certificate fields instead of letting a
+// permissive bundle parser ignore private keys or arbitrary trailing text.
+fn pem_items(pem: &str) -> Result<Vec<rustls_pemfile::Item>, Error> {
+    let mut rest = pem.trim();
+    let mut result = Vec::new();
+    while !rest.is_empty() {
+        let label_end = rest
+            .strip_prefix("-----BEGIN ")
+            .and_then(|v| v.find("-----").map(|n| (v, n)))
+            .ok_or(Error::InvalidConfig)?;
+        let label = &label_end.0[..label_end.1];
+        if !matches!(
+            label,
+            "CERTIFICATE" | "PRIVATE KEY" | "RSA PRIVATE KEY" | "EC PRIVATE KEY"
+        ) {
+            return Err(Error::InvalidConfig);
+        }
+        let end = format!("-----END {label}-----");
+        let position = rest.find(&end).ok_or(Error::InvalidConfig)? + end.len();
+        let mut items = rustls_pemfile::read_all(&mut std::io::Cursor::new(&rest[..position]))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| Error::InvalidConfig)?;
+        if items.len() != 1 || result.len() >= 32 {
+            return Err(Error::InvalidConfig);
+        }
+        result.append(&mut items);
+        rest = rest[position..].trim();
+    }
+    if result.is_empty() {
+        return Err(Error::InvalidConfig);
+    }
+    Ok(result)
 }

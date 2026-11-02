@@ -9,12 +9,18 @@ enum Command {
 pub(crate) struct Owner {
     sender: mpsc::SyncSender<Command>,
     done: watch::Receiver<bool>,
+    #[cfg(test)]
+    writes: std::sync::Arc<std::sync::atomic::AtomicU64>,
 }
 impl Owner {
     pub fn open(path: PathBuf) -> Result<(Self, Option<Vec<u8>>), Error> {
         let (sender, receiver) = mpsc::sync_channel(4);
         let (ready, opened) = mpsc::sync_channel(1);
         let (done, finished) = watch::channel(false);
+        #[cfg(test)]
+        let writes = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        #[cfg(test)]
+        let worker_writes = writes.clone();
         std::thread::Builder::new()
             .name("rmqtt-access-config".into())
             .spawn(move || {
@@ -30,6 +36,9 @@ impl Owner {
                             while let Ok(command) = receiver.recv() {
                                 match command {
                                     Command::Save(bytes, reply) => {
+                                        #[cfg(test)]
+                                        worker_writes
+                                            .fetch_add(1, std::sync::atomic::Ordering::Release);
                                         let result = store.save(&bytes).map_err(|_| Error::Storage);
                                         let _ = reply.send(result);
                                     }
@@ -51,9 +60,15 @@ impl Owner {
             Self {
                 sender,
                 done: finished,
+                #[cfg(test)]
+                writes,
             },
             bytes,
         ))
+    }
+    #[cfg(test)]
+    pub fn writes(&self) -> u64 {
+        self.writes.load(std::sync::atomic::Ordering::Acquire)
     }
     pub async fn save(&self, bytes: Vec<u8>) -> Result<(), Error> {
         let (tx, rx) = oneshot::channel();

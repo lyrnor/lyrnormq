@@ -123,6 +123,13 @@ impl Runtime {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
+    pub fn is_stopped(&self) -> bool {
+        self.shared.stopped.load(Ordering::Acquire)
+    }
+    #[cfg(test)]
+    pub(crate) fn config_writes_for_test(&self) -> u64 {
+        self.store.writes()
+    }
     pub async fn configuration(&self) -> Config {
         self.snapshot().config.public()
     }
@@ -155,16 +162,19 @@ impl Runtime {
             .authorization
             .backend
             .restore(&old.config.authorization.backend)?;
-        config.validate(self.shared.local_accounts)?;
+        let local_accounts = self.shared.local_accounts;
         let slot = self
             .generations
             .clone()
             .try_acquire_owned()
             .map_err(|_| Error::Busy)?;
         let id = old.id.checked_add(1).ok_or(Error::Stopped)?;
-        let next = tokio::task::spawn_blocking(move || Generation::build(id, config, slot))
-            .await
-            .map_err(|_| Error::InvalidConfig)??;
+        let next = tokio::task::spawn_blocking(move || {
+            config.validate(local_accounts)?;
+            Generation::build(id, config, slot)
+        })
+        .await
+        .map_err(|_| Error::InvalidConfig)??;
         let bytes = serde_json::to_vec(&next.config).map_err(|_| Error::InvalidConfig)?;
         let mut pending = PublishGuard {
             shared: self.shared.clone(),
