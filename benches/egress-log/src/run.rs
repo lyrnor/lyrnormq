@@ -2,7 +2,7 @@ use crate::{
     config::{Config, Phase, invalid},
     metrics::Samples,
 };
-use mqtt_egress_log::{Binding, Completion, Journal, NewRecord, QueueOptions};
+use mqtt_egress_log::{Binding, Completion, Journal, NewConsumer, NewResult, QueueOptions};
 use serde_json::{Value, json};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -47,15 +47,19 @@ impl Drop for Directory {
 fn payload(config: &Config) -> Vec<u8> {
     (0..config.payload).map(|i| (i % 251) as u8).collect()
 }
-fn group(config: &Config, revision: u64, start: usize, template: &[u8]) -> Vec<NewRecord> {
+fn group(config: &Config, revision: u64, start: usize, template: &[u8]) -> Vec<NewResult> {
     let count = config.batch.min(config.records - start);
     let client = format!("client-{:08}", (start / config.batch) % config.clients);
     (0..count)
-        .map(|_| NewRecord {
-            outbound_id: OUTBOUND.into(),
-            revision,
+        .map(|offset| NewResult {
+            stream_id: "benchmark-rule".into(),
             client_id: client.clone(),
             payload: template.to_vec(),
+            consumers: vec![NewConsumer {
+                outbound_id: OUTBOUND.into(),
+                revision,
+                delivery_id: format!("benchmark-result-{}:{OUTBOUND}", start + offset),
+            }],
         })
         .collect()
 }
@@ -65,26 +69,28 @@ fn append(
     revision: u64,
     template: &[u8],
 ) -> Result<Samples, Box<dyn std::error::Error>> {
-    let mut result = Samples::new("append_batch_durable", "records");
+    let mut result = Samples::new("append_results_durable", "records");
     let mut previous = 0;
     for start in (0..config.records).step_by(config.batch) {
         let records = group(config, revision, start, template);
         let count = records.len();
         let timer = Instant::now();
-        let ids = journal.append_batch(records)?;
+        let ids = journal.append_results(records)?;
         let elapsed = timer.elapsed();
         if ids.len() != count
-            || ids.first().is_none_or(|id| *id <= previous)
-            || !ids.windows(2).all(|v| v[0] + 1 == v[1])
+            || ids.first().is_none_or(|id| id.result_id <= previous)
+            || !ids.windows(2).all(|v| v[0].result_id < v[1].result_id)
+            || ids.iter().any(|id| id.consumer_ids.len() != 1)
         {
             return Err(invalid("append returned invalid record identifiers").into());
         }
-        previous = ids.last().copied().unwrap_or(previous);
+        previous = ids.last().map_or(previous, |id| id.result_id);
         result.add(elapsed, count, count * config.payload);
     }
     result.stop();
-    if journal.stats().pending_records != config.records {
-        return Err(invalid("append pending count mismatch").into());
+    let pending = journal.stats();
+    if pending.pending_records != config.records || pending.pending_results != config.records {
+        return Err(invalid("append shared result/consumer count mismatch").into());
     }
     Ok(result)
 }
@@ -98,20 +104,20 @@ fn read(
     let mut cursor = None;
     let mut heads = Vec::with_capacity(config.clients.min(config.records));
     loop {
-        let page = journal.heads(OUTBOUND, cursor, 64);
+        let page = journal.consumer_heads(OUTBOUND, cursor, 64);
         if page.is_empty() {
             break;
         }
         cursor = page.last().map(|m| m.id);
         heads.extend(page);
     }
-    let mut result = Samples::new("read_batch_warm_checksum_verified", "records");
+    let mut result = Samples::new("read_consumers_warm_checksum_verified", "records");
     let mut unique = 0usize;
     for round in 0..config.read_rounds {
         for head in &heads {
             let timer = Instant::now();
             let records =
-                journal.read_batch(head.id, config.batch, config.batch * config.payload)?;
+                journal.read_consumers(head.id, config.batch, config.batch * config.payload)?;
             let elapsed = timer.elapsed();
             if records.is_empty() {
                 return Err(invalid("read returned no records").into());
@@ -144,7 +150,7 @@ fn metadata(journal: &Journal, config: &Config) -> Result<Value, Box<dyn std::er
         let mut seen = 0;
         loop {
             let timer = Instant::now();
-            let page = journal.heads(OUTBOUND, cursor, 64);
+            let page = journal.consumer_heads(OUTBOUND, cursor, 64);
             let elapsed = timer.elapsed();
             if page.is_empty() {
                 break;
@@ -170,21 +176,21 @@ fn lifecycle(journal: &mut Journal, config: &Config) -> Result<Value, Box<dyn st
     let mut pair = Samples::new("begin_and_complete_durable_pair", "records");
     while journal.stats().pending_records > 0 {
         let head = journal
-            .heads(OUTBOUND, None, 1)
+            .consumer_heads(OUTBOUND, None, 1)
             .into_iter()
             .next()
             .ok_or_else(|| invalid("pending records have no client head"))?;
-        let metas = journal.batch_metas(head.id, config.batch, config.batch * config.payload)?;
+        let metas = journal.consumer_metas(head.id, config.batch, config.batch * config.payload)?;
         let ids: Vec<_> = metas.iter().map(|r| r.id).collect();
         if ids.is_empty() {
             return Err(invalid("empty lifecycle batch").into());
         }
         let pair_start = Instant::now();
         let timer = Instant::now();
-        journal.begin_attempt(&ids)?;
+        journal.begin_consumers(&ids)?;
         begin.add(timer.elapsed(), ids.len(), 0);
         let timer = Instant::now();
-        journal.complete(&ids, Completion::Delivered)?;
+        journal.complete_consumers(&ids, Completion::Delivered)?;
         complete.add(timer.elapsed(), ids.len(), 0);
         pair.add(pair_start.elapsed(), ids.len(), 0);
     }
@@ -211,18 +217,18 @@ fn maintenance(
     let after = journal.stats();
     drop(journal);
     let timer = Instant::now();
-    let mut journal = Journal::open(options)?;
+    let journal = Journal::open(options)?;
     let reopen = timer.elapsed();
     let recovered = journal.stats();
-    if recovered.pending_records != config.records {
-        return Err(invalid("reopen pending count mismatch").into());
+    if recovered.pending_records != config.records || recovered.pending_results != config.records {
+        return Err(invalid("reopen shared result/consumer count mismatch").into());
     }
     let head = journal
-        .heads(OUTBOUND, None, 1)
+        .consumer_heads(OUTBOUND, None, 1)
         .into_iter()
         .next()
         .ok_or_else(|| invalid("reopen lost all heads"))?;
-    let records = journal.read_batch(head.id, config.batch, config.batch * config.payload)?;
+    let records = journal.read_consumers(head.id, config.batch, config.batch * config.payload)?;
     if !records.iter().all(|r| r.payload == template) {
         return Err(invalid("reopen payload mismatch").into());
     }
@@ -251,8 +257,12 @@ fn cycle(
         let count = records.len();
         let mut disk = journal.stats().disk_bytes;
         let op = Instant::now();
-        let ids = journal.append_batch(records)?;
+        let appended = journal.append_results(records)?;
         append.add(op.elapsed(), count, count * config.payload);
+        let ids: Vec<_> = appended.into_iter().flat_map(|r| r.consumer_ids).collect();
+        if ids.len() != count {
+            return Err(invalid("cycle fanout count mismatch").into());
+        }
         let after = journal.stats().disk_bytes;
         if after < disk {
             decreases += 1
@@ -263,13 +273,13 @@ fn cycle(
             .copied()
             .ok_or_else(|| invalid("empty cycle append"))?;
         let op = Instant::now();
-        let records = journal.read_batch(head, config.batch, config.batch * config.payload)?;
+        let records = journal.read_consumers(head, config.batch, config.batch * config.payload)?;
         read.add(op.elapsed(), records.len(), records.len() * config.payload);
         if records.len() != count || !records.iter().all(|r| r.payload == template) {
             return Err(invalid("cycle read mismatch").into());
         }
         let op = Instant::now();
-        journal.begin_attempt(&ids)?;
+        journal.begin_consumers(&ids)?;
         begin.add(op.elapsed(), count, 0);
         let after = journal.stats().disk_bytes;
         if after < disk {
@@ -277,7 +287,7 @@ fn cycle(
         }
         disk = after;
         let op = Instant::now();
-        journal.complete(&ids, Completion::Delivered)?;
+        journal.complete_consumers(&ids, Completion::Delivered)?;
         complete.add(op.elapsed(), count, 0);
         if journal.stats().disk_bytes < disk {
             decreases += 1
@@ -339,7 +349,7 @@ pub fn run(config: Config) -> Result<Value, Box<dyn std::error::Error>> {
             stages.extend(returned.1);
         }
     }
-    let output = json!({"schema_version":1,"tool":"egress-log-bench","profile":"release expected; runner must record build command","build":{"debug_assertions":cfg!(debug_assertions),"arch":std::env::consts::ARCH,"os":std::env::consts::OS},"phase":format!("{:?}",config.phase).to_lowercase(),"config":{"records":config.records,"payload_bytes":config.payload,"batch_max_records":config.batch,"clients":config.clients,"read_rounds":config.read_rounds,"segment_bytes":config.segment,"queue_max_bytes":config.max_bytes,"queue_max_records":config.max_records},"directory":directory.path,"directory_kept":directory.keep,"initialization_seconds":initialization_seconds,"seed_append_seconds":seed_seconds,"stats_after":journal.stats(),"stages":stages,"method":{"append_api_latency":"starts immediately before append_batch and ends on return, including sync; record preparation outside call timing","wall_throughput":"includes driver allocation and validation within that stage, excludes initialization/setup for read/metadata/state stages","payload_bandwidth":"raw delivery bytes only, excludes frame/JSON metadata and filesystem write amplification","durability":"uses production sync_all; not proof of device power-loss behavior","cache":"read is warm after writes, no cold-cache claim","maintenance":"only explicit maintenance phase; append may include automatic compaction if necessary","teardown":"journal drop and owned-directory cleanup occur outside reported stage timings; external /usr/bin/time includes them"}});
+    let output = json!({"schema_version":2,"storage_model":"shared_rule_result_single_consumer","tool":"egress-log-bench","profile":"release expected; runner must record build command","build":{"debug_assertions":cfg!(debug_assertions),"arch":std::env::consts::ARCH,"os":std::env::consts::OS},"phase":format!("{:?}",config.phase).to_lowercase(),"config":{"records":config.records,"payload_bytes":config.payload,"batch_max_records":config.batch,"clients":config.clients,"read_rounds":config.read_rounds,"segment_bytes":config.segment,"queue_max_bytes":config.max_bytes,"queue_max_records":config.max_records},"directory":directory.path,"directory_kept":directory.keep,"initialization_seconds":initialization_seconds,"seed_append_seconds":seed_seconds,"stats_after":journal.stats(),"stages":stages,"method":{"append_api_latency":"starts immediately before append_results and ends on return, including sync; record preparation outside call timing","wall_throughput":"includes driver allocation and validation within that stage, excludes initialization/setup for read/metadata/state stages","payload_bandwidth":"raw delivery bytes only, excludes frame/JSON metadata and filesystem write amplification","durability":"uses production sync_all; not proof of device power-loss behavior","cache":"read is warm after writes, no cold-cache claim","maintenance":"only explicit maintenance phase; append may include automatic compaction if necessary","teardown":"journal drop and owned-directory cleanup occur outside reported stage timings; external /usr/bin/time includes them"}});
     drop(journal);
     drop(directory);
     Ok(output)
@@ -358,6 +368,14 @@ mod tests {
             .unwrap();
             let output = run(config).unwrap();
             assert_eq!(output["config"]["records"], 9);
+            assert_eq!(
+                output["storage_model"],
+                "shared_rule_result_single_consumer"
+            );
+            if phase == "io" {
+                assert_eq!(output["stats_after"]["pending_results"], 9);
+                assert_eq!(output["stages"][1]["unique_records_verified"], 9);
+            }
             let directory = output["directory"].as_str().unwrap();
             assert!(!std::path::Path::new(directory).exists());
             if matches!(phase, "lifecycle" | "cycle") {

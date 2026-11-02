@@ -1,6 +1,10 @@
 # Direct durable journal benchmark
 
-This standalone package calls the production `mqtt-egress-log::Journal` directly.
+This standalone package calls the production `mqtt-egress-log::Journal` shared
+result/consumer API directly. Each synthetic result has one consumer; it measures
+one stored body and one reference per input record. JSON schema2 identifies this
+model. The November2 baseline before Phase5g used the legacy per-delivery API and
+is historical; do not silently compare the old numbers as new-model measurements.
 It does not alter persistence, disable synchronization, launch a Broker, or include
 HTTP/network time. Use an optimized build and record hardware, filesystem, free
 space and the engine commit alongside the JSON.
@@ -30,8 +34,8 @@ normal metadata indexes and disk payloads.
 - `io` (default): durable append, warm reads and indexed head metadata. `append`,
   `read`, `heads` select only the respective measured output; read/head setup still
   appends the dataset outside their measured stages.
-- Record construction is outside the `append_batch` API latency timer, but inside
-  append wall throughput. Append returns only after production `sync_all` succeeds.
+- Record construction is outside the `append_results` API latency timer, but inside
+  append wall throughput. AppendResults returns only after production `sync_all` succeeds.
   Automatic compaction/rotation, if triggered, is included in call latency.
 - By default every append batch has a unique Client ID. Thus each head identifies
   one full batch, and read-only traversal verifies **all** records without mixing
