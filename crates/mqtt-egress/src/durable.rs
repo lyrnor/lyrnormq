@@ -294,40 +294,9 @@ fn run(
             break;
         }
         if let Command::Append(first, reply, pending) = command {
-            let mut bytes = first.payload.len();
-            let mut records = vec![first];
-            let mut replies = vec![(reply, pending)];
-            while records.len() < 64 {
-                match receiver.try_recv() {
-                    Ok(Command::Append(record, reply, pending))
-                        if bytes.saturating_add(record.payload.len()) <= 8 * 1024 * 1024 =>
-                    {
-                        bytes += record.payload.len();
-                        records.push(record);
-                        replies.push((reply, pending));
-                    }
-                    Ok(other) => {
-                        carried = Some(other);
-                        break;
-                    }
-                    Err(_) => break,
-                }
-            }
-            let result = checked(journal.append_results(records), &stopped, &counters);
-            refresh(&journal, &view);
-            let result = result.map(|_| ());
-            for (reply, mut admission) in replies {
-                if result.is_ok()
-                    && let Some(pending) = &mut admission
-                {
-                    pending.committed = true;
-                }
-                drop(admission);
-                if let Some(reply) = reply {
-                    let _ = reply.send(result);
-                }
-            }
-            changed.send_modify(|epoch| *epoch = epoch.wrapping_add(1));
+            let batch =
+                append::AppendBatch::gather(first, reply, pending, &mut receiver, &mut carried);
+            batch.commit(&mut journal, &view, &changed, &stopped, &counters);
             continue;
         }
         let notify = matches!(
@@ -456,3 +425,10 @@ pub(crate) fn bindings(config: &crate::Config) -> Result<Vec<Binding>, RuntimeEr
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "durable_group_tests.rs"]
+mod group_tests;
+
+#[path = "durable_append.rs"]
+mod append;
