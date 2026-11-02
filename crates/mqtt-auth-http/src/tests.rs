@@ -1052,3 +1052,51 @@ async fn remote_admitted_state_preserves_old_anonymous_will_without_weakening_en
     }
     r.shutdown().await;
 }
+
+#[tokio::test]
+async fn acl_only_entry_requires_named_identity_but_preserves_static_connect_rules() {
+    let d = Directory::new();
+    let s = Server::new(204).await;
+    let local =
+        mqtt_auth::StaticPolicy::from_json(br#"{"allow_anonymous":true,"users":[{"username":"device","password_hash":"$argon2id$v=19$m=32,t=1,p=1$bXF0dC10ZXN0LXNhbHQtMDE$9nKCHYN7W3NFFVjg+4h4JqpV8p5TDVUKGWdEeVvnJYg","client_id_prefix":"device-","publish":[],"subscribe":[]}]}"#).unwrap();
+    let r = Runtime::open(d.path(), Arc::new(local), true)
+        .await
+        .unwrap();
+    r.replace(Config {
+        authorization: AuthorizationConfig {
+            backend: s.backend(),
+            cache_ttl_seconds: 0,
+        },
+        ..Config::default()
+    })
+    .await
+    .unwrap();
+    let attempt = r.begin();
+    assert!(!attempt.policy().authorize_for_client(
+        &Principal::anonymous(),
+        "fresh",
+        Action::Connect,
+        "fresh"
+    ));
+    assert!(!attempt.policy().authorize_for_client(
+        &principal(),
+        "fresh",
+        Action::Connect,
+        "fresh"
+    ));
+    assert!(attempt.policy().authorize_for_client(
+        &principal(),
+        "device-new",
+        Action::Connect,
+        "device-new"
+    ));
+    assert!(attempt.admitted_policy().authorize_for_client(
+        &Principal::anonymous(),
+        "old",
+        Action::Connect,
+        "old"
+    ));
+    assert!(!attempt.pending());
+    assert_eq!(s.count(), 0);
+    r.shutdown().await;
+}

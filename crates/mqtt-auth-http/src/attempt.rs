@@ -132,6 +132,11 @@ impl Inner {
         }
         let config = &self.generation.config;
         if matches!(action, Action::Connect) {
+            // An ACL request requires a named identity even when credentials
+            // were checked locally. Accepted old state uses admitted_policy.
+            if config.authorization.backend.enabled && username(principal).is_none() {
+                return false;
+            }
             return if config.authentication.enabled
                 && (config.authorization.backend.enabled || !self.shared.local_accounts)
             {
