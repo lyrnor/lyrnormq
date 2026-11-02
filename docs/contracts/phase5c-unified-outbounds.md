@@ -112,3 +112,20 @@ type/address context when selecting. MQTT Client IDs/Subscription IDs remain
 meaningful protocol fields. Use shared Radix Switch/Checkbox/Tabs/Label and shared
 Textarea/Field/Alert primitives; retain the tested Drawer/native-dialog top layer
 and strict CSP, with no new dependency or inline-style permission.
+
+### Webhook basic/advanced settings (2026-11-02)
+
+Outbound basic authoring exposes only name, Webhook address and authentication/
+headers. The existing Radix Collapsible component defaults closed and contains
+enabled/type plus batch size/wait, timeout, maximum attempts and retry interval.
+Rule editor enable controls are unchanged. Outbound list rows no longer repeat
+tuning-policy summaries.
+
+Queue capacity is not editable anywhere in this form: new outbounds use the
+existing system default256; editing preserves the existing bounded capacity.
+Configuration API/schema, SQLite data and backend admission limits are unchanged;
+no adaptive-capacity behavior is implied. Collapsing never resets draft policy.
+Closed panels unmount controls to avoid hidden invalid/required browser focus
+errors; validation still checks the full policy and reopens invalid advanced
+settings before any request. Existing non-default policies, headers, enabled flags
+and IDs survive basic-only edits. No new dependency or CSP relaxation.

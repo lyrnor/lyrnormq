@@ -1,0 +1,37 @@
+
+> rmqtt-dashboard@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+
+ ✓ tests/api.test.ts (8 tests) 13ms
+ ✓ tests/rules-model.test.ts (9 tests) 26ms
+ ✓ tests/model.test.ts (12 tests) 15ms
+ ✓ tests/polling.test.tsx (6 tests) 380ms
+ ✓ tests/dialog.test.tsx (2 tests) 121ms
+ ✓ tests/ui-primitives.test.tsx (7 tests) 245ms
+ ✓ tests/single-select.test.tsx (3 tests) 429ms
+stderr | tests/app.test.tsx > memory-only management login > escapes broker strings and labels restored negotiation unknown
+Error: Not implemented: window.scrollTo
+    at module.exports (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at change (/Volumes/data/rmqtt/dashboard/web/src/App.tsx:190:14)
+    at callTheUserObjectsOperation (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at EventTargetImpl._dispatch (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at fireAnEvent (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
+    at SessionHistory._fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
+    at fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
+
+ ✓ tests/app.test.tsx (5 tests) 752ms
+   ✓ memory-only management login > renders real data and clears authenticated views on logout without persisting the token  315ms
+ ✓ tests/rules-page.test.tsx (22 tests) 1173ms
+   ✓ live rule and Webhook management > creates without exposing an ID field  363ms
+
+ Test Files  9 passed (9)
+      Tests  74 passed (74)
+   Start at  09:57:24
+   Duration  3.49s (transform 1.28s, setup 153ms, collect 5.62s, tests 3.15s, environment 7.89s, prepare 1.16s)
+

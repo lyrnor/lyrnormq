@@ -1,0 +1,36 @@
+{
+  "basic": {
+    "labels": [
+      "名称",
+      "Webhook 地址"
+    ],
+    "expanded": "false",
+    "numbers": 0,
+    "switches": 0
+  },
+  "newDefaults": {
+    "batch_size": 100,
+    "batch_wait_ms": 50,
+    "queue_capacity": 256,
+    "timeout_ms": 3000,
+    "max_attempts": 3,
+    "retry_base_ms": 200
+  },
+  "existingCapacityPreserved": 777,
+  "oldSettingsPreserved": true,
+  "keyboard": true,
+  "collapseKeepsEdits": true,
+  "hiddenInvalidRejected": true,
+  "focusVisible": true,
+  "queueNeverEditable": true,
+  "ruleEditorUnchanged": true,
+  "realHTTPDelivery": true,
+  "mobile": {
+    "width": 390,
+    "document": 390,
+    "numbers": 0,
+    "expanded": "false"
+  },
+  "cspViolations": [],
+  "consoleErrors": []
+}

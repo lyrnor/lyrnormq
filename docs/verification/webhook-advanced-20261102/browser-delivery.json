@@ -1,0 +1,20 @@
+{
+  "outbound_id": "out_464bbdf0-13cf-49a9-8362-c4063a06f671",
+  "events": [
+    {
+      "event_id": "13290-1793584748935892000-1",
+      "delivery_id": "13290-1793584748935892000-1:rule_14cb0e08-4de0-4c74-8819-653767dd6b85:out_464bbdf0-13cf-49a9-8362-c4063a06f671",
+      "rule_id": "rule_14cb0e08-4de0-4c74-8819-653767dd6b85",
+      "topic": "devices/qa/telemetry",
+      "client_id": "ui-qa-publisher",
+      "qos": 0,
+      "retain": false,
+      "timestamp_ms": 1793584900491,
+      "data": {
+        "client_id": "ui-qa-publisher",
+        "source_topic": "devices/qa/telemetry",
+        "temperature": 92
+      }
+    }
+  ]
+}

@@ -2165,3 +2165,23 @@ actual browser randomUUID-unavailable fallback, masked credentials, hidden IDs a
 window.scrollTo not-implemented warning remains test-environment-only.
 Evidence: docs/verification/auto-id-components-20261030/README.md. Existing user
 Broker was not restarted; only owned temporary QA services/browser were used.
+
+
+### Webhook basic and advanced configuration (2026-11-02)
+
+Dashboard basics now expose only name, address and authentication/headers. Tuning
+parameters, enabled/type controls live in a default-closed shared Radix Collapsible.
+Queue capacity is not editable; new resources use existing system default256, and
+editing preserves existing bounded capacity/non-default settings. Outbound list
+rows no longer expose tuning summaries. No API/schema/backend limit change.
+
+Invalid hidden tuning is rejected before PUT, reopened and focused/scrolled into
+view. Closing the section never resets values. Credential masking, stable IDs,
+rule enable control and stopped guards remain intact.
+
+74 frontend tests, TS/Vite/Prettier, Fmt, workspace strict Clippy, 620 Rust tests and
+embedded native release build passed. Real Chrome confirmed collapsed defaults,
+keyboard interaction, preserved legacy custom policy/capacity777/disabled state,
+invalid hidden values and correction, actual MQTT->HTTP, 390px mobile and zero
+CSP/console errors. Evidence: docs/verification/webhook-advanced-20261102/README.md.
+Existing user Broker untouched; temporary QA services/browser cleaned up.
