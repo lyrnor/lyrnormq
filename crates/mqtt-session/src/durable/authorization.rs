@@ -6,6 +6,89 @@ use mqtt_auth::{Action, Principal};
 use mqtt_protocol::Packet;
 
 impl SessionEngine {
+    /// Trusted stored principal for preparing an individual recipient ticket.
+    pub fn principal(&self, client_id: &str) -> Option<Principal> {
+        self.sessions
+            .get(client_id)
+            .map(|session| session.owner.clone())
+    }
+
+    /// Freshly authorize just the next application delivery. Unknown probe
+    /// decisions are optimistic and the enclosing proposal must be discarded.
+    pub(super) fn point_delivery_denied(&mut self, client_id: &str) -> Result<bool, EngineError> {
+        if self.access.reconciles_stored_authorization() {
+            return Ok(false);
+        }
+        let session = self
+            .sessions
+            .get(client_id)
+            .ok_or(EngineError::UnknownSession)?;
+        let quota = session.sent.len() < usize::from(session.receive_maximum);
+        let replay = if quota {
+            (!session.replay.is_empty()).then_some(0)
+        } else {
+            session.replay.iter().position(|id| {
+                matches!(
+                    session.outgoing.pending.get(id),
+                    Some(OutgoingState::Released)
+                )
+            })
+        };
+        let candidate = if let Some(position) = replay {
+            let id = *session
+                .replay
+                .get(position)
+                .ok_or_else(|| invalid_record("replay position disappeared"))?;
+            match session.outgoing.pending.get(&id) {
+                Some(OutgoingState::Released) => None,
+                Some(
+                    OutgoingState::AwaitingAck { _message }
+                    | OutgoingState::AwaitingReceipt { _message },
+                ) => {
+                    let Packet::Publish { topic, .. } =
+                        decode_publish(_message, self.config.max_packet_size)?
+                    else {
+                        return Err(invalid_record("outgoing state is not PUBLISH"));
+                    };
+                    Some((Some(id), topic))
+                }
+                None => return Err(invalid_record("replay references absent exchange")),
+            }
+        } else if quota && !session.outgoing.is_full() {
+            session
+                .queued
+                .front()
+                .map(|message| (None, message.topic.clone()))
+        } else {
+            None
+        };
+        let Some((id, topic)) = candidate else {
+            return Ok(false);
+        };
+        let owner = session.owner.clone();
+        if self
+            .access
+            .authorize_for_client(&owner, client_id, Action::Connect, client_id)
+            && self
+                .access
+                .authorize_for_client(&owner, client_id, Action::Receive, &topic)
+        {
+            return Ok(false);
+        }
+        let session = self
+            .sessions
+            .get_mut(client_id)
+            .ok_or(EngineError::UnknownSession)?;
+        match id {
+            Some(id) => session.retire_outgoing(id),
+            None => {
+                session.queued.pop_front();
+            }
+        }
+        self.ensure_bounds()?;
+        Ok(true)
+    }
+
     /// Bind a synchronous speculative policy to a proposal without changing rows.
     pub fn set_access_control(&mut self, access: std::sync::Arc<dyn mqtt_auth::AccessControl>) {
         self.access = access;
@@ -137,3 +220,7 @@ impl SessionEngine {
         Ok(changed)
     }
 }
+
+#[cfg(test)]
+#[path = "point_authorization_tests.rs"]
+mod tests;

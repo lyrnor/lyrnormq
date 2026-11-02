@@ -717,12 +717,14 @@ impl SessionEngine {
                     if split_shared_filter(filter).is_some() {
                         continue;
                     }
-                    if self.access.authorize_for_client(
-                        &session.owner,
-                        client,
-                        Action::Subscribe,
-                        filter,
-                    ) {
+                    if !self.access.reconciles_stored_authorization()
+                        || self.access.authorize_for_client(
+                            &session.owner,
+                            client,
+                            Action::Subscribe,
+                            filter,
+                        )
+                    {
                         router.subscribe_qos(index as u64, filter.clone(), subscription.qos);
                     }
                 }
@@ -760,12 +762,16 @@ impl SessionEngine {
                 .sessions
                 .get_mut(client)
                 .ok_or(EngineError::UnknownSession)?;
-            if !self.access.authorize_for_client(
-                &target.owner,
-                client,
-                Action::Receive,
-                &message.topic,
-            ) {
+            // Point authorization happens before wire delivery. Ordinary copies
+            // are durably quarantined even while the HTTP service is unavailable.
+            if self.access.reconciles_stored_authorization()
+                && !self.access.authorize_for_client(
+                    &target.owner,
+                    client,
+                    Action::Receive,
+                    &message.topic,
+                )
+            {
                 continue;
             }
             let mut planned = 0usize;

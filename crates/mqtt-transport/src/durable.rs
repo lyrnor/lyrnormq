@@ -33,6 +33,7 @@ mod broker;
 mod enhanced;
 pub(crate) mod export;
 mod network;
+mod remote_plain;
 #[cfg(test)]
 use mqtt_session::durable::Clock;
 #[cfg(test)]
@@ -310,8 +311,10 @@ fn notify(engine: &SessionEngine, online: &HashMap<String, Online>) -> usize {
     targets
 }
 
+#[derive(Clone)]
 struct ConnectRequest {
     authenticated: Option<mqtt_auth::Principal>,
+    access_attempt: Option<Arc<dyn mqtt_auth::AccessAttempt>>,
     authentication: Option<enhanced::Completion>,
     deadline: Option<std::time::Instant>,
     client: String,
@@ -327,6 +330,7 @@ struct ConnectRequest {
     cancel: watch::Sender<bool>,
     close_reason: Option<watch::Sender<Option<ReasonCode>>>,
 }
+#[derive(Clone)]
 enum Request {
     Authenticate {
         generation: u64,
@@ -403,6 +407,7 @@ fn normalize_connect(
         }
         Request::Connect(ConnectRequest {
             authenticated: None,
+            access_attempt: None,
             authentication: None,
             deadline,
             assigned: false,
@@ -441,6 +446,7 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             cancel,
         } => Request::Connect(ConnectRequest {
             authenticated: None,
+            access_attempt: None,
             authentication: None,
             deadline: None,
             assigned: false,
@@ -616,13 +622,18 @@ fn refusal(request: &ConnectRequest, reason: ReasonCode) -> Reply {
     if request.options.version == ProtocolVersion::V5 {
         Reply::FrameRejected(reason)
     } else {
-        Reply::Rejected(if reason == ReasonCode::SERVER_BUSY {
-            ConnectRefusal::ServerBusy
-        } else if reason == ReasonCode::BAD_USER_NAME_OR_PASSWORD {
-            ConnectRefusal::BadCredentials
-        } else {
-            ConnectRefusal::NotAuthorized
-        })
+        Reply::Rejected(
+            if matches!(
+                reason,
+                ReasonCode::SERVER_BUSY | ReasonCode::SERVER_UNAVAILABLE
+            ) {
+                ConnectRefusal::ServerBusy
+            } else if reason == ReasonCode::BAD_USER_NAME_OR_PASSWORD {
+                ConnectRefusal::BadCredentials
+            } else {
+                ConnectRefusal::NotAuthorized
+            },
+        )
     }
 }
 fn frames_reply(frames: Vec<Frame>, legacy: bool) -> Reply {

@@ -38,12 +38,13 @@ impl SessionEngine {
                 if !self
                     .access
                     .authorize_for_client(&owner, client, Action::Connect, client)
-                    || !self.access.authorize_for_client(
-                        &owner,
-                        client,
-                        Action::Receive,
-                        &retained.topic,
-                    )
+                    || (self.access.reconciles_stored_authorization()
+                        && !self.access.authorize_for_client(
+                            &owner,
+                            client,
+                            Action::Receive,
+                            &retained.topic,
+                        ))
                 {
                     continue;
                 }

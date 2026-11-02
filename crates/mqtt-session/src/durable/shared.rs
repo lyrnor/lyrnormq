@@ -105,12 +105,13 @@ impl SessionEngine {
                     continue;
                 }
                 if let Some((_, inner)) = split_shared_filter(filter)
-                    && self.access.authorize_for_client(
-                        &session.owner,
-                        client,
-                        Action::Subscribe,
-                        inner,
-                    )
+                    && (!self.access.reconciles_stored_authorization()
+                        || self.access.authorize_for_client(
+                            &session.owner,
+                            client,
+                            Action::Subscribe,
+                            inner,
+                        ))
                 {
                     groups.entry(filter.clone()).or_default().push(index);
                 }

@@ -6,17 +6,19 @@ use mqtt_auth::{
 };
 use std::time::Instant;
 
+#[derive(Clone)]
 pub(super) struct Completion {
     method: String,
     data: Option<Password>,
 }
+#[derive(Clone)]
 pub(super) struct Established {
     generation: u64,
-    client: String,
-    username: Option<String>,
-    principal: Principal,
+    pub(super) client: String,
+    pub(super) username: Option<String>,
+    pub(super) principal: Principal,
     method: String,
-    peer_maximum: usize,
+    pub(super) peer_maximum: usize,
 }
 impl Established {
     pub(super) fn from_request(request: &ConnectRequest, principal: Principal) -> Self {
@@ -132,7 +134,7 @@ pub(super) fn success_frame(
     }
     Ok(frame)
 }
-fn fitting(frame: &Frame, config: &BrokerConfig, peer: usize) -> io::Result<()> {
+pub(super) fn fitting(frame: &Frame, config: &BrokerConfig, peer: usize) -> io::Result<()> {
     let size = mqtt_protocol::encode_frame(frame)
         .map_err(io::Error::other)?
         .len();
@@ -144,7 +146,37 @@ fn fitting(frame: &Frame, config: &BrokerConfig, peer: usize) -> io::Result<()> 
     }
     Ok(())
 }
+impl Completion {
+    pub(super) fn plain() -> Self {
+        Self {
+            method: "PLAIN".into(),
+            data: None,
+        }
+    }
+}
+pub(super) fn plain_frame(code: u8) -> io::Result<Frame> {
+    auth_frame("PLAIN", code, None)
+}
 impl Manager {
+    pub(super) fn plain_established(&self, generation: u64) -> Option<Established> {
+        self.established
+            .get(&generation)
+            .filter(|entry| entry.method == "PLAIN")
+            .cloned()
+    }
+    pub(super) fn take_plain_pending(&mut self, generation: u64) -> Option<ConnectRequest> {
+        if self.pending.get(&generation).is_some_and(|entry| {
+            entry
+                .request
+                .authentication
+                .as_ref()
+                .is_some_and(|auth| auth.method == "PLAIN")
+        }) {
+            self.pending.remove(&generation).map(|entry| *entry.request)
+        } else {
+            None
+        }
+    }
     pub(super) fn cancel(&mut self, generation: u64) {
         self.pending.remove(&generation);
         self.established.remove(&generation);
