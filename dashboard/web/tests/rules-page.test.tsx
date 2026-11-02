@@ -729,9 +729,17 @@ describe("Webhook basic and advanced settings", () => {
   );
   it("explains delivery order only inside the advanced panel", async () => {
     await fresh();
-    expect(screen.queryByText(/需要按顺序发送时/)).toBeNull();
+    expect(screen.queryByText(/同一客户端的消息按顺序发送/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "高级设置" }));
-    expect(screen.getByText(/需要按顺序发送时.*1/)).toBeTruthy();
+    const note = screen.getByRole("note");
+    expect(note.textContent).toContain(
+      "同一客户端的消息按顺序发送，不同客户端可并发发送",
+    );
+    expect(note.textContent).toContain(
+      "重试只等待当前客户端，最终失败后继续下一条",
+    );
+    expect(note.textContent).toContain("并发请求数限制同时发送的请求数量");
+    expect(note.textContent).not.toContain("需要按顺序发送时设为 1");
   });
   it("keeps the rule enable switch and SQL immediately available", async () => {
     server();
