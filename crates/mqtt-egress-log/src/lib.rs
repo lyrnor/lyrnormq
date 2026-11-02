@@ -7,6 +7,7 @@ mod error;
 mod format;
 mod journal;
 mod model;
+mod read_cache;
 mod rewrite;
 mod shared;
 mod storage;

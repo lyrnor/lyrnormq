@@ -9,6 +9,7 @@ use std::{
     fs::{self, File},
     ops::Bound::{Excluded, Unbounded},
     path::PathBuf,
+    sync::Mutex,
 };
 
 /// Exclusive synchronous owner. Methods must run on a blocking thread.
@@ -25,6 +26,7 @@ pub struct Journal {
     pub(crate) _owner: File,
     pub(crate) bindings: BTreeMap<String, StoredBinding>,
     pub(crate) shared: crate::shared::Shared,
+    pub(crate) reads: Mutex<crate::read_cache::ReadCache>,
     pub(crate) entries: BTreeMap<u64, Entry>,
     pub(crate) lanes: BTreeMap<(String, String), VecDeque<u64>>,
     pub(crate) heads: BTreeMap<String, BTreeSet<u64>>,
@@ -105,6 +107,7 @@ impl Journal {
             _owner: owner,
             bindings: BTreeMap::new(),
             shared: crate::shared::Shared::default(),
+            reads: Mutex::new(crate::read_cache::ReadCache::default()),
             entries: BTreeMap::new(),
             lanes: BTreeMap::new(),
             heads: BTreeMap::new(),

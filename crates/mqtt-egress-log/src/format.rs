@@ -3,7 +3,7 @@ use crate::{
     model::{MAX_GROUP_BYTES, MAX_META, Transaction},
 };
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 
 pub(crate) const HEADER: u64 = 24;
 const MAGIC: &[u8; 4] = b"REQJ";
@@ -28,13 +28,40 @@ const fn table() -> [u32; 256] {
     }
     values
 }
-const TABLE: [u32; 256] = table();
+const fn slicing_tables() -> [[u32; 256]; 8] {
+    let mut tables = [[0; 256]; 8];
+    tables[0] = table();
+    let mut slice = 1;
+    while slice < 8 {
+        let mut byte = 0;
+        while byte < 256 {
+            let value = tables[slice - 1][byte];
+            tables[slice][byte] = (value >> 8) ^ tables[0][(value & 255) as usize];
+            byte += 1;
+        }
+        slice += 1;
+    }
+    tables
+}
+const TABLES: [[u32; 256]; 8] = slicing_tables();
 pub(crate) fn checksum(bytes: &[u8]) -> u32 {
     !update(!0, bytes)
 }
 fn update(mut crc: u32, bytes: &[u8]) -> u32 {
-    for b in bytes {
-        crc = TABLE[((crc ^ u32::from(*b)) & 255) as usize] ^ (crc >> 8);
+    let (chunks, remainder) = bytes.as_chunks::<8>();
+    for b in chunks {
+        crc ^= u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+        crc = TABLES[7][(crc & 255) as usize]
+            ^ TABLES[6][((crc >> 8) & 255) as usize]
+            ^ TABLES[5][((crc >> 16) & 255) as usize]
+            ^ TABLES[4][(crc >> 24) as usize]
+            ^ TABLES[3][b[4] as usize]
+            ^ TABLES[2][b[5] as usize]
+            ^ TABLES[1][b[6] as usize]
+            ^ TABLES[0][b[7] as usize];
+    }
+    for b in remainder {
+        crc = TABLES[0][((crc ^ u32::from(*b)) & 255) as usize] ^ (crc >> 8);
     }
     crc
 }
@@ -96,12 +123,14 @@ pub(crate) fn write_frame(
     let header_crc = checksum(&header[..16]);
     header[16..20].copy_from_slice(&header_crc.to_le_bytes());
     let start = file.seek(SeekFrom::End(0))?;
-    file.write_all(&header)?;
-    file.write_all(&json32)?;
-    file.write_all(json)?;
+    let mut buffered = BufWriter::with_capacity((len as usize).min(65536), file);
+    buffered.write_all(&header)?;
+    buffered.write_all(&json32)?;
+    buffered.write_all(json)?;
     for payload in payloads {
-        file.write_all(payload)?;
+        buffered.write_all(payload)?;
     }
+    buffered.flush()?;
     Ok((start + HEADER + 4 + json.len() as u64, len))
 }
 pub(crate) fn scan(file: &mut File, offset: u64, max_bytes: u64) -> Result<Scan, QueueError> {

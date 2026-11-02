@@ -1,5 +1,5 @@
 //! Shared immutable bodies and independently acknowledged consumer indexes.
-use crate::{Journal, QueueError, format, model::*, storage};
+use crate::{Journal, QueueError, format, model::*};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     ops::Bound::{Excluded, Unbounded},
@@ -368,21 +368,18 @@ impl Journal {
         limit: usize,
         max_payload_bytes: usize,
     ) -> Result<Vec<ConsumerRecord>, QueueError> {
-        self.consumer_metas(head, limit, max_payload_bytes)?
+        let metas = self.consumer_metas(head, limit, max_payload_bytes)?;
+        let mut cache = self.reads.lock().map_err(|_| QueueError::Io)?;
+        let mut validated = BTreeSet::new();
+        metas
             .into_iter()
             .map(|meta| {
-                let b = self
+                let body = self
                     .shared
                     .bodies
                     .get(&meta.result_id)
                     .ok_or(QueueError::Corrupt)?;
-                let payload = storage::read_payload(
-                    &self.dir,
-                    b.segment,
-                    b.offset,
-                    b.meta.payload_len,
-                    b.checksum,
-                )?;
+                let payload = cache.read(&self.dir, body, &mut validated)?;
                 Ok(ConsumerRecord { meta, payload })
             })
             .collect()
@@ -552,6 +549,10 @@ impl Journal {
             .checked_sub(consumer_cost(&c))
             .ok_or(QueueError::Corrupt)?;
         if let Some(meta) = removed {
+            self.reads
+                .get_mut()
+                .map_err(|_| QueueError::Io)?
+                .remove(meta.id);
             self.pending_bytes = self
                 .pending_bytes
                 .checked_sub(meta.payload_len as u64)

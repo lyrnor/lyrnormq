@@ -814,3 +814,7 @@ fn one_rule_result_fanout_stores_body_only_once() {
 
 #[path = "shared_tests.rs"]
 mod shared_tests;
+
+#[cfg(unix)]
+#[path = "read_cache_tests.rs"]
+mod read_cache_tests;

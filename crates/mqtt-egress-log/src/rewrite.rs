@@ -228,6 +228,7 @@ impl Journal {
         self.physical = w.physical;
         self.entries = w.legacy;
         self.shared = w.shared;
+        self.reads.get_mut().map_err(|_| QueueError::Io)?.clear();
         self.next_id = next;
         self.lanes.clear();
         self.heads.clear();

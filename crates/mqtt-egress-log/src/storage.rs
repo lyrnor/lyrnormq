@@ -1,9 +1,11 @@
 use crate::{QueueError, format};
+#[cfg(not(unix))]
+use std::io::{Seek, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::{
     fs::{self, File, OpenOptions, TryLockError},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{Read, Write},
     path::{Component, Path, PathBuf},
 };
 
@@ -62,6 +64,11 @@ pub(crate) fn private_file(path: &Path, create: bool) -> Result<File, QueueError
         }
         options.open(path)?
     };
+    private_metadata(&file, path)?;
+    Ok(file)
+}
+/// Revalidate a retained descriptor against its current private path.
+pub(crate) fn private_metadata(file: &File, path: &Path) -> Result<fs::Metadata, QueueError> {
     let meta = file.metadata()?;
     let current = fs::symlink_metadata(path)?;
     if !meta.is_file() || !current.is_file() || current.file_type().is_symlink() {
@@ -73,10 +80,11 @@ pub(crate) fn private_file(path: &Path, create: bool) -> Result<File, QueueError
         || meta.ino() != current.ino()
         || meta.dev() != current.dev()
         || meta.permissions().mode() & 0o077 != 0
+        || current.permissions().mode() & 0o077 != 0
     {
         return Err(QueueError::Io);
     }
-    Ok(file)
+    Ok(meta)
 }
 pub(crate) fn owner(root: &Path) -> Result<File, QueueError> {
     let path = root.join("OWNERSHIP");
@@ -265,6 +273,13 @@ pub(crate) fn remove_generation(dir: &Path) -> Result<(), QueueError> {
     fs::remove_dir(dir)?;
     Ok(())
 }
+#[cfg(test)]
+thread_local! { static PAYLOAD_READS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+#[cfg(test)]
+pub(crate) fn test_payload_reads() -> usize {
+    PAYLOAD_READS.with(std::cell::Cell::get)
+}
+
 pub(crate) fn read_payload(
     dir: &Path,
     segment_id: u64,
@@ -272,16 +287,37 @@ pub(crate) fn read_payload(
     len: usize,
     expected_checksum: u32,
 ) -> Result<Vec<u8>, QueueError> {
-    let mut file = private_file(&segment(dir, segment_id), false)?;
+    let file = private_file(&segment(dir, segment_id), false)?;
+    let file_len = file.metadata()?.len();
+    read_payload_open(&file, offset, len, expected_checksum, file_len)
+}
+pub(crate) fn read_payload_open(
+    file: &File,
+    offset: u64,
+    len: usize,
+    expected_checksum: u32,
+    file_len: u64,
+) -> Result<Vec<u8>, QueueError> {
     if offset
         .checked_add(len as u64)
-        .is_none_or(|end| end > file.metadata().map(|m| m.len()).unwrap_or(0))
+        .is_none_or(|end| end > file_len)
     {
         return Err(QueueError::Corrupt);
     }
-    file.seek(SeekFrom::Start(offset))?;
+    #[cfg(test)]
+    PAYLOAD_READS.with(|n| n.set(n.get() + 1));
     let mut data = vec![0u8; len];
-    file.read_exact(&mut data)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::FileExt;
+        file.read_exact_at(&mut data, offset)?;
+    }
+    #[cfg(not(unix))]
+    {
+        let mut view = file;
+        view.seek(SeekFrom::Start(offset))?;
+        view.read_exact(&mut data)?;
+    }
     if format::checksum(&data) != expected_checksum {
         return Err(QueueError::Corrupt);
     }
