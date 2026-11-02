@@ -27,7 +27,14 @@ export async function api<T>(
     options &&
     !(
       (path === "/api/v1/rules/config" && options.method === "PUT") ||
-      (path === "/api/v1/rules/test" && options.method === "POST")
+      (path === "/api/v1/rules/test" && options.method === "POST") ||
+      (path === "/api/v1/access-control/config" && options.method === "PUT") ||
+      ([
+        "/api/v1/access-control/test/authentication",
+        "/api/v1/access-control/test/authorization",
+        "/api/v1/access-control/cache/clear",
+      ].includes(path) &&
+        options.method === "POST")
     )
   )
     throw new ApiError(400, "该管理接口不支持写入");
@@ -68,6 +75,11 @@ export async function api<T>(
     if (code === "rules_disabled") message = "规则引擎尚未启用，请联系管理员";
     else if (response.status === 400 && path.startsWith("/api/v1/rules/"))
       message = "规则 SQL 或配置无效，请检查语法、参数范围和引用关系";
+    else if (
+      response.status === 400 &&
+      path.startsWith("/api/v1/access-control/")
+    )
+      message = "认证或授权配置无效，请检查地址、鉴权和填写内容";
     throw new ApiError(response.status, message, code);
   }
   if (!response.headers.get("content-type")?.includes("application/json"))

@@ -150,3 +150,63 @@ describe("bounded rule management writes", () => {
     }
   });
 });
+
+describe("bounded access-control management writes", () => {
+  it("allows only exact supported methods and endpoints with JSON results", async () => {
+    const fetch = vi.fn().mockImplementation(
+      async () =>
+        new Response('{"result":"deny","http_status":401}', {
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    for (const [path, method] of [
+      ["/api/v1/access-control/config", "PUT"],
+      ["/api/v1/access-control/test/authentication", "POST"],
+      ["/api/v1/access-control/test/authorization", "POST"],
+      ["/api/v1/access-control/cache/clear", "POST"],
+    ] as const) {
+      const response = await api<{ result: string; http_status: number }>(
+        path,
+        "secret",
+        undefined,
+        { method, body: {} },
+      );
+      expect(response.http_status).toBe(401);
+    }
+    for (const [path, method] of [
+      ["/api/v1/access-control/config", "POST"],
+      ["/api/v1/access-control/test/authentication", "PUT"],
+      ["/api/v1/access-control/test/authorization?unsafe=x", "POST"],
+      ["/api/v1/access-control/cache/clear/extra", "POST"],
+      ["/api/v1/access-control/status", "PUT"],
+    ] as const)
+      await expect(
+        api(path, "secret", undefined, { method, body: {} }),
+      ).rejects.toMatchObject({ status: 400 });
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+  it("keeps public validation errors friendly without exposing backend diagnostics", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            '{"error":{"code":"access_invalid_config","message":"secret SQL and password"}}',
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+    );
+    try {
+      await api("/api/v1/access-control/config", "secret", undefined, {
+        method: "PUT",
+        body: {},
+      });
+      throw new Error("expected rejection");
+    } catch (error) {
+      expect(errorMessage(error)).toContain("配置无效");
+      expect(errorMessage(error)).not.toContain("secret");
+    }
+  });
+});

@@ -22,6 +22,7 @@ import React, {
 } from "react";
 import { api, ApiError, errorMessage } from "./api";
 import { RulesPage } from "./RulesPage";
+import { AccessControlPage } from "./AccessControlPage";
 import {
   authReducer,
   boundedSearch,
@@ -389,7 +390,9 @@ function Console({
                 ? "了解 Broker 的连接、消息流量与运行状态。"
                 : route === "rules"
                   ? "管理消息处理规则、出站目标。"
-                  : "当前实例的真实运行数据与只读配置。"
+                  : route === "security"
+                    ? "管理设备登录认证与主题访问权限。"
+                    : "当前实例的真实运行数据与只读配置。"
             }
           >
             <Button
@@ -840,71 +843,13 @@ function Console({
               </div>
             </div>
           )}
-          {route === "security" && c && (
-            <>
-              <div className="mb-5 grid gap-4 lg:grid-cols-3">
-                {[
-                  [
-                    "MQTT 身份认证",
-                    c.instance.auth_policy
-                      ? "本地策略已加载"
-                      : "默认认证提供者",
-                    "认证提供者状态来自实际启动配置；不显示密码或哈希。",
-                  ],
-                  [
-                    "认证准入",
-                    `${c.limits.auth_rate_per_second.toLocaleString()} 次 / 秒`,
-                    c.limits.auth_rate_per_second === 0
-                      ? "速率限制关闭，握手与认证任务并发限制仍生效。"
-                      : `突发 ${c.limits.auth_burst} · 并发任务 ${c.limits.max_auth_tasks}`,
-                  ],
-                  [
-                    "传输信任",
-                    c.instance.mtls
-                      ? "强制 mTLS"
-                      : c.instance.tls
-                        ? "TLS"
-                        : "明文传输",
-                    "证书信任校验与 MQTT 身份授权相互独立。",
-                  ],
-                ].map(([title, value, note]) => (
-                  <Card
-                    className="border bg-card shadow-none gap-3 p-5 [&_h3]:text-lg [&_h3]:font-semibold [&_p]:text-xs [&_p]:leading-relaxed [&_p]:text-muted-foreground"
-                    key={title}
-                  >
-                    <Badge>{title}</Badge>
-                    <h3>{value}</h3>
-                    <p>{note}</p>
-                  </Card>
-                ))}
-              </div>
-              <Panel title="当前安全配置">
-                <div className="p-5">
-                  <SecuritySummary config={c} />
-                  <KeyValues
-                    items={[
-                      ["认证任务上限", c.limits.max_auth_tasks],
-                      ["未完成握手上限", c.limits.max_handshakes],
-                      [
-                        "认证限速",
-                        c.limits.auth_rate_per_second === 0
-                          ? "已关闭"
-                          : `${c.limits.auth_rate_per_second} 次 / 秒`,
-                      ],
-                      ["突发容量", c.limits.auth_burst],
-                      [
-                        "Enhanced AUTH",
-                        c.instance.enhanced_auth ? "已配置" : "未配置",
-                      ],
-                    ]}
-                  />
-                  <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                    此处显示当前认证设置。客户端连接凭据与 Dashboard
-                    访问令牌分别管理。
-                  </div>
-                </div>
-              </Panel>
-            </>
+          {route === "security" && (
+            <AccessControlPage
+              token={token}
+              expired={expired}
+              refresh={refresh}
+              configuration={c}
+            />
           )}
           {route === "listeners" && o && (
             <>
