@@ -351,6 +351,7 @@ class OutboundConcurrency(unittest.TestCase):
         self.emit(self.client('retry-fast'), [1])
         receiver.tracker.wait(lambda t: any(sequence(r) == 1 for r in t.completed))
         self.assertFalse(first_gate.is_set())
+        eventually(lambda: self.outbound()['delivered'] == 1)
         self.assertEqual(self.outbound()['delivered'], 1)
         first_gate.set()
         receiver.tracker.wait(lambda t: any(sequence(r) == 0 and r['attempt'] == 2 for r in t.started))
@@ -396,6 +397,7 @@ class OutboundConcurrency(unittest.TestCase):
         self.emit(source, [99], topic='concurrency/fast')
         receiver.tracker.wait(lambda t: any(r['body']['outbound_id'] == 'fast' for r in t.completed))
         self.assertFalse(any(r['attempt'] > 1 for r in receiver.tracker.started))
+        eventually(lambda: self.outbound('fast')['delivered'] == 1)
         self.assertEqual(self.outbound('fast')['delivered'], 1)
         for item in config['outbounds']:
             item['enabled'] = False

@@ -126,6 +126,7 @@ class ClientOrderedOutbounds(unittest.TestCase):
         self.emit(self.client('awake-client'), [90])
         receiver.tracker.wait(lambda t: any(concurrency.sequence(r) == 90 for r in t.completed))
         self.assertEqual(seqs(receiver.tracker), [0, 90])
+        eventually(lambda: self.outbound()['delivered'] == 1)
         self.assertEqual(self.outbound()['delivered'], 1)
         self.assertEqual(self.outbound()['retried'], 0)
         self.assertEqual(receiver.tracker.peak, 1)
