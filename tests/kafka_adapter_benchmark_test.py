@@ -28,6 +28,21 @@ class ReadbackTests(unittest.TestCase):
     def test_exact_rows_pass(self):
         self.assertEqual(self.verify(rows())['unique_delivery_ids'], 6)
 
+    def test_warmup_is_verified_separately_including_uneven_client_counts(self):
+        warm = rows()[:5]
+        for row in warm:
+            for key in ('rmqtt-event-id', 'rmqtt-delivery-id'):
+                row['headers'][key] = 'warmup-' + row['headers'][key]
+        pairs={(i % 2, i // 2) for i in range(5)}
+        self.assertEqual(verify_records(warm, 'warmup-run', 2, 3, 128, 2,
+                         expected_pairs=pairs)['count'],5)
+        with self.assertRaises(AssertionError):
+            verify_records(warm[:-1], 'warmup-run', 2, 3, 128, 2, expected_pairs=pairs)
+        with self.assertRaises(AssertionError):
+            self.verify(warm + rows()[:1])
+        self.assertEqual(verify_records([], 'warmup-run', 2, 1, 128, 2,
+                         expected_pairs=set())['count'],0)
+
     def test_missing_duplicate_reordered_or_tampered_rows_fail(self):
         original = rows()
         bad = [original[:-1], original + [original[0]]]
