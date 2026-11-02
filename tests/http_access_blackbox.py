@@ -23,6 +23,7 @@ os.environ['RUST_LOG'] = 'warn,rmqtt=info'
 os.environ['RMQTT_LOG_FORMAT'] = 'text'
 
 from admission_helpers import MutualIdentities
+import auth_acl_blackbox
 from auth_acl_blackbox import connect_packet as connect311
 from blackbox import frame, receive, string
 import dashboard_blackbox
@@ -537,11 +538,16 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.assertEqual(self.request('/status')[2]['authentication']['requests_total'], 0)
 
     def test_retained_replay_and_will_do_not_issue_remote_checks(self):
-        # Phase6b supersedes the Phase6a remote Will/actual-send expansion.
+        # Will publish admission belongs to CONNECT; later expiry/delivery must
+        # reuse that grant, without the superseded Phase6a receive-time checks.
         self.start(ttl=0)
         watcher = self.client('will-watcher')
         self.subscribe(watcher, 'will/#', qos=1)
         owner = self.client('will-owner', username='will-device', will=('will/device', b'offline', 1, False))
+        will_calls = self.service.observations('/acl', client_id='will-owner')
+        self.assertEqual(len(will_calls), 1)
+        self.assertEqual(will_calls[0]['body'], dict(client_id='will-owner',
+            username='will-device', action='publish', topic='will/device'))
         calls = len(self.service.observations('/acl'))
         self.service.policy = lambda path, body: 503 if path == '/acl' else None
         owner.close()
@@ -557,6 +563,66 @@ class HttpAccessBlackbox(unittest.TestCase):
         self.barrier(fresh)
         self.assertEqual(len(self.service.observations('/acl', client_id='retained-reader')), 1)
         self.assertEqual(self.service.observations('/acl', topic='retained/value', action='subscribe'), [])
+
+    def test_acl_only_local_accounts_reject_fresh_anonymous_and_keep_connect_rules(self):
+        local = auth_acl_blackbox.policy()
+        local['allow_anonymous'] = True
+        policy_path = Path(self.directory.name) / 'local-policy.json'
+        policy_path.write_text(json.dumps(local))
+        self.start(ttl=0, extra=['--auth-policy', str(policy_path)])
+        config = self.request('/config')[2]
+        config['authentication']['enabled'] = False
+        self.replace(config)
+        for version in (4, 5):
+            anonymous = self.raw()
+            packet = (connect5 if version == 5 else connect311)(
+                f'fresh-anonymous-{version}', username=None, password=None)
+            anonymous.sendall(packet)
+            self.connack(anonymous, version, code=5 if version == 4 else 0x87)
+            self.assertEqual(anonymous.recv(1), b'')
+            disallowed_id = self.begin(f'wrong-prefix-{version}', username='prefixed',
+                password=auth_acl_blackbox.PASSWORD, version=version)
+            self.connack(disallowed_id, version, code=5 if version == 4 else 0x87)
+            self.assertEqual(disallowed_id.recv(1), b'')
+            named = self.client(f'owned-local-{version}', username='prefixed',
+                password=auth_acl_blackbox.PASSWORD, version=version)
+            self.publish(named, f'remote-granted/{version}', b'named-only', 1, version=version)
+            self.assertEqual(len(self.service.observations('/acl', client_id=f'owned-local-{version}')), 1)
+        self.assertEqual(self.service.observations('/authenticate'), [])
+        self.assertEqual(self.service.observations('/acl', client_id='fresh-anonymous-4'), [])
+        self.assertEqual(self.service.observations('/acl', client_id='fresh-anonymous-5'), [])
+
+    def test_will_admission_rejects_before_connect_without_takeover_or_publish(self):
+        self.start(ttl=0)
+        watcher = self.client('protected-will-watcher')
+        self.subscribe(watcher, 'protected-will/#', qos=1)
+        for version in (4, 5):
+            name = f'protected-will-owner-{version}'
+            topic = f'protected-will/{version}'
+            original = self.client(name, username='will-device', persistent=True, version=version)
+            for status in (401, 403, 503):
+                with self.subTest(version=version, status=status):
+                    self.service.policy = lambda path, body, status=status: status if path == '/acl' and body['action'] == 'publish' else None
+                    before = len(self.service.observations('/acl', client_id=name))
+                    failed = self.begin(name, username='will-device',
+                        password=b'wrong' if status == 401 else PASSWORD,
+                        version=version, persistent=True,
+                        will=(topic, b'never-publish', 1, True))
+                    code = ({401: 4, 403: 5, 503: 3} if version == 4 else
+                            {401: 0x86, 403: 0x87, 503: 0x88})[status]
+                    self.connack(failed, version, code=code)
+                    self.assertEqual(failed.recv(1), b'')
+                    self.barrier(original)
+                    self.assertTrue(self.session(name)['online'])
+                    self.quiet(watcher)
+                    will_calls = self.service.observations('/acl', client_id=name)
+                    self.assertEqual(len(will_calls), before + (status != 401))
+                    if status != 401:
+                        self.assertEqual(will_calls[-1]['body'], dict(client_id=name,
+                            username='will-device', action='publish', topic=topic))
+                    self.assertEqual(self.broker.data('/api/v1/retained?search=protected-will%2F')['total'], 0)
+            self.service.policy = None
+            self.disconnect(original)
 
     def test_existing_queue_survives_unavailable_service_and_restart_without_remote_recovery(self):
         # Old Phase6a quarantined delivery. Accepted subscriptions now retain grants.
