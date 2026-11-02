@@ -178,6 +178,8 @@ fn group_and_existing_separate_frame_api_emit_identical_durable_bytes() {
     let (mut ja, ra) = setup(&a, 1048576, 100);
     let (mut jb, rb) = setup(&b, 1048576, 100);
     let groups: Vec<_> = (0..4).map(|i| vec![row(&ra, i, 1000)]).collect();
+    assert_eq!(ja.append_data_syncs(), 0);
+    assert_eq!(jb.append_data_syncs(), 0);
     let ids = ja.append_result_groups(&groups).unwrap();
     for (i, frame) in ids.iter().enumerate() {
         let old = jb.append_results(vec![row(&rb, i, 1000)]).unwrap();
@@ -185,6 +187,10 @@ fn group_and_existing_separate_frame_api_emit_identical_durable_bytes() {
         assert_eq!(frame[0].consumer_ids, old[0].consumer_ids);
     }
     assert_eq!(a.segments(), b.segments());
+    assert_eq!(ja.append_data_syncs(), 1);
+    assert_eq!(jb.append_data_syncs(), 4);
+    ja.checkpoint().unwrap();
+    assert_eq!(ja.append_data_syncs(), 1);
 }
 #[test]
 fn grouped_append_preserves_cached_prefix_through_retry_partial_completion_and_checkpoint() {
@@ -253,5 +259,31 @@ fn uncertain_group_tail_fixture_recovers_complete_frames_only() {
     assert!(
         j.read_consumers(ids[2][0].consumer_ids[0], 1, 2000)
             .is_err()
+    );
+}
+
+#[test]
+fn live_byte_budget_rejection_does_not_publish_an_earlier_frame() {
+    let f = Fixture::new();
+    let mut options = f.options(4096, 100);
+    options.max_bytes = 32 * 1024;
+    let mut j = Journal::open(options).unwrap();
+    let revisions = j
+        .bind_all(&["x", "y"].map(|id| Binding {
+            outbound_id: id.into(),
+            descriptor: format!("binding-{id}").into_bytes(),
+        }))
+        .unwrap();
+    let before = f.segments();
+    let groups: Vec<_> = (0..3).map(|i| vec![row(&revisions, i, 2000)]).collect();
+    assert_eq!(
+        j.append_result_groups(&groups).unwrap_err(),
+        QueueError::Full
+    );
+    assert_eq!(f.segments(), before);
+    assert_eq!(j.stats().pending_results, 0);
+    assert_eq!(
+        j.append_results(vec![row(&revisions, 0, 2000)]).unwrap()[0].result_id,
+        1
     );
 }

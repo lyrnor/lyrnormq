@@ -375,12 +375,24 @@ fn run(c: Config) -> Result<Value> {
         .collect();
     let revisions = j.bind_all(&bindings)?;
     let initial_rss = rss();
+    let data_syncs_before = j.append_data_syncs();
     let writing = if c.concurrent {
         concurrent(&mut j, &c, &revisions)?
     } else {
         direct(&mut j, &c, &revisions)?
     };
     let after_append_rss = rss();
+    let data_syncs = j
+        .append_data_syncs()
+        .checked_sub(data_syncs_before)
+        .ok_or_else(|| invalid("append sync counter decreased"))?;
+    if data_syncs == 0 {
+        return Err(invalid("no durable append sync recorded").into());
+    }
+    let frames_per_sync = writing["frames_submitted"]
+        .as_u64()
+        .ok_or_else(|| invalid("missing frame count"))? as f64
+        / data_syncs as f64;
     let stats = j.stats();
     if stats.pending_results != c.total()
         || stats.pending_records != c.total() * c.fanout
@@ -400,7 +412,7 @@ fn run(c: Config) -> Result<Value> {
     }
     drop(reopened);
     Ok(
-        json!({"tool":"egress-group-commit","schema_version":1,"debug_assertions":cfg!(debug_assertions),"config":{"inputs":c.inputs,"rules":c.rules,"fanout":c.fanout,"payload_bytes":c.payload,"frame_max_results":64,"group_max_frames":c.width,"segment_bytes":c.segment,"mode":if c.concurrent{"concurrent"}else{"direct"}},"writing":writing,"stats_after_append":stats,"segment_files_after_append":segments,"verified_deliveries":verified,"reopen_verified_results":c.total(),"rss_kib":{"initial":initial_rss,"after_append":after_append_rss,"after_read":after_read_rss},"actual_data_sync_calls":null,"sync_count_note":"Public API does not expose physical sync counters. logical_group_calls are durability barriers, not actual sync calls across rotations; private library tests verify sync counts.","method":"Production sync_all, unchanged durable frames, single journal owner. Full readback and reopen after timing. External time includes verification/reopen/cleanup. Groupwidth4 is a different aggregation boundary than width1, not an equal-latency comparison. No SQL/HTTP/MQTT."}),
+        json!({"tool":"egress-group-commit","schema_version":1,"debug_assertions":cfg!(debug_assertions),"config":{"inputs":c.inputs,"rules":c.rules,"fanout":c.fanout,"payload_bytes":c.payload,"frame_max_results":64,"group_max_frames":c.width,"segment_bytes":c.segment,"mode":if c.concurrent{"concurrent"}else{"direct"}},"writing":writing,"stats_after_append":stats,"segment_files_after_append":segments,"verified_deliveries":verified,"reopen_verified_results":c.total(),"rss_kib":{"initial":initial_rss,"after_append":after_append_rss,"after_read":after_read_rss},"actual_append_data_sync_calls":data_syncs,"frames_per_append_data_sync":frames_per_sync,"sync_count_note":"Successful data sync_all calls within append group paths, including rotations. Excludes initialization, directory sync, state operations, checkpoint and reopen. Logical group calls can touch several segments and require multiple data syncs.","method":"Production sync_all, unchanged durable frames, single journal owner. Full readback and reopen after timing. External time includes verification/reopen/cleanup. Groupwidth4 is a different aggregation boundary than width1, not an equal-latency comparison. No SQL/HTTP/MQTT."}),
     )
 }
 fn main() -> Result<()> {

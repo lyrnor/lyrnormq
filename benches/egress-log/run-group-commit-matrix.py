@@ -53,6 +53,8 @@ def main():
                     assert v['stats_after_append']['pending_results']==inputs*rules
                     assert v['stats_after_append']['pending_records']==inputs*rules*fanout
                     assert v['stats_after_append']['pending_bytes']==inputs*rules*1024
+                    assert v['actual_append_data_sync_calls'] > 0
+                    assert v['frames_per_append_data_sync'] > 0
                     assert v['verified_deliveries']==inputs*rules*fanout
                     assert v['reopen_verified_results']==inputs*rules
                     assert all(v['rss_kib'].values())
@@ -63,7 +65,7 @@ def main():
                         assert v['writing']['confirmation_latency']['items']==inputs*rules
                     write=v['writing']['calls']['wall_items_per_second']
                     p99=v['writing']['calls']['api_call_latency_ns']['p99']/1e6
-                    print(f'{name}: {write:.0f} results/s, group-callp99={p99:.3f}ms, segments={v["segment_files_after_append"]}',flush=True)
+                    print(f'{name}: {write:.0f} results/s, group-callp99={p99:.3f}ms, segments={v["segment_files_after_append"]}, append-data-syncs={v["actual_append_data_sync_calls"]}',flush=True)
 
 
 if __name__ == '__main__':

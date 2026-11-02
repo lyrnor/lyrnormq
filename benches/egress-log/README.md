@@ -132,8 +132,10 @@ unchanged. Every frame remains at most64 results. `--group-width 1|4` selects on
 or up to four frames per successful durable API call; a width4 call is a larger
 confirmation barrier, **not the original width1 latency boundary**. All writes use
 production sync. Multiple dirty segments require their own synchronization; the
-public API does not expose physical sync counters, so JSON reports logical group
-calls/frames and observed segment files, never fabricated actual-sync counts.
+read-only append_data_syncs counter records successful append-path data syncs,
+including rotation. JSON reports counter deltas and frames per data sync, alongside
+logical group calls and observed segment files. The counter excludes initialization,
+state operations, checkpoint/reopen and directory syncs; it is not all filesystem syncs.
 
 ```sh
 CARGO_TARGET_DIR="$PWD/target" cargo build --release --offline \
