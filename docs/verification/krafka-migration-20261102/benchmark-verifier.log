@@ -1,0 +1,8 @@
+test_exact_rows_pass (kafka_adapter_benchmark_test.ReadbackTests.test_exact_rows_pass) ... ok
+test_missing_duplicate_reordered_or_tampered_rows_fail (kafka_adapter_benchmark_test.ReadbackTests.test_missing_duplicate_reordered_or_tampered_rows_fail) ... ok
+test_warmup_is_verified_separately_including_uneven_client_counts (kafka_adapter_benchmark_test.ReadbackTests.test_warmup_is_verified_separately_including_uneven_client_counts) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK

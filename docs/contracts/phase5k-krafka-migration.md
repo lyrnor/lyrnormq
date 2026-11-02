@@ -9,10 +9,10 @@ No UI schema changes. HTTP access-control work is independent and preserved.
 
 ## SDK and resource contract
 
-Pin krafka =0.28.1, default-features=false, ring + zstd + tls-encrypted-keys.
+Pin krafka =0.28.1, default-features=false, ring + zstd + tls-encrypted-keys + native-tls-roots.
 No production rdkafka/librdkafka/OpenSSL/curl dependency. Independent test clients
-may retain rdkafka as an interoperability oracle. Rustls native roots optional;
-use configured inline CA or existing platform trust compatibility where needed.
+may retain rdkafka as an interoperability oracle. Use configured inline CA exclusively, otherwise load platform-native trust roots
+through the SDK blocking worker, preserving existing system CA behavior.
 PEM remains in memory; retain PLAIN/SCRAM256/SCRAM512 and TLS/mTLS, mandatory
 hostname verification and existing encrypted PKCS8 fixture compatibility. Reject
 unsupported encrypted formats explicitly, never silently ignore key passwords.
@@ -66,3 +66,21 @@ Interface changes require coordinator contract update before implementation.
    throughput, p50/p95/p99, RSS and environment, no fabricated or cross-host claims.
 5. fmt, strict workspace all-target Clippy/tests, appropriate existing regressions.
    Unit fake broker is fault injection, never called real Kafka interoperability.
+
+## Reviewed timeout and offline TLS refinement
+
+The absolute DeliveryPolicy deadline covers queueing, lazy init, enqueue and
+confirmed delivery. Error reporting may take up to five additional seconds to
+fence an uncertain SDK generation. Owner::send must bound reply waiting by this
+combined budget. On cleanup overrun it marks the owner stopped and returns a
+controlled retryable shutdown error, without claiming a successful fence. Retain
+command byte/record permits and global owner slot until actual runtime destruction;
+no fresh SDK work is accepted and generation replacement still requires real done.
+SDK blocking DNS, native-root and compression tasks cannot be forcibly killed.
+No false bounded physical teardown guarantee is made when those OS tasks stall.
+
+Offline constructor validation checks strict certificate-only PEM, matching
+certificate/private key and encrypted PKCS8 before lazy network IO. PBKDF2 is
+bounded to100000 iterations, salt64B; scrypt N<=16384,r<=8,p<=1 (16MiB), key64B.
+Traditional encrypted PEM or unsupported/expensive schemes reject explicitly.
+No persisted TLS/configuration format changes. Error-code text remains controlled.

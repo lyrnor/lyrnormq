@@ -2447,3 +2447,23 @@ Linux amd64 musl静态交叉编译通过，未部署或在Linux运行。工具RU
 [证据与复现](verification/structured-logging-20261102/README.md)。
 剩余：按业务故障需要补充安全/限流埋点；文件轮转、热更新尚未实现，当前由运行环境
 采集stderr。没有测量或承诺吞吐/p99不变。分支codex/structured-logging。
+
+### Phase5k — krafka replacement (2026-11-02)
+
+Production Kafka SDK is now pinned krafka0.28.1/rustls-ring; librdkafka/OpenSSL/
+libcurl are absent from production dependencies. Existing SQL output bodies,
+durable shared logs, configuration and per-client lanes remain unchanged. Private
+owner runtime fences uncertain delivery/background tasks before retries or
+replacement; admission512/8MiB, SDK buffer8MiB, owner16 and connection64 bounds.
+
+801 Rust tests, strict Clippy/fmt,16real Kafka cases (15+codec) and static Linux
+amd64 musl build/ELF inspection passed. Three paired benchmark runs independently
+verified49152records per SDK, no errors; lower RSS and binary size, but measured
+TPS declines3.7..20.2% in this local flush-heavy workload. Multi-partition P99
+improved; single-partition median-run P99 worsened. No universal performance gain
+or MQTT end-to-end TPS claim. Linux artifact23.03→18.45MiB.
+
+[Reproduction, complete metrics, regressions and limits](verification/krafka-migration-20261102/README.md).
+Remaining: Linux execution, multi-replica fault/long-soak and performance profiling;
+at-least-once replay remains. Preexisting HTTP management changes were preserved;
+this phase does not complete that separate integration gate. No deployment/main merge.

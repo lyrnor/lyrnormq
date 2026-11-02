@@ -1,0 +1,139 @@
+{
+  "aggregation": "median of 3 per-run metrics; p99 is median of per-run p99, not pooled percentile",
+  "workload": "64 clients,64 messages/client,64 separately validated warmup records; LZ4,linger1ms,batch65536B; ack=all,idempotent",
+  "fixture_resource_limits": {
+    "heap_min_mib": 128,
+    "heap_max_mib": 512,
+    "cleaner_dedupe_bytes": 16777216,
+    "offsets_partitions": 1
+  },
+  "confirmed_per_sdk": 49152,
+  "verified_warmup_per_sdk": 768,
+  "errors": 0,
+  "scenarios": [
+    {
+      "partitions": 1,
+      "payload_bytes": 128,
+      "rdkafka-before": {
+        "median_tps": 10810.524312514195,
+        "tps_range": [
+          10206.427233419072,
+          11072.331369792146
+        ],
+        "median_run_p99_ms": 17.629083,
+        "run_p99_range_ms": [
+          7.778917,
+          22.868375
+        ],
+        "median_sampled_peak_rss_bytes": 13156352
+      },
+      "krafka-after": {
+        "median_tps": 8622.72523361428,
+        "tps_range": [
+          8618.599852946403,
+          8836.025506283499
+        ],
+        "median_run_p99_ms": 23.719458,
+        "run_p99_range_ms": [
+          8.9145,
+          25.2605
+        ],
+        "median_sampled_peak_rss_bytes": 10452992
+      },
+      "tps_change_percent": -20.237677800394316
+    },
+    {
+      "partitions": 1,
+      "payload_bytes": 1024,
+      "rdkafka-before": {
+        "median_tps": 8181.037409870774,
+        "tps_range": [
+          8033.814198432857,
+          8247.077430358298
+        ],
+        "median_run_p99_ms": 10.998458,
+        "run_p99_range_ms": [
+          10.883375,
+          15.352292
+        ],
+        "median_sampled_peak_rss_bytes": 13582336
+      },
+      "krafka-after": {
+        "median_tps": 7861.124605039424,
+        "tps_range": [
+          7078.400642010938,
+          8357.437565977925
+        ],
+        "median_run_p99_ms": 18.257958,
+        "run_p99_range_ms": [
+          11.615917,
+          28.326166
+        ],
+        "median_sampled_peak_rss_bytes": 10829824
+      },
+      "tps_change_percent": -3.9104185545632886
+    },
+    {
+      "partitions": 12,
+      "payload_bytes": 128,
+      "rdkafka-before": {
+        "median_tps": 1308.161219073805,
+        "tps_range": [
+          1305.6904107616506,
+          1354.0944621387866
+        ],
+        "median_run_p99_ms": 161.857334,
+        "run_p99_range_ms": [
+          145.195,
+          179.892833
+        ],
+        "median_sampled_peak_rss_bytes": 13352960
+      },
+      "krafka-after": {
+        "median_tps": 1260.2351965994199,
+        "tps_range": [
+          1157.038382500928,
+          1272.8406029447553
+        ],
+        "median_run_p99_ms": 63.7455,
+        "run_p99_range_ms": [
+          60.611625,
+          93.501166
+        ],
+        "median_sampled_peak_rss_bytes": 10289152
+      },
+      "tps_change_percent": -3.663617433049826
+    },
+    {
+      "partitions": 12,
+      "payload_bytes": 1024,
+      "rdkafka-before": {
+        "median_tps": 1358.5896155616974,
+        "tps_range": [
+          1338.0429985965004,
+          1414.3670422799541
+        ],
+        "median_run_p99_ms": 145.757708,
+        "run_p99_range_ms": [
+          139.973917,
+          149.146625
+        ],
+        "median_sampled_peak_rss_bytes": 13631488
+      },
+      "krafka-after": {
+        "median_tps": 1200.7224415090275,
+        "tps_range": [
+          1162.4263009734823,
+          1301.405493563468
+        ],
+        "median_run_p99_ms": 95.736083,
+        "run_p99_range_ms": [
+          59.867792,
+          96.552042
+        ],
+        "median_sampled_peak_rss_bytes": 10633216
+      },
+      "tps_change_percent": -11.619930863920313
+    }
+  ]
+}
