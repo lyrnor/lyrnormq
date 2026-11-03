@@ -465,6 +465,8 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
             node.spawn()
             wait_until(lambda: node.process.poll() is not None, 30)
             self.assertNotEqual(node.process.returncode, 0)
+            self.assertNotIn(CLUSTER_TOKEN, node.logs())
+            self.assertNotIn('incorrect-private-cluster-token-abc123', node.logs())
 
 
 if __name__ == '__main__':
