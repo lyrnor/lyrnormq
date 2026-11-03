@@ -323,11 +323,15 @@ impl Worker {
                 *entry
                     .username
                     .lock()
-                    .unwrap_or_else(PoisonError::into_inner) = principal
-                    .name
-                    .strip_prefix("user:")
-                    .map(str::to_owned)
-                    .or_else(|| request.username.clone());
+                    .unwrap_or_else(PoisonError::into_inner) = if principal.name == "anonymous" {
+                    None
+                } else {
+                    principal
+                        .name
+                        .strip_prefix("user:")
+                        .map(str::to_owned)
+                        .or_else(|| request.username.clone())
+                };
                 let client = request.client.clone();
                 let overload = refusal(&request, ReasonCode::SERVER_BUSY);
                 let (adopt, adopted) = oneshot::channel();

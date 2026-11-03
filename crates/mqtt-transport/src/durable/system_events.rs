@@ -207,3 +207,37 @@ impl Events {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn full_queue_is_nonblocking_bounded_and_counts_dropped_notifications() {
+        let events = Events::new().unwrap();
+        let (sender, mut receiver) = mpsc::channel(CAPACITY);
+        *events.sender.lock().unwrap() = Some(sender);
+        for generation in 0..=CAPACITY {
+            assert!(
+                events
+                    .connected(
+                        "device".into(),
+                        None,
+                        generation as u64,
+                        ProtocolVersion::V5,
+                        10
+                    )
+                    .is_some()
+            );
+        }
+        assert_eq!(receiver.len(), CAPACITY);
+        assert_eq!(events.dropped.load(Ordering::Relaxed), 1);
+        let first = receiver.try_recv().unwrap();
+        assert_eq!(first.connection.generation, 0);
+        events.disconnected(first.connection, 20, "normal");
+        assert_eq!(receiver.len(), CAPACITY);
+        assert_eq!(events.dropped.load(Ordering::Relaxed), 1);
+        drop(receiver);
+        events.connected("device".into(), None, 1000, ProtocolVersion::V5, 10);
+        assert_eq!(events.dropped.load(Ordering::Relaxed), 2);
+    }
+}
