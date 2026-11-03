@@ -349,3 +349,39 @@ async fn dangling_checkpoint_symlink_is_not_overwritten_from_exchange()
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
+
+#[tokio::test]
+async fn newer_oversized_legacy_state_does_not_replace_existing_staging()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let older = state(0);
+    let snapshot = make_snapshot(&older)?;
+    let mut newer = state(1);
+    newer.metadata.nodes.get_mut(&1).ok_or("node")?.incarnation =
+        "x".repeat(recovery::MAX_SNAPSHOT);
+    assert!(
+        make_snapshot(&newer).is_err(),
+        "fixture must exceed the checkpoint wire bound"
+    );
+    seed_exchange(
+        &dir,
+        &exchange(Some(&newer), Some(&snapshot), Some(1)),
+        vec![],
+        None,
+        None,
+    )?;
+    let staging = dir.join("controller-checkpoint.staging");
+    std::fs::create_dir(&staging)?;
+    std::fs::write(
+        staging.join("partial"),
+        b"preserve existing staging until all selected input is validated",
+    )?;
+    assert!(Store::open(&dir, "test", 1).await.is_err());
+    assert!(
+        staging.join("partial").is_file(),
+        "an oversized selected legacy State must be rejected before deleting staging"
+    );
+    assert!(!dir.join("controller.bbolt").exists());
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}

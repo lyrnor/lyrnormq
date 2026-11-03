@@ -36,7 +36,7 @@ pub(super) fn checkpoint(db: &checkpoint::Checkpoint) -> io::Result<State> {
         .transpose()
         .map(Option::unwrap_or_default)
 }
-/// Recover only durable committed input after a verified SQLite authority floor.
+/// Recover only durable committed input after a verified bbolt authority floor.
 pub(super) fn recover_wal(db: &checkpoint::Checkpoint, wal: &mut wal::Wal) -> io::Result<State> {
     let mut state = checkpoint(db)?;
     let floor = state.last_applied;
@@ -237,12 +237,12 @@ fn exchange_state(path: &Path, cluster: &str, node: u64) -> io::Result<Option<St
                     "exchange checkpoints conflict at the same applied index",
                 ));
             }
-            if previous.last_applied.map(|id| id.index) > candidate.last_applied.map(|id| id.index)
-            {
-                return Ok(state);
-            }
         }
-        state = Some(candidate);
+        if state.as_ref().is_none_or(|previous| {
+            previous.last_applied.map(|id| id.index) <= candidate.last_applied.map(|id| id.index)
+        }) {
+            state = Some(candidate);
+        }
     }
     // Canonical snapshot validation/bounds also apply to unsigned legacy State.
     if let Some(state) = &state {
