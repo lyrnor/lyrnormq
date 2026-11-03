@@ -254,6 +254,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "bbolt"
+version = "0.1.0"
+source = "git+https://github.com/biaogd/bbolt-rs?tag=v0.1.0#3aa4b1c1f44fe3a67e5a8b718978dc7af0315962"
+dependencies = [
+ "libc",
+ "memmap2",
+ "parking_lot",
+ "thiserror 2.0.21",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1565,6 +1577,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "memmap2"
+version = "0.9.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b0ca1155a9ecc25aa12e8313a119f32edf0255fea2f44839c4ac0a12b2ac157"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "mimalloc"
 version = "0.1.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1649,13 +1670,13 @@ dependencies = [
 name = "mqtt-cluster"
 version = "0.1.0"
 dependencies = [
+ "bbolt",
  "getrandom 0.2.17",
  "mqtt-cluster-core",
  "mqtt-router",
  "openraft",
  "prost",
  "raft-log",
- "rusqlite",
  "serde",
  "serde_json",
  "sha2",
@@ -3979,6 +4000,15 @@ name = "windows-sys"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
+dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-sys"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
  "windows-targets 0.52.6",
 ]
