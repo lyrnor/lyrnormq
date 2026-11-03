@@ -633,7 +633,7 @@ impl ClusterBridge for BrokerRuntime {
     fn release(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
             if let Some(data) = &self.data {
-                return data.release(&client_id, generation);
+                return data.release(&client_id, generation).await;
             }
             self.command(
                 Command::Release {

@@ -54,6 +54,7 @@ pub(super) struct Durable {
     journal: Journal,
     actors: Mutex<BTreeMap<String, mpsc::Sender<Job>>>,
     operations: Arc<Semaphore>,
+    waiters: Arc<Semaphore>,
     bytes: Arc<Semaphore>,
 }
 struct Cell {
@@ -101,6 +102,7 @@ impl Durable {
             journal,
             actors: Mutex::new(BTreeMap::new()),
             operations: Arc::new(Semaphore::new(32)),
+            waiters: Arc::new(Semaphore::new(32)),
             bytes: Arc::new(Semaphore::new(16 * 1024 * 1024)),
         }
     }
@@ -219,8 +221,8 @@ impl Durable {
         });
         Ok(tx)
     }
-    fn send(self: &Arc<Self>, key: &str, operation: Operation) -> io::Result<()> {
-        let size = match &operation {
+    fn operation_bytes(operation: &Operation) -> io::Result<u32> {
+        let size = match operation {
             Operation::Commit { mutation, .. } => mutation
                 .snapshot
                 .as_ref()
@@ -235,12 +237,16 @@ impl Durable {
             Operation::Host { message, .. } => message.payload.len(),
             _ => 0,
         };
-        let bytes = u32::try_from(size).map_err(|_| unavailable())?;
+        u32::try_from(size).map_err(|_| unavailable())
+    }
+
+    fn send(self: &Arc<Self>, key: &str, operation: Operation) -> io::Result<()> {
+        let bytes = Self::operation_bytes(&operation)?;
         let permit = self
             .operations
             .clone()
             .try_acquire_owned()
-            .map_err(|_| diagnosis::reject(Failure::DurableOperations))?;
+            .map_err(|_| diagnosis::reject(Failure::BackgroundOperations))?;
         let bytes = self
             .bytes
             .clone()
@@ -254,10 +260,69 @@ impl Durable {
             })
             .map_err(|error| {
                 diagnosis::reject(match error {
-                    mpsc::error::TrySendError::Full(_) => Failure::ActorQueue,
+                    mpsc::error::TrySendError::Full(_) => Failure::BackgroundActorQueue,
                     mpsc::error::TrySendError::Closed(_) => Failure::ActorClosed,
                 })
             })
+    }
+    async fn send_wait(self: &Arc<Self>, key: &str, operation: Operation) -> io::Result<()> {
+        // Charge the same16MiB body budget for both active and waiting work.
+        let bytes = self
+            .bytes
+            .clone()
+            .try_acquire_many_owned(Self::operation_bytes(&operation)?)
+            .map_err(|_| diagnosis::reject(Failure::DurableBytes))?;
+        let actor = self.actor(key)?;
+        // Never occupy global execution admission while waiting for an actor's
+        // bounded eight-entry channel. The fast path submits without awaiting.
+        match actor.clone().try_reserve_owned() {
+            Ok(channel) => match self.operations.clone().try_acquire_owned() {
+                Ok(active) => {
+                    channel.send(Job {
+                        operation,
+                        _permit: active,
+                        _bytes: bytes,
+                    });
+                    return Ok(());
+                }
+                Err(tokio::sync::TryAcquireError::Closed) => {
+                    return Err(diagnosis::reject(Failure::DurableOperations));
+                }
+                Err(tokio::sync::TryAcquireError::NoPermits) => drop(channel),
+            },
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                return Err(diagnosis::reject(Failure::ActorClosed));
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => diagnosis::observe(Failure::ActorWaiting),
+        }
+        let waiting = self
+            .waiters
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| diagnosis::reject(Failure::DurableWaitQueueFull))?;
+        diagnosis::observe(Failure::DurableWaiting);
+        let (channel, active) = tokio::time::timeout(Duration::from_millis(750), async {
+            let channel = actor
+                .reserve_owned()
+                .await
+                .map_err(|_| diagnosis::reject(Failure::ActorClosed))?;
+            let active = self
+                .operations
+                .clone()
+                .acquire_owned()
+                .await
+                .map_err(|_| diagnosis::reject(Failure::DurableOperations))?;
+            Ok::<_, io::Error>((channel, active))
+        })
+        .await
+        .map_err(|_| diagnosis::reject(Failure::DurableWaitTimeout))??;
+        drop(waiting);
+        channel.send(Job {
+            operation,
+            _permit: active,
+            _bytes: bytes,
+        });
+        Ok(())
     }
     pub fn forget(self: &Arc<Self>, key: &str) {
         // Keep the channel/serialization identity; discard only obsolete payload cache.
@@ -276,8 +341,9 @@ impl Durable {
             .map_err(|_| unavailable())?
             .map_err(|_| unavailable())?
     }
-    pub fn release(self: &Arc<Self>, client: &str, generation: u64) -> io::Result<()> {
-        self.send(&client_key(client), Operation::Release { generation })
+    pub async fn release(self: &Arc<Self>, client: &str, generation: u64) -> io::Result<()> {
+        self.send_wait(&client_key(client), Operation::Release { generation })
+            .await
     }
     pub async fn acquire(
         self: &Arc<Self>,
@@ -286,14 +352,15 @@ impl Durable {
         expected: u64,
     ) -> io::Result<SessionLease> {
         let (reply, rx) = oneshot::channel();
-        self.send(
+        self.send_wait(
             &key,
             Operation::Acquire {
                 generation,
                 expected,
                 reply,
             },
-        )?;
+        )
+        .await?;
         self.await_reply(rx).await
     }
     pub async fn transaction(
@@ -302,19 +369,22 @@ impl Durable {
     ) -> io::Result<SessionCommit> {
         let key = client_key(&mutation.client_id);
         let (reply, rx) = oneshot::channel();
-        self.send(&key, Operation::Commit { mutation, reply })?;
+        self.send_wait(&key, Operation::Commit { mutation, reply })
+            .await?;
         self.await_reply(rx).await
     }
     pub async fn enqueue(self: &Arc<Self>, message: ClusterMessage) -> io::Result<()> {
         let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
         let key = format!("h:{}:{}", runtime.config.node_id, runtime.incarnation);
         let (reply, rx) = oneshot::channel();
-        self.send(&key, Operation::Host { message, reply })?;
+        self.send_wait(&key, Operation::Host { message, reply })
+            .await?;
         self.await_reply(rx).await
     }
     pub async fn received(self: &Arc<Self>, client: &str, id: DeliveryId) -> io::Result<bool> {
         let (reply, rx) = oneshot::channel();
-        self.send(&client_key(client), Operation::Received { id, reply })?;
+        self.send_wait(&client_key(client), Operation::Received { id, reply })
+            .await?;
         self.await_reply(rx).await
     }
     pub async fn inspect(&self, runtime: &BrokerRuntime, client: &str) -> io::Result<SessionLease> {
@@ -688,7 +758,8 @@ impl Durable {
             let epoch = activation.epoch;
             let revision = activation.revision;
             runtime.local()?.activate_session(activation).await?;
-            self.send(&key, Operation::Activated { epoch, revision })?;
+            self.send_wait(&key, Operation::Activated { epoch, revision })
+                .await?;
         }
         let Some(intent) = state.intent else {
             return Ok(());
@@ -744,14 +815,15 @@ impl Durable {
                 }
             }
             let (reply, rx) = oneshot::channel();
-            self.send(
+            self.send_wait(
                 &key,
                 Operation::Complete {
                     id: intent.id.clone(),
                     recipient: recipient.clone(),
                     reply,
                 },
-            )?;
+            )
+            .await?;
             self.await_reply(rx).await?;
         }
         Ok(())
@@ -849,6 +921,234 @@ mod tests {
             Box::pin(async { Ok(Vec::new()) })
         }
     }
+    #[tokio::test]
+    async fn business_admission_waits_for_existing_operation_slot() -> io::Result<()> {
+        let path = std::env::temp_dir().join(format!(
+            "rmqtt-durable-admission-{}-{}",
+            std::process::id(),
+            controller::now()
+        ));
+        let journal = Journal::open(&path, ("bounded-admission", 1), &[])?;
+        let data = Arc::new(Durable::new(Weak::new(), journal));
+        let (tx, mut rx) = mpsc::channel::<Job>(8);
+        data.actors
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(client_key("bounded"), tx);
+        let held = data
+            .operations
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(io::Error::other)?;
+        let mutation = SessionMutation {
+            client_id: "bounded".into(),
+            epoch: 1,
+            expected_revision: 0,
+            snapshot: Some(vec![1]),
+            reset_session: false,
+            filters: vec![],
+            publications: vec![],
+            receipt: None,
+        };
+        let mut request = Box::pin(data.transaction(mutation));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut request)
+                .await
+                .is_err(),
+            "a legitimate business operation must wait rather than fail-fast at transient global admission saturation"
+        );
+        assert!(rx.try_recv().is_err());
+        drop(held);
+        let consumer = async {
+            let job = rx.recv().await.expect("queued operation");
+            if let Operation::Commit { reply, .. } = job.operation {
+                let _ = reply.send(Ok(SessionCommit {
+                    revision: 1,
+                    duplicate: false,
+                }));
+            } else {
+                panic!("wrong operation");
+            }
+        };
+        let (result, ()) = tokio::join!(request, consumer);
+        assert_eq!(result?.revision, 1);
+        drop(rx);
+        drop(data);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    fn admission_fixture(
+        label: &str,
+    ) -> io::Result<(Arc<Durable>, mpsc::Receiver<Job>, std::path::PathBuf)> {
+        let path = std::env::temp_dir().join(format!(
+            "rmqtt-durable-{label}-{}-{}",
+            std::process::id(),
+            controller::now()
+        ));
+        let journal = Journal::open(&path, ("bounded-admission", 1), &[])?;
+        let data = Arc::new(Durable::new(Weak::new(), journal));
+        let (tx, rx) = mpsc::channel::<Job>(8);
+        data.actors
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(client_key("bounded"), tx);
+        Ok((data, rx, path))
+    }
+    fn admission_mutation(bytes: usize) -> SessionMutation {
+        SessionMutation {
+            client_id: "bounded".into(),
+            epoch: 1,
+            expected_revision: 0,
+            snapshot: Some(vec![1; bytes]),
+            reset_session: false,
+            filters: vec![],
+            publications: vec![],
+            receipt: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn business_waits_are_finite_and_background_does_not_take_wait_budget() -> io::Result<()>
+    {
+        let (data, mut rx, path) = admission_fixture("finite-waits")?;
+        let active = data
+            .operations
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(io::Error::other)?;
+        let waiting = data
+            .waiters
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(io::Error::other)?;
+        let full = data
+            .transaction(admission_mutation(1))
+            .await
+            .expect_err("full waiting budget");
+        assert!(matches!(
+            full.get_ref().and_then(|e| e.downcast_ref::<Failure>()),
+            Some(Failure::DurableWaitQueueFull)
+        ));
+        let (reply, _) = oneshot::channel();
+        let skipped = data
+            .send(&client_key("bounded"), Operation::Work { reply })
+            .expect_err("background skips");
+        assert!(matches!(
+            skipped.get_ref().and_then(|e| e.downcast_ref::<Failure>()),
+            Some(Failure::BackgroundOperations)
+        ));
+        assert_eq!(data.waiters.available_permits(), 0);
+        drop(waiting);
+        let expired = tokio::time::timeout(
+            Duration::from_secs(2),
+            data.transaction(admission_mutation(1)),
+        )
+        .await
+        .map_err(io::Error::other)?
+        .expect_err("finite deadline");
+        assert!(matches!(
+            expired.get_ref().and_then(|e| e.downcast_ref::<Failure>()),
+            Some(Failure::DurableWaitTimeout)
+        ));
+        assert_eq!(data.waiters.available_permits(), 32);
+        assert_eq!(data.operations.available_permits(), 0);
+        assert_eq!(data.bytes.available_permits(), 16 * 1024 * 1024);
+        assert!(rx.try_recv().is_err());
+        drop(active);
+        drop(rx);
+        drop(data);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn canceled_business_waits_release_body_channel_and_wait_admission() -> io::Result<()> {
+        let (data, mut rx, path) = admission_fixture("canceled-wait")?;
+        let active = data
+            .operations
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(io::Error::other)?;
+        let mut request = Box::pin(data.transaction(admission_mutation(2 * 1024 * 1024)));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut request)
+                .await
+                .is_err()
+        );
+        assert_eq!(data.bytes.available_permits(), 14 * 1024 * 1024);
+        assert_eq!(data.waiters.available_permits(), 31);
+        assert!(rx.try_recv().is_err());
+        drop(request);
+        assert_eq!(data.bytes.available_permits(), 16 * 1024 * 1024);
+        assert_eq!(data.waiters.available_permits(), 32);
+        assert!(rx.try_recv().is_err());
+        drop(active);
+        drop(rx);
+        drop(data);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn full_actor_channel_wait_does_not_hold_global_admission() -> io::Result<()> {
+        let (data, mut rx, path) = admission_fixture("actor-wait")?;
+        for _ in 0..8 {
+            let (reply, _) = oneshot::channel();
+            data.send(&client_key("bounded"), Operation::Work { reply })?;
+        }
+        assert_eq!(data.operations.available_permits(), 24);
+        let mut request = Box::pin(data.release("bounded", 1));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut request)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            data.operations.available_permits(),
+            24,
+            "full actor cannot monopolize global permits"
+        );
+        assert_eq!(data.waiters.available_permits(), 31);
+        drop(rx.recv().await.expect("queued peek"));
+        request.await?;
+        assert_eq!(rx.len(), 8, "existing channel capacity unchanged");
+        drop(rx);
+        drop(data);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn active_and_waiting_bodies_keep_the_original_sixteen_mib_budget() -> io::Result<()> {
+        let (data, rx, path) = admission_fixture("body-bound")?;
+        let bytes = data
+            .bytes
+            .clone()
+            .acquire_many_owned(16 * 1024 * 1024)
+            .await
+            .map_err(io::Error::other)?;
+        let rejected = data
+            .transaction(admission_mutation(1))
+            .await
+            .expect_err("body budget exhausted");
+        assert!(matches!(
+            rejected.get_ref().and_then(|e| e.downcast_ref::<Failure>()),
+            Some(Failure::DurableBytes)
+        ));
+        assert_eq!(data.waiters.available_permits(), 32);
+        assert_eq!(data.operations.available_permits(), 32);
+        drop(bytes);
+        drop(rx);
+        drop(data);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
     #[test]
     fn repair_generation_invalidates_cached_writer_before_any_operation() {
         let mut cell = Cell {
