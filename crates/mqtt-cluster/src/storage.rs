@@ -14,11 +14,15 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 use tokio::sync::{Semaphore, watch};
+mod history;
+mod recovery;
 #[derive(Clone)]
 pub struct Store {
     inner: Arc<Inner>,
     pub state: Arc<Mutex<State>>,
     pub changed: watch::Sender<u64>,
+    history: Arc<Mutex<history::History>>,
+    apply_gate: Arc<Semaphore>,
 }
 struct Inner {
     db: Mutex<Connection>,
@@ -72,7 +76,8 @@ impl Store {
                 Some(_) => {},
                 None => put(&db, "identity", &identity)?,
             }
-            let state = get::<State>(&db, "state")?.unwrap_or_default();
+            let mut db = db;
+            let state = recovery::recover(&mut db)?;
             Ok::<_, io::Error>((db, lock, state))
         }).await.map_err(db_err)??;
         let (changed, _) = watch::channel(state.metadata.revision);
@@ -84,6 +89,8 @@ impl Store {
             }),
             state: Arc::new(Mutex::new(state)),
             changed,
+            history: Arc::new(Mutex::new(history::History::default())),
+            apply_gate: Arc::new(Semaphore::new(1)),
         })
     }
     #[allow(clippy::result_large_err)] // Required by the OpenRaft storage trait.
@@ -107,16 +114,228 @@ impl Store {
         .map_err(err)?
         .map_err(err)
     }
-    /// Cold fallback until Phase7h sparse history is installed.
+    async fn serialized<T, F, Fut>(&self, operation: F) -> Result<T, StorageError<u64>>
+    where
+        T: Send + 'static,
+        F: FnOnce(Self) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = Result<T, StorageError<u64>>> + Send + 'static,
+    {
+        // At most one owned continuation exists. Dropping the caller cannot
+        // release serialization between durable IO and RAM publication.
+        let turn = self.apply_gate.clone().acquire_owned().await.map_err(err)?;
+        let this = self.clone();
+        tokio::spawn(async move {
+            let _turn = turn;
+            operation(this).await
+        })
+        .await
+        .map_err(err)?
+    }
+    /// Consistent sparse updates; snapshots are limited to bootstrap/history gaps.
     pub fn watch_updates(&self, base: Option<u64>) -> Vec<MetadataUpdate> {
-        let metadata = self.metadata();
-        if base == Some(metadata.revision) {
-            vec![MetadataUpdate::Progress {
-                revision: metadata.revision,
-            }]
-        } else {
-            vec![MetadataUpdate::Snapshot(metadata)]
+        let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let revision = state.metadata.revision;
+        if base == Some(revision) {
+            return vec![MetadataUpdate::Progress { revision }];
         }
+        if let Some(base) = base
+            && let Some(updates) = self
+                .history
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .since(base)
+        {
+            return updates;
+        }
+        vec![MetadataUpdate::Snapshot(state.metadata.clone())]
+    }
+    async fn cpu<T: Send + 'static>(
+        &self,
+        call: impl FnOnce() -> io::Result<T> + Send + 'static,
+    ) -> Result<T, StorageError<u64>> {
+        let permit = self
+            .inner
+            .slots
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(err)?;
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            call()
+        })
+        .await
+        .map_err(err)?
+        .map_err(err)
+    }
+    async fn persist_checkpoint(
+        &self,
+        state: State,
+    ) -> Result<(Snapshot<Types>, State), StorageError<u64>> {
+        let (state, saved) = self
+            .cpu(move || {
+                let saved = make_snapshot(&state)?;
+                Ok((state, saved))
+            })
+            .await?;
+        let meta = saved.meta.clone();
+        let data = saved.data.clone();
+        self.run(move |db| {
+            recovery::verify_remaining_tail(db, saved.meta.last_log_id)?;
+            let previous = recovery::read_saved_snapshot(db)?;
+            if previous.as_ref().is_none_or(|old| {
+                old.meta.last_log_id.map(|id| id.index) <= saved.meta.last_log_id.map(|id| id.index)
+            }) {
+                let tx = db.transaction().map_err(db_err)?;
+                recovery::put_snapshot(&tx, &saved)?;
+                tx.commit().map_err(db_err)?;
+            }
+            Ok(())
+        })
+        .await?;
+        Ok((
+            Snapshot {
+                meta,
+                snapshot: Box::new(Cursor::new(data)),
+            },
+            state,
+        ))
+    }
+    async fn apply_entries(
+        &self,
+        entries: Vec<Entry<Types>>,
+    ) -> Result<Vec<Answer>, StorageError<u64>> {
+        let (entries, durable) = self
+            .run(move |db| {
+                let durable = recovery::applied_input_durable(db, &entries)?;
+                Ok((entries, durable))
+            })
+            .await?;
+        let state = self.state.clone();
+        let needs_checkpoint = self
+            .cpu({
+                let entries = entries.iter().map(|entry| entry.log_id).collect::<Vec<_>>();
+                move || {
+                    let mut previous = state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .last_applied
+                        .map(|id| id.index);
+                    Ok(!durable
+                        || entries.into_iter().fold(false, |gap, id| {
+                            let next_gap =
+                                id.index != previous.map_or(0, |idx| idx.saturating_add(1));
+                            previous = Some(id.index);
+                            gap || next_gap
+                        }))
+                }
+            })
+            .await?;
+        if needs_checkpoint {
+            let state = self.state.clone();
+            let (candidate, result, updates) = self
+                .cpu(move || {
+                    let mut candidate =
+                        state.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                    let mut answers = Vec::with_capacity(entries.len());
+                    let mut updates = Vec::new();
+                    for entry in entries {
+                        let (answer, delta) = candidate.apply_tracked(entry);
+                        answers.push(answer);
+                        if let Some(delta) = delta {
+                            updates.push(delta);
+                        }
+                    }
+                    Ok((candidate, answers, updates))
+                })
+                .await?;
+            let (_, candidate) = self.persist_checkpoint(candidate).await?;
+            let state = self.state.clone();
+            let history = self.history.clone();
+            let changed = self.changed.clone();
+            self.cpu(move || {
+                let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
+                let mut history = history.lock().unwrap_or_else(PoisonError::into_inner);
+                *state = candidate;
+                for update in updates {
+                    history.push(update);
+                }
+                changed.send_replace(state.metadata.revision);
+                Ok(())
+            })
+            .await?;
+            Ok(result)
+        } else {
+            let state = self.state.clone();
+            let history = self.history.clone();
+            let changed = self.changed.clone();
+            self.cpu(move || {
+                let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
+                let mut history = history.lock().unwrap_or_else(PoisonError::into_inner);
+                let mut answers = Vec::with_capacity(entries.len());
+                for entry in entries {
+                    let (answer, delta) = state.apply_tracked(entry);
+                    answers.push(answer);
+                    if let Some(delta) = delta {
+                        history.push(delta);
+                    }
+                }
+                changed.send_replace(state.metadata.revision);
+                Ok(answers)
+            })
+            .await
+        }
+    }
+    async fn install_checkpoint(
+        &self,
+        meta: SnapshotMeta<u64, BasicNode>,
+        data: Vec<u8>,
+    ) -> Result<(), StorageError<u64>> {
+        let (next, saved) = self
+            .cpu(move || {
+                let digest = recovery::snapshot_digest(&meta, &data)?;
+                let saved = SavedSnapshot {
+                    meta,
+                    data,
+                    format: 1,
+                    digest: Some(digest),
+                };
+                let next = recovery::snapshot_state(&saved)?;
+                Ok((next, saved))
+            })
+            .await?;
+        let checkpoint = next.last_applied;
+        self.run(move |db| {
+            let tx = db.transaction().map_err(db_err)?;
+            if old_checkpoint_conflicts(&tx, saved.meta.last_log_id)? {
+                return Err(db_err(
+                    "snapshot regresses or conflicts with durable authority",
+                ));
+            }
+            recovery::put_snapshot(&tx, &saved)?;
+            tx.execute("DELETE FROM meta WHERE key='state'", [])
+                .map_err(db_err)?;
+            let old = get::<Option<LogId<u64>>>(&tx, "committed")?.flatten();
+            if checkpoint.map(|id| id.index) > old.map(|id| id.index) {
+                put(&tx, "committed", &checkpoint)?;
+            }
+            tx.commit().map_err(db_err)
+        })
+        .await?;
+        let state = self.state.clone();
+        let history = self.history.clone();
+        let changed = self.changed.clone();
+        self.cpu(move || {
+            let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
+            *state = next;
+            history
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clear();
+            changed.send_replace(state.metadata.revision);
+            Ok(())
+        })
+        .await
     }
     pub fn metadata(&self) -> Metadata {
         self.state
@@ -203,7 +422,16 @@ impl RaftLogStorage<Types> for Store {
         self.run(|db| get(db, "vote")).await
     }
     async fn save_committed(&mut self, id: Option<LogId<u64>>) -> Result<(), StorageError<u64>> {
-        self.run(move |db| put(db, "committed", &id)).await
+        self.run(move |db| {
+            let previous = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+            if previous.is_some_and(|old| {
+                id.is_none_or(|new| new.index < old.index || (new.index == old.index && new != old))
+            }) {
+                return Err(db_err("committed log watermark cannot regress"));
+            }
+            put(db, "committed", &id)
+        })
+        .await
     }
     async fn read_committed(&mut self) -> Result<Option<LogId<u64>>, StorageError<u64>> {
         self.run(|db| Ok(get::<Option<LogId<u64>>>(db, "committed")?.flatten()))
@@ -232,6 +460,16 @@ impl RaftLogStorage<Types> for Store {
     }
     async fn truncate(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
         self.run(move |db| {
+            let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+            let checkpoint = recovery::checkpoint(db)?.last_applied;
+            if committed.is_some_and(|last| {
+                last.index >= id.index
+                    && checkpoint.is_none_or(|covered| covered.index < last.index)
+            }) {
+                return Err(db_err(
+                    "truncate would remove unsnapshotted committed entries",
+                ));
+            }
             db.execute(
                 "DELETE FROM logs WHERE idx>=?1",
                 [id.index.min(i64::MAX as u64) as i64],
@@ -242,12 +480,31 @@ impl RaftLogStorage<Types> for Store {
         .await
     }
     async fn purge(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
+        let needs_checkpoint = self
+            .run(move |db| {
+                let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+                let checkpoint = recovery::checkpoint(db)?.last_applied;
+                let needed = committed.map(|log| log.index.min(id.index));
+                Ok(needed.is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed)))
+            })
+            .await?;
+        if needs_checkpoint {
+            self.build_snapshot().await?;
+        }
         self.run(move |db| {
             let tx = db.transaction().map_err(db_err)?;
+            let committed = get::<Option<LogId<u64>>>(&tx, "committed")?.flatten();
+            let checkpoint = recovery::checkpoint(&tx)?.last_applied;
+            if committed
+                .map(|log| log.index.min(id.index))
+                .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed))
+            {
+                return Err(db_err("purge would remove unsnapshotted committed entries"));
+            }
             put(&tx, "purged", &id)?;
             tx.execute(
                 "DELETE FROM logs WHERE idx<=?1",
-                [id.index.min(i64::MAX as u64) as i64],
+                [i64::try_from(id.index).map_err(db_err)?],
             )
             .map_err(db_err)?;
             tx.commit().map_err(db_err)
@@ -255,47 +512,58 @@ impl RaftLogStorage<Types> for Store {
         .await
     }
 }
+fn old_checkpoint_conflicts(db: &Connection, incoming: Option<LogId<u64>>) -> io::Result<bool> {
+    let checkpoint = recovery::checkpoint(db)?.last_applied;
+    let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+    Ok(checkpoint.map(|id| id.index) > incoming.map(|id| id.index)
+        || checkpoint
+            .is_some_and(|old| incoming.is_some_and(|new| old.index == new.index && old != new))
+        || committed
+            .is_some_and(|old| incoming.is_some_and(|new| old.index == new.index && old != new)))
+}
 #[derive(Serialize, serde::Deserialize)]
 struct SavedSnapshot {
+    #[serde(default)]
+    format: u64,
+    #[serde(default)]
+    digest: Option<String>,
     meta: SnapshotMeta<u64, BasicNode>,
     data: Vec<u8>,
 }
+fn make_snapshot(state: &State) -> io::Result<SavedSnapshot> {
+    let data = encode(&state)?;
+    if data.len() > recovery::MAX_SNAPSHOT {
+        return Err(db_err("snapshot exceeds limit"));
+    }
+    let meta = SnapshotMeta {
+        last_log_id: state.last_applied,
+        last_membership: state.membership.clone(),
+        snapshot_id: format!(
+            "{}-{}",
+            state.last_applied.map_or(0, |id| id.index),
+            state.metadata.revision
+        ),
+    };
+    let digest = recovery::snapshot_digest(&meta, &data)?;
+    Ok(SavedSnapshot {
+        meta,
+        data,
+        format: 1,
+        digest: Some(digest),
+    })
+}
 impl RaftSnapshotBuilder<Types> for Store {
     async fn build_snapshot(&mut self) -> Result<Snapshot<Types>, StorageError<u64>> {
-        let state = self
-            .state
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone();
-        let data = encode(&state).map_err(err)?;
-        let meta = SnapshotMeta {
-            last_log_id: state.last_applied,
-            last_membership: state.membership,
-            snapshot_id: format!(
-                "{}-{}",
-                state.last_applied.map_or(0, |id| id.index),
-                state.metadata.revision
-            ),
-        };
-        let saved = SavedSnapshot {
-            meta: meta.clone(),
-            data: data.clone(),
-        };
-        self.run(move |db| {
-            let previous: Option<SavedSnapshot> = get(db, "snapshot")?;
-            if previous
-                .as_ref()
-                .is_none_or(|old| old.meta.last_log_id <= saved.meta.last_log_id)
-            {
-                put(db, "snapshot", &saved)?;
-            }
-            Ok(())
+        self.serialized(|this| async move {
+            let state = this.state.clone();
+            let state = this
+                .cpu(move || Ok(state.lock().unwrap_or_else(PoisonError::into_inner).clone()))
+                .await?;
+            this.persist_checkpoint(state)
+                .await
+                .map(|(snapshot, _)| snapshot)
         })
-        .await?;
-        Ok(Snapshot {
-            meta,
-            snapshot: Box::new(Cursor::new(data)),
-        })
+        .await
     }
 }
 impl RaftStateMachine<Types> for Store {
@@ -311,21 +579,11 @@ impl RaftStateMachine<Types> for Store {
         I: IntoIterator<Item = Entry<Types>> + Send,
     {
         let entries: Vec<_> = entries.into_iter().collect();
-        let state = self.state.clone();
-        let changed = self.changed.clone();
-        self.run(move |db| {
-            let mut next = state.lock().unwrap_or_else(PoisonError::into_inner).clone();
-            let old_revision = next.metadata.revision;
-            let result = entries.into_iter().map(|entry| next.apply(entry)).collect();
-            put(db, "state", &next)?;
-            let revision = next.metadata.revision;
-            *state.lock().unwrap_or_else(PoisonError::into_inner) = next;
-            if revision != old_revision {
-                changed.send_replace(revision);
-            }
-            Ok(result)
-        })
-        .await
+        if entries.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.serialized(move |this| async move { this.apply_entries(entries).await })
+            .await
     }
     async fn get_snapshot_builder(&mut self) -> Self {
         self.clone()
@@ -340,39 +598,27 @@ impl RaftStateMachine<Types> for Store {
         meta: &SnapshotMeta<u64, BasicNode>,
         snapshot: Box<Cursor<Vec<u8>>>,
     ) -> Result<(), StorageError<u64>> {
+        let meta = meta.clone();
         let data = snapshot.into_inner();
-        if data.len() > 16 * 1024 * 1024 {
-            return Err(err("snapshot exceeds limit"));
-        }
-        let mut next: State = decode(&data).map_err(err)?;
-        next.last_applied = meta.last_log_id;
-        next.membership = meta.last_membership.clone();
-        let snapshot = SavedSnapshot {
-            meta: meta.clone(),
-            data,
-        };
-        let state = self.state.clone();
-        let changed = self.changed.clone();
-        self.run(move |db| {
-            let tx = db.transaction().map_err(db_err)?;
-            put(&tx, "snapshot", &snapshot)?;
-            put(&tx, "state", &next)?;
-            tx.commit().map_err(db_err)?;
-            let revision = next.metadata.revision;
-            *state.lock().unwrap_or_else(PoisonError::into_inner) = next;
-            changed.send_replace(revision);
-            Ok(())
-        })
-        .await
+        self.serialized(move |this| async move { this.install_checkpoint(meta, data).await })
+            .await
     }
     async fn get_current_snapshot(&mut self) -> Result<Option<Snapshot<Types>>, StorageError<u64>> {
-        self.run(|db| {
-            let saved: Option<SavedSnapshot> = get(db, "snapshot")?;
-            Ok(saved.map(|s| Snapshot {
-                meta: s.meta,
-                snapshot: Box::new(Cursor::new(s.data)),
-            }))
+        let saved = self.run(|db| recovery::read_saved_snapshot(db)).await?;
+        self.cpu(move || {
+            saved
+                .map(|saved| {
+                    recovery::snapshot_state(&saved)?;
+                    Ok(Snapshot {
+                        meta: saved.meta,
+                        snapshot: Box::new(Cursor::new(saved.data)),
+                    })
+                })
+                .transpose()
         })
         .await
     }
 }
+
+#[cfg(test)]
+mod tests;
