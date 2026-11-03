@@ -87,7 +87,8 @@ mqtt-cluster-core adds redacted models SessionLease{client_id,epoch,revision,
 snapshot:Option<Vec<u8>>}, DeliveryId{source,epoch,revision,index:u32},
 SessionMutation{client_id,epoch,expected_revision,snapshot,publications,receipt},
 SessionCommit{revision,duplicate}. Existing imports remain. ClusterBridge adds
-durable()->bool (defaultfalse), acquire_session(client_id,generation)->SessionLease,
+durable()->bool (defaultfalse), inspect_session(client_id)->SessionLease,
+acquire_session(client_id,generation,expected_epoch)->SessionLease,
 commit_session(SessionMutation)->SessionCommit; new async methods default to
 Unsupported for legacy bridges/mocks. acquire_session is authenticated transport's
 pre-CONNACK boundary. LocalBroker adds activate_session(SessionLease) and
@@ -107,6 +108,15 @@ barrier before returning successful subscription mutation. Generation0 denotes
 offline recovery only, never an MQTT connection. Existing forward(message) is the
 durable host/system enqueue boundary when durable mode is enabled; transport must
 skip the old local fanout path there, then observe the source once after acceptance.
+
+Ownership admission amendment: inspect_session performs an R2 read with no fencing
+and returns the current Controller directory epoch plus opaque snapshot (epoch0,
+revision0,None when absent). Authenticated transport first restores/observes expiry
+and checks the existing SessionEngine principal. acquire_session CAS-checks the
+inspected epoch before any takeover; a concurrent ownership change requires a fresh
+inspection and owner check, not a blind retry with the latest epoch. The acquired
+snapshot still undergoes normal SessionEngine CONNECT validation. Runtime never
+parses the snapshot or accepts an unverified username as proof of ownership.
 
 ## Resources and acceptance
 

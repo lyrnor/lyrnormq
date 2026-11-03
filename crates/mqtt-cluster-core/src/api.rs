@@ -46,7 +46,18 @@ pub trait ClusterBridge: Debug + Send + Sync {
         &self,
         _client_id: String,
         _generation: u64,
+        _expected_epoch: u64,
     ) -> ClusterFuture<'_, SessionLease> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "durable cluster unavailable",
+            ))
+        })
+    }
+    /// Quorum-read the opaque state before ownership mutation. Epoch zero means
+    /// no directory owner exists; it remains a CAS precondition at acquisition.
+    fn inspect_session(&self, _client_id: String) -> ClusterFuture<'_, SessionLease> {
         Box::pin(async {
             Err(io::Error::new(
                 io::ErrorKind::Unsupported,
