@@ -104,7 +104,7 @@ pub(super) fn recover(db: &mut Connection) -> io::Result<State> {
                 if entry.log_id.index == committed.index && entry.log_id != committed {
                     return Err(db_err("committed log identity mismatch"));
                 }
-                state.apply_tracked(entry);
+                state.apply(entry);
                 expected = expected
                     .checked_add(1)
                     .ok_or_else(|| db_err("log index overflow"))?;

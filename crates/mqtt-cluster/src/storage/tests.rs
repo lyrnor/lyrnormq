@@ -484,3 +484,28 @@ async fn direct_apply_cannot_ack_with_a_missing_higher_committed_tail()
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
+
+#[tokio::test]
+async fn older_or_out_of_order_apply_cannot_roll_ram_back_behind_durable_checkpoint()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let mut store = Store::open(&dir, "test", 1).await?;
+    store.apply([entry(7, 1)]).await?;
+    let before = encode(&*store.state.lock().unwrap())?;
+    assert!(
+        store.apply([entry(3, 2)]).await.is_err(),
+        "older direct apply must not replace RAM with an undurable candidate"
+    );
+    assert_eq!(encode(&*store.state.lock().unwrap())?, before);
+    assert!(
+        store.apply([entry(9, 2), entry(8, 3)]).await.is_err(),
+        "batch must be strictly ordered"
+    );
+    assert_eq!(encode(&*store.state.lock().unwrap())?, before);
+    drop(store);
+    let store = Store::open(&dir, "test", 1).await?;
+    assert_eq!(encode(&*store.state.lock().unwrap())?, before);
+    drop(store);
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}

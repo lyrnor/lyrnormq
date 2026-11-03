@@ -186,6 +186,14 @@ impl Store {
         self.run(move |db| {
             recovery::verify_remaining_tail(db, saved.meta.last_log_id)?;
             let previous = recovery::read_saved_snapshot(db)?;
+            if previous.as_ref().is_some_and(|old| {
+                old.meta.last_log_id.map(|id| id.index) > saved.meta.last_log_id.map(|id| id.index)
+                    || (old.meta.last_log_id.map(|id| id.index)
+                        == saved.meta.last_log_id.map(|id| id.index)
+                        && old.meta.last_log_id != saved.meta.last_log_id)
+            }) {
+                return Err(db_err("checkpoint cannot regress durable applied state"));
+            }
             if previous.as_ref().is_none_or(|old| {
                 old.meta.last_log_id.map(|id| id.index) <= saved.meta.last_log_id.map(|id| id.index)
             }) {
@@ -209,6 +217,20 @@ impl Store {
         &self,
         entries: Vec<Entry<Types>>,
     ) -> Result<Vec<Answer>, StorageError<u64>> {
+        {
+            let mut previous = self
+                .state
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .last_applied
+                .map(|id| id.index);
+            for entry in &entries {
+                if previous.is_some_and(|index| entry.log_id.index <= index) {
+                    return Err(err("state-machine apply index cannot repeat or regress"));
+                }
+                previous = Some(entry.log_id.index);
+            }
+        }
         let (entries, durable) = self
             .run(move |db| {
                 let durable = recovery::applied_input_durable(db, &entries)?;
