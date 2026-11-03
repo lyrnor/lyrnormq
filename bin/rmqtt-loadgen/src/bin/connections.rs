@@ -150,6 +150,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Result<_, _>>()?;
     let rate: u64 = args.next().ok_or_else(|| failure("need rate"))?.parse()?;
     let output = PathBuf::from(args.next().ok_or_else(|| failure("need output"))?);
+    let plateaus: u64 = args
+        .next()
+        .map(|value| value.parse())
+        .transpose()?
+        .unwrap_or(10);
+    if args.next().is_some() || !(1..=10).contains(&plateaus) {
+        return Err(failure("optional plateau count must be1..10").into());
+    }
     if addrs.len() != 3 || rate == 0 || rate > 10000 || output.exists() {
         return Err(failure("need3 endpoints, rate1..10000, fresh output").into());
     }
@@ -159,7 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut live = Vec::new();
     let mut steps = Vec::new();
     // At most2048 concurrent handshakes; skipped absolute arrivals are counted.
-    for step in 1..=10u64 {
+    for step in 1..=plateaus {
         let begin = Instant::now();
         let mut tasks = JoinSet::new();
         let mut times = Vec::new();
@@ -210,7 +218,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             && ping_errors.is_empty()
             && not_started == 0;
         steps.push(row);
-        let report = json!({"tool":"Rust Tokio raw MQTT5 connection ramp","endpoints":addrs.iter().map(ToString::to_string).collect::<Vec<_>>(),"rate":rate,"max_concurrent_handshakes":2048,"timeout_seconds":15,"plateau_passed":plateau_ok,"remaining_targets_not_attempted":if plateau_ok { Vec::<u64>::new() } else { ((step+1)..=10).map(|n|n*10000).collect() },"steps":steps});
+        let report = json!({"tool":"Rust Tokio raw MQTT5 connection ramp","endpoints":addrs.iter().map(ToString::to_string).collect::<Vec<_>>(),"rate":rate,"requested_plateaus":plateaus,"max_concurrent_handshakes":2048,"timeout_seconds":15,"plateau_passed":plateau_ok,"remaining_targets_not_attempted":if plateau_ok { Vec::<u64>::new() } else { ((step+1)..=plateaus).map(|n|n*10000).collect() },"steps":steps});
         tokio::fs::write(&output, serde_json::to_vec_pretty(&report)?).await?;
         // Do not label higher targets measured after a lower plateau failed.
         if !plateau_ok {

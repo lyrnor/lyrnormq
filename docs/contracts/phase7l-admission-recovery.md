@@ -45,3 +45,9 @@ existing RAM/event/control recovery tests. Deploy fresh isolated three dual-role
 processes on47.84.224.186; load47.84.241.200 private network. First gate1000/s to10k,
 then hold/PING. Record actual budgets/raw evidence/resources; stop first failure.
 No further cohorts or QoS claims if setup fails. No server compilation.
+
+Approved private RPC extension: authenticated ReadRequest::Node{node} returns only
+Option<DataNode> under linearizable authority. Heartbeat-error recovery uses this
+small read to prove absence; no full-directory read on a transient heartbeat error.
+Connection probe optional plateau count1..10 (default10) permits an explicit first
+10k-only gate with unchanged arrivals/hold/PING and first-failure stop behavior.
