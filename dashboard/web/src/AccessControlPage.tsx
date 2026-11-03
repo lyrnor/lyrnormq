@@ -369,7 +369,7 @@ export function AccessControlPage({
                 </Field>
               </div>
               <AccessControlFields
-                key={stage}
+                key={`fields-${stage}`}
                 draft={draft}
                 postgresAvailable={status?.postgresql_available !== false}
                 onChange={update}
@@ -377,7 +377,7 @@ export function AccessControlPage({
               />
               {draft.value.type === "postgresql" && (
                 <PostgresConnectionTest
-                  key={stage}
+                  key={`connection-test-${stage}`}
                   draft={draft}
                   stage={stage}
                   token={token}

@@ -99,6 +99,7 @@ async function tab(name: string) {
 async function select(name: string, option: string) {
   fireEvent.keyDown(screen.getByRole("button", { name }), { key: "ArrowDown" });
   fireEvent.click(await screen.findByRole("menuitemradio", { name: option }));
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 }
 beforeEach(() => {
   vi.stubGlobal(
@@ -425,6 +426,45 @@ describe("HTTP authentication and authorization dashboard", () => {
 });
 
 describe("PostgreSQL authentication dashboard", () => {
+  it("keeps one live backend selector when switching backends and stages repeatedly", async () => {
+    server();
+    render(<AccessControlPage token="token" expired={expired} />);
+    await ready();
+    for (let round = 0; round < 3; round++) {
+      for (const name of ["认证", "授权"]) {
+        fireEvent.mouseDown(screen.getByRole("tab", { name }), {
+          button: 0,
+          ctrlKey: false,
+        });
+        await select("后端类型", "PostgreSQL");
+        // Reconcile keyed siblings while the connection test is mounted.
+        for (const tabName of [name === "认证" ? "授权" : "认证", name]) {
+          fireEvent.mouseDown(screen.getByRole("tab", { name: tabName }), {
+            button: 0,
+            ctrlKey: false,
+          });
+        }
+        expect(
+          screen.getAllByRole("button", { name: "后端类型" }),
+        ).toHaveLength(1);
+        expect(screen.getAllByLabelText("数据库主机")).toHaveLength(1);
+        expect(
+          screen.getByRole("heading", { name: `PostgreSQL ${name}` }),
+        ).toBeTruthy();
+        await select("后端类型", "HTTP");
+        expect(
+          screen.getAllByRole("button", { name: "后端类型" }),
+        ).toHaveLength(1);
+        await waitFor(() =>
+          expect(screen.queryByLabelText("数据库主机")).toBeNull(),
+        );
+        expect(screen.getAllByLabelText("请求地址")).toHaveLength(1);
+        expect(
+          screen.getByRole("heading", { name: `HTTP ${name}` }),
+        ).toBeTruthy();
+      }
+    }
+  });
   it("switches backends, saves custom SQL and offers database connection testing", async () => {
     const saved = server();
     render(<AccessControlPage token="token" expired={expired} />);
