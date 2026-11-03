@@ -1,0 +1,19 @@
+test_connect_must_be_first (__main__.MQTTBlackbox.test_connect_must_be_first) ... ok
+test_fragmented_connect_and_coalesced_packets (__main__.MQTTBlackbox.test_fragmented_connect_and_coalesced_packets) ... ok
+test_invalid_filters_are_rejected (__main__.MQTTBlackbox.test_invalid_filters_are_rejected) ... ok
+test_invalid_unsubscribe_filter_disconnects (__main__.MQTTBlackbox.test_invalid_unsubscribe_filter_disconnects) ... ok
+test_keepalive_timeout (__main__.MQTTBlackbox.test_keepalive_timeout) ... ok
+test_malformed_headers_and_utf8 (__main__.MQTTBlackbox.test_malformed_headers_and_utf8) ... ok
+test_malformed_publish_flags_disconnect (__main__.MQTTBlackbox.test_malformed_publish_flags_disconnect) ... ok
+test_partial_packet_does_not_refresh_keepalive (__main__.MQTTBlackbox.test_partial_packet_does_not_refresh_keepalive) ... ok
+test_same_id_takeover_and_cleanup (__main__.MQTTBlackbox.test_same_id_takeover_and_cleanup) ... ok
+test_second_connect_disconnects (__main__.MQTTBlackbox.test_second_connect_disconnects) ... ok
+test_server_direction_packet_disconnects (__main__.MQTTBlackbox.test_server_direction_packet_disconnects) ... ok
+test_system_topic_isolation (__main__.MQTTBlackbox.test_system_topic_isolation) ... ok
+test_unsupported_protocol_level_rejected_with_connack (__main__.MQTTBlackbox.test_unsupported_protocol_level_rejected_with_connack) ... ok
+test_wildcards_dedup_qos_grant_and_unsubscribe (__main__.MQTTBlackbox.test_wildcards_dedup_qos_grant_and_unsubscribe) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 3.615s
+
+OK

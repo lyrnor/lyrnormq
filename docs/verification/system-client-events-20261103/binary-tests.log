@@ -1,0 +1,76 @@
+   Compiling tokio v1.54.1
+   Compiling tokio-rustls v0.26.6
+   Compiling hyper v1.12.0
+   Compiling tower v0.5.3
+   Compiling tokio-stream v0.1.19
+   Compiling tokio-util v0.7.20
+   Compiling tokio-socks v0.5.3
+   Compiling tokio-tungstenite v0.28.0
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling sqlx-core v0.8.6
+   Compiling krafka v0.28.1
+   Compiling tower-http v0.6.11
+   Compiling hyper-util v0.1.21
+   Compiling hyper-rustls v0.27.10
+   Compiling axum v0.8.9
+   Compiling reqwest v0.12.28
+   Compiling sqlx-postgres v0.8.6
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
+   Compiling sqlx v0.8.6
+   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-postgres)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.32s
+     Running unittests src/main.rs (target/debug/deps/rmqtt-e92c393b64cc3a33)
+
+running 37 tests
+test admin::http::tests::authorization_requires_one_exact_bearer_header ... ok
+test admin::http::tests::management_busy_and_not_ready_have_distinct_statuses ... ok
+test admin::access_control::tests::public_failures_never_return_raw_provider_or_storage_errors ... ok
+test admin::rules::tests::rule_failures_have_redacted_typed_statuses ... ok
+test admin::http::tests::query_validation_enforces_limits_and_rejects_duplicates_and_unknowns ... ok
+test admin::tests::static_symlinks_and_token_symlinks_are_rejected ... ok
+test admin::rules::tests::disabled_rules_are_explicit_without_creating_a_runtime ... ok
+test admin::tests::token_input_is_bounded_and_errors_do_not_disclose_secrets ... ok
+test admin::access_control::tests::credential_fields_preserve_binary_absence_empty_and_exclusivity ... ok
+test cli::tests::access_config_path_is_private_sibling_and_never_created_by_export ... ok
+test cli::tests::client_ca_requires_server_identity_and_rejects_duplicate_or_empty_paths ... ok
+test auth_policy::tests::rejects_nonregular_or_oversized_input_before_parsing ... ok
+test cli::tests::durable_outbound_queue_cli_accepts_explicit_limits ... ok
+test admin::tests::builtin_bundle_contains_production_entry_and_linked_assets ... ok
+test cli::tests::durable_outbound_queue_limits_and_paths_are_bounded ... ok
+test cli::tests::admission_limits_have_explicit_defaults_and_rate_can_be_disabled ... ok
+test cli::tests::enhanced_plain_is_explicit_and_combines_with_existing_policy ... ok
+test cli::tests::export_state_is_a_leading_subcommand_requiring_storage ... ok
+test auth_policy::tests::reads_valid_policy_and_rejects_invalid_or_missing_file ... ok
+test cli::tests::policy_path_is_opt_in_and_parsed_without_reading_the_file ... ok
+test cli::tests::persistent_storage_is_opt_in_and_has_explicit_bounds ... ok
+test cli::tests::management_is_opt_in_loopback_and_requires_complete_options ... ok
+test cli::tests::protocol_profile_defaults_to_both_and_requires_an_explicit_valid_value ... ok
+test cli::tests::rejects_invalid_resource_boundaries_and_missing_values ... ok
+test cli::tests::rules_config_defaults_for_serving_and_rejects_invalid_combinations ... ok
+test cli::tests::supports_limits_without_changing_unset_defaults ... ok
+test cli::tests::tls_identity_requires_one_complete_pair_without_reading_files ... ok
+test cli::tests::topic_alias_budget_defaults_but_can_be_disabled_or_use_full_range ... ok
+test cli::tests::websocket_selection_supports_plain_and_tls_without_reading_identity ... ok
+test cli::tests::websocket_rejects_incomplete_duplicate_invalid_and_export_configuration ... ok
+test logging::tests::invalid_settings_fail_without_echoing_supplied_values ... ok
+test logging::tests::default_and_target_filters_have_predictable_levels ... ok
+test admin::tests::outbound_queue_directory_cannot_be_loaded_as_public_assets ... ok
+test admin::tests::static_input_has_file_and_total_limits_and_needs_index ... ok
+test tls_identity::tests::bounded_file_reader_rejects_special_missing_and_oversized_inputs ... ok
+test admin::tests::sqlite_configuration_and_companion_aliases_cannot_be_static_assets ... ok
+test admin::access_control::tests::external_credential_denial_is_json_success_without_live_side_effects ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/logging.rs (target/debug/deps/logging-e617e8c093f0d4d8)
+
+running 3 tests
+test help_remains_stdout_and_invalid_logging_settings_fail_without_echoing_values ... ok
+test error_filter_suppresses_info_without_changing_broker_lifecycle ... ok
+test json_lifecycle_is_structured_and_flushed_on_shutdown ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s

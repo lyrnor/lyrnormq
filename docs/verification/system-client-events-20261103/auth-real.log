@@ -1,0 +1,65 @@
+test_anonymous_policy_uses_separate_prefix_and_acl (__main__.AuthAclBlackbox.test_anonymous_policy_uses_separate_prefix_and_acl) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-wpjjkpvz'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_awaitcomp_completes_after_read_revocation_without_publish_replay (__main__.AuthAclBlackbox.test_awaitcomp_completes_after_read_revocation_without_publish_replay) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-jdl16yik'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_bad_credentials_disabled_anonymous_and_prefix_refusal_codes (__main__.AuthAclBlackbox.test_bad_credentials_disabled_anonymous_and_prefix_refusal_codes) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-a7lbxj1e'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_default_without_policy_preserves_anonymous_and_refuses_unknown_credentials (__main__.AuthAclBlackbox.test_default_without_policy_preserves_anonymous_and_refuses_unknown_credentials) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-7vd9oge1'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_denied_publish_all_qos_cannot_delete_retained_or_route (__main__.AuthAclBlackbox.test_denied_publish_all_qos_cannot_delete_retained_or_route) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-zxrca5s1'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_denied_takeover_preserves_live_owner_and_old_will (__main__.AuthAclBlackbox.test_denied_takeover_preserves_live_owner_and_old_will) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-2f1wfrb9'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_filter_coverage_preserves_empty_levels_depth_and_system_isolation (__main__.AuthAclBlackbox.test_filter_coverage_preserves_empty_levels_depth_and_system_isolation) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-6i30nc_s'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_invalid_policy_is_rejected_before_listening_without_secret_output (__main__.AuthAclBlackbox.test_invalid_policy_is_rejected_before_listening_without_secret_output) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-pe1zfod0'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_malformed_credential_flags_and_username_utf8_close_without_connack (__main__.AuthAclBlackbox.test_malformed_credential_flags_and_username_utf8_close_without_connack) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-9w2a43hb'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_mixed_subscribe_grants_and_retained_replay_respect_acl (__main__.AuthAclBlackbox.test_mixed_subscribe_grants_and_retained_replay_respect_acl) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-v95refvq'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_pending_delayed_will_keeps_owner_binding (__main__.AuthAclBlackbox.test_pending_delayed_will_keeps_owner_binding) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-qi1nxr7a'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_persistent_owner_cannot_be_stolen_or_clean_reset_and_credentials_not_stored (__main__.AuthAclBlackbox.test_persistent_owner_cannot_be_stolen_or_clean_reset_and_credentials_not_stored) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-qefts3sr'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_rejected_connect_does_not_process_pipeline_or_register_will (__main__.AuthAclBlackbox.test_rejected_connect_does_not_process_pipeline_or_register_will) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-2_cx81da'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_restart_reconciles_revoked_subscriptions_queued_and_unacked_payloads (__main__.AuthAclBlackbox.test_restart_reconciles_revoked_subscriptions_queued_and_unacked_payloads) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-im76zk0_'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_restart_suppresses_revoked_clean_source_will_and_preserves_retained (__main__.AuthAclBlackbox.test_restart_suppresses_revoked_clean_source_will_and_preserves_retained) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-ixtje0x2'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_revoked_incoming_qos2_pubrel_is_denied_without_losing_pending_state (__main__.AuthAclBlackbox.test_revoked_incoming_qos2_pubrel_is_denied_without_losing_pending_state) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-cgacr6jb'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_schema2_migration_binds_anonymous_and_never_first_authenticated_claimant (__main__.AuthAclBlackbox.test_schema2_migration_binds_anonymous_and_never_first_authenticated_claimant) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-zhvks88e'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_security_refusal_precedes_unsupported_persistent_mode (__main__.AuthAclBlackbox.test_security_refusal_precedes_unsupported_persistent_mode) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-qramyo4s'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_unsubscribe_and_control_packets_do_not_require_publish_permission (__main__.AuthAclBlackbox.test_unsubscribe_and_control_packets_do_not_require_publish_permission) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-p04rna6g'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_valid_fragmented_and_binary_password_credentials (__main__.AuthAclBlackbox.test_valid_fragmented_and_binary_password_credentials) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-xs2tb5or'>
+  _warnings.warn(warn_message, ResourceWarning)
+
+----------------------------------------------------------------------
+Ran 20 tests in 8.386s
+
+OK

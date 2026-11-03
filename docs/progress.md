@@ -2492,3 +2492,25 @@ Clippy/fmt, native Release and locked Linux amd64musl static build passed.
 [Evidence/reproduction/limits](verification/http-admission-20261102/README.md).
 No performance benchmark or main merge/push/deployment in this phase; no PostgreSQL,
 receive-time/retroactive HTTP revocation or HTTP custom TLS identity.
+
+## 2026-11-03 — Phase6d client lifecycle system topics accepted
+
+Delivered real `$SYS/events/client/connected` and `disconnected` publications,
+QoS1/nonretained, no schema_version. MQTT subscribers and existing SQL/outbounds
+receive the same event with admitted username and boot/connection identity.
+Connected is emitted after successful CONNACK write; cleanup covers normal close,
+EOF, KeepAlive, takeover and graceful shutdown. Broker origin preserves No Local;
+observer affected client_id preserves generic per-client outbound scheduling.
+
+Three independent worktrees implemented transport, session spoof protection and
+real wire acceptance. New client PUBLISH/Will cannot impersonate `$SYS` even under
+permissive ACL; legacy reserved Wills retire durably without schema changes.
+A real shutdown failure was reproduced and fixed with a bounded executable drain
+before existing egress shutdown. No new connector or event-specific queue storage.
+
+Actual829Rust tests pass (one explicit live-PG ignore), final40 executable tests,
+strictClippy/fmt,25 lifecycle wire cases and20 auth cases pass. Basic14,
+Retained/Will20,Shared22 regression cases passed on the preceding integrated binary.
+NativeRelease rebuilt; no deployment/main merge/push. Event admission remains
+bounded best effort; crash-complete audit and performance improvement not claimed.
+[Evidence](verification/system-client-events-20261103/README.md).

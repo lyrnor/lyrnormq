@@ -50,3 +50,9 @@ connection, confirmed delivery, same-client FIFO and SDK lifecycle fencing.
 
 HTTP access work additionally follows docs/contracts/phase6b-http-admission.md, which
 supersedes phase6a receive/shared/recovery expansion for the narrowed user scope.
+
+Subscribable client lifecycle system topics additionally follow
+`docs/contracts/phase6d-system-client-events.md`. Transport owns bounded broker
+lifecycle emission and dispatch; session owns unconditional client system-publication
+and Will guards; quality owns independent wire tests. No schema_version field in
+event JSON, no retained presence, no implied crash-complete event journal.

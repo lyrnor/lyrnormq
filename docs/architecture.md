@@ -866,3 +866,23 @@ private SQLite and redacted service credentials. HTTP authentication401 and ACL4
 are distinct; failures never imply cached global revocation. Optional static policy
 continues as configured fallback; remote identity uses existing user:<username>.
 [Actual814Rust/114UI/29HTTPMQTT acceptance](verification/http-admission-20261102/README.md).
+
+
+## Phase6d: client lifecycle system publications
+
+[Contract](contracts/phase6d-system-client-events.md) reserves real MQTT topics
+`$SYS/events/client/connected` and `$SYS/events/client/disconnected`. The network
+handshake emits bounded metadata after successful CONNACK write; a broker-owned
+consumer serializes JSON and uses existing dispatch/observer paths for MQTT and SQL
+rules. The event contains no schema_version. Observer client_id is the affected
+client for generic outbound ordering, while broker-origin publication has no client
+publisher so MQTT No Local cannot hide it. Each network connection has a unique
+boot/generation identity; cleanup emits one disconnection with a classified cause.
+
+Session admission unconditionally reserves `$SYS` and its descendants from fresh
+client PUBLISH/Will irrespective of static/HTTP/PostgreSQL permission; accepted QoS2
+flows remain valid. Legacy reserved Wills are retired with existing durable changes.
+System subscriptions still use configured ACL and root dollar wildcard isolation.
+No new durable session or outbound schema, separate event connector or rules-only
+namespace is introduced. Bounded event and rule admission remain best effort before
+durable outbound acceptance; crash-complete lifecycle auditing is not promised.

@@ -1,0 +1,30 @@
+test_abnormal_close_is_one_network_closed_event (__main__.SystemClientEvents311.test_abnormal_close_is_one_network_closed_event) ... ok
+test_authenticated_username_and_refused_login_no_event (__main__.SystemClientEvents311.test_authenticated_username_and_refused_login_no_event) ... ok
+test_client_cannot_forge_system_publication_or_will (__main__.SystemClientEvents311.test_client_cannot_forge_system_publication_or_will) ... ok
+test_connected_normal_disconnected_and_no_retained_replay (__main__.SystemClientEvents311.test_connected_normal_disconnected_and_no_retained_replay) ... ok
+test_graceful_shutdown_feeds_existing_webhook_queue (__main__.SystemClientEvents311.test_graceful_shutdown_feeds_existing_webhook_queue) ... ok
+test_keepalive_timeout (__main__.SystemClientEvents311.test_keepalive_timeout) ... ok
+test_persistent_subscriber_recovers_offline_system_delivery (__main__.SystemClientEvents311.test_persistent_subscriber_recovers_offline_system_delivery) ... ok
+test_restart_uses_new_boot_without_synthetic_offline_replay (__main__.SystemClientEvents311.test_restart_uses_new_boot_without_synthetic_offline_replay) ... ok
+test_root_wildcard_excludes_system_events (__main__.SystemClientEvents311.test_root_wildcard_excludes_system_events) ... ok
+test_same_real_publication_reaches_sql_webhook_and_mqtt (__main__.SystemClientEvents311.test_same_real_publication_reaches_sql_webhook_and_mqtt) ... ok
+test_takeover_has_distinct_connections_and_keeps_new_connection_alive (__main__.SystemClientEvents311.test_takeover_has_distinct_connections_and_keeps_new_connection_alive) ... ok
+test_unavailable_webhook_shutdown_is_bounded_and_replays_durable_events (__main__.SystemClientEvents311.test_unavailable_webhook_shutdown_is_bounded_and_replays_durable_events) ... ok
+test_abnormal_close_is_one_network_closed_event (__main__.SystemClientEvents5.test_abnormal_close_is_one_network_closed_event) ... ok
+test_authenticated_username_and_refused_login_no_event (__main__.SystemClientEvents5.test_authenticated_username_and_refused_login_no_event) ... ok
+test_client_cannot_forge_system_publication_or_will (__main__.SystemClientEvents5.test_client_cannot_forge_system_publication_or_will) ... ok
+test_connected_normal_disconnected_and_no_retained_replay (__main__.SystemClientEvents5.test_connected_normal_disconnected_and_no_retained_replay) ... ok
+test_graceful_shutdown_feeds_existing_webhook_queue (__main__.SystemClientEvents5.test_graceful_shutdown_feeds_existing_webhook_queue) ... ok
+test_keepalive_timeout (__main__.SystemClientEvents5.test_keepalive_timeout) ... ok
+test_no_local_keeps_broker_originated_events_for_affected_client (__main__.SystemClientEvents5.test_no_local_keeps_broker_originated_events_for_affected_client) ... ok
+test_persistent_subscriber_recovers_offline_system_delivery (__main__.SystemClientEvents5.test_persistent_subscriber_recovers_offline_system_delivery) ... ok
+test_restart_uses_new_boot_without_synthetic_offline_replay (__main__.SystemClientEvents5.test_restart_uses_new_boot_without_synthetic_offline_replay) ... ok
+test_root_wildcard_excludes_system_events (__main__.SystemClientEvents5.test_root_wildcard_excludes_system_events) ... ok
+test_same_real_publication_reaches_sql_webhook_and_mqtt (__main__.SystemClientEvents5.test_same_real_publication_reaches_sql_webhook_and_mqtt) ... ok
+test_takeover_has_distinct_connections_and_keeps_new_connection_alive (__main__.SystemClientEvents5.test_takeover_has_distinct_connections_and_keeps_new_connection_alive) ... ok
+test_unavailable_webhook_shutdown_is_bounded_and_replays_durable_events (__main__.SystemClientEvents5.test_unavailable_webhook_shutdown_is_bounded_and_replays_durable_events) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 20.413s
+
+OK

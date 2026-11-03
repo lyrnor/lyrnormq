@@ -40,10 +40,20 @@ and aliases. Existing pending accepted QoS flows remain untouched. System dispat
 bypasses client Publish ACL but recipient subscription admission remains unchanged;
 root # does not match $. Explicit system subscriptions use existing configured ACL
 (no auth still inherits existing anonymous defaults; do not claim default deny).
-Preserve core Will/QoS/session/outbox schemas. lib.rs only declarations/reexports.
+Legacy client Will records targeting the reserved namespace remain decodable but
+are retired durably before deferred/recovered Will dispatch; no forged lifecycle
+event may emerge from such a record. Preserve core Will/QoS/session/outbox schemas. lib.rs only declarations/reexports.
 
 Acceptance: both protocol versions; live MQTT explicit wildcard subscription and
 root wildcard isolation; SQL observer/result identity, normal/abnormal close,
 keepalive, takeover, shutdown, refused authentication no events, QoS/reconnect
 compatibility; forbidden Publish and Will with permissive policy; event JSON no
 schema_version/secrets/retention; finite queues and no repeated HTTP checks.
+
+Integration shutdown ordering: after MQTT connections and lifecycle consumer finish,
+the executable gives existing rules/outbound work up to 2 seconds to reach idle
+(queued_events==0, inflight_requests==0, durable pending_records==0) before calling
+Runtime::shutdown. This is a bounded best-effort opportunity, not a remote-delivery
+transaction or guarantee at exit. On timeout warn and retain the existing durable
+queue's restart semantics; never wait indefinitely for a down destination. No
+mqtt-egress public API or queue/storage schema changes are required.

@@ -1,0 +1,65 @@
+test_active_clean_source_will_recovers_after_sigkill_once (__main__.RetainedWillBlackbox.test_active_clean_source_will_recovers_after_sigkill_once) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-bln_4i9w'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_eof_will_qos_matrix_and_binary_empty_payload (__main__.RetainedWillBlackbox.test_eof_will_qos_matrix_and_binary_empty_payload) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-o2rkhy9f'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_keepalive_timeout_publishes_will (__main__.RetainedWillBlackbox.test_keepalive_timeout_publishes_will) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-6_3koksj'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_multiple_filters_replay_as_sequential_subscriptions (__main__.RetainedWillBlackbox.test_multiple_filters_replay_as_sequential_subscriptions) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-6n9admu3'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_nonretained_publish_does_not_replace_or_delete_retained (__main__.RetainedWillBlackbox.test_nonretained_publish_does_not_replace_or_delete_retained) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-k8pd1rxf'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_normal_disconnect_suppresses_will_and_does_not_update_retained (__main__.RetainedWillBlackbox.test_normal_disconnect_suppresses_will_and_does_not_update_retained) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-o3tkzfnr'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_rejected_connect_does_not_publish_will (__main__.RetainedWillBlackbox.test_rejected_connect_does_not_publish_will) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-xzqstoci'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_reset_and_protocol_error_publish_will (__main__.RetainedWillBlackbox.test_reset_and_protocol_error_publish_will) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-lznf_x8b'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_count_limit_preserves_old_value_and_delete_frees_capacity (__main__.RetainedWillBlackbox.test_retained_count_limit_preserves_old_value_and_delete_frees_capacity) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-3aa7cua4'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_qos2_changes_only_on_pubrel_and_duplicate_is_idempotent (__main__.RetainedWillBlackbox.test_retained_qos2_changes_only_on_pubrel_and_duplicate_is_idempotent) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-717tly9s'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_replace_delete_and_live_retain_flags (__main__.RetainedWillBlackbox.test_retained_replace_delete_and_live_retain_flags) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-miiwg248'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_replay_queue_failure_does_not_install_partial_subscription (__main__.RetainedWillBlackbox.test_retained_replay_queue_failure_does_not_install_partial_subscription) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-0z4pif0p'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_survives_clean_reset_and_restart_then_delete_is_durable (__main__.RetainedWillBlackbox.test_retained_survives_clean_reset_and_restart_then_delete_is_durable) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-dos69jth'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_wildcards_system_topics_and_resubscribe (__main__.RetainedWillBlackbox.test_retained_wildcards_system_topics_and_resubscribe) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-xohj1idn'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_retained_will_updates_and_empty_retained_will_deletes (__main__.RetainedWillBlackbox.test_retained_will_updates_and_empty_retained_will_deletes) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-2t3ip5hs'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_schema1_migrates_without_losing_offline_message_or_subscription (__main__.RetainedWillBlackbox.test_schema1_migrates_without_losing_offline_message_or_subscription) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-at_qmk5f'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_self_will_to_own_full_outbox_is_dropped_and_not_resurrected (__main__.RetainedWillBlackbox.test_self_will_to_own_full_outbox_is_dropped_and_not_resurrected) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-zkr88mof'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_takeover_publishes_old_will_once_and_replacement_can_clear_its_will (__main__.RetainedWillBlackbox.test_takeover_publishes_old_will_once_and_replacement_can_clear_its_will) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-vagbedko'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_unacknowledged_retained_replay_preserves_retain_id_and_dup_after_restart (__main__.RetainedWillBlackbox.test_unacknowledged_retained_replay_preserves_retain_id_and_dup_after_restart) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-cn9t9kob'>
+  _warnings.warn(warn_message, ResourceWarning)
+test_will_to_full_outbox_drops_only_that_copy (__main__.RetainedWillBlackbox.test_will_to_full_outbox_drops_only_that_copy) ... ok
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-zruc7mvm'>
+  _warnings.warn(warn_message, ResourceWarning)
+
+----------------------------------------------------------------------
+Ran 20 tests in 8.649s
+
+OK

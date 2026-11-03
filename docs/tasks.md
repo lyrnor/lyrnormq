@@ -610,8 +610,24 @@ is not an implementation claim. [Evidence](verification/admission-mtls-20261030/
 - [x] Accepted flows do not repeatHTTP; compact snapshots retain no retired slots.
 - [x] 814Rust/114UI/29realHTTPMQTT +20localauth/25PLAIN compatibility cases passed.
 - [x] StrictClippy/fmt, nativeRelease and static amd64musl build verified.
-- [ ] Future: HTTP backend workload/P99 profiling, PostgreSQL backend if requested.
+- [ ] Future: HTTP backend workload/P99 profiling. PostgreSQL backend was added
+  separately in Phase6c; see docs/postgres-auth.md.
 
 The historical Phase6a receive/shared-preflight/remote-recovery expansion is
 superseded, not an outstanding prerequisite. No automatic main merge or deployment.
 [Actual evidence](verification/http-admission-20261102/README.md).
+
+## Phase6d — client lifecycle system topics completed
+
+- [x] Freeze shared MQTT/SQL topic and no-schema_version JSON contract.
+- [x] Isolated transport/session/quality worktrees, tested commits and integration.
+- [x] Bounded after-CONNACK lifecycle emission, real routing and observer reuse.
+- [x] Reserved client Publish/Will protection; legacy-Will recovery guard.
+- [x] Normal/EOF/KeepAlive/takeover/shutdown, NoLocal/shared and persistent replay.
+- [x] Real SQL→Webhook, unavailable-target bounded shutdown and durable restart.
+- [x] Workspace829Rust/final40bin/25wire/20auth; strictClippy/fmt; nativeRelease.
+- [ ] Future: instance info/status, metrics, alarms and session-expiry system events.
+- [ ] Future: lifecycle load/overflow measurement and broader transport wire coverage.
+- [ ] Future: durable lifecycle audit before best-effort admission, only if requested.
+
+[Acceptance and explicit limits](verification/system-client-events-20261103/README.md).

@@ -1,0 +1,18 @@
+{
+  "final_binary_sha256": "fbd8bca710827b92673112be6a5feb8c3c12b3374146f3ac9deb9aca06999485",
+  "rust_passed": 829,
+  "rust_ignored": 1,
+  "final_binary_tests_rerun": 40,
+  "lifecycle_wire_passed": 25,
+  "auth_wire_passed": 20,
+  "preceding_binary_sha256": "58b62221796145adb09da7e6bac4a82802bd582984c78129d576e4a5ba1cea49",
+  "preceding_binary_wire_passed": {
+    "mqtt": 14,
+    "retained_will": 20,
+    "shared": 22
+  },
+  "native_release": true,
+  "clippy_strict": true,
+  "performance_benchmark": false,
+  "deployment": false
+}

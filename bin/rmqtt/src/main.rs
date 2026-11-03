@@ -2,6 +2,7 @@ mod admin;
 mod allocator;
 mod auth_policy;
 mod cli;
+mod egress_shutdown;
 mod logging;
 mod tls_identity;
 
@@ -190,6 +191,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         broker.await
     };
     if let Some(runtime) = rules {
+        egress_shutdown::drain(&runtime).await;
         runtime.shutdown().await;
     }
     access.shutdown().await;

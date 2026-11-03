@@ -634,3 +634,6 @@ The Dashboard supports independently selecting HTTP or PostgreSQL for authentica
 and authorization. PostgreSQL uses SQLx, configurable parameterized SQL and output
 column aliases, with Argon2id password verification and bounded MQTT ACL evaluation.
 No fixed business tables are required. See [configuration, SQL contracts and limits](docs/postgres-auth.md).
+
+Client online/offline MQTT system topics and SQL/Webhook usage:
+[System topics](docs/system-topics.md).
