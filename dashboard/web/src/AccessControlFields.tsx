@@ -95,6 +95,13 @@ export function AccessControlFields({
               value: {
                 ...c,
                 type: value as "http" | "postgresql",
+                name: ["HTTP", "PostgreSQL"].some(
+                  (backend) =>
+                    c.name ===
+                    `${backend} ${"cache_ttl_seconds" in c ? "授权" : "认证"}`,
+                )
+                  ? `${value === "postgresql" ? "PostgreSQL" : "HTTP"} ${"cache_ttl_seconds" in c ? "授权" : "认证"}`
+                  : c.name,
                 url: "",
                 service_auth: { type: "none" },
                 headers: {},

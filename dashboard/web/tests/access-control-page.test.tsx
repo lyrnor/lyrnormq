@@ -448,6 +448,9 @@ describe("PostgreSQL authentication dashboard", () => {
           screen.getAllByRole("button", { name: "后端类型" }),
         ).toHaveLength(1);
         expect(screen.getAllByLabelText("数据库主机")).toHaveLength(1);
+        expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
+          `PostgreSQL ${name}`,
+        );
         expect(
           screen.getByRole("heading", { name: `PostgreSQL ${name}` }),
         ).toBeTruthy();
@@ -459,10 +462,33 @@ describe("PostgreSQL authentication dashboard", () => {
           expect(screen.queryByLabelText("数据库主机")).toBeNull(),
         );
         expect(screen.getAllByLabelText("请求地址")).toHaveLength(1);
+        expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
+          `HTTP ${name}`,
+        );
         expect(
           screen.getByRole("heading", { name: `HTTP ${name}` }),
         ).toBeTruthy();
       }
+    }
+  });
+  it("preserves a custom service name when switching backends", async () => {
+    server();
+    render(<AccessControlPage token="token" expired={expired} />);
+    await ready();
+    for (const name of ["认证", "授权"]) {
+      await tab(name);
+      const customName = `设备${name}服务`;
+      fireEvent.change(screen.getByLabelText("名称"), {
+        target: { value: customName },
+      });
+      await select("后端类型", "PostgreSQL");
+      expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
+        customName,
+      );
+      await select("后端类型", "HTTP");
+      expect((screen.getByLabelText("名称") as HTMLInputElement).value).toBe(
+        customName,
+      );
     }
   });
   it("switches backends, saves custom SQL and offers database connection testing", async () => {
