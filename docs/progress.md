@@ -2780,3 +2780,33 @@ zero missing/duplicate/failedpair; offering-deliveryTPS100/100/100. p99 improves
 Whole-run six-process RSS peak220.75MiB, meanCPU49.47% of onecore; includes startup/
 setup/idle and does not prove a CPU reduction. New fleet under
 /opt/rmqtt-cluster-events/20261103; olddirectories preserved, same privateMQTTports.
+
+## 2026-11-03 — dual-role scale attempt stopped; diagnosis correction
+
+Three dual-role processes deployed fresh percase, Broker ELF0a20f4c9. Rust
+connection tool46f7ecf added;51loadgen tests/fmt/strictworkspaceClippy passed.
+Intended1000/2000/4000connects/s first10k cohort produced94/60/86 successful live
+CONNACKs, many0x88/EOF and bounded-client not-started events. Higher plateaus skipped.
+
+IMPORTANT: benchmark coordinator raised max_connections50000 but omitted
+max_sessions (default1024/node). QoS0 setup reached about3072sessions then failed
+peerclosed after371.158s. This is a benchmark configuration mistake, not evidence
+Raft/SQLite caused that termination, and invalidates the intended10k..100k capacity
+configuration. No target-load message mean/p99/TPS exists. QoS1/2 not started;
+user stopped further testing, all load/Broker processes verified exited and source
+port range restored. Data/logs preserved. Prior running-fleet notes are historical.
+
+Offline same-server decomposition on604765B/3079owners snapshot: mean no-IO state
+clone/apply/rebuild/encode7.671ms, preencoded SQLiteWAL/FULL fullblobwrite4.683ms,
+fullmetadata-read clone/JSONencode/decode9.421ms. Not live attribution or maxTPS.
+Confirmed extra bottlenecks: per-entry fullstate rewrites includingheartbeats,
+nonheartbeat fullclone/rebuild/size serialization, and20ms-sleep barrier repeatedly
+fetching whole linearizable metadata.150ms Raft timeout logs began only AFTER client
+exit during shutdown and are excluded as original-cause evidence. Burst failures
+well below sessioncap separately show32active/32waiting/750ms admission saturation.
+
+Next: correct/preflight benchmark session limits; lightweight applied-revision
+barriers; incremental metadata/route accounting; Raft-log durability with periodic
+snapshots/replay instead of every-entry fullstate rewrite. No Raft safety weakening
+or cluster production code change made during diagnosis. Full evidence:
+[failed-run and diagnosis](performance/cluster-scale-20261103/README.md).

@@ -1,0 +1,11 @@
+[package]
+name="cluster-offline-profile"
+version="0.0.0"
+edition="2024"
+[workspace]
+[dependencies]
+openraft={version="=0.9.25",features=["serde","storage-v2"]}
+mqtt-cluster-core={path="../../../../crates/mqtt-cluster-core"}
+serde={version="1",features=["derive"]}
+serde_json="1"
+rusqlite={version="0.41",features=["bundled"]}

@@ -1,0 +1,130 @@
+{
+  "iterations": 30,
+  "kind": "offline decomposition, not live Raft timing",
+  "results": [
+    {
+      "durable_owners": 0,
+      "full_metadata_read_cpu_clone_encode_decode": {
+        "mean_us": 12.268466666666667,
+        "n": 30,
+        "p99_us": 44.037
+      },
+      "metadata_bytes": 875,
+      "nonheartbeat_state_apply_clone_rebuild_encode_cpu": {
+        "mean_us": 12.7072,
+        "n": 30,
+        "p99_us": 36.316
+      },
+      "routes": 0,
+      "sqlite_full_state_preencoded_wal_full_upsert": {
+        "mean_us": 2490.4136000000003,
+        "n": 30,
+        "p99_us": 3754.9100000000003
+      },
+      "state_bytes": 1184,
+      "state_clone": {
+        "mean_us": 2.0341333333333327,
+        "n": 30,
+        "p99_us": 12.222999999999999
+      },
+      "state_encode": {
+        "mean_us": 6.602599999999999,
+        "n": 30,
+        "p99_us": 27.948
+      }
+    },
+    {
+      "durable_owners": 100,
+      "full_metadata_read_cpu_clone_encode_decode": {
+        "mean_us": 193.52963333333338,
+        "n": 30,
+        "p99_us": 252.25900000000001
+      },
+      "metadata_bytes": 17382,
+      "nonheartbeat_state_apply_clone_rebuild_encode_cpu": {
+        "mean_us": 197.1950666666667,
+        "n": 30,
+        "p99_us": 237.454
+      },
+      "routes": 14,
+      "sqlite_full_state_preencoded_wal_full_upsert": {
+        "mean_us": 2615.1817,
+        "n": 30,
+        "p99_us": 3189.261
+      },
+      "state_bytes": 17691,
+      "state_clone": {
+        "mean_us": 15.935233333333334,
+        "n": 30,
+        "p99_us": 67.943
+      },
+      "state_encode": {
+        "mean_us": 83.75880000000001,
+        "n": 30,
+        "p99_us": 117.681
+      }
+    },
+    {
+      "durable_owners": 1000,
+      "full_metadata_read_cpu_clone_encode_decode": {
+        "mean_us": 3017.6355,
+        "n": 30,
+        "p99_us": 3824.121
+      },
+      "metadata_bytes": 192150,
+      "nonheartbeat_state_apply_clone_rebuild_encode_cpu": {
+        "mean_us": 2283.762833333333,
+        "n": 30,
+        "p99_us": 3165.991
+      },
+      "routes": 425,
+      "sqlite_full_state_preencoded_wal_full_upsert": {
+        "mean_us": 3221.863733333334,
+        "n": 30,
+        "p99_us": 4620.902
+      },
+      "state_bytes": 192459,
+      "state_clone": {
+        "mean_us": 243.05323333333334,
+        "n": 30,
+        "p99_us": 396.557
+      },
+      "state_encode": {
+        "mean_us": 486.4211666666668,
+        "n": 30,
+        "p99_us": 910.4399999999999
+      }
+    },
+    {
+      "durable_owners": 3079,
+      "full_metadata_read_cpu_clone_encode_decode": {
+        "mean_us": 9420.938433333335,
+        "n": 30,
+        "p99_us": 12191.626
+      },
+      "metadata_bytes": 604456,
+      "nonheartbeat_state_apply_clone_rebuild_encode_cpu": {
+        "mean_us": 7670.827066666666,
+        "n": 30,
+        "p99_us": 10105.424
+      },
+      "routes": 1447,
+      "sqlite_full_state_preencoded_wal_full_upsert": {
+        "mean_us": 4682.733333333334,
+        "n": 30,
+        "p99_us": 8247.931999999999
+      },
+      "state_bytes": 604765,
+      "state_clone": {
+        "mean_us": 752.5652666666667,
+        "n": 30,
+        "p99_us": 1289.877
+      },
+      "state_encode": {
+        "mean_us": 1763.1684,
+        "n": 30,
+        "p99_us": 2268.5930000000003
+      }
+    }
+  ]
+}
