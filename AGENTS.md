@@ -12,6 +12,10 @@ Durable forwarding and persistent-session failover additionally follow
 docs/contracts/phase7b-durable-cluster.md. Runtime owns mqtt-cluster; transport owns
 mqtt-transport; coordinator owns the neutral core API. Do not put session bodies in
 Controller Raft or separate receipt persistence from recipient state transactions.
+Replica repair additionally follows docs/contracts/phase7c-replica-repair.md.
+Repair runtime owns mqtt-cluster except src/replica.rs; repair storage owns that
+file only; coordinator owns Cargo/CLI/docs. Uncaught-up/replacement disks never
+vote, including startup/restart windows; persistent generation fences survive thaw.
 WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
 stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
 Authentication admission and mandatory client certificates follow

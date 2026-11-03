@@ -103,6 +103,12 @@ freeze(token),export_page(token,after,limit),begin_import(token,manifest),
 append_page(token,sequence,entries),finish_import(token),
 resume(token,allow_unfrozen_advance). All return io::Result of Reply/Page/Status.
 Runtime validates Controller authorization before calling repair storage methods.
+Journal additionally provides synchronous voting_ready(generation)->bool using
+post-commit cached state; execute_at still performs authoritative transactional
+checks. A compatibility execute(Request) wrapper is generation0 only and MUST NOT
+remain a production repair-aware voting path. Manifest stream bytes are separately
+bounded(up to768MiB); the256MiB record-data quota excludes entry keys/wrappers, so
+manifest size must not be mistaken for the record-data sum.
 Runtime exports serve_repair_learner(Config,watchReceiver), repair(&Config,target:u64)
 and abort_repair(&Config), with Serialize RepairReport. CLI subcommands:
 cluster-repair-learner --cluster-config PATH;
