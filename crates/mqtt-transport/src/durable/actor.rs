@@ -576,8 +576,15 @@ impl Actor {
 
     async fn deliver(&mut self, publication: &Publication, scope: &DeliveryScope) -> bool {
         let mut proposal = self.engine.clone();
-        if !matches!(proposal.deliver(publication, scope), Ok(true)) {
-            return false;
+        match proposal.deliver(publication, scope) {
+            Ok(true) => {}
+            // No Local, expiry and stale route matches are successful no-ops,
+            // unlike capacity/model failures. Preserve shared eligibility's bool.
+            Ok(false) => {
+                return self.broker.config.cluster.is_some()
+                    && matches!(scope, DeliveryScope::Ordinary);
+            }
+            Err(_) => return false,
         }
         let publications = proposal.take_publications();
         let effects = Effects {
@@ -968,7 +975,14 @@ impl Actor {
                         if !matches!(
                             tokio::time::timeout(
                                 Duration::from_secs(5),
-                                cluster.subscriptions(self.client.clone(), filters)
+                                cluster.subscriptions(
+                                    self.client.clone(),
+                                    effects.registration.as_ref().map_or_else(
+                                        || self.online_generation.load(Ordering::Acquire),
+                                        |(_, connection)| connection.generation,
+                                    ),
+                                    filters
+                                )
                             )
                             .await,
                             Ok(Ok(()))

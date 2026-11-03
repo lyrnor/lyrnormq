@@ -796,14 +796,17 @@ impl Broker {
             } else {
                 (None, None)
             };
-            if handle
+            let admitted = handle
                 .sender
                 .try_send(ActorCommand::Deliver {
                     publication: Arc::clone(&publication),
                     scope: DeliveryScope::Ordinary,
                     ack,
                 })
-                .is_ok()
+                .is_ok();
+            // A dropped sender makes this receiver false in `complete`. Cluster
+            // ingress must report pressure instead of acknowledging lost fanout.
+            if (admitted || self.config.cluster.is_some())
                 && let Some(receiver) = receiver
             {
                 acks.push(receiver);
