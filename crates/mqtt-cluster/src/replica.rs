@@ -3,7 +3,7 @@ use mqtt_cluster_core::{ClusterMessage, DeliveryId};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     io,
     path::Path,
     sync::{Arc, Mutex, PoisonError},
@@ -22,6 +22,55 @@ fn error(e: impl std::fmt::Display) -> io::Error {
     io::Error::other(e.to_string())
 }
 
+/// FIFO source streams retain a high water mark rather than one receipt per message.
+#[derive(Clone, Default, Serialize)]
+#[serde(transparent)]
+pub(crate) struct Receipts(BTreeMap<String, DeliveryId>);
+impl Receipts {
+    pub fn contains(&self, id: &DeliveryId) -> bool {
+        self.0.get(&id.source).is_some_and(|highest| highest >= id)
+    }
+    pub fn insert(&mut self, id: DeliveryId) {
+        let entry = self
+            .0
+            .entry(id.source.clone())
+            .or_insert_with(|| id.clone());
+        if *entry < id {
+            *entry = id;
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+impl<'de> Deserialize<'de> for Receipts {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Representation {
+            Watermarks(BTreeMap<String, DeliveryId>),
+            Legacy(Vec<DeliveryId>),
+        }
+        let mut result = Self::default();
+        match Representation::deserialize(deserializer)? {
+            Representation::Watermarks(values) => {
+                if values.iter().any(|(source, id)| source != &id.source) {
+                    return Err(serde::de::Error::custom("receipt stream identity mismatch"));
+                }
+                result.0 = values;
+            }
+            Representation::Legacy(values) => {
+                for id in values {
+                    result.insert(id);
+                }
+            }
+        }
+        if result.len() > 8192 {
+            return Err(serde::de::Error::custom("receipt stream capacity"));
+        }
+        Ok(result)
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct Intent {
     pub id: DeliveryId,
@@ -37,7 +86,7 @@ pub(crate) struct Record {
     pub snapshot: Option<Vec<u8>>,
     pub filters: Vec<String>,
     pub intents: Vec<Intent>,
-    pub receipts: BTreeSet<DeliveryId>,
+    pub receipts: Receipts,
 }
 impl Record {
     pub fn version(&self) -> (u64, u64) {
@@ -51,7 +100,7 @@ impl Record {
             snapshot: None,
             filters: Vec::new(),
             intents: Vec::new(),
-            receipts: BTreeSet::new(),
+            receipts: Receipts::default(),
         }
     }
 }
@@ -125,42 +174,104 @@ impl Journal {
             .try_acquire_owned()
             .map_err(|_| rejected())?;
         let inner = self.0.clone();
-        tokio::task::spawn_blocking(move|| {
-            let _permit=permit;
-            let mut db=inner.db.lock().unwrap_or_else(PoisonError::into_inner);
-            let tx=db.transaction().map_err(error)?;
-            let (key,epoch)=match &request { Request::Read{key}=>(key,0), Request::Fence{key,epoch}=>(key,*epoch),Request::Write{key,record}=>(key,record.epoch) };
-            if key.is_empty()||key.len()>65538||(!matches!(&request,Request::Read{..})&&epoch==0)||epoch>i64::MAX as u64 {return Err(rejected());}
-            let old:Option<(i64,Option<Vec<u8>>)>=tx.query_row("SELECT min_epoch,data FROM records WHERE key=?1",[key],|r|Ok((r.get(0)?,r.get(1)?))).optional().map_err(error)?;
-            let (minimum,bytes)=old.unwrap_or((0,None));
-            if !matches!(&request,Request::Read{..}) && (epoch as i64)<minimum {return Err(rejected());}
-            let record:Option<Record>=bytes.as_deref().map(serde_json::from_slice).transpose().map_err(error)?;
-            if minimum==0 && !matches!(&request,Request::Read{..}) {
-                let count:i64=tx.query_row("SELECT count(*) FROM records",[],|r|r.get(0)).map_err(error)?;
-                if count>=100_000 {return Err(rejected());}
-            }
-            let answer=match &request {
-                Request::Read{..}=>record,
-                Request::Fence{..}=>{
-                    tx.execute("INSERT INTO records(key,min_epoch,data) VALUES(?1,?2,NULL) ON CONFLICT(key) DO UPDATE SET min_epoch=excluded.min_epoch",params![key,epoch as i64]).map_err(error)?;
-                    record
-                },
-                Request::Write{record:next,..}=>{
-                    if next.snapshot.as_ref().is_some_and(|s|s.len()>2*1024*1024)||next.intents.len()>256||next.receipts.len()>8192||next.filters.len()>256 {return Err(rejected());}
-                    let next_bytes=serde_json::to_vec(next).map_err(error)?;
-                    if next_bytes.len()>MAX_RECORD {return Err(rejected());}
-                    if let Some(old)=&record
-                        && (old.version()>next.version() || (old.version()==next.version() && bytes.as_ref()!=Some(&next_bytes))) {return Err(rejected());}
-                    let total:i64=tx.query_row("SELECT coalesce(sum(length(data)),0) FROM records",[],|r|r.get(0)).map_err(error)?;
-                    if total-(bytes.as_ref().map_or(0,Vec::len) as i64)+(next_bytes.len() as i64)>MAX_BYTES {return Err(rejected());}
-                    tx.execute("INSERT INTO records(key,min_epoch,data) VALUES(?1,?2,?3) ON CONFLICT(key) DO UPDATE SET min_epoch=excluded.min_epoch,data=excluded.data",params![key,epoch as i64,next_bytes]).map_err(error)?;
-                    None
-                }
-            };
-            tx.commit().map_err(error)?;
-            Ok(Reply{record:answer})
-        }).await.map_err(error)?
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+            execute_transaction(&mut db, request)
+        })
+        .await
+        .map_err(error)?
     }
+}
+
+fn execute_transaction(db: &mut Connection, request: Request) -> io::Result<Reply> {
+    let tx = db.transaction().map_err(error)?;
+    let (key, epoch) = match &request {
+        Request::Read { key } => (key, 0),
+        Request::Fence { key, epoch } => (key, *epoch),
+        Request::Write { key, record } => (key, record.epoch),
+    };
+    if key.is_empty()
+        || key.len() > 65538
+        || (!matches!(&request, Request::Read { .. }) && epoch == 0)
+        || epoch > i64::MAX as u64
+    {
+        return Err(rejected());
+    }
+    let old: Option<(i64, Option<Vec<u8>>)> = tx
+        .query_row(
+            "SELECT min_epoch,data FROM records WHERE key=?1",
+            [key],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
+        .map_err(error)?;
+    let (minimum, bytes) = old.unwrap_or((0, None));
+    if !matches!(&request, Request::Read { .. }) && (epoch as i64) < minimum {
+        return Err(rejected());
+    }
+    if bytes.as_ref().is_some_and(|b| b.len() > MAX_RECORD) {
+        return Err(rejected());
+    }
+    let record: Option<Record> = bytes
+        .as_deref()
+        .map(serde_json::from_slice)
+        .transpose()
+        .map_err(error)?;
+    if minimum == 0 && !matches!(&request, Request::Read { .. }) {
+        let count: i64 = tx
+            .query_row("SELECT count(*) FROM records", [], |r| r.get(0))
+            .map_err(error)?;
+        if count >= 100_000 {
+            return Err(rejected());
+        }
+    }
+    let answer = match &request {
+        Request::Read { .. } => record,
+        Request::Fence { .. } => {
+            tx.execute("INSERT INTO records(key,min_epoch,data) VALUES(?1,?2,NULL) ON CONFLICT(key) DO UPDATE SET min_epoch=excluded.min_epoch",params![key,epoch as i64]).map_err(error)?;
+            record
+        }
+        Request::Write { record: next, .. } => {
+            if next
+                .snapshot
+                .as_ref()
+                .is_some_and(|s| s.len() > 2 * 1024 * 1024)
+                || next.intents.len() > 256
+                || next.receipts.len() > 8192
+                || next.filters.len() > 256
+            {
+                return Err(rejected());
+            }
+            let next_bytes = serde_json::to_vec(next).map_err(error)?;
+            if next_bytes.len() > MAX_RECORD {
+                return Err(rejected());
+            }
+            if let Some(old) = &record
+                && (old.version() > next.version()
+                    || (old.version() == next.version()
+                        && serde_json::to_vec(old).map_err(error)? != next_bytes))
+            {
+                return Err(rejected());
+            }
+            let total: i64 = tx
+                .query_row(
+                    "SELECT coalesce(sum(length(data)),0) FROM records",
+                    [],
+                    |r| r.get(0),
+                )
+                .map_err(error)?;
+            if total - (bytes.as_ref().map_or(0, Vec::len) as i64) + (next_bytes.len() as i64)
+                > MAX_BYTES
+            {
+                return Err(rejected());
+            }
+            tx.execute("INSERT INTO records(key,min_epoch,data) VALUES(?1,?2,?3) ON CONFLICT(key) DO UPDATE SET min_epoch=excluded.min_epoch,data=excluded.data",params![key,epoch as i64,next_bytes]).map_err(error)?;
+            None
+        }
+    };
+    tx.commit().map_err(error)?;
+    Ok(Reply { record: answer })
 }
 
 #[cfg(test)]
@@ -231,6 +342,86 @@ mod tests {
                 .await
                 .is_err()
         );
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod watermark_tests {
+    use super::*;
+    fn id(source: String, epoch: u64, revision: u64) -> DeliveryId {
+        DeliveryId {
+            source,
+            epoch,
+            revision,
+            index: 0,
+        }
+    }
+    #[test]
+    fn sequential_messages_and_legacy_receipts_use_bounded_source_watermarks() {
+        let mut receipts = Receipts::default();
+        for revision in 1..=20_000 {
+            receipts.insert(id("c:source".into(), 1, revision));
+        }
+        assert_eq!(receipts.len(), 1);
+        assert!(receipts.contains(&id("c:source".into(), 1, 1)));
+        assert!(!receipts.contains(&id("c:source".into(), 1, 20_001)));
+        receipts.insert(id("c:source".into(), 2, 1));
+        assert!(receipts.contains(&id("c:source".into(), 1, u64::MAX)));
+        let old = vec![
+            id("c:source".into(), 1, 1),
+            id("c:source".into(), 1, 10),
+            id("c:other".into(), 1, 1),
+        ];
+        let restored: Receipts =
+            serde_json::from_slice(&serde_json::to_vec(&old).expect("old receipts"))
+                .expect("restore");
+        assert_eq!(restored.len(), 2);
+        assert!(restored.contains(&id("c:source".into(), 1, 9)));
+        assert!(!restored.contains(&id("c:source".into(), 1, 11)));
+    }
+    #[tokio::test]
+    async fn full_source_quota_fails_closed_and_preserves_receipts_after_restart() -> io::Result<()>
+    {
+        let path = std::env::temp_dir().join(format!("rmqtt-receipt-quota-{}", std::process::id()));
+        let journal = Journal::open(&path, ("quota", 1), &[])?;
+        let mut record = Record::empty(1);
+        record.physical_revision = 1;
+        for source in 0..8192 {
+            record.receipts.insert(id(format!("c:{source}"), 1, 1));
+        }
+        journal
+            .execute(Request::Write {
+                key: "c:recipient".into(),
+                record: record.clone(),
+            })
+            .await?;
+        record.physical_revision += 1;
+        record.receipts.insert(id("c:overflow".into(), 1, 1));
+        assert!(
+            journal
+                .execute(Request::Write {
+                    key: "c:recipient".into(),
+                    record
+                })
+                .await
+                .is_err()
+        );
+        drop(journal);
+        let journal = Journal::open(&path, ("quota", 1), &[])?;
+        let recovered = journal
+            .execute(Request::Read {
+                key: "c:recipient".into(),
+            })
+            .await?
+            .record
+            .ok_or_else(rejected)?;
+        assert_eq!(recovered.physical_revision, 1);
+        assert_eq!(recovered.receipts.len(), 8192);
+        assert!(recovered.receipts.contains(&id("c:0".into(), 1, 1)));
+        assert!(recovered.receipts.contains(&id("c:8191".into(), 1, 1)));
         drop(journal);
         std::fs::remove_dir_all(path)?;
         Ok(())
