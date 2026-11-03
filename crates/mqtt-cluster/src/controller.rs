@@ -1,6 +1,7 @@
 //! Three-voter metadata Raft, durable state and snapshot replication service.
 use std::sync::PoisonError;
 mod applied;
+const MAX_REPLICATION_ENTRIES: u64 = 24;
 
 use crate::{
     config::{Config, Role},
@@ -616,7 +617,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     let settings = Arc::new(
         openraft::Config {
             heartbeat_interval: 150,
-            max_payload_entries: 8,
+            max_payload_entries: MAX_REPLICATION_ENTRIES,
             election_timeout_min: 500,
             election_timeout_max: 900,
             snapshot_policy: openraft::SnapshotPolicy::LogsSinceLast(1000),
@@ -677,14 +678,17 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
                     let metrics = expiry_control.raft.metrics().borrow().clone();
                     if metrics.current_leader != Some(expiry_config.node_id) { leader_term = None; observed.clear(); continue; }
                     if leader_term != Some(metrics.current_term) { leader_term = Some(metrics.current_term); observed.clear(); }
-                    let metadata = expiry_control.store.metadata();
-                    observed.retain(|id, _| metadata.nodes.contains_key(id));
-                    for n in metadata.nodes.into_values() {
-                        let instant = tokio::time::Instant::now();
-                        let seen = observed.entry(n.id).or_insert_with(|| crate::lease::LeaseObservation::new(&n, instant));
-                        if seen.expired(&n, instant) {
-                            let _ = expiry_control.write(Command::Expire { node:n.id, incarnation:n.incarnation, expires_at:n.expires_at }).await;
-                        }
+                    let expired = {
+                        let state = expiry_control.store.state.lock().unwrap_or_else(PoisonError::into_inner);
+                        observed.retain(|id, _| state.metadata.nodes.contains_key(id));
+                        state.metadata.nodes.values().filter_map(|node| {
+                            let instant = tokio::time::Instant::now();
+                            let seen = observed.entry(node.id).or_insert_with(|| crate::lease::LeaseObservation::new(node, instant));
+                            seen.expired(node, instant).then(|| (node.id, node.incarnation.clone(), node.expires_at))
+                        }).collect::<Vec<_>>()
+                    };
+                    for (node, incarnation, expires_at) in expired {
+                        let _ = expiry_control.write(Command::Expire { node, incarnation, expires_at }).await;
                     }
                 }
             }
@@ -926,5 +930,40 @@ mod control_tests {
         drop(control);
         tokio::fs::remove_dir_all(path).await?;
         Ok(())
+    }
+    #[test]
+    fn replication_batch_of_maximal_commands_fits_existing_wire_bound() {
+        let mut command = Command::Filters {
+            node: u64::MAX,
+            incarnation: "i".repeat(64),
+            client: "c".repeat(65535),
+            generation: u64::MAX,
+            filters: vec!["f".repeat(65535); 7],
+        };
+        let command_limit = 512 * 1024;
+        let excess = serde_json::to_vec(&command).unwrap().len() - command_limit;
+        if let Command::Filters { filters, .. } = &mut command {
+            let last = filters.last_mut().unwrap();
+            last.truncate(last.len() - excess);
+        }
+        validate(&command).unwrap();
+        assert_eq!(serde_json::to_vec(&command).unwrap().len(), command_limit);
+        let leader = openraft::CommittedLeaderId::new(u64::MAX, u64::MAX);
+        let last = openraft::LogId::new(leader, u64::MAX);
+        let entries = (0..MAX_REPLICATION_ENTRIES)
+            .map(|i| openraft::Entry {
+                log_id: openraft::LogId::new(leader, u64::MAX - MAX_REPLICATION_ENTRIES + i),
+                payload: openraft::EntryPayload::Normal(command.clone()),
+            })
+            .collect();
+        let envelope = rpc::encode(&RaftRequest::Append(openraft::raft::AppendEntriesRequest {
+            vote: openraft::Vote::new_committed(u64::MAX, u64::MAX),
+            prev_log_id: Some(last),
+            leader_commit: Some(last),
+            entries,
+        }))
+        .unwrap();
+        assert!(envelope.data.len() <= rpc::MAX_WIRE);
+        assert!(envelope.data.len() > 12 * 1024 * 1024);
     }
 }
