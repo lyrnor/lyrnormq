@@ -50,3 +50,8 @@ never fake stacks); finite capture<=60s, bounded frequency/data, stop all proces
 No automatic limit changes. Preserve binary hashes/raw metrics/commands, correlated
 stage analysis, reproducible environment and unresolved gaps. Diagnostics may add
 cost; compare to previous baseline with this caveat, not an optimization claim.
+
+Boundary clarification: EnqueueWait measures reserve().await before mailbox ownership;
+QueueResidence begins at successful permit.send and ends when the worker takes it.
+ApplySlotWait is the bounded blocking-worker semaphore wait; ApplySpawnWait begins
+after that permit is acquired. AppendCallback traces identify actual callback timing.
