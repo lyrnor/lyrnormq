@@ -191,6 +191,7 @@ impl Store {
         &self,
         call: impl FnOnce(&mut wal::Wal, &mut checkpoint::Checkpoint) -> io::Result<T> + Send + 'static,
     ) -> Result<T, StorageError<u64>> {
+        let checkpoint_wait = ProfileTimer::start(Metric::CheckpointWait);
         let permit = self
             .inner
             .slots
@@ -203,6 +204,7 @@ impl Store {
             let _permit = permit;
             let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
             let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+            drop(checkpoint_wait);
             let _work = ProfileTimer::start(Metric::CheckpointPersist);
             call(
                 wal.as_mut().ok_or_else(|| db_err("Raft WAL is closed"))?,
@@ -327,12 +329,12 @@ impl Store {
         entries: Vec<Entry<Types>>,
     ) -> Result<Vec<Answer>, StorageError<u64>> {
         {
-            let mut previous = self
-                .state
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .last_applied
-                .map(|id| id.index);
+            let mut previous = {
+                let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
+                let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+                drop(lock_wait);
+                state.last_applied.map(|id| id.index)
+            };
             for entry in &entries {
                 if previous.is_some_and(|index| entry.log_id.index <= index) {
                     return Err(err("state-machine apply index cannot repeat or regress"));
@@ -352,11 +354,12 @@ impl Store {
             .cpu({
                 let entries = entries.iter().map(|entry| entry.log_id).collect::<Vec<_>>();
                 move || {
-                    let mut previous = state
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .last_applied
-                        .map(|id| id.index);
+                    let mut previous = {
+                        let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
+                        let state = state.lock().unwrap_or_else(PoisonError::into_inner);
+                        drop(lock_wait);
+                        state.last_applied.map(|id| id.index)
+                    };
                     Ok(!durable
                         || entries.into_iter().fold(false, |gap, id| {
                             let next_gap =
@@ -371,8 +374,13 @@ impl Store {
             let state = self.state.clone();
             let (candidate, result, updates) = self
                 .cpu(move || {
-                    let mut candidate =
-                        state.lock().unwrap_or_else(PoisonError::into_inner).clone();
+                    let mut candidate = {
+                        let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
+                        let state = state.lock().unwrap_or_else(PoisonError::into_inner);
+                        drop(lock_wait);
+                        let _clone = ProfileTimer::start(Metric::CheckpointClone);
+                        state.clone()
+                    };
                     let mut answers = Vec::with_capacity(entries.len());
                     let mut updates = Vec::new();
                     for entry in entries {
@@ -672,7 +680,13 @@ impl RaftSnapshotBuilder<Types> for Store {
         self.serialized(|this| async move {
             let state = this.state.clone();
             let state = this
-                .cpu(move || Ok(state.lock().unwrap_or_else(PoisonError::into_inner).clone()))
+                .cpu(move || {
+                    let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
+                    let state = state.lock().unwrap_or_else(PoisonError::into_inner);
+                    drop(lock_wait);
+                    let _clone = ProfileTimer::start(Metric::CheckpointClone);
+                    Ok(state.clone())
+                })
                 .await?;
             this.persist_checkpoint(state)
                 .await
