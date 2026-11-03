@@ -21,7 +21,8 @@ pub struct TlsConfig {
     pub ca_file: PathBuf,
     pub domain_name: String,
 }
-/// Fixed data-replica membership. It is independent of Controller Raft membership.
+/// Fixed replicated-memory group, independent of Controller Raft membership.
+/// The historical type/JSON name does not promise persistence across process loss.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DurableConfig {

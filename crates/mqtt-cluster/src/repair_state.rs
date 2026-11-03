@@ -92,7 +92,11 @@ impl Metadata {
             return Err("repair precondition changed or target still leased".into());
         }
         let peers = match &self.data_mode {
-            Some(DataMode::Durable(peers)) if peers.iter().any(|(id, _)| *id == target) => peers,
+            Some(DataMode::Durable(peers) | DataMode::Memory(peers))
+                if peers.iter().any(|(id, _)| *id == target) =>
+            {
+                peers
+            }
             _ => return Err("durable replica membership required".into()),
         };
         let donors = peers

@@ -369,6 +369,11 @@ impl wire::cluster_server::Cluster for Service {
                 let m = control.raft.metrics().borrow().clone();
                 let s = control.store.metadata();
                 rpc::encode(&ClusterStatus {
+                    data_storage: s
+                        .data_mode
+                        .as_ref()
+                        .map_or("none", DataMode::storage_name)
+                        .to_owned(),
                     leader: m.current_leader,
                     term: m.current_term,
                     last_applied: m.last_applied.map_or(0, |id| id.index),

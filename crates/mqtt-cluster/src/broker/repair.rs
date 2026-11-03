@@ -84,7 +84,7 @@ fn seal(value: &RepairManifest) -> RepairSeal {
 }
 fn address(metadata: &Metadata, node: u64) -> io::Result<String> {
     match &metadata.data_mode {
-        Some(DataMode::Durable(peers)) => peers
+        Some(DataMode::Durable(peers) | DataMode::Memory(peers)) => peers
             .iter()
             .find(|(id, _)| *id == node)
             .map(|(_, a)| a.clone())
@@ -280,20 +280,15 @@ pub(crate) async fn verify_commit(
 
 pub async fn serve_repair_learner(
     config: Config,
-    shutdown: watch::Receiver<bool>,
+    _shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
     config.validate()?;
-    if config.role != Role::Broker || config.durable.is_none() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "durable Broker config required for learner",
-        ));
-    }
-    let runtime = tokio::task::spawn_blocking(move || BrokerRuntime::new(config))
-        .await
-        .map_err(io::Error::other)??;
-    super::serve_broker(runtime, shutdown).await
+    Err(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "memory replicas cannot survive learner process replacement; start the normal Broker, leave it waiting, then run cluster-repair against that live process",
+    ))
 }
+
 pub async fn repair(config: &Config, target: u64) -> io::Result<RepairReport> {
     config.validate()?;
     let rpc = ClientRpc::new(Arc::new(config.clone())).await?;
@@ -632,6 +627,17 @@ mod tests {
                 .metadata
                 .write()
                 .unwrap_or_else(PoisonError::into_inner);
+            metadata.data_mode = Some(DataMode::Memory(
+                runtime
+                    .config
+                    .durable
+                    .as_ref()
+                    .expect("group")
+                    .replicas
+                    .iter()
+                    .map(|p| (p.id, p.address.clone()))
+                    .collect(),
+            ));
             metadata.nodes.insert(
                 101,
                 Node {

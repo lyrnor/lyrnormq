@@ -1,4 +1,5 @@
-//! Serialized replicated session transactions and restartable forwarding ownership.
+//! Serialized replicated session transactions and forwarding ownership.
+//! State lives on memory replicas; recovery requires surviving copies.
 use super::*;
 use crate::diagnosis::{self, Failure};
 use crate::replica::{Intent, Journal, Recipient, Record, Request};
@@ -1246,6 +1247,17 @@ mod tests {
                 .metadata
                 .write()
                 .unwrap_or_else(PoisonError::into_inner);
+            metadata.data_mode = Some(DataMode::Memory(
+                runtime
+                    .config
+                    .durable
+                    .as_ref()
+                    .expect("group")
+                    .replicas
+                    .iter()
+                    .map(|p| (p.id, p.address.clone()))
+                    .collect(),
+            ));
             metadata.nodes.insert(
                 101,
                 Node {
@@ -1331,6 +1343,33 @@ mod tests {
                     .disk_id()
                     .to_owned(),
             );
+        }
+        assert!(runtime.ready());
+        {
+            let mut metadata = runtime
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            let peers = match metadata.data_mode.take().expect("memory mode") {
+                DataMode::Memory(peers) => peers,
+                _ => panic!("expected RAM"),
+            };
+            metadata.data_mode = Some(DataMode::Durable(peers));
+        }
+        assert!(
+            !runtime.ready(),
+            "an old controller's SQLite mode never authorizes a RAM vote"
+        );
+        {
+            let mut metadata = runtime
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            let peers = match metadata.data_mode.take().expect("old mode") {
+                DataMode::Durable(peers) => peers,
+                _ => panic!("expected historical mode"),
+            };
+            metadata.data_mode = Some(DataMode::Memory(peers));
         }
         assert!(runtime.ready());
         let request = rpc.authorize(rpc::encode(&ReplicaMessage {

@@ -41,7 +41,19 @@ pub struct DurableOwner {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataMode {
     Legacy,
+    /// Historical SQLite mode, retained for replay and explicit upgrade refusal.
     Durable(Vec<(u64, String)>),
+    /// Two live RAM replicas acknowledge mutations; no disk persistence.
+    Memory(Vec<(u64, String)>),
+}
+impl DataMode {
+    pub(crate) fn storage_name(&self) -> &'static str {
+        match self {
+            Self::Legacy => "none",
+            Self::Durable(_) => "legacy_sqlite",
+            Self::Memory(_) => "memory",
+        }
+    }
 }
 fn legacy_mode() -> Option<DataMode> {
     Some(DataMode::Legacy)
@@ -114,6 +126,8 @@ pub enum Command {
         lease_ms: u64,
         #[serde(default)]
         replicas: Option<Vec<(u64, String)>>,
+        #[serde(default)]
+        memory: bool,
         #[serde(default)]
         disk_id: Option<String>,
     },
@@ -240,7 +254,7 @@ impl Metadata {
                 if self.excluded.contains(&node) {
                     return Err("replica excluded pending repair".into());
                 }
-                if !matches!(&self.data_mode,Some(DataMode::Durable(m)) if m.iter().any(|(id,_)|*id==node))
+                if !matches!(&self.data_mode,Some(DataMode::Durable(m) | DataMode::Memory(m)) if m.iter().any(|(id,_)|*id==node))
                 {
                     return Err("durable membership required".into());
                 }
@@ -308,6 +322,7 @@ impl Metadata {
                 expires_at,
                 lease_ms,
                 replicas,
+                memory,
                 disk_id,
             } => {
                 if self.excluded.contains(&node)
@@ -324,9 +339,14 @@ impl Metadata {
                         {
                             return Err("invalid data membership".into());
                         }
-                        DataMode::Durable(peers)
+                        if memory {
+                            DataMode::Memory(peers)
+                        } else {
+                            DataMode::Durable(peers)
+                        }
                     }
-                    None => DataMode::Legacy,
+                    None if !memory => DataMode::Legacy,
+                    None => return Err("memory storage requires replica membership".into()),
                 };
                 if let Some(frozen) = &self.data_mode {
                     if frozen != &mode {
@@ -336,7 +356,7 @@ impl Metadata {
                     self.data_mode = Some(mode);
                 }
                 match (&self.data_mode, disk_id) {
-                    (Some(DataMode::Durable(_)), Some(id))
+                    (Some(DataMode::Durable(_) | DataMode::Memory(_)), Some(id))
                         if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) =>
                     {
                         if self.disk_ids.get(&node).is_some_and(|old| old != &id) {
@@ -526,6 +546,9 @@ pub struct Forward {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClusterStatus {
+    /// memory acknowledges live replicas, not disk persistence.
+    #[serde(default)]
+    pub data_storage: String,
     pub leader: Option<u64>,
     pub term: u64,
     pub last_applied: u64,

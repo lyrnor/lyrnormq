@@ -19,6 +19,7 @@ use tokio::sync::{Notify, OnceCell, Semaphore, watch};
 pub(crate) mod durable;
 mod quorum;
 pub(crate) mod repair;
+mod startup;
 #[derive(Default)]
 struct Receipts {
     values: BTreeMap<(u64, String, u64), bool>,
@@ -123,6 +124,9 @@ impl BrokerRuntime {
             return false;
         }
         let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+        if !startup::storage_matches(&self.config, &metadata) {
+            return false;
+        }
         metadata
             .nodes
             .get(&self.config.node_id)
@@ -352,6 +356,7 @@ impl BrokerRuntime {
             incarnation: self.incarnation.clone(),
             address: self.config.address(),
             disk_id: self.journal.as_ref().map(|j| j.disk_id().to_owned()),
+            memory: self.config.durable.is_some(),
             replicas: self.config.durable.as_ref().map(|d| {
                 d.replicas
                     .iter()
@@ -558,34 +563,7 @@ impl ClusterBridge for BrokerRuntime {
                 ));
             }
             *self.local.lock().unwrap_or_else(PoisonError::into_inner) = Some(local);
-            let rpc = self.rpc().await?;
-            tokio::time::timeout(Duration::from_secs(12), async {
-                loop {
-                    if rpc
-                        .mutate(Command::Register {
-                            node: self.config.node_id,
-                            incarnation: self.incarnation.clone(),
-                            address: self.config.address(),
-                            disk_id: self.journal.as_ref().map(|j| j.disk_id().to_owned()),
-                            replicas: self.config.durable.as_ref().map(|d| {
-                                d.replicas
-                                    .iter()
-                                    .map(|p| (p.id, p.address.clone()))
-                                    .collect()
-                            }),
-                            lease_ms: self.config.lease_ms,
-                            expires_at: controller::now() + self.config.lease_ms,
-                        })
-                        .await
-                        .is_ok()
-                    {
-                        break;
-                    }
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                }
-            })
-            .await
-            .map_err(|_| unavailable())?;
+            self.register_startup().await?;
             let this = self.weak.upgrade().ok_or_else(unavailable)?;
             let mut tasks = vec![
                 tokio::spawn(this.clone().watch_loop()),

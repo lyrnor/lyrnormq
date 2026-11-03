@@ -20,6 +20,7 @@ fn register(node: u64) -> Command {
         incarnation: format!("node-{node}"),
         address: format!("http://127.0.0.1:{}", 10000 + node),
         replicas: None,
+        memory: false,
         disk_id: None,
         expires_at: 100,
         lease_ms: 3000,
@@ -407,4 +408,140 @@ fn expired_replica_identity_cannot_be_replaced_by_a_new_empty_disk() {
         metadata.apply(first).error.is_none(),
         "the original durable disk may return after fencing"
     );
+}
+
+fn memory_register(node: u64, boot: u64) -> Command {
+    let mut command = register(node);
+    if let Command::Register {
+        memory,
+        replicas,
+        disk_id,
+        ..
+    } = &mut command
+    {
+        *memory = true;
+        *replicas = Some(
+            (1..=3)
+                .map(|id| (id, format!("http://127.0.0.1:{}", 10000 + id)))
+                .collect(),
+        );
+        *disk_id = Some(format!("{boot:032x}"));
+    }
+    command
+}
+
+#[test]
+fn memory_mode_is_explicit_and_historical_register_replay_remains_sqlite() {
+    let command = memory_register(1, 1);
+    let mut old_json = serde_json::to_value(&command).unwrap();
+    old_json["Register"]
+        .as_object_mut()
+        .unwrap()
+        .remove("memory");
+    let old: Command = serde_json::from_value(old_json).unwrap();
+    let mut historical = Metadata::default();
+    assert!(historical.apply(old).error.is_none());
+    assert!(matches!(historical.data_mode, Some(DataMode::Durable(_))));
+    assert_eq!(
+        historical.data_mode.as_ref().unwrap().storage_name(),
+        "legacy_sqlite"
+    );
+    assert!(historical.apply(command.clone()).error.is_some());
+    let mut memory = Metadata::default();
+    assert!(memory.apply(command).error.is_none());
+    assert_eq!(memory.data_mode.as_ref().unwrap().storage_name(), "memory");
+    let mut nonmemory = memory_register(2, 2);
+    if let Command::Register { memory, .. } = &mut nonmemory {
+        *memory = false;
+    }
+    assert!(memory.apply(nonmemory).error.is_some());
+    assert!(!memory.nodes.contains_key(&2));
+    assert!(memory.apply(memory_register(2, 2)).error.is_none());
+}
+
+#[test]
+fn memory_restart_cannot_reuse_an_old_anchor_as_an_empty_vote() {
+    let mut memory = Metadata::default();
+    for node in 1..=3 {
+        assert!(memory.apply(memory_register(node, node)).error.is_none());
+    }
+    assert!(
+        memory
+            .apply(Command::Expire {
+                node: 1,
+                incarnation: "node-1".into(),
+                expires_at: 100
+            })
+            .error
+            .is_none()
+    );
+    let mut restarted = memory_register(1, 4);
+    if let Command::Register { incarnation, .. } = &mut restarted {
+        *incarnation = "new-process".into();
+    }
+    assert!(memory.apply(restarted).error.is_some());
+    assert!(!memory.nodes.contains_key(&1));
+    assert_eq!(memory.disk_ids[&1], format!("{:032x}", 1));
+    assert_eq!(memory.nodes.len(), 2);
+}
+
+#[test]
+fn memory_repair_requires_two_original_boots_before_install_proofs_can_replace_anchor() {
+    use crate::repair_state::{RepairProof, RepairSeal};
+    let mut memory = Metadata::default();
+    for node in 1..=3 {
+        assert!(memory.apply(memory_register(node, node)).error.is_none());
+    }
+    memory.apply(Command::Expire {
+        node: 3,
+        incarnation: "node-3".into(),
+        expires_at: 100,
+    });
+    let old = format!("{:032x}", 3);
+    let new = format!("{:032x}", 4);
+    assert!(memory.begin_repair(3, old, new.clone(), 0).is_ok());
+    let state = memory.repair.clone().unwrap();
+    let manifest = RepairSeal {
+        records: 0,
+        bytes: 0,
+        digest: "0".repeat(64),
+    };
+    assert!(
+        memory
+            .seal_repair(&state.id, state.generation, manifest.clone())
+            .is_ok()
+    );
+    let mut proofs = state
+        .donors
+        .iter()
+        .map(|(node, disk)| RepairProof {
+            node: *node,
+            disk_id: disk.clone(),
+            id: state.id.clone(),
+            generation: state.generation,
+            manifest: Some(manifest.clone()),
+            installed: false,
+        })
+        .collect::<Vec<_>>();
+    proofs.push(RepairProof {
+        node: 3,
+        disk_id: new.clone(),
+        id: state.id.clone(),
+        generation: state.generation,
+        manifest: Some(manifest),
+        installed: false,
+    });
+    assert!(
+        memory
+            .commit_repair(&state.id, state.generation, proofs.clone())
+            .is_err()
+    );
+    proofs[2].installed = true;
+    assert!(
+        memory
+            .commit_repair(&state.id, state.generation, proofs)
+            .is_ok()
+    );
+    assert_eq!(memory.disk_ids[&3], new);
+    assert!(!memory.excluded.contains(&3));
 }
