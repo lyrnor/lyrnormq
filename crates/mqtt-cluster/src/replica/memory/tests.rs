@@ -427,3 +427,88 @@ fn receipt_watermarks_remain_bounded_and_accept_legacy_shape() {
     r.clear();
     assert_eq!(r.len(), 0);
 }
+
+#[test]
+fn physical_record_headroom_admits_internal_keys_beyond_100k_clients_but_stays_bounded() {
+    let p = path("record-headroom");
+    let store = MemoryStore::open(
+        &p,
+        ("memory-test", 101),
+        &[(101, "http://127.0.0.1:7101".into())],
+    )
+    .unwrap();
+    {
+        let mut state = store.state.lock().unwrap();
+        for client in 0..100_000 {
+            let key = format!("c:{client:06}");
+            state.bytes += key.len();
+            state.records.insert(
+                key,
+                Entry {
+                    min_epoch: 1,
+                    value: None,
+                },
+            );
+        }
+    }
+    assert!(
+        store
+            .execute(
+                0,
+                Request::Fence {
+                    key: "h:internal".into(),
+                    epoch: 1
+                }
+            )
+            .is_ok(),
+        "100k client records must leave finite internal-record headroom"
+    );
+    {
+        let mut state = store.state.lock().unwrap();
+        for internal in state.records.len()..101_024 {
+            let key = format!("h:{internal:06}");
+            state.bytes += key.len();
+            state.records.insert(
+                key,
+                Entry {
+                    min_epoch: 1,
+                    value: None,
+                },
+            );
+        }
+    }
+    assert_eq!(store.state.lock().unwrap().records.len(), 101_024);
+    assert!(
+        store
+            .execute(
+                0,
+                Request::Fence {
+                    key: "c:000000".into(),
+                    epoch: 2
+                }
+            )
+            .is_ok(),
+        "existing records can still advance at the physical cap"
+    );
+    assert!(
+        store
+            .execute(
+                0,
+                Request::Fence {
+                    key: "h:overflow".into(),
+                    epoch: 1
+                }
+            )
+            .is_err()
+    );
+    let mut manifest = RepairManifest {
+        records: 101_024,
+        bytes: 0,
+        digest: "0".repeat(64),
+    };
+    assert!(validate_manifest(&manifest).is_ok());
+    manifest.records += 1;
+    assert!(validate_manifest(&manifest).is_err());
+    drop(store);
+    std::fs::remove_dir_all(p).unwrap();
+}

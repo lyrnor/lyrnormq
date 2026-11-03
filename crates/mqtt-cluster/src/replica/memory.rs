@@ -17,7 +17,8 @@ const MAX_RECORD: usize = 8 * 1024 * 1024;
 const MAX_BYTES: usize = 256 * 1024 * 1024;
 const MAX_REPAIR_BYTES: u64 = 768 * 1024 * 1024;
 const MAX_PAGE_BYTES: usize = 12 * 1024 * 1024;
-const MAX_ENTRIES: usize = 100_000;
+// Physical record count includes bounded internal host/fence records.
+const MAX_ENTRIES: usize = 101_024;
 
 fn rejected() -> io::Error {
     io::Error::new(
