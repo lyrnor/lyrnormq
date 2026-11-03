@@ -15,6 +15,7 @@ use std::{
 };
 use tokio::sync::{Semaphore, watch};
 mod history;
+mod log;
 mod recovery;
 #[derive(Clone)]
 pub struct Store {
@@ -394,7 +395,7 @@ impl RaftLogReader<Types> for Store {
         };
         self.run(move |db| {
             let mut stmt = db
-                .prepare("SELECT data FROM logs WHERE idx>=?1 AND idx<=?2 ORDER BY idx")
+                .prepare("SELECT idx,data FROM logs WHERE idx>=?1 AND idx<=?2 ORDER BY idx")
                 .map_err(db_err)?;
             let rows = stmt
                 .query_map(
@@ -402,12 +403,13 @@ impl RaftLogReader<Types> for Store {
                         from.min(i64::MAX as u64) as i64,
                         to.min(i64::MAX as u64) as i64
                     ],
-                    |row| row.get::<_, Vec<u8>>(0),
+                    |row| Ok((row.get::<_, i64>(0)?, log::row_bytes(row, 1)?)),
                 )
                 .map_err(db_err)?;
             let mut result = Vec::new();
             for row in rows {
-                result.push(decode(&row.map_err(db_err)?)?);
+                let (index, bytes) = row.map_err(db_err)?;
+                result.push(log::decode_entry(index, &bytes)?);
             }
             Ok(result)
         })
@@ -419,15 +421,16 @@ impl RaftLogStorage<Types> for Store {
     async fn get_log_state(&mut self) -> Result<LogState<Types>, StorageError<u64>> {
         self.run(|db| {
             let purged = get(db, "purged")?;
-            let last: Option<Vec<u8>> = db
-                .query_row("SELECT data FROM logs ORDER BY idx DESC LIMIT 1", [], |r| {
-                    r.get(0)
-                })
+            let last: Option<(i64, Vec<u8>)> = db
+                .query_row(
+                    "SELECT idx,data FROM logs ORDER BY idx DESC LIMIT 1",
+                    [],
+                    |row| Ok((row.get(0)?, log::row_bytes(row, 1)?)),
+                )
                 .optional()
                 .map_err(db_err)?;
             let last = last
-                .as_deref()
-                .map(decode::<Entry<Types>>)
+                .map(|(index, bytes)| log::decode_entry(index, &bytes))
                 .transpose()?
                 .map(|e| e.log_id)
                 .or(purged);
@@ -478,7 +481,7 @@ impl RaftLogStorage<Types> for Store {
             let tx = db.transaction().map_err(db_err)?;
             for entry in entries {
                 let idx = i64::try_from(entry.log_id.index).map_err(db_err)?;
-                tx.execute("INSERT INTO logs(idx,data) VALUES(?1,?2) ON CONFLICT(idx) DO UPDATE SET data=excluded.data", params![idx, encode(&entry)?]).map_err(db_err)?;
+                tx.execute("INSERT INTO logs(idx,data) VALUES(?1,?2) ON CONFLICT(idx) DO UPDATE SET data=excluded.data", params![idx, log::encode_entry(&entry)?]).map_err(db_err)?;
             }
             tx.commit().map_err(db_err)
         }).await?;

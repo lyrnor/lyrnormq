@@ -101,7 +101,7 @@ async fn prime(
             for entry in entries {
                 tx.execute(
                     "INSERT INTO logs(idx,data) VALUES(?1,?2)",
-                    params![entry.log_id.index as i64, encode(&entry)?],
+                    params![entry.log_id.index as i64, log::encode_entry(&entry)?],
                 )
                 .map_err(db_err)?;
             }
@@ -507,5 +507,135 @@ async fn older_or_out_of_order_apply_cannot_roll_ram_back_behind_durable_checkpo
     assert_eq!(encode(&*store.state.lock().unwrap())?, before);
     drop(store);
     std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn valid_json_committed_log_payload_change_is_detected_before_replay()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let mut store = Store::open(&dir, "test", 1).await?;
+    let first = entry(0, 1);
+    prime(&store, vec![first.clone()], Some(first.log_id)).await?;
+    store.apply([first]).await?;
+    let tail = entry(1, 2);
+    prime(&store, vec![tail.clone()], Some(tail.log_id)).await?;
+    drop(store);
+    let db = Connection::open(dir.join("metadata.sqlite"))?;
+    let bytes: Vec<u8> = db.query_row("SELECT data FROM logs WHERE idx=1", [], |row| row.get(0))?;
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes)?;
+    if value.get("entry").is_some() {
+        value["entry"]["payload"]["Normal"]["Register"]["expires_at"] = serde_json::json!(9000);
+    } else {
+        value["payload"]["Normal"]["Register"]["expires_at"] = serde_json::json!(9000);
+    }
+    db.execute(
+        "UPDATE logs SET data=?1 WHERE idx=1",
+        [serde_json::to_vec(&value)?],
+    )?;
+    drop(db);
+    assert!(
+        Store::open(&dir, "test", 1).await.is_err(),
+        "valid-JSON payload corruption must not silently change replayed state"
+    );
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn legacy_raw_log_migration_is_atomic_and_never_replays_uncommitted_tail()
+-> Result<(), Box<dyn std::error::Error>> {
+    for format in [None, Some(1u64)] {
+        let dir = directory();
+        let store = Store::open(&dir, "test", 1).await?;
+        drop(store);
+        let db = Connection::open(dir.join("metadata.sqlite"))?;
+        if let Some(format) = format {
+            put(&db, "control_log_format", &format)?;
+        } else {
+            db.execute("DELETE FROM meta WHERE key='control_log_format'", [])?;
+        }
+        let first = entry(0, 1);
+        let tail = entry(1, 2);
+        db.execute("INSERT INTO logs(idx,data) VALUES(0,?1)", [encode(&first)?])?;
+        db.execute("INSERT INTO logs(idx,data) VALUES(1,?1)", [encode(&tail)?])?;
+        put(&db, "committed", &Some(first.log_id))?;
+        drop(db);
+        let mut store = Store::open(&dir, "test", 1).await?;
+        assert_eq!(store.metadata().nodes.len(), 1);
+        assert!(store.metadata().nodes.contains_key(&1));
+        assert_eq!(store.get_log_state().await?.last_log_id, Some(tail.log_id));
+        assert_eq!(store.try_get_log_entries(0..=1).await?.len(), 2);
+        let db = Connection::open(dir.join("metadata.sqlite"))?;
+        assert_eq!(get::<u64>(&db, "control_log_format")?, Some(2));
+        let bytes: Vec<u8> = db.query_row("SELECT data FROM logs WHERE idx=0", [], |r| r.get(0))?;
+        let stored: serde_json::Value = serde_json::from_slice(&bytes)?;
+        assert_eq!(stored["format"], 2);
+        assert_eq!(stored["digest"].as_str().ok_or("digest")?.len(), 64);
+        assert_eq!(log::decode_entry(0, &bytes)?.log_id, first.log_id);
+        drop(db);
+        drop(store);
+        std::fs::remove_dir_all(dir)?;
+    }
+    Ok(())
+}
+#[tokio::test]
+async fn legacy_migration_failure_rolls_back_wrapped_rows_and_format_marker()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let store = Store::open(&dir, "test", 1).await?;
+    drop(store);
+    let db = Connection::open(dir.join("metadata.sqlite"))?;
+    put(&db, "control_log_format", &1u64)?;
+    let raw = encode(&entry(0, 1))?;
+    db.execute("INSERT INTO logs(idx,data) VALUES(0,?1)", [&raw])?;
+    db.execute(
+        "INSERT INTO logs(idx,data) VALUES(1,?1)",
+        [b"{}".as_slice()],
+    )?;
+    drop(db);
+    assert!(Store::open(&dir, "test", 1).await.is_err());
+    let db = Connection::open(dir.join("metadata.sqlite"))?;
+    assert_eq!(get::<u64>(&db, "control_log_format")?, Some(1));
+    let unchanged: Vec<u8> = db.query_row("SELECT data FROM logs WHERE idx=0", [], |r| r.get(0))?;
+    assert_eq!(unchanged, raw);
+    drop(db);
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+#[tokio::test]
+async fn all_new_log_read_paths_reject_missing_hash_unknown_version_or_bare_entry()
+-> Result<(), Box<dyn std::error::Error>> {
+    for kind in ["missing-hash", "unknown-version", "bare-entry"] {
+        let dir = directory();
+        let mut store = Store::open(&dir, "test", 1).await?;
+        let first = entry(0, 1);
+        prime(&store, vec![first.clone()], Some(first.log_id)).await?;
+        store.apply([first]).await?;
+        let tail = entry(1, 2);
+        prime(&store, vec![tail.clone()], Some(tail.log_id)).await?;
+        let db = Connection::open(dir.join("metadata.sqlite"))?;
+        let bytes: Vec<u8> = db.query_row("SELECT data FROM logs WHERE idx=1", [], |r| r.get(0))?;
+        let mut value: serde_json::Value = serde_json::from_slice(&bytes)?;
+        match kind {
+            "missing-hash" => {
+                value.as_object_mut().ok_or("object")?.remove("digest");
+            }
+            "unknown-version" => value["format"] = serde_json::json!(999),
+            _ => value = serde_json::to_value(&tail)?,
+        }
+        db.execute(
+            "UPDATE logs SET data=?1 WHERE idx=1",
+            [serde_json::to_vec(&value)?],
+        )?;
+        drop(db);
+        assert!(store.get_log_state().await.is_err());
+        assert!(store.try_get_log_entries(0..=1).await.is_err());
+        assert!(store.apply([tail]).await.is_err());
+        assert_eq!(store.metadata().nodes.len(), 1);
+        drop(store);
+        assert!(Store::open(&dir, "test", 1).await.is_err());
+        std::fs::remove_dir_all(dir)?;
+    }
     Ok(())
 }

@@ -1,7 +1,6 @@
 //! Checkpoint validation and committed-only log replay, executed on blocking IO workers.
 use super::*;
 use sha2::{Digest, Sha256};
-const FORMAT: u64 = 1;
 pub(super) const MAX_SNAPSHOT: usize = 16 * 1024 * 1024;
 
 pub(super) fn snapshot_digest(
@@ -68,9 +67,13 @@ pub(super) fn checkpoint(db: &Connection) -> io::Result<State> {
     Ok(state)
 }
 pub(super) fn recover(db: &mut Connection) -> io::Result<State> {
-    if get::<u64>(db, "control_log_format")?.is_some_and(|format| format != FORMAT) {
-        return Err(db_err("unsupported Controller log format"));
-    }
+    let tx = db.transaction().map_err(db_err)?;
+    log::migrate_and_validate(&tx)?;
+    let state = recover_committed(&tx)?;
+    tx.commit().map_err(db_err)?;
+    Ok(state)
+}
+fn recover_committed(db: &Connection) -> io::Result<State> {
     let mut state = checkpoint(db)?;
     let checkpoint = state.last_applied;
     let recorded = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
@@ -96,8 +99,8 @@ pub(super) fn recover(db: &mut Connection) -> io::Result<State> {
                 .map_err(db_err)?;
             while let Some(row) = rows.next().map_err(db_err)? {
                 let idx: i64 = row.get(0).map_err(db_err)?;
-                let bytes: Vec<u8> = row.get(1).map_err(db_err)?;
-                let entry: Entry<Types> = decode(&bytes)?;
+                let bytes = log::row_bytes(row, 1).map_err(db_err)?;
+                let entry = log::decode_entry(idx, &bytes)?;
                 if idx < 0 || idx as u64 != expected || entry.log_id.index != expected {
                     return Err(db_err("committed log gap or index mismatch"));
                 }
@@ -114,12 +117,9 @@ pub(super) fn recover(db: &mut Connection) -> io::Result<State> {
             }
         }
     }
-    let tx = db.transaction().map_err(db_err)?;
-    put(&tx, "control_log_format", &FORMAT)?;
     if committed != recorded {
-        put(&tx, "committed", &committed)?;
+        put(db, "committed", &committed)?;
     }
-    tx.commit().map_err(db_err)?;
     Ok(state)
 }
 /// Proper Raft calls have already flushed logs and saved the commit watermark.
@@ -139,11 +139,13 @@ pub(super) fn applied_input_durable(db: &Connection, entries: &[Entry<Types>]) -
     for entry in entries {
         let idx = i64::try_from(entry.log_id.index).map_err(db_err)?;
         let bytes: Option<Vec<u8>> = db
-            .query_row("SELECT data FROM logs WHERE idx=?1", [idx], |r| r.get(0))
+            .query_row("SELECT data FROM logs WHERE idx=?1", [idx], |row| {
+                log::row_bytes(row, 0)
+            })
             .optional()
             .map_err(db_err)?;
         match bytes {
-            Some(bytes) if bytes == encode(entry)? => {}
+            Some(bytes) if encode(&log::decode_entry(idx, &bytes)?)? == encode(entry)? => {}
             None => return Ok(false),
             Some(_) => return Err(db_err("applied input conflicts with durable log")),
         }
@@ -172,8 +174,8 @@ pub(super) fn verify_remaining_tail(db: &Connection, floor: Option<LogId<u64>>) 
         .map_err(db_err)?;
     while let Some(row) = rows.next().map_err(db_err)? {
         let index: i64 = row.get(0).map_err(db_err)?;
-        let bytes: Vec<u8> = row.get(1).map_err(db_err)?;
-        let entry: Entry<Types> = decode(&bytes)?;
+        let bytes = log::row_bytes(row, 1).map_err(db_err)?;
+        let entry = log::decode_entry(index, &bytes)?;
         if index < 0
             || index as u64 != expected
             || entry.log_id.index != expected
