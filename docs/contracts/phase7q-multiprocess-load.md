@@ -50,3 +50,13 @@ global completion window from commonstart to latest completion; p99/mean from
 merged raw success samples. Record per-process success/errors/skips/clock lag,
 CPU/RSS and all endpoints. Source-port range stays unchanged for10000total.
 Use freshcluster/data/output paths, preserve old evidence, stop all test processes.
+
+Review clarification: sample actual-start lag inside the connection task, immediately
+before TCP connect, including task scheduling delay. Keep a lag for every attempted
+request even when it fails; do not fill missing observations with zeros. The common
+start anchors monotonic ramp elapsed, used for the aggregate window denominator.
+Wall timestamps are auditing fields. Validate the global held interval from latest
+ramp completion to earliest common PING, not just four independent hold counters.
+Four500/s streams have approximately four arrivals every2ms, which differs from
+the previous single2000/s stream; report this and the increased probe window.
+Measure simultaneous sum-RSS peak and sum-CPU across all4load processes.
