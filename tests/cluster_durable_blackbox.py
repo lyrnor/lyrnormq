@@ -7,11 +7,13 @@ ACKs are durability barriers; process crashes do not certify physical power loss
 """
 import os
 import copy
+import concurrent.futures
 import json
 import signal
 import socket
 import struct
 import tempfile
+import threading
 import time
 import unittest
 
@@ -276,6 +278,32 @@ class Durable5(DurableSessionCases, unittest.TestCase):
 
 class DurableFaults(DurableFixture, unittest.TestCase):
     version = 5
+
+    def test_concurrent_first_host_publications_share_one_initialized_record(self):
+        target = self.persistent('first-host-target')
+        self.subscribe(target, 'durable/first-host', 1)
+        start = threading.Barrier(4)
+        def publish(index):
+            start.wait(timeout=5)
+            return self.fleet.brokers[2].request('/api/v1/mqtt/publish', method='POST',
+                body={'topic': 'durable/first-host', 'payload': f'parallel-{index}', 'qos': 1})
+        # Four requests stay below the eight-entry record queue. This is an
+        # initialization race check, not a demand to suppress real backpressure.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            requests = [pool.submit(publish, index) for index in range(4)]
+            for request in requests:
+                self.assertEqual(request.result(timeout=12), (202, {'accepted': True}))
+        seen = set()
+        for _ in range(4):
+            message = self.message(target)
+            self.assertEqual(message[0], 'durable/first-host')
+            self.assertEqual(message[2], 1)
+            self.assertNotIn(message[1], seen)
+            seen.add(message[1])
+            self.complete_message(target, message, barrier=False)
+        self.assertEqual(seen, {f'parallel-{index}'.encode() for index in range(4)})
+        self.ping(target)
+        self.quiet(target)
 
     def test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives(self):
         target = self.persistent('disk-device')
