@@ -114,6 +114,7 @@ impl Store {
         .map_err(err)?
         .map_err(err)
     }
+    #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
     async fn serialized<T, F, Fut>(&self, operation: F) -> Result<T, StorageError<u64>>
     where
         T: Send + 'static,
@@ -149,6 +150,7 @@ impl Store {
         }
         vec![MetadataUpdate::Snapshot(state.metadata.clone())]
     }
+    #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
     async fn cpu<T: Send + 'static>(
         &self,
         call: impl FnOnce() -> io::Result<T> + Send + 'static,
@@ -168,6 +170,7 @@ impl Store {
         .map_err(err)?
         .map_err(err)
     }
+    #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
     async fn persist_checkpoint(
         &self,
         state: State,
@@ -201,6 +204,7 @@ impl Store {
             state,
         ))
     }
+    #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
     async fn apply_entries(
         &self,
         entries: Vec<Entry<Types>>,
@@ -286,6 +290,7 @@ impl Store {
             .await
         }
     }
+    #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
     async fn install_checkpoint(
         &self,
         meta: SnapshotMeta<u64, BasicNode>,

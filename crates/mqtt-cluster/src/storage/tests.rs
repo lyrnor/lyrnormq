@@ -89,6 +89,7 @@ async fn history_returns_sparse_delta_and_heartbeat_wakes_waiters()
     Ok(())
 }
 
+#[allow(clippy::result_large_err)] // Same error as the storage trait under test.
 async fn prime(
     store: &Store,
     entries: Vec<Entry<Types>>,
