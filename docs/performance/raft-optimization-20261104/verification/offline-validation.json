@@ -1,0 +1,8 @@
+{
+  "archive_and_perf_hashes_verified": true,
+  "offline_json_exact_reproduction": true,
+  "future_perf_clock_pinned": true,
+  "embedded_remote_scripts_compiled": 4,
+  "legacy_capture_phase_attribution_rejected": true,
+  "group_count_sum_and_correlated_batch_checks": true
+}

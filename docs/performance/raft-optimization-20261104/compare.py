@@ -62,6 +62,17 @@ def main(root):
     with contextlib.redirect_stdout(io.StringIO()):
         analysis.main(root)
         resources.main(root)
+    # Original captures did not pin perf's clock. CLOCK_MONOTONIC timestamps
+    # from /proc monitoring cannot safely select a window in default-clock perf.
+    observers = json.loads((root / 'observers.json').read_text())['observers']
+    commands = [o['command'] for o in observers if 'record' in o['command']]
+    pinned = bool(commands) and all('--clockid' in c and c[c.index('--clockid')+1]=='mono' for c in commands)
+    cpu_path = root / 'cpu-analysis.json'
+    cpu = json.loads(cpu_path.read_text())
+    cpu['phase_alignment_valid'] = pinned
+    cpu['clock_note'] = ('perf capture explicitly used CLOCK_MONOTONIC; cross-host wall alignment remains approximate.' if pinned else
+        'Default perf clock was not recorded in CLOCKID/CLOCK_DATA. Post-run calibration found ~3.33s mono/raw offset. Nominal ramp sample counts and percentages are invalid as phase attribution; retained only to audit the earlier calculation. Use /proc for CPU totals.')
+    cpu_path.write_text(json.dumps(cpu,indent=2)+'\n')
     result = dict(before=summarize(BASELINE, before=True), after=summarize(root),
         note='Same offered load/limits, profiling enabled in both. Success-only latency populations may differ. Histogram padding differs from correlated batch window. Actual rounds before grouping equal logical calls. No maximum capacity or business message throughput claim.')
     (root / 'comparison.json').write_text(json.dumps(result, indent=2)+'\n')

@@ -1,0 +1,124 @@
+Warning: truncated output (original token count: 2728)
+Total output lines: 128
+
+Invalid HEADER_EVENT_DESC: nre=1 sz=144 (min 64)
+# ========
+# captured on    : Wed Nov  4 07:45:16 2026
+# header version : 1
+# data offset    : 3400
+# data size      : 21661912
+# feat offset    : 21665312
+# hostname : iZt4n2fkof08f8pp56ejgjZ
+# os release : 7.0.0-38-generic
+# perf version : 7.0.14
+# arch : x86_64
+# nrcpus online : 8
+# nrcpus avail : 8
+# cpudesc : Intel(R) Xeon(R) Platinum
+# cpuid : GenuineIntel,6,85,4
+# total memory : 15687640 kB
+# cmdline : /usr/bin/perf 
+# event desc: not available or unable to read
+# CPU_TOPOLOGY info available, use -I to display
+# NUMA_TOPOLOGY info available, use -I to display
+# pmu mappings: cpu = 4, breakpoint = 5, kprobe = 8, msr = 10, power = 11, software = 1, tool = 4294967294, tracepoint = 2, uprobe = 9
+# CACHE info available, use -I to display
+# time of first sample : 65642.053108
+# time of last sample : 65681.999571
+# sample duration :  39946.462 ms
+# MEM_TOPOLOGY info available, use -I to display
+# bpf_prog_info 64:
+# 	sub_prog 0: bpf_prog_6a8896eca7df91c3_sysctl_monitor addr 0xffffffffc01f096c size 683
+# 	sub_prog 1: bpf_prog_417237dd50306dd0_cut_last addr 0xffffffffc01f0c48 size 104
+# bpf_prog_info 78: bpf_prog_6552d9a5b751de0f_kprobe_proc_fork_connector addr 0xffffffffc0201ad8 size 976
+# bpf_prog_info 80: bpf_prog_faf21a2f97c81d4b_kretprobe_sys_execve addr 0xffffffffc0201ee0 size 30966
+# bpf_prog_info 81: bpf_prog_b20122e0dc6dd789_kprobe_tcp_connect addr 0xffffffffc0209814 size 1521
+# bpf_prog_info 82: bpf_prog_2bada2df2b75e837_kretprobe_inet_csk_accept addr 0xffffffffc0209e54 size 2011
+# bpf_prog_info 83: bpf_prog_eac26a3336db78d6_kprobe_do_sys_open addr 0xffffffffc020a664 size 911
+# bpf_prog_info 84: bpf_prog_5ec9424ebcab7403_kretprobe_do_filp_open addr 0xffffffffc020aa24 size 13399
+# bpf_prog_info 85: bpf_prog_fa82167fe98b61e5_kprobe_inet6_bind addr 0xffffffffc020de88 size 930
+# bpf_prog_info 86: bpf_prog_9e0d8e294edc3c58_kprobe_inet_bind addr 0xffffffffc020e248 size 1073
+# bpf_prog_info 87: bpf_prog_518f891b590ebd09_kprobe_inet_listen addr 0xffffffffc020e6f8 size 1270
+# bpf_prog_info 88: bpf_prog_7580eceb61c48b9b_trace_process_vm_writev_enter addr 0xffffffffc020ec30 size 619
+# bpf_prog_info 89: bpf_prog_dbd2dd72f1a54636_trace_process_vm_readv_enter addr 0xffffffffc020eecc size 614
+# bpf_prog_info 90: bpf_prog_8aa09788aed047cd_trace_removexattr addr 0xffffffffc020f164 size 14891
+# bpf_prog_info 91: bpf_prog_35f6b71478d937b7_trace_setxattr addr 0xffffffffc0212bc8 size 15776
+# bpf_prog_info 92: bpf_prog_4a393ae567e267f3_trace_ptrace_enter addr 0xffffffffc02169b4 size 761
+# bpf_prog_info 93: bpf_prog_c3100a3b8124766a_kprobe_security_bpf addr 0xffffffffc0216ccc size 614
+# bpf_prog_info 94: bpf_prog_e013fd98896c2cfe_kprobe_security_bpf_prog addr 0xffffffffc0216f60 size 697
+# bpf_prog_info 95: bpf_prog_5b768340d1266296_kprobe_security_bpf_map addr 0xffffffffc0217248 size 812
+# bpf_prog_info 96: bpf_prog_21f8bdfa1a2a6672_kprobe_vfs_unlink addr 0xffffffffc02175e0 size 537
+# bpf_prog_info 97: bpf_prog_4e537fdba775d29f_trace_unlinkat addr 0xffffffffc0217818 size 15729
+# bpf_prog_info 98: bpf_prog_5b0d17e68de4213a_trace_unlink addr 0xffffffffc021b5f0 size 15729
+# bpf_prog_info 99: bpf_prog_a71db2768f2fb761_kprobe_do_symlinkat addr 0xffffffffc021f3b8 size 15620
+# bpf_prog_info 100: bpf_prog_48447f8e2f3bf1d6_kprobe_ksys_dup addr 0xffffffffc0201a70 size 59
+# bpf_prog_info 101: bpf_prog_07d450ef9b674b25_kprobe_do_dup2 addr 0xffffffffc02230c8 size 13984
+# bpf_prog_info 102: bpf_prog_713f1c0827aa430a_kprobe__set_task_comm addr 0xffffffffc022678c size 677
+# bpf_prog_info 103: bpf_prog_b415eb883c8002e5_kprobe_security_task_prctl addr 0xffffffffc0226a64 size 938
+# bpf_prog_info 104: bpf_prog_39febeae2d4e9fc8_kprobe_do_mprotect_pkey addr 0xffffffffc0226e4c size 724
+# bpf_prog_info 105: bpf_prog_27443ad523cae1ba_kprobe_do_sys_openat2 addr 0xffffffffc0227164 size 964
+# bpf_prog_info 106: bpf_prog_d47f8649fa467609_kprobe_udp_sendmsg addr 0xffffffffc0227548 size 2664
+# bpf_prog_info 107: bpf_prog_1f790278d35a25ae_kprobe_udp_recvmsg addr 0xffffffffc0227ff0 size 1008
+# bpf_prog_info 108: bpf_prog_f7bea3f5c2e2e78e_kretprobe_udp_recvmsg addr 0xffffffffc022840c size 2613
+# bpf_prog_info 109: bpf_prog_4e91363ebd71689d_kprobe_unix_stream_connect addr 0xffffffffc0228e90 size 739
+# bpf_prog_info 110: bpf_prog_4516dd72ea509fed_uprobe_getaddrinfo addr 0xffffffffc0229194 size 776
+# bpf_prog_info 111: bpf_prog_4516dd72ea509fed_uprobe_gethostbyname addr 0xffffffffc02294d4 size 776
+# bpf_prog_info 112: bpf_prog_4516dd72ea509fed_uprobe_gethostbyname2 addr 0xffffffffc022980c size 776
+# bpf_prog_info 113: bpf_prog_4516dd72ea509fed_uprobe_gethostbyname_r addr 0xffffffffc0229b4c size 776
+# bpf_prog_info 114: bpf_prog_4516dd72ea509fed_uprobe_gethostbyname2_r addr 0xffffffffc0229e98 size 776
+# bpf_prog_info 115: bpf_prog_c27ce061d04f9a21_uprobe_guntls_get_session_key addr 0xffffffffc022a1c8 size 80
+# bpf_prog_info 116: bpf_prog_8bec2089f9786114_uretprobe_guntls_get_session_key_3_3_24 addr 0xffffffffc0…228 tokens truncated…tprobe_guntls_get_session_key_3_7_3 addr 0xffffffffc022de4c size 1852
+# bpf_prog_info 125: bpf_prog_8d5a73db32b1dc37_uretprobe_guntls_get_session_key_3_7_7 addr 0xffffffffc022e5ec size 1852
+# bpf_prog_info 126: bpf_prog_ec0f1cd5f31fb61c_uretprobe_guntls_get_session_key_3_8_4 addr 0xffffffffc022ed7c size 1852
+# bpf_prog_info 127: bpf_prog_badbfe1a8451f746_uretprobe_guntls_get_session_key_3_8_7 addr 0xffffffffc022f4d0 size 1852
+# bpf_prog_info 128: bpf_prog_c27ce061d04f9a21_uprobe_ssl_get_session_key addr 0xffffffffc022fc64 size 80
+# bpf_prog_info 129: bpf_prog_a05418046663059b_uretprobe_ssl_get_session_key_1_0_2a addr 0xffffffffc022fcd0 size 1759
+# bpf_prog_info 130: bpf_prog_97f2be0127e42070_uretprobe_ssl_get_session_key_1_1_0a addr 0xffffffffc02303d8 size 1759
+# bpf_prog_info 131: bpf_prog_296cf212135e4025_uretprobe_ssl_get_session_key_1_1_1 addr 0xffffffffc0230ac8 size 1759
+# bpf_prog_info 132: bpf_prog_2430304e08845fef_uretprobe_ssl_get_session_key_1_1_1a addr 0xffffffffc02311d0 size 1759
+# bpf_prog_info 133: bpf_prog_8f8402761dd22099_uretprobe_ssl_get_session_key_1_1_1b addr 0xffffffffc02318dc size 1759
+# bpf_prog_info 134: bpf_prog_aebce243ebbb3870_uretprobe_ssl_get_session_key_1_1_1d addr 0xffffffffc0231fd0 size 1759
+# bpf_prog_info 135: bpf_prog_bda7da10808a2fd5_uretprobe_ssl_get_session_key_1_1_1j addr 0xffffffffc02326dc size 1759
+# bpf_prog_info 136: bpf_prog_8922483ce569c7ed_uretprobe_ssl_get_session_key_3_0_0 addr 0xffffffffc0232dd8 size 1687
+# bpf_prog_info 137: bpf_prog_e3c5e794a45806c5_uretprobe_ssl_get_session_key_3_0_12 addr 0xffffffffc02334a0 size 1687
+# bpf_prog_info 138: bpf_prog_a9427998b42c7777_uretprobe_ssl_get_session_key_3_1_0 addr 0xffffffffc0233b64 size 1687
+# bpf_prog_info 139: bpf_prog_2c25e5a384ed01fa_uretprobe_ssl_get_session_key_3_2_0 addr 0xffffffffc023421c size 1687
+# bpf_prog_info 140: bpf_prog_f1be2670f7ae0e34_uretprobe_ssl_get_session_key_3_2_3 addr 0xffffffffc02348cc size 1687
+# bpf_prog_info 141: bpf_prog_abd5e69db546a55f_uretprobe_ssl_get_session_key_3_2_4 addr 0xffffffffc0234f9c size 1687
+# bpf_prog_info 142: bpf_prog_5034b4d1f23b7bca_uretprobe_ssl_get_session_key_3_3_0 addr 0xffffffffc0235654 size 1687
+# bpf_prog_info 143: bpf_prog_56ed0b4b0eaac500_uretprobe_ssl_get_session_key_3_3_2 addr 0xffffffffc0235d1c size 1687
+# bpf_prog_info 144: bpf_prog_6900f8edb1e23690_uretprobe_ssl_get_session_key_3_3_3 addr 0xffffffffc02363d8 size 1687
+# bpf_prog_info 145: bpf_prog_d367a53b1eaf6824_uretprobe_ssl_get_session_key_3_4_0 addr 0xffffffffc0236a94 size 1687
+# bpf_prog_info 146: bpf_prog_eb67c701bcca77db_uretprobe_ssl_get_session_key_3_4_1 addr 0xffffffffc0237154 size 1687
+# bpf_prog_info 147: bpf_prog_edd0c1dc647e0ce8_uretprobe_ssl_get_session_key_3_5_0 addr 0xffffffffc023780c size 1687
+# bpf_prog_info 148: bpf_prog_a130fda1e046afcd_kprobe_pipe_write addr 0xffffffffc0237ef4 size 948
+# bpf_prog_info 166: bpf_prog_772db7720b2728e9_sd_fw_egress addr 0xffffffffc01e27bc size 59
+# bpf_prog_info 167: bpf_prog_772db7720b2728e9_sd_fw_ingress addr 0xffffffffc01e2834 size 59
+# bpf_prog_info 168: bpf_prog_9f0126175d483e7a_sd_devices addr 0xffffffffc01edaf0 size 314
+# bpf_prog_info 169: bpf_prog_772db7720b2728e9_sd_fw_egress addr 0xffffffffc01e2898 size 59
+# bpf_prog_info 170: bpf_prog_772db7720b2728e9_sd_fw_ingress addr 0xffffffffc01edc68 size 59
+# bpf_prog_info 171: bpf_prog_925aa739a35aee81_sd_devices addr 0xffffffffc01f0e08 size 356
+# bpf_prog_info 172: bpf_prog_d82bf1294d9d3136_sd_devices addr 0xffffffffc01f1110 size 485
+# bpf_prog_info 173: bpf_prog_772db7720b2728e9_sd_fw_egress addr 0xffffffffc01edcf4 size 59
+# bpf_prog_info 174: bpf_prog_772db7720b2728e9_sd_fw_ingress addr 0xffffffffc01f0870 size 59
+# bpf_prog_info 175: bpf_prog_772db7720b2728e9_sd_fw_egress addr 0xffffffffc01f08e0 size 59
+# bpf_prog_info 176: bpf_prog_772db7720b2728e9_sd_fw_ingress addr 0xffffffffc01f1308 size 59
+# bpf_prog_info 177: bpf_prog_99aee04c1c96cc7e_sd_devices addr 0xffffffffc020158c size 293
+# bpf_prog_info 178: bpf_prog_9f0126175d483e7a_sd_devices addr 0xffffffffc02382d0 size 314
+# bpf_prog_info 179: bpf_prog_470479e7b2a42bb5_sd_devices addr 0xffffffffc0238468 size 106
+# bpf_prog_info 185: bpf_prog_f6a117b1acf1815d_tp_sched_process_fork addr 0xffffffffc01fe914 size 599
+# bpf_prog_info 187: bpf_prog_f39dc08369be534d_tp_sched_process_exec addr 0xffffffffc01febac size 826
+# bpf_prog_info 188: bpf_prog_3a52265f7c20c655_tp_sched_process_exit addr 0xffffffffc01fef20 size 555
+# bpf_prog_info 189: bpf_prog_c5fe92b63bb8112f_modret_security_task_kill addr 0xffffffffc01ff18c size 2639
+# btf info of id 98
+# btf info of id 107
+# btf info of id 117
+# cpu pmu capabilities: not available
+# CPU_DOMAIN_INFO info available, use -I to display
+# e_machine : 62
+#   e_flags : 0
+# missing features: TRACING_DATA BUILD_ID BRANCH_STACK GROUP_DESC AUXTRACE STAT CLOCKID DIR_FORMAT COMPRESSED CLOCK_DATA HYBRID_TOPOLOGY 
+# ========
+#
+{"wall_ns": 1793749654703511923, "monotonic_ns": 65824022042999, "monotonic_raw_ns": 65820691791223}
+

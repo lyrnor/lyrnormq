@@ -52,3 +52,9 @@ failure. Compare logical reads versus rounds/RPCs, batch latency/occupancy, queu
 CONNACK latency/counts, CPU and simultaneous RSS. CPU samples use all sampled IPs.
 Stop all test processes; archive raw data/hash, report improvements and remaining
 bottlenecks without claiming a maximum capacity or untested message throughput.
+
+Post-run measurement correction: the one comparison cohort retained Phase7r's
+default perf clock, whose relation to Python CLOCK_MONOTONIC was not recorded.
+Per-phase perf attribution is therefore withdrawn for both cohorts; raw captures
+remain. Future harness uses --clockid mono. This does not change internal Raft
+timers or /proc resource accounting, and does not authorize another pressure run.

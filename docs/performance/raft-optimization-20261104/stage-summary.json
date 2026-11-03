@@ -1,0 +1,523 @@
+{
+  "note": "Sparse diagnostic samples, not population percentiles or paired request stages.",
+  "ramp_stages": [
+    {
+      "node": "node1",
+      "stage": "Append",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 3433
+    },
+    {
+      "node": "node1",
+      "stage": "ApplyQueued",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 3216
+    },
+    {
+      "node": "node1",
+      "stage": "ApplyState",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 3127
+    },
+    {
+      "node": "node1",
+      "stage": "RaftResult",
+      "kind": "Acquire",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 11191
+    },
+    {
+      "node": "node1",
+      "stage": "RaftResult",
+      "kind": "Mutation",
+      "outcome": "Success",
+      "samples": 7,
+      "max_elapsed_us": 26163
+    },
+    {
+      "node": "node1",
+      "stage": "Read",
+      "kind": "Applied",
+      "outcome": "Success",
+      "samples": 15,
+      "max_elapsed_us": 26559
+    },
+    {
+      "node": "node1",
+      "stage": "Read",
+      "kind": "AppliedAck",
+      "outcome": "Success",
+      "samples": 3,
+      "max_elapsed_us": 3
+    },
+    {
+      "node": "node1",
+      "stage": "Read",
+      "kind": "Owner",
+      "outcome": "Success",
+      "samples": 14,
+      "max_elapsed_us": 16190
+    },
+    {
+      "node": "node1",
+      "stage": "ReadIndex",
+      "kind": "Authority",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 24103
+    },
+    {
+      "node": "node1",
+      "stage": "RpcMutate",
+      "kind": "Acquire",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 819615
+    },
+    {
+      "node": "node1",
+      "stage": "RpcMutate",
+      "kind": "Mutation",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 984568
+    },
+    {
+      "node": "node1",
+      "stage": "RpcRead",
+      "kind": "Applied",
+      "outcome": "Success",
+      "samples": 13,
+      "max_elapsed_us": 36400
+    },
+    {
+      "node": "node1",
+      "stage": "RpcRead",
+      "kind": "AppliedAck",
+      "outcome": "Success",
+      "samples": 3,
+      "max_elapsed_us": 5254
+    },
+    {
+      "node": "node1",
+      "stage": "RpcRead",
+      "kind": "Owner",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 16626
+    },
+    {
+      "node": "node1",
+      "stage": "SaveCommitted",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 2654
+    },
+    {
+      "node": "node1",
+      "stage": "TakeAuthority",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 4
+    },
+    {
+      "node": "node1",
+      "stage": "TakeBarrier",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 32396
+    },
+    {
+      "node": "node1",
+      "stage": "TakeFence",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 4843
+    },
+    {
+      "node": "node1",
+      "stage": "TakeFilters",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 1
+    },
+    {
+      "node": "node1",
+      "stage": "TakeFinish",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 847222
+    },
+    {
+      "node": "node1",
+      "stage": "TakeMutate",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 819624
+    },
+    {
+      "node": "node1",
+      "stage": "TakeWrite",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 4937
+    },
+    {
+      "node": "node1",
+      "stage": "WalAppend",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 3298
+    },
+    {
+      "node": "node1",
+      "stage": "WalCommit",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 2485
+    },
+    {
+      "node": "node1",
+      "stage": "Write",
+      "kind": "Acquire",
+      "outcome": "Success",
+      "samples": 14,
+      "max_elapsed_us": 954996
+    },
+    {
+      "node": "node1",
+      "stage": "Write",
+      "kind": "Mutation",
+      "outcome": "Success",
+      "samples": 14,
+      "max_elapsed_us": 739258
+    },
+    {
+      "node": "node2",
+      "stage": "Append",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 5623
+    },
+    {
+      "node": "node2",
+      "stage": "ApplyQueued",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 4077
+    },
+    {
+      "node": "node2",
+      "stage": "ApplyState",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 4030
+    },
+    {
+      "node": "node2",
+      "stage": "RpcMutate",
+      "kind": "Acquire",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 814661
+    },
+    {
+      "node": "node2",
+      "stage": "RpcMutate",
+      "kind": "Mutation",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 983672
+    },
+    {
+      "node": "node2",
+      "stage": "RpcRead",
+      "kind": "Applied",
+      "outcome": "Success",
+      "samples": 13,
+      "max_elapsed_us": 31010
+    },
+    {
+      "node": "node2",
+      "stage": "RpcRead",
+      "kind": "AppliedAck",
+      "outcome": "Success",
+      "samples": 3,
+      "max_elapsed_us": 5752
+    },
+    {
+      "node": "node2",
+      "stage": "RpcRead",
+      "kind": "Owner",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 17318
+    },
+    {
+      "node": "node2",
+      "stage": "SaveCommitted",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 4874
+    },
+    {
+      "node": "node2",
+      "stage": "TakeAuthority",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 48
+    },
+    {
+      "node": "node2",
+      "stage": "TakeBarrier",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 30515
+    },
+    {
+      "node": "node2",
+      "stage": "TakeFence",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 4816
+    },
+    {
+      "node": "node2",
+      "stage": "TakeFilters",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 2
+    },
+    {
+      "node": "node2",
+      "stage": "TakeFinish",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 839784
+    },
+    {
+      "node": "node2",
+      "stage": "TakeMutate",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 811427
+    },
+    {
+      "node": "node2",
+      "stage": "TakeWrite",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 5174
+    },
+    {
+      "node": "node2",
+      "stage": "WalAppend",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 5301
+    },
+    {
+      "node": "node2",
+      "stage": "WalCommit",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 4130
+    },
+    {
+      "node": "node3",
+      "stage": "Append",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 6460
+    },
+    {
+      "node": "node3",
+      "stage": "ApplyQueued",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 2780
+    },
+    {
+      "node": "node3",
+      "stage": "ApplyState",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 2739
+    },
+    {
+      "node": "node3",
+      "stage": "RpcMutate",
+      "kind": "Acquire",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 821012
+    },
+    {
+      "node": "node3",
+      "stage": "RpcMutate",
+      "kind": "Mutation",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 980565
+    },
+    {
+      "node": "node3",
+      "stage": "RpcRead",
+      "kind": "Applied",
+      "outcome": "Success",
+      "samples": 13,
+      "max_elapsed_us": 29826
+    },
+    {
+      "node": "node3",
+      "stage": "RpcRead",
+      "kind": "AppliedAck",
+      "outcome": "Success",
+      "samples": 3,
+      "max_elapsed_us": 6818
+    },
+    {
+      "node": "node3",
+      "stage": "RpcRead",
+      "kind": "Owner",
+      "outcome": "Success",
+      "samples": 12,
+      "max_elapsed_us": 16787
+    },
+    {
+      "node": "node3",
+      "stage": "SaveCommitted",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 3914
+    },
+    {
+      "node": "node3",
+      "stage": "TakeAuthority",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 6
+    },
+    {
+      "node": "node3",
+      "stage": "TakeBarrier",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 31385
+    },
+    {
+      "node": "node3",
+      "stage": "TakeFence",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 6114
+    },
+    {
+      "node": "node3",
+      "stage": "TakeFilters",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 1
+    },
+    {
+      "node": "node3",
+      "stage": "TakeFinish",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 850369
+    },
+    {
+      "node": "node3",
+      "stage": "TakeMutate",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 821027
+    },
+    {
+      "node": "node3",
+      "stage": "TakeWrite",
+      "kind": "",
+      "outcome": "\"success\"",
+      "samples": 12,
+      "max_elapsed_us": 4046
+    },
+    {
+      "node": "node3",
+      "stage": "WalAppend",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 6056
+    },
+    {
+      "node": "node3",
+      "stage": "WalCommit",
+      "kind": "",
+      "outcome": "Success",
+      "samples": 1,
+      "max_elapsed_us": 3495
+    }
+  ],
+  "errors": [
+    {
+      "node": "node1",
+      "phase": "cleanup",
+      "line": "2026-11-03T23:45:15.319147Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->2"
+    },
+    {
+      "node": "node1",
+      "phase": "cleanup",
+      "line": "2026-11-03T23:45:15.373742Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->3"
+    },
+    {
+      "node": "node1",
+      "phase": "cleanup",
+      "line": "2026-11-03T23:45:15.520307Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->2"
+    },
+    {
+      "node": "node1",
+      "phase": "cleanup",
+      "line": "2026-11-03T23:45:15.528297Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->3"
+    }
+  ]
+}

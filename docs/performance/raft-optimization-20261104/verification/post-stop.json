@@ -1,0 +1,10 @@
+{
+  "47.84.224.186": {
+    "active_test_processes": [],
+    "port_range": "32768\t60999"
+  },
+  "47.84.241.200": {
+    "active_test_processes": [],
+    "port_range": "32768\t60999"
+  }
+}

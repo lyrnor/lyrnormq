@@ -1,0 +1,18 @@
+{
+  "production_code_revision": "3bde0ab",
+  "readindex_implementation": "2aaf3be",
+  "recipient_implementation": "3bde0ab",
+  "quality_test_commit": "3e6cf14",
+  "cluster_tests": 191,
+  "transport_tests": 203,
+  "real_process_tests": 4,
+  "fmt": true,
+  "strict_workspace_all_target_clippy": true,
+  "profile_enabled_real_process_tests": true,
+  "local_native_release": true,
+  "local_locked_zigbuild_amd64_musl": true,
+  "static_elf": true,
+  "broker_sha256": "725a696754b8d385374b1bc00ba29c3b4da42bf2057a8bca470d461302f55f8c",
+  "server_script_sha256": "a74f6d32f91716c21c9e898ed30d9dcbfb0a66a75465b3708f3154cf5bed61b3",
+  "build_note": "Same optimized release and debug-symbol settings as Phase7r; Zig emits same deprecated linker optimization setting warning."
+}

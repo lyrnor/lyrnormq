@@ -746,11 +746,12 @@ Evidence:docs/performance/cluster-multiprocess-load-20261103/README.md.
 - [x] Local optimized symbol-bearing musl build; single2000/s10k diagnostic cohort.
 - [x] Prove entryrejection and96.872% meancontrolwritequeueing; correlate239batches.
 - [x] Verify37531ReadIndex/76146RPC source path and5ReadIndex normalnewCONNECT.
-- [x] Complete1685flatIPs for CPU attribution; disclose only323decodedcallchains.
+- [x] Preserve flatIPs and decodedcallchains. Phase7s correction: defaultperfclock
+  invalidates the selectedramp attribution; pin CLOCK_MONOTONIC in future captures.
 - [x] Independently audit raw counters/means/CPU, archive hashes, stop allprocesses.
-- [ ] Freeze and implement fresh-round queuedReadIndex coalescing; preserve linearity,
+- [x] Phase7s: freeze and implement fresh-round queuedReadIndex coalescing; preserve linearity,
   term/applied/all-live checks. No stale in-flight result reuse for later arrivals.
-- [ ] Index durable recipient lookup/empty-subscription fastpath without changing
+- [x] Phase7s: index durable recipient lookup/empty-subscription fastpath without changing
   routing, logicalgeneration or durable forward semantics.
 - [ ] After those fixes, remeasure13.463ms replication/quorum/Core gap and evaluate
   bounded batch pipelining; do not bypass durable commit/apply ACK ordering.
@@ -759,3 +760,26 @@ Evidence:docs/performance/cluster-multiprocess-load-20261103/README.md.
 
 Evidence:docs/performance/raft-chain-20261103/README.md. No optimization implemented
 in Phase7r; observed overhead includes opt-in profiling and cohosted3node contention.
+
+## Phase7s — two optimizations integrated; same-load gate still fails
+
+- [x] Freeze fresh-round sharing and atomic sparse recipient-index contract.
+- [x] Three isolated worktrees, regression-first implementation, independent review.
+- [x]8ReadIndex boundary/deadline/cancellation/shutdown tests;5index oracle/install/
+  generation/delete/churn tests; preserve full existing recovery semantics.
+- [x] Integrated394tests, strictworkspaceClippy/fmt,4real-process profile-enabled tests.
+- [x] Locally build static optimized symbols-bearing amd64musl; deploy and run one
+  unchanged2000/s10k cohort.9264success/PING,736entryrejects; gateFAIL preserved.
+- [x] Independently verify46326calls/1123rounds,3518RPC,293correlatedbatches,
+  resources/latencies/entrycounts and allprocesscleanup; archive raw/hash evidence.
+- [x] Correct perf defaultclock assumption, retain rawdata, pin future --clockid mono;
+  no newpressure to replace profiling evidence. /procCPU andRafttimings remainvalid.
+- [ ] Freeze bounded controlwrite pipeline or commandcoalescing semantics: preserve
+  per-command order/results, lease preparation, ambiguous outcomes, quorum/applyACK
+  and committed-only recovery. Currentserial64-command batches remain saturated.
+- [ ] Implement/regress that change, then repeat samegate before higher/message tests.
+- [ ] Assess4replicationtimeouts in massdisconnect window; no ramp/PING-window
+  replicationtimeouts thiscohort. Do not claim error-log-free operation.
+
+Evidence:docs/performance/raft-optimization-20261104/README.md. Mean/p99 improved
+38.92%/31.15%, but no complete10k acceptance or maximumthroughput claim.

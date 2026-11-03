@@ -1138,3 +1138,23 @@ Same-epoch recovery preserves physical revision, and cache installation rechecks
 authority after filter synchronization. Outbox, W2, ReadIndex and all-live-node
 visibility remain unchanged. All Controllers must be upgraded together before new
 batch records are written; no mixed-version or downgrade compatibility is claimed.
+
+## ReadIndex groups and durable recipient index (Phase7s)
+
+[Contract](contracts/phase7s-readindex-recipient-optimization.md) removes two measured
+sources of control-plane work without changing consensus or persistence. A single
+owned read worker drains at most1024 already-queued calls before starting a fresh
+OpenRaft ensure_linearizable round. Calls arriving during that round wait for the
+next round; no old quorum result or TTL cache is reused. Async handoff and result
+waiting share the existing one-second authority deadline. Cancellation is per caller;
+Controller teardown aborts the owned worker. Existing term/revision/all-live-node
+checks remain in their original callers. Diagnostic logical-call and actual-round
+counts are separate, so request coalescing is directly measurable.
+
+Data nodes maintain a volatile Router-backed index of subscribed durable client
+owners. Snapshots rebuild it; sparse metadata deltas replace only touched owners.
+Metadata is the outer read/write lock for index publication and lookup, preventing
+mixed filter/generation views. Deleted owners release reusable local slots;
+unsubscribed owners occupy no index entries. Lookup preserves literal filters,
+root-$ rules, overlap deduplication and lexical client order, with each recipient's
+current logical_generation. This derived index changes neither wire nor disk schema.

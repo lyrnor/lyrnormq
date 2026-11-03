@@ -68,7 +68,7 @@ base=pathlib.Path({BASE!r});root=base/'c2000'/'combined'
 pids=','.join(str(p['pid']) for p in json.loads((root/'processes.json').read_text()))
 commands=[
  ['python3',{prior.SERVER_SCRIPT!r},'monitor','combined','--seconds','180'],
- ['timeout','--signal=INT','--kill-after=5','50','perf','record','-e','cpu-clock','-F','49','--call-graph','dwarf,8192','-p',pids,'-o',str(base/'perf.data'),'--','sleep','45'],
+ ['timeout','--signal=INT','--kill-after=5','50','perf','record','--clockid','mono','-e','cpu-clock','-F','49','--call-graph','dwarf,8192','-p',pids,'-o',str(base/'perf.data'),'--','sleep','45'],
  ['timeout','--signal=INT','--kill-after=5','50','perf','stat','-e','task-clock,context-switches,cpu-migrations,page-faults','-I','1000','-p',pids,'-o',str(base/'perf-stat.txt'),'--','sleep','45']]
 items=[]
 (base/'observers.json').write_text('[]')

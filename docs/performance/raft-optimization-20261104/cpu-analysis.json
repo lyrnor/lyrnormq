@@ -1,0 +1,419 @@
+{
+  "samples": 994,
+  "callchain_samples": 252,
+  "callchain_cpu_ns": 5142857076,
+  "flat_unparsed": 0,
+  "headers_total": 2260,
+  "headers_in_window": 994,
+  "missing_stack": 742,
+  "sampled_cpu_ns": 20285714022,
+  "start_monotonic": 65649.282534533,
+  "end_monotonic": 65655.478331752,
+  "leaf": [
+    {
+      "symbol": "compiler_rt.memcpy.memcpyFast",
+      "percent": 6.941649899396378,
+      "weight": 1408163247
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 4.7283702213279675,
+      "weight": 959183661
+    },
+    {
+      "symbol": "compiler_rt.memcmp",
+      "percent": 2.716297786720322,
+      "weight": 551020401
+    },
+    {
+      "symbol": "heap.SmpAllocator.alloc",
+      "percent": 2.716297786720322,
+      "weight": 551020401
+    },
+    {
+      "symbol": "finish_task_switch.isra.0",
+      "percent": 1.5090543259557343,
+      "weight": 306122445
+    },
+    {
+      "symbol": "c.malloc.free",
+      "percent": 1.30784708249497,
+      "weight": 265306119
+    },
+    {
+      "symbol": "c.malloc.realloc",
+      "percent": 1.2072434607645874,
+      "weight": 244897956
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 1.0060362173038229,
+      "weight": 204081630
+    },
+    {
+      "symbol": "sccp",
+      "percent": 1.0060362173038229,
+      "weight": 204081630
+    },
+    {
+      "symbol": "serde_json::ser::format_escaped_str::<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter>",
+      "percent": 1.0060362173038229,
+      "weight": 204081630
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run",
+      "percent": 0.8048289738430584,
+      "weight": 163265304
+    },
+    {
+      "symbol": "do_syscall_64",
+      "percent": 0.7042253521126761,
+      "weight": 142857141
+    },
+    {
+      "symbol": "syscall",
+      "percent": 0.7042253521126761,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<h2::proto::connection::Connection<hyper::common::io::compat::Compat<tonic::transport::channel::service::io::BoxedIo>, h2::client::Peer, hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>::poll",
+      "percent": 0.6036217303822937,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run_task",
+      "percent": 0.6036217303822937,
+      "weight": 122448978
+    },
+    {
+      "symbol": "sha2::sha256::compress256",
+      "percent": 0.6036217303822937,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<h2::frame::headers::Iter as core::iter::traits::iterator::Iterator>::next",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "<h2::hpack::header::Header>::value_eq",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "<h2::proto::streams::counts::Counts>::transition_after",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "<h2::proto::streams::prioritize::Prioritize>::buffer_pending::<hyper::common::io::compat::Compat<tonic::transport::channel::service::io::BoxedIo>, hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::park_internal",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "[unknown] ([vdso])",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "__tcp_transmit_skb",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "c.malloc.malloc",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "compiler_rt.bcmp",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "do_user_addr_fault",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "kernel_init_pages",
+      "percent": 0.5030181086519114,
+      "weight": 102040815
+    },
+    {
+      "symbol": "<h2::hpack::encoder::Encoder>::encode::<h2::frame::headers::Iter>",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<h2::proto::connection::Connection<hyper::common::io::compat::Compat<hyper_util::common::rewind::Rewind<hyper_util::rt::tokio::TokioIo<tonic::transport::server::service::io::ServerIo<tokio::net::tcp::stream::TcpStream>>>>, h2::server::Peer, hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>::poll",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<h2::proto::streams::streams::Actions>::reset_on_recv_stream_err_deferred::<hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<http::header::map::HeaderMap>::try_insert2::<http::header::name::HeaderName>",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<http::header::name::StandardHeader>::from_bytes",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<mqtt_cluster::broker::durable::Durable>::store::{closure#0}",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::handle::Handle>::bind_new_task::<core::pin::Pin<alloc::boxed::Box<dyn core::future::future::Future<Output = ()> + core::marker::Send>>>",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "<tokio_util::codec::framed_impl::FramedImpl<h2::codec::framed_write::FramedWrite<hyper::common::io::compat::Compat<tonic::transport::channel::service::io::BoxedIo>, h2::proto::streams::prioritize::Prioritized<hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>, tokio_util::codec::length_delimited::LengthDelimitedCodec, tokio_util::codec::framed_impl::ReadFrame> as futures_core::stream::Stream>::poll_next",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "h2::codec::framed_read::decode_frame",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "h2::hpack::huffman::decode::decode",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    },
+    {
+      "symbol": "http::header::map::hash_elem_using::<http::header::name::HeaderName>",
+      "percent": 0.4024144869215292,
+      "weight": 81632652
+    }
+  ],
+  "inclusive": [
+    {
+      "symbol": "do_syscall_64",
+      "percent": 19.81891348088531,
+      "weight": 4020408111
+    },
+    {
+      "symbol": "entry_SYSCALL_64_after_hwframe",
+      "percent": 19.81891348088531,
+      "weight": 4020408111
+    },
+    {
+      "symbol": "x64_sys_call",
+      "percent": 18.712273641851105,
+      "weight": 3795918318
+    },
+    {
+      "symbol": "do_writev",
+      "percent": 7.5452716297786715,
+      "weight": 1530612225
+    },
+    {
+      "symbol": "__x64_sys_writev",
+      "percent": 7.44466800804829,
+      "weight": 1510204062
+    },
+    {
+      "symbol": "vfs_writev",
+      "percent": 7.44466800804829,
+      "weight": 1510204062
+    },
+    {
+      "symbol": "do_iter_readv_writev",
+      "percent": 7.142857142857142,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "sock_write_iter",
+      "percent": 7.142857142857142,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "inet_sendmsg",
+      "percent": 7.042253521126761,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "tcp_sendmsg",
+      "percent": 7.042253521126761,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 6.740442655935613,
+      "weight": 1367346921
+    },
+    {
+      "symbol": "tcp_sendmsg_locked",
+      "percent": 6.639839034205232,
+      "weight": 1346938758
+    },
+    {
+      "symbol": "__tcp_transmit_skb",
+      "percent": 6.338028169014084,
+      "weight": 1285714269
+    },
+    {
+      "symbol": "__tcp_push_pending_frames",
+      "percent": 5.935613682092555,
+      "weight": 1204081617
+    },
+    {
+      "symbol": "tcp_push",
+      "percent": 5.935613682092555,
+      "weight": 1204081617
+    },
+    {
+      "symbol": "tcp_write_xmit",
+      "percent": 5.935613682092555,
+      "weight": 1204081617
+    },
+    {
+      "symbol": "__ip_queue_xmit",
+      "percent": 5.533199195171027,
+      "weight": 1122448965
+    },
+    {
+      "symbol": "ip_queue_xmit",
+      "percent": 5.533199195171027,
+      "weight": 1122448965
+    },
+    {
+      "symbol": "__x64_sys_futex",
+      "percent": 5.331991951710262,
+      "weight": 1081632639
+    },
+    {
+      "symbol": "do_futex",
+      "percent": 5.23138832997988,
+      "weight": 1061224476
+    },
+    {
+      "symbol": "ip_local_out",
+      "percent": 5.23138832997988,
+      "weight": 1061224476
+    },
+    {
+      "symbol": "net_rx_action",
+      "percent": 5.23138832997988,
+      "weight": 1061224476
+    },
+    {
+      "symbol": "ip_output",
+      "percent": 5.1307847082494975,
+      "weight": 1040816313
+    },
+    {
+      "symbol": "__ip_finish_output",
+      "percent": 5.030181086519115,
+      "weight": 1020408150
+    },
+    {
+      "symbol": "ip_finish_output",
+      "percent": 5.030181086519115,
+      "weight": 1020408150
+    },
+    {
+      "symbol": "ip_finish_output2",
+      "percent": 5.030181086519115,
+      "weight": 1020408150
+    },
+    {
+      "symbol": "__dev_queue_xmit",
+      "percent": 4.929577464788732,
+      "weight": 999999987
+    },
+    {
+      "symbol": "neigh_hh_output",
+      "percent": 4.82897384305835,
+      "weight": 979591824
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 4.7283702213279675,
+      "weight": 959183661
+    },
+    {
+      "symbol": "__napi_poll",
+      "percent": 4.426559356136821,
+      "weight": 897959172
+    },
+    {
+      "symbol": "__do_softirq",
+      "percent": 3.9235412474849096,
+      "weight": 795918357
+    },
+    {
+      "symbol": "__local_bh_enable_ip",
+      "percent": 3.9235412474849096,
+      "weight": 795918357
+    },
+    {
+      "symbol": "do_softirq.part.0",
+      "percent": 3.9235412474849096,
+      "weight": 795918357
+    },
+    {
+      "symbol": "futex_wake",
+      "percent": 3.2193158953722336,
+      "weight": 653061216
+    },
+    {
+      "symbol": "ip_local_deliver",
+      "percent": 3.2193158953722336,
+      "weight": 653061216
+    },
+    {
+      "symbol": "ip_local_deliver_finish",
+      "percent": 3.2193158953722336,
+      "weight": 653061216
+    },
+    {
+      "symbol": "ip_protocol_deliver_rcu",
+      "percent": 3.2193158953722336,
+      "weight": 653061216
+    },
+    {
+      "symbol": "tcp_v4_rcv",
+      "percent": 3.2193158953722336,
+      "weight": 653061216
+    },
+    {
+      "symbol": "__netif_receive_skb",
+      "percent": 3.118712273641851,
+      "weight": 632653053
+    },
+    {
+      "symbol": "__netif_receive_skb_one_core",
+      "percent": 3.118712273641851,
+      "weight": 632653053
+    }
+  ],
+  "note": "Software cpu-clock period-weighted samples in ramp/drain. Leaf uses every sampled IP; inclusive is only decoded callchains and overlaps, so a lower bound. Not wall waiting or exact per-operation CPU. Cross-host alignment uses wall-clock approximation.",
+  "phase_alignment_valid": false,
+  "clock_note": "Default perf clock was not recorded in CLOCKID/CLOCK_DATA. Post-run calibration found ~3.33s mono/raw offset. Nominal ramp sample counts and percentages are invalid as phase attribution; retained only to audit the earlier calculation. Use /proc for CPU totals."
+}

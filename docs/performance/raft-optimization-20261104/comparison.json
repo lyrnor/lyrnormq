@@ -1,0 +1,97 @@
+{
+  "before": {
+    "passed": false,
+    "success": 7505,
+    "attempted": 10000,
+    "skipped": 0,
+    "ping_alive": 7505,
+    "entry_rejected": 2495,
+    "latency_ms": {
+      "mean": 2060.883780946036,
+      "p99": 2792.502,
+      "max": 2825.787
+    },
+    "ramp_seconds": 6.874180871,
+    "broker_cpu_cores": 6.998030029925632,
+    "broker_rss_peak_mib": 1065.71484375,
+    "client_cpu_cores": 0.26984998814919314,
+    "leader_node": "node1",
+    "logical_readindex_calls": 37531,
+    "actual_readindex_rounds": 37531,
+    "append_rpc_count": 76146,
+    "mean_control_write_ms": 975.8655651480941,
+    "mean_capacity_wait_ms": 528.7523038916191,
+    "mean_queue_residence_ms": 416.5893451321557,
+    "mean_read_group_size": null,
+    "correlated_batches": 239,
+    "unmatched_batches": 0,
+    "full64_batches": 231,
+    "batch_total_ms": {
+      "mean": 28.492983263598326,
+      "p99": 48.085
+    },
+    "batch_stages_ms": {
+      "total_us": 28.492983263598326,
+      "before_append_us": 0.7048284518828453,
+      "append_us": 4.678154811715481,
+      "post_append_to_apply_us": 18.877778242677824,
+      "apply_us": 3.635761506276151,
+      "after_apply_us": 0.5964602510460251,
+      "before_watermark_us": 13.462849372384937,
+      "watermark_us": 3.8977322175732216,
+      "after_watermark_us": 1.5171966527196652
+    },
+    "histogram_window_ns": [
+      1793719534351866112,
+      1793719543351869184
+    ]
+  },
+  "after": {
+    "passed": false,
+    "success": 9264,
+    "attempted": 10000,
+    "skipped": 0,
+    "ping_alive": 9264,
+    "entry_rejected": 736,
+    "latency_ms": {
+      "mean": 1258.8748675518134,
+      "p99": 1922.663,
+      "max": 1938.798
+    },
+    "ramp_seconds": 6.195797219,
+    "broker_cpu_cores": 6.844660969965614,
+    "broker_rss_peak_mib": 1220.96875,
+    "client_cpu_cores": 0.28921812574254374,
+    "leader_node": "node1",
+    "logical_readindex_calls": 46326,
+    "actual_readindex_rounds": 1123,
+    "append_rpc_count": 3518,
+    "mean_control_write_ms": 587.1444164289175,
+    "mean_capacity_wait_ms": 276.0178386176455,
+    "mean_queue_residence_ms": 288.87024293481187,
+    "mean_read_group_size": 41.252003561887804,
+    "correlated_batches": 293,
+    "unmatched_batches": 0,
+    "full64_batches": 285,
+    "batch_total_ms": {
+      "mean": 20.901378839590446,
+      "p99": 32.644
+    },
+    "batch_stages_ms": {
+      "total_us": 20.901378839590446,
+      "before_append_us": 0.4757133105802048,
+      "append_us": 4.456092150170649,
+      "post_append_to_apply_us": 12.750955631399318,
+      "apply_us": 3.061703071672355,
+      "after_apply_us": 0.1569146757679181,
+      "before_watermark_us": 7.932576791808874,
+      "watermark_us": 3.8120443686006826,
+      "after_watermark_us": 1.0063344709897613
+    },
+    "histogram_window_ns": [
+      1793749479703265792,
+      1793749487702981120
+    ]
+  },
+  "note": "Same offered load/limits, profiling enabled in both. Success-only latency populations may differ. Histogram padding differs from correlated batch window. Actual rounds before grouping equal logical calls. No maximum capacity or business message throughput claim."
+}

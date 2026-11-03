@@ -3026,8 +3026,47 @@ allocator4.45%; only323/1685callchains decode, so percentages use all1685sampled
 WAL repeatedinputvalidation0.540ms/batch is secondary; no checkpoint in window.
 Raw accounting independently reviewed by allthree agents; archives/hash/cleanup saved.
 
+Correction2026-11-04: Phase7s identified an unrecorded perf/Python monotonic clock
+offset. The preceding phase-selected CPU sample counts/percentages are withdrawn
+as precise ramp attribution. Raw samples remain; /proc CPU and internal chain/
+queue timings are unaffected. Future capture explicitly uses --clockid mono.
+
 No performance fix or capacity improvement claimed. Next: safe fresh-round ReadIndex
 coalescing, indexed recipient matching, then reassess bounded batch pipelining;
 preserve quorum, all-live barriers, fencing and durable ACKs. Instrumentation changes
 cost, so this is diagnosis rather than an uninstrumented throughput comparison.
 [Full report and reproducible evidence](performance/raft-chain-20261103/README.md).
+
+## 2026-11-04 — Phase7s ReadIndex grouping and recipient indexing
+
+Frozen contract; isolated control/runtime/quality agents implemented fresh-round
+ReadIndex grouping and an atomically installed sparse durable recipient index.
+Late callers never reuse in-flight/old quorum results; term/revision/all-live checks,
+one-second authority deadlines and durable ACKs preserved. Snapshot rebuilds index
+once; deltas update only touched owners, retaining wildcard/$SYS/dedup/generation
+semantics. No schema, admission, batch-size or timeout changes.
+
+Integrated394tests, strictworkspaceClippy/fmt and4profile-enabled real-process
+dualversionQoS/leader-recovery/recipient-boundary tests pass. Local optimized symbol-
+bearing static amd64musl release725a6967 deployed; no server compilation.
+
+Same4x500/s2500 case:10000attempted/0skipped,9264success=PINGlive,736failures exactly
+match handshake rejection (733RST/3EOF). MeanCONNACK1258.875ms,p991922.663ms versus
+2060.884/2792.502ms before (-38.92%/-31.15%). Broker6.845cores/RSS1220.969MiB;
+success population grew23.44%, so RSS totals are not per-connection memory costs.
+
+46326logicalReadIndex calls become1123fresh rounds (41.252/group); AppendEntries
+RPC76146→3518. Controlwrite975.866→587.144ms; queues945.342→564.888ms.293unique
+batches average20.901ms,p9932.644ms versus28.493/48.085ms;285full64. Serialservice
+stilloccupies98.843% oframp and96.209% ofwrite time remains queued. BeforeSaveCommitted
+mixedreplication/quorum/Core gap13.463→7.933ms, not pure networkRTT. Two writes per
+connection remain. Allnodes finishterm1/leader1/applied784/owners9264.
+
+Overall10kgate remainsFAIL; stopped higher/message/capacity tests.4replicationtimeouts
+occur only aftersharedPING duringdisconnect. Alltestprocesses stopped; raw counters,
+latencies andresources independently audited. Defaultperfclock alignment was invalid;
+withdraw per-phase samplepercentages, preserve raw2260samples, pin futureclock only.
+
+Next: freeze boundedwritebatchpipelining/necessarycommandcoalescing and recovery
+ordering before changing serialservice. Do not increase handshake admission to hide
+backlog. [Evidence and remaining bottleneck](performance/raft-optimization-20261104/README.md).
