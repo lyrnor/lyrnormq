@@ -178,6 +178,13 @@ pub struct State {
     pub metadata: Metadata,
 }
 impl Metadata {
+    /// Compatibility implementation; Phase7h replaces full-copy tracking with sparse edits.
+    pub fn apply_tracked(&mut self, command: Command) -> (Answer, Option<MetadataUpdate>) {
+        let old = self.clone();
+        let answer = self.apply(command);
+        let delta = (self.revision != old.revision).then(|| MetadataUpdate::between(&old, self));
+        (answer, delta)
+    }
     pub fn apply(&mut self, command: Command) -> Answer {
         let heartbeat = matches!(command, Command::Heartbeat { .. });
         if heartbeat {
@@ -510,6 +517,19 @@ impl Metadata {
     }
 }
 impl State {
+    pub fn apply_tracked(&mut self, entry: Entry<Types>) -> (Answer, Option<MetadataUpdate>) {
+        self.last_applied = Some(entry.log_id);
+        match entry.payload {
+            openraft::EntryPayload::Normal(command) => self.metadata.apply_tracked(command),
+            payload => (
+                self.apply(Entry {
+                    log_id: entry.log_id,
+                    payload,
+                }),
+                None,
+            ),
+        }
+    }
     pub fn apply(&mut self, entry: Entry<Types>) -> Answer {
         self.last_applied = Some(entry.log_id);
         match entry.payload {
@@ -610,6 +630,11 @@ fn patch<K: Ord, V>(map: &mut BTreeMap<K, V>, changes: BTreeMap<K, Option<V>>) {
     }
 }
 impl MetadataUpdate {
+    /// Correct compatibility path, replaced by sparse in-place edits in Phase7h.
+    pub fn merge_in_place(self, target: &mut Metadata) -> Result<(), &'static str> {
+        *target = self.merge(target)?;
+        Ok(())
+    }
     pub fn between(old: &Metadata, next: &Metadata) -> Self {
         Self::Delta {
             base: old.revision,

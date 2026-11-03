@@ -107,6 +107,17 @@ impl Store {
         .map_err(err)?
         .map_err(err)
     }
+    /// Cold fallback until Phase7h sparse history is installed.
+    pub fn watch_updates(&self, base: Option<u64>) -> Vec<MetadataUpdate> {
+        let metadata = self.metadata();
+        if base == Some(metadata.revision) {
+            vec![MetadataUpdate::Progress {
+                revision: metadata.revision,
+            }]
+        } else {
+            vec![MetadataUpdate::Snapshot(metadata)]
+        }
+    }
     pub fn metadata(&self) -> Metadata {
         self.state
             .lock()
