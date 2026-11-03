@@ -93,15 +93,11 @@ jobs:
       - name: Embedded Raft cluster and live forwarding acceptance
         timeout-minutes: 15
         run: python3 tests/cluster_blackbox.py -v
-      - name: Replicated session and durable forwarding fault acceptance
+      # Phase7f replaces data-plane SQLite with volatile memory. Historical disk
+      # replay suites remain as evidence, not claimed as supported RAM behavior.
+      - name: Memory replicas, live-majority failover and in-process catch-up
         timeout-minutes: 15
-        run: python3 tests/cluster_durable_blackbox.py -v
-      - name: Replica catch-up and empty-disk repair acceptance
-        timeout-minutes: 15
-        run: python3 tests/cluster_repair_blackbox.py -v
-      - name: Combined Controller and Broker topology acceptance
-        timeout-minutes: 5
-        run: python3 tests/cluster_topology_blackbox.py -v
+        run: python3 tests/cluster_memory_blackbox.py -v
       - name: Controller observation sampler verification
         timeout-minutes: 5
         run: python3 -m unittest discover -s tests -p cluster_topology_controller_probe_test.py -v
