@@ -1,0 +1,25 @@
+{
+  "target": 10000,
+  "nodes": 3,
+  "required_per_node": 3334,
+  "max_connections": 50000,
+  "max_sessions": 50000,
+  "max_state_bytes": 268435456,
+  "minimum_load_nofile": 14096,
+  "minimum_source_ports_per_destination": 3334,
+  "physical_record_limit": 101024,
+  "cluster_admission": {
+    "data_executing_per_node": 256,
+    "data_queued_per_node": 512,
+    "data_admission_waiters_per_node": 512,
+    "data_payload_bytes_per_node": 16777216,
+    "per_client_channel": 8,
+    "broker_command_slots": 256,
+    "rpc_concurrency_per_connection": 1024,
+    "control_business_writes": 256,
+    "control_health_writes": 16,
+    "control_applied_waiters": 1024
+  },
+  "control_metadata_byte_limit": 16711680,
+  "note": "count limits do not guarantee encoded metadata fits; stop at actual quota"
+}

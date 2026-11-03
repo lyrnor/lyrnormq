@@ -70,3 +70,10 @@ state-machine 'stale acquisition epoch' maps to it. It proves no ownership mutat
 transport may re-inspect/retry only this marker within existing3-attempt/5s total
 claim limit. Generic WouldBlock, overload, unknown replies never trigger another
 foreground Acquire. Durable/wire formats and ClusterBridge signatures unchanged.
+
+Failed first-cohort diagnostic amendment: no additional server pressure until the
+initial remaining cache fault is understood. Runtime owner may add fixed-cardinality,
+logarithmically sampled recovery-reason and Acquire-stage failure diagnostics, without
+client IDs/topics/payloads/credentials. Use only finite local process reproductions
+and existing recovery harnesses; diagnostics do not weaken authority or auto-retry
+unknown mutations. The417/10000 failed server cohort must remain recorded verbatim.

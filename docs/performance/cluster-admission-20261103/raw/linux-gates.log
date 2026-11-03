@@ -1,0 +1,12 @@
+test_corrupt_nonempty_wal_refuses_startup (cluster_raft_wal_blackbox.RaftWalAcceptance.test_corrupt_nonempty_wal_refuses_startup) ... ok
+test_incomplete_acknowledged_wal_record_refuses_startup (cluster_raft_wal_blackbox.RaftWalAcceptance.test_incomplete_acknowledged_wal_record_refuses_startup) ... ok
+test_missing_wal_never_recreates_durable_authority (cluster_raft_wal_blackbox.RaftWalAcceptance.test_missing_wal_never_recreates_durable_authority) ... ok
+test_no_per_apply_state_blob_then_committed_tail_survives_controller_crash (cluster_raft_wal_blackbox.RaftWalAcceptance.test_no_per_apply_state_blob_then_committed_tail_survives_controller_crash) ... ok
+test_normal_metadata_updates_use_independent_wal_without_sqlite (cluster_raft_wal_blackbox.RaftWalAcceptance.test_normal_metadata_updates_use_independent_wal_without_sqlite) ... ok
+test_periodic_snapshot_and_compacted_tail_recover_sessions (cluster_raft_wal_blackbox.RaftWalAcceptance.test_periodic_snapshot_and_compacted_tail_recover_sessions) ... ok
+test_three_combined_processes_both_versions_all_qos (cluster_memory_blackbox.MemoryCombined.test_three_combined_processes_both_versions_all_qos) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 33.413s
+
+OK

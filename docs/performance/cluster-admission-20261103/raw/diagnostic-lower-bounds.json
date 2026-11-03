@@ -1,0 +1,18 @@
+{
+  "node1": {
+    "BackgroundWorkReply": 4096,
+    "BackgroundReacquire": 4096,
+    "JournalOlderVersion": 64
+  },
+  "node3": {
+    "BackgroundWorkReply": 4096,
+    "BackgroundReacquire": 4096,
+    "JournalOlderVersion": 32,
+    "QuorumPeer": 16
+  },
+  "node2": {
+    "BackgroundWorkReply": 4096,
+    "BackgroundReacquire": 4096,
+    "JournalOlderVersion": 32
+  }
+}

@@ -1,0 +1,56 @@
+test_offline_queue_survives_one_owner_loss_with_two_live_replicas (cluster_memory_blackbox.Memory311.test_offline_queue_survives_one_owner_loss_with_two_live_replicas) ... ok
+test_qos1_inflight_packet_id_restores_from_surviving_memory (cluster_memory_blackbox.Memory311.test_qos1_inflight_packet_id_restores_from_surviving_memory) ... ok
+test_qos2_incoming_exchange_resumes_once_from_live_majority (cluster_memory_blackbox.Memory311.test_qos2_incoming_exchange_resumes_once_from_live_majority) ... ok
+test_qos2_inflight_pubrel_restores_from_surviving_memory (cluster_memory_blackbox.Memory311.test_qos2_inflight_pubrel_restores_from_surviving_memory) ... ok
+test_offline_queue_survives_one_owner_loss_with_two_live_replicas (cluster_memory_blackbox.Memory5.test_offline_queue_survives_one_owner_loss_with_two_live_replicas) ... ok
+test_qos1_inflight_packet_id_restores_from_surviving_memory (cluster_memory_blackbox.Memory5.test_qos1_inflight_packet_id_restores_from_surviving_memory) ... ok
+test_qos2_incoming_exchange_resumes_once_from_live_majority (cluster_memory_blackbox.Memory5.test_qos2_incoming_exchange_resumes_once_from_live_majority) ... ok
+test_qos2_inflight_pubrel_restores_from_surviving_memory (cluster_memory_blackbox.Memory5.test_qos2_inflight_pubrel_restores_from_surviving_memory) ... ok
+test_three_combined_processes_both_versions_all_qos (cluster_memory_blackbox.MemoryCombined.test_three_combined_processes_both_versions_all_qos) ... ok
+test_both_versions_all_qos_cross_nodes_without_data_files (cluster_memory_blackbox.MemoryProtocol.test_both_versions_all_qos_cross_nodes_without_data_files) ... ok
+test_empty_restarted_replica_cannot_vote_then_repairs_in_same_process (cluster_memory_blackbox.MemoryRecovery.test_empty_restarted_replica_cannot_vote_then_repairs_in_same_process) ... ok
+test_pending_replacement_survives_startup_timeout_and_sigint_exits (cluster_memory_blackbox.MemoryRecovery.test_pending_replacement_survives_startup_timeout_and_sigint_exits) ... ok
+test_target_restart_loses_staging_and_requires_new_repair (cluster_memory_blackbox.MemoryRecovery.test_target_restart_loses_staging_and_requires_new_repair) ... ok
+test_whole_group_restart_cannot_fabricate_recovery_from_control_metadata (cluster_memory_blackbox.MemoryRecovery.test_whole_group_restart_cannot_fabricate_recovery_from_control_metadata) ... ok
+test_cluster_session_sqlite_mirror_is_refused (cluster_memory_blackbox.MemoryStartup.test_cluster_session_sqlite_mirror_is_refused) ... ok
+test_legacy_data_sqlite_refused_without_deletion_or_import (cluster_memory_blackbox.MemoryStartup.test_legacy_data_sqlite_refused_without_deletion_or_import) ... ok
+test_pure_learner_command_cannot_promote_into_another_process (cluster_memory_blackbox.MemoryStartup.test_pure_learner_command_cannot_promote_into_another_process) ... ok
+test_control_readiness_recovery_retains_committed_work (cluster_event_blackbox.Event311.test_control_readiness_recovery_retains_committed_work) ... ok
+test_failed_rpc_retries_without_any_new_publish (cluster_event_blackbox.Event311.test_failed_rpc_retries_without_any_new_publish) ... ok
+test_idle_publish_and_many_pending_intents_preserve_fifo (cluster_event_blackbox.Event311.test_idle_publish_and_many_pending_intents_preserve_fifo) ... 
+OBSERVATION MQTT4 fifo_qos0_12_total_ms=1169.572
+
+OBSERVATION MQTT4 after_idle_qos0_ms=245.364
+
+OBSERVATION MQTT4 fifo_qos1_12_total_ms=1208.884
+
+OBSERVATION MQTT4 after_idle_qos1_ms=244.870
+
+OBSERVATION MQTT4 fifo_qos2_12_total_ms=1242.792
+
+OBSERVATION MQTT4 after_idle_qos2_ms=286.722
+ok
+test_lost_committed_reply_retries_without_duplicate_delivery (cluster_event_blackbox.Event311.test_lost_committed_reply_retries_without_duplicate_delivery) ... ok
+test_lost_source_owner_resumes_pending_work_without_new_publish (cluster_event_blackbox.Event311.test_lost_source_owner_resumes_pending_work_without_new_publish) ... ok
+test_control_readiness_recovery_retains_committed_work (cluster_event_blackbox.Event5.test_control_readiness_recovery_retains_committed_work) ... ok
+test_failed_rpc_retries_without_any_new_publish (cluster_event_blackbox.Event5.test_failed_rpc_retries_without_any_new_publish) ... ok
+test_idle_publish_and_many_pending_intents_preserve_fifo (cluster_event_blackbox.Event5.test_idle_publish_and_many_pending_intents_preserve_fifo) ... 
+OBSERVATION MQTT5 fifo_qos0_12_total_ms=1166.026
+
+OBSERVATION MQTT5 after_idle_qos0_ms=245.498
+
+OBSERVATION MQTT5 fifo_qos1_12_total_ms=1208.795
+
+OBSERVATION MQTT5 after_idle_qos1_ms=285.886
+
+OBSERVATION MQTT5 fifo_qos2_12_total_ms=1226.488
+
+OBSERVATION MQTT5 after_idle_qos2_ms=285.947
+ok
+test_lost_committed_reply_retries_without_duplicate_delivery (cluster_event_blackbox.Event5.test_lost_committed_reply_retries_without_duplicate_delivery) ... ok
+test_lost_source_owner_resumes_pending_work_without_new_publish (cluster_event_blackbox.Event5.test_lost_source_owner_resumes_pending_work_without_new_publish) ... ok
+
+----------------------------------------------------------------------
+Ran 27 tests in 104.154s
+
+OK

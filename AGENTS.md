@@ -104,3 +104,9 @@ committed-only replay, migration fencing and snapshot-before-purge ordering.
 Controller bbolt checkpoints follow `docs/contracts/phase7k-bbolt-control-state.md`.
 Keep independent Raft WAL and atomic checkpoint/replay/purge safety. No SQLite
 runtime in mqtt-cluster; migration uses an explicit offline bounded export.
+
+Admission/recovery repair additionally follows docs/contracts/phase7l-admission-recovery.md.
+Separate queued/executing resources, preserve cancellation-owned submitted work,
+classify proven-not-submitted versus ambiguous RPC outcomes. No-change cluster PING
+must remain local while actual expiry/Will changes commit. Health writes have bounded
+reserved admission; do not weaken quorum, all-live barriers or lease fencing.

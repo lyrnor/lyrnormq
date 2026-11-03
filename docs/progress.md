@@ -2867,3 +2867,17 @@ stopped, port range restored, evidence retained. No new storage fatal/checksum/I
 errors; controls term1leader1/applied5227 aligned. Admission32vs96, heartbeat sharing,
 background reacquire amplification and replicated PING work remain next tasks.
 [Full measured evidence](performance/bbolt-control-20261103/README.md).
+
+## 2026-11-03 — Phase7l admission/recovery repair and failed retest
+
+Integrated independent runtime/control/transport fixes through48823b2: queue versus
+execution accounting, typed safe/unknown acquisition errors, no generic foreground
+retries, quiet PING, health isolation, total RPC deadlines and owned Raft completion.
+Native1015tests passed/1externalPGignored,fmt/strictClippy passed; Linux7+27process
+selections passed. LocalZig musl artifact0d37def5… deployed to isolated test root.
+1000/s first10k stillFAILED:417accepted/417alive,successfulCONNACKmean1799ms/p992179ms,
+CPUavg2.38cores/RSSpeak489MiB. No more serverpressure; all processesstopped. Persistent
+typed cachefault recovery still amplifies epochs; initial fault not yet identified.
+User then explicitly requested removing admission quotas; superseding work must not
+claim this failed benchmark passed or silently discard the unresolved cachefault.
+[Evidence](performance/cluster-admission-20261103/README.md).

@@ -1079,3 +1079,28 @@ Rules/access configuration stores outside the Controller are unchanged.
 [Correctness and server rebenchmark](performance/bbolt-control-20261103/README.md)
 records997workspace passes,39native/7Linux process gates, and failed1000/s first
 cohort. Shared admission/heartbeat capacity and retry amplification remain open.
+
+## Cluster admission and recovery (Phase7l)
+
+[Contract](contracts/phase7l-admission-recovery.md) separates global queued jobs512
+from actually executing jobs256 per data node; per-client channel8 and16MiB body
+budget remain. Another512 finite admission waiters wait at most750ms. Submitted
+actor jobs retain their memory/execution accounting after caller cancellation.
+Background work retains keyed single-flight and existing exponential backoff; only
+explicit missing/poisoned/stale cache faults may reacquire ownership. Unknown
+Acquire outcomes fence cached writes; proven non-submission preserves prior state.
+
+Controller business writes256, health writes16 and applied waiters1024 have separate
+finite admission. Submitted Raft writes own their permit through actual completion,
+even after RPC timeout/cancellation. Heartbeat-error registration checks read one
+linearizable Node, not full Metadata. Private RPC failures retain status and outcome
+ambiguity; an unknown mutation is not resubmitted to another Controller. Read/write
+seed attempts share a total deadline; all-live barriers and ReadIndex stay intact.
+
+Validated cluster PING without due expiry performs no replicated session mutation.
+Keep Alive remains connection-local; expiry/Will/housekeeping state changes still
+commit. This removes unnecessary work; it does not assert any sustainable rate.
+The Broker command/legacy forwarding gate also allows256; both private RPC servers
+cap per-connection concurrent handlers/HTTP2 streams at1024. Queued data jobs and
+admission waiters are separate budgets, so the upper bound is256 executing +512
+queued +512 waiting to submit; actual retained payload remains globally16MiB.

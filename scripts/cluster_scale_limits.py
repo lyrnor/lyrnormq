@@ -18,6 +18,16 @@ def planned_limits(target, nodes=3):
             'minimum_load_nofile': target + 4096,
             'minimum_source_ports_per_destination': per_node,
             'physical_record_limit': 101024,
+            'cluster_admission': {'data_executing_per_node': 256,
+                                  'data_queued_per_node': 512,
+                                  'data_admission_waiters_per_node': 512,
+                                  'data_payload_bytes_per_node': 16 * 1024 * 1024,
+                                  'per_client_channel': 8,
+                                  'broker_command_slots': 256,
+                                  'rpc_concurrency_per_connection': 1024,
+                                  'control_business_writes': 256,
+                                  'control_health_writes': 16,
+                                  'control_applied_waiters': 1024},
             'control_metadata_byte_limit': 16 * 1024 * 1024 - 64 * 1024,
             'note': 'count limits do not guarantee encoded metadata fits; stop at actual quota'}
 

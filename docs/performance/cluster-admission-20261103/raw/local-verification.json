@@ -1,0 +1,16 @@
+{
+  "source": "48823b2",
+  "workspace_passed": 1015,
+  "workspace_ignored": 1,
+  "fmt": true,
+  "clippy_all_targets_warnings_denied": true,
+  "preflight_tests": 5,
+  "offline_export_tests": 10,
+  "linux_broker_sha256": "0d37def5783db8e7df28fceeb56aafbea26bc2c6dc3b5541b91a7e0d19d07a21",
+  "linux_probe_sha256": "d0acf9899b9ea9d34fd68c8a5234b4f741b97bef816987b00b49f4ad6a28c2ae",
+  "linux_wal_combined_tests": 7,
+  "linux_wal_combined_seconds": 33.413,
+  "linux_memory_event_tests": 27,
+  "linux_memory_event_seconds": 104.154,
+  "native_release_sha256": "47f17abfd4310d87984679bf7cf47643ef1a25df03aedc2f725b60fa8438d0f6"
+}
