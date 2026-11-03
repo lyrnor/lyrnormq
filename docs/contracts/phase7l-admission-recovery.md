@@ -51,3 +51,22 @@ Option<DataNode> under linearizable authority. Heartbeat-error recovery uses thi
 small read to prove absence; no full-directory read on a transient heartbeat error.
 Connection probe optional plateau count1..10 (default10) permits an explicit first
 10k-only gate with unchanged arrivals/hold/PING and first-failure stop behavior.
+
+Coordinated quota-chain amendment: Broker command/legacy-forward/delivery admission
+also rises32->256, because durable session generation/filters use that command gate.
+Both data/control RPC servers use per-connection concurrency1024 instead of32;
+otherwise HTTP/2 transport would hide the larger bounded application admission.
+Body/frame limits remain. Health reservation protects application admission, not
+priority inside Raft or a guarantee against CPU/disk/network stalls.
+
+Submitted Controller writes transfer admission to a bounded owned task before
+client_write, retaining the permit through actual completion after response timeout
+or cancellation. Never classify post-submission ForwardToLeader as proven safe;
+only an explicit check before submission can emit the retryable redirect marker.
+
+Cross-layer acquisition retry clarification: mqtt-cluster-core exports the additive
+AcquisitionConflict error marker. Only Command::Acquire rejected with the existing
+state-machine 'stale acquisition epoch' maps to it. It proves no ownership mutation;
+transport may re-inspect/retry only this marker within existing3-attempt/5s total
+claim limit. Generic WouldBlock, overload, unknown replies never trigger another
+foreground Acquire. Durable/wire formats and ClusterBridge signatures unchanged.
