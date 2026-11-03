@@ -32,7 +32,7 @@ fn at_byte_capacity() -> Metadata {
     assert!(m.apply(register()).error.is_none());
     m.revision = 9;
     m.nodes.get_mut(&1).unwrap().applied = 9;
-    for n in 0..64 {
+    for n in 0..(incremental::MAX_BYTES / (2 * 64000) - 1) {
         m.clients.insert(
             format!("base-{n}"),
             Client {
@@ -46,7 +46,7 @@ fn at_byte_capacity() -> Metadata {
     m.rebuild();
     loop {
         let size = serde_json::to_vec(&m).unwrap().len();
-        let room = 8 * 1024 * 1024 - size;
+        let room = incremental::MAX_BYTES - size;
         if room < 1024 {
             let key = m.clients.keys().next().unwrap().clone();
             let value = m.clients.remove(&key).unwrap();
@@ -67,7 +67,10 @@ fn at_byte_capacity() -> Metadata {
         );
         m.rebuild();
     }
-    assert_eq!(serde_json::to_vec(&m).unwrap().len(), 8 * 1024 * 1024);
+    assert_eq!(
+        serde_json::to_vec(&m).unwrap().len(),
+        incremental::MAX_BYTES
+    );
     m
 }
 #[test]
@@ -111,7 +114,7 @@ fn legacy_reference(m: &mut Metadata, command: Command) -> Answer {
         if !heartbeat {
             next.revision = next.revision.saturating_add(1);
         }
-        if serde_json::to_vec(&next).unwrap().len() > 8 * 1024 * 1024 {
+        if serde_json::to_vec(&next).unwrap().len() > incremental::MAX_BYTES {
             return Err("metadata byte capacity".into());
         }
         Ok(())
@@ -546,4 +549,112 @@ fn over_capacity_route_change_rolls_back_indexes_before_following_commands() {
     });
     assert!(!m.routes.contains_key("new/route"));
     assert_eq!(m.accounted_bytes(), serde_json::to_vec(&m).unwrap().len());
+}
+#[test]
+fn one_hundred_thousand_short_id_owners_fit_authorized_metadata_budget() {
+    let peers: Vec<(u64, String)> = vec![
+        (101, "http://127.0.0.1:7101".into()),
+        (102, "http://127.0.0.1:7102".into()),
+        (103, "http://127.0.0.1:7103".into()),
+    ];
+    let mut m = Metadata::default();
+    for (node, address) in &peers {
+        assert!(
+            m.apply(Command::Register {
+                node: *node,
+                incarnation: format!("{node:032x}"),
+                address: address.clone(),
+                expires_at: 1000,
+                lease_ms: 3000,
+                replicas: Some(peers.clone()),
+                memory: true,
+                disk_id: Some(format!("{node:032x}"))
+            })
+            .error
+            .is_none()
+        );
+    }
+    for id in 0..100_000u64 {
+        let node = 101 + id % 3;
+        m.durable.insert(
+            format!("c:{id:023}"),
+            DurableOwner {
+                node,
+                incarnation: format!("{node:032x}"),
+                generation: id + 1,
+                epoch: 1_000_000 + id,
+                filters: Vec::new(),
+                logical_generation: 1,
+            },
+        );
+    }
+    m.derived = incremental::Derived::default();
+    let answer = m.apply(Command::Heartbeat {
+        node: 101,
+        incarnation: format!("{:032x}", 101),
+        applied: 3,
+        expires_at: 1001,
+        lease_ms: 3000,
+    });
+    assert!(
+        answer.error.is_none(),
+        "authorized100k short-owner shape must fit: {:?}",
+        answer.error
+    );
+    assert_eq!(m.durable.len(), 100_000);
+    let bytes = serde_json::to_vec(&m).unwrap().len();
+    assert_eq!(m.accounted_bytes(), bytes);
+    assert!(bytes <= 16 * 1024 * 1024 - 64 * 1024);
+    let snapshot = MetadataUpdate::Snapshot(m.clone());
+    let wire = serde_json::to_vec(&snapshot).unwrap().len();
+    let state = serde_json::to_vec(&State {
+        metadata: m,
+        ..State::default()
+    })
+    .unwrap()
+    .len();
+    assert!(wire + 16 < 16 * 1024 * 1024);
+    assert!(state < 16 * 1024 * 1024);
+    println!("100k ordinary23-byte IDs: metadata={bytes} snapshot_json={wire} state_json={state}");
+}
+#[test]
+fn maximal_metadata_keeps_state_and_snapshot_envelopes_below_sixteen_mib() {
+    let m = at_byte_capacity();
+    let bytes = serde_json::to_vec(&m).unwrap().len();
+    assert_eq!(incremental::MAX_BYTES, 16_711_680);
+    assert_eq!(bytes, incremental::MAX_BYTES);
+    let snapshot_bytes = serde_json::to_vec(&MetadataUpdate::Snapshot(m.clone()))
+        .unwrap()
+        .len();
+    // Envelope.data protobuf tag/length plus gRPC message framing need fewer16B.
+    assert!(snapshot_bytes + 16 < 16 * 1024 * 1024);
+    let nodes = BTreeMap::from([
+        (
+            1,
+            BasicNode::new(format!("http://127.0.0.1:1/{}", "x".repeat(200))),
+        ),
+        (
+            2,
+            BasicNode::new(format!("http://127.0.0.1:2/{}", "y".repeat(200))),
+        ),
+        (
+            3,
+            BasicNode::new(format!("http://127.0.0.1:3/{}", "z".repeat(200))),
+        ),
+    ]);
+    let membership = openraft::Membership::new(vec![BTreeSet::from([1u64, 2, 3])], nodes);
+    let log_id = LogId::new(
+        openraft::CommittedLeaderId::new(u64::MAX, u64::MAX),
+        u64::MAX,
+    );
+    let state = State {
+        last_applied: Some(log_id),
+        membership: StoredMembership::new(Some(log_id), membership),
+        metadata: m,
+    };
+    let state_bytes = serde_json::to_vec(&state).unwrap().len();
+    assert!(state_bytes < 16 * 1024 * 1024);
+    println!(
+        "max metadata={bytes} snapshot_json={snapshot_bytes} state_json_with_membership={state_bytes}"
+    );
 }
