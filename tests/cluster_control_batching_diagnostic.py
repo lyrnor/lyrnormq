@@ -27,11 +27,45 @@ from mqtt5_blackbox import connect5, readprops
 COUNT = 900
 RATE = 1000
 WORKERS = 384
+LOG_LIMIT = 2 * 1024 * 1024
+LOG_HALF = LOG_LIMIT // 2
 
 
 def percentile(values, quantile):
     ordered = sorted(values)
     return ordered[max(0, math.ceil(len(ordered) * quantile) - 1)] if ordered else None
+
+
+def capture_log(output, destination):
+    """Keep complete small logs; large logs retain their first/last 1MiB.
+
+    The source-byte capture bound is 2MiB; the explicit gap marker adds only a
+    small fixed envelope. Never call Node.logs(), which drops the first cause.
+    """
+    size = 0
+    truncated = False
+    content = b''
+    if output is not None:
+        output.seek(0, os.SEEK_END)
+        size = output.tell()
+        output.seek(0)
+        if size <= LOG_LIMIT:
+            content = output.read(size)
+        else:
+            truncated = True
+            head = output.read(LOG_HALF)
+            output.seek(size - LOG_HALF)
+            tail = output.read(LOG_HALF)
+            marker = (f'\n\n--- LOG TRUNCATED: first {LOG_HALF} bytes above; '
+                      f'omitted {size - LOG_LIMIT} bytes; '
+                      f'last {LOG_HALF} bytes below ---\n\n').encode()
+            content = head + marker + tail
+    for secret in (CLUSTER_TOKEN, TOKEN):
+        content = content.replace(secret.encode(), b'[redacted]')
+    destination.write_bytes(content)
+    return {'file': destination.name, 'source_bytes': size,
+            'capture_limit_bytes': LOG_LIMIT, 'truncated': truncated,
+            'saved_bytes': len(content)}
 
 
 def run(root):
@@ -108,9 +142,9 @@ def run(root):
                 sock.close()
         try:
             # Capture bounded fixture logs before close() disposes temporary outputs.
+            summary['logs'] = []
             for index, node in enumerate(fleet.brokers):
-                text = node.logs().replace(CLUSTER_TOKEN, '[redacted]').replace(TOKEN, '[redacted]')
-                (root / f'node{index + 1}.log').write_text(text)
+                summary['logs'].append(capture_log(node.output, root / f'node{index + 1}.log'))
             (root / 'results.json').write_text(json.dumps(results, indent=2))
             (root / 'pings.json').write_text(json.dumps(pings, indent=2))
         finally:
