@@ -721,3 +721,18 @@ Evidence:docs/verification/cluster-control-batching-20261103/README.md.
 - [ ] Still unmeasured:4000/s,5000pairs/10000msg/s128B QoS0/1/2 and10k..100k capacity.
 
 Evidence:docs/performance/cluster-higher-load-20261103/README.md.
+
+## Phase7q — multiple load instances, server gate still failing
+
+- [x] Freeze synchronization/ID/raw-sample contract; isolated probe and quality commits.
+- [x] Count/prefix/offset/shared start/PING/raw flags; collision regression first.
+- [x]58loadgen tests, fmt/strictClippy,2independent process blackboxes; local musl build.
+- [x] Four500/s2500connection probes:10000attempted/0skipped,7747success/live,
+  2253RST/EOF; independently recompute raw p99 and preserve failed gate.
+- [x] Resource capture and remote cleanup; do not continue after failure.
+- [ ] Count actual handshake rejection/inflight;1024/node entry cap is a candidate,
+  not a proved explanation for every error without counters.
+- [ ] Profile Controller queue residence/batch occupancy and CPU; sampled writes>1s.
+- [ ] After resolving server failure, resume higher connection and QoS message gates.
+
+Evidence:docs/performance/cluster-multiprocess-load-20261103/README.md.

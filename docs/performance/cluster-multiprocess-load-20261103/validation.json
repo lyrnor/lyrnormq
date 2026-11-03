@@ -1,0 +1,27 @@
+{
+  "probe_source": "e995bed",
+  "implementation_agent_commit": "dd11cbc",
+  "blackbox_agent_commit": "421794c",
+  "package_tests": 58,
+  "strict_clippy_all_targets": true,
+  "fmt": true,
+  "local_four_process_blackbox_tests": 2,
+  "local_broker_not_started": true,
+  "broker_changed": false,
+  "native_sha256": "78eb29e6f566ad6a5734d0e66c8bb306717addf4d59dd52c29d01b5e17c56600",
+  "linux_sha256": "556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad",
+  "server_test": "completed_failed_connection_gate",
+  "harness_source": "e241bf8",
+  "server_scheduled": 10000,
+  "server_attempted": 10000,
+  "server_successful_and_ping_alive": 7747,
+  "server_connection_errors": 2253,
+  "server_not_started": 0,
+  "independent_raw_recalculation": "passed; failed workload gate preserved",
+  "all_test_processes_stopped": true,
+  "not_run": [
+    "4000/s",
+    "QoS0/1/2 message throughput and latency",
+    "100000 connections"
+  ]
+}

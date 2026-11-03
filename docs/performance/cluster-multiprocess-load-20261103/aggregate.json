@@ -1,0 +1,200 @@
+{
+  "passed": false,
+  "issues": [
+    "worker0 incomplete requested load/hold",
+    "worker1 incomplete requested load/hold",
+    "worker2 incomplete requested load/hold",
+    "worker3 incomplete requested load/hold"
+  ],
+  "settings": {
+    "instances": 4,
+    "aggregate_rate": 2000,
+    "aggregate_target": 10000,
+    "per_instance_rate": 500,
+    "per_instance_target": 2500,
+    "start_unix_ms": 1793716876440,
+    "ping_unix_ms": 1793716911440,
+    "endpoints": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "tokio_workers_each": 2,
+    "max_inflight_each": 2048,
+    "binary_sha256": "556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad"
+  },
+  "totals": {
+    "new_scheduled": 10000,
+    "new_attempted": 10000,
+    "new_connack_success": 7747,
+    "not_started": 0,
+    "live_after_hold_ping": 7747
+  },
+  "successful_connect_latency": {
+    "count": 7747,
+    "mean_us": 1906362.664386214,
+    "p99_us": 2690278,
+    "max_us": 2726583
+  },
+  "actual_task_start_schedule_lag": {
+    "count": 10000,
+    "mean_us": 987.7069,
+    "p99_us": 1639,
+    "max_us": 10446
+  },
+  "global_ramp_and_drain_seconds": 6.6887072530000005,
+  "completed_per_second": 1158.2208201032176,
+  "global_simultaneous_hold_ms": 28312,
+  "workers": [
+    {
+      "index": 0,
+      "prefix": "m6ae9f28400",
+      "actual_ramp_start_unix_ms": 1793716876440,
+      "connect_latency": {
+        "count": 1938,
+        "max_us": 2718019,
+        "mean_us": 1907145.4184726523,
+        "p99_us": 2689769
+      },
+      "errors": {
+        "Connection reset by peer (os error 104)": 558,
+        "unexpected end of file": 4
+      },
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 1938,
+      "new_attempted": 2500,
+      "new_connack_per_second": 289.7636430871995,
+      "new_connack_success": 1938,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 28312,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793716911440,
+      "ramp_and_drain_seconds": 6.688209671,
+      "ramp_completed_unix_ms": 1793716883128,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 8908,
+        "mean_us": 778.668,
+        "p99_us": 1296
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    },
+    {
+      "index": 1,
+      "prefix": "m6ae9f28401",
+      "actual_ramp_start_unix_ms": 1793716876441,
+      "connect_latency": {
+        "count": 1985,
+        "max_us": 2717117,
+        "mean_us": 1916824.044836272,
+        "p99_us": 2692681
+      },
+      "errors": {
+        "Connection reset by peer (os error 104)": 512,
+        "unexpected end of file": 3
+      },
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 1985,
+      "new_attempted": 2500,
+      "new_connack_per_second": 296.7983151932187,
+      "new_connack_success": 1985,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 28313,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793716911441,
+      "ramp_and_drain_seconds": 6.688043356,
+      "ramp_completed_unix_ms": 1793716883128,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 10446,
+        "mean_us": 1063.186,
+        "p99_us": 1575
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    },
+    {
+      "index": 2,
+      "prefix": "m6ae9f28402",
+      "actual_ramp_start_unix_ms": 1793716876441,
+      "connect_latency": {
+        "count": 1910,
+        "max_us": 2726583,
+        "mean_us": 1900707.515183246,
+        "p99_us": 2690213
+      },
+      "errors": {
+        "Connection reset by peer (os error 104)": 586,
+        "unexpected end of file": 4
+      },
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 1910,
+      "new_attempted": 2500,
+      "new_connack_per_second": 285.55592699072486,
+      "new_connack_success": 1910,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 28311,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793716911440,
+      "ramp_and_drain_seconds": 6.6887072530000005,
+      "ramp_completed_unix_ms": 1793716883128,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 8795,
+        "mean_us": 955.4864,
+        "p99_us": 1493
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    },
+    {
+      "index": 3,
+      "prefix": "m6ae9f28403",
+      "actual_ramp_start_unix_ms": 1793716876441,
+      "connect_latency": {
+        "count": 1914,
+        "max_us": 2724086,
+        "mean_us": 1900363.9796238244,
+        "p99_us": 2688536
+      },
+      "errors": {
+        "Connection reset by peer (os error 104)": 582,
+        "unexpected end of file": 4
+      },
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 1914,
+      "new_attempted": 2500,
+      "new_connack_per_second": 286.15705115008086,
+      "new_connack_success": 1914,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 28312,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793716911441,
+      "ramp_and_drain_seconds": 6.688634763,
+      "ramp_completed_unix_ms": 1793716883128,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 10362,
+        "mean_us": 1153.4872,
+        "p99_us": 1675
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    }
+  ],
+  "metric_notes": [
+    "success latency excludes failed/unstarted connections",
+    "p99 computed from merged original observations, not shard percentiles",
+    "global window=max monotonic ramp elapsed anchored at the common start",
+    "four synchronous streams create approximate four-arrival bursts every2ms at2000/s"
+  ]
+}

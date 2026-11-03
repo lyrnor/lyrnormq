@@ -2979,3 +2979,23 @@ were NOTRUN. No messageTPS/latency/loss claims. Alltestprocesses stopped,sourcep
 range unchanged32768..60999. Next:queue/batch/CPUprofiling before another pressure
 run; preserve original per-case failures instead of silently increasing probe caps.
 [Actual evidence](performance/cluster-higher-load-20261103/README.md).
+
+## 2026-11-03 — Phase7q four-process connection probe
+
+User requested multiple load instances. Frozen contract and isolated implementation/
+quality commits add unique IDs, per-process count/offset, shared start/PING and raw
+timings.58loadgen tests, fmt/strictClippy and2independent real-probe blackbox tests
+pass; only probe rebuilt locally for amd64musl. Broker87ced3e8 and limits unchanged.
+
+Four processes each500/s2500connections attempted all10000, zero skipped.7747
+CONNACKsuccess andPINGalive;2253failures(2238RST/15EOF). Successful-connectmean
+1906.363ms,p992690.278ms; attempted schedulelagp991.639ms. Successful connections
+sharedhold28.312s. Independent raw recomputation agrees; aggregate gateFAIL.
+Broker rampCPU6.964cores/RSS1095.344MiB; four probes rampCPU0.264cores/RSS12.031MiB.
+Probe saturation removed, but Broker handshake1024/node admission is an uncounted
+rejection candidate and sampled Controller writes still exceed1s. Do not infer an
+exact failure branch, maximum capacity, or that larger server limits solve queueing.
+
+Allprocesses stopped; no4000/s, messageQoS0/1/2 or100k tests afterfailure. Next:
+instrument admission rejection/inflight, write queue/batch and CPU before further
+pressure. [Evidence](performance/cluster-multiprocess-load-20261103/README.md).

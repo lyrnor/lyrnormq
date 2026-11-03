@@ -1,0 +1,6 @@
+{
+  "broker_sha256": "87ced3e81da295b4273b2757c8fc4472409d88472e5c77cca77ba472fd28854b",
+  "probe_sha256": "556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad",
+  "probe_local_path": "/private/tmp/rmqtt-multi-connections-linux",
+  "broker_changed": false
+}
