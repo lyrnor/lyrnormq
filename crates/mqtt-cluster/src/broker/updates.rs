@@ -118,14 +118,22 @@ impl BrokerRuntime {
             local.fence_all().await?;
             self.initialized.store(false, Ordering::Release);
         }
-        update
-            .merge_in_place(
-                &mut self
-                    .metadata
-                    .write()
-                    .unwrap_or_else(PoisonError::into_inner),
-            )
-            .map_err(|_| unavailable())?;
+        {
+            let mut metadata = self
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            update
+                .merge_in_place(&mut metadata)
+                .map_err(|_| unavailable())?;
+            let mut recipients = self
+                .recipients
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            for key in &effects.owners {
+                recipients.replace(key, metadata.durable.get(key));
+            }
+        }
         self.reconcile_repair().await?;
         self.initialized.store(true, Ordering::Release);
         self.announce_applied();

@@ -19,6 +19,7 @@ use tokio::sync::{Notify, OnceCell, watch};
 pub(crate) mod durable;
 mod progress;
 mod quorum;
+mod recipients;
 pub(crate) mod repair;
 mod startup;
 mod updates;
@@ -62,6 +63,8 @@ pub struct BrokerRuntime {
     rpc: OnceCell<ClientRpc>,
     local: Mutex<Option<Arc<dyn LocalBroker>>>,
     metadata: RwLock<Metadata>,
+    // Acquire metadata before this lock for both publication and lookup.
+    recipients: RwLock<recipients::RecipientIndex>,
     deadline: Mutex<tokio::time::Instant>,
     opened: AtomicBool,
     stopped: AtomicBool,
@@ -123,6 +126,7 @@ impl BrokerRuntime {
             rpc: OnceCell::new(),
             local: Mutex::new(None),
             metadata: RwLock::new(Metadata::default()),
+            recipients: RwLock::new(recipients::RecipientIndex::default()),
             deadline: Mutex::new(tokio::time::Instant::now()),
             opened: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
@@ -250,10 +254,19 @@ impl BrokerRuntime {
             local.fence_all().await?;
             self.initialized.store(false, Ordering::Release);
         }
-        *self
-            .metadata
-            .write()
-            .unwrap_or_else(PoisonError::into_inner) = next;
+        let next_recipients = recipients::RecipientIndex::from_metadata(&next);
+        {
+            let mut metadata = self
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            let mut recipients = self
+                .recipients
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            *metadata = next;
+            *recipients = next_recipients;
+        }
         if let Some(data) = &self.data {
             for key in discard {
                 data.forget(&key);

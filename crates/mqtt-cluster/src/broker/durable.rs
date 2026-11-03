@@ -673,26 +673,7 @@ impl Durable {
         self.changed(key, cell);
     }
     fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<Recipient> {
-        runtime
-            .metadata
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .durable
-            .iter()
-            .filter(|(key, owner)| {
-                key.starts_with("c:")
-                    && owner
-                        .filters
-                        .iter()
-                        .any(|filter| mqtt_router::matches_topic_filter(filter, &message.topic))
-            })
-            .filter_map(|(key, owner)| {
-                key.strip_prefix("c:").map(|id| Recipient {
-                    client_id: id.to_owned(),
-                    generation: owner.logical_generation,
-                })
-            })
-            .collect()
+        runtime.durable_recipients(&message.topic)
     }
     fn append(
         runtime: &BrokerRuntime,
@@ -1717,6 +1698,8 @@ mod tests {
                     filters: vec!["events/#".into()],
                 },
             );
+            *runtime.recipients.write().unwrap() =
+                crate::broker::recipients::RecipientIndex::from_metadata(&metadata);
         }
         assert!(!runtime.ready(), "a fresh unanchored disk cannot vote");
         let probe_key = client_key("unanchored-vote");

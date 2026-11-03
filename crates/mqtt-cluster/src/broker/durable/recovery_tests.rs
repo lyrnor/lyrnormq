@@ -50,6 +50,8 @@ impl Cluster for Peer {
                         expected_epoch,
                     });
                     assert!(answer.error.is_none());
+                    *runtime.recipients.write().unwrap() =
+                        crate::broker::recipients::RecipientIndex::from_metadata(&metadata);
                 }
                 if consume(&self.barrier_errors) {
                     return Err(Status::unavailable("injected barrier failure"));
@@ -91,7 +93,13 @@ impl Cluster for Peer {
             .runtime
             .upgrade()
             .ok_or_else(|| Status::unavailable("stopped"))?;
-        let answer = runtime.metadata.write().unwrap().apply(command);
+        let answer = {
+            let mut metadata = runtime.metadata.write().unwrap();
+            let answer = metadata.apply(command);
+            *runtime.recipients.write().unwrap() =
+                crate::broker::recipients::RecipientIndex::from_metadata(&metadata);
+            answer
+        };
         if consume(&self.lost_replies) {
             return Err(Status::unavailable("injected lost committed reply"));
         }
@@ -433,6 +441,8 @@ async fn a_delayed_old_acquisition_cannot_replace_a_new_foreign_owner() -> io::R
             expected_epoch: previous,
         });
         assert!(answer.error.is_none());
+        *fixture.runtime.recipients.write().unwrap() =
+            crate::broker::recipients::RecipientIndex::from_metadata(&metadata);
     }
     let foreign = fixture.owner(&key).epoch;
     assert!(fixture.data().recover(&key).await.is_err());
