@@ -99,6 +99,7 @@ class ImportProxy:
                               re.search(br'"sequence":1(?:,|})', payload) is not None)
                     should_hold = ((self.mode == 'begin' and begin) or
                                    (self.mode == 'second' and second) or
+                                   (self.mode == 'resume' and b'"Resume"' in payload) or
                                    (self.mode == 'outbox' and
                                     b'"client_id":"repair-outbox-target","id":' in payload))
                     if should_hold and (self.mode == 'outbox' or not self.blocked.is_set()):
@@ -126,16 +127,28 @@ class ImportProxy:
                         pass
                     sock.close()
 
-    @staticmethod
-    def responses(server, client):
+    def responses(self, server, client):
         try:
             while True:
-                chunk = server.recv(65536)
-                if not chunk:
-                    return
-                client.sendall(chunk)
-        except OSError:
+                header = exact(server, 9)
+                length = int.from_bytes(header[:3], 'big')
+                if length > 16 * 1024 * 1024:
+                    raise ValueError('unbounded HTTP2 response frame')
+                payload = exact(server, length)
+                if (header[3] == 0 and self.mode == 'installed' and
+                        b'"installed":true' in payload and not self.blocked.is_set()):
+                    self.blocked.set()
+                    while not self.release.wait(.05):
+                        if self.stopped.is_set():
+                            return
+                client.sendall(header + payload)
+        except (OSError, EOFError, ValueError):
             pass
+        finally:
+            try:
+                client.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
 
     def close(self):
         self.stopped.set()
@@ -315,11 +328,12 @@ class RepairFixture(DurableFixture):
         self.quiet(resumed)
 
     def seed_pages(self):
-        # More than64 source records forces a second import page. Parallelism8
-        # stays below bounded runtime admission32 and per-record mailbox8.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-            sockets = list(pool.map(lambda i: self.persistent(f'repair-page-{i}', 1, expiry=3600),
-                                    range(70)))
+        # Pure data preparation, not an admission-load benchmark. Clean Start
+        # prevents Session Present ambiguity after an uncertain setup response.
+        # More than64 durable records guarantees a second import page.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            sockets = list(pool.map(lambda i: self.client(f'repair-page-{i}', 1, clean=True,
+                                                        expiry=3600, retry=True), range(70)))
         for sock in sockets:
             self.disconnect(sock)
 
@@ -447,6 +461,44 @@ class RepairFaults(RepairFixture, unittest.TestCase):
         self.proxy.release.set()
         self.run_repair(expected=repair_id, retry=True)
         self.verify_witness()
+
+    def test_installed_target_crash_before_control_commit_remains_nonvoting(self):
+        self.witness()
+        self.learner('installed')
+        driver = self.driver()
+        # The target has durably installed the entire staging set, but its
+        # installed=true response cannot reach the driver to authorize Commit.
+        repair_id = self.blocked(driver)
+        driver.process.kill()
+        driver.process.wait(timeout=5)
+        self.target.stop(crash=True)
+        self.proxy.release.set()
+        self.target.spawn()
+        self.wait_learner()
+        state = self.repair_state()
+        self.assertEqual(state['repair']['id'], repair_id)
+        self.assertIn(101, state['excluded'])
+        self.no_success()
+        self.run_repair(expected=repair_id)
+        self.verify_witness(stop_donor=2)
+
+    def test_commit_survives_driver_and_target_crash_before_target_resume(self):
+        self.witness()
+        self.learner('resume')
+        driver = self.driver()
+        self.assertTrue(self.proxy.blocked.wait(25), f'target Resume request absent: {driver.logs()}')
+        state = wait_until(lambda: (s if ((s := self.repair_state()).get('last_repair') or {}).get('state')
+                                   == 'committed' and s.get('repair') is None else None), 10)
+        repair_id = state['last_repair']['id']
+        self.assertNotIn(101, state['excluded'])
+        driver.process.kill()
+        driver.process.wait(timeout=5)
+        self.target.stop(crash=True)
+        self.proxy.release.set()
+        # No repair CLI is rerun: normal startup must reconcile the persisted
+        # terminal Commit token, safely thawing the installed new disk itself.
+        self.verify_witness()
+        self.assertEqual(self.repair_state()['last_repair']['id'], repair_id)
 
     def test_corrupt_manifest_rejected_without_voting_then_abort_and_retry(self):
         self.witness()
