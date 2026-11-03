@@ -60,7 +60,7 @@ impl raft_log::Callback for Completion {
         } else {
             result
         };
-        let _ = self.sender.send(result);
+        let _ = std::sync::mpsc::SyncSender::send(&self.sender, result);
     }
 }
 fn invalid(error: impl std::fmt::Display) -> io::Error {
