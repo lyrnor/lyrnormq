@@ -279,6 +279,27 @@ class Durable5(DurableSessionCases, unittest.TestCase):
 class DurableFaults(DurableFixture, unittest.TestCase):
     version = 5
 
+    def test_pending_old_delivery_cannot_enter_clean_started_recreated_session(self):
+        target = self.persistent('reset-backlog-target')
+        self.subscribe(target, 'durable/reset-backlog', 1)
+        self.disconnect(target)
+        stopped = self.fleet.brokers[0]
+        os.kill(stopped.process.pid, signal.SIGSTOP)
+        try:
+            source = self.persistent('reset-backlog-source', 2)
+            self.publish(source, 'durable/reset-backlog', b'belongs to discarded session', 1)
+            recreated = self.client('reset-backlog-target', 1, clean=True,
+                                    present=False, retry=True)
+            self.subscribe(recreated, 'durable/reset-backlog', 1)
+            self.quiet(recreated, .5)
+            self.publish(source, 'durable/reset-backlog', b'belongs to recreated session',
+                         1, packet_id=18)
+            message = self.expect_message(recreated, 'durable/reset-backlog',
+                                          b'belongs to recreated session', 1)
+            self.complete_message(recreated, message)
+        finally:
+            os.kill(stopped.process.pid, signal.SIGCONT)
+
     def test_concurrent_first_host_publications_share_one_initialized_record(self):
         target = self.persistent('first-host-target')
         self.subscribe(target, 'durable/first-host', 1)
