@@ -221,6 +221,7 @@ struct Inner {
     _lock: std::fs::File,
     disk_id: String,
     slots: Arc<Semaphore>,
+    waiters: Arc<Semaphore>,
     generation: AtomicU64,
     frozen: AtomicBool,
 }
@@ -310,6 +311,7 @@ impl Journal {
             _lock: lock,
             disk_id,
             slots: Arc::new(Semaphore::new(32)),
+            waiters: Arc::new(Semaphore::new(32)),
             generation: AtomicU64::new(repair.generation),
             frozen: AtomicBool::new(repair.frozen.is_some()),
         })))
@@ -333,12 +335,32 @@ impl Journal {
         &self,
         call: impl FnOnce(&mut Connection) -> io::Result<T> + Send + 'static,
     ) -> io::Result<T> {
-        let permit = self
-            .0
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| diagnosis::reject(Failure::JournalOperations))?;
+        // Keep the blocking-pool/DB admission at32. A separate finite async
+        // wait budget absorbs brief RF3 fan-in without spawning blocked jobs.
+        let permit = match self.0.slots.clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(tokio::sync::TryAcquireError::Closed) => {
+                return Err(diagnosis::reject(Failure::JournalOperations));
+            }
+            Err(tokio::sync::TryAcquireError::NoPermits) => {
+                let waiting = self
+                    .0
+                    .waiters
+                    .clone()
+                    .try_acquire_owned()
+                    .map_err(|_| diagnosis::reject(Failure::JournalWaitQueueFull))?;
+                diagnosis::observe(Failure::JournalWaiting);
+                let acquired = tokio::time::timeout(
+                    std::time::Duration::from_millis(750),
+                    self.0.slots.clone().acquire_owned(),
+                )
+                .await
+                .map_err(|_| diagnosis::reject(Failure::JournalWaitTimeout))?
+                .map_err(|_| diagnosis::reject(Failure::JournalOperations))?;
+                drop(waiting);
+                acquired
+            }
+        };
         let inner = self.0.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
@@ -936,6 +958,205 @@ mod tests {
                 .as_nanos()
         ))
     }
+    #[tokio::test]
+    async fn saturated_journal_waits_without_submitting_more_blocking_jobs() -> io::Result<()> {
+        let path = repair_path("bounded-wait-before-release");
+        let journal = test_journal(&path)?;
+        let held = journal
+            .0
+            .slots
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(error)?;
+        let mut request = Box::pin(journal.execute_at(
+            0,
+            Request::Read {
+                key: "queued".into(),
+            },
+        ));
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), &mut request)
+                .await
+                .is_err(),
+            "a short Journal burst must wait for an existing slot rather than reject the data transaction"
+        );
+        assert_eq!(journal.0.slots.available_permits(), 0);
+        drop(held);
+        let reply = tokio::time::timeout(std::time::Duration::from_secs(2), request)
+            .await
+            .map_err(error)??;
+        assert!(reply.record.is_none());
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn journal_wait_budget_and_deadline_are_finite() -> io::Result<()> {
+        let path = repair_path("bounded-wait-budget");
+        let journal = test_journal(&path)?;
+        let active = journal
+            .0
+            .slots
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(error)?;
+        let waiting = journal
+            .0
+            .waiters
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(error)?;
+        let full = journal
+            .execute_at(0, Request::Read { key: "full".into() })
+            .await
+            .err()
+            .expect("full");
+        assert!(matches!(
+            full.get_ref().and_then(|e| e.downcast_ref::<Failure>()),
+            Some(Failure::JournalWaitQueueFull)
+        ));
+        drop(waiting);
+        let expired = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            journal.execute_at(
+                0,
+                Request::Read {
+                    key: "timeout".into(),
+                },
+            ),
+        )
+        .await
+        .map_err(error)?
+        .err()
+        .expect("expired");
+        assert!(matches!(
+            expired.get_ref().and_then(|e| e.downcast_ref::<Failure>()),
+            Some(Failure::JournalWaitTimeout)
+        ));
+        assert_eq!(journal.0.waiters.available_permits(), 32);
+        assert_eq!(journal.0.slots.available_permits(), 0);
+        drop(active);
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn canceled_journal_wait_never_submits_the_write() -> io::Result<()> {
+        let path = repair_path("bounded-wait-canceled");
+        let journal = test_journal(&path)?;
+        let active = journal
+            .0
+            .slots
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(error)?;
+        assert!(
+            tokio::time::timeout(
+                std::time::Duration::from_millis(20),
+                journal.execute_at(
+                    0,
+                    Request::Write {
+                        key: "canceled".into(),
+                        record: Record::empty(1)
+                    }
+                )
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(journal.0.waiters.available_permits(), 32);
+        drop(active);
+        assert!(
+            journal
+                .execute_at(
+                    0,
+                    Request::Read {
+                        key: "canceled".into()
+                    }
+                )
+                .await?
+                .record
+                .is_none()
+        );
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn queued_journal_request_rechecks_freeze_and_generation_after_admission()
+    -> io::Result<()> {
+        for freeze in [true, false] {
+            let path = repair_path(if freeze {
+                "wait-freeze"
+            } else {
+                "wait-generation"
+            });
+            let journal = test_journal(&path)?;
+            let mut active = Vec::new();
+            for _ in 0..32 {
+                active.push(
+                    journal
+                        .0
+                        .slots
+                        .clone()
+                        .acquire_owned()
+                        .await
+                        .map_err(error)?,
+                );
+            }
+            let mut transition = Box::pin(journal.with_db(move |db| {
+                let mut state = read_repair_state(db)?;
+                if freeze {
+                    state.frozen = Some(test_token(1));
+                } else {
+                    state.generation = 1;
+                }
+                save_repair_state(db, &state)
+            }));
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(20), &mut transition)
+                    .await
+                    .is_err()
+            );
+            let mut request = Box::pin(journal.execute_at(
+                0,
+                Request::Write {
+                    key: "stale".into(),
+                    record: Record::empty(1),
+                },
+            ));
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(20), &mut request)
+                    .await
+                    .is_err()
+            );
+            assert_eq!(journal.0.waiters.available_permits(), 30);
+            // Only one slot becomes free: FIFO admits the control transition
+            // before the old-generation data write can start its transaction.
+            drop(active.pop());
+            let (changed, rejected) = tokio::join!(transition, request);
+            changed?;
+            let rejected = rejected.err().expect("must reject stale data");
+            let category = rejected.get_ref().and_then(|e| e.downcast_ref::<Failure>());
+            assert!(matches!(
+                (freeze, category),
+                (true, Some(Failure::JournalFrozen)) | (false, Some(Failure::JournalGeneration))
+            ));
+            drop(active);
+            assert_eq!(journal.0.waiters.available_permits(), 32);
+            drop(journal);
+            std::fs::remove_dir_all(path)?;
+        }
+        Ok(())
+    }
+
     fn test_token(generation: u64) -> RepairToken {
         RepairToken {
             id: format!("repair-{generation}"),

@@ -11,6 +11,9 @@ pub(crate) enum Failure {
     DurableBytes,
     ActorQueue,
     JournalOperations,
+    JournalWaiting,
+    JournalWaitQueueFull,
+    JournalWaitTimeout,
     JournalFrozen,
     JournalGeneration,
     JournalEpoch,
@@ -48,7 +51,11 @@ pub(crate) fn observe(failure: Failure) {
         .fetch_add(1, Ordering::Relaxed)
         .saturating_add(1);
     if should_log(count) {
-        tracing::warn!(event = "cluster_data_rejection", category = %failure, count, "cluster data-path diagnostic");
+        if matches!(failure, Failure::JournalWaiting) {
+            tracing::warn!(event = "cluster_data_backpressure", category = %failure, count, "cluster data-path waiting");
+        } else {
+            tracing::warn!(event = "cluster_data_rejection", category = %failure, count, "cluster data-path diagnostic");
+        }
     }
 }
 fn should_log(count: u64) -> bool {
