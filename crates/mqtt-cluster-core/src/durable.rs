@@ -26,6 +26,9 @@ pub struct DeliveryId {
     pub epoch: u64,
     pub revision: u64,
     pub index: u32,
+    /// Recipient logical session, unchanged by ownership migration alone.
+    #[serde(default)]
+    pub target_generation: u64,
 }
 
 #[derive(Clone)]
@@ -34,6 +37,8 @@ pub struct SessionMutation {
     pub epoch: u64,
     pub expected_revision: u64,
     pub snapshot: Option<Vec<u8>>,
+    /// True only for a successful CONNECT with Session Present=false.
+    pub reset_session: bool,
     pub filters: Vec<String>,
     pub publications: Vec<ClusterMessage>,
     pub receipt: Option<DeliveryId>,
@@ -43,6 +48,7 @@ impl std::fmt::Debug for SessionMutation {
         f.debug_struct("SessionMutation")
             .field("epoch", &self.epoch)
             .field("expected_revision", &self.expected_revision)
+            .field("reset_session", &self.reset_session)
             .field("snapshot_bytes", &self.snapshot.as_ref().map(Vec::len))
             .field("publications", &self.publications.len())
             .field("has_receipt", &self.receipt.is_some())

@@ -112,6 +112,23 @@ and encoded record bytes remain bounded; 8192 is the source-stream limit, not a
 lifetime message limit. Cover FIFO, epoch migration, lost replies and repeated
 delivery into a full recipient queue with regression tests.
 
+Logical-session amendment: recipient client ID alone is insufficient. Freeze each
+recipient's logical_session_generation alongside its ID. A successful CONNECT
+whose Session Present is false sets SessionMutation.reset_session=true; runtime
+increments this separate persistent generation. Ordinary persistent resume/owner
+migration preserves it. Directory generation must be reconciled with the recovered
+record and committed with a visibility barrier, including when filters are unchanged.
+Use DeliveryId.target_generation (serde default0 for experimental old records) on
+each recipient RPC; original source intent IDs retain target_generation0. Both
+recipient preflight and the atomic session/receipt commit check the frozen target
+generation. Mismatch is terminal no-delivery (commit returns duplicate=true) and
+must not install a proposal computed across a reset. Old pending intents cannot
+leak into a clean/recreated session that reuses a Client ID/topic. A logical reset
+may clear recipient receipt watermarks because old-generation replay is fenced;
+source forwarding intents survive independently. Add deterministic preflight/reset/
+commit race tests and cross-node backlog/Clean Start wire acceptance. Do not use
+ownership epoch as logical generation, as that would lose valid resumed deliveries.
+
 QoS1/2 acknowledge replicated responsibility, not immediate subscriber receipt.
 QoS0 socket delivery remains MQTT best effort, even if its forwarding intent was
 durably accepted; do not claim end-to-end QoS0 exactly once. Preserve MQTT QoS2
