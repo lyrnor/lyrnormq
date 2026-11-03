@@ -35,8 +35,58 @@ pub(crate) fn decode<T: DeserializeOwned>(envelope: wire::Envelope) -> Result<T,
     serde_json::from_slice(&envelope.data)
         .map_err(|_| Status::invalid_argument("invalid cluster message"))
 }
-pub(crate) fn io_error(_error: impl std::fmt::Display) -> io::Error {
-    io::Error::new(io::ErrorKind::WouldBlock, "cluster RPC unavailable")
+pub(crate) fn io_error(error: impl std::fmt::Display) -> io::Error {
+    io::Error::new(io::ErrorKind::WouldBlock, format!("cluster RPC: {error}"))
+}
+/// The RPC was sent: transport failure is not proof that a mutation did not commit.
+#[derive(Debug)]
+pub(crate) struct RpcFailure {
+    pub code: tonic::Code,
+    pub outcome_unknown: bool,
+    message: String,
+}
+impl std::fmt::Display for RpcFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "cluster RPC {:?} (outcome_unknown={}): {}",
+            self.code, self.outcome_unknown, self.message
+        )
+    }
+}
+impl std::error::Error for RpcFailure {}
+pub(crate) fn not_submitted(error: &io::Error) -> bool {
+    error.get_ref().is_some_and(|inner| {
+        inner.is::<mqtt_cluster_core::AcquisitionConflict>()
+            || inner
+                .downcast_ref::<RpcFailure>()
+                .is_some_and(|failure| !failure.outcome_unknown)
+    })
+}
+fn mutation_status(status: Status) -> io::Error {
+    let safe = mutation_not_submitted(&status);
+    io::Error::new(
+        io::ErrorKind::WouldBlock,
+        RpcFailure {
+            code: status.code(),
+            outcome_unknown: !safe,
+            message: status.message().to_owned(),
+        },
+    )
+}
+fn mutation_not_submitted(status: &Status) -> bool {
+    matches!(
+        status.code(),
+        tonic::Code::ResourceExhausted
+            | tonic::Code::InvalidArgument
+            | tonic::Code::Unauthenticated
+            | tonic::Code::PermissionDenied
+    ) || (status.code() == tonic::Code::FailedPrecondition
+        && status.message().starts_with("metadata not submitted:"))
+}
+fn retry_controller(status: &Status) -> bool {
+    status.code() == tonic::Code::FailedPrecondition
+        && status.message().starts_with("metadata not submitted:")
 }
 #[derive(Clone, Copy)]
 enum ClientDeadline {
@@ -145,7 +195,7 @@ impl ClientRpc {
                     )
                     .map_err(io_error)?;
             }
-            let channel = endpoint.connect_lazy();
+            let channel = endpoint.connect().await.map_err(io_error)?;
             let mut channels = self.channels.lock().unwrap_or_else(PoisonError::into_inner);
             if channels.len() >= 1024 {
                 return Err(io_error("cluster peer capacity"));
@@ -206,62 +256,134 @@ impl ClientRpc {
     pub async fn owner(&self, key: String) -> io::Result<Option<DurableOwner>> {
         self.request_seeds(ReadRequest::Owner { key }).await
     }
+    pub async fn node(&self, node: u64) -> io::Result<Option<Node>> {
+        self.request_seeds(ReadRequest::Node { node }).await
+    }
     pub async fn status(&self) -> io::Result<ClusterStatus> {
         self.request_seeds(ReadRequest::Status).await
     }
     async fn request_seeds<T: DeserializeOwned>(&self, kind: ReadRequest) -> io::Result<T> {
-        for address in self.controller_addresses() {
-            let deadline = if matches!(kind, ReadRequest::Applied { .. }) {
-                ClientDeadline::Applied
-            } else {
-                ClientDeadline::Regular
-            };
-            let mut client = self.client_timeout(&address, deadline).await?;
-            if let Ok(reply) = client.read(self.authorize(encode(&kind)?)?).await {
-                if !matches!(kind, ReadRequest::Status) {
-                    self.remember_controller(address);
+        // One deadline covers all controller attempts, including connection establishment.
+        let limit = if matches!(kind, ReadRequest::Applied { .. }) {
+            5
+        } else {
+            2
+        };
+        tokio::time::timeout(Duration::from_secs(limit), async {
+            let mut last = io_error("controller quorum unavailable");
+            for address in self.controller_addresses() {
+                let deadline = if matches!(kind, ReadRequest::Applied { .. }) {
+                    ClientDeadline::Applied
+                } else {
+                    ClientDeadline::Regular
+                };
+                let mut client = match self.client_timeout(&address, deadline).await {
+                    Ok(client) => client,
+                    Err(error) => {
+                        // No RPC was sent: it is safe to try another controller.
+                        last = io::Error::new(
+                            io::ErrorKind::WouldBlock,
+                            RpcFailure {
+                                code: tonic::Code::Unavailable,
+                                outcome_unknown: false,
+                                message: error.to_string(),
+                            },
+                        );
+                        continue;
+                    }
+                };
+                match client.read(self.authorize(encode(&kind)?)?).await {
+                    Ok(reply) => {
+                        if !matches!(kind, ReadRequest::Status) {
+                            self.remember_controller(address);
+                        }
+                        return decode(reply.into_inner()).map_err(io_error);
+                    }
+                    Err(status) => {
+                        last = mutation_status(status);
+                    }
                 }
-                return decode(reply.into_inner()).map_err(io_error);
             }
-        }
-        Err(io_error("controller quorum unavailable"))
+            Err(last)
+        })
+        .await
+        .map_err(|_| io_error("controller read total deadline"))?
     }
     pub async fn repair_mutate(&self, command: Command) -> io::Result<Answer> {
-        for address in self.controller_addresses() {
-            let mut client = self.repair_client(&address).await?;
-            if let Ok(reply) = client.mutate(self.authorize(encode(&command)?)?).await {
-                let answer: Answer = decode(reply.into_inner()).map_err(io_error)?;
-                if let Some(error) = answer.error {
-                    return Err(io_error(error));
-                }
-                *self
-                    .preferred
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner) = Some(address);
-                return Ok(answer);
-            }
-        }
-        Err(io_error("controller quorum unavailable"))
+        self.mutate_deadline(command, ClientDeadline::Repair, 60)
+            .await
     }
     pub async fn mutate(&self, command: Command) -> io::Result<Answer> {
-        for address in self.controller_addresses() {
-            let mut client = self.client(&address).await?;
-            if let Ok(reply) = client.mutate(self.authorize(encode(&command)?)?).await {
-                let answer: Answer = decode(reply.into_inner()).map_err(io_error)?;
-                if let Some(error) = answer.error {
-                    return Err(io_error(error));
+        self.mutate_deadline(command, ClientDeadline::Regular, 2)
+            .await
+    }
+    async fn mutate_deadline(
+        &self,
+        command: Command,
+        deadline: ClientDeadline,
+        seconds: u64,
+    ) -> io::Result<Answer> {
+        tokio::time::timeout(Duration::from_secs(seconds), async {
+            let mut last = io_error("controller quorum unavailable");
+            for address in self.controller_addresses() {
+                let mut client = match self.client_timeout(&address, deadline).await {
+                    Ok(client) => client,
+                    Err(error) => {
+                        // No RPC was sent: it is safe to try another controller.
+                        last = io::Error::new(
+                            io::ErrorKind::WouldBlock,
+                            RpcFailure {
+                                code: tonic::Code::Unavailable,
+                                outcome_unknown: false,
+                                message: error.to_string(),
+                            },
+                        );
+                        continue;
+                    }
+                };
+                match client.mutate(self.authorize(encode(&command)?)?).await {
+                    Ok(reply) => {
+                        let answer: Answer = decode(reply.into_inner()).map_err(io_error)?;
+                        if let Some(error) = answer.error {
+                            if matches!(command, Command::Acquire { .. })
+                                && error == "stale acquisition epoch"
+                            {
+                                return Err(io::Error::new(
+                                    io::ErrorKind::WouldBlock,
+                                    mqtt_cluster_core::AcquisitionConflict,
+                                ));
+                            }
+                            return Err(mutation_status(Status::invalid_argument(error)));
+                        }
+                        self.remember_controller(address);
+                        return Ok(answer);
+                    }
+                    Err(status) => {
+                        let retry = retry_controller(&status);
+                        last = mutation_status(status);
+                        if !retry || !not_submitted(&last) {
+                            return Err(last);
+                        }
+                    }
                 }
-                self.remember_controller(address);
-                return Ok(answer);
             }
-        }
-        Err(io_error("controller quorum unavailable"))
+            Err(last)
+        })
+        .await
+        .map_err(|_| {
+            mutation_status(Status::deadline_exceeded(
+                "metadata total deadline; outcome unknown",
+            ))
+        })?
     }
 }
 #[derive(Serialize, serde::Deserialize, Clone)]
 pub(crate) enum ReadRequest {
     Metadata,
     Status,
+    Node {
+        node: u64,
+    },
     Applied {
         revision: u64,
     },
@@ -287,5 +409,30 @@ pub(crate) async fn server_tls(config: &Config) -> io::Result<Option<ServerTlsCo
                     .client_ca_root(Certificate::from_pem(ca)),
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn rejected_acquisition_is_safe_but_unknown_write_is_not() {
+        let conflict = io::Error::new(
+            io::ErrorKind::WouldBlock,
+            mqtt_cluster_core::AcquisitionConflict,
+        );
+        assert!(not_submitted(&conflict));
+        assert!(not_submitted(&mutation_status(Status::resource_exhausted(
+            "metadata write capacity"
+        ))));
+        assert!(!not_submitted(&mutation_status(Status::unavailable(
+            "metadata commit deadline"
+        ))));
+    }
+    #[test]
+    fn status_details_survive_io_conversion() {
+        let error = io_error(Status::resource_exhausted("metadata write capacity"));
+        assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+        assert!(error.to_string().contains("metadata write capacity"));
     }
 }

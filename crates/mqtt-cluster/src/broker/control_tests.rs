@@ -8,6 +8,9 @@ use tonic::{Request, Response, Status};
 #[derive(Clone)]
 struct ReadSpy {
     metadata: Arc<Mutex<Metadata>>,
+    mutation_errors: Arc<Mutex<VecDeque<Status>>>,
+    mutation_calls: Arc<AtomicUsize>,
+    stall_mutation: Arc<AtomicBool>,
     full: Arc<AtomicUsize>,
     applied: Arc<AtomicUsize>,
     invalidate: Option<Arc<BrokerRuntime>>,
@@ -25,6 +28,9 @@ impl Cluster for ReadSpy {
         let body = if value == "Metadata" {
             self.full.fetch_add(1, Ordering::Relaxed);
             rpc::encode(&*self.metadata.lock().unwrap()).unwrap()
+        } else if let Some(request) = value.get("Node") {
+            let id = request["node"].as_u64().unwrap();
+            rpc::encode(&self.metadata.lock().unwrap().nodes.get(&id)).unwrap()
         } else if let Some(request) = value.get("Applied") {
             self.applied.fetch_add(1, Ordering::Relaxed);
             let revision = request["revision"].as_u64().unwrap();
@@ -49,6 +55,13 @@ impl Cluster for ReadSpy {
         Err(Status::unimplemented("raft"))
     }
     async fn mutate(&self, request: Request<Envelope>) -> Result<Response<Envelope>, Status> {
+        self.mutation_calls.fetch_add(1, Ordering::SeqCst);
+        if self.stall_mutation.load(Ordering::SeqCst) {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        }
+        if let Some(status) = self.mutation_errors.lock().unwrap().pop_front() {
+            return Err(status);
+        }
         let value: serde_json::Value = serde_json::from_slice(&request.into_inner().data).unwrap();
         if let Some(heartbeat) = value.get("Heartbeat") {
             let applied = heartbeat["applied"].as_u64().unwrap();
@@ -110,6 +123,9 @@ async fn spy_fixture(
     runtime.metadata.write().unwrap().data_mode = Some(DataMode::Legacy);
     let spy = ReadSpy {
         metadata: Arc::new(Mutex::new(runtime.metadata.read().unwrap().clone())),
+        mutation_errors: Arc::new(Mutex::new(VecDeque::new())),
+        mutation_calls: Arc::new(AtomicUsize::new(0)),
+        stall_mutation: Arc::new(AtomicBool::new(false)),
         full: Arc::new(AtomicUsize::new(0)),
         applied: Arc::new(AtomicUsize::new(0)),
         invalidate: invalidate.then(|| runtime.clone()),
@@ -245,6 +261,120 @@ async fn heartbeat_cannot_announce_revision_before_installation_completes() -> i
         .is_err(),
         "a healthy incremental stream must not be reset by a newer heartbeat revision"
     );
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn registration_recovery_reads_only_one_node() -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("node-recovery", false).await?;
+    let rpc = runtime.rpc().await?;
+    runtime.recover_registration(rpc).await?;
+    assert_eq!(
+        spy.full.load(Ordering::Relaxed),
+        0,
+        "transient heartbeat failure must not read full directory"
+    );
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    Ok(())
+}
+
+async fn three_seed_rpc(
+    runtime: &BrokerRuntime,
+    spy: &ReadSpy,
+) -> io::Result<(ClientRpc, Vec<SpyServer>)> {
+    let mut config = (*runtime.config).clone();
+    let mut servers = Vec::new();
+    for peer in config.controllers.iter_mut().skip(1) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+        peer.address = format!("http://{}", listener.local_addr()?);
+        servers.push(tokio::spawn(
+            tonic::transport::Server::builder()
+                .add_service(ClusterServer::new(spy.clone()))
+                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener)),
+        ));
+    }
+    Ok((ClientRpc::new(Arc::new(config)).await?, servers))
+}
+fn test_heartbeat() -> Command {
+    Command::Heartbeat {
+        node: 101,
+        incarnation: "test".into(),
+        applied: 0,
+        expires_at: 0,
+        lease_ms: 3000,
+    }
+}
+#[tokio::test]
+async fn ambiguous_mutation_reply_is_not_resubmitted_to_other_seeds() -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("unknown-write", false).await?;
+    let (rpc, servers) = three_seed_rpc(&runtime, &spy).await?;
+    spy.mutation_errors
+        .lock()
+        .unwrap()
+        .push_back(Status::unavailable("reply lost after apply"));
+    let error = rpc.mutate(test_heartbeat()).await.unwrap_err();
+    assert!(!rpc::not_submitted(&error));
+    assert_eq!(spy.mutation_calls.load(Ordering::SeqCst), 1);
+    assert!(error.to_string().contains("reply lost after apply"));
+    // A definite follower rejection is safe to redirect to the next seed.
+    spy.mutation_errors
+        .lock()
+        .unwrap()
+        .push_back(Status::failed_precondition(
+            "metadata not submitted: not current leader",
+        ));
+    rpc.mutate(test_heartbeat()).await?;
+    assert_eq!(spy.mutation_calls.load(Ordering::SeqCst), 3);
+    server.abort();
+    for task in servers {
+        task.abort();
+    }
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    Ok(())
+}
+#[tokio::test]
+async fn mutation_deadline_covers_all_seeds() -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("write-deadline", false).await?;
+    let (rpc, servers) = three_seed_rpc(&runtime, &spy).await?;
+    spy.stall_mutation.store(true, Ordering::SeqCst);
+    let start = tokio::time::Instant::now();
+    let error = rpc.mutate(test_heartbeat()).await.unwrap_err();
+    assert!(start.elapsed() < Duration::from_millis(2500));
+    assert!(!rpc::not_submitted(&error));
+    assert_eq!(spy.mutation_calls.load(Ordering::SeqCst), 1);
+    server.abort();
+    for task in servers {
+        task.abort();
+    }
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn dead_initial_seed_does_not_block_safe_controller_discovery() -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("dead-first", false).await?;
+    let dead = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let dead_address = format!("http://{}", dead.local_addr()?);
+    drop(dead);
+    let mut config = (*runtime.config).clone();
+    config.controllers[1].address = config.controllers[0].address.clone();
+    config.controllers[0].address = dead_address;
+    let rpc = ClientRpc::new(Arc::new(config)).await?;
+    let start = tokio::time::Instant::now();
+    rpc.mutate(test_heartbeat()).await?;
+    assert!(start.elapsed() < Duration::from_secs(2));
+    assert_eq!(spy.mutation_calls.load(Ordering::SeqCst), 1);
+    let node = rpc.node(101).await?;
+    assert!(node.is_some());
+    server.abort();
+    let _ = server.await;
     drop(runtime);
     tokio::fs::remove_dir_all(path).await?;
     Ok(())

@@ -107,7 +107,7 @@ impl BrokerRuntime {
             initialized: AtomicBool::new(false),
             tasks: Mutex::new(Vec::new()),
             sequence: AtomicU64::new(1),
-            slots: Arc::new(Semaphore::new(32)),
+            slots: Arc::new(Semaphore::new(256)),
             bytes: Arc::new(Semaphore::new(16 * 1024 * 1024)),
             receipts: Mutex::new(Receipts::default()),
             watch_reconnect: Notify::new(),
@@ -338,8 +338,8 @@ impl BrokerRuntime {
     async fn recover_registration(&self, rpc: &ClientRpc) -> io::Result<()> {
         // Only an authoritative quorum read may prove that this incarnation was removed.
         // Never replace another incarnation, and never resurrect the fenced local sessions.
-        let metadata = rpc.metadata().await?;
-        if metadata.nodes.contains_key(&self.config.node_id) {
+        let node = rpc.node(self.config.node_id).await?;
+        if node.is_some() {
             return Ok(());
         }
         self.initialized.store(false, Ordering::Release);
@@ -758,7 +758,8 @@ pub async fn serve_broker(
     .max_decoding_message_size(rpc::MAX_WIRE)
     .max_encoding_message_size(rpc::MAX_WIRE);
     let mut server = tonic::transport::Server::builder()
-        .concurrency_limit_per_connection(32)
+        .concurrency_limit_per_connection(1024)
+        .max_concurrent_streams(Some(1024))
         .timeout(Duration::from_secs(60));
     if let Some(tls) = rpc::server_tls(&runtime.config).await? {
         server = server.tls_config(tls).map_err(io::Error::other)?;

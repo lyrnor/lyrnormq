@@ -1,7 +1,11 @@
 //! Three-voter metadata Raft, durable state and snapshot replication service.
 use std::sync::PoisonError;
+mod admission;
 mod applied;
 const MAX_REPLICATION_ENTRIES: u64 = 24;
+const BUSINESS_SLOTS: usize = 256;
+const HEALTH_SLOTS: usize = 16;
+const APPLIED_SLOTS: usize = 1024;
 
 use crate::{
     config::{Config, Role},
@@ -102,6 +106,7 @@ pub(crate) struct Control {
     store: Store,
     rpc: ClientRpc,
     slots: Arc<Semaphore>,
+    health_slots: Arc<Semaphore>,
     watchers: Arc<Semaphore>,
     applied_slots: Arc<Semaphore>,
     progress: applied::Progress,
@@ -116,8 +121,15 @@ impl Control {
         Ok(())
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
-        let _slot = self
-            .slots
+        let admission = if matches!(
+            command,
+            Command::Heartbeat { .. } | Command::Register { .. }
+        ) {
+            &self.health_slots
+        } else {
+            &self.slots
+        };
+        let _slot = admission
             .clone()
             .try_acquire_owned()
             .map_err(|_| Status::resource_exhausted("metadata write capacity"))?;
@@ -174,10 +186,21 @@ impl Control {
             }
             _ => {}
         }
-        let result = tokio::time::timeout(Duration::from_secs(2), self.raft.client_write(command))
+        // This rejection is provably before submission. Errors from client_write below
+        // must not be used to infer that a command never entered the consensus log.
+        if self.raft.metrics().borrow().current_leader != Some(self.rpc.config_node()) {
+            return Err(Status::failed_precondition(
+                "metadata not submitted: not current leader",
+            ));
+        }
+        let raft = self.raft.clone();
+        // Admission belongs to submitted work, not to the cancellable response future.
+        let pending = admission::submit(_slot, async move { raft.client_write(command).await });
+        let result = tokio::time::timeout(Duration::from_secs(2), pending)
             .await
             .map_err(|_| Status::unavailable("metadata commit deadline"))?
-            .map_err(|_| Status::unavailable("not current leader"))?;
+            .map_err(|_| Status::unavailable("metadata commit task outcome unknown"))?
+            .map_err(|_| Status::unavailable("metadata commit outcome unknown"))?;
         let mut answer = result.data;
         answer.lease_ms = self.lease_ms;
         Ok(answer)
@@ -400,6 +423,19 @@ impl wire::cluster_server::Cluster for Service {
                     .get(&key)
                     .cloned();
                 rpc::encode(&owner)
+            }
+            ReadRequest::Node { node } => {
+                control.leader().await?;
+                let value = control
+                    .store
+                    .state
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .metadata
+                    .nodes
+                    .get(&node)
+                    .cloned();
+                rpc::encode(&value)
             }
             ReadRequest::Status => {
                 let m = control.raft.metrics().borrow().clone();
@@ -641,9 +677,10 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
         raft,
         store,
         rpc: rpc.clone(),
-        slots: Arc::new(Semaphore::new(32)),
+        slots: Arc::new(Semaphore::new(BUSINESS_SLOTS)),
+        health_slots: Arc::new(Semaphore::new(HEALTH_SLOTS)),
         watchers: Arc::new(Semaphore::new(128)),
-        applied_slots: Arc::new(Semaphore::new(32)),
+        applied_slots: Arc::new(Semaphore::new(APPLIED_SLOTS)),
         progress: applied::Progress::default(),
         lease_ms: config.lease_ms,
     });
@@ -702,7 +739,8 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     .max_decoding_message_size(rpc::MAX_WIRE)
     .max_encoding_message_size(rpc::MAX_WIRE);
     let mut server = tonic::transport::Server::builder()
-        .concurrency_limit_per_connection(32)
+        .concurrency_limit_per_connection(1024)
+        .max_concurrent_streams(Some(1024))
         .timeout(Duration::from_secs(5));
     if let Some(tls) = rpc::server_tls(&config).await? {
         server = server.tls_config(tls).map_err(io::Error::other)?;
@@ -809,12 +847,34 @@ mod control_tests {
             raft,
             store,
             rpc,
-            slots: Arc::new(Semaphore::new(32)),
+            slots: Arc::new(Semaphore::new(BUSINESS_SLOTS)),
+            health_slots: Arc::new(Semaphore::new(HEALTH_SLOTS)),
             watchers: Arc::new(Semaphore::new(128)),
-            applied_slots: Arc::new(Semaphore::new(32)),
+            applied_slots: Arc::new(Semaphore::new(APPLIED_SLOTS)),
             progress: applied::Progress::default(),
             lease_ms: 3000,
         });
+        // Health writes must remain admitted even when all business slots are held.
+        let occupied = control
+            .slots
+            .clone()
+            .acquire_many_owned(BUSINESS_SLOTS as u32)
+            .await
+            .unwrap();
+        let health = control
+            .write(Command::Heartbeat {
+                node: u64::MAX,
+                incarnation: "fixture".into(),
+                applied: 0,
+                expires_at: 0,
+                lease_ms: 3000,
+            })
+            .await;
+        assert!(
+            health.is_ok(),
+            "business saturation must not reject health: {health:?}"
+        );
+        drop(occupied);
         {
             let mut state = control.store.state.lock().unwrap();
             state.metadata.revision = 7;
@@ -890,7 +950,7 @@ mod control_tests {
         let permits = control
             .applied_slots
             .clone()
-            .acquire_many_owned(32)
+            .acquire_many_owned(APPLIED_SLOTS as u32)
             .await
             .map_err(io::Error::other)?;
         assert_eq!(
@@ -920,7 +980,15 @@ mod control_tests {
             })
             .await
             .map_err(io::Error::other)?;
-        assert!(control.raft.metrics().borrow().current_term > term);
+        // append_entries completion may precede publication of the metrics watch.
+        let mut metrics = control.raft.metrics();
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while metrics.borrow().current_term <= term {
+                metrics.changed().await.unwrap();
+            }
+        })
+        .await
+        .expect("higher vote must publish its term");
         let result = tokio::time::timeout(Duration::from_secs(2), waiter)
             .await
             .expect("higher term must reject waiter")
