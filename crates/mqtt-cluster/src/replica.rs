@@ -43,7 +43,6 @@ impl Record {
     pub fn version(&self) -> (u64, u64) {
         (self.epoch, self.physical_revision)
     }
-    #[cfg(test)]
     pub fn empty(epoch: u64) -> Self {
         Self {
             epoch,
@@ -58,6 +57,7 @@ impl Record {
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) enum Request {
+    Read { key: String },
     Fence { key: String, epoch: u64 },
     Write { key: String, record: Record },
 }
@@ -129,17 +129,18 @@ impl Journal {
             let _permit=permit;
             let mut db=inner.db.lock().unwrap_or_else(PoisonError::into_inner);
             let tx=db.transaction().map_err(error)?;
-            let (key,epoch)=match &request { Request::Fence{key,epoch}=>(key,*epoch),Request::Write{key,record}=>(key,record.epoch) };
-            if key.is_empty()||key.len()>65538||epoch==0||epoch>i64::MAX as u64 {return Err(rejected());}
+            let (key,epoch)=match &request { Request::Read{key}=>(key,0), Request::Fence{key,epoch}=>(key,*epoch),Request::Write{key,record}=>(key,record.epoch) };
+            if key.is_empty()||key.len()>65538||(!matches!(&request,Request::Read{..})&&epoch==0)||epoch>i64::MAX as u64 {return Err(rejected());}
             let old:Option<(i64,Option<Vec<u8>>)>=tx.query_row("SELECT min_epoch,data FROM records WHERE key=?1",[key],|r|Ok((r.get(0)?,r.get(1)?))).optional().map_err(error)?;
             let (minimum,bytes)=old.unwrap_or((0,None));
-            if (epoch as i64)<minimum {return Err(rejected());}
+            if !matches!(&request,Request::Read{..}) && (epoch as i64)<minimum {return Err(rejected());}
             let record:Option<Record>=bytes.as_deref().map(serde_json::from_slice).transpose().map_err(error)?;
-            if minimum==0 {
+            if minimum==0 && !matches!(&request,Request::Read{..}) {
                 let count:i64=tx.query_row("SELECT count(*) FROM records",[],|r|r.get(0)).map_err(error)?;
                 if count>=100_000 {return Err(rejected());}
             }
             let answer=match &request {
+                Request::Read{..}=>record,
                 Request::Fence{..}=>{
                     tx.execute("INSERT INTO records(key,min_epoch,data) VALUES(?1,?2,NULL) ON CONFLICT(key) DO UPDATE SET min_epoch=excluded.min_epoch",params![key,epoch as i64]).map_err(error)?;
                     record

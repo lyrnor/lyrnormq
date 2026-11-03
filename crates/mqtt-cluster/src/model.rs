@@ -27,15 +27,49 @@ pub struct Client {
     pub generation: u64,
     pub filters: Vec<String>,
 }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DurableOwner {
+    pub node: u64,
+    pub incarnation: String,
+    pub generation: u64,
+    pub epoch: u64,
+    pub filters: Vec<String>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DataMode {
+    Legacy,
+    Durable(Vec<(u64, String)>),
+}
+fn legacy_mode() -> Option<DataMode> {
+    Some(DataMode::Legacy)
+}
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Metadata {
     pub revision: u64,
+    #[serde(default = "legacy_mode")]
+    pub data_mode: Option<DataMode>,
     pub nodes: BTreeMap<u64, Node>,
     pub clients: BTreeMap<String, Client>,
     pub routes: BTreeMap<String, BTreeSet<u64>>,
+    #[serde(default)]
+    pub durable: BTreeMap<String, DurableOwner>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Command {
+    Acquire {
+        key: String,
+        node: u64,
+        incarnation: String,
+        generation: u64,
+        expected_epoch: u64,
+    },
+    DurableFilters {
+        key: String,
+        node: u64,
+        incarnation: String,
+        epoch: u64,
+        filters: Vec<String>,
+    },
     Register {
         node: u64,
         incarnation: String,
@@ -43,6 +77,8 @@ pub enum Command {
         expires_at: u64,
         #[serde(default = "legacy_max_lease")]
         lease_ms: u64,
+        #[serde(default)]
+        replicas: Option<Vec<(u64, String)>>,
     },
     Heartbeat {
         node: u64,
@@ -131,13 +167,82 @@ impl Metadata {
     }
     fn mutate(&mut self, command: Command) -> Result<(), String> {
         match command {
+            Command::Acquire {
+                key,
+                node,
+                incarnation,
+                generation,
+                expected_epoch,
+            } => {
+                self.valid_node(node, &incarnation)?;
+                if !matches!(&self.data_mode,Some(DataMode::Durable(m)) if m.iter().any(|(id,_)|*id==node))
+                {
+                    return Err("durable membership required".into());
+                }
+                if self.durable.get(&key).map_or(0, |o| o.epoch) != expected_epoch {
+                    return Err("stale acquisition epoch".into());
+                }
+                if self.durable.len() >= 100_000 && !self.durable.contains_key(&key) {
+                    return Err("durable directory capacity".into());
+                }
+                let filters = self
+                    .durable
+                    .get(&key)
+                    .map(|o| o.filters.clone())
+                    .unwrap_or_default();
+                self.durable.insert(
+                    key,
+                    DurableOwner {
+                        node,
+                        incarnation,
+                        generation,
+                        epoch: self.revision.checked_add(1).ok_or("epoch exhausted")?,
+                        filters,
+                    },
+                );
+            }
+            Command::DurableFilters {
+                key,
+                node,
+                incarnation,
+                epoch,
+                filters,
+            } => {
+                self.valid_node(node, &incarnation)?;
+                let owner = self.durable.get_mut(&key).ok_or("unknown durable owner")?;
+                if owner.node != node || owner.incarnation != incarnation || owner.epoch != epoch {
+                    return Err("stale durable owner".into());
+                }
+                owner.filters = filters;
+            }
             Command::Register {
                 node,
                 incarnation,
                 address,
                 expires_at,
                 lease_ms,
+                replicas,
             } => {
+                let mode = match replicas {
+                    Some(mut peers) => {
+                        peers.sort();
+                        if peers.len() != 3
+                            || !peers.iter().any(|(id, a)| *id == node && a == &address)
+                            || peers.windows(2).any(|p| p[0].0 == p[1].0)
+                        {
+                            return Err("invalid data membership".into());
+                        }
+                        DataMode::Durable(peers)
+                    }
+                    None => DataMode::Legacy,
+                };
+                if let Some(frozen) = &self.data_mode {
+                    if frozen != &mode {
+                        return Err("data membership or mode mismatch".into());
+                    }
+                } else {
+                    self.data_mode = Some(mode);
+                }
                 if self.nodes.len() >= 1024 && !self.nodes.contains_key(&node) {
                     return Err("node capacity".into());
                 }
@@ -270,6 +375,14 @@ impl Metadata {
                     .insert(c.node);
             }
         }
+        for owner in self.durable.values() {
+            for filter in &owner.filters {
+                self.routes
+                    .entry(filter.clone())
+                    .or_default()
+                    .insert(owner.node);
+            }
+        }
     }
 }
 impl State {
@@ -327,8 +440,10 @@ pub enum MetadataUpdate {
     Delta {
         base: u64,
         revision: u64,
+        data_mode: Option<DataMode>,
         nodes: BTreeMap<u64, Option<Node>>,
         clients: BTreeMap<String, Option<Client>>,
+        durable: BTreeMap<String, Option<DurableOwner>>,
         routes: BTreeMap<String, Option<BTreeSet<u64>>>,
     },
 }
@@ -359,8 +474,10 @@ impl MetadataUpdate {
         Self::Delta {
             base: old.revision,
             revision: next.revision,
+            data_mode: next.data_mode.clone(),
             nodes: diff(&old.nodes, &next.nodes),
             clients: diff(&old.clients, &next.clients),
+            durable: diff(&old.durable, &next.durable),
             routes: diff(&old.routes, &next.routes),
         }
     }
@@ -377,16 +494,20 @@ impl MetadataUpdate {
             Self::Delta {
                 base,
                 revision,
+                data_mode,
                 nodes,
                 clients,
+                durable,
                 routes,
             } => {
                 if base != old.revision || revision <= base {
                     return Err("metadata revision gap");
                 }
                 let mut next = old.clone();
+                next.data_mode = data_mode;
                 patch(&mut next.nodes, nodes);
                 patch(&mut next.clients, clients);
+                patch(&mut next.durable, durable);
                 patch(&mut next.routes, routes);
                 next.revision = revision;
                 Ok(next)

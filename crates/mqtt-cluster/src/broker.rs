@@ -16,6 +16,8 @@ use std::{
     time::Duration,
 };
 use tokio::sync::{Notify, OnceCell, Semaphore, watch};
+pub(crate) mod durable;
+mod quorum;
 #[derive(Default)]
 struct Receipts {
     values: BTreeMap<(u64, String, u64), bool>,
@@ -39,6 +41,7 @@ pub struct BrokerRuntime {
     watch_reconnect: Notify,
     weak: Weak<Self>,
     pub(crate) journal: Option<crate::replica::Journal>,
+    data: Option<Arc<durable::Durable>>,
 }
 impl fmt::Debug for BrokerRuntime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -99,6 +102,9 @@ impl BrokerRuntime {
             receipts: Mutex::new(Receipts::default()),
             watch_reconnect: Notify::new(),
             weak: weak.clone(),
+            data: journal
+                .as_ref()
+                .map(|j| Arc::new(durable::Durable::new(weak.clone(), j.clone()))),
             journal,
         }))
     }
@@ -165,6 +171,19 @@ impl BrokerRuntime {
                 })
             {
                 local.fence(client.clone(), previous.generation).await?;
+            }
+        }
+        for (key, previous) in &old.durable {
+            if previous.node == self.config.node_id
+                && previous.incarnation == self.incarnation
+                && next.durable.get(key).is_none_or(|n| {
+                    n.epoch != previous.epoch
+                        || n.node != previous.node
+                        || n.incarnation != previous.incarnation
+                })
+                && let Some(client) = key.strip_prefix("c:")
+            {
+                local.fence(client.to_owned(), previous.generation).await?;
             }
         }
         if !next
@@ -291,6 +310,12 @@ impl BrokerRuntime {
             node: self.config.node_id,
             incarnation: self.incarnation.clone(),
             address: self.config.address(),
+            replicas: self.config.durable.as_ref().map(|d| {
+                d.replicas
+                    .iter()
+                    .map(|p| (p.id, p.address.clone()))
+                    .collect()
+            }),
             expires_at: 0,
             lease_ms: self.config.lease_ms,
         })
@@ -312,6 +337,38 @@ impl BrokerRuntime {
             was_ready = ready;
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
+    }
+    pub(crate) async fn deliver_recipient(
+        &self,
+        delivery: durable::RecipientDelivery,
+    ) -> io::Result<()> {
+        let key = durable::client_key(&delivery.client_id);
+        if !self.ready()
+            || self.data.is_none()
+            || !self
+                .metadata
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .durable
+                .get(&key)
+                .is_some_and(|owner| {
+                    owner.node == self.config.node_id && owner.incarnation == self.incarnation
+                })
+        {
+            return Err(unavailable());
+        }
+        if self
+            .data
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .received(&delivery.client_id, delivery.id.clone())
+            .await?
+        {
+            return Ok(());
+        }
+        self.local()?
+            .deliver_to(delivery.client_id, delivery.id, delivery.message)
+            .await
     }
     pub(crate) async fn deliver(&self, forward: Forward) -> io::Result<()> {
         if !self.ready() {
@@ -396,6 +453,45 @@ impl BrokerRuntime {
     }
 }
 impl ClusterBridge for BrokerRuntime {
+    fn inspect_session(
+        &self,
+        client_id: String,
+    ) -> ClusterFuture<'_, mqtt_cluster_core::SessionLease> {
+        Box::pin(async move {
+            self.data
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .inspect(self, &client_id)
+                .await
+        })
+    }
+    fn acquire_session(
+        &self,
+        client_id: String,
+        generation: u64,
+        expected_epoch: u64,
+    ) -> ClusterFuture<'_, mqtt_cluster_core::SessionLease> {
+        Box::pin(async move {
+            self.data
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .acquire(durable::client_key(&client_id), generation, expected_epoch)
+                .await
+        })
+    }
+    fn commit_session(
+        &self,
+        mutation: mqtt_cluster_core::SessionMutation,
+    ) -> ClusterFuture<'_, mqtt_cluster_core::SessionCommit> {
+        Box::pin(async move {
+            self.data
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .transaction(mutation)
+                .await
+        })
+    }
+
     fn durable(&self) -> bool {
         self.journal.is_some()
     }
@@ -429,6 +525,12 @@ impl ClusterBridge for BrokerRuntime {
                             node: self.config.node_id,
                             incarnation: self.incarnation.clone(),
                             address: self.config.address(),
+                            replicas: self.config.durable.as_ref().map(|d| {
+                                d.replicas
+                                    .iter()
+                                    .map(|p| (p.id, p.address.clone()))
+                                    .collect()
+                            }),
                             lease_ms: self.config.lease_ms,
                             expires_at: controller::now() + self.config.lease_ms,
                         })
@@ -443,11 +545,14 @@ impl ClusterBridge for BrokerRuntime {
             .await
             .map_err(|_| unavailable())?;
             let this = self.weak.upgrade().ok_or_else(unavailable)?;
-            let tasks = vec![
+            let mut tasks = vec![
                 tokio::spawn(this.clone().watch_loop()),
                 tokio::spawn(this.clone().heartbeat_loop()),
                 tokio::spawn(this.lease_loop()),
             ];
+            if let Some(data) = &self.data {
+                tasks.push(tokio::spawn(data.clone().run()));
+            }
             self.tasks
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
@@ -483,6 +588,9 @@ impl ClusterBridge for BrokerRuntime {
     }
     fn release(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
+            if let Some(data) = &self.data {
+                return data.release(&client_id, generation);
+            }
             self.command(
                 Command::Release {
                     node: self.config.node_id,
@@ -517,6 +625,9 @@ impl ClusterBridge for BrokerRuntime {
     }
     fn forward(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
+            if let Some(data) = &self.data {
+                return data.enqueue(message).await;
+            }
             if !self.ready() {
                 return Err(unavailable());
             }

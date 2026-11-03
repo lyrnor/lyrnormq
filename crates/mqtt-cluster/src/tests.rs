@@ -19,6 +19,7 @@ fn register(node: u64) -> Command {
         node,
         incarnation: format!("node-{node}"),
         address: format!("http://127.0.0.1:{}", 10000 + node),
+        replicas: None,
         expires_at: 100,
         lease_ms: 3000,
     }
@@ -214,4 +215,79 @@ fn mixed_lease_election_waits_old_maximum_and_tracks_new_grants_monotonically() 
     ));
     let legacy:Node=serde_json::from_value(serde_json::json!({"id":1,"incarnation":"legacy","address":"http://127.0.0.1:1","expires_at":10,"applied":0})).expect("legacy node");
     assert_eq!(legacy.max_lease_ms, 30000);
+}
+
+#[test]
+fn durable_directory_preserves_interest_and_rejects_mixed_membership() {
+    let members = vec![
+        (1, "http://127.0.0.1:10001".into()),
+        (2, "http://127.0.0.1:10002".into()),
+        (3, "http://127.0.0.1:10003".into()),
+    ];
+    let mut metadata = Metadata::default();
+    let mut first = register(1);
+    if let Command::Register { replicas, .. } = &mut first {
+        *replicas = Some(members.clone());
+    }
+    assert!(metadata.apply(first).error.is_none());
+    assert!(metadata.apply(register(2)).error.is_some());
+    let mut wrong = register(2);
+    if let Command::Register { replicas, .. } = &mut wrong {
+        let mut peers = members.clone();
+        peers[0].1 = "http://127.0.0.1:10999".into();
+        *replicas = Some(peers);
+    }
+    assert!(metadata.apply(wrong).error.is_some());
+    assert!(
+        metadata
+            .apply(Command::Acquire {
+                key: "c:device".into(),
+                node: 1,
+                incarnation: "node-1".into(),
+                generation: 1,
+                expected_epoch: 0
+            })
+            .error
+            .is_none()
+    );
+    let epoch = metadata.durable["c:device"].epoch;
+    assert!(
+        metadata
+            .apply(Command::Acquire {
+                key: "c:device".into(),
+                node: 1,
+                incarnation: "node-1".into(),
+                generation: 2,
+                expected_epoch: 0
+            })
+            .error
+            .is_some()
+    );
+    assert!(
+        metadata
+            .apply(Command::DurableFilters {
+                key: "c:device".into(),
+                node: 1,
+                incarnation: "node-1".into(),
+                epoch,
+                filters: vec!["events/+".into()]
+            })
+            .error
+            .is_none()
+    );
+    metadata.apply(Command::Expire {
+        node: 1,
+        incarnation: "node-1".into(),
+        expires_at: 100,
+    });
+    assert_eq!(
+        metadata.durable["c:device"].filters,
+        vec!["events/+".to_owned()]
+    );
+    assert!(metadata.routes.contains_key("events/+"));
+    let legacy: Metadata = serde_json::from_value(
+        serde_json::json!({"revision":0,"nodes":{},"clients":{},"routes":{}}),
+    )
+    .expect("old metadata");
+    assert_eq!(legacy.data_mode, Some(DataMode::Legacy));
 }

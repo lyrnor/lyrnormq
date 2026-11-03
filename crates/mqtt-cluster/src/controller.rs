@@ -199,6 +199,33 @@ impl Control {
 fn validate(command: &Command) -> Result<(), Status> {
     let text = |s: &str, max: usize| !s.is_empty() && s.len() <= max && !s.contains('\0');
     let okay = match command {
+        Command::Acquire {
+            key,
+            node,
+            incarnation,
+            ..
+        } => {
+            *node > 0
+                && text(key, 65538)
+                && (key.starts_with("c:") || key.starts_with("h:"))
+                && text(incarnation, 64)
+        }
+        Command::DurableFilters {
+            key,
+            node,
+            incarnation,
+            epoch,
+            filters,
+        } => {
+            *node > 0
+                && *epoch > 0
+                && text(key, 65538)
+                && text(incarnation, 64)
+                && filters.len() <= 256
+                && filters
+                    .iter()
+                    .all(|f| mqtt_router::validate_topic_filter(f) && !f.starts_with("$share/"))
+        }
         Command::Register {
             node,
             incarnation,
@@ -398,6 +425,21 @@ impl wire::cluster_server::Cluster for Service {
         Ok(Response::new(rpc::encode(&reply).map_err(|_| {
             Status::resource_exhausted("replica response capacity")
         })?))
+    }
+    async fn deliver_to(
+        &self,
+        request: Request<wire::Envelope>,
+    ) -> Result<Response<wire::Envelope>, Status> {
+        self.rpc.check(&request)?;
+        let broker = self
+            .broker
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("not a Broker"))?;
+        broker
+            .deliver_recipient(rpc::decode(request.into_inner())?)
+            .await
+            .map_err(|_| Status::unavailable("recipient unavailable"))?;
+        Ok(Response::new(wire::Envelope { data: Vec::new() }))
     }
     async fn deliver(
         &self,
