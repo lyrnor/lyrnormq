@@ -96,6 +96,9 @@ jobs:
       - name: Replicated session and durable forwarding fault acceptance
         timeout-minutes: 15
         run: python3 tests/cluster_durable_blackbox.py -v
+      - name: Replica catch-up and empty-disk repair acceptance
+        timeout-minutes: 15
+        run: python3 tests/cluster_repair_blackbox.py -v
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/websocket_paho.py
       - run: python3 tests/paho_interop.py
