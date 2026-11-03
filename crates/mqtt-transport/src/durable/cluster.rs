@@ -302,7 +302,7 @@ impl Broker {
     pub(super) async fn open_cluster(self: &Arc<Self>) -> io::Result<()> {
         if let Some(cluster) = &self.config.cluster {
             tokio::time::timeout(
-                DEADLINE,
+                cluster.startup_timeout(),
                 cluster.open(Arc::new(Local {
                     broker: Arc::downgrade(self),
                 })),

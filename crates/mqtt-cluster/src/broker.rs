@@ -500,6 +500,13 @@ impl BrokerRuntime {
     }
 }
 impl ClusterBridge for BrokerRuntime {
+    fn startup_timeout(&self) -> Duration {
+        if self.journal.is_some() {
+            Duration::from_secs(625)
+        } else {
+            Duration::from_secs(5)
+        }
+    }
     fn inspect_session(
         &self,
         client_id: String,

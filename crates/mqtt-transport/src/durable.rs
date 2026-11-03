@@ -42,6 +42,8 @@ mod operation_access;
 mod publisher;
 pub use publisher::{PublishHandle, PublishMessage};
 mod remote_plain;
+#[cfg(test)]
+mod startup_tests;
 mod system_events;
 #[cfg(test)]
 mod system_events_tests;
@@ -706,7 +708,29 @@ async fn serve_with_tls(
     websocket: Option<crate::WebSocketOptions>,
     mut shutdown: watch::Receiver<bool>,
 ) -> io::Result<()> {
-    let broker = start(config.clone()).await?;
+    // No clients have been admitted yet. A memory replica may wait for an
+    // operator's repair, while its independently supervised peer RPC stays live.
+    // Dropping only this initialization future keeps active-broker drain intact.
+    let broker = if let Some(cluster) = &config.cluster {
+        tokio::select! {
+            biased;
+            _ = async {
+                loop {
+                    if *shutdown.borrow() || shutdown.changed().await.is_err() {
+                        break;
+                    }
+                }
+            } => {
+                // Registration may have completed just before cancellation;
+                // stop any lease/watch tasks spawned during initialization.
+                cluster.shutdown().await?;
+                return Ok(());
+            }
+            broker = start(config.clone()) => broker?,
+        }
+    } else {
+        start(config.clone()).await?
+    };
     let mut fatal = broker.fatal.subscribe();
     let permits = Arc::new(Semaphore::new(config.max_connections));
     let (stop_tx, stop_rx) = watch::channel(false);
