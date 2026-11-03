@@ -5,6 +5,7 @@ mod controller;
 mod diagnosis;
 mod lease;
 mod model;
+mod profile;
 mod repair_state;
 mod replica;
 mod rpc;
