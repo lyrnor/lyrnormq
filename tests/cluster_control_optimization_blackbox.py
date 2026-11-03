@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Small real-process gate for committed control-tail recovery; data stays live RAM."""
-import sqlite3
+import hashlib
 from pathlib import Path
 import time
 import unittest
@@ -13,9 +13,18 @@ class ControlTail(MemoryFixture, unittest.TestCase):
     version = 5
 
     def checkpoint(self, controller):
-        database = Path(controller.config['data_dir']) / 'metadata.sqlite'
-        with sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2) as db:
-            return db.execute("SELECT key,data FROM meta WHERE key IN ('state','snapshot') ORDER BY key").fetchall()
+        directory = Path(controller.config['data_dir'])
+        self.assertFalse((directory / 'metadata.sqlite').exists(), 'new Controller must not create SQLite')
+        database = directory / 'controller.bbolt'
+        self.assertTrue(database.is_file(), f'Controller bbolt checkpoint missing: {database}')
+        size = database.stat().st_size
+        self.assertGreater(size, 0)
+        self.assertLessEqual(size, 256 * 1024 * 1024)
+        digest = hashlib.sha256()
+        with database.open('rb') as source:
+            while block := source.read(64 * 1024):
+                digest.update(block)
+        return size, digest.hexdigest()
 
     def test_no_per_apply_state_blob_then_committed_tail_survives_controller_crash(self):
         self.assert_memory_status()

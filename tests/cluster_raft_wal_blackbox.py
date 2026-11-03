@@ -2,31 +2,21 @@
 """Real Controller WAL gates; data replicas remain alive and RAM-only.
 
 RMQTT_BIN=/absolute/new/rmqtt python3 tests/cluster_raft_wal_blackbox.py -v
-RMQTT_LEGACY_BIN must name a pre-Phase7j binary for actual SQLite migration.
+Controller checkpoints use bbolt; legacy exchange migration is tested separately.
 Only private temporary fixture directories are corrupted/removed by these tests.
 These SIGKILL/reopen checks do not simulate physical power failure or failed fsync.
 """
-from contextlib import closing
-import json
 import os
 from pathlib import Path
 import shutil
-import sqlite3
 import subprocess
 import unittest
-from unittest import mock
 
 import cluster_control_optimization_blackbox as control
 from cluster_blackbox import wait_until
-from cluster_memory_blackbox import MemoryFixture
 
 
 class RaftWalAcceptance(control.ControlTail):
-    def checkpoint(self, controller):
-        database = Path(controller.config['data_dir']) / 'metadata.sqlite'
-        with closing(sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2)) as db:
-            return db.execute("SELECT key,data FROM meta WHERE key IN ('state','snapshot') ORDER BY key").fetchall()
-
     # Inherits the committed-tail/expired-authority/QoS2 recovery gate verbatim.
     def wal_files(self, node):
         directory = Path(node.config['data_dir']) / 'raft-wal'
@@ -36,19 +26,9 @@ class RaftWalAcceptance(control.ControlTail):
         self.assertTrue(any(path.stat().st_size > 0 for path in files), files)
         return files
 
-    def sql_raft_records(self, node):
-        database = Path(node.config['data_dir']) / 'metadata.sqlite'
-        with closing(sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2)) as db:
-            has_logs = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='logs'").fetchone()
-            logs = db.execute('SELECT idx,data FROM logs ORDER BY idx').fetchall() if has_logs else []
-            meta = db.execute("SELECT key,data FROM meta WHERE key IN ('vote','committed','purged') ORDER BY key").fetchall()
-        return logs, meta
-
-    def test_normal_metadata_updates_use_independent_wal_not_sqlite_raft_rows(self):
+    def test_normal_metadata_updates_use_independent_wal_without_sqlite(self):
         self.assert_memory_status()
-        before = [self.sql_raft_records(node) for node in self.fleet.controllers]
-        for logs, _ in before:
-            self.assertEqual(logs, [], 'fresh controller must not store Raft entries in SQLite')
+        before = [self.checkpoint(node) for node in self.fleet.controllers]
         subscriber = self.persistent('wal-storage-target', 1, expiry=600)
         source = self.persistent('wal-storage-source', 0, expiry=600)
         for index in range(12):
@@ -58,8 +38,8 @@ class RaftWalAcceptance(control.ControlTail):
             self.complete_message(subscriber, self.expect_message(subscriber, topic, b'wal-backed-control', 2))
         for node, previous in zip(self.fleet.controllers, before):
             self.wal_files(node)
-            self.assertEqual(previous, self.sql_raft_records(node),
-                             'Raft writes must not dual-write legacy SQLite rows')
+            self.assertEqual(previous, self.checkpoint(node),
+                             'normal Raft applies must not rewrite the business checkpoint')
         self.data_files()
 
     def rejected_restart(self, node):
@@ -104,7 +84,7 @@ class RaftWalAcceptance(control.ControlTail):
                 os.fsync(file.fileno())
         self.damage_wal(tear)
 
-    def test_missing_migrated_wal_never_falls_back_to_sqlite(self):
+    def test_missing_wal_never_recreates_durable_authority(self):
         for node in self.fleet.controllers:
             node.stop(crash=True)
         node = self.fleet.controllers[0]
@@ -118,6 +98,7 @@ class RaftWalAcceptance(control.ControlTail):
         targets = [target] + [self.persistent(f'wal-snapshot-extra-device-{slot}', 1, expiry=600)
                               for slot in range(1, 10)]
         baseline = self.fleet.status()['last_applied']
+        before = [self.checkpoint(node) for node in self.fleet.controllers]
         # Actual separate SUBSCRIBE operations cross the production snapshot
         # threshold and retained-log window; do not force internal test hooks.
         for index in range(2100):
@@ -126,13 +107,8 @@ class RaftWalAcceptance(control.ControlTail):
             status = self.fleet.status()
             if not status or status['last_applied'] < baseline + 2000:
                 return False
-            for node in self.fleet.controllers:
-                rows = dict(self.checkpoint(node))
-                if 'snapshot' not in rows:
-                    return False
-                saved = json.loads(rows['snapshot'])
-                last = saved['meta']['last_log_id']
-                if last is None or last['index'] < baseline + 900:
+            for node, previous in zip(self.fleet.controllers, before):
+                if self.checkpoint(node) == previous:
                     return False
             return True
         wait_until(checkpoint_advanced, 20)
@@ -153,44 +129,6 @@ class RaftWalAcceptance(control.ControlTail):
         self.publish(source, 'wal/snapshot-extra/2099', b'last-snapshot-route', 1)
         self.complete_message(last, self.expect_message(last, 'wal/snapshot-extra/2099', b'last-snapshot-route', 1))
         self.data_files()
-
-
-class LegacyMigration(MemoryFixture, unittest.TestCase):
-    def setUp(self):
-        self.assertIn('RMQTT_LEGACY_BIN', os.environ, 'actual migration requires the old SQLite binary')
-        legacy = os.environ['RMQTT_LEGACY_BIN']
-        self.assertTrue(Path(legacy).is_file(), legacy)
-        with mock.patch('cluster_blackbox.BINARY', legacy):
-            super().setUp()
-
-    def test_actual_sqlite_committed_tail_import_and_second_restart(self):
-        target = self.persistent('wal-migration-device', 1, expiry=600)
-        self.subscribe(target, 'wal/migration', 2)
-        baseline = self.fleet.status()['last_applied']
-        for node in self.fleet.controllers:
-            node.stop(crash=True)
-            directory = Path(node.config['data_dir'])
-            self.assertFalse((directory / 'raft-wal').exists(), 'legacy fixture unexpectedly uses new WAL')
-            with closing(sqlite3.connect(directory / 'metadata.sqlite')) as db:
-                self.assertGreater(db.execute('SELECT count(*) FROM logs').fetchone()[0], 0)
-        target.close()
-        for cycle in range(2):
-            for node in self.fleet.controllers:
-                node.start()
-            wait_until(lambda: (self.fleet.status() or {}).get('last_applied', -1) >= baseline, 25)
-            self.healthy(0)
-            self.healthy(1)
-            restored = self.persistent('wal-migration-device', 1, present=True, expiry=600, retry=True)
-            source = self.client(f'wal-migration-source-{cycle}', 0, retry=True)
-            payload = f'migrated-{cycle}'.encode()
-            self.publish(source, 'wal/migration', payload, 2)
-            self.complete_message(restored, self.expect_message(restored, 'wal/migration', payload, 2))
-            for node in self.fleet.controllers:
-                directory = Path(node.config['data_dir']) / 'raft-wal'
-                self.assertTrue(any(directory.rglob('*.wal')), directory)
-                node.stop(crash=True)
-            source.close()
-            restored.close()
 
 
 if __name__ == '__main__':
