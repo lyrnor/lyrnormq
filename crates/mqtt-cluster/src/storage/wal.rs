@@ -14,6 +14,11 @@ use std::{
 };
 mod codec;
 const MAX_ENTRY: usize = 1024 * 1024;
+const CHUNK_BYTES: usize = 8 * 1024 * 1024;
+const CHUNK_RECORDS: usize = 4096;
+// Rotation checks after an action, then adds a bounded checkpoint record.
+const MAX_CHUNK_BYTES: u64 = (CHUNK_BYTES + MAX_ENTRY + 64 * 1024) as u64;
+const MAX_CHUNK_RECORDS: u64 = CHUNK_RECORDS as u64 + 4;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 struct LogKey(LogId<u64>);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
@@ -34,12 +39,28 @@ impl raft_log::Types for WalTypes {
     type LogPayload = Payload;
     type Vote = VoteKey;
     type UserData = Metadata;
-    type Callback = std::sync::mpsc::SyncSender<io::Result<()>>;
+    type Callback = Completion;
     fn log_index(id: &LogKey) -> u64 {
         id.0.index
     }
     fn payload_size(payload: &Payload) -> u64 {
         payload.0.len() as u64
+    }
+}
+struct Completion {
+    sender: std::sync::mpsc::SyncSender<io::Result<()>>,
+    #[cfg(test)]
+    injected_error: bool,
+}
+impl raft_log::Callback for Completion {
+    fn send(self, result: io::Result<()>) {
+        #[cfg(test)]
+        let result = if self.injected_error {
+            Err(io::Error::other("injected flush callback failure"))
+        } else {
+            result
+        };
+        let _ = self.sender.send(result);
     }
 }
 fn invalid(error: impl std::fmt::Display) -> io::Error {
@@ -53,8 +74,8 @@ fn config(path: &Path) -> io::Result<Arc<Config>> {
     config.log_cache_max_items = Some(8192);
     config.log_cache_capacity = Some(16 * 1024 * 1024);
     config.wal.read_buffer_size = Some(64 * 1024);
-    config.wal.chunk_max_records = Some(4096);
-    config.wal.chunk_max_size = Some(8 * 1024 * 1024);
+    config.wal.chunk_max_records = Some(CHUNK_RECORDS);
+    config.wal.chunk_max_size = Some(CHUNK_BYTES);
     config.wal.truncate_incomplete_record = Some(false);
     config.wal.flush_batch_wait = Some(Duration::ZERO);
     config.wal.flush_batch_max_items = Some(128);
@@ -85,7 +106,8 @@ fn preflight(config: Arc<Config>, cluster: &str, node: u64) -> io::Result<()> {
         if name.ends_with(".wal") {
             let index =
                 raft_log::chunked_wal::Config::parse_chunk_file_name(&name).map_err(invalid)?;
-            if !item.file_type()?.is_file() || item.metadata()?.len() == 0 {
+            let bytes = item.metadata()?.len();
+            if !item.file_type()?.is_file() || bytes == 0 || bytes > MAX_CHUNK_BYTES {
                 return Err(invalid("existing WAL has empty/non-file chunk"));
             }
             chunks.insert(index);
@@ -97,7 +119,10 @@ fn preflight(config: Arc<Config>, cluster: &str, node: u64) -> io::Result<()> {
     let mut seen_chunks = std::collections::BTreeSet::new();
     let mut seen = false;
     let dump = Dump::<WalTypes>::new(config)?;
-    dump.write_with(|chunk, _, record| {
+    dump.write_with(|chunk, record_index, record| {
+        if record_index >= MAX_CHUNK_RECORDS {
+            return Err(invalid("WAL chunk record count exceeds bound"));
+        }
         let (_, record) = record?;
         seen_chunks.insert(*chunk);
         match record {
@@ -124,6 +149,8 @@ fn preflight(config: Arc<Config>, cluster: &str, node: u64) -> io::Result<()> {
 pub(super) struct Wal {
     inner: RaftLog<WalTypes>,
     poisoned: AtomicBool,
+    #[cfg(test)]
+    fail_next_callback: bool,
 }
 impl Wal {
     pub(super) fn open(path: &Path, cluster: &str, node: u64) -> io::Result<Self> {
@@ -150,6 +177,8 @@ impl Wal {
         let mut this = Self {
             inner,
             poisoned: AtomicBool::new(false),
+            #[cfg(test)]
+            fail_next_callback: false,
         };
         if fresh {
             let meta = Metadata {
@@ -196,7 +225,12 @@ impl Wal {
         let result = (|| {
             operation(&mut self.inner)?;
             let (tx, rx) = std::sync::mpsc::sync_channel(1);
-            self.inner.flush(true, Some(tx))?;
+            let callback = Completion {
+                sender: tx,
+                #[cfg(test)]
+                injected_error: std::mem::take(&mut self.fail_next_callback),
+            };
+            self.inner.flush(true, Some(callback))?;
             rx.recv_timeout(Duration::from_secs(30))
                 .map_err(invalid)??;
             Ok(())
@@ -230,6 +264,10 @@ impl Wal {
         Ok(self.inner.log_state().vote().map(|vote| vote.0))
     }
     pub(super) fn save_vote(&mut self, vote: Vote<u64>) -> io::Result<()> {
+        self.check()?;
+        if self.vote()? == Some(vote) {
+            return Ok(());
+        }
         self.mutate(move |wal| {
             wal.save_vote(VoteKey(vote))?;
             Ok(())
@@ -309,3 +347,6 @@ impl Wal {
         })
     }
 }
+
+#[cfg(test)]
+mod tests;
