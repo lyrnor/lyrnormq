@@ -311,6 +311,20 @@ impl Worker {
         let reply = match step {
             Authenticated::Reply(reply) => *reply,
             Authenticated::Connect { request, principal } => {
+                if self.broker.config.cluster.is_some()
+                    && (request.will.is_some()
+                        || (request.options.version == ProtocolVersion::V311 && !request.clean)
+                        || request.options.session_expiry_interval != 0)
+                {
+                    return Ok(refusal(
+                        &request,
+                        if request.options.version == ProtocolVersion::V311 {
+                            ReasonCode::SERVER_UNAVAILABLE
+                        } else {
+                            ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR
+                        },
+                    ));
+                }
                 if let Some(reason) = admit_will(&request, &principal).await {
                     return Ok(refusal(&request, reason));
                 }
@@ -332,6 +346,36 @@ impl Worker {
                         .map(str::to_owned)
                         .or_else(|| request.username.clone())
                 };
+                if let Some(cluster) = &self.broker.config.cluster {
+                    if !cluster.ready() {
+                        return Ok(refusal(&request, ReasonCode::SERVER_UNAVAILABLE));
+                    }
+                    self.broker.cluster_state.register(
+                        &request.client,
+                        &Online {
+                            generation: request.generation,
+                            wake: request.wake.clone(),
+                            cancel: request.cancel.clone(),
+                            close_reason: request.close_reason.clone(),
+                        },
+                    );
+                    let claimed = tokio::time::timeout(
+                        Duration::from_secs(5),
+                        cluster.claim(request.client.clone(), request.generation),
+                    )
+                    .await;
+                    if !matches!(claimed, Ok(Ok(()))) || *request.cancel.borrow() {
+                        self.broker
+                            .cluster_state
+                            .remove(&request.client, request.generation);
+                        let _ = tokio::time::timeout(
+                            Duration::from_secs(5),
+                            cluster.release(request.client.clone(), request.generation),
+                        )
+                        .await;
+                        return Ok(refusal(&request, ReasonCode::SERVER_UNAVAILABLE));
+                    }
+                }
                 let client = request.client.clone();
                 let overload = refusal(&request, ReasonCode::SERVER_BUSY);
                 let (adopt, adopted) = oneshot::channel();
@@ -340,11 +384,13 @@ impl Worker {
                 let broker = self.broker.clone();
                 let lifecycle = entry.clone();
                 let slot = self.handshake.clone();
+                let claimed_client = client.clone();
                 let dispatch = self.broker.spawn_handoff(async move {
                     // The original pre-CONNACK slot bounds late-commit cleanup,
                     // even after all connection/Worker handles have disappeared.
                     let _slot = slot;
                     if lifecycle.cancelled.load(Ordering::Acquire) {
+                        broker.release_cluster(&client, generation).await;
                         let _ = response.send(Err(failure(
                             ReasonCode::SERVER_UNAVAILABLE,
                             "authentication cancelled",
@@ -362,6 +408,14 @@ impl Worker {
                     );
                     if installed {
                         lifecycle.established.store(true, Ordering::Release);
+                    }
+                    if !installed && let Some(cluster) = &broker.config.cluster {
+                        broker.cluster_state.remove(&client, generation);
+                        let _ = tokio::time::timeout(
+                            Duration::from_secs(5),
+                            cluster.release(client.clone(), generation),
+                        )
+                        .await;
                     }
                     let delivered = response.send(outcome).is_ok();
                     let adopted = if installed && delivered {
@@ -390,6 +444,9 @@ impl Worker {
                     }
                 });
                 if let Err(error) = dispatch {
+                    self.broker
+                        .release_cluster(&claimed_client, generation)
+                        .await;
                     if reason(&error) == Some(ReasonCode::SERVER_BUSY) {
                         return Ok(overload);
                     }

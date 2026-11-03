@@ -129,6 +129,15 @@ impl PublishHandle {
             .upgrade()
             .ok_or_else(unavailable)?;
         validate_packet_size(&message, &broker.config)?;
+        if !broker.cluster_ready() {
+            return Err(unavailable());
+        }
+        if broker.config.cluster.is_some() && message.retain {
+            return Err(problem(
+                io::ErrorKind::InvalidInput,
+                "retained publishing is not supported in initial cluster gate",
+            ));
+        }
         let _slot = self
             .inner
             .slots
@@ -167,7 +176,7 @@ impl PublishHandle {
             let retained = broker.apply_retained(&publication).await?;
             broker.retained_durable(retained).await?;
             if let Some(fanout) = broker.dispatch_observed(publication, true, Some(&source)) {
-                broker.complete(fanout).await;
+                broker.complete(fanout).await?;
             }
             Ok(())
         })

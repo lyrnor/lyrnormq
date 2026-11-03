@@ -30,6 +30,9 @@ mod actor;
 mod aliases;
 mod authentication;
 mod broker;
+mod cluster;
+#[cfg(test)]
+mod cluster_tests;
 mod enhanced;
 pub(crate) mod export;
 mod network;
@@ -214,6 +217,7 @@ enum Reply {
     Polled(Option<Packet>),
     Done,
 }
+#[derive(Clone)]
 struct Online {
     close_reason: Option<watch::Sender<Option<ReasonCode>>>,
     generation: u64,

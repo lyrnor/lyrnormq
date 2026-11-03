@@ -334,9 +334,12 @@ pub(super) fn connack(
             Property::ReceiveMaximum(config.max_inflight.min(u16::MAX as usize) as u16),
             Property::MaximumPacketSize(config.max_packet_size.min(u32::MAX as usize) as u32),
             Property::TopicAliasMaximum(config.topic_alias_maximum),
-            Property::SharedSubscriptionAvailable(1),
+            Property::SharedSubscriptionAvailable(u8::from(config.cluster.is_none())),
             Property::SubscriptionIdentifierAvailable(1),
         ];
+        if config.cluster.is_some() {
+            frame.properties.push(Property::RetainAvailable(0));
+        }
     }
     frame
 }

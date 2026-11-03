@@ -24,6 +24,7 @@ pub(super) enum ActorCommand {
     },
     Finish {
         token: u64,
+        result: io::Result<()>,
     },
     #[cfg(test)]
     Tick {
@@ -274,6 +275,44 @@ fn apply(
             received_at_millis,
         } => {
             valid_generation(online, &client, generation)?;
+            if config.cluster.is_some() {
+                if matches!(&frame.packet, Packet::Publish { retain: true, .. }) {
+                    return Err(failure(
+                        ReasonCode::RETAIN_NOT_SUPPORTED,
+                        "retained publishing is not supported in initial cluster gate",
+                    ));
+                }
+                if let Packet::Subscribe { packet_id, filters } = &frame.packet
+                    && filters
+                        .iter()
+                        .any(|(filter, _)| mqtt_router::split_shared_filter(filter).is_some())
+                {
+                    effects.commit = false;
+                    effects.housekeeping = false;
+                    return Ok(frames_reply(
+                        vec![Frame {
+                            packet: Packet::SubAck {
+                                packet_id: *packet_id,
+                                codes: filters
+                                    .iter()
+                                    .map(|(filter, _)| {
+                                        if frame.version == ProtocolVersion::V5
+                                            && mqtt_router::split_shared_filter(filter).is_some()
+                                        {
+                                            0x9e
+                                        } else {
+                                            0x80
+                                        }
+                                    })
+                                    .collect(),
+                            },
+                            version: frame.version,
+                            ..Frame::v5(Packet::PingReq)
+                        }],
+                        legacy,
+                    ));
+                }
+            }
             effects.filters_changed = matches!(
                 frame.packet,
                 Packet::Subscribe { .. } | Packet::Unsubscribe { .. }
@@ -455,7 +494,15 @@ impl Actor {
                     let _ = ack.send(accepted);
                 }
             }
-            ActorCommand::Finish { token } => self.finish(token).await,
+            ActorCommand::Finish { token, result } => {
+                if let Err(error) = result {
+                    if let Some(pending) = self.pending.remove(&token) {
+                        let _ = pending.reply.send(Err(error));
+                    }
+                } else {
+                    self.finish(token).await;
+                }
+            }
             #[cfg(test)]
             ActorCommand::Tick { done } => {
                 self.tick().await;
@@ -519,7 +566,9 @@ impl Actor {
             for publication in publications {
                 if let Some(fanout) = self.broker.dispatch(Arc::new(publication), false) {
                     let broker = Arc::clone(&self.broker);
-                    tokio::spawn(async move { broker.complete(fanout).await });
+                    tokio::spawn(async move {
+                        let _ = broker.complete(fanout).await;
+                    });
                 }
             }
         }
@@ -549,7 +598,9 @@ impl Actor {
             let _ = self.broker.apply_retained(&publication).await;
             if let Some(fanout) = self.broker.dispatch(Arc::new(publication), false) {
                 let broker = Arc::clone(&self.broker);
-                tokio::spawn(async move { broker.complete(fanout).await });
+                tokio::spawn(async move {
+                    let _ = broker.complete(fanout).await;
+                });
             }
         }
     }
@@ -561,6 +612,13 @@ impl Actor {
         reply: oneshot::Sender<ResultReply>,
     ) {
         if reply.is_closed() {
+            return;
+        }
+        if !self.broker.cluster_ready() && !matches!(&request, Request::Disconnect { .. }) {
+            let _ = reply.send(Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "cluster metadata lease unavailable",
+            )));
             return;
         }
         // A failed business admission does not mean that the broker is shutting
@@ -737,7 +795,10 @@ impl Actor {
             return;
         }
         let publications = proposal.take_publications();
-        let wait = rerun.is_some() && publications.iter().any(|p| p.qos > 0);
+        let wait = rerun.is_some()
+            && publications
+                .iter()
+                .any(|p| p.qos > 0 || self.broker.config.cluster.is_some());
         let mut durability = Vec::new();
         for publication in &publications {
             match self.broker.apply_retained(publication).await {
@@ -775,11 +836,15 @@ impl Actor {
             let broker = Arc::clone(&self.broker);
             let weak = self.weak.clone();
             tokio::spawn(async move {
+                let mut result = Ok(());
                 for fanout in fanouts {
-                    broker.complete(fanout).await;
+                    if let Err(error) = broker.complete(fanout).await {
+                        result = Err(error);
+                        break;
+                    }
                 }
                 if let Some(sender) = weak.upgrade() {
-                    let _ = sender.send(ActorCommand::Finish { token }).await;
+                    let _ = sender.send(ActorCommand::Finish { token, result }).await;
                 }
             });
             return;
@@ -789,7 +854,9 @@ impl Actor {
                 for publication in publications {
                     if let Some(fanout) = self.broker.dispatch(Arc::new(publication), false) {
                         let broker = Arc::clone(&self.broker);
-                        tokio::spawn(async move { broker.complete(fanout).await });
+                        tokio::spawn(async move {
+                            let _ = broker.complete(fanout).await;
+                        });
                     }
                 }
                 let _ = reply.send(Ok(response));
@@ -895,13 +962,38 @@ impl Actor {
                 if filters != self.filters {
                     self.broker.index.replace(&self.client, &filters);
                     self.filters = filters;
+                    let filters = self.filters.iter().cloned().collect::<Vec<_>>();
+                    if let Some(cluster) = &self.broker.config.cluster {
+                        self.broker.cluster_state.filters(&self.client, &filters);
+                        if !matches!(
+                            tokio::time::timeout(
+                                Duration::from_secs(5),
+                                cluster.subscriptions(self.client.clone(), filters)
+                            )
+                            .await,
+                            Ok(Ok(()))
+                        ) {
+                            self.close_online(ReasonCode::SERVER_UNAVAILABLE);
+                            return Err(failure(
+                                ReasonCode::SERVER_UNAVAILABLE,
+                                "cluster subscription visibility failed",
+                            ));
+                        }
+                    }
                 }
             }
         }
         if let Some((client, connection)) = effects.registration {
+            if self.broker.config.cluster.is_some() {
+                self.broker.cluster_state.register(&client, &connection);
+            }
             self.online_generation
                 .store(connection.generation, Ordering::Release);
+            let client_key = client.clone();
             if let Some(previous) = self.online.insert(client, connection) {
+                self.broker
+                    .cluster_state
+                    .remove(&client_key, previous.generation);
                 if let Some(reason) = &previous.close_reason {
                     let _ = reason.send(Some(ReasonCode::SESSION_TAKEN_OVER));
                 }
@@ -909,7 +1001,18 @@ impl Actor {
             }
         }
         if let Some(client) = effects.removal {
-            self.online.remove(&client);
+            if let Some(connection) = self.online.remove(&client) {
+                self.broker
+                    .cluster_state
+                    .remove(&client, connection.generation);
+                if let Some(cluster) = &self.broker.config.cluster {
+                    let _ = tokio::time::timeout(
+                        Duration::from_secs(5),
+                        cluster.release(client.clone(), connection.generation),
+                    )
+                    .await;
+                }
+            }
             self.online_generation.store(0, Ordering::Release);
         }
         if effects.notify {

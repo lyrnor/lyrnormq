@@ -91,6 +91,7 @@ pub(super) struct Broker {
     pub(super) session_config: SessionConfig,
     pub(super) clock: Arc<dyn Clock>,
     pub(super) events: system_events::Events,
+    pub(super) cluster_state: cluster::State,
     registry: Registry,
     actors: AtomicUsize,
     next_actor: AtomicU64,
@@ -288,6 +289,16 @@ impl Broker {
             tokio::task::spawn_blocking(move || restore(&restore_config, restore_clock, seed))
                 .await
                 .map_err(io::Error::other)??;
+        if config.cluster.is_some()
+            && (!restored.partitions.is_empty()
+                || !restored.retained.is_empty()
+                || !restored.publications.is_empty())
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "initial cluster gate requires an empty session/retained database",
+            ));
+        }
         let storage = restored
             .store
             .map(|store| StorageService::start(store, STORAGE_QUEUE, STORAGE_BATCH))
@@ -321,6 +332,7 @@ impl Broker {
             config,
             clock,
             events: system_events::Events::new()?,
+            cluster_state: cluster::State::default(),
             registry: Registry::new(),
             actors: AtomicUsize::new(0),
             next_actor: AtomicU64::new(1),
@@ -340,6 +352,11 @@ impl Broker {
         for (client, engine, _) in &restored.partitions {
             if let Some(filters) = engine.subscription_filters().remove(client) {
                 broker.index.replace(client, &filters);
+                if broker.config.cluster.is_some() {
+                    broker
+                        .cluster_state
+                        .filters(client, &filters.into_iter().collect::<Vec<_>>());
+                }
             }
         }
         for (client, engine, row) in restored.partitions {
@@ -351,9 +368,12 @@ impl Broker {
             let _ = broker.apply_retained(&publication).await;
             if let Some(fanout) = broker.dispatch(Arc::new(publication), false) {
                 let completing = Arc::clone(&broker);
-                tokio::spawn(async move { completing.complete(fanout).await });
+                tokio::spawn(async move {
+                    let _ = completing.complete(fanout).await;
+                });
             }
         }
+        broker.open_cluster().await?;
         if let Some(management) = &broker.config.management {
             management.attach(Arc::clone(&broker) as Arc<dyn crate::management::Source>)?;
         }
@@ -724,10 +744,27 @@ impl Broker {
         wait: bool,
         observer_client: Option<&str>,
     ) -> Option<Fanout> {
+        self.dispatch_inner(publication, wait, observer_client, true)
+    }
+    pub(super) fn dispatch_received(
+        &self,
+        publication: Arc<Publication>,
+        wait: bool,
+    ) -> Option<Fanout> {
+        self.dispatch_inner(publication, wait, None, false)
+    }
+    fn dispatch_inner(
+        &self,
+        publication: Arc<Publication>,
+        wait: bool,
+        observer_client: Option<&str>,
+        origin: bool,
+    ) -> Option<Fanout> {
         if publication.expired {
             return None;
         }
-        if let Some(observer) = &self.config.publication_observer
+        if origin
+            && let Some(observer) = &self.config.publication_observer
             && !publication
                 .expires_at
                 .is_some_and(|deadline| deadline <= self.clock.now_millis())
@@ -744,6 +781,11 @@ impl Broker {
         }
         let matches = self.index.matches(&publication.topic);
         let mut acks = Vec::new();
+        if origin
+            && let Some(remote) = self.forward_cluster(Arc::clone(&publication), observer_client)
+        {
+            acks.push(remote);
+        }
         for client in matches.ordinary {
             let Some(handle) = self.handle(&client) else {
                 continue;
@@ -800,9 +842,12 @@ impl Broker {
 
     /// Wait for ordinary acknowledgements, then offer each shared group to its
     /// members in rotation until one accepts.
-    pub(super) async fn complete(&self, fanout: Fanout) {
+    pub(super) async fn complete(&self, fanout: Fanout) -> io::Result<()> {
+        let mut failed = false;
         for ack in fanout.acks {
-            let _ = ack.await;
+            if !ack.await.unwrap_or(false) && self.config.cluster.is_some() {
+                failed = true;
+            }
         }
         for group in fanout.shared {
             for (member, handle) in self.online_first(group.members) {
@@ -824,6 +869,14 @@ impl Broker {
                     break;
                 }
             }
+        }
+        if failed {
+            Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "cluster delivery not accepted",
+            ))
+        } else {
+            Ok(())
         }
     }
 
@@ -853,6 +906,9 @@ impl Broker {
             publisher.drain().await;
         }
         self.events.shutdown().await;
+        if let Some(cluster) = &self.config.cluster {
+            let _ = tokio::time::timeout(Duration::from_secs(5), cluster.shutdown()).await;
+        }
         if let Some(management) = &self.config.management {
             management.stop();
         }

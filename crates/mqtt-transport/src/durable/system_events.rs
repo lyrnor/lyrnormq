@@ -123,7 +123,7 @@ impl Events {
                 if let Some(fanout) =
                     broker.dispatch_observed(publication, false, Some(&connection.client))
                 {
-                    broker.complete(fanout).await;
+                    let _ = broker.complete(fanout).await;
                 }
             }
         });

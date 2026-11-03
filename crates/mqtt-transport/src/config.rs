@@ -40,6 +40,8 @@ impl ProtocolMode {
 /// process termination. SQLite retains persistent sessions and global records.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
+    /// Optional embedded-cluster metadata and forwarding bridge.
+    pub cluster: Option<Arc<dyn mqtt_cluster_core::ClusterBridge>>,
     /// Optional host-authorized ingress, separate from read-only management.
     pub publisher: Option<crate::PublishHandle>,
     /// Optional nonblocking best-effort publication side channel.
@@ -82,6 +84,7 @@ pub struct BrokerConfig {
 impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
+            cluster: None,
             publisher: None,
             publication_observer: None,
             management: None,
