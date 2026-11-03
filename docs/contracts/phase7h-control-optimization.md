@@ -132,3 +132,20 @@ With512KiB command admission and small Entry/Append envelopes,24 full-sized entr
 must encode within existing16MiB RPC bound; add actual encoder regression before
 changing the setting. Single-command/MQTT/snapshot bounds and WAL/FULL unchanged.
 This is finite replication batching, not an unbounded queue or weaker flush ACK.
+
+Installed-watermark clarification: durable Heartbeat.applied also reads the fully
+installed watermark (after fencing, merge and repair reconciliation), not an
+intermediate canonical Metadata.revision. Heartbeat success may repush that same
+watermark but must not promote it. A higher heartbeat answer revision must not
+force healthy watch streams into repeated cold snapshots; keep true stream gap,
+progress mismatch, registration recovery and stalled-stream timeout handling.
+
+Committed-tail integrity amendment after independent review: newly appended log
+records use a private versioned Entry+SHA256 envelope (including log identity and
+payload), decoded back into unchanged public Raft Entries. Missing/mismatched hash
+or unknown record version fails closed, including valid-JSON payload alterations.
+Atomically validate/wrap legacy log rows and publish the new control-log format on
+open; no destructive migration, no checksum claim for corruption predating legacy
+migration. Snapshot/State/wire/SQLite table schemas unchanged. Malformed or gapped
+committed tails still fail; uncommitted entries are never replayed. Add direct
+valid-JSON corruption RED before fix and retain complete OpenRaft conformance.
