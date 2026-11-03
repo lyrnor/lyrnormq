@@ -10,7 +10,7 @@ pub struct RepairSeal {
 }
 impl RepairSeal {
     pub(crate) fn valid(&self) -> bool {
-        self.records <= 100_000
+        self.records <= 101_024
             && self.bytes <= 768 * 1024 * 1024
             && self.digest.len() == 64
             && self.digest.bytes().all(|b| b.is_ascii_hexdigit())

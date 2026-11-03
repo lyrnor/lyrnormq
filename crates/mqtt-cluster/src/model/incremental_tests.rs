@@ -658,3 +658,81 @@ fn maximal_metadata_keeps_state_and_snapshot_envelopes_below_sixteen_mib() {
         "max metadata={bytes} snapshot_json={snapshot_bytes} state_json_with_membership={state_bytes}"
     );
 }
+#[test]
+fn physical_durable_directory_allows_headroom_but_remains_bounded() {
+    let peers: Vec<(u64, String)> = vec![
+        (101, "http://127.0.0.1:7101".into()),
+        (102, "http://127.0.0.1:7102".into()),
+        (103, "http://127.0.0.1:7103".into()),
+    ];
+    let mut m = Metadata::default();
+    for (node, address) in &peers {
+        assert!(
+            m.apply(Command::Register {
+                node: *node,
+                incarnation: format!("{node:032x}"),
+                address: address.clone(),
+                expires_at: 1000,
+                lease_ms: 3000,
+                replicas: Some(peers.clone()),
+                memory: true,
+                disk_id: Some(format!("{node:032x}"))
+            })
+            .error
+            .is_none()
+        );
+    }
+    for id in 0..101_023 {
+        m.durable.insert(
+            format!("c:{id:06}"),
+            DurableOwner {
+                node: 101,
+                incarnation: format!("{:032x}", 101),
+                generation: 1,
+                epoch: 1,
+                filters: Vec::new(),
+                logical_generation: 1,
+            },
+        );
+    }
+    m.derived = incremental::Derived::default();
+    assert!(
+        m.apply(Command::Acquire {
+            key: "h:final-headroom".into(),
+            node: 101,
+            incarnation: format!("{:032x}", 101),
+            generation: 1,
+            expected_epoch: 0
+        })
+        .error
+        .is_none()
+    );
+    assert_eq!(m.durable.len(), 101_024);
+    let before_revision = m.revision;
+    let before_bytes = m.accounted_bytes();
+    let error = m
+        .apply(Command::Acquire {
+            key: "c:too-many".into(),
+            node: 101,
+            incarnation: format!("{:032x}", 101),
+            generation: 1,
+            expected_epoch: 0,
+        })
+        .error;
+    assert_eq!(error.as_deref(), Some("durable directory capacity"));
+    assert_eq!(m.revision, before_revision);
+    assert!(!m.durable.contains_key("c:too-many"));
+    assert_eq!(m.accounted_bytes(), before_bytes);
+    assert_eq!(serde_json::to_vec(&m).unwrap().len(), before_bytes);
+}
+#[test]
+fn repair_seal_accepts_same_physical_record_cap_and_rejects_next_record() {
+    let mut seal = RepairSeal {
+        records: 101_024,
+        bytes: 0,
+        digest: "0".repeat(64),
+    };
+    assert!(seal.valid());
+    seal.records = 101_025;
+    assert!(!seal.valid());
+}

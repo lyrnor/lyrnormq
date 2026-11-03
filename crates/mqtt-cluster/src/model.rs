@@ -278,7 +278,7 @@ impl Metadata {
                 {
                     return Err("automatic recovery requires abandoned owner".into());
                 }
-                if self.durable.len() >= 100_000 && !self.durable.contains_key(&key) {
+                if self.durable.len() >= 101_024 && !self.durable.contains_key(&key) {
                     return Err("durable directory capacity".into());
                 }
                 let filters = self
