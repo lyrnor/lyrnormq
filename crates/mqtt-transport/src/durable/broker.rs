@@ -276,6 +276,9 @@ impl Broker {
         clock: Arc<dyn Clock>,
         seed: Option<SessionEngine>,
     ) -> io::Result<Arc<Self>> {
+        if let Some(publisher) = &config.publisher {
+            publisher.claim()?;
+        }
         if let Some(management) = &config.management {
             management.claim()?;
         }
@@ -353,6 +356,9 @@ impl Broker {
         }
         if let Some(management) = &broker.config.management {
             management.attach(Arc::clone(&broker) as Arc<dyn crate::management::Source>)?;
+        }
+        if let Some(publisher) = &broker.config.publisher {
+            publisher.attach(&broker);
         }
         Ok(broker)
     }
@@ -552,6 +558,9 @@ impl Broker {
     }
 
     pub(super) fn fail(&self, message: String) -> io::Error {
+        if let Some(publisher) = &self.config.publisher {
+            publisher.stop();
+        }
         if let Some(management) = &self.config.management {
             management.stop();
         }
@@ -840,6 +849,9 @@ impl Broker {
 
     /// Stop every actor after connections have closed, then drain storage.
     pub(super) async fn shutdown(&self) -> io::Result<()> {
+        if let Some(publisher) = &self.config.publisher {
+            publisher.drain().await;
+        }
         self.events.shutdown().await;
         if let Some(management) = &self.config.management {
             management.stop();

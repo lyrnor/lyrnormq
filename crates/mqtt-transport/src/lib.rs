@@ -12,6 +12,7 @@ mod websocket;
 
 pub use config::{BrokerConfig, ProtocolMode};
 pub use durable::export::export_state;
+pub use durable::{PublishHandle, PublishMessage};
 pub use observer::PublicationObserver;
 pub use server::{serve, serve_tls, serve_ws, serve_wss};
 pub use tls::TlsConfig;

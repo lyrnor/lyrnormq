@@ -40,6 +40,8 @@ impl ProtocolMode {
 /// process termination. SQLite retains persistent sessions and global records.
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
+    /// Optional host-authorized ingress, separate from read-only management.
+    pub publisher: Option<crate::PublishHandle>,
     /// Optional nonblocking best-effort publication side channel.
     pub publication_observer: Option<Arc<dyn crate::PublicationObserver>>,
     /// Opt-in read-only state observation; no additional broker is created.
@@ -80,6 +82,7 @@ pub struct BrokerConfig {
 impl Default for BrokerConfig {
     fn default() -> Self {
         Self {
+            publisher: None,
             publication_observer: None,
             management: None,
             protocol_mode: ProtocolMode::Both,

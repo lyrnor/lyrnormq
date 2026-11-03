@@ -34,6 +34,8 @@ mod enhanced;
 pub(crate) mod export;
 mod network;
 mod operation_access;
+mod publisher;
+pub use publisher::{PublishHandle, PublishMessage};
 mod remote_plain;
 mod system_events;
 #[cfg(test)]
@@ -746,6 +748,9 @@ async fn serve_with_tls(
             }
         }
     };
+    if let Some(publisher) = &broker.config.publisher {
+        publisher.stop();
+    }
     let _ = stop_tx.send(true);
     while let Some(joined) = tasks.join_next().await {
         if let Err(error) = joined {
@@ -1656,3 +1661,6 @@ mod observer_tests;
 
 #[cfg(test)]
 mod operation_access_tests;
+
+#[cfg(test)]
+mod publisher_tests;
