@@ -1,0 +1,14 @@
+{
+  "source_commit": "950fa70",
+  "rust_workspace_passed": 1017,
+  "rust_workspace_ignored": 1,
+  "fmt": true,
+  "clippy_all_targets_deny_warnings": true,
+  "process_tests_passed": 14,
+  "process_tests_seconds": 46.013,
+  "preflight_tests_passed": 5,
+  "linux_musl_sha256": "e8f2b38bd16e960d711b517a2eb648307cbb5f019f6cf55871165b9117f4ec8e",
+  "native_sha256": "b30f257b186d4d4cb44c74049b8db70b0fa2a2fface518172b6bad54a82b47c8",
+  "server_pressure_run": false,
+  "remaining": "initial cache-fault/reacquisition loop unresolved; target throughput not verified"
+}

@@ -2881,3 +2881,20 @@ typed cachefault recovery still amplifies epochs; initial fault not yet identifi
 User then explicitly requested removing admission quotas; superseding work must not
 claim this failed benchmark passed or silently discard the unresolved cachefault.
 [Evidence](performance/cluster-admission-20261103/README.md).
+
+## 2026-11-03 — Phase7m fixed cluster admission quotas removed
+
+User requested outright removal rather than larger quotas. Independent runtime/
+control worktrees integrated through950fa70: removed global executing/queued/waiting/
+body permits and750ms refusal, Controller write/health/watch/Applied and Broker
+command/forward/delivery gates, explicitRPC/HTTP2 concurrency caps. Per-clientFIFO
+mailbox now waits asynchronously; owned submitted completion and deadlines remain.
+Removed legacy8192pending-delivery gate; only completed receipt retention remains
+8192, with guard disarming under lock to protect later same-key retries.
+
+Finalworkspace1017passed/1externalPGignored;fmt/strictalltargetClippy passed. Final
+native14real-process QoS/recovery/order/dedupe gates passed46.013s. Local native and
+Zigamd64musl releases compiled; no further deployment/serverpressure. Directory/
+protocol/storage bounds and worker pools remain. No claim that the unresolved
+initial cachefault/epoch-recovery loop or target performance is fixed.
+[Verification](verification/cluster-quota-removal-20261103/README.md).

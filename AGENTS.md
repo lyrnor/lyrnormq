@@ -110,3 +110,8 @@ Separate queued/executing resources, preserve cancellation-owned submitted work,
 classify proven-not-submitted versus ambiguous RPC outcomes. No-change cluster PING
 must remain local while actual expiry/Will changes commit. Health writes have bounded
 reserved admission; do not weaken quorum, all-live barriers or lease fencing.
+
+Explicit cluster quota removal supersedes Phase7l admission counts via
+`docs/contracts/phase7m-remove-cluster-quotas.md`. No global transaction/queued/body,
+Controller write/watch/barrier or RPC concurrency quota. Keep per-client FIFO async
+backpressure, owned submitted completion, protocol/storage limits and worker pools.

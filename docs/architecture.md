@@ -1104,3 +1104,17 @@ The Broker command/legacy forwarding gate also allows256; both private RPC serve
 cap per-connection concurrent handlers/HTTP2 streams at1024. Queued data jobs and
 admission waiters are separate budgets, so the upper bound is256 executing +512
 queued +512 waiting to submit; actual retained payload remains globally16MiB.
+
+## Cluster admission quota removal (Phase7m)
+
+User explicitly supersedes the Phase7l fixed admission budgets through
+[Phase7m](contracts/phase7m-remove-cluster-quotas.md). Global transaction execution,
+queued-job, admission-wait and aggregate-body semaphores are removed. Per-client
+mailboxes provide asynchronous FIFO backpressure without750ms capacity rejection.
+Controller business/health write, Applied and watch count gates, Broker command/
+forward/delivery gates and explicit RPC handler/HTTP2 concurrency quotas are removed.
+Submitted actors/Raft writes still complete after caller cancellation; all-live
+visibility, ReadIndex, ownership epochs and unknown-outcome fencing stay unchanged.
+Protocol/record/session bounds and actual finite worker/buffer scheduling remain.
+The previously measured417/10000 failed cohort predates this removal; no performance
+improvement is inferred and no further server pressure is part of this change.

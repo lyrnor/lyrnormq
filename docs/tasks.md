@@ -659,3 +659,13 @@ superseded, not an outstanding prerequisite. No automatic main merge or deployme
   mapping interpretation if it incorrectly reports server shutdown.
 - Open: only after fixes repeat1000/s firstcohort, then2000/4000 up to100k, then
  10000TCP/10000publish/s128B QoS0/1/2 with delivered/ACK/loss and mean/p99.
+
+## Phase7m — user-requested cluster quota removal
+
+- [x] Remove global transaction executing/queued/waiter/body permits and750ms rejection.
+- [x] Remove Controller write/health/watch/Applied, Broker command/delivery/forward and
+  explicit RPC/HTTP2 concurrency quotas; preserve owned completion and deadlines.
+- [x] Preserve per-client FIFO with asynchronous mailbox backpressure and authority/W2.
+- [x] Validate threshold-crossing, FIFO/cancellation, workspace and process recovery.
+- No further server pressure; the failed Phase7l benchmark remains recorded. Initial
+  cache-fault/recovery-loop cause and request-correlated stage profiling remain open.

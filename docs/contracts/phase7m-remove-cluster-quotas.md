@@ -33,3 +33,15 @@ completion, unknown-write-once, lease/repair/recovery/PING tests stay relevant.
 Each owner commits tested changes. Coordinator integrates fmt/strictClippy/workspace
 and focused actual-process recovery tests, updates architecture/progress/preflight;
 no hidden configuration compatibility claim or new MQTT compatibility claim.
+
+Owned submitted Raft completion may retain its existing task-per-submitted-RPC
+mechanism; do not add separate tasks merely waiting for capacity. The existing
+101024 actor-identity bound follows physical session directory size and remains,
+as do replica repair/maintenance worker pools. These are not global concurrent
+transaction permits and are not converted to larger admission magic numbers.
+
+Legacy forwarding receipt clarification:8192 is completed receipt-cache retention,
+not an in-flight admission quota. Pending deliveries must not be rejected merely
+because the map has8192 pending entries; never evict pending receipt identities.
+Enforce finite completed retention when deliveries complete, keep duplicate pending
+idempotence and cancellation cleanup. Durable per-record receipt/schema bounds stay.

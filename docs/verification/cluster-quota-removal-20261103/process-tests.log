@@ -1,0 +1,31 @@
+test_three_combined_processes_both_versions_all_qos (cluster_memory_blackbox.MemoryCombined.test_three_combined_processes_both_versions_all_qos) ... ok
+test_offline_queue_survives_one_owner_loss_with_two_live_replicas (cluster_memory_blackbox.Memory5.test_offline_queue_survives_one_owner_loss_with_two_live_replicas) ... ok
+test_qos1_inflight_packet_id_restores_from_surviving_memory (cluster_memory_blackbox.Memory5.test_qos1_inflight_packet_id_restores_from_surviving_memory) ... ok
+test_qos2_incoming_exchange_resumes_once_from_live_majority (cluster_memory_blackbox.Memory5.test_qos2_incoming_exchange_resumes_once_from_live_majority) ... ok
+test_qos2_inflight_pubrel_restores_from_surviving_memory (cluster_memory_blackbox.Memory5.test_qos2_inflight_pubrel_restores_from_surviving_memory) ... ok
+test_control_readiness_recovery_retains_committed_work (cluster_event_blackbox.Event5.test_control_readiness_recovery_retains_committed_work) ... ok
+test_failed_rpc_retries_without_any_new_publish (cluster_event_blackbox.Event5.test_failed_rpc_retries_without_any_new_publish) ... ok
+test_idle_publish_and_many_pending_intents_preserve_fifo (cluster_event_blackbox.Event5.test_idle_publish_and_many_pending_intents_preserve_fifo) ... 
+OBSERVATION MQTT5 fifo_qos0_12_total_ms=320.309
+
+OBSERVATION MQTT5 after_idle_qos0_ms=206.217
+
+OBSERVATION MQTT5 fifo_qos1_12_total_ms=310.896
+
+OBSERVATION MQTT5 after_idle_qos1_ms=210.457
+
+OBSERVATION MQTT5 fifo_qos2_12_total_ms=316.982
+
+OBSERVATION MQTT5 after_idle_qos2_ms=209.121
+ok
+test_lost_committed_reply_retries_without_duplicate_delivery (cluster_event_blackbox.Event5.test_lost_committed_reply_retries_without_duplicate_delivery) ... ok
+test_lost_source_owner_resumes_pending_work_without_new_publish (cluster_event_blackbox.Event5.test_lost_source_owner_resumes_pending_work_without_new_publish) ... ok
+test_cross_node_qos_zero_one_two_and_order (cluster_blackbox.Cluster311.test_cross_node_qos_zero_one_two_and_order) ... ok
+test_cross_node_qos_zero_one_two_and_order (cluster_blackbox.Cluster5.test_cross_node_qos_zero_one_two_and_order) ... ok
+test_global_takeover_and_stale_cleanup_preserve_replacement (cluster_blackbox.Cluster5.test_global_takeover_and_stale_cleanup_preserve_replacement) ... ok
+test_forwarding_does_not_reflect_or_repeat_source_rules (cluster_blackbox.Cluster5.test_forwarding_does_not_reflect_or_repeat_source_rules) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 46.013s
+
+OK
