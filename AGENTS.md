@@ -100,3 +100,7 @@ this phase's tests/cluster_control_optimization* and CI/preflight integration.
 Independent Raft WAL follows `docs/contracts/phase7j-raft-wal.md`: raft-log owns
 consensus log/vote/watermarks; SQLite retains checkpoints only. Keep fsync callback,
 committed-only replay, migration fencing and snapshot-before-purge ordering.
+
+Controller bbolt checkpoints follow `docs/contracts/phase7k-bbolt-control-state.md`.
+Keep independent Raft WAL and atomic checkpoint/replay/purge safety. No SQLite
+runtime in mqtt-cluster; migration uses an explicit offline bounded export.
