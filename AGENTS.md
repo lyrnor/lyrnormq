@@ -128,3 +128,9 @@ Preserve disabled-by-default fixed-cardinality timers and bounded traces, existi
 durability/admission/ACK semantics, and same-node monotonic log-index correlation.
 Do not mix nested wall times, histogram upper bounds or partially decoded CPU stacks
 with exact operation percentiles or CPU attribution. Failed load gates stop escalation.
+
+ReadIndex grouping and durable recipient indexing follow
+`docs/contracts/phase7s-readindex-recipient-optimization.md`. Only already-queued
+reads share a fresh round; preserve all-live visibility and per-caller fencing.
+Derived recipient indexes update atomically with metadata and retain topic/generation
+semantics. Same-load acceptance precedes any higher-load testing.

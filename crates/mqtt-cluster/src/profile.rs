@@ -21,6 +21,8 @@ pub(crate) enum Metric {
     BatchRaft,
     ReplyWake,
     ReadIndex,
+    ReadIndexRound,
+    ReadIndexGroupSize,
     AppendRpcEncode,
     AppendRpcRoundtrip,
     AppendRpcDecode,
@@ -48,7 +50,7 @@ pub(crate) enum Metric {
     BatchSize,
     BatchBytes,
 }
-const METRICS: [Metric; 35] = [
+const METRICS: [Metric; 37] = [
     Metric::ControlWrite,
     Metric::Validate,
     Metric::Encode,
@@ -58,6 +60,8 @@ const METRICS: [Metric; 35] = [
     Metric::BatchRaft,
     Metric::ReplyWake,
     Metric::ReadIndex,
+    Metric::ReadIndexRound,
+    Metric::ReadIndexGroupSize,
     Metric::AppendRpcEncode,
     Metric::AppendRpcRoundtrip,
     Metric::AppendRpcDecode,
