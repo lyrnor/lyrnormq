@@ -53,6 +53,10 @@ impl Store {
         let path = path.to_path_buf();
         let cluster = cluster.to_owned();
         let (db, lock, state) = tokio::task::spawn_blocking(move || {
+            #[cfg(test)]
+            let _process_start = crate::replica::TEST_PROCESS_START_LOCK
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
             std::fs::create_dir_all(&path)?;
             let lock = std::fs::OpenOptions::new()
                 .create(true).truncate(false).read(true).write(true)
