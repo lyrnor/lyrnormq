@@ -13,6 +13,7 @@ struct ReadSpy {
     invalidate: Option<Arc<BrokerRuntime>>,
     acks: Arc<AtomicUsize>,
     last_ack: Arc<AtomicU64>,
+    heartbeats: Arc<AtomicU64>,
     hold_first: Arc<AtomicBool>,
     release: Arc<Notify>,
 }
@@ -47,7 +48,20 @@ impl Cluster for ReadSpy {
     async fn raft(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("raft"))
     }
-    async fn mutate(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
+    async fn mutate(&self, request: Request<Envelope>) -> Result<Response<Envelope>, Status> {
+        let value: serde_json::Value = serde_json::from_slice(&request.into_inner().data).unwrap();
+        if let Some(heartbeat) = value.get("Heartbeat") {
+            let applied = heartbeat["applied"].as_u64().unwrap();
+            self.heartbeats.store(applied, Ordering::SeqCst);
+            return Ok(Response::new(
+                rpc::encode(&Answer {
+                    revision: applied + 100,
+                    error: None,
+                    lease_ms: 3000,
+                })
+                .unwrap(),
+            ));
+        }
         Err(Status::unimplemented("mutate"))
     }
     async fn watch(&self, _: Request<Envelope>) -> Result<Response<Self::WatchStream>, Status> {
@@ -101,6 +115,7 @@ async fn spy_fixture(
         invalidate: invalidate.then(|| runtime.clone()),
         acks: Arc::new(AtomicUsize::new(0)),
         last_ack: Arc::new(AtomicU64::new(0)),
+        heartbeats: Arc::new(AtomicU64::new(0)),
         hold_first: Arc::new(AtomicBool::new(false)),
         release: Arc::new(Notify::new()),
     };
@@ -192,5 +207,45 @@ async fn installation_ack_sender_coalesces_and_repushes_same_revision() -> io::R
     drop(runtime);
     tokio::fs::remove_dir_all(path).await?;
     assert_eq!(spy.full.load(Ordering::SeqCst), 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn heartbeat_cannot_announce_revision_before_installation_completes() -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("watermark", false).await?;
+    runtime.installed.send_replace(7);
+    // Canonical merge has run, but an asynchronous reconciliation is still pending.
+    runtime.metadata.write().unwrap().revision = 99;
+    let mut installed = runtime.installed.subscribe();
+    let task = tokio::spawn(runtime.clone().heartbeat_loop());
+    tokio::time::timeout(Duration::from_secs(2), installed.changed())
+        .await
+        .map_err(io::Error::other)?
+        .map_err(io::Error::other)?;
+    task.abort();
+    let _ = task.await;
+    server.abort();
+    let _ = server.await;
+    assert_eq!(
+        spy.heartbeats.load(Ordering::SeqCst),
+        7,
+        "heartbeat must use completed installed watermark"
+    );
+    assert_eq!(
+        *runtime.installed.borrow(),
+        7,
+        "repushing progress cannot publish pending canonical revision"
+    );
+    assert!(
+        tokio::time::timeout(
+            Duration::from_millis(10),
+            runtime.watch_reconnect.notified()
+        )
+        .await
+        .is_err(),
+        "a healthy incremental stream must not be reset by a newer heartbeat revision"
+    );
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
     Ok(())
 }

@@ -14,6 +14,10 @@ impl BrokerRuntime {
             self.installed.send_replace(metadata.revision);
         }
     }
+    pub(super) fn repush_applied(&self) {
+        let revision = *self.installed.borrow();
+        self.installed.send_replace(revision);
+    }
     pub(super) async fn applied_ack_loop(self: Arc<Self>) {
         let mut changes = self.installed.subscribe();
         let mut failures = 0u32;

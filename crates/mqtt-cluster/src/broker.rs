@@ -309,11 +309,7 @@ impl BrokerRuntime {
     async fn heartbeat_loop(self: Arc<Self>) {
         while !self.stopped.load(Ordering::Acquire) {
             let start = tokio::time::Instant::now();
-            let applied = self
-                .metadata
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .revision;
+            let applied = *self.installed.borrow();
             let command = Command::Heartbeat {
                 node: self.config.node_id,
                 incarnation: self.incarnation.clone(),
@@ -324,10 +320,7 @@ impl BrokerRuntime {
             if let Ok(rpc) = self.rpc().await {
                 match rpc.mutate(command).await {
                     Ok(answer) => {
-                        self.announce_applied();
-                        if answer.revision > applied {
-                            self.watch_reconnect.notify_one();
-                        }
+                        self.repush_applied();
                         let lease = self.config.lease_ms.min(answer.lease_ms);
                         if lease >= 1000 {
                             *self.deadline.lock().unwrap_or_else(PoisonError::into_inner) =
