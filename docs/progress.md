@@ -2706,3 +2706,43 @@ Finalsource d8d0eb0 locally zigbuilt and hashverified onserver; six-process test
 fleet now runs under /opt/rmqtt-cluster-diagnosis/20261103/fixed2/separate (same
 privateMQTT ports), olddirectories preserved/stopped. No new mixed-role or physical
 multi-host capacity claim. [Evidence](verification/cluster-backpressure-20261103/README.md).
+
+## 2026-11-03 — Phase7f typed RAM replicas
+
+User replaces data-plane SQLite with bounded typed RAM; contract frozen before
+isolated storage/runtime/quality worktrees. Integrated storage f163821, runtime
+677cca5/c573b1e, quality a8ef9c8; CLI forbids local SQLite mirrors. Controller Raft
+and rules/access configuration retain SQLite; generic outbound append logs unchanged.
+Historical durable.replicas configuration now denotes volatile replication only.
+
+905 Rust tests passed, one external PG test ignored; fmt and strict all-target
+Clippy passed. Native real-process RAM17, retained legacy cluster20 and observation
+probe4 passed. Both MQTT versions/allQoS, offline/inflight owner failover, blank
+replica exclusion, same-process repair, interrupted staging and whole-group RAM
+loss failclosed are covered. Earlier disk-restart data guarantees are superseded,
+not claimed passing. Independent review found no blocking cross-layer regression.
+
+Local Zig musl release deployed fresh six-process cluster on47.84.224.186 under
+/opt/rmqtt-cluster-memory/20261103; private MQTT172.16.240.180:18831/18832/18833.
+Old SQLite directories preserved/stopped. Data directories contain only data.lock
+and memory.identity. Benchmark evidence and final results:
+[Phase7f report](verification/cluster-memory-20261103/README.md).
+
+Remaining: RocksDB backend and disk durability contract (not implemented), reducing
+record serialization/100ms background-poll latency, automated incremental catch-up,
+membership/cleanup and actual multi-host fault-domain acceptance. Two live copies
+survive one owner loss; whole-group process loss cannot recover data. Cluster
+Retained/Will/shared subscriptions remain unsupported. lib.rs stays modules/exports.
+
+RAM server reproduction: all QoS cases planned/sent/received3000, zero duplicates,
+zero failed pairs, complete QoS1PUBACK/QoS2PUBCOMP. Offering deliveryTPS99.933/99.833/
+99.933 (few final deliveries in drain); p99send→delivery107.115/106.881/110.069ms.
+287 one-second whole-run samples including setup/idle: six-process CPU mean39.37%
+of one core, RSS sum peak241.45MiB (data-process sum peak142.87MiB). This clears
+100/s only; not maxTPS or disk-equivalent durability. Residual100ms poll candidate
+and record serialization still need profiling.
+
+Deployed Linux musl ELF also passed the full17 RAM real-process fault/repair tests
+in103.434s, after load measurements. First remote harness copy missed an imported
+helper and failed before test execution; complete helper upload resolved it without
+source changes. Evidence retains that setup failure and the full passing log.

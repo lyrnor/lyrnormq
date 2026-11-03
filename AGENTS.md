@@ -77,3 +77,10 @@ Privileged HTTP downlink publishing additionally follows
 source authentication/ACL; no Basic/cache or synthetic MQTT connection. Publisher
 host handle is separate from read-only management. Preserve recipient semantics,
 reserved system-topic guards and bounded admission.
+
+Cluster data replicas additionally follow `docs/contracts/phase7f-memory-replicas.md`,
+which supersedes Phase7b/7c disk guarantees for the data plane. Data replicas use
+bounded typed RAM; Controller Raft/configuration SQLite remains. No SQLite session
+mirror in replicated mode. A fresh boot is a new replica identity; catch up in the
+same running process before voting. Whole-group RAM loss cannot recover from
+control metadata. RocksDB is a future backend, not implemented.

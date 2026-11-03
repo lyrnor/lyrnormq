@@ -1,3 +1,6 @@
+> Historical disk-backed data-plane semantics are superseded by
+> [Phase7f](phase7f-memory-replicas.md). Controller Raft remains persistent.
+
 # Phase7b — reliable forwarding and persistent session failover
 
 Frozen 2026-11-03, supersedes phase7a refusal of persistent sessions only when

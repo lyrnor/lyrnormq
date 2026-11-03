@@ -1,3 +1,6 @@
+> Historical disk-backed data-plane semantics are superseded by
+> [Phase7f](phase7f-memory-replicas.md). Controller Raft remains persistent.
+
 # Phase7c — replica catch-up and empty-disk replacement
 
 Frozen 2026-11-03. Extends phase7b's fixed three-data-replica group; no external

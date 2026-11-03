@@ -1017,3 +1017,20 @@ reuses retained durability and ordinary/shared dispatch. No MQTT connection/sess
 or lifecycle event is fabricated. Publication.publisher=None preserves NoLocal;
 observer client_id=http reuses SQL and generic outbounds. HTTP202 is acceptance only,
 not delivery/execution, a cross-recipient transaction or automatic retry dedup.
+
+## Phase7f: volatile replicated data plane
+
+[Contract](contracts/phase7f-memory-replicas.md) replaces data-node SQLite with a
+bounded typed in-memory ReplicaStore behind the existing Journal facade. Sessions,
+outbox, receipts, versions and repair staging stay in RAM. Canonical record bytes
+remain cached for size checks, idempotence and repair hashes; this is not zero
+serialization. Ordinary operations do not execute SQL, scan a disk table or fsync.
+Controller Raft and rules/access configuration keep their separate SQLite stores.
+
+Two acknowledgements mean two live RAM copies. Surviving-majority failover retains
+QoS state; restarting every data process loses it. Each boot receives a fresh
+identity and cannot vote against an old Controller anchor until explicit repair.
+A normal replacement process serves private repair RPC while MQTT waits, and must
+be promoted in that same process. Old SQLite directories are refused unchanged;
+there is no automatic migration. The internal ReplicaStore boundary permits a
+future RocksDB backend, with its durability contract still to be designed.

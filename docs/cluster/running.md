@@ -125,42 +125,31 @@ not implemented. Preserve old data. Do not delete a journal or change the replic
 list to bypass this protection. A different group or mixed legacy registration is
 rejected. Non-loopback addresses still require mutual TLS.
 
-Each data journal also has an automatically persisted disk identity anchored by
-the Controllers. Restarting with the original disk is supported. A new empty disk
-under an old node ID is refused, including during the RPC startup window; it must
-not count as an empty quorum vote. Phase7c provides explicit maintenance-window
-[repair/replacement](replica-repair.md) using two original donors and an excluded
-learner. Losing one node leaves the other two able to continue; do not wipe its
-directory as a recovery procedure.
+Current [Phase7f](../contracts/phase7f-memory-replicas.md) uses **typed RAM** for
+sessions, outbox, receipts and repair staging. `durable.replicas` is the historical
+configuration name for replication, not a disk guarantee. Controller Raft remains
+SQLite. Rules/access configuration databases and generic outbound append logs are
+separate and unchanged. `--storage-path` is refused in this replicated mode.
 
-Start all six processes before admitting traffic. Durable operations require two
-data replicas: a successful ACK means replicated session/forwarding responsibility,
-not that a subscriber has already received the message. One failed Broker can be
-recovered on another disk; with fewer than two replicas, new durable operations
-fail. Startup/listener availability alone is not a data-quorum health guarantee.
+Start all six processes before admitting traffic. ACKs require two live replicas;
+subscriber receipt is a separate condition. Surviving-majority failover restores
+sessions and packet identifiers. Every data-process restart creates a new identity,
+even with the same directory: it must complete explicit [repair](replica-repair.md)
+before voting. Whole-group RAM loss cannot be recovered from Controller metadata.
+Do not erase old directories or controller anchors to pretend to recover data.
 
-The authoritative Broker journal is data.sqlite under config.data_dir. Optional
---storage-path is a local compatibility mirror, not a failover backup. Controllers
-hold ownership epochs/filter metadata only. Cross-node recovery restores existing
-MQTT snapshots and packet identifiers; acknowledged forwarding intents survive
-source client disconnect and do not require that client to reconnect for draining.
-QoS0 subscriber delivery remains best effort. Retained/Will/shared cluster features
-remain refused. See [Phase7b contract](../contracts/phase7b-durable-cluster.md) and
-the corresponding verification report for actual accepted gates and limits.
+New data directories contain only data.lock and memory.identity. Existing
+`data.sqlite` is refused untouched; automatic import is not implemented. Fresh
+clusters require fresh directories and a distinct cluster ID. Mixed old/new rolling
+upgrades are unsupported and capability checks fail closed.
 
-Durable-mode bounds currently include 100,000 journal records, 256 MiB aggregate
-encoded record data (SQLite pages/WAL add overhead), 8 MiB per encoded record,
-2 MiB per opaque snapshot, 256 pending intents per source record and 8192 distinct
-source-stream watermarks per recipient. Earlier byte/SessionEngine limits can
-bind first. Full capacity fails admission; it never falls back to volatile success.
-The source watermark does not grow once per message for a fixed producer.
+Bounds: 100,000 records, 256 MiB accounted canonical bytes plus keys, 8 MiB per
+record, 2 MiB opaque snapshot, 256 pending intents per source and 8192 recipient
+source-stream watermarks. These are admission bounds, not a physical RSS cap;
+typed objects, cached canonical bytes and containers add memory overhead. Repair
+staging has an independent finite 768 MiB budget. Full capacity rejects admission.
 
-Clean Start or expiry/recreation gets a new logical session generation. Pending
-deliveries freeze that generation, so reusing a Client ID and topic cannot admit
-old queued work into the new session. Ordinary persistent owner failover preserves
-the generation and can resume its pending deliveries.
-
-This is a correctness gate, not large-cluster performance acceptance: directory
-scans, journal quota scans and whole-record serialization still need profiling.
-General tombstone/abandoned-host cleanup, membership reconfiguration and rolling-version
-migration remain unsupported. Controlled disk repair follows the Phase7c guide.
+Clean Start/expiry creates a new logical session generation; queued work cannot
+leak into a recreated session. Retained, Will and shared subscriptions remain
+unsupported in cluster mode. Automatic incremental repair, membership changes,
+tombstone cleanup, whole-group restart recovery and RocksDB remain future work.

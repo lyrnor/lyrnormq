@@ -1,0 +1,35 @@
+[
+  {
+    "qos": 0,
+    "sent": 3000,
+    "delivered": 3000,
+    "PUBACK": 0,
+    "PUBCOMP": 0,
+    "duplicates": 0,
+    "offering_delivery_tps": 99.93333333333334,
+    "cohort_through_drain_tps": 99.72051412280418,
+    "p99_ms": 107.114963
+  },
+  {
+    "qos": 1,
+    "sent": 3000,
+    "delivered": 3000,
+    "PUBACK": 3000,
+    "PUBCOMP": 0,
+    "duplicates": 0,
+    "offering_delivery_tps": 99.83333333333333,
+    "cohort_through_drain_tps": 99.75011215366453,
+    "p99_ms": 106.881468
+  },
+  {
+    "qos": 2,
+    "sent": 3000,
+    "delivered": 3000,
+    "PUBACK": 0,
+    "PUBCOMP": 3000,
+    "duplicates": 0,
+    "offering_delivery_tps": 99.93333333333334,
+    "cohort_through_drain_tps": 99.79133931653482,
+    "p99_ms": 110.068698
+  }
+]
