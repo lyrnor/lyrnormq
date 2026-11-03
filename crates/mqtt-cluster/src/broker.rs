@@ -15,7 +15,7 @@ use std::{
     },
     time::Duration,
 };
-use tokio::sync::{Notify, OnceCell, Semaphore, watch};
+use tokio::sync::{Notify, OnceCell, watch};
 pub(crate) mod durable;
 mod progress;
 mod quorum;
@@ -44,8 +44,6 @@ pub struct BrokerRuntime {
     initialized: AtomicBool,
     tasks: Mutex<Vec<tokio::task::JoinHandle<()>>>,
     sequence: AtomicU64,
-    slots: Arc<Semaphore>,
-    bytes: Arc<Semaphore>,
     receipts: Mutex<Receipts>,
     watch_reconnect: Notify,
     installed: watch::Sender<u64>,
@@ -107,8 +105,6 @@ impl BrokerRuntime {
             initialized: AtomicBool::new(false),
             tasks: Mutex::new(Vec::new()),
             sequence: AtomicU64::new(1),
-            slots: Arc::new(Semaphore::new(256)),
-            bytes: Arc::new(Semaphore::new(16 * 1024 * 1024)),
             receipts: Mutex::new(Receipts::default()),
             watch_reconnect: Notify::new(),
             installed: watch::channel(0).0,
@@ -172,11 +168,6 @@ impl BrokerRuntime {
         if !self.ready() {
             return Err(unavailable());
         }
-        let _slot = self
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| unavailable())?;
         let answer = self.rpc().await?.mutate(command).await?;
         if barrier {
             self.barrier(answer.revision).await?;
@@ -421,11 +412,6 @@ impl BrokerRuntime {
         if !self.ready() {
             return Err(unavailable());
         }
-        let _slot = self
-            .slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| unavailable())?;
         if forward.message.payload.len() > 1024 * 1024
             || forward.message.qos > 2
             || forward.message.retain
@@ -456,12 +442,6 @@ impl BrokerRuntime {
                 return Err(unavailable());
             }
         }
-        let bytes = u32::try_from(forward.message.payload.len()).map_err(|_| unavailable())?;
-        let _bytes = self
-            .bytes
-            .clone()
-            .try_acquire_many_owned(bytes)
-            .map_err(|_| unavailable())?;
         let key = (forward.node, forward.incarnation, forward.sequence);
         {
             let mut receipts = self.receipts.lock().unwrap_or_else(PoisonError::into_inner);
@@ -661,17 +641,6 @@ impl ClusterBridge for BrokerRuntime {
             if !self.ready() {
                 return Err(unavailable());
             }
-            let _slot = self
-                .slots
-                .clone()
-                .try_acquire_owned()
-                .map_err(|_| unavailable())?;
-            let bytes = u32::try_from(message.payload.len()).map_err(|_| unavailable())?;
-            let _bytes = self
-                .bytes
-                .clone()
-                .try_acquire_many_owned(bytes)
-                .map_err(|_| unavailable())?;
             let targets = {
                 let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
                 let nodes: BTreeSet<_> = metadata
@@ -758,8 +727,7 @@ pub async fn serve_broker(
     .max_decoding_message_size(rpc::MAX_WIRE)
     .max_encoding_message_size(rpc::MAX_WIRE);
     let mut server = tonic::transport::Server::builder()
-        .concurrency_limit_per_connection(1024)
-        .max_concurrent_streams(Some(1024))
+        .max_concurrent_streams(None)
         .timeout(Duration::from_secs(60));
     if let Some(tls) = rpc::server_tls(&runtime.config).await? {
         server = server.tls_config(tls).map_err(io::Error::other)?;

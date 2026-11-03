@@ -1,29 +1,24 @@
-//! Admission remains charged until submitted work finishes, even after caller cancellation.
+//! Submitted Raft work continues independently of the cancellable response future.
 use std::future::Future;
-use tokio::sync::OwnedSemaphorePermit;
 
-pub(super) fn submit<F, T>(permit: OwnedSemaphorePermit, work: F) -> tokio::task::JoinHandle<T>
+pub(super) fn submit<F, T>(work: F) -> tokio::task::JoinHandle<T>
 where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    tokio::spawn(async move {
-        let _permit = permit;
-        work.await
-    })
+    tokio::spawn(work)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tokio::sync::{Notify, Semaphore};
+    use tokio::sync::Notify;
     #[tokio::test]
-    async fn canceled_reply_retains_admission_until_submitted_work_completes() {
-        let slots = Arc::new(Semaphore::new(1));
+    async fn canceled_reply_does_not_cancel_submitted_work() {
         let done = Arc::new(Notify::new());
         let completed = Arc::new(Notify::new());
-        let task = submit(slots.clone().acquire_owned().await.unwrap(), {
+        let task = submit({
             let done = done.clone();
             let completed = completed.clone();
             async move {
@@ -33,13 +28,9 @@ mod tests {
         });
         drop(task); // Dropping a response does not cancel already-submitted work.
         tokio::task::yield_now().await;
-        assert_eq!(slots.available_permits(), 0);
-        assert!(slots.clone().try_acquire_owned().is_err());
         done.notify_one();
-        completed.notified().await;
-        let _permit = tokio::time::timeout(std::time::Duration::from_secs(1), slots.acquire())
+        tokio::time::timeout(std::time::Duration::from_secs(1), completed.notified())
             .await
-            .unwrap()
             .unwrap();
     }
 }

@@ -7,14 +7,6 @@ use std::{
 #[derive(Clone, Copy, Debug)]
 #[repr(usize)]
 pub(crate) enum Failure {
-    DurableOperations,
-    DurableWaiting,
-    DurableWaitQueueFull,
-    DurableWaitTimeout,
-    BackgroundOperations,
-    BackgroundActorQueue,
-    DurableBytes,
-    ActorWaiting,
     JournalFrozen,
     JournalGeneration,
     JournalEpoch,
@@ -52,17 +44,7 @@ pub(crate) fn observe(failure: Failure) {
         .fetch_add(1, Ordering::Relaxed)
         .saturating_add(1);
     if should_log(count) {
-        if matches!(
-            failure,
-            Failure::DurableWaiting
-                | Failure::BackgroundOperations
-                | Failure::BackgroundActorQueue
-                | Failure::ActorWaiting
-        ) {
-            tracing::warn!(event = "cluster_data_backpressure", category = %failure, count, "cluster data-path waiting");
-        } else {
-            tracing::warn!(event = "cluster_data_rejection", category = %failure, count, "cluster data-path diagnostic");
-        }
+        tracing::warn!(event = "cluster_data_rejection", category = %failure, count, "cluster data-path diagnostic");
     }
 }
 fn should_log(count: u64) -> bool {

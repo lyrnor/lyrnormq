@@ -115,11 +115,6 @@ impl Control {
         Ok(revision)
     }
     pub(super) async fn applied(&self, revision: u64) -> Result<u64, Status> {
-        let _permit = self
-            .applied_slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Status::resource_exhausted("applied waiter capacity"))?;
         tokio::time::timeout(Duration::from_secs(4), async {
             let mut changes = self.store.changed.subscribe();
             let mut acknowledgements = self.progress.changed.subscribe();

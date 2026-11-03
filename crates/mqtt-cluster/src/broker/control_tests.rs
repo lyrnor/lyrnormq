@@ -379,3 +379,27 @@ async fn dead_initial_seed_does_not_block_safe_controller_discovery() -> io::Res
     tokio::fs::remove_dir_all(path).await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn more_than_old_broker_command_limit_waits_instead_of_rejecting() -> io::Result<()> {
+    let (runtime, _spy, server, path) = spy_fixture("no-command-quota", false).await?;
+    let mut pending: Vec<_> = (0..257)
+        .map(|_| Box::pin(runtime.command(test_heartbeat(), false)))
+        .collect();
+    std::future::poll_fn(|cx| {
+        for request in &mut pending {
+            assert!(
+                request.as_mut().poll(cx).is_pending(),
+                "in-flight command must not be capacity-rejected"
+            );
+        }
+        std::task::Poll::Ready(())
+    })
+    .await;
+    drop(pending);
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    Ok(())
+}

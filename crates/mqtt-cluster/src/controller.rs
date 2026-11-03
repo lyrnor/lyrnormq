@@ -3,9 +3,6 @@ use std::sync::PoisonError;
 mod admission;
 mod applied;
 const MAX_REPLICATION_ENTRIES: u64 = 24;
-const BUSINESS_SLOTS: usize = 256;
-const HEALTH_SLOTS: usize = 16;
-const APPLIED_SLOTS: usize = 1024;
 
 use crate::{
     config::{Config, Role},
@@ -25,7 +22,7 @@ use std::{
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tokio::sync::{Semaphore, watch};
+use tokio::sync::watch;
 use tokio_stream::{Stream, wrappers::ReceiverStream};
 use tonic::{Request, Response, Status};
 pub(crate) fn now() -> u64 {
@@ -105,10 +102,6 @@ pub(crate) struct Control {
     raft: Raft,
     store: Store,
     rpc: ClientRpc,
-    slots: Arc<Semaphore>,
-    health_slots: Arc<Semaphore>,
-    watchers: Arc<Semaphore>,
-    applied_slots: Arc<Semaphore>,
     progress: applied::Progress,
     lease_ms: u64,
 }
@@ -121,18 +114,6 @@ impl Control {
         Ok(())
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
-        let admission = if matches!(
-            command,
-            Command::Heartbeat { .. } | Command::Register { .. }
-        ) {
-            &self.health_slots
-        } else {
-            &self.slots
-        };
-        let _slot = admission
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Status::resource_exhausted("metadata write capacity"))?;
         validate(&command)?;
         if let Command::RepairCommit {
             id,
@@ -195,7 +176,7 @@ impl Control {
         }
         let raft = self.raft.clone();
         // Admission belongs to submitted work, not to the cancellable response future.
-        let pending = admission::submit(_slot, async move { raft.client_write(command).await });
+        let pending = admission::submit(async move { raft.client_write(command).await });
         let result = tokio::time::timeout(Duration::from_secs(2), pending)
             .await
             .map_err(|_| Status::unavailable("metadata commit deadline"))?
@@ -484,17 +465,11 @@ impl wire::cluster_server::Cluster for Service {
             .as_ref()
             .ok_or_else(|| Status::failed_precondition("not a controller"))?;
         control.leader().await?;
-        let permit = control
-            .watchers
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Status::resource_exhausted("watch capacity"))?;
         let control = control.clone();
         let (tx, rx) = tokio::sync::mpsc::channel(2);
         let mut changes = control.store.changed.subscribe();
         let mut leadership = control.raft.metrics();
         tokio::spawn(async move {
-            let _permit = permit;
             let mut base = None;
             let mut progress = tokio::time::interval(Duration::from_millis(control.lease_ms / 4));
             progress.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -677,10 +652,6 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
         raft,
         store,
         rpc: rpc.clone(),
-        slots: Arc::new(Semaphore::new(BUSINESS_SLOTS)),
-        health_slots: Arc::new(Semaphore::new(HEALTH_SLOTS)),
-        watchers: Arc::new(Semaphore::new(128)),
-        applied_slots: Arc::new(Semaphore::new(APPLIED_SLOTS)),
         progress: applied::Progress::default(),
         lease_ms: config.lease_ms,
     });
@@ -739,8 +710,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     .max_decoding_message_size(rpc::MAX_WIRE)
     .max_encoding_message_size(rpc::MAX_WIRE);
     let mut server = tonic::transport::Server::builder()
-        .concurrency_limit_per_connection(1024)
-        .max_concurrent_streams(Some(1024))
+        .max_concurrent_streams(None)
         .timeout(Duration::from_secs(5));
     if let Some(tls) = rpc::server_tls(&config).await? {
         server = server.tls_config(tls).map_err(io::Error::other)?;
@@ -847,34 +817,58 @@ mod control_tests {
             raft,
             store,
             rpc,
-            slots: Arc::new(Semaphore::new(BUSINESS_SLOTS)),
-            health_slots: Arc::new(Semaphore::new(HEALTH_SLOTS)),
-            watchers: Arc::new(Semaphore::new(128)),
-            applied_slots: Arc::new(Semaphore::new(APPLIED_SLOTS)),
             progress: applied::Progress::default(),
             lease_ms: 3000,
         });
-        // Health writes must remain admitted even when all business slots are held.
-        let occupied = control
-            .slots
-            .clone()
-            .acquire_many_owned(BUSINESS_SLOTS as u32)
-            .await
-            .unwrap();
-        let health = control
-            .write(Command::Heartbeat {
-                node: u64::MAX,
-                incarnation: "fixture".into(),
-                applied: 0,
-                expires_at: 0,
-                lease_ms: 3000,
-            })
-            .await;
-        assert!(
-            health.is_ok(),
-            "business saturation must not reject health: {health:?}"
-        );
-        drop(occupied);
+        // Both business and health submissions may exceed former admission caps.
+        let before_submissions = control.raft.metrics().borrow().last_applied.unwrap().index;
+        let commands = (0..514).map(|i| {
+            if i % 2 == 0 {
+                Command::Heartbeat {
+                    node: u64::MAX,
+                    incarnation: "fixture".into(),
+                    applied: 0,
+                    expires_at: 0,
+                    lease_ms: 3000,
+                }
+            } else {
+                Command::Acquire {
+                    key: format!("c:quota-{i}"),
+                    node: 101,
+                    incarnation: "n101".into(),
+                    generation: 1,
+                    expected_epoch: 0,
+                }
+            }
+        });
+        let mut writes: Vec<_> = commands
+            .map(|command| Box::pin(control.write(command)))
+            .collect();
+        std::future::poll_fn(|cx| {
+            for request in &mut writes {
+                assert!(
+                    request.as_mut().poll(cx).is_pending(),
+                    "submission must not be capacity-rejected"
+                );
+            }
+            std::task::Poll::Ready(())
+        })
+        .await;
+        drop(writes);
+        // Caller cancellation does not cancel these514 owned submissions. Observe their
+        // application without requiring a loaded filesystem to finish within an RPC deadline.
+        let mut metrics = control.raft.metrics();
+        tokio::time::timeout(Duration::from_secs(15), async {
+            while metrics
+                .borrow()
+                .last_applied
+                .is_none_or(|id| id.index < before_submissions + 514)
+            {
+                metrics.changed().await.unwrap();
+            }
+        })
+        .await
+        .expect("all owned submissions must finish after caller cancellation");
         {
             let mut state = control.store.state.lock().unwrap();
             state.metadata.revision = 7;
@@ -892,6 +886,19 @@ mod control_tests {
                 );
             }
         }
+        // Pending barriers beyond the former1024 cap must wait for installation.
+        let mut pending: Vec<_> = (0..1025).map(|_| Box::pin(control.applied(7))).collect();
+        std::future::poll_fn(|cx| {
+            for request in &mut pending {
+                assert!(
+                    request.as_mut().poll(cx).is_pending(),
+                    "barrier must wait, not capacity-reject"
+                );
+            }
+            std::task::Poll::Ready(())
+        })
+        .await;
+        drop(pending);
         let waiter = tokio::spawn({
             let control = control.clone();
             async move { control.applied(7).await }
@@ -947,17 +954,6 @@ mod control_tests {
             7
         );
         assert_eq!(control.raft.metrics().borrow().last_applied, before_ack);
-        let permits = control
-            .applied_slots
-            .clone()
-            .acquire_many_owned(APPLIED_SLOTS as u32)
-            .await
-            .map_err(io::Error::other)?;
-        assert_eq!(
-            control.applied(7).await.unwrap_err().code(),
-            tonic::Code::ResourceExhausted
-        );
-        drop(permits);
         {
             let mut state = control.store.state.lock().unwrap();
             state.metadata.revision = 9;
