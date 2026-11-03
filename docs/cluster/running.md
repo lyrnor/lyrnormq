@@ -67,3 +67,18 @@ and two Brokers; it does not use an existing MQTT service. Process crashes exerc
 journal recovery, not physical power-loss certification. Durable forwarding receipts,
 session relocation, replicated retained/Will/shared state and performance acceptance
 remain later gates.
+
+Current fixed implementation limits (acceptance bounds, not capacity measurements):
+
+| Resource | Limit |
+| --- | --- |
+| Metadata nodes / active watch streams per Controller | 1024 / 128 |
+| Clients / encoded metadata | 100,000 / 8 MiB |
+| One metadata command / RPC envelope | 512 KiB / 16 MiB |
+| Forwarded payload | 1 MiB |
+| Concurrent forwarding / payload budget | 32 / 16 MiB |
+| Volatile duplicate receipts | 8192 |
+
+The byte limit can be reached before the count limit. Whole metadata serialization,
+route rebuilding and per-watch delta calculation need profiling and optimization
+before making a large-scale performance promise.

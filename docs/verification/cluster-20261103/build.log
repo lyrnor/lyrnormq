@@ -1,0 +1,3 @@
+   Compiling mqtt-cluster v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-cluster)
+   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.80s

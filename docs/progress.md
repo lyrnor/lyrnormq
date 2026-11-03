@@ -2530,3 +2530,35 @@ QoS/offline sessions/retained durability/shared/SQL/outbounds; no synthetic sess
 Actual837Rust tests pass (1explicitlivePGignore), strictClippy/fmt,23newHTTPwire,
 25systemevent and29HTTPaccess cases pass on identical nativeRelease. No newperfclaim,
 deployment or mainmerge/push. [Evidence](verification/http-publish-20261103/README.md).
+
+## 2026-11-03 — Phase7a first embedded cluster gate accepted
+
+User resumed cluster work and superseded the old sharded-directory proposal.
+Frozen phase7a Controller/Broker contract and generation/lease safety amendments
+before coordinated implementation. Three real specialist agents wrote independent
+Git worktrees for control/RPC/storage, transport and independent wire acceptance;
+coordinator integrated CLI, neutral APIs, review fixes and evidence.
+
+Delivered actual three-member OpenRaft quorum with SQLite WAL/FULL metadata/log/
+vote/snapshot persistence, token/mTLS peer adapter, Broker ownership and monotonic
+leases, local snapshot+revision-delta routes, bounded direct forwarding and live
+MQTT3.1.1/5 QoS0/1/2. Existing HTTP downlink and rules observer are reused. Thin
+lib.rs structure and standalone durability/public APIs remain preserved.
+
+Independent failure tests exposed stalled leader watches and expired Broker rejoin;
+fixed progress/idle/revision detection, confirmed Controller preference and safe
+re-registration. Review also fixed stale subscription generations, canceled receipts,
+snapshot allocation limits and mixed-controller lease durations. Per-incarnation
+maximum outstanding grants persist so leadership changes cannot shorten them.
+
+Final identical native binary: 20 real cluster cases and 77 standalone wire cases
+pass; 852Rust tests pass with one explicit live-PG ignore; official OpenRaft storage
+conformance, strict Clippy and fmt pass. Source through 1bef408; logs and reproduction
+are in [verification](verification/cluster-20261103/README.md). No main merge/push or
+deployment, Linux/mTLS wire acceptance, capacity or performance claim in this gate.
+
+Remaining: durable cross-node forwarding responsibility/receipts, persistent-session
+failover, retained/Will/shared cluster semantics, real compaction/snapshot-transfer
+faults, peer mTLS interoperability, auth/config distribution, large-topology profiling
+and optimized indexed metadata/routing. Unsupported cluster features are explicitly
+refused; this is not full MQTT cluster compatibility or production HA acceptance.

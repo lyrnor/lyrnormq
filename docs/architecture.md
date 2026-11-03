@@ -11,6 +11,18 @@ without a Controller lookup for each message. A conservative quorum-renewed leas
 fences service after loss of authority. Subscription acknowledgements wait for route
 visibility, and connection generations fence delayed ownership changes.
 
+```mermaid
+graph LR
+  C1[Controller 1] <-->|Raft| C2[Controller 2]
+  C2 <-->|Raft| C3[Controller 3]
+  C1 <-->|Raft| C3
+  C1 -->|Committed snapshot and deltas| B1[Broker 1 local routes]
+  C1 -->|Committed snapshot and deltas| B2[Broker 2 local routes]
+  M1[MQTT clients] --> B1
+  M2[MQTT clients] --> B2
+  B1 <-->|Direct message RPC| B2
+```
+
 `mqtt-cluster-core` defines the transport boundary; `mqtt-cluster` owns consensus,
 metadata replication and peer RPC. The existing transport owns MQTT sessions,
 local delivery and bounded fanout. Official tonic 0.14 supplies the server/client

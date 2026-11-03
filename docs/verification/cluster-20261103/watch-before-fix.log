@@ -1,0 +1,22 @@
+test_controller_journals_recover_after_total_process_crash (__main__.ClusterFaults.test_controller_journals_recover_after_total_process_crash) ... ok
+test_loss_of_majority_expires_broker_service_then_recovers (__main__.ClusterFaults.test_loss_of_majority_expires_broker_service_then_recovers) ... ok
+test_unresponsive_leader_does_not_strand_metadata_watch (__main__.ClusterFaults.test_unresponsive_leader_does_not_strand_metadata_watch) ... FAIL
+
+======================================================================
+FAIL: test_unresponsive_leader_does_not_strand_metadata_watch (__main__.ClusterFaults.test_unresponsive_leader_does_not_strand_metadata_watch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-cluster-quality/tests/cluster_blackbox.py", line 447, in test_unresponsive_leader_does_not_strand_metadata_watch
+    self.wait_broker_recovery()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/private/tmp/rmqtt-cluster-quality/tests/cluster_blackbox.py", line 292, in wait_broker_recovery
+    wait_until(lambda index=index: probe(index), 30)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-cluster-quality/tests/cluster_blackbox.py", line 45, in wait_until
+    raise AssertionError(f'condition not established in {timeout}s; last={last!r}')
+AssertionError: condition not established in 30s; last=False
+
+----------------------------------------------------------------------
+Ran 3 tests in 50.128s
+
+FAILED (failures=1)

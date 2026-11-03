@@ -97,3 +97,13 @@ old request. Same-node Claim is idempotent for samegeneration and rejects older
 generation. Watch must terminate/reconnect on leadership change even if no metadata
 revision arrives. Expiry requires monotonic grant observation protection, not just
 wall-clock comparison (including clock jumps during stable leadership).
+
+Mixed-controller lease amendment: each node incarnation durably retains
+max_lease_ms, the maximum lease ever granted to it. The leader supplies this value
+on Register/Heartbeat; state-machine application never decreases it for the same
+incarnation. Expiry waits that duration using monotonic observation of committed
+heartbeat tokens, including after leadership changes. A shorter new grant must not
+erase a longer outstanding grant whose replacement reply may have been lost.
+Absent legacy duration fields default conservatively to the maximum allowed
+30000ms. Configurations with different lease_ms must remain safe, not merely be
+documented as unsupported.

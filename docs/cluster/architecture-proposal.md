@@ -1,5 +1,9 @@
 # 大规模 MQTT 集群方案评审
 
+> 历史方案已被用户要求推倒重做。当前采用 Controller/Broker 两种角色，
+> 三控制节点内置 Raft；实现依据是 [Phase7a 契约](../contracts/phase7a-cluster.md)，
+> 运行方式见 [running.md](running.md)。下文仅保留历史评审，不作为开发要求。
+
 日期：2026-10-30。代码基线：`89293dc`，含 Phase4b 热路径优化。
 状态：**架构提案，尚未冻结实现契约；没有集群实现或集群性能实测。**
 目标负载由用户确认：高频消息、大量点对点 Topic。优先精确 Topic、低 fanout，
