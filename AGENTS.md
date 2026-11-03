@@ -134,3 +134,9 @@ ReadIndex grouping and durable recipient indexing follow
 reads share a fresh round; preserve all-live visibility and per-caller fencing.
 Derived recipient indexes update atomically with metadata and retain topic/generation
 semantics. Same-load acceptance precedes any higher-load testing.
+
+Bounded control-write pipelining follows
+`docs/contracts/phase7t-control-write-pipeline.md`, superseding Phase7o's single
+in-flight batch only. Sequential enqueue, four active batches, durable applied ACK,
+FIFO result mapping and bounded pending lease grants are mandatory. Overlapping
+batch durations are not additive wall utilization; preserve shared WAL/apply ranges.

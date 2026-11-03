@@ -19,6 +19,8 @@ pub(crate) enum Metric {
     QueueResidence,
     BatchAssemble,
     BatchRaft,
+    BatchSubmit,
+    BatchWindow,
     ReplyWake,
     ReadIndex,
     ReadIndexRound,
@@ -50,7 +52,7 @@ pub(crate) enum Metric {
     BatchSize,
     BatchBytes,
 }
-const METRICS: [Metric; 37] = [
+const METRICS: [Metric; 39] = [
     Metric::ControlWrite,
     Metric::Validate,
     Metric::Encode,
@@ -58,6 +60,8 @@ const METRICS: [Metric; 37] = [
     Metric::QueueResidence,
     Metric::BatchAssemble,
     Metric::BatchRaft,
+    Metric::BatchSubmit,
+    Metric::BatchWindow,
     Metric::ReplyWake,
     Metric::ReadIndex,
     Metric::ReadIndexRound,
