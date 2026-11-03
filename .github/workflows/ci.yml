@@ -99,6 +99,12 @@ jobs:
       - name: Replica catch-up and empty-disk repair acceptance
         timeout-minutes: 15
         run: python3 tests/cluster_repair_blackbox.py -v
+      - name: Combined Controller and Broker topology acceptance
+        timeout-minutes: 5
+        run: python3 tests/cluster_topology_blackbox.py -v
+      - name: Controller observation sampler verification
+        timeout-minutes: 5
+        run: python3 -m unittest discover -s tests -p cluster_topology_controller_probe_test.py -v
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/websocket_paho.py
       - run: python3 tests/paho_interop.py
