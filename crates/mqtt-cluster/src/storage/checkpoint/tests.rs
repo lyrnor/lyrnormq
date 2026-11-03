@@ -137,10 +137,10 @@ fn missing_or_rebound_business_record_cannot_validate_snapshot() {
         db.db
             .update(|tx| {
                 let bucket = tx.bucket(b"routes")?.unwrap();
-                let row = bucket.get(b"one")?.unwrap();
-                bucket.delete(b"one")?;
+                let row = bucket.get(&business_key(b"one"))?.unwrap();
+                bucket.delete(&business_key(b"one"))?;
                 if !remove {
-                    bucket.put(b"two", &row)?;
+                    bucket.put(&business_key(b"two"), &row)?;
                 }
                 Ok(())
             })
@@ -165,4 +165,149 @@ fn metadata_budget_remains_enforced_before_transaction() {
     assert!(db.read_snapshot().unwrap().is_none());
     drop(db);
     std::fs::remove_dir_all(p).unwrap();
+}
+#[test]
+fn multipage_realistic_metadata_roundtrips_all_rows() {
+    use crate::model::{Client, DurableOwner, Node};
+    let p = dir();
+    let mut db = Checkpoint::open(&p, "test", 1).unwrap();
+    let mut state = State::default();
+    for n in 1..=3 {
+        state.metadata.nodes.insert(
+            n,
+            Node {
+                id: n,
+                incarnation: format!("inc-{n}"),
+                address: format!("127.0.0.1:{}", 19000 + n),
+                expires_at: 10000,
+                max_lease_ms: 30000,
+                applied: 2000,
+            },
+        );
+    }
+    for c in 0..10 {
+        let filters = (0..210)
+            .map(|i| format!("gate/{c}/{i}"))
+            .collect::<Vec<_>>();
+        state.metadata.clients.insert(
+            format!("client-{c}"),
+            Client {
+                node: 1,
+                incarnation: "inc-1".into(),
+                generation: 1,
+                filters: filters.clone(),
+            },
+        );
+        state.metadata.durable.insert(
+            format!("c:client-{c}"),
+            DurableOwner {
+                node: 1,
+                incarnation: "inc-1".into(),
+                generation: 1,
+                epoch: 1,
+                filters: filters.clone(),
+                logical_generation: 1,
+            },
+        );
+        for filter in filters {
+            state.metadata.routes.insert(filter, [1].into());
+        }
+    }
+    let full = state.clone();
+    for count in [100, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2100] {
+        state = full.clone();
+        state.metadata.routes = full
+            .metadata
+            .routes
+            .iter()
+            .take(count)
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        state.metadata.revision = count as u64;
+        let saved = super::super::make_snapshot(&state).unwrap();
+        db.write_snapshot(&saved).unwrap();
+        db.db
+            .view(|tx| {
+                let bucket = tx.bucket(b"routes")?.unwrap();
+                for key in state.metadata.routes.keys() {
+                    assert!(
+                        bucket.get(&business_key(key.as_bytes()))?.is_some(),
+                        "missing direct get count={count} key={key}"
+                    );
+                }
+                let mut prev: Option<Vec<u8>> = None;
+                let mut rows = 0;
+                bucket.for_each(|key, _| {
+                    if let Some(old) = prev.as_ref() {
+                        assert!(
+                            old.as_slice() < key,
+                            "iterator nonmonotonic count={count} row={rows}"
+                        );
+                    }
+                    prev = Some(key.to_vec());
+                    rows += 1;
+                    Ok(())
+                })?;
+                assert_eq!(rows, state.metadata.routes.len(), "count={count}");
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(
+            db.read_snapshot().unwrap().unwrap().data,
+            saved.data,
+            "count={count}"
+        );
+    }
+    let saved = super::super::make_snapshot(&state).unwrap();
+    drop(db);
+    let db = Checkpoint::open(&p, "test", 1).unwrap();
+    assert_eq!(db.read_snapshot().unwrap().unwrap().data, saved.data);
+    drop(db);
+    std::fs::remove_dir_all(p).unwrap();
+}
+#[test]
+fn long_business_keys_roundtrip_and_delete() {
+    use crate::model::Client;
+    let p = dir();
+    let mut db = Checkpoint::open(&p, "test", 1).unwrap();
+    let mut state = State::default();
+    state.metadata.routes.insert("r".repeat(32769), [1].into());
+    state.metadata.routes.insert("t".repeat(65535), [1].into());
+    state.metadata.clients.insert(
+        format!("c:{}", "x".repeat(65535)),
+        Client {
+            node: 1,
+            incarnation: "i".into(),
+            generation: 1,
+            filters: vec![],
+        },
+    );
+    let saved = super::super::make_snapshot(&state).unwrap();
+    db.write_snapshot(&saved).unwrap();
+    assert_eq!(db.read_snapshot().unwrap().unwrap().data, saved.data);
+    drop(db);
+    let mut db = Checkpoint::open(&p, "test", 1).unwrap();
+    assert_eq!(db.read_snapshot().unwrap().unwrap().data, saved.data);
+    state.metadata.routes.clear();
+    state.metadata.clients.clear();
+    let saved = super::super::make_snapshot(&state).unwrap();
+    db.write_snapshot(&saved).unwrap();
+    drop(db);
+    let db = Checkpoint::open(&p, "test", 1).unwrap();
+    assert_eq!(db.read_snapshot().unwrap().unwrap().data, saved.data);
+    drop(db);
+    std::fs::remove_dir_all(p).unwrap();
+}
+
+#[test]
+fn physical_collision_and_logical_envelope_bounds_fail_closed() {
+    let mut rows = BTreeMap::new();
+    let hash = business_key(b"a");
+    insert_row(&mut rows, hash.clone(), vec![1]).unwrap();
+    assert!(insert_row(&mut rows, hash, vec![2]).is_err());
+    let value = business_record(b"routes", b"a", b"[]").unwrap();
+    assert!(business_unpack(b"routes", &business_key(b"b"), &value).is_err());
+    let mut invalid = value;
+    invalid[..4].copy_from_slice(&u32::MAX.to_be_bytes());
+    assert!(business_unpack(b"routes", &business_key(b"a"), &invalid).is_err());
 }

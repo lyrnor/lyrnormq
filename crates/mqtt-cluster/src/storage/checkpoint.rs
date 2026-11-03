@@ -34,7 +34,7 @@ fn io_error(error: impl std::fmt::Display) -> io::Error {
     io::Error::other(error.to_string())
 }
 fn record(bucket: &[u8], key: &[u8], data: &[u8]) -> bbolt::Result<Vec<u8>> {
-    if key.is_empty() || key.len() > 65535 || data.len() > RECORD_LIMIT {
+    if key.is_empty() || key.len() > 65538 || data.len() > RECORD_LIMIT {
         return Err(bad("checkpoint record bounds"));
     }
     let mut hash = Sha256::new();
@@ -58,6 +58,45 @@ fn unpack<'a>(bucket: &[u8], key: &[u8], value: &'a [u8]) -> bbolt::Result<&'a [
         return Err(bad("checkpoint record checksum"));
     }
     Ok(data)
+}
+fn business_key(key: &[u8]) -> Vec<u8> {
+    Sha256::digest(key).to_vec()
+}
+fn business_record(bucket: &[u8], key: &[u8], data: &[u8]) -> bbolt::Result<Vec<u8>> {
+    let checked = record(bucket, key, data)?;
+    let mut value = Vec::with_capacity(4 + key.len() + checked.len());
+    value.extend_from_slice(&(key.len() as u32).to_be_bytes());
+    value.extend_from_slice(key);
+    value.extend_from_slice(&checked);
+    Ok(value)
+}
+fn business_unpack<'a>(
+    bucket: &[u8],
+    physical: &[u8],
+    value: &'a [u8],
+) -> bbolt::Result<(&'a [u8], &'a [u8])> {
+    if value.len() < 4 || value.len() > RECORD_LIMIT + 65538 + 36 {
+        return Err(bad("business record bounds"));
+    }
+    let size = u32::from_be_bytes(value[..4].try_into().map_err(bad)?) as usize;
+    if size == 0 || size > 65538 || size > value.len() - 4 {
+        return Err(bad("business key bounds"));
+    }
+    let key = &value[4..4 + size];
+    if physical != business_key(key) {
+        return Err(bad("business physical/logical key mismatch"));
+    }
+    Ok((key, unpack(bucket, key, &value[4 + size..])?))
+}
+fn insert_row(
+    rows: &mut BTreeMap<Vec<u8>, Vec<u8>>,
+    key: Vec<u8>,
+    value: Vec<u8>,
+) -> io::Result<()> {
+    if rows.insert(key, value).is_some() {
+        return Err(io_error("business physical key collision"));
+    }
+    Ok(())
 }
 fn required(tx: &bbolt::Tx, name: &[u8]) -> bbolt::Result<bbolt::Bucket> {
     tx.bucket(name)?
@@ -169,10 +208,12 @@ impl Checkpoint {
                     if total > TRANSACTION_LIMIT {
                         return Err(bad("checkpoint transaction exceeds limit"));
                     }
-                    let bytes = unpack(name, key, value)?;
+                    let (key, bytes) = business_unpack(name, key, value)?;
                     let value = serde_json::from_slice(bytes).map_err(bad)?;
                     let key = std::str::from_utf8(key).map_err(bad)?.to_owned();
-                    map.insert(key, value);
+                    if map.insert(key, value).is_some() {
+                        return Err(bad("duplicate logical business key"));
+                    }
                     Ok(())
                 })?;
                 maps.insert(
@@ -254,14 +295,14 @@ impl Checkpoint {
             let mut rows = BTreeMap::new();
             for (key, value) in map {
                 let bytes = encode(&value)?;
-                let row = record(name, key.as_bytes(), &bytes).map_err(io_error)?;
+                let row = business_record(name, key.as_bytes(), &bytes).map_err(io_error)?;
                 total = total
                     .checked_add(key.len() + row.len())
                     .ok_or_else(|| io_error("checkpoint size overflow"))?;
                 if total > TRANSACTION_LIMIT {
                     return Err(io_error("checkpoint transaction limit"));
                 }
-                rows.insert(key.into_bytes(), row);
+                insert_row(&mut rows, business_key(key.as_bytes()), row)?;
             }
             prepared.insert(name.to_vec(), rows);
         }
