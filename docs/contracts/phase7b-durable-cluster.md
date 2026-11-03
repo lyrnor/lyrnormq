@@ -49,6 +49,18 @@ replica groups. Existing Controller data must not be deleted to conceal an inval
 upgrade: in-place migration is a separate gate; use a separately initialized cluster
 for the new durable mode. Mode/group propagate in snapshots and deltas.
 
+Disk replacement safety amendment: every Broker journal persists a random disk_id.
+Controller Register durably anchors fixed node ID -> disk_id, independently of the
+ephemeral incarnation. NodeExpire retains the anchors. An existing replica identity
+may not rejoin with a new empty disk_id: counting it as an empty quorum voter could
+lose an acknowledged value held by a slower surviving copy after just one disk
+failure. Replacing a disk therefore requires an explicit future repair protocol;
+this gate refuses it. Both incoming Replica RPC and direct local quorum execution
+must check that this journal identity is confirmed by current leased metadata,
+including during startup before registration completes. Registering the initial
+three disk identities itself does not require data W2. Old experimental unanchored
+Phase7b data has no disk-replacement guarantee; released legacy mode stays unchanged.
+
 ## Atomic record and forwarding
 
 Cluster session record contains opaque existing SessionEngine snapshot (or a
