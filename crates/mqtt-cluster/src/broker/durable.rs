@@ -1445,6 +1445,7 @@ mod tests {
         metadata.durable.insert(
             key.clone(),
             DurableOwner {
+                acquired_from: None,
                 node: 2,
                 incarnation: "other".into(),
                 generation: 1,
@@ -1535,6 +1536,7 @@ mod tests {
             metadata.durable.insert(
                 client_key("recipient"),
                 DurableOwner {
+                    acquired_from: None,
                     node: 101,
                     incarnation: runtime.incarnation.clone(),
                     generation: 1,

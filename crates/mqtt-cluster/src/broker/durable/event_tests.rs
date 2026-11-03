@@ -45,6 +45,7 @@ fn fixture(label: &str) -> io::Result<(Arc<BrokerRuntime>, std::path::PathBuf)> 
         metadata.durable.insert(
             client_key("idle"),
             DurableOwner {
+                acquired_from: None,
                 node: 101,
                 incarnation: runtime.incarnation.clone(),
                 generation: 1,
