@@ -8,6 +8,10 @@ TLS listeners additionally follow docs/contracts/phase4c-tls.md. Cluster impleme
 follows docs/contracts/phase7a-cluster.md; the historical partition-directory
 proposal is superseded. Cluster owner owns crates/mqtt-cluster, coordinator owns
 crates/mqtt-cluster-core and CLI; transport and quality retain their existing paths.
+Durable forwarding and persistent-session failover additionally follow
+docs/contracts/phase7b-durable-cluster.md. Runtime owns mqtt-cluster; transport owns
+mqtt-transport; coordinator owns the neutral core API. Do not put session bodies in
+Controller Raft or separate receipt persistence from recipient state transactions.
 WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
 stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
 Authentication admission and mandatory client certificates follow
