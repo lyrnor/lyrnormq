@@ -526,7 +526,9 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
             pass
         else:
             self.assertEqual(header, 0xe0)
-            self.assertEqual(data[0], 0x88)
+            # Revocation can race the transport's service shutdown path. Both
+            # reasons explicitly end service; accepting an open socket is invalid.
+            self.assertIn(data[0], (0x88, 0x8b))
         self.cross_roundtrip('after-broker-lease-rejoin')
 
     def test_wrong_cluster_identity_and_private_token_cannot_register(self):
