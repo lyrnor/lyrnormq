@@ -942,6 +942,38 @@ mod tests {
             &[(1, "http://127.0.0.1:9001".to_owned())],
         )
     }
+    #[test]
+    fn journal_lock_acquisition_waits_for_the_child_pre_exec_window() -> io::Result<()> {
+        let path = repair_path("process-start-window");
+        let process_start = TEST_PROCESS_START_LOCK
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let (started, ready) = std::sync::mpsc::channel();
+        let (finished, result) = std::sync::mpsc::channel();
+        let worker_path = path.clone();
+        let worker = std::thread::spawn(move || {
+            let _ = started.send(());
+            let _ = finished.send(test_journal(&worker_path));
+        });
+        ready.recv().map_err(error)?;
+        // This represents the real fork-to-exec interval, during which a child
+        // can retain a parent's flock file description despite CLOEXEC.
+        assert!(
+            matches!(
+                result.recv_timeout(std::time::Duration::from_millis(200)),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            ),
+            "journal opened while child descriptors could still be inherited"
+        );
+        drop(process_start);
+        let journal = result
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(error)??;
+        worker.join().map_err(|_| rejected())?;
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
     #[tokio::test]
     async fn completed_blocking_operations_release_all_journal_ownership_before_return()
     -> io::Result<()> {
@@ -1326,7 +1358,12 @@ mod tests {
         );
         assert!(target.finish_import(test_token(1)).await.is_err());
         drop(target);
-        let target = test_journal(&target_path)?;
+        let target = test_journal(&target_path).map_err(|cause| {
+            io::Error::new(
+                cause.kind(),
+                format!("reopen partial repair staging: {cause}"),
+            )
+        })?;
         assert_eq!(target.status().await?.next_page, 1);
         assert!(!target.voting_ready(0));
         target.append_page(test_token(1), 1, second.entries).await?;
@@ -1335,7 +1372,12 @@ mod tests {
         assert_eq!(installed.manifest, Some(manifest));
         assert!(!target.voting_ready(1));
         drop(target);
-        let target = test_journal(&target_path)?;
+        let target = test_journal(&target_path).map_err(|cause| {
+            io::Error::new(
+                cause.kind(),
+                format!("reopen installed but frozen repair: {cause}"),
+            )
+        })?;
         assert!(target.status().await?.installed);
         assert!(
             target
@@ -1657,14 +1699,26 @@ mod watermark_tests {
     #[test]
     fn disk_identity_is_stable_and_empty_replacement_gets_a_new_identity() -> io::Result<()> {
         let path = std::env::temp_dir().join(format!("rmqtt-disk-identity-{}", std::process::id()));
-        let first = Journal::open(&path, ("disk", 1), &[])?;
+        let first = Journal::open(&path, ("disk", 1), &[]).map_err(|cause| {
+            io::Error::new(cause.kind(), format!("initial disk identity open: {cause}"))
+        })?;
         let id = first.disk_id().to_owned();
         drop(first);
-        let reopened = Journal::open(&path, ("disk", 1), &[])?;
+        let reopened = Journal::open(&path, ("disk", 1), &[]).map_err(|cause| {
+            io::Error::new(
+                cause.kind(),
+                format!("immediate same disk identity reopen: {cause}"),
+            )
+        })?;
         assert_eq!(reopened.disk_id(), id);
         drop(reopened);
         std::fs::remove_dir_all(&path)?;
-        let empty = Journal::open(&path, ("disk", 1), &[])?;
+        let empty = Journal::open(&path, ("disk", 1), &[]).map_err(|cause| {
+            io::Error::new(
+                cause.kind(),
+                format!("replacement empty disk identity open: {cause}"),
+            )
+        })?;
         assert_ne!(empty.disk_id(), id);
         drop(empty);
         std::fs::remove_dir_all(path)?;
