@@ -721,3 +721,154 @@ pub(crate) struct RecipientDelivery {
     pub id: DeliveryId,
     pub message: ClusterMessage,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[derive(Debug, Default)]
+    struct FullQueue(std::sync::atomic::AtomicUsize);
+    impl LocalBroker for FullQueue {
+        fn deliver_to(
+            &self,
+            _client: String,
+            _id: DeliveryId,
+            _message: ClusterMessage,
+        ) -> ClusterFuture<'_, ()> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Box::pin(async {
+                Err(io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    "recipient queue full",
+                ))
+            })
+        }
+        fn deliver(&self, _message: ClusterMessage) -> ClusterFuture<'_, ()> {
+            Box::pin(async { Err(unavailable()) })
+        }
+        fn fence(&self, _client: String, _generation: u64) -> ClusterFuture<'_, ()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn fence_all(&self) -> ClusterFuture<'_, ()> {
+            Box::pin(async { Ok(()) })
+        }
+        fn subscriptions(&self) -> ClusterFuture<'_, Vec<mqtt_cluster_core::ClientSubscriptions>> {
+            Box::pin(async { Ok(Vec::new()) })
+        }
+    }
+    #[tokio::test]
+    async fn committed_receipt_bypasses_full_recipient_queue() -> io::Result<()> {
+        let path =
+            std::env::temp_dir().join(format!("rmqtt-receipt-preflight-{}", std::process::id()));
+        let config:crate::Config=serde_json::from_value(serde_json::json!({
+            "role":"broker","cluster_id":"preflight","node_id":101,"listen":"127.0.0.1:7101",
+            "data_dir":path,"token_file":path.join("token"),
+            "controllers":[{"id":1,"address":"http://127.0.0.1:7001"},{"id":2,"address":"http://127.0.0.1:7002"},{"id":3,"address":"http://127.0.0.1:7003"}],
+            "durable":{"replicas":[{"id":101,"address":"http://127.0.0.1:7101"},{"id":102,"address":"http://127.0.0.1:7102"},{"id":103,"address":"http://127.0.0.1:7103"}]}
+        })).map_err(io::Error::other)?;
+        let runtime = tokio::task::spawn_blocking(move || BrokerRuntime::new(config))
+            .await
+            .map_err(io::Error::other)??;
+        let id = DeliveryId {
+            source: "c:source".into(),
+            epoch: 1,
+            revision: 1,
+            index: 0,
+        };
+        let journal = runtime.journal.as_ref().ok_or_else(unavailable)?.clone();
+        let mut record = Record::empty(1);
+        record.physical_revision = 1;
+        record.receipts.insert(id.clone());
+        journal
+            .execute(Request::Write {
+                key: client_key("recipient"),
+                record,
+            })
+            .await?;
+        let local = Arc::new(FullQueue::default());
+        *runtime.local.lock().unwrap_or_else(PoisonError::into_inner) = Some(local.clone());
+        runtime.initialized.store(true, Ordering::Release);
+        *runtime
+            .deadline
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) =
+            tokio::time::Instant::now() + Duration::from_secs(60);
+        {
+            let mut metadata = runtime
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            metadata.nodes.insert(
+                101,
+                Node {
+                    id: 101,
+                    incarnation: runtime.incarnation.clone(),
+                    address: "http://127.0.0.1:7101".into(),
+                    expires_at: 0,
+                    max_lease_ms: 3000,
+                    applied: 0,
+                },
+            );
+            metadata.durable.insert(
+                client_key("recipient"),
+                DurableOwner {
+                    node: 101,
+                    incarnation: runtime.incarnation.clone(),
+                    generation: 1,
+                    epoch: 1,
+                    filters: vec!["events/#".into()],
+                },
+            );
+        }
+        // Isolate the already-committed record-cache boundary from MQTT actor capacity.
+        // The reply is loaded from the real reopened-format journal, not assumed success.
+        let (tx, mut rx) = mpsc::channel::<Job>(1);
+        runtime
+            .data
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .actors
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(client_key("recipient"), tx);
+        let cache = tokio::spawn(async move {
+            while let Some(job) = rx.recv().await {
+                if let Operation::Received { id, reply } = job.operation {
+                    let result = journal
+                        .execute(Request::Read {
+                            key: client_key("recipient"),
+                        })
+                        .await
+                        .map(|r| r.record.is_some_and(|r| r.receipts.contains(&id)));
+                    let _ = reply.send(result);
+                }
+            }
+        });
+        let result = runtime
+            .deliver_recipient(RecipientDelivery {
+                client_id: "recipient".into(),
+                id,
+                message: ClusterMessage {
+                    topic: "events/test".into(),
+                    payload: vec![1],
+                    qos: 1,
+                    retain: false,
+                    properties: Default::default(),
+                    expires_at: None,
+                    publisher: Some("source".into()),
+                    observer_client: "source".into(),
+                    scope: ForwardScope::Ordinary,
+                },
+            })
+            .await;
+        cache.abort();
+        let _ = cache.await;
+        assert!(
+            result.is_ok(),
+            "a previously committed delivery cannot require queue capacity again"
+        );
+        assert_eq!(local.0.load(Ordering::Relaxed), 0);
+        drop(runtime);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+}
