@@ -18,7 +18,7 @@ pub trait ClusterBridge: Debug + Send + Sync {
     fn open(&self, local: Arc<dyn LocalBroker>) -> ClusterFuture<'_, ()>;
     fn claim(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()>;
     fn release(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()>;
-    fn subscriptions(&self, client_id: String, filters: Vec<String>) -> ClusterFuture<'_, ()>;
+    fn subscriptions(&self, client_id: String, generation: u64, filters: Vec<String>) -> ClusterFuture<'_, ()>;
     /// Route using the installed local metadata, exclude local ordinary recipients;
     /// local ordinary dispatch remains transport-owned. Shared selection is deferred.
     fn forward(&self, message: ClusterMessage) -> ClusterFuture<'_, ()>;

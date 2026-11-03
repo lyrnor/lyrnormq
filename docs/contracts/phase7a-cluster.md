@@ -79,3 +79,21 @@ crossnodeQoS0/1/2 and HTTP, routeSUBACKbarrier, global takeover/stalecleanup, le
 kill+majoritylossfailclosed, controllerrestart state/log/snapshot, stalewatchrebuild,
 internaltoken/sizelimit, unsupportedfeature refusals, standalone837+ regressions.
 Record exact passed gates/knownremaining; no benchmark/productionHA claim invented.
+
+Approved config/API: mqtt_cluster::Config derives strict Deserialize with role:Role
+(controller|broker),cluster_id:String,node_id:u64,listen:SocketAddr,data_dir:PathBuf,
+token_file:PathBuf,controllers:Vec<Controller{id,address:String}>,bootstrap:bool=false,
+advertise:Option<String>,lease_ms:u64=3000,tls:Option<TlsConfig{cert_file,key_file,
+ca_file,domain_name}>. Controller metadata/log/vote/snapshot storage may use SQLite
+WAL/FULL with bounded blocking ownership (never MQTTpayload). Public run_controller,
+BrokerRuntime::new,serve_broker APIs agreed; async status(&Config)->ClusterStatus
+{leader:Option<u64>,term,last_applied,nodes,clients,routes} supports root cluster-status
+CLI. Config and keys/data directories cannot become Dashboard assets.
+
+Coordinated fencing amendment: ClusterBridge::subscriptions takes explicit
+(client_id,generation,filters). Route update commands validate exact node incarnation
+and connectiongeneration; never look up latest generation on behalf of a delayed
+old request. Same-node Claim is idempotent for samegeneration and rejects older
+generation. Watch must terminate/reconnect on leadership change even if no metadata
+revision arrives. Expiry requires monotonic grant observation protection, not just
+wall-clock comparison (including clock jumps during stable leadership).
