@@ -223,6 +223,10 @@ impl Store {
         .await
         .map_err(err)?
     }
+    #[cfg(test)]
+    pub(crate) fn test_apply_gate(&self) -> Arc<Semaphore> {
+        self.apply_gate.clone()
+    }
     /// Consistent sparse updates; snapshots are limited to bootstrap/history gaps.
     pub fn watch_updates(&self, base: Option<u64>) -> Vec<MetadataUpdate> {
         let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);

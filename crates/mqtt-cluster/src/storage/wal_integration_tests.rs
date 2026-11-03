@@ -115,3 +115,94 @@ async fn checkpoint_committed_before_wal_floor_recovers_after_crash()
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
+
+#[tokio::test]
+async fn committed_batch_recovers_once_before_and_after_snapshot_purge()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let mut store = Store::open(&dir, "test", 1).await?;
+    let mut registration = entry(0, 1);
+    if let openraft::EntryPayload::Normal(Command::Register {
+        replicas,
+        memory,
+        disk_id,
+        ..
+    }) = &mut registration.payload
+    {
+        *replicas = Some(
+            (1..=3)
+                .map(|node| (node, format!("http://127.0.0.1:{}", 10000 + node)))
+                .collect(),
+        );
+        *memory = true;
+        *disk_id = Some(format!("{:032x}", 1));
+    }
+    let once = |client: &str| Command::AcquireOnce {
+        key: format!("c:{client}"),
+        node: 1,
+        incarnation: "node-1".into(),
+        generation: 1,
+        expected_epoch: 0,
+    };
+    let mut batch = entry(1, 1);
+    batch.payload = openraft::EntryPayload::Normal(Command::Batch {
+        commands: vec![
+            once("a"),
+            once("b"),
+            once("a"),
+            Command::Claim {
+                node: 1,
+                incarnation: "wrong".into(),
+                client: "rejected".into(),
+                generation: 1,
+            },
+            Command::DurableFilters {
+                key: "c:a".into(),
+                node: 1,
+                incarnation: "node-1".into(),
+                epoch: 2,
+                filters: vec!["sensor/#".into()],
+                logical_generation: 1,
+            },
+        ],
+    });
+    let mut speculative = entry(2, 1);
+    speculative.payload = openraft::EntryPayload::Normal(Command::Batch {
+        commands: vec![Command::Claim {
+            node: 1,
+            incarnation: "node-1".into(),
+            client: "not-committed".into(),
+            generation: 1,
+        }],
+    });
+    append_through_store(&mut store, vec![registration, batch.clone(), speculative]).await?;
+    store.save_committed(Some(batch.log_id)).await?;
+    // Simulate process loss before RAM apply. Recovery must replay the committed batch.
+    drop(store);
+    let mut store = Store::open(&dir, "test", 1).await?;
+    let mut metadata = store.metadata();
+    assert_eq!(metadata.revision, 4);
+    assert_eq!(metadata.durable["c:a"].epoch, 2);
+    assert_eq!(metadata.durable["c:b"].epoch, 3);
+    assert_eq!(metadata.durable["c:a"].acquired_from, Some(0));
+    assert_eq!(metadata.durable["c:a"].filters, vec!["sensor/#"]);
+    assert!(metadata.clients.is_empty());
+    let before = serde_json::to_vec(&metadata)?;
+    let (answer, delta) = metadata.apply_tracked(once("a"));
+    assert_eq!(answer.revision, 2);
+    assert!(answer.error.is_none());
+    assert!(delta.is_none());
+    assert_eq!(serde_json::to_vec(&metadata)?, before);
+    let snapshot = store.build_snapshot().await?;
+    assert_eq!(snapshot.meta.last_log_id, Some(batch.log_id));
+    store.purge(batch.log_id).await?;
+    drop(store);
+    let store = Store::open(&dir, "test", 1).await?;
+    let mut metadata = store.metadata();
+    assert_eq!(serde_json::to_vec(&metadata)?, before);
+    assert_eq!(metadata.apply(once("a")).revision, 2);
+    assert_eq!(store.state.lock().unwrap().last_applied, Some(batch.log_id));
+    drop(store);
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}

@@ -71,6 +71,7 @@ impl Cluster for ReadSpy {
                     revision: applied + 100,
                     error: None,
                     lease_ms: 3000,
+                    results: Vec::new(),
                 })
                 .unwrap(),
             ));

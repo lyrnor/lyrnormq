@@ -124,6 +124,7 @@ fn legacy_reference(m: &mut Metadata, command: Command) -> Answer {
             revision: m.revision,
             error: Some(error),
             lease_ms: 0,
+            results: Vec::new(),
         }
     } else {
         *m = next;
@@ -131,6 +132,7 @@ fn legacy_reference(m: &mut Metadata, command: Command) -> Answer {
             revision: m.revision,
             error: None,
             lease_ms: 0,
+            results: Vec::new(),
         }
     }
 }
@@ -777,4 +779,175 @@ fn acquisition_once_duplicate_preserves_epoch_and_survives_serialized_state() {
         expected_epoch: 0,
     });
     assert!(conflict.error.is_some());
+}
+
+#[test]
+fn control_batch_matches_sequential_answers_sparse_delta_and_partial_rejections() {
+    let mut metadata = Metadata::default();
+    assert!(metadata.apply(register()).error.is_none());
+    let commands = vec![
+        Command::Claim {
+            node: 1,
+            incarnation: "one".into(),
+            client: "a".into(),
+            generation: 1,
+        },
+        Command::Claim {
+            node: 1,
+            incarnation: "wrong".into(),
+            client: "invalid".into(),
+            generation: 1,
+        },
+        Command::Claim {
+            node: 1,
+            incarnation: "one".into(),
+            client: "b".into(),
+            generation: 1,
+        },
+    ];
+    let mut sequential = metadata.clone();
+    let mut observer = metadata.clone();
+    let expected: Vec<_> = commands
+        .iter()
+        .cloned()
+        .map(|command| sequential.apply(command))
+        .collect();
+    let command: Command =
+        serde_json::from_value(serde_json::json!({"Batch":{"commands":commands}}))
+            .expect("internal batch command must decode");
+    METADATA_CLONES.with(|count| count.set(0));
+    let (answer, delta) = metadata.apply_tracked(command);
+    METADATA_CLONES.with(|count| assert_eq!(count.get(), 0, "batch cloned complete metadata"));
+    let value = serde_json::to_value(&answer).unwrap();
+    assert_eq!(value["results"], serde_json::to_value(&expected).unwrap());
+    delta.unwrap().merge_in_place(&mut observer).unwrap();
+    assert_eq!(
+        serde_json::to_vec(&metadata).unwrap(),
+        serde_json::to_vec(&sequential).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_vec(&observer).unwrap(),
+        serde_json::to_vec(&sequential).unwrap()
+    );
+}
+
+#[test]
+fn malformed_batch_is_rejected_before_any_child_mutates() {
+    let mut metadata = Metadata::default();
+    metadata.apply(register());
+    let before = serde_json::to_vec(&metadata).unwrap();
+    let valid = Command::Claim {
+        node: 1,
+        incarnation: "one".into(),
+        client: "valid".into(),
+        generation: 1,
+    };
+    for commands in [
+        vec![],
+        vec![valid.clone(); 65],
+        vec![
+            valid.clone(),
+            Command::Batch {
+                commands: vec![valid.clone()],
+            },
+        ],
+        vec![
+            valid.clone(),
+            Command::Claim {
+                node: 1,
+                incarnation: "one".into(),
+                client: "x".repeat(512 * 1024),
+                generation: 1,
+            },
+        ],
+    ] {
+        let (answer, delta) = metadata.apply_tracked(Command::Batch { commands });
+        assert!(answer.error.is_some());
+        assert!(delta.is_none());
+        assert_eq!(serde_json::to_vec(&metadata).unwrap(), before);
+    }
+}
+#[test]
+fn batch_trailing_heartbeat_and_invalid_child_preserve_final_sparse_state() {
+    let mut metadata = Metadata::default();
+    metadata.apply(register());
+    let mut observer = metadata.clone();
+    let (answer, delta) = metadata.apply_tracked(Command::Batch {
+        commands: vec![
+            Command::Claim {
+                node: 1,
+                incarnation: "one".into(),
+                client: "".into(),
+                generation: 1,
+            },
+            Command::Claim {
+                node: 1,
+                incarnation: "one".into(),
+                client: "valid".into(),
+                generation: 1,
+            },
+            Command::Heartbeat {
+                node: 1,
+                incarnation: "one".into(),
+                applied: 2,
+                expires_at: 5000,
+                lease_ms: 3000,
+            },
+        ],
+    });
+    assert!(answer.results[0].error.is_some());
+    assert!(answer.results[1].error.is_none());
+    assert!(answer.results[2].error.is_none());
+    delta.unwrap().merge_in_place(&mut observer).unwrap();
+    assert_eq!(
+        serde_json::to_vec(&observer).unwrap(),
+        serde_json::to_vec(&metadata).unwrap()
+    );
+}
+
+#[test]
+fn acquisition_once_batch_epochs_and_takeover_fence_stale_retries() {
+    let mut metadata = Metadata::default();
+    let peers = (1..=3)
+        .map(|node| (node, format!("http://127.0.0.1:{node}")))
+        .collect();
+    metadata.apply(Command::Register {
+        node: 1,
+        incarnation: "one".into(),
+        address: "http://127.0.0.1:1".into(),
+        expires_at: 1000,
+        lease_ms: 3000,
+        replicas: Some(peers),
+        memory: true,
+        disk_id: Some(format!("{:032x}", 1)),
+    });
+    let once = |client: &str, generation, expected_epoch| Command::AcquireOnce {
+        key: format!("c:{client}"),
+        node: 1,
+        incarnation: "one".into(),
+        generation,
+        expected_epoch,
+    };
+    let answer = metadata.apply(Command::Batch {
+        commands: vec![once("a", 1, 0), once("b", 1, 0), once("a", 1, 0)],
+    });
+    assert!(answer.results.iter().all(|answer| answer.error.is_none()));
+    assert_eq!(
+        answer
+            .results
+            .iter()
+            .map(|answer| answer.revision)
+            .collect::<Vec<_>>(),
+        vec![2, 3, 2]
+    );
+    assert_eq!(metadata.revision, 3);
+    let takeover = metadata.apply(once("a", 2, 2));
+    assert!(takeover.error.is_none());
+    assert_eq!(takeover.revision, 4);
+    let before = serde_json::to_vec(&metadata).unwrap();
+    assert!(metadata.apply(once("a", 1, 0)).error.is_some());
+    assert_eq!(serde_json::to_vec(&metadata).unwrap(), before);
+    assert_eq!(metadata.apply(once("a", 2, 2)).revision, 4);
+    metadata.excluded.insert(1);
+    assert!(metadata.apply(once("a", 2, 2)).error.is_some());
 }

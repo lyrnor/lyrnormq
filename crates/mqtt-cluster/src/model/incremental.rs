@@ -9,7 +9,7 @@ pub(crate) struct Derived {
     valid: bool,
     bytes: usize,
     references: BTreeMap<String, BTreeMap<u64, usize>>,
-    pending_nodes: BTreeSet<u64>,
+    pub(super) pending_nodes: BTreeSet<u64>,
     pub(super) clients_by_node: BTreeMap<u64, BTreeSet<String>>,
 }
 #[derive(Serialize)]
@@ -281,6 +281,7 @@ impl Metadata {
                     revision: self.revision,
                     error: Some(error),
                     lease_ms: 0,
+                    results: Vec::new(),
                 },
                 None,
             );
@@ -308,6 +309,7 @@ impl Metadata {
                     },
                     error: result.err(),
                     lease_ms: 0,
+                    results: Vec::new(),
                 },
                 None,
             );
@@ -318,6 +320,7 @@ impl Metadata {
                     revision: self.revision,
                     error: Some("metadata revision exhausted".into()),
                     lease_ms: 0,
+                    results: Vec::new(),
                 },
                 None,
             );
@@ -345,6 +348,7 @@ impl Metadata {
                         revision: self.revision,
                         error: Some(error),
                         lease_ms: 0,
+                        results: Vec::new(),
                     },
                     None,
                 );
@@ -357,6 +361,7 @@ impl Metadata {
                     revision: self.revision,
                     error: Some(error),
                     lease_ms: 0,
+                    results: Vec::new(),
                 },
                 None,
             );
@@ -377,6 +382,7 @@ impl Metadata {
                         revision: self.revision,
                         error: Some("metadata byte capacity".into()),
                         lease_ms: 0,
+                        results: Vec::new(),
                     },
                     None,
                 );
@@ -389,6 +395,7 @@ impl Metadata {
             revision: self.revision,
             error: None,
             lease_ms: 0,
+            results: Vec::new(),
         };
         let delta = (!heartbeat && self.revision != undo.revision).then(|| MetadataUpdate::Delta {
             base: undo.revision,
@@ -433,6 +440,7 @@ impl Metadata {
                     revision: self.revision,
                     error: Some(error),
                     lease_ms: 0,
+                    results: Vec::new(),
                 },
                 None,
             );
@@ -449,6 +457,7 @@ impl Metadata {
                 revision: self.revision,
                 error: None,
                 lease_ms: 0,
+                results: Vec::new(),
             },
             Some(delta),
         )

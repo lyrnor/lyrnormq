@@ -5,8 +5,11 @@ use openraft::{BasicNode, Entry, LogId, StoredMembership};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
+pub(crate) mod batch;
 #[path = "model/incremental.rs"]
 mod incremental;
+mod validation;
+pub(crate) use validation::valid_command;
 pub type NodeId = u64;
 fn legacy_max_lease() -> u64 {
     30000
@@ -109,6 +112,9 @@ impl Clone for Metadata {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Command {
+    Batch {
+        commands: Vec<Command>,
+    },
     RepairBegin {
         target: u64,
         old_disk: String,
@@ -205,6 +211,8 @@ pub struct Answer {
     pub error: Option<String>,
     #[serde(default)]
     pub lease_ms: u64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub results: Vec<Answer>,
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct State {
@@ -214,7 +222,10 @@ pub struct State {
 }
 impl Metadata {
     pub fn apply_tracked(&mut self, command: Command) -> (Answer, Option<MetadataUpdate>) {
-        self.apply_incremental(command)
+        match command {
+            Command::Batch { commands } => self.apply_batch(commands),
+            command => self.apply_incremental(command),
+        }
     }
     #[allow(dead_code)] // Compatibility API; Raft storage consumes tracked results.
     pub fn apply(&mut self, command: Command) -> Answer {
@@ -258,6 +269,7 @@ impl Metadata {
             return Err("durable maintenance in progress".into());
         }
         match command {
+            Command::Batch { .. } => return Err("nested metadata batch".into()),
             Command::RepairBegin {
                 target,
                 old_disk,
@@ -560,6 +572,7 @@ impl State {
                     revision: self.metadata.revision,
                     error: None,
                     lease_ms: 0,
+                    results: Vec::new(),
                 },
                 None,
             ),
@@ -570,6 +583,7 @@ impl State {
                         revision: self.metadata.revision,
                         error: None,
                         lease_ms: 0,
+                        results: Vec::new(),
                     },
                     None,
                 )

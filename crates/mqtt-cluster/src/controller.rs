@@ -2,6 +2,7 @@
 use std::sync::PoisonError;
 mod admission;
 mod applied;
+mod batching;
 pub(crate) mod diagnostics;
 use diagnostics::{Kind, Stage, measure};
 const MAX_REPLICATION_ENTRIES: u64 = 24;
@@ -106,6 +107,7 @@ pub(crate) struct Control {
     rpc: ClientRpc,
     progress: applied::Progress,
     lease_ms: u64,
+    writes: batching::Writer,
 }
 impl Control {
     async fn leader(&self) -> Result<(), Status> {
@@ -144,56 +146,7 @@ impl Control {
             {
                 return Err(Status::resource_exhausted("metadata command byte limit"));
             }
-            match &mut command {
-                Command::Register {
-                    node,
-                    expires_at,
-                    lease_ms,
-                    ..
-                }
-                | Command::Heartbeat {
-                    node,
-                    expires_at,
-                    lease_ms,
-                    ..
-                } => {
-                    *lease_ms = self.lease_ms;
-                    let previous = self
-                        .store
-                        .state
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .metadata
-                        .nodes
-                        .get(node)
-                        .map_or(0, |n| n.expires_at);
-                    *expires_at = now()
-                        .saturating_add(self.lease_ms)
-                        .max(previous.saturating_add(1));
-                }
-                _ => {}
-            }
-            // This rejection is provably before submission. Errors from client_write below
-            // must not be used to infer that a command never entered the consensus log.
-            if self.raft.metrics().borrow().current_leader != Some(self.rpc.config_node()) {
-                return Err(Status::failed_precondition(
-                    "metadata not submitted: not current leader",
-                ));
-            }
-            let raft = self.raft.clone();
-            // Admission belongs to submitted work, not to the cancellable response future.
-            let kind = Kind::command(&command);
-            let pending = admission::submit(async move {
-                measure(Stage::RaftResult, kind, raft.client_write(command)).await
-            });
-            let result = tokio::time::timeout(Duration::from_secs(2), pending)
-                .await
-                .map_err(|_| Status::unavailable("metadata commit deadline"))?
-                .map_err(|_| Status::unavailable("metadata commit task outcome unknown"))?
-                .map_err(|_| Status::unavailable("metadata commit outcome unknown"))?;
-            let mut answer = result.data;
-            answer.lease_ms = self.lease_ms;
-            Ok(answer)
+            self.writes.write(command).await
         })
         .await
     }
@@ -239,105 +192,7 @@ impl Control {
     }
 }
 fn validate(command: &Command) -> Result<(), Status> {
-    let text = |s: &str, max: usize| !s.is_empty() && s.len() <= max && !s.contains('\0');
-    let okay = match command {
-        Command::RepairBegin {
-            target,
-            old_disk,
-            new_disk,
-            ..
-        } => *target > 0 && text(old_disk, 32) && text(new_disk, 32),
-        Command::RepairSeal {
-            id,
-            generation,
-            manifest,
-        } => text(id, 128) && *generation > 0 && manifest.valid(),
-        Command::RepairCommit { id, generation, .. } | Command::RepairAbort { id, generation } => {
-            text(id, 128) && *generation > 0
-        }
-        Command::Acquire {
-            key,
-            node,
-            incarnation,
-            ..
-        }
-        | Command::AcquireOnce {
-            key,
-            node,
-            incarnation,
-            ..
-        } => {
-            *node > 0
-                && text(key, 65538)
-                && (key.starts_with("c:") || key.starts_with("h:"))
-                && text(incarnation, 64)
-        }
-        Command::DurableFilters {
-            key,
-            node,
-            incarnation,
-            epoch,
-            filters,
-            ..
-        } => {
-            *node > 0
-                && *epoch > 0
-                && text(key, 65538)
-                && text(incarnation, 64)
-                && filters.len() <= 256
-                && filters
-                    .iter()
-                    .all(|f| mqtt_router::validate_topic_filter(f) && !f.starts_with("$share/"))
-        }
-        Command::Register {
-            node,
-            incarnation,
-            address,
-            ..
-        } => {
-            *node > 0
-                && text(incarnation, 64)
-                && text(address, 2048)
-                && (address.starts_with("http://127.0.0.1:")
-                    || address.starts_with("http://[::1]:")
-                    || address.starts_with("https://"))
-        }
-        Command::Heartbeat {
-            node, incarnation, ..
-        }
-        | Command::Expire {
-            node, incarnation, ..
-        } => *node > 0 && text(incarnation, 64),
-        Command::Claim {
-            node,
-            incarnation,
-            client,
-            generation,
-        }
-        | Command::Release {
-            node,
-            incarnation,
-            client,
-            generation,
-        } => *node > 0 && *generation > 0 && text(incarnation, 64) && text(client, 65535),
-        Command::Filters {
-            generation,
-            node,
-            incarnation,
-            client,
-            filters,
-        } => {
-            *node > 0
-                && text(incarnation, 64)
-                && text(client, 65535)
-                && *generation > 0
-                && filters.len() <= 256
-                && filters
-                    .iter()
-                    .all(|f| mqtt_router::validate_topic_filter(f) && !f.starts_with("$share/"))
-        }
-    };
-    if okay {
+    if crate::model::valid_command(command) {
         Ok(())
     } else {
         Err(Status::invalid_argument("invalid metadata command"))
@@ -668,9 +523,11 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     )
     .await
     .map_err(io::Error::other)?;
+    let writes = batching::start(raft.clone(), store.clone(), config.node_id, config.lease_ms);
     let control = Arc::new(Control {
         raft,
         store,
+        writes,
         rpc: rpc.clone(),
         progress: applied::Progress::default(),
         lease_ms: config.lease_ms,
@@ -833,38 +690,106 @@ mod control_tests {
         })
         .await
         .map_err(io::Error::other)?;
+        let writes = batching::start(raft.clone(), store.clone(), 1, 3000);
         let control = Arc::new(Control {
             raft,
             store,
+            writes,
             rpc,
             progress: applied::Progress::default(),
             lease_ms: 3000,
         });
-        // Both business and health submissions may exceed former admission caps.
+        control
+            .write(Command::Register {
+                node: 1,
+                incarnation: "fixture".into(),
+                address: "http://127.0.0.1:64000".into(),
+                replicas: None,
+                memory: false,
+                disk_id: None,
+                expires_at: 0,
+                lease_ms: 3000,
+            })
+            .await
+            .map_err(io::Error::other)?;
+        let before_external_batch = serde_json::to_vec(&control.store.metadata()).unwrap();
+        let before_log = control.store.state.lock().unwrap().last_applied;
+        let rejection = control
+            .write(Command::Batch {
+                commands: vec![Command::Heartbeat {
+                    node: 1,
+                    incarnation: "fixture".into(),
+                    applied: 0,
+                    expires_at: 0,
+                    lease_ms: 3000,
+                }],
+            })
+            .await
+            .unwrap_err();
+        assert_eq!(rejection.code(), tonic::Code::InvalidArgument);
+        assert_eq!(
+            serde_json::to_vec(&control.store.metadata()).unwrap(),
+            before_external_batch
+        );
+        assert_eq!(control.store.state.lock().unwrap().last_applied, before_log);
+        // Hold real state-machine application: no response may precede apply.
+        let application = control
+            .store
+            .test_apply_gate()
+            .acquire_owned()
+            .await
+            .unwrap();
+        let waiting = tokio::spawn({
+            let control = control.clone();
+            async move {
+                control
+                    .write(Command::Claim {
+                        node: 1,
+                        incarnation: "fixture".into(),
+                        client: "no-early".into(),
+                        generation: 1,
+                    })
+                    .await
+            }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(
+            !waiting.is_finished(),
+            "reply preceded state-machine application"
+        );
+        assert!(!control.store.metadata().clients.contains_key("no-early"));
+        drop(application);
+        waiting
+            .await
+            .map_err(io::Error::other)?
+            .map_err(io::Error::other)?;
+        // Cancel514 queued replies while the one worker retains all accepted work.
         let before_submissions = control.raft.metrics().borrow().last_applied.unwrap().index;
         let commands = (0..514).map(|i| {
             if i % 2 == 0 {
                 Command::Heartbeat {
-                    node: u64::MAX,
+                    node: 1,
                     incarnation: "fixture".into(),
                     applied: 0,
                     expires_at: 0,
                     lease_ms: 3000,
                 }
             } else {
-                Command::Acquire {
-                    key: format!("c:quota-{i}"),
-                    node: 101,
-                    incarnation: "n101".into(),
+                Command::Claim {
+                    node: 1,
+                    incarnation: "fixture".into(),
+                    client: format!("quota-{i}"),
                     generation: 1,
-                    expected_epoch: 0,
                 }
             }
         });
         let mut writes: Vec<_> = commands
             .map(|command| Box::pin(control.write(command)))
             .collect();
-        std::future::poll_fn(|cx| {
+        // This deliberately polls all sends in one task before cancelling replies.
+        // Disable only the test harness's cooperative poll budget, so Pending means
+        // waiting for the reply, rather than an unpolled enqueue after128 sends.
+        tokio::task::coop::unconstrained(std::future::poll_fn(|cx| {
             for request in &mut writes {
                 assert!(
                     request.as_mut().poll(cx).is_pending(),
@@ -872,26 +797,54 @@ mod control_tests {
                 );
             }
             std::task::Poll::Ready(())
-        })
+        }))
         .await;
         drop(writes);
-        // Caller cancellation does not cancel these514 owned submissions. Observe their
-        // application without requiring a loaded filesystem to finish within an RPC deadline.
-        let mut metrics = control.raft.metrics();
+        let mut changes = control.store.changed.subscribe();
         tokio::time::timeout(Duration::from_secs(15), async {
-            while metrics
-                .borrow()
-                .last_applied
-                .is_none_or(|id| id.index < before_submissions + 514)
-            {
-                metrics.changed().await.unwrap();
+            loop {
+                let done = control
+                    .store
+                    .state
+                    .lock()
+                    .unwrap()
+                    .metadata
+                    .clients
+                    .keys()
+                    .filter(|key| key.starts_with("quota-"))
+                    .count()
+                    == 257;
+                if done {
+                    break;
+                }
+                changes.changed().await.unwrap();
             }
         })
         .await
-        .expect("all owned submissions must finish after caller cancellation");
+        .expect("all accepted child commands must apply after caller cancellation");
+        let last = control
+            .store
+            .state
+            .lock()
+            .unwrap()
+            .last_applied
+            .unwrap()
+            .index;
+        eprintln!(
+            "514 canceled requests applied using {} durable Raft entries",
+            last - before_submissions
+        );
+        assert!(
+            last - before_submissions <= 10,
+            "514 queued requests should share at most10 WAL entries, observed{}",
+            last - before_submissions
+        );
         {
             let mut state = control.store.state.lock().unwrap();
-            state.metadata.revision = 7;
+            state.metadata = Metadata {
+                revision: 7,
+                ..Metadata::default()
+            };
             for (id, applied) in [(101, 7), (102, 6)] {
                 state.metadata.nodes.insert(
                     id,
