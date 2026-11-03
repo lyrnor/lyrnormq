@@ -1062,3 +1062,20 @@ the source before publication. This replaces the Phase7h SQLite log backend,
 not its sparse state machine or installed-version barriers. The known controller
 admission/heartbeat/reacquisition bottlenecks are separate work; a WAL backend change
 alone does not establish the requested connection throughput.
+
+## Controller bbolt state (Phase7k)
+
+[Contract](contracts/phase7k-bbolt-control-state.md) supersedes Controller SQLite
+checkpoints. Independent raft-log WAL retains consensus entries/votes/watermarks;
+controller.bbolt atomically stores keyed business maps plus checkpoint position/
+membership, with bounded contextual checksums. Hashed32B physical keys preserve
+MQTT65535-byte logical identifiers/filters. Normal apply is RAM+WAL; periodic
+checkpoint scans/upserts frozen State and wire snapshots remain bounded16MiB.
+Controller runtime has no SQLite dependency; an explicit offline Python exporter
+imports legacy Phase7j state through validated staging publication. The small
+controller.bbolt.required fence prevents lost state from stale-export fallback.
+Use bbolt v0.1.1/3e33a39f, fixing the initial library's cross-leaf append-hint defect.
+Rules/access configuration stores outside the Controller are unchanged.
+[Correctness and server rebenchmark](performance/bbolt-control-20261103/README.md)
+records997workspace passes,39native/7Linux process gates, and failed1000/s first
+cohort. Shared admission/heartbeat capacity and retry amplification remain open.

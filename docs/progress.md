@@ -2845,3 +2845,25 @@ Applied capacity and background reacquire amplification remain open. Evidence:
 Final dual-role gate1/1 passed2.783s; local Linux amd64-musl static release build
 passed1m13s, SHA8321c9cbf18cb1715a6b16d10ba463f59bce9053f17253e5d9575735d898e426.
 Zig linker warns deprecated optimization1 ignored; no server build/deployment.
+
+## 2026-11-03 — Phase7k bbolt Controller state integrated; scale still blocked
+
+Controller checkpoint SQLite replaced by bbolt keyed atomic state and explicit
+offline migration, preserving independent durable Raft WAL/committed replay/purge.
+Long MQTT keys use bounded original-key envelopes and hashed physical indexes.
+True process snapshot acceptance exposed bbolt v0.1.0 put_hint cross-leaf key loss;
+native regression RED→fix, upstream v0.1.1 released on independent fix branch,
+locked3e33a39f. No affected prototype deployed; checksums were never weakened.
+
+Fixedsource92ecb8c:997workspace tests pass/1externalPGignored, fmt/strictClippy pass;
+39native process gates and7Linux release process gates all first-pass green.
+Locallyzigbuilt static amd64musl SHA6ca87ef3… deployed fresh on47.84.224.186,
+load47.84.241.200 private network,3dual-role processes.1000/s first10k failed:
+10000attempts/281CONNACKsuccess/186alive;8403reason0x88+1316EOF. Accepted latency
+mean1113.530ms/p991896.240ms; not message latency or maximum sustainable capacity.
+BrokerCPUmean3.345cores/peakinterval4.975of8, RSSpeak446.90MiB. Higher plateaus,
+2000/4000 and message QoS0/1/2 TPS cases not run per stop-on-failure. All processes
+stopped, port range restored, evidence retained. No new storage fatal/checksum/IO
+errors; controls term1leader1/applied5227 aligned. Admission32vs96, heartbeat sharing,
+background reacquire amplification and replicated PING work remain next tasks.
+[Full measured evidence](performance/bbolt-control-20261103/README.md).

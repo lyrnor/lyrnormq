@@ -109,6 +109,11 @@ jobs:
       - name: Independent Raft WAL and checkpoint crash recovery
         timeout-minutes: 10
         run: PYTHONPATH=tests python3 -m unittest cluster_raft_wal_blackbox.RaftWalAcceptance -v
+      - name: Bbolt Controller layout and offline export acceptance
+        timeout-minutes: 10
+        run: |
+          python3 tests/cluster_bbolt_export_test.py -v -f
+          PYTHONPATH=tests python3 -m unittest cluster_bbolt_blackbox.BboltAcceptance -v -f
       - name: Controller observation sampler verification
         timeout-minutes: 5
         run: python3 -m unittest discover -s tests -p cluster_topology_controller_probe_test.py -v

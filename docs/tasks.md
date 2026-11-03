@@ -644,3 +644,18 @@ superseded, not an outstanding prerequisite. No automatic main merge or deployme
 - [ ] Optional followup: measured HTTP throughput/P99 and connection reuse profiling.
 
 [Evidence and limits](verification/http-publish-20261103/README.md).
+
+## Phase7k follow-up after bbolt backend acceptance
+
+- Done: tagged bbolt v0.1.1, keyed checksummed checkpoints, explicit offline upgrade,
+  atomic state/applied floor, missing-store fencing, no runtime Controller SQLite.
+- Done:997workspace tests,39native/7Linux process gates, local amd64musl release,
+  new three-role-pair deployment and one1000/s failed first10k cohort.
+- Open: separately freeze and implement bounded control command batching/admission,
+  heartbeat capacity isolation and Applied admission alignment; no weaker quorum/ACK.
+- Open: differentiate transient background Work failure from poisoned recovery to
+  prevent unnecessary Acquire/epoch/quorum amplification; audit PING durability.
+- Open: request-correlated rejection/latency diagnostics; fix reason0x88→0x8b
+  mapping interpretation if it incorrectly reports server shutdown.
+- Open: only after fixes repeat1000/s firstcohort, then2000/4000 up to100k, then
+ 10000TCP/10000publish/s128B QoS0/1/2 with delivered/ACK/loss and mean/p99.
