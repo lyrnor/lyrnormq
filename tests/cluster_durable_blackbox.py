@@ -312,6 +312,8 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         self.send_publish(source, 'durable/quorum', b'must not acknowledge', 1, 91)
         try:
             header, data = receive(source)
+        except socket.timeout:
+            self.fail('RF1 mutation must fail within the finite socket deadline')
         except (EOFError, OSError):
             pass
         else:
@@ -322,6 +324,8 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         sock.sendall(self.packet('rf1-new', clean=False))
         try:
             header, data = receive(sock)
+        except socket.timeout:
+            self.fail('RF1 CONNECT must fail within the finite socket deadline')
         except (EOFError, OSError):
             pass
         else:
