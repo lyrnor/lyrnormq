@@ -22,6 +22,9 @@ pub struct RunConfig {
     pub version: Version,
     pub qos: u8,
     pub pairs: usize,
+    /// Maximum simultaneously setting-up pairs. Established pairs wait at the run barrier.
+    #[serde(default = "default_setup_concurrency")]
+    pub setup_concurrency: usize,
     pub payload_bytes: usize,
     /// Zero means closed loop; otherwise aggregate intended messages/second.
     pub rate: u64,
@@ -34,6 +37,9 @@ pub struct RunConfig {
     pub max_messages: u64,
     pub max_packet_bytes: usize,
 }
+fn default_setup_concurrency() -> usize {
+    32
+}
 impl Default for RunConfig {
     fn default() -> Self {
         Self {
@@ -42,6 +48,7 @@ impl Default for RunConfig {
             version: Version::V5,
             qos: 0,
             pairs: 2500,
+            setup_concurrency: default_setup_concurrency(),
             payload_bytes: 128,
             rate: 0,
             duration_ms: 60000,

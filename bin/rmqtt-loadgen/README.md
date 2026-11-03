@@ -38,6 +38,11 @@ publisher and subscriber counts per endpoint. Report `config.addresses`,
 explicit; configured connection counts are not observed successful connections.
 An empty API `addresses` list preserves legacy `address` behavior. `--addr` and
 `--addrs` cannot combine. All pairs still share one monotonic clock and setup barrier.
+`--setup-concurrency N` bounds active pair setup tasks (default 32, range 1..1024).
+Use a smaller value, such as 1 or 3, to avoid overwhelming bounded broker admission
+or durable-operation windows during setup. It changes setup pressure only, does not
+retry rejected connections and does not reduce the measured publish load. The
+configured bound is retained in the report; all setup still finishes before warmup.
 
 Only one generator process is supported per run:the publisher and subscriber use
 the same monotonic epoch. KeepAlive0,clean sessions,TCP_NODELAY,no aliases,auth,TLS,

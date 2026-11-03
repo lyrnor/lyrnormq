@@ -3,7 +3,7 @@ use crate::{
     model::{RunConfig, Version},
 };
 use std::{collections::BTreeSet, path::PathBuf};
-pub const USAGE: &str = "rmqtt-loadgen [--addr IP:PORT | --addrs IP:PORT,IP:PORT,...] [--protocol 5|3.1.1] [--qos 0|1|2] [--pairs N] [--payload-bytes N] [--rate MESSAGES_PER_SECOND (0=closed-loop)] [--duration-ms N] [--warmup-ms N] [--drain-timeout-ms N] [--connect-timeout-ms N] [--io-timeout-ms N] [--inflight N] [--max-messages N] [--max-packet-bytes N] [--output FILE] [--raw FILE]";
+pub const USAGE: &str = "rmqtt-loadgen [--addr IP:PORT | --addrs IP:PORT,IP:PORT,...] [--protocol 5|3.1.1] [--qos 0|1|2] [--pairs N] [--setup-concurrency 1..1024] [--payload-bytes N] [--rate MESSAGES_PER_SECOND (0=closed-loop)] [--duration-ms N] [--warmup-ms N] [--drain-timeout-ms N] [--connect-timeout-ms N] [--io-timeout-ms N] [--inflight N] [--max-messages N] [--max-packet-bytes N] [--output FILE] [--raw FILE]";
 pub struct Options {
     pub config: RunConfig,
     pub output: PathBuf,
@@ -18,6 +18,9 @@ pub fn validate(c: &RunConfig) -> Result<(), LoadError> {
     }
     if c.pairs == 0 || c.pairs > 60000 {
         return Err(bad("pairs must be1..60000"));
+    }
+    if !(1..=1024).contains(&c.setup_concurrency) {
+        return Err(bad("setup-concurrency must be1..1024"));
     }
     if c.qos > 2 {
         return Err(bad("qos must be0..2"));
@@ -111,6 +114,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Options>, 
                 c.qos = u8::try_from(n()?).map_err(|_| LoadError::Config("qos overflow".into()))?
             }
             "--pairs" => c.pairs = size()?,
+            "--setup-concurrency" => c.setup_concurrency = size()?,
             "--payload-bytes" => c.payload_bytes = size()?,
             "--rate" => c.rate = n()?,
             "--duration-ms" => c.duration_ms = n()?,
@@ -183,6 +187,27 @@ mod tests {
             .collect::<Vec<_>>()
             .join(",");
         assert!(parse(["--addrs".to_owned(), addresses]).is_err());
+    }
+
+    #[test]
+    fn setup_concurrency_is_explicit_bounded_and_defaults_for_legacy_reports() {
+        let options = parse(["--setup-concurrency", "1"].map(str::to_owned))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(options.config).unwrap()["setup_concurrency"],
+            1
+        );
+        for value in ["0", "1025", "18446744073709551615"] {
+            assert!(parse(["--setup-concurrency".to_owned(), value.to_owned()]).is_err());
+        }
+        let mut legacy = serde_json::to_value(RunConfig::default()).unwrap();
+        legacy.as_object_mut().unwrap().remove("setup_concurrency");
+        let config: RunConfig = serde_json::from_value(legacy).unwrap();
+        assert_eq!(
+            serde_json::to_value(config).unwrap()["setup_concurrency"],
+            32
+        );
     }
 
     #[test]

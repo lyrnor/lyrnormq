@@ -14,6 +14,7 @@ fn config(address: std::net::SocketAddr, version: Version, qos: u8) -> RunConfig
         version,
         qos,
         pairs: 1,
+        setup_concurrency: 32,
         payload_bytes: 128,
         rate: 0,
         duration_ms: 100,
@@ -445,5 +446,51 @@ async fn distinct_endpoint_mapping_is_balanced_with_both_versions_and_all_qos() 
                 assert!(peer.finish().await.is_empty());
             }
         }
+    }
+}
+
+#[tokio::test]
+async fn bounded_setup_concurrency_limits_outstanding_handshakes_without_retry() {
+    for concurrency in [1, 2] {
+        let peer = Peer::start_pairs(
+            Scenario {
+                connack_delay: Duration::from_millis(20),
+                ..Scenario::default()
+            },
+            6,
+        )
+        .await;
+        let mut c = config(peer.address, Version::V5, 2);
+        c.pairs = 6;
+        c.setup_concurrency = concurrency;
+        let data = timeout(Duration::from_secs(5), engine::run(c))
+            .await
+            .unwrap()
+            .unwrap();
+        let ids = peer.observed.client_ids.lock().unwrap().clone();
+        assert_eq!(
+            ids.len(),
+            12,
+            "each endpoint is opened exactly once, no setup retries"
+        );
+        let distinct: std::collections::BTreeSet<_> = ids.into_iter().collect();
+        assert_eq!(distinct.len(), 12);
+        assert_eq!(
+            peer.observed.peak_handshakes.load(Ordering::SeqCst),
+            concurrency
+        );
+        assert_eq!(peer.observed.active_handshakes.load(Ordering::SeqCst), 0);
+        assert!(peer.finish().await.is_empty());
+        assert!(data.failures.is_empty(), "{:?}", data.failures);
+        assert_eq!(data.pairs.len(), 6);
+        assert!(data.pairs.iter().all(|pair| pair.counters.attempted > 0
+            && pair.counters.attempted == pair.counters.completed));
+        assert!(
+            data.pairs
+                .iter()
+                .flat_map(|pair| &pair.samples)
+                .all(|sample| sample.send_started_ns >= data.measured_start_ns)
+        );
+        assert!(rmqtt_loadgen::metrics::summarize(&data).unwrap().success);
     }
 }

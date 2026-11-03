@@ -92,14 +92,18 @@ pub async fn run(config: RunConfig) -> Result<RunData, LoadError> {
     let run_id = (stamp.as_nanos() as u64) ^ u64::from(std::process::id());
     let config = Arc::new(config);
     let mut setup_tasks = JoinSet::new();
-    for pair in 0..config.pairs {
-        let c = config.clone();
-        let p = u32::try_from(pair).map_err(|_| LoadError::Capacity("pair identity"))?;
-        setup_tasks.spawn(setup(c, p, run_id));
-    }
+    let mut next_pair = 0;
     let mut ready = Vec::with_capacity(config.pairs);
-    while let Some(result) = setup_tasks.join_next().await {
-        ready.push(result.map_err(|e| LoadError::Join(e.to_string()))??);
+    while next_pair < config.pairs || !setup_tasks.is_empty() {
+        while next_pair < config.pairs && setup_tasks.len() < config.setup_concurrency {
+            let c = config.clone();
+            let p = u32::try_from(next_pair).map_err(|_| LoadError::Capacity("pair identity"))?;
+            setup_tasks.spawn(setup(c, p, run_id));
+            next_pair += 1;
+        }
+        if let Some(result) = setup_tasks.join_next().await {
+            ready.push(result.map_err(|e| LoadError::Join(e.to_string()))??);
+        }
     }
     let warm_start = nanos(epoch)?;
     let measure_start = warm_start

@@ -29,6 +29,7 @@ pub enum Fault {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Scenario {
     pub source_comp_delay: Duration,
+    pub connack_delay: Duration,
     pub delivery_delay: Duration,
     pub subscriber_rel_delay: Duration,
     pub duplicate_delivery: bool,
@@ -37,6 +38,8 @@ pub struct Scenario {
 #[derive(Default)]
 pub struct Observed {
     pub publications: AtomicUsize,
+    pub active_handshakes: AtomicUsize,
+    pub peak_handshakes: AtomicUsize,
     pub payload_lengths: Mutex<Vec<usize>>,
     pub versions: Mutex<Vec<u8>>,
     pub subscribed: AtomicBool,
@@ -321,12 +324,16 @@ async fn connection(
     )
     .map_err(|_| bad("non-UTF8 client ID"))?;
     obs.client_ids.lock().unwrap().push(client_id.to_owned());
+    let active = obs.active_handshakes.fetch_add(1, Ordering::SeqCst) + 1;
+    obs.peak_handshakes.fetch_max(active, Ordering::SeqCst);
+    tokio::time::sleep(scenario.connack_delay).await;
     write(
         &mut stream,
         0x20,
         if version == 5 { &[0, 0, 0] } else { &[0, 0] },
     )
     .await?;
+    obs.active_handshakes.fetch_sub(1, Ordering::SeqCst);
     let mut pending = BTreeMap::new();
     while let Some((h, b)) = read(&mut stream).await? {
         match h >> 4 {
