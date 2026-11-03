@@ -291,3 +291,65 @@ fn durable_directory_preserves_interest_and_rejects_mixed_membership() {
     .expect("old metadata");
     assert_eq!(legacy.data_mode, Some(DataMode::Legacy));
 }
+
+#[test]
+fn offline_cas_cannot_steal_an_owner_that_is_live_again() {
+    let members = vec![
+        (1, "http://127.0.0.1:10001".into()),
+        (2, "http://127.0.0.1:10002".into()),
+        (3, "http://127.0.0.1:10003".into()),
+    ];
+    let mut metadata = Metadata::default();
+    for node in [1, 2] {
+        let mut command = register(node);
+        if let Command::Register { replicas, .. } = &mut command {
+            *replicas = Some(members.clone());
+        }
+        assert!(metadata.apply(command).error.is_none());
+    }
+    assert!(
+        metadata
+            .apply(Command::Acquire {
+                key: "c:device".into(),
+                node: 1,
+                incarnation: "node-1".into(),
+                generation: 10,
+                expected_epoch: 0
+            })
+            .error
+            .is_none()
+    );
+    let epoch = metadata.durable["c:device"].epoch;
+    let recovery = Command::Acquire {
+        key: "c:device".into(),
+        node: 2,
+        incarnation: "node-2".into(),
+        generation: 0,
+        expected_epoch: epoch,
+    };
+    assert!(
+        metadata.apply(recovery.clone()).error.is_some(),
+        "an unchanged epoch is insufficient proof of owner death"
+    );
+    assert_eq!(metadata.durable["c:device"].node, 1);
+    metadata.apply(Command::Expire {
+        node: 1,
+        incarnation: "node-1".into(),
+        expires_at: 100,
+    });
+    assert!(metadata.apply(recovery).error.is_none());
+    let epoch = metadata.durable["c:device"].epoch;
+    assert!(
+        metadata
+            .apply(Command::Acquire {
+                key: "c:device".into(),
+                node: 2,
+                incarnation: "node-2".into(),
+                generation: 0,
+                expected_epoch: epoch
+            })
+            .error
+            .is_none(),
+        "own poisoned record may acquire a newer epoch"
+    );
+}

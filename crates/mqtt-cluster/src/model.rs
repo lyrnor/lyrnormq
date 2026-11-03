@@ -182,6 +182,17 @@ impl Metadata {
                 if self.durable.get(&key).map_or(0, |o| o.epoch) != expected_epoch {
                     return Err("stale acquisition epoch".into());
                 }
+                if generation == 0
+                    && self.durable.get(&key).is_some_and(|owner| {
+                        (owner.node != node || owner.incarnation != incarnation)
+                            && self
+                                .nodes
+                                .get(&owner.node)
+                                .is_some_and(|n| n.incarnation == owner.incarnation)
+                    })
+                {
+                    return Err("automatic recovery requires abandoned owner".into());
+                }
                 if self.durable.len() >= 100_000 && !self.durable.contains_key(&key) {
                     return Err("durable directory capacity".into());
                 }
