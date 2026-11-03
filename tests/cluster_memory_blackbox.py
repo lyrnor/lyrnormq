@@ -147,7 +147,9 @@ class MemoryFixture(DurableFixture):
         self.assertTrue(all(marker not in body for body, _ in after.values()))
         # This is specifically data-plane RAM; persisted Raft metadata is allowed.
         for controller in self.fleet.controllers:
-            self.assertTrue((Path(controller.config['data_dir']) / 'metadata.sqlite').is_file())
+            directory = Path(controller.config['data_dir'])
+            self.assertTrue((directory / 'controller.bbolt').is_file())
+            self.assertFalse((directory / 'metadata.sqlite').exists())
 
     def peer_listening(self, node):
         port = int(node.config['listen'].rsplit(':', 1)[1])
