@@ -33,6 +33,8 @@ mod broker;
 mod cluster;
 #[cfg(test)]
 mod cluster_tests;
+#[cfg(test)]
+mod durable_cluster_tests;
 mod enhanced;
 pub(crate) mod export;
 mod network;
@@ -323,6 +325,7 @@ fn notify(engine: &SessionEngine, online: &HashMap<String, Online>) -> usize {
 
 #[derive(Clone)]
 struct ConnectRequest {
+    cluster_lease: Option<mqtt_cluster_core::SessionLease>,
     authenticated: Option<mqtt_auth::Principal>,
     access_attempt: Option<Arc<dyn mqtt_auth::AccessAttempt>>,
     authentication: Option<enhanced::Completion>,
@@ -416,6 +419,7 @@ fn normalize_connect(
             }
         }
         Request::Connect(ConnectRequest {
+            cluster_lease: None,
             authenticated: None,
             access_attempt: None,
             authentication: None,
@@ -455,6 +459,7 @@ fn normalize(operation: Operation) -> io::Result<Request> {
             wake,
             cancel,
         } => Request::Connect(ConnectRequest {
+            cluster_lease: None,
             authenticated: None,
             access_attempt: None,
             authentication: None,

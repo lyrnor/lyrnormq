@@ -285,11 +285,27 @@ impl Broker {
         }
         let restore_config = config.clone();
         let restore_clock = Arc::clone(&clock);
-        let restored =
+        let mut restored =
             tokio::task::spawn_blocking(move || restore(&restore_config, restore_clock, seed))
                 .await
                 .map_err(io::Error::other)??;
-        if config.cluster.is_some()
+        if config
+            .cluster
+            .as_ref()
+            .is_some_and(|bridge| bridge.durable())
+        {
+            if !restored.retained.is_empty() || !restored.publications.is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "durable cluster cannot import retained or Will state",
+                ));
+            }
+            restored.partitions.clear();
+        }
+        if config
+            .cluster
+            .as_ref()
+            .is_some_and(|bridge| !bridge.durable())
             && (!restored.partitions.is_empty()
                 || !restored.retained.is_empty()
                 || !restored.publications.is_empty())
@@ -431,7 +447,7 @@ impl Broker {
             .is_some_and(|handle| handle.online.load(Ordering::Acquire) == generation)
     }
 
-    fn get_or_spawn(self: &Arc<Self>, client: &str) -> io::Result<ActorHandle> {
+    pub(super) fn get_or_spawn(self: &Arc<Self>, client: &str) -> io::Result<ActorHandle> {
         let mut shard = self.registry.shard(client);
         if let Some(handle) = shard.get(client)
             && !handle.sender.is_closed()
@@ -764,6 +780,7 @@ impl Broker {
             return None;
         }
         if origin
+            && !self.durable_cluster()
             && let Some(observer) = &self.config.publication_observer
             && !publication
                 .expires_at
@@ -778,6 +795,14 @@ impl Broker {
                 publication.qos,
                 publication.retain,
             );
+        }
+        if origin && self.durable_cluster() {
+            let remote = self.forward_cluster(Arc::clone(&publication), observer_client);
+            return remote.map(|ack| Fanout {
+                publication,
+                acks: vec![ack],
+                shared: Vec::new(),
+            });
         }
         let matches = self.index.matches(&publication.topic);
         let mut acks = Vec::new();

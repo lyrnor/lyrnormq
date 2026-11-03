@@ -310,11 +310,16 @@ impl Worker {
         }
         let reply = match step {
             Authenticated::Reply(reply) => *reply,
-            Authenticated::Connect { request, principal } => {
+            Authenticated::Connect {
+                mut request,
+                principal,
+            } => {
                 if self.broker.config.cluster.is_some()
                     && (request.will.is_some()
-                        || (request.options.version == ProtocolVersion::V311 && !request.clean)
-                        || request.options.session_expiry_interval != 0)
+                        || (!self.broker.durable_cluster()
+                            && ((request.options.version == ProtocolVersion::V311
+                                && !request.clean)
+                                || request.options.session_expiry_interval != 0)))
                 {
                     return Ok(refusal(
                         &request,
@@ -359,10 +364,67 @@ impl Worker {
                             close_reason: request.close_reason.clone(),
                         },
                     );
-                    let claimed = tokio::time::timeout(
-                        Duration::from_secs(5),
-                        cluster.claim(request.client.clone(), request.generation),
-                    )
+                    let claimed = tokio::time::timeout(Duration::from_secs(5), async {
+                        if cluster.durable() {
+                            for _ in 0..3 {
+                                let inspected =
+                                    cluster.inspect_session(request.client.clone()).await?;
+                                let access = attempt
+                                    .as_ref()
+                                    .map(|attempt| attempt.admitted_policy())
+                                    .unwrap_or_else(|| {
+                                        Arc::clone(&self.broker.config.access_control)
+                                    });
+                                let mut candidate = match &inspected.snapshot {
+                                    Some(snapshot) => SessionEngine::restore_partition(
+                                        self.broker.session_config,
+                                        snapshot,
+                                        access,
+                                        Arc::clone(&self.broker.clock),
+                                    ),
+                                    None => SessionEngine::new_partition(
+                                        self.broker.session_config,
+                                        access,
+                                        Arc::clone(&self.broker.clock),
+                                    ),
+                                }
+                                .map_err(model_error)?;
+                                candidate
+                                    .connect_with_options(
+                                        &request.client,
+                                        request.will.clone(),
+                                        principal.clone(),
+                                        request.options.clone(),
+                                    )
+                                    .map_err(model_error)?;
+                                match cluster
+                                    .acquire_session(
+                                        request.client.clone(),
+                                        request.generation,
+                                        inspected.epoch,
+                                    )
+                                    .await
+                                {
+                                    Ok(lease) => {
+                                        request.cluster_lease = Some(lease);
+                                        return Ok(());
+                                    }
+                                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                                        continue;
+                                    }
+                                    Err(error) => return Err(error),
+                                }
+                            }
+                            Err(failure(
+                                ReasonCode::SERVER_UNAVAILABLE,
+                                "session ownership changed during admission",
+                            ))
+                        } else {
+                            cluster
+                                .claim(request.client.clone(), request.generation)
+                                .await
+                        }
+                    })
                     .await;
                     if !matches!(claimed, Ok(Ok(()))) || *request.cancel.borrow() {
                         self.broker
@@ -373,7 +435,15 @@ impl Worker {
                             cluster.release(request.client.clone(), request.generation),
                         )
                         .await;
-                        return Ok(refusal(&request, ReasonCode::SERVER_UNAVAILABLE));
+                        let refusal_reason = match claimed {
+                            Ok(Err(error))
+                                if reason(&error) == Some(ReasonCode::NOT_AUTHORIZED) =>
+                            {
+                                ReasonCode::NOT_AUTHORIZED
+                            }
+                            _ => ReasonCode::SERVER_UNAVAILABLE,
+                        };
+                        return Ok(refusal(&request, refusal_reason));
                     }
                 }
                 let client = request.client.clone();

@@ -6,12 +6,22 @@
 use super::broker::{Broker, Fanout, subscribe_filters};
 use super::*;
 use mqtt_auth::Principal;
+use mqtt_cluster_core::{DeliveryId, SessionLease, SessionMutation};
 use mqtt_session::durable::{DeliveryScope, Publication};
 use mqtt_storage::durable::RowChange;
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub(super) enum ActorCommand {
+    Activate {
+        lease: SessionLease,
+        reply: oneshot::Sender<io::Result<()>>,
+    },
+    DurableDeliver {
+        publication: Arc<Publication>,
+        receipt: DeliveryId,
+        reply: oneshot::Sender<io::Result<()>>,
+    },
     Request {
         request: Box<Request>,
         principal: Option<Principal>,
@@ -59,6 +69,8 @@ struct Effects {
     filters_changed: bool,
     registration: Option<(String, Online)>,
     removal: Option<String>,
+    publications: Vec<Publication>,
+    receipt: Option<DeliveryId>,
 }
 impl Default for Effects {
     fn default() -> Self {
@@ -69,6 +81,8 @@ impl Default for Effects {
             filters_changed: false,
             registration: None,
             removal: None,
+            publications: Vec::new(),
+            receipt: None,
         }
     }
 }
@@ -112,6 +126,8 @@ struct Actor {
     receiver: mpsc::Receiver<ActorCommand>,
     weak: mpsc::WeakSender<ActorCommand>,
     row: Option<Vec<u8>>,
+    cluster_lease: Option<SessionLease>,
+    cluster_invalid: bool,
     accounted: usize,
     filters: BTreeSet<String>,
     version: u64,
@@ -167,6 +183,8 @@ pub(super) fn spawn(
         receiver,
         weak: sender.downgrade(),
         row,
+        cluster_lease: None,
+        cluster_invalid: false,
         accounted,
         filters,
         version: 0,
@@ -224,6 +242,7 @@ fn apply(
             if request.options.version == ProtocolVersion::V311
                 && !request.clean
                 && config.storage_path.is_none()
+                && !broker.durable_cluster()
             {
                 return Err(io::Error::new(
                     io::ErrorKind::Unsupported,
@@ -456,7 +475,11 @@ impl Actor {
     }
 
     fn deadline(&self) -> Option<tokio::time::Instant> {
-        let expiry = self.engine.next_expiry_deadline().map(|at| {
+        let expiry = (!self.broker.durable_cluster()
+            || (!self.cluster_invalid && self.cluster_lease.is_some()))
+        .then(|| self.engine.next_expiry_deadline())
+        .flatten()
+        .map(|at| {
             let delay = at
                 .saturating_sub(self.engine.effective_now())
                 .min(MAX_TIMER_MILLIS);
@@ -479,6 +502,17 @@ impl Actor {
 
     async fn command(&mut self, command: ActorCommand) {
         match command {
+            ActorCommand::Activate { lease, reply } => {
+                let _ = reply.send(self.activate(lease));
+            }
+            ActorCommand::DurableDeliver {
+                publication,
+                receipt,
+                reply,
+            } => {
+                let result = self.deliver_durable(&publication, receipt).await;
+                let _ = reply.send(result);
+            }
             ActorCommand::Request {
                 request,
                 principal,
@@ -537,6 +571,9 @@ impl Actor {
         if self.retry_at.is_some_and(|at| now >= at) {
             self.retry_at = None;
         }
+        if self.broker.durable_cluster() && (self.cluster_invalid || self.cluster_lease.is_none()) {
+            return;
+        }
         let mut proposal = self.engine.clone();
         let mut effects = Effects {
             commit: false,
@@ -547,6 +584,12 @@ impl Actor {
         }
         let publications = proposal.take_publications();
         if !effects.commit && publications.is_empty() {
+            return;
+        }
+        if self.broker.durable_cluster() {
+            effects.commit = true;
+            effects.publications = publications;
+            let _ = self.install(proposal, effects).await;
             return;
         }
         // A Will blocked by retained capacity stays pending and is retried.
@@ -619,6 +662,20 @@ impl Actor {
         reply: oneshot::Sender<ResultReply>,
     ) {
         if reply.is_closed() {
+            return;
+        }
+        if let Request::Connect(connect) = &request
+            && let Some(lease) = &connect.cluster_lease
+            && let Err(error) = self.activate(lease.clone())
+        {
+            let _ = reply.send(Err(error));
+            return;
+        }
+        if self.broker.durable_cluster() && (self.cluster_invalid || self.cluster_lease.is_none()) {
+            let _ = reply.send(Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "session authority unavailable",
+            )));
             return;
         }
         if !self.broker.cluster_ready() && !matches!(&request, Request::Disconnect { .. }) {
@@ -696,7 +753,7 @@ impl Actor {
         let mut preparations = 0usize;
         let mut current_request = request;
         let mut current_principal = principal;
-        let (response, effects) = loop {
+        let (response, mut effects) = loop {
             proposal = self.engine.clone();
             if let Some(attempt) = &attempt {
                 proposal.set_access_control(operation_access::policy(
@@ -802,6 +859,12 @@ impl Actor {
             return;
         }
         let publications = proposal.take_publications();
+        if self.broker.durable_cluster() {
+            effects.publications = publications;
+            let result = self.install(proposal, effects).await.map(|()| response);
+            let _ = reply.send(result);
+            return;
+        }
         let wait = rerun.is_some()
             && publications
                 .iter()
@@ -922,10 +985,201 @@ impl Actor {
         let _ = pending.reply.send(result);
     }
 
-    async fn install(&mut self, proposal: SessionEngine, effects: Effects) -> io::Result<()> {
+    fn activate(&mut self, mut lease: SessionLease) -> io::Result<()> {
+        if lease.client_id != self.client
+            || lease.epoch == 0
+            || lease
+                .snapshot
+                .as_ref()
+                .is_some_and(|row| row.len() > 2 * 1024 * 1024)
+        {
+            return Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "invalid session authority",
+            ));
+        }
+        if let Some(current) = &self.cluster_lease {
+            if current.epoch > lease.epoch {
+                return Err(failure(
+                    ReasonCode::SESSION_TAKEN_OVER,
+                    "stale session authority",
+                ));
+            }
+            if !self.cluster_invalid
+                && current.epoch == lease.epoch
+                && current.revision >= lease.revision
+            {
+                return Ok(());
+            }
+        }
+        let engine = match lease.snapshot.as_ref() {
+            Some(row) => SessionEngine::restore_partition(
+                self.broker.session_config,
+                row,
+                Arc::clone(&self.broker.config.access_control),
+                Arc::clone(&self.broker.clock),
+            ),
+            None => SessionEngine::new_partition(
+                self.broker.session_config,
+                Arc::clone(&self.broker.config.access_control),
+                Arc::clone(&self.broker.clock),
+            ),
+        }
+        .map_err(model_error)?;
+        if engine
+            .subscription_filters()
+            .keys()
+            .any(|client| client != &self.client)
+        {
+            return Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "session identity mismatch",
+            ));
+        }
+        let accounted = engine.live_state_bytes();
+        self.broker.account(self.accounted, accounted)?;
+        self.close_online(ReasonCode::SESSION_TAKEN_OVER);
+        self.online.clear();
+        self.online_generation.store(0, Ordering::Release);
+        for (_, pending) in self.pending.drain() {
+            let _ = pending.reply.send(Err(failure(
+                ReasonCode::SESSION_TAKEN_OVER,
+                "session authority changed",
+            )));
+        }
+        self.filters = engine
+            .subscription_filters()
+            .remove(&self.client)
+            .unwrap_or_default();
+        self.broker.index.replace(&self.client, &self.filters);
+        self.broker.cluster_state.filters(
+            &self.client,
+            &self.filters.iter().cloned().collect::<Vec<_>>(),
+        );
+        self.row = lease.snapshot.take();
+        self.cluster_lease = Some(lease);
+        self.cluster_invalid = false;
+        self.accounted = accounted;
+        self.engine = engine;
+        self.version = self.version.wrapping_add(1);
+        self.fresh_until = None;
+        Ok(())
+    }
+
+    async fn deliver_durable(
+        &mut self,
+        publication: &Publication,
+        receipt: DeliveryId,
+    ) -> io::Result<()> {
+        if !self.broker.cluster_ready() || self.cluster_invalid || self.cluster_lease.is_none() {
+            return Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "session authority unavailable",
+            ));
+        }
+        let mut proposal = self.engine.clone();
+        let _ = proposal
+            .deliver(publication, &DeliveryScope::Ordinary)
+            .map_err(model_error)?;
+        let publications = proposal.take_publications();
+        self.install(
+            proposal,
+            Effects {
+                notify: true,
+                housekeeping: false,
+                receipt: Some(receipt),
+                publications,
+                ..Effects::default()
+            },
+        )
+        .await
+    }
+
+    async fn commit_cluster(
+        &mut self,
+        proposal: &SessionEngine,
+        effects: &mut Effects,
+    ) -> io::Result<bool> {
+        if self.cluster_invalid {
+            return Err(failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "uncertain session authority",
+            ));
+        }
+        let lease = self.cluster_lease.as_ref().ok_or_else(|| {
+            failure(
+                ReasonCode::SERVER_UNAVAILABLE,
+                "session authority unavailable",
+            )
+        })?;
+        let snapshot = if proposal.has_persistent_state() {
+            Some(proposal.snapshot().map_err(model_error)?)
+        } else {
+            None
+        };
+        let publications = effects
+            .publications
+            .iter()
+            .map(|publication| super::cluster::message(publication, None))
+            .collect();
+        let filters = proposal
+            .subscription_filters()
+            .remove(&self.client)
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+        let bridge = self
+            .broker
+            .config
+            .cluster
+            .as_ref()
+            .ok_or_else(|| failure(ReasonCode::SERVER_UNAVAILABLE, "cluster unavailable"))?;
+        let mutation = SessionMutation {
+            client_id: self.client.clone(),
+            epoch: lease.epoch,
+            expected_revision: lease.revision,
+            snapshot,
+            filters,
+            publications,
+            receipt: effects.receipt.take(),
+        };
+        let committed =
+            tokio::time::timeout(Duration::from_secs(5), bridge.commit_session(mutation))
+                .await
+                .map_err(|_| {
+                    failure(ReasonCode::SERVER_UNAVAILABLE, "cluster commit deadline")
+                })??;
+        if let Some(lease) = &mut self.cluster_lease {
+            lease.revision = committed.revision;
+        }
+        if !committed.duplicate {
+            for publication in &effects.publications {
+                self.broker.observe_cluster(publication, None);
+            }
+        }
+        Ok(committed.duplicate)
+    }
+
+    async fn install(&mut self, proposal: SessionEngine, mut effects: Effects) -> io::Result<()> {
         if effects.commit {
             let bytes = proposal.live_state_bytes();
             self.broker.account(self.accounted, bytes)?;
+            if self.broker.durable_cluster() {
+                let result = self.commit_cluster(&proposal, &mut effects).await;
+                match result {
+                    Ok(true) => {
+                        let _ = self.broker.account(bytes, self.accounted);
+                        return Ok(());
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        let _ = self.broker.account(bytes, self.accounted);
+                        self.cluster_invalid = true;
+                        self.close_online(ReasonCode::SERVER_UNAVAILABLE);
+                        return Err(error);
+                    }
+                }
+            }
             if self.broker.persistent() {
                 let row = if proposal.has_persistent_state() {
                     match proposal.snapshot() {
@@ -945,6 +1199,7 @@ impl Actor {
                     };
                     if let Err(error) = self.broker.commit(vec![change]).await {
                         let _ = self.broker.account(bytes, self.accounted);
+                        self.cluster_invalid |= self.broker.durable_cluster();
                         self.close_online(ReasonCode::SERVER_UNAVAILABLE);
                         return Err(error);
                     }
@@ -970,7 +1225,9 @@ impl Actor {
                     self.broker.index.replace(&self.client, &filters);
                     self.filters = filters;
                     let filters = self.filters.iter().cloned().collect::<Vec<_>>();
-                    if let Some(cluster) = &self.broker.config.cluster {
+                    if let Some(cluster) = &self.broker.config.cluster
+                        && !cluster.durable()
+                    {
                         self.broker.cluster_state.filters(&self.client, &filters);
                         if !matches!(
                             tokio::time::timeout(

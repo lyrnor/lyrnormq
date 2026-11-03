@@ -1,7 +1,8 @@
 //! Bounded cluster hooks and actor-independent connection fencing.
 use super::*;
 use mqtt_cluster_core::{
-    ClientSubscriptions, ClusterFuture, ClusterMessage, ForwardScope, LocalBroker,
+    ClientSubscriptions, ClusterFuture, ClusterMessage, DeliveryId, ForwardScope, LocalBroker,
+    SessionLease,
 };
 use mqtt_session::durable::Publication;
 use std::sync::{PoisonError, Weak};
@@ -84,7 +85,98 @@ fn unavailable() -> io::Error {
         "cluster unavailable or capacity exhausted",
     )
 }
+fn validate_message(message: &ClusterMessage, max_size: usize) -> io::Result<()> {
+    let validation = Frame {
+        version: ProtocolVersion::V5,
+        packet: Packet::Publish {
+            topic: message.topic.clone(),
+            payload: message.payload.clone(),
+            qos: message.qos,
+            retain: false,
+            dup: false,
+            packet_id: (message.qos > 0).then_some(1),
+        },
+        properties: message.properties.clone(),
+        ..Frame::v5(Packet::PingReq)
+    };
+    if mqtt_protocol::encode_frame(&validation)
+        .map_err(io::Error::other)?
+        .len()
+        > max_size
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "cluster message too large",
+        ));
+    }
+    Ok(())
+}
 impl LocalBroker for Local {
+    fn activate_session(&self, lease: SessionLease) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            let broker = self.broker.upgrade().ok_or_else(unavailable)?;
+            if !broker.durable_cluster() {
+                return Err(unavailable());
+            }
+            let handle = broker.get_or_spawn(&lease.client_id)?;
+            let (reply, response) = oneshot::channel();
+            tokio::time::timeout(DEADLINE, async {
+                handle
+                    .sender
+                    .send(super::actor::ActorCommand::Activate { lease, reply })
+                    .await
+                    .map_err(|_| unavailable())?;
+                response.await.map_err(|_| unavailable())?
+            })
+            .await
+            .map_err(|_| unavailable())?
+        })
+    }
+    fn deliver_to(
+        &self,
+        client_id: String,
+        receipt: DeliveryId,
+        message: ClusterMessage,
+    ) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            let broker = self.broker.upgrade().ok_or_else(unavailable)?;
+            if !broker.durable_cluster()
+                || !broker.cluster_ready()
+                || message.retain
+                || message.scope != ForwardScope::Ordinary
+            {
+                return Err(unavailable());
+            }
+            validate_message(&message, broker.config.max_packet_size)?;
+            let handle = broker.handle(&client_id).ok_or_else(unavailable)?;
+            let publication = Arc::new(Publication {
+                topic: message.topic,
+                payload: message.payload,
+                qos: message.qos,
+                retain: false,
+                properties: message.properties,
+                expires_at: message.expires_at,
+                publisher: message.publisher,
+                expired: false,
+            });
+            let (reply, response) = oneshot::channel();
+            tokio::time::timeout(DEADLINE, async {
+                handle
+                    .sender
+                    .send(super::actor::ActorCommand::DurableDeliver {
+                        publication,
+                        receipt,
+                        reply,
+                    })
+                    .await
+                    .map_err(|_| unavailable())?;
+                response.await.map_err(|_| unavailable())?
+            })
+            .await
+            .map_err(|_| unavailable())?
+        })
+    }
+
     fn deliver(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
             let broker = self.broker.upgrade().ok_or_else(unavailable)?;
@@ -97,26 +189,7 @@ impl LocalBroker for Local {
                     "cluster delivery feature unsupported",
                 ));
             }
-            let validation = Frame {
-                version: ProtocolVersion::V5,
-                packet: Packet::Publish {
-                    topic: message.topic.clone(),
-                    payload: message.payload.clone(),
-                    qos: message.qos,
-                    retain: false,
-                    dup: false,
-                    packet_id: (message.qos > 0).then_some(1),
-                },
-                properties: message.properties.clone(),
-                ..Frame::v5(Packet::PingReq)
-            };
-            let encoded = mqtt_protocol::encode_frame(&validation).map_err(io::Error::other)?;
-            if encoded.len() > broker.config.max_packet_size {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "cluster message too large",
-                ));
-            }
+            validate_message(&message, broker.config.max_packet_size)?;
             let publication = Arc::new(Publication {
                 topic: message.topic,
                 payload: message.payload,
@@ -171,7 +244,47 @@ impl LocalBroker for Local {
         })
     }
 }
+pub(super) fn message(publication: &Publication, observer_client: Option<&str>) -> ClusterMessage {
+    ClusterMessage {
+        topic: publication.topic.clone(),
+        payload: publication.payload.clone(),
+        qos: publication.qos,
+        retain: publication.retain,
+        properties: publication.properties.clone(),
+        expires_at: publication.expires_at,
+        publisher: publication.publisher.clone(),
+        observer_client: observer_client
+            .or(publication.publisher.as_deref())
+            .unwrap_or("")
+            .to_owned(),
+        scope: ForwardScope::Ordinary,
+    }
+}
 impl Broker {
+    pub(super) fn durable_cluster(&self) -> bool {
+        self.config
+            .cluster
+            .as_ref()
+            .is_some_and(|bridge| bridge.durable())
+    }
+    pub(super) fn observe_cluster(&self, publication: &Publication, observer_client: Option<&str>) {
+        if let Some(observer) = &self.config.publication_observer
+            && !publication
+                .expires_at
+                .is_some_and(|at| at <= self.clock.now_millis())
+        {
+            observer.observe(
+                &publication.topic,
+                &publication.payload,
+                observer_client
+                    .or(publication.publisher.as_deref())
+                    .unwrap_or(""),
+                publication.qos,
+                publication.retain,
+            );
+        }
+    }
+
     pub(super) async fn release_cluster(&self, client: &str, generation: u64) {
         if let Some(cluster) = &self.config.cluster {
             self.cluster_state.remove(client, generation);
@@ -241,24 +354,30 @@ impl Broker {
             let _ = tx.send(false);
             return Some(rx);
         };
-        let message = ClusterMessage {
-            topic: publication.topic.clone(),
-            payload: publication.payload.clone(),
-            qos: publication.qos,
-            retain: publication.retain,
-            properties: publication.properties.clone(),
-            expires_at: publication.expires_at,
-            publisher: publication.publisher.clone(),
-            observer_client: observer_client
-                .or(publication.publisher.as_deref())
-                .unwrap_or("")
-                .to_owned(),
-            scope: ForwardScope::Ordinary,
-        };
+        let message = message(&publication, observer_client);
+        let observer = self.config.publication_observer.clone();
+        let clock = self.clock.clone();
+        let durable = bridge.durable();
         tokio::spawn(async move {
             let _permits = permits;
-            let outcome = tokio::time::timeout(DEADLINE, bridge.forward(message)).await;
-            let _ = tx.send(matches!(outcome, Ok(Ok(()))));
+            let outcome = tokio::time::timeout(DEADLINE, bridge.forward(message.clone())).await;
+            let success = matches!(outcome, Ok(Ok(())));
+            if success
+                && durable
+                && !message
+                    .expires_at
+                    .is_some_and(|at| at <= clock.now_millis())
+                && let Some(observer) = observer
+            {
+                observer.observe(
+                    &message.topic,
+                    &message.payload,
+                    &message.observer_client,
+                    message.qos,
+                    message.retain,
+                );
+            }
+            let _ = tx.send(success);
         });
         Some(rx)
     }
