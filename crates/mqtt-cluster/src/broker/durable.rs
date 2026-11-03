@@ -132,7 +132,7 @@ impl Durable {
         if let Some(actor) = actors.get(key) {
             return Ok(actor.clone());
         }
-        if actors.len() >= 100_000 {
+        if actors.len() >= 101_024 {
             return Err(unavailable());
         }
         let (tx, mut rx) = mpsc::channel(8);

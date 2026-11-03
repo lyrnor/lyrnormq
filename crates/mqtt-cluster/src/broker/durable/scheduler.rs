@@ -1,7 +1,7 @@
 //! Finite keyed dirty state. Notifications carry wakeups, never the work itself.
 use super::*;
 use tokio::time::Instant;
-const LIMIT: usize = 100_000;
+const LIMIT: usize = 101_024;
 struct Entry {
     dirty: bool,
     due: Instant,
