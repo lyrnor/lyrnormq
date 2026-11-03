@@ -411,6 +411,22 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
         node.start()
         self.cross_roundtrip('after-return')
 
+    def test_unresponsive_leader_does_not_strand_metadata_watch(self):
+        self.cross_roundtrip('before-paused-leader')
+        state = wait_until(lambda: self.fleet.status())
+        leader = state['leader']
+        node = next(node for node in self.fleet.controllers if node.config['node_id'] == leader)
+        # Unlike SIGKILL, SIGSTOP preserves the old leader's TCP watch streams.
+        # Healthy peers must still elect a leader and Brokers must refresh routes.
+        os.kill(node.process.pid, signal.SIGSTOP)
+        try:
+            wait_until(lambda: (current if (current := self.fleet.status()) and
+                                current.get('leader') not in (None, leader) else None), 25)
+            self.cross_roundtrip('while-old-leader-unresponsive')
+        finally:
+            os.kill(node.process.pid, signal.SIGCONT)
+        self.cross_roundtrip('after-old-leader-resumed')
+
     def test_loss_of_majority_expires_broker_service_then_recovers(self):
         self.cross_roundtrip('before-majority-loss')
         state = wait_until(lambda: self.fleet.status())
