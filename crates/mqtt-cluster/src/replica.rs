@@ -301,6 +301,7 @@ impl Journal {
     pub fn disk_id(&self) -> &str {
         &self.0.disk_id
     }
+    #[cfg(test)]
     pub async fn execute(&self, request: Request) -> io::Result<Reply> {
         self.execute_at(0, request).await
     }
