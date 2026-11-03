@@ -39,3 +39,17 @@ Coordinator owns bin/rmqtt, docs, workspace integration/deployment. Loadgen owne
 owns bin/rmqtt-loadgen only. Quality owner owns tests/cluster_topology* and
 scripts/cluster_benchmark* only. Writers use isolated branches/worktrees, commit
 with tests and limitations. No concurrent shared writes or production log changes.
+
+Benchmark settings clarification before formal comparison: combined processes use4
+Tokio workers each; separated Controller/Broker processes use2 each, total12 per
+topology on the same8vCPU host. Both set max-auth-tasks128, handshakes1024 and no
+admission-rate throttling. Initial default-auth-limit4 preflight failures remain
+separate from final runs. CPU/RSS windows include connection/warmup/drain/report
+unless explicitly aligned; sampled apply/revision skew is an index difference,
+not time-based Raft latency or business operations throughput.
+
+Setup clarification: additive --setup-concurrency1..1024 (default32, serde default)
+bounds concurrently active pair setup before the global warmup barrier. No silent
+connect retries. Final comparison uses1 to separate steady message pressure from
+burst connection admission; 30-pair burst preflight is retained as a distinct failure.
+Report config includes setup concurrency. Does not change messages or ACK accounting.
