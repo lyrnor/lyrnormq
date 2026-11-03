@@ -157,6 +157,11 @@ class PublishWireCases(HTTPPublishFixture):
         self.subscribe(device, 'commands/local', no_local=self.version == 5)
         self.accepted({'topic': 'commands/local', 'payload': 'broker'})
         self.delivery(device, 'commands/local', b'broker', 1, self.version)
+        if self.version != 5:
+            # Existing broker contract rejects Shared Subscriptions in MQTT311.
+            device.sendall(frame(0x82, b'\x00\x02' + string('$share/workers/commands/shared') + b'\x01'))
+            self.assertEqual(receive(device), (0x90, b'\x00\x02\x80'))
+            return
         first, second = self.client('shared-1'), self.client('shared-2')
         self.subscribe(first, '$share/workers/commands/shared')
         self.subscribe(second, '$share/workers/commands/shared')
