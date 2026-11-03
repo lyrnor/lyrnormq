@@ -141,6 +141,9 @@ struct Actor {
     retry_at: Option<tokio::time::Instant>,
 }
 
+#[cfg(test)]
+mod ping_tests;
+
 const RETRY_MILLIS: u64 = 100;
 const MAX_TIMER_MILLIS: u64 = 3_600_000;
 
@@ -342,12 +345,22 @@ fn apply(
                 frame.packet,
                 Packet::Subscribe { .. } | Packet::Unsubscribe { .. }
             );
+            // PING changes no protocol state. The model still validates it and
+            // expires deadlines internally, before housekeeping can report them.
+            // Remember the old deadline and conservatively commit if it could
+            // have fired, including a clock advance during frame handling.
+            let quiet_ping = broker.durable_cluster() && matches!(frame.packet, Packet::PingReq);
+            let expiry_before = quiet_ping
+                .then(|| proposal.next_expiry_deadline())
+                .flatten();
             let replies = match received_at_millis {
                 Some(received_at) => proposal.handle_frame_at(&client, frame, received_at),
                 None => proposal.handle_frame(&client, frame),
             }
             .map_err(model_error)?;
-            effects.notify = true;
+            effects.commit = !quiet_ping
+                || expiry_before.is_some_and(|deadline| deadline <= proposal.effective_now());
+            effects.notify = effects.commit;
             Ok(frames_reply(replies, legacy))
         }
         #[cfg(test)]
@@ -866,6 +879,10 @@ impl Actor {
         }
         let publications = proposal.take_publications();
         if self.broker.durable_cluster() {
+            if !publications.is_empty() {
+                effects.commit = true;
+                effects.notify = true;
+            }
             effects.publications = publications;
             let result = self.install(proposal, effects).await.map(|()| response);
             let _ = reply.send(result);

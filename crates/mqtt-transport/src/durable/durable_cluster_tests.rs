@@ -22,7 +22,7 @@ struct Data {
     mutations: Vec<SessionMutation>,
 }
 #[derive(Default)]
-struct Bridge {
+pub(super) struct Bridge {
     data: Arc<Mutex<Data>>,
     local: Mutex<Option<Arc<dyn LocalBroker>>>,
     ready: AtomicBool,
@@ -727,4 +727,74 @@ async fn only_a_new_logical_session_resets_recipient_generation() {
         "delivery receipt cannot reset a logical session"
     );
     tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn ping_keeps_replicated_revision_unchanged_for_both_versions() {
+    for version in [ProtocolVersion::V311, ProtocolVersion::V5] {
+        let bridge = Arc::new(Bridge::default());
+        let (worker, task) = tests::worker(config(bridge.clone())).await;
+        let (wake, _) = watch::channel(0);
+        let (cancel, _) = watch::channel(false);
+        let (close_reason, _) = watch::channel(None);
+        let mut frame = Frame::v311(Packet::Connect {
+            client_id: "ping".into(),
+            clean_session: false,
+            keep_alive: 30,
+            will: None,
+            username: None,
+            password: None,
+        });
+        frame.version = version;
+        if version == ProtocolVersion::V5 {
+            frame.properties.push(Property::SessionExpiryInterval(60));
+        }
+        worker
+            .request(Operation::ConnectFrame {
+                frame,
+                generation: 1,
+                wake,
+                cancel,
+                close_reason,
+            })
+            .await
+            .unwrap();
+        let before = bridge.data.lock().unwrap().mutations.len();
+        for _ in 0..3 {
+            let mut frame = Frame::v311(Packet::PingReq);
+            frame.version = version;
+            let Reply::Frames(frames) = worker
+                .request(Operation::HandleFrameAt {
+                    client: "ping".into(),
+                    generation: 1,
+                    frame,
+                    received_at_millis: 0,
+                })
+                .await
+                .unwrap()
+            else {
+                panic!("unexpected response")
+            };
+            assert_eq!(frames.len(), 1);
+            assert_eq!(frames[0].packet, Packet::PingResp);
+            assert_eq!(frames[0].version, version);
+        }
+        assert_eq!(
+            bridge.data.lock().unwrap().mutations.len(),
+            before,
+            "PING must not write a replicated snapshot or increase revision"
+        );
+        assert!(
+            tests::handle(&worker, "ping", 2, Packet::PingReq)
+                .await
+                .is_err()
+        );
+        bridge.ready.store(false, Ordering::Release);
+        assert!(
+            tests::handle(&worker, "ping", 1, Packet::PingReq)
+                .await
+                .is_err()
+        );
+        tests::stop(worker, task).await;
+    }
 }
