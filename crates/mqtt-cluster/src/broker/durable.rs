@@ -9,6 +9,7 @@ struct Work {
     activation: Option<SessionLease>,
 }
 enum Operation {
+    ForgetIfDisowned,
     Received {
         id: DeliveryId,
         reply: oneshot::Sender<io::Result<bool>>,
@@ -58,6 +59,19 @@ struct Cell {
     record: Option<Record>,
     poisoned: bool,
     activate: bool,
+}
+impl Cell {
+    fn forget_if_disowned(&mut self, metadata: &Metadata, key: &str, node: u64, incarnation: &str) {
+        if metadata
+            .durable
+            .get(key)
+            .is_none_or(|owner| owner.node != node || owner.incarnation != incarnation)
+        {
+            self.record = None;
+            self.poisoned = true;
+            self.activate = false;
+        }
+    }
 }
 pub(crate) fn client_key(client: &str) -> String {
     format!("c:{client}")
@@ -109,6 +123,15 @@ impl Durable {
                     break;
                 }
                 match job.operation {
+                    Operation::ForgetIfDisowned => cell.forget_if_disowned(
+                        &runtime
+                            .metadata
+                            .read()
+                            .unwrap_or_else(PoisonError::into_inner),
+                        &key,
+                        runtime.config.node_id,
+                        &runtime.incarnation,
+                    ),
                     Operation::Received { id, reply } => {
                         let result = cell
                             .record
@@ -213,6 +236,17 @@ impl Durable {
                 _bytes: bytes,
             })
             .map_err(|_| unavailable())
+    }
+    pub fn forget(self: &Arc<Self>, key: &str) {
+        // Keep the channel/serialization identity; discard only obsolete payload cache.
+        let present = self
+            .actors
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains_key(key);
+        if present {
+            let _ = self.send(key, Operation::ForgetIfDisowned);
+        }
     }
     async fn await_reply<T>(&self, rx: oneshot::Receiver<io::Result<T>>) -> io::Result<T> {
         tokio::time::timeout(Duration::from_secs(8), rx)
@@ -683,6 +717,11 @@ impl Durable {
             if runtime.ready() {
                 let mut jobs = tokio::task::JoinSet::new();
                 for (key, owner) in directory {
+                    if owner.node != runtime.config.node_id
+                        || owner.incarnation != runtime.incarnation
+                    {
+                        self.forget(&key);
+                    }
                     if jobs.len() >= 16 {
                         let _ = jobs.join_next().await;
                     }
@@ -753,6 +792,41 @@ mod tests {
         fn subscriptions(&self) -> ClusterFuture<'_, Vec<mqtt_cluster_core::ClientSubscriptions>> {
             Box::pin(async { Ok(Vec::new()) })
         }
+    }
+    #[test]
+    fn discarded_handoff_cache_does_not_clear_a_returned_owner() {
+        let mut metadata = Metadata::default();
+        let key = client_key("moving");
+        let mut record = Record::empty(1);
+        record.snapshot = Some(vec![1; 1024]);
+        let mut cell = Cell {
+            record: Some(record),
+            poisoned: false,
+            activate: true,
+        };
+        metadata.durable.insert(
+            key.clone(),
+            DurableOwner {
+                node: 2,
+                incarnation: "other".into(),
+                generation: 1,
+                epoch: 2,
+                filters: Vec::new(),
+            },
+        );
+        cell.forget_if_disowned(&metadata, &key, 1, "local");
+        assert!(cell.record.is_none());
+        assert!(cell.poisoned);
+        assert!(!cell.activate);
+        cell.record = Some(Record::empty(3));
+        cell.poisoned = false;
+        let owner = metadata.durable.get_mut(&key).expect("owner");
+        owner.node = 1;
+        owner.incarnation = "local".into();
+        owner.epoch = 3;
+        cell.forget_if_disowned(&metadata, &key, 1, "local");
+        assert_eq!(cell.record.as_ref().map(|r| r.epoch), Some(3));
+        assert!(!cell.poisoned);
     }
     #[tokio::test]
     async fn committed_receipt_bypasses_full_recipient_queue() -> io::Result<()> {

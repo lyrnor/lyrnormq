@@ -173,7 +173,16 @@ impl BrokerRuntime {
                 local.fence(client.clone(), previous.generation).await?;
             }
         }
+        let mut discard = Vec::new();
         for (key, previous) in &old.durable {
+            if previous.node == self.config.node_id
+                && previous.incarnation == self.incarnation
+                && next.durable.get(key).is_none_or(|owner| {
+                    owner.node != self.config.node_id || owner.incarnation != self.incarnation
+                })
+            {
+                discard.push(key.clone());
+            }
             if previous.node == self.config.node_id
                 && previous.incarnation == self.incarnation
                 && next.durable.get(key).is_none_or(|n| {
@@ -198,6 +207,11 @@ impl BrokerRuntime {
             .metadata
             .write()
             .unwrap_or_else(PoisonError::into_inner) = next;
+        if let Some(data) = &self.data {
+            for key in discard {
+                data.forget(&key);
+            }
+        }
         self.initialized.store(true, Ordering::Release);
         Ok(())
     }
