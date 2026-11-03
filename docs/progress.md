@@ -2957,3 +2957,25 @@ Higher rates/counts and message throughput/latency remain separate acceptance wo
 three-process RSS peak1278.168MiB; rampCPU6.829cores,hold/PING0.206cores. Two150ms
 AppendEntries timeouts at the end of the load window are retained as follow-up
 profiling evidence; do not describe the run as error-log-free or a capacity ceiling.
+
+## 2026-11-03 — Phase7p higher-load acceptance stopped at2000/s
+
+User requested higher connections and publish/subscribe load. Frozen serial order:
+2000/s10k,4000/s10k,fresh5000pairs/QoS0/1/2 at10000msg/s128B60s, then1000/s
+incremental10k..100k. Reused unchanged SHA-pinnedBroker/load tools and limits; no
+server compilation. Independent read-only agent reviewed configuration, accounting
+and bounded-load semantics; wrapper validates exact message config as well as counts.
+
+First2000/s case FAILED offered-load gate:10000scheduled,7009actuallystarted,
+7009CONNACKsuccess,7009aliveafter10s/PING,2991not_started at2048inflightclientcap.
+No attempted-CONNECT/PING errors. Successful-connectmean1431.223ms,p991867.884ms;
+whole ramp/drain6.131s gives1143.251completed/s, not a measured maximum capacity.
+Broker rampCPU6.936cores,hold0.134cores,RSSpeak984.910MiB;clientCPU0.062cores.
+Sampled controlWrites reach837.7/878.4ms while sampledRaftbatch completion31.6ms;
+not paired/full-population data, so precise queue/CPU/IO attribution remains open.
+
+Entire remaining matrix stopped as required:4000/s,messageQoS0/1/2,100k capacity
+were NOTRUN. No messageTPS/latency/loss claims. Alltestprocesses stopped,sourceport
+range unchanged32768..60999. Next:queue/batch/CPUprofiling before another pressure
+run; preserve original per-case failures instead of silently increasing probe caps.
+[Actual evidence](performance/cluster-higher-load-20261103/README.md).

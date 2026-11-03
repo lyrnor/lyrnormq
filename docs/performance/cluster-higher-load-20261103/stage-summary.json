@@ -1,0 +1,406 @@
+{
+  "sampled_not_full_population": true,
+  "window": "approximate connection ramp/drain",
+  "stages": {
+    "1/Append/-": {
+      "logged_samples": 2,
+      "min_observed_us": 5399,
+      "max_observed_us": 7553,
+      "max_line": "2026-11-03T14:19:16.231902Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=Append outcome=Success node=1 entries=1 first=Some(255) last=Some(255) sequence=256 count=256 elapsed_us=7553"
+    },
+    "1/ApplyQueued/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3348,
+      "max_observed_us": 5710,
+      "max_line": "2026-11-03T14:19:12.726462Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=ApplyQueued outcome=Success node=1 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=5710"
+    },
+    "1/ApplyState/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3296,
+      "max_observed_us": 5663,
+      "max_line": "2026-11-03T14:19:12.726435Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=ApplyState outcome=Success node=1 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=5663"
+    },
+    "1/RaftResult/Acquire": {
+      "logged_samples": 1,
+      "min_observed_us": 9598,
+      "max_observed_us": 9598,
+      "max_line": "2026-11-03T14:19:11.059846Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RaftResult kind=Acquire outcome=Success count=1 elapsed_us=9598"
+    },
+    "1/RaftResult/Mutation": {
+      "logged_samples": 4,
+      "min_observed_us": 20047,
+      "max_observed_us": 31572,
+      "max_line": "2026-11-03T14:19:11.693697Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RaftResult kind=Mutation outcome=Success count=32 elapsed_us=31572"
+    },
+    "1/Read/Applied": {
+      "logged_samples": 14,
+      "min_observed_us": 5171,
+      "max_observed_us": 40977,
+      "max_line": "2026-11-03T14:19:11.640310Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Success count=1024 elapsed_us=40977"
+    },
+    "1/Read/AppliedAck": {
+      "logged_samples": 3,
+      "min_observed_us": 3,
+      "max_observed_us": 5,
+      "max_line": "2026-11-03T14:19:14.995009Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=AppliedAck outcome=Success count=512 elapsed_us=5"
+    },
+    "1/Read/Owner": {
+      "logged_samples": 13,
+      "min_observed_us": 590,
+      "max_observed_us": 26874,
+      "max_line": "2026-11-03T14:19:11.322054Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Owner outcome=Success count=512 elapsed_us=26874"
+    },
+    "1/ReadIndex/Authority": {
+      "logged_samples": 12,
+      "min_observed_us": 657,
+      "max_observed_us": 14782,
+      "max_line": "2026-11-03T14:19:11.781276Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Success count=4096 elapsed_us=14782"
+    },
+    "1/RpcMutate/Acquire": {
+      "logged_samples": 12,
+      "min_observed_us": 10109,
+      "max_observed_us": 842373,
+      "max_line": "2026-11-03T14:19:16.257580Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Acquire outcome=Success count=2048 elapsed_us=842373"
+    },
+    "1/RpcMutate/Heartbeat": {
+      "logged_samples": 1,
+      "min_observed_us": 919408,
+      "max_observed_us": 919408,
+      "max_line": "2026-11-03T14:19:15.848294Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Heartbeat outcome=Success count=32 elapsed_us=919408"
+    },
+    "1/RpcMutate/Mutation": {
+      "logged_samples": 12,
+      "min_observed_us": 18870,
+      "max_observed_us": 848037,
+      "max_line": "2026-11-03T14:19:14.282821Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Mutation outcome=Success count=1024 elapsed_us=848037"
+    },
+    "1/RpcRead/Applied": {
+      "logged_samples": 13,
+      "min_observed_us": 5948,
+      "max_observed_us": 43521,
+      "max_line": "2026-11-03T14:19:12.657047Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Applied outcome=Success count=1024 elapsed_us=43521"
+    },
+    "1/RpcRead/AppliedAck": {
+      "logged_samples": 4,
+      "min_observed_us": 1200,
+      "max_observed_us": 8485,
+      "max_line": "2026-11-03T14:19:12.065321Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=AppliedAck outcome=Success count=64 elapsed_us=8485"
+    },
+    "1/RpcRead/Owner": {
+      "logged_samples": 12,
+      "min_observed_us": 1043,
+      "max_observed_us": 27069,
+      "max_line": "2026-11-03T14:19:11.457914Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Owner outcome=Success count=256 elapsed_us=27069"
+    },
+    "1/SaveCommitted/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3260,
+      "max_observed_us": 3853,
+      "max_line": "2026-11-03T14:19:16.272640Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=SaveCommitted outcome=Success node=1 entries=0 first=None last=Some(256) sequence=256 count=256 elapsed_us=3853"
+    },
+    "1/TakeAuthority/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1,
+      "max_observed_us": 4,
+      "max_line": "2026-11-03T14:19:11.083855Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeAuthority outcome=\"success\" count=4 elapsed_us=4"
+    },
+    "1/TakeBarrier/-": {
+      "logged_samples": 12,
+      "min_observed_us": 5970,
+      "max_observed_us": 46968,
+      "max_line": "2026-11-03T14:19:11.400090Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeBarrier outcome=\"success\" count=128 elapsed_us=46968"
+    },
+    "1/TakeFence/-": {
+      "logged_samples": 12,
+      "min_observed_us": 447,
+      "max_observed_us": 13207,
+      "max_line": "2026-11-03T14:19:11.252292Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFence outcome=\"success\" count=64 elapsed_us=13207"
+    },
+    "1/TakeFilters/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1,
+      "max_observed_us": 1,
+      "max_line": "2026-11-03T14:19:11.068284Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFilters outcome=\"success\" count=1 elapsed_us=1"
+    },
+    "1/TakeFinish/-": {
+      "logged_samples": 12,
+      "min_observed_us": 18358,
+      "max_observed_us": 868632,
+      "max_line": "2026-11-03T14:19:16.283749Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFinish outcome=\"success\" count=2048 elapsed_us=868632"
+    },
+    "1/TakeMutate/-": {
+      "logged_samples": 12,
+      "min_observed_us": 10127,
+      "max_observed_us": 842407,
+      "max_line": "2026-11-03T14:19:16.257612Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeMutate outcome=\"success\" count=2048 elapsed_us=842407"
+    },
+    "1/TakeWrite/-": {
+      "logged_samples": 12,
+      "min_observed_us": 321,
+      "max_observed_us": 8850,
+      "max_line": "2026-11-03T14:19:11.421762Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeWrite outcome=\"success\" count=128 elapsed_us=8850"
+    },
+    "1/WalAppend/-": {
+      "logged_samples": 2,
+      "min_observed_us": 4995,
+      "max_observed_us": 7386,
+      "max_line": "2026-11-03T14:19:16.231836Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=WalAppend outcome=Success node=1 entries=1 first=Some(255) last=Some(255) sequence=256 count=256 elapsed_us=7386"
+    },
+    "1/WalCommit/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3126,
+      "max_observed_us": 3771,
+      "max_line": "2026-11-03T14:19:16.272607Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=WalCommit outcome=Success node=1 entries=0 first=None last=Some(256) sequence=256 count=256 elapsed_us=3771"
+    },
+    "1/Write/Acquire": {
+      "logged_samples": 13,
+      "min_observed_us": 9688,
+      "max_observed_us": 837722,
+      "max_line": "2026-11-03T14:19:14.478631Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Write kind=Acquire outcome=Success count=4096 elapsed_us=837722"
+    },
+    "1/Write/Mutation": {
+      "logged_samples": 13,
+      "min_observed_us": 18207,
+      "max_observed_us": 878392,
+      "max_line": "2026-11-03T14:19:15.414607Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Write kind=Mutation outcome=Success count=4096 elapsed_us=878392"
+    },
+    "2/Append/-": {
+      "logged_samples": 2,
+      "min_observed_us": 2916,
+      "max_observed_us": 4215,
+      "max_line": "2026-11-03T14:19:16.269597Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=Append outcome=Success node=2 entries=1 first=Some(256) last=Some(256) sequence=256 count=256 elapsed_us=4215"
+    },
+    "2/ApplyQueued/-": {
+      "logged_samples": 2,
+      "min_observed_us": 1683,
+      "max_observed_us": 3121,
+      "max_line": "2026-11-03T14:19:12.724517Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=ApplyQueued outcome=Success node=2 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=3121"
+    },
+    "2/ApplyState/-": {
+      "logged_samples": 2,
+      "min_observed_us": 1625,
+      "max_observed_us": 3052,
+      "max_line": "2026-11-03T14:19:12.724494Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=ApplyState outcome=Success node=2 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=3052"
+    },
+    "2/RpcMutate/Acquire": {
+      "logged_samples": 12,
+      "min_observed_us": 15846,
+      "max_observed_us": 805036,
+      "max_line": "2026-11-03T14:19:16.278568Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Acquire outcome=Success count=2048 elapsed_us=805036"
+    },
+    "2/RpcMutate/Heartbeat": {
+      "logged_samples": 1,
+      "min_observed_us": 916996,
+      "max_observed_us": 916996,
+      "max_line": "2026-11-03T14:19:15.984609Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Heartbeat outcome=Success count=32 elapsed_us=916996"
+    },
+    "2/RpcMutate/Mutation": {
+      "logged_samples": 12,
+      "min_observed_us": 17613,
+      "max_observed_us": 840551,
+      "max_line": "2026-11-03T14:19:14.282758Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Mutation outcome=Success count=1024 elapsed_us=840551"
+    },
+    "2/RpcRead/Applied": {
+      "logged_samples": 13,
+      "min_observed_us": 6326,
+      "max_observed_us": 41196,
+      "max_line": "2026-11-03T14:19:12.656953Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Applied outcome=Success count=1024 elapsed_us=41196"
+    },
+    "2/RpcRead/AppliedAck": {
+      "logged_samples": 4,
+      "min_observed_us": 495,
+      "max_observed_us": 4223,
+      "max_line": "2026-11-03T14:19:13.863551Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=AppliedAck outcome=Success count=128 elapsed_us=4223"
+    },
+    "2/RpcRead/Owner": {
+      "logged_samples": 12,
+      "min_observed_us": 1222,
+      "max_observed_us": 19941,
+      "max_line": "2026-11-03T14:19:11.455820Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Owner outcome=Success count=256 elapsed_us=19941"
+    },
+    "2/SaveCommitted/-": {
+      "logged_samples": 2,
+      "min_observed_us": 2411,
+      "max_observed_us": 3706,
+      "max_line": "2026-11-03T14:19:16.275009Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=SaveCommitted outcome=Success node=2 entries=0 first=None last=Some(256) sequence=256 count=256 elapsed_us=3706"
+    },
+    "2/TakeAuthority/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1,
+      "max_observed_us": 15,
+      "max_line": "2026-11-03T14:19:16.307488Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeAuthority outcome=\"success\" count=2048 elapsed_us=15"
+    },
+    "2/TakeBarrier/-": {
+      "logged_samples": 12,
+      "min_observed_us": 6356,
+      "max_observed_us": 44263,
+      "max_line": "2026-11-03T14:19:11.398359Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeBarrier outcome=\"success\" count=128 elapsed_us=44263"
+    },
+    "2/TakeFence/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1174,
+      "max_observed_us": 8559,
+      "max_line": "2026-11-03T14:19:12.341220Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFence outcome=\"success\" count=512 elapsed_us=8559"
+    },
+    "2/TakeFilters/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1,
+      "max_observed_us": 1,
+      "max_line": "2026-11-03T14:19:11.084662Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFilters outcome=\"success\" count=1 elapsed_us=1"
+    },
+    "2/TakeFinish/-": {
+      "logged_samples": 12,
+      "min_observed_us": 27397,
+      "max_observed_us": 842171,
+      "max_line": "2026-11-03T14:19:16.307497Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFinish outcome=\"success\" count=2048 elapsed_us=842171"
+    },
+    "2/TakeMutate/-": {
+      "logged_samples": 12,
+      "min_observed_us": 15856,
+      "max_observed_us": 806287,
+      "max_line": "2026-11-03T14:19:16.278689Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeMutate outcome=\"success\" count=2048 elapsed_us=806287"
+    },
+    "2/TakeWrite/-": {
+      "logged_samples": 12,
+      "min_observed_us": 816,
+      "max_observed_us": 5694,
+      "max_line": "2026-11-03T14:19:11.716239Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeWrite outcome=\"success\" count=256 elapsed_us=5694"
+    },
+    "2/WalAppend/-": {
+      "logged_samples": 2,
+      "min_observed_us": 2769,
+      "max_observed_us": 3653,
+      "max_line": "2026-11-03T14:19:16.269369Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=WalAppend outcome=Success node=2 entries=1 first=Some(256) last=Some(256) sequence=256 count=256 elapsed_us=3653"
+    },
+    "2/WalCommit/-": {
+      "logged_samples": 2,
+      "min_observed_us": 2250,
+      "max_observed_us": 3564,
+      "max_line": "2026-11-03T14:19:16.274942Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=WalCommit outcome=Success node=2 entries=0 first=None last=Some(256) sequence=256 count=256 elapsed_us=3564"
+    },
+    "3/Append/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3375,
+      "max_observed_us": 4977,
+      "max_line": "2026-11-03T14:19:12.714503Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=Append outcome=Success node=3 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=4977"
+    },
+    "3/ApplyQueued/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3181,
+      "max_observed_us": 3422,
+      "max_line": "2026-11-03T14:19:12.726077Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=ApplyQueued outcome=Success node=3 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=3422"
+    },
+    "3/ApplyState/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3101,
+      "max_observed_us": 3360,
+      "max_line": "2026-11-03T14:19:12.726056Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=ApplyState outcome=Success node=3 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=3360"
+    },
+    "3/RpcMutate/Acquire": {
+      "logged_samples": 12,
+      "min_observed_us": 15913,
+      "max_observed_us": 819499,
+      "max_line": "2026-11-03T14:19:16.279019Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Acquire outcome=Success count=2048 elapsed_us=819499"
+    },
+    "3/RpcMutate/Heartbeat": {
+      "logged_samples": 1,
+      "min_observed_us": 905576,
+      "max_observed_us": 905576,
+      "max_line": "2026-11-03T14:19:15.947646Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Heartbeat outcome=Success count=32 elapsed_us=905576"
+    },
+    "3/RpcMutate/Mutation": {
+      "logged_samples": 12,
+      "min_observed_us": 19976,
+      "max_observed_us": 852689,
+      "max_line": "2026-11-03T14:19:14.282600Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcMutate kind=Mutation outcome=Success count=1024 elapsed_us=852689"
+    },
+    "3/RpcRead/Applied": {
+      "logged_samples": 13,
+      "min_observed_us": 7996,
+      "max_observed_us": 39662,
+      "max_line": "2026-11-03T14:19:11.289548Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Applied outcome=Success count=128 elapsed_us=39662"
+    },
+    "3/RpcRead/AppliedAck": {
+      "logged_samples": 4,
+      "min_observed_us": 891,
+      "max_observed_us": 3125,
+      "max_line": "2026-11-03T14:19:13.835983Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=AppliedAck outcome=Success count=128 elapsed_us=3125"
+    },
+    "3/RpcRead/Owner": {
+      "logged_samples": 12,
+      "min_observed_us": 930,
+      "max_observed_us": 24400,
+      "max_line": "2026-11-03T14:19:11.453120Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Owner outcome=Success count=256 elapsed_us=24400"
+    },
+    "3/SaveCommitted/-": {
+      "logged_samples": 2,
+      "min_observed_us": 2413,
+      "max_observed_us": 4265,
+      "max_line": "2026-11-03T14:19:12.722111Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=SaveCommitted outcome=Success node=3 entries=0 first=None last=Some(128) sequence=128 count=128 elapsed_us=4265"
+    },
+    "3/TakeAuthority/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1,
+      "max_observed_us": 5,
+      "max_line": "2026-11-03T14:19:12.338965Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeAuthority outcome=\"success\" count=512 elapsed_us=5"
+    },
+    "3/TakeBarrier/-": {
+      "logged_samples": 12,
+      "min_observed_us": 8015,
+      "max_observed_us": 41675,
+      "max_line": "2026-11-03T14:19:11.231382Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeBarrier outcome=\"success\" count=64 elapsed_us=41675"
+    },
+    "3/TakeFence/-": {
+      "logged_samples": 12,
+      "min_observed_us": 560,
+      "max_observed_us": 7960,
+      "max_line": "2026-11-03T14:19:11.699994Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFence outcome=\"success\" count=256 elapsed_us=7960"
+    },
+    "3/TakeFilters/-": {
+      "logged_samples": 12,
+      "min_observed_us": 1,
+      "max_observed_us": 1,
+      "max_line": "2026-11-03T14:19:11.082953Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFilters outcome=\"success\" count=1 elapsed_us=1"
+    },
+    "3/TakeFinish/-": {
+      "logged_samples": 12,
+      "min_observed_us": 25733,
+      "max_observed_us": 832815,
+      "max_line": "2026-11-03T14:19:16.306446Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeFinish outcome=\"success\" count=2048 elapsed_us=832815"
+    },
+    "3/TakeMutate/-": {
+      "logged_samples": 12,
+      "min_observed_us": 15952,
+      "max_observed_us": 819528,
+      "max_line": "2026-11-03T14:19:16.279045Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeMutate outcome=\"success\" count=2048 elapsed_us=819528"
+    },
+    "3/TakeWrite/-": {
+      "logged_samples": 12,
+      "min_observed_us": 447,
+      "max_observed_us": 5093,
+      "max_line": "2026-11-03T14:19:11.705068Z  WARN mqtt_cluster::broker::durable::diagnostics: event=\"cluster_acquire_stage\" stage=TakeWrite outcome=\"success\" count=256 elapsed_us=5093"
+    },
+    "3/WalAppend/-": {
+      "logged_samples": 2,
+      "min_observed_us": 3243,
+      "max_observed_us": 4689,
+      "max_line": "2026-11-03T14:19:12.714381Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=WalAppend outcome=Success node=3 entries=1 first=Some(128) last=Some(128) sequence=128 count=128 elapsed_us=4689"
+    },
+    "3/WalCommit/-": {
+      "logged_samples": 2,
+      "min_observed_us": 2323,
+      "max_observed_us": 3999,
+      "max_line": "2026-11-03T14:19:12.722041Z  WARN mqtt_cluster::storage::diagnostics: cluster storage stage timing event=\"cluster_storage_timing\" stage=WalCommit outcome=Success node=3 entries=0 first=None last=Some(128) sequence=128 count=128 elapsed_us=3999"
+    }
+  },
+  "errors_during_client_window": [
+    {
+      "node": 1,
+      "line": "2026-11-03T14:19:27.734166Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->3"
+    },
+    {
+      "node": 1,
+      "line": "2026-11-03T14:19:27.744638Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->2"
+    }
+  ]
+}

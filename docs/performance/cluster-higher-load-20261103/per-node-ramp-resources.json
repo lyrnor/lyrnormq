@@ -1,0 +1,14 @@
+{
+  "node1": {
+    "cpu_mean_cores": 2.9062406286458113,
+    "cpu_peak_sample_cores": 2.9677977535245397
+  },
+  "node2": {
+    "cpu_mean_cores": 2.013923486254231,
+    "cpu_peak_sample_cores": 2.0837518757186304
+  },
+  "node3": {
+    "cpu_mean_cores": 2.015834229599823,
+    "cpu_peak_sample_cores": 2.0640006731051836
+  }
+}

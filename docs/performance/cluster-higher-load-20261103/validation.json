@@ -1,0 +1,23 @@
+{
+  "broker_sha256": "87ced3e81da295b4273b2757c8fc4472409d88472e5c77cca77ba472fd28854b",
+  "connection_probe_sha256": "d0acf9899b9ea9d34fd68c8a5234b4f741b97bef816987b00b49f4ad6a28c2ae",
+  "message_probe_sha256": "f955aa4d0843c48f0a689c5ea8ade782910709ae145a23afe77fdf494e19d7ef",
+  "case": "c2000",
+  "passed": false,
+  "direct_failure": "2991 scheduled connections were not started at the bounded 2048 in-flight limit",
+  "not_run": [
+    "c4000",
+    "q0",
+    "q1",
+    "q2",
+    "cscale"
+  ],
+  "stop_rule": "first case failure stops all subsequent pressure",
+  "message_tps": null,
+  "message_latency": null,
+  "message_loss": null,
+  "all_processes_stopped": true,
+  "python_syntax_and_connection_gate_fixture_checks": "passed",
+  "rust_source_changed": false,
+  "full_correctness_gates": "not repeated; unchanged binary validated in Phase7o"
+}

@@ -708,3 +708,16 @@ worker now limits outstanding writes and batches ready requests without a Core f
   claiming spare capacity at higher connection rates; retain current successful gate.
 
 Evidence:docs/verification/cluster-control-batching-20261103/README.md.
+
+## Phase7p — higher-load gate incomplete
+
+- [x] Freeze serial2000/4000,messageQoS0/1/2 and capacity matrix; SHA-pin existing tools.
+- [x] Read-only independent review, strict config/count checks and fresh case directories.
+- [x] Run2000/s10k:7009started=accepted=holdPINGlive,2991not_started; targetFAIL.
+- [x] Stop remaining matrix, preserve raw evidence and verify remote cleanup.
+- [ ] Profile Controller write queue residence, batch occupancy/completion and CPU;
+  current sparse stage timings cannot exactly apportion wait/IO/application cost.
+- [ ] Revalidate higher offered connection rate after addressing observed queueing.
+- [ ] Still unmeasured:4000/s,5000pairs/10000msg/s128B QoS0/1/2 and10k..100k capacity.
+
+Evidence:docs/performance/cluster-higher-load-20261103/README.md.

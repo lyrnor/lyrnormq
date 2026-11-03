@@ -1,0 +1,33 @@
+{
+  "server_complete_client_window": {
+    "samples": 16,
+    "intervals": 15,
+    "cpu_mean_cores": 2.6415714300873625,
+    "cpu_peak_sample_cores": 7.090681738227378,
+    "rss_peak_mib": 984.91015625,
+    "tcp_established_peak": 7009,
+    "fd_peak": 7109
+  },
+  "server_ramp_and_drain": {
+    "samples": 6,
+    "intervals": 5,
+    "cpu_mean_cores": 6.935998344499865,
+    "cpu_peak_sample_cores": 7.090681738227378,
+    "rss_peak_mib": 976.78515625,
+    "tcp_established_peak": 7009,
+    "fd_peak": 7109
+  },
+  "server_hold_and_ping": {
+    "samples": 10,
+    "intervals": 9,
+    "cpu_mean_cores": 0.13356007859425906,
+    "cpu_peak_sample_cores": 0.30335278858951603,
+    "rss_peak_mib": 984.91015625,
+    "tcp_established_peak": 7009,
+    "fd_peak": 7109
+  },
+  "client_cpu_mean_cores": 0.06182483732084887,
+  "client_rss_peak_mib": 6.765625,
+  "client_window_s": 17.014127303,
+  "boundary_note": "whole-process wall-clock aligned; phases use client start+ramp/drain as approximate boundary"
+}

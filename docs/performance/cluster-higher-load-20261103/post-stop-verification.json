@@ -1,0 +1,21 @@
+{
+  "broker": "47.84.224.186",
+  "client": "47.84.241.200",
+  "live_test_processes": {
+    "broker": [],
+    "client": []
+  },
+  "source_ports": {
+    "broker": [
+      32768,
+      60999
+    ],
+    "client": [
+      32768,
+      60999
+    ]
+  },
+  "source_ports_changed": false,
+  "cpu_model": "Intel(R) Xeon(R) Platinum",
+  "verification": "remote /proc inspection after stop"
+}
