@@ -236,6 +236,7 @@ impl BrokerRuntime {
                 node: self.config.node_id,
                 incarnation: self.incarnation.clone(),
                 applied,
+                lease_ms: self.config.lease_ms,
                 expires_at: controller::now().saturating_add(self.config.lease_ms),
             };
             if let Ok(rpc) = self.rpc().await {
@@ -273,6 +274,7 @@ impl BrokerRuntime {
             incarnation: self.incarnation.clone(),
             address: self.config.address(),
             expires_at: 0,
+            lease_ms: self.config.lease_ms,
         })
         .await?;
         self.watch_reconnect.notify_one();
@@ -406,6 +408,7 @@ impl ClusterBridge for BrokerRuntime {
                             node: self.config.node_id,
                             incarnation: self.incarnation.clone(),
                             address: self.config.address(),
+                            lease_ms: self.config.lease_ms,
                             expires_at: controller::now() + self.config.lease_ms,
                         })
                         .await

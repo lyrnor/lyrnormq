@@ -120,11 +120,18 @@ impl Control {
         }
         match &mut command {
             Command::Register {
-                node, expires_at, ..
+                node,
+                expires_at,
+                lease_ms,
+                ..
             }
             | Command::Heartbeat {
-                node, expires_at, ..
+                node,
+                expires_at,
+                lease_ms,
+                ..
             } => {
+                *lease_ms = self.lease_ms;
                 let previous = self
                     .store
                     .state
@@ -466,9 +473,9 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
                     let metadata = expiry_control.store.metadata();
                     observed.retain(|id, _| metadata.nodes.contains_key(id));
                     for n in metadata.nodes.into_values() {
-                        let seen = observed.entry(n.id).or_insert((n.expires_at, tokio::time::Instant::now()));
-                        if seen.0 != n.expires_at { *seen = (n.expires_at, tokio::time::Instant::now()); }
-                        if seen.1.elapsed() >= Duration::from_millis(expiry_config.lease_ms) {
+                        let instant = tokio::time::Instant::now();
+                        let seen = observed.entry(n.id).or_insert_with(|| crate::lease::LeaseObservation::new(&n, instant));
+                        if seen.expired(&n, instant) {
                             let _ = expiry_control.write(Command::Expire { node:n.id, incarnation:n.incarnation, expires_at:n.expires_at }).await;
                         }
                     }

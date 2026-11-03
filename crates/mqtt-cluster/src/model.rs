@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 pub type NodeId = u64;
+fn legacy_max_lease() -> u64 {
+    30000
+}
 openraft::declare_raft_types!(pub Types: D=Command,R=Answer,NodeId=NodeId,Node=BasicNode);
 pub type Raft = openraft::Raft<Types>;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -13,6 +16,8 @@ pub struct Node {
     pub incarnation: String,
     pub address: String,
     pub expires_at: u64,
+    #[serde(default = "legacy_max_lease")]
+    pub max_lease_ms: u64,
     pub applied: u64,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,12 +41,16 @@ pub enum Command {
         incarnation: String,
         address: String,
         expires_at: u64,
+        #[serde(default = "legacy_max_lease")]
+        lease_ms: u64,
     },
     Heartbeat {
         node: u64,
         incarnation: String,
         applied: u64,
         expires_at: u64,
+        #[serde(default = "legacy_max_lease")]
+        lease_ms: u64,
     },
     Claim {
         node: u64,
@@ -127,20 +136,21 @@ impl Metadata {
                 incarnation,
                 address,
                 expires_at,
+                lease_ms,
             } => {
                 if self.nodes.len() >= 1024 && !self.nodes.contains_key(&node) {
                     return Err("node capacity".into());
                 }
-                let applied = if let Some(old) = self.nodes.get(&node) {
+                let (applied, max_lease_ms) = if let Some(old) = self.nodes.get(&node) {
                     if old.incarnation != incarnation {
                         return Err("previous node incarnation still registered".into());
                     }
                     if old.address != address {
                         return Err("node address cannot change within an incarnation".into());
                     }
-                    old.applied
+                    (old.applied, old.max_lease_ms.max(lease_ms))
                 } else {
-                    0
+                    (0, lease_ms)
                 };
                 self.nodes.insert(
                     node,
@@ -149,6 +159,7 @@ impl Metadata {
                         incarnation,
                         address,
                         expires_at,
+                        max_lease_ms,
                         applied,
                     },
                 );
@@ -158,10 +169,12 @@ impl Metadata {
                 incarnation,
                 applied,
                 expires_at,
+                lease_ms,
             } => {
                 self.valid_node(node, &incarnation)?;
                 if let Some(n) = self.nodes.get_mut(&node) {
                     n.applied = n.applied.max(applied);
+                    n.max_lease_ms = n.max_lease_ms.max(lease_ms);
                     n.expires_at = n.expires_at.max(expires_at);
                 }
             }

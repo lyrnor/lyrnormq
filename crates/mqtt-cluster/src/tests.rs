@@ -20,6 +20,7 @@ fn register(node: u64) -> Command {
         incarnation: format!("node-{node}"),
         address: format!("http://127.0.0.1:{}", 10000 + node),
         expires_at: 100,
+        lease_ms: 3000,
     }
 }
 #[test]
@@ -169,4 +170,48 @@ fn openraft_storage_conformance() -> Result<(), Box<dyn std::error::Error>> {
         StoreBuilder,
     )?;
     Ok(())
+}
+
+#[test]
+fn mixed_controller_leases_preserve_all_outstanding_grants() {
+    let mut metadata = Metadata::default();
+    metadata.apply(register(1));
+    let long: Command=serde_json::from_value(serde_json::json!({"Heartbeat":{"node":1,"incarnation":"node-1","applied":0,"expires_at":200,"lease_ms":30000}})).expect("long grant");
+    let short: Command=serde_json::from_value(serde_json::json!({"Heartbeat":{"node":1,"incarnation":"node-1","applied":0,"expires_at":201,"lease_ms":1000}})).expect("short grant");
+    metadata.apply(long);
+    metadata.apply(short);
+    let node = serde_json::to_value(&metadata.nodes[&1]).expect("node");
+    assert_eq!(node["max_lease_ms"], 30000);
+}
+
+#[test]
+fn mixed_lease_election_waits_old_maximum_and_tracks_new_grants_monotonically() {
+    let mut metadata = Metadata::default();
+    metadata.apply(register(1));
+    let long:Command=serde_json::from_value(serde_json::json!({"Heartbeat":{"node":1,"incarnation":"node-1","applied":0,"expires_at":200,"lease_ms":30000}})).expect("grant");
+    metadata.apply(long);
+    let start = tokio::time::Instant::now();
+    let mut observed = crate::lease::LeaseObservation::new(&metadata.nodes[&1], start);
+    assert!(!observed.expired(
+        &metadata.nodes[&1],
+        start + std::time::Duration::from_millis(1001)
+    ));
+    assert!(observed.expired(
+        &metadata.nodes[&1],
+        start + std::time::Duration::from_millis(30000)
+    ));
+    let short:Command=serde_json::from_value(serde_json::json!({"Heartbeat":{"node":1,"incarnation":"node-1","applied":0,"expires_at":201,"lease_ms":1000}})).expect("grant");
+    metadata.apply(short);
+    let short_at = start + std::time::Duration::from_millis(31000);
+    assert!(!observed.expired(&metadata.nodes[&1], short_at));
+    assert!(!observed.expired(
+        &metadata.nodes[&1],
+        short_at + std::time::Duration::from_millis(1001)
+    ));
+    assert!(observed.expired(
+        &metadata.nodes[&1],
+        short_at + std::time::Duration::from_millis(30000)
+    ));
+    let legacy:Node=serde_json::from_value(serde_json::json!({"id":1,"incarnation":"legacy","address":"http://127.0.0.1:1","expires_at":10,"applied":0})).expect("legacy node");
+    assert_eq!(legacy.max_lease_ms, 30000);
 }

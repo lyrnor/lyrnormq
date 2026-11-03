@@ -2,6 +2,7 @@
 mod broker;
 mod config;
 mod controller;
+mod lease;
 mod model;
 mod rpc;
 mod storage;
