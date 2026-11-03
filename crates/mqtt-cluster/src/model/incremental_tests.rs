@@ -140,7 +140,7 @@ fn randomized_sparse_commands_match_full_rebuild_and_exact_bytes() {
     let mut commands = vec![register()];
     for n in 0..600 {
         seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
-        let client = format!("device-{}", seed % 32);
+        let client = format!("device-{}", (seed >> 16) % 32);
         let generation = 1 + ((seed >> 5) % 3);
         commands.push(match n % 6 {
             0 => Command::Claim {
@@ -185,10 +185,14 @@ fn randomized_sparse_commands_match_full_rebuild_and_exact_bytes() {
             },
         });
     }
+    let mut successful_filters = 0;
     for command in commands {
         let before = serde_json::to_vec(&actual).unwrap();
         let (a, delta) = actual.apply_tracked(command.clone());
         let e = legacy_reference(&mut expected, command.clone());
+        if a.error.is_none() && matches!(command, Command::Filters { .. }) {
+            successful_filters += 1;
+        }
         assert_eq!(
             (a.revision, &a.error),
             (e.revision, &e.error),
@@ -215,6 +219,10 @@ fn randomized_sparse_commands_match_full_rebuild_and_exact_bytes() {
             );
         }
     }
+    assert!(
+        successful_filters > 0,
+        "generator must cover successful filter edits"
+    );
 }
 #[test]
 fn shared_routes_survive_one_client_removal_and_expire_only_own_node() {
