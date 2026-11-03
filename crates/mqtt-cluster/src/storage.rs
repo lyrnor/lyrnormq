@@ -1,5 +1,6 @@
 //! Independent durable Raft WAL with transactional bbolt business checkpoints.
 use crate::model::*;
+use crate::profile::{Metric, Timer as ProfileTimer};
 use openraft::storage::{LogFlushed, LogState, RaftLogStorage, RaftStateMachine};
 use openraft::{
     BasicNode, Entry, LogId, RaftLogReader, RaftSnapshotBuilder, Snapshot, SnapshotMeta,
@@ -160,6 +161,7 @@ impl Store {
         &self,
         call: impl FnOnce(&mut wal::Wal) -> io::Result<T> + Send + 'static,
     ) -> Result<T, StorageError<u64>> {
+        let slot_wait = ProfileTimer::start(Metric::WalSlotWait);
         let permit = self
             .inner
             .slots
@@ -167,10 +169,16 @@ impl Store {
             .acquire_owned()
             .await
             .map_err(err)?;
+        drop(slot_wait);
         let inner = self.inner.clone();
+        let spawn_wait = ProfileTimer::start(Metric::WalSpawnWait);
         tokio::task::spawn_blocking(move || {
+            drop(spawn_wait);
             let _permit = permit;
+            let lock_wait = ProfileTimer::start(Metric::WalMutexWait);
             let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
+            drop(lock_wait);
+            let _work = ProfileTimer::start(Metric::WalWork);
             call(wal.as_mut().ok_or_else(|| db_err("Raft WAL is closed"))?)
         })
         .await
@@ -195,6 +203,7 @@ impl Store {
             let _permit = permit;
             let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
             let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+            let _work = ProfileTimer::start(Metric::CheckpointPersist);
             call(
                 wal.as_mut().ok_or_else(|| db_err("Raft WAL is closed"))?,
                 db.as_mut()
@@ -214,7 +223,9 @@ impl Store {
     {
         // At most one owned continuation exists. Dropping the caller cannot
         // release serialization between durable IO and RAM publication.
+        let serial_wait = ProfileTimer::start(Metric::ApplySerialWait);
         let turn = self.apply_gate.clone().acquire_owned().await.map_err(err)?;
+        drop(serial_wait);
         let this = self.clone();
         tokio::spawn(async move {
             let _turn = turn;
@@ -250,6 +261,7 @@ impl Store {
         &self,
         call: impl FnOnce() -> io::Result<T> + Send + 'static,
     ) -> Result<T, StorageError<u64>> {
+        let slot_wait = ProfileTimer::start(Metric::ApplySlotWait);
         let permit = self
             .inner
             .slots
@@ -257,7 +269,10 @@ impl Store {
             .acquire_owned()
             .await
             .map_err(err)?;
+        drop(slot_wait);
+        let spawn_wait = ProfileTimer::start(Metric::ApplySpawnWait);
         tokio::task::spawn_blocking(move || {
+            drop(spawn_wait);
             let _permit = permit;
             call()
         })
@@ -270,6 +285,7 @@ impl Store {
         &self,
         state: State,
     ) -> Result<(Snapshot<Types>, State), StorageError<u64>> {
+        let _total = ProfileTimer::start(Metric::CheckpointTotal);
         let (state, saved) = self
             .cpu(move || {
                 let saved = make_snapshot(&state)?;
@@ -326,6 +342,7 @@ impl Store {
         }
         let (entries, durable) = self
             .run_wal(move |wal| {
+                let _check = ProfileTimer::start(Metric::ApplyInputCheck);
                 let durable = recovery::applied_input_durable(wal, &entries)?;
                 Ok((entries, durable))
             })
@@ -359,7 +376,10 @@ impl Store {
                     let mut answers = Vec::with_capacity(entries.len());
                     let mut updates = Vec::new();
                     for entry in entries {
-                        let (answer, delta) = candidate.apply_tracked(entry);
+                        let (answer, delta) = {
+                            let _mutate = ProfileTimer::start(Metric::ApplyMutate);
+                            candidate.apply_tracked(entry)
+                        };
                         answers.push(answer);
                         if let Some(delta) = delta {
                             updates.push(delta);
@@ -373,10 +393,13 @@ impl Store {
             let history = self.history.clone();
             let changed = self.changed.clone();
             self.cpu(move || {
+                let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
                 let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
                 let mut history = history.lock().unwrap_or_else(PoisonError::into_inner);
+                drop(lock_wait);
                 *state = candidate;
                 for update in updates {
+                    let _history = ProfileTimer::start(Metric::ApplyHistory);
                     history.push(update);
                 }
                 changed.send_replace(state.metadata.revision);
@@ -389,13 +412,19 @@ impl Store {
             let history = self.history.clone();
             let changed = self.changed.clone();
             self.cpu(move || {
+                let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
                 let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
                 let mut history = history.lock().unwrap_or_else(PoisonError::into_inner);
+                drop(lock_wait);
                 let mut answers = Vec::with_capacity(entries.len());
                 for entry in entries {
-                    let (answer, delta) = state.apply_tracked(entry);
+                    let (answer, delta) = {
+                        let _mutate = ProfileTimer::start(Metric::ApplyMutate);
+                        state.apply_tracked(entry)
+                    };
                     answers.push(answer);
                     if let Some(delta) = delta {
+                        let _history = ProfileTimer::start(Metric::ApplyHistory);
                         history.push(delta);
                     }
                 }
@@ -546,6 +575,7 @@ impl RaftLogStorage<Types> for Store {
         )
         .await?;
         callback.log_io_completed(Ok(()));
+        diagnostics::flushed(context);
         Ok(())
     }
     async fn truncate(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
@@ -615,6 +645,7 @@ struct SavedSnapshot {
     data: Vec<u8>,
 }
 fn make_snapshot(state: &State) -> io::Result<SavedSnapshot> {
+    let _encode = ProfileTimer::start(Metric::CheckpointEncode);
     let data = encode(&state)?;
     if data.len() > recovery::MAX_SNAPSHOT {
         return Err(db_err("snapshot exceeds limit"));

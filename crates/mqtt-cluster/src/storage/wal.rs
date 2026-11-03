@@ -1,5 +1,6 @@
 //! Blocking, durable Raft WAL adapter. Caller supplies bounded blocking workers and a mutex.
 use super::{Entry, LogId, LogState, Types, Vote, log};
+use crate::profile::{Metric, Timer};
 use raft_log::api::raft_log_writer::RaftLogWriter;
 use raft_log::{Config, Dump, DumpApi, RaftLog, RaftLogAction, WALRecord};
 use serde::{Deserialize, Serialize};
@@ -223,14 +224,21 @@ impl Wal {
     ) -> io::Result<()> {
         self.check()?;
         let result = (|| {
-            operation(&mut self.inner)?;
+            {
+                let _mutation = Timer::start(Metric::WalMutation);
+                operation(&mut self.inner)?;
+            }
             let (tx, rx) = std::sync::mpsc::sync_channel(1);
             let callback = Completion {
                 sender: tx,
                 #[cfg(test)]
                 injected_error: std::mem::take(&mut self.fail_next_callback),
             };
-            self.inner.flush(true, Some(callback))?;
+            {
+                let _enqueue = Timer::start(Metric::WalFlushEnqueue);
+                self.inner.flush(true, Some(callback))?;
+            }
+            let _callback_wait = Timer::start(Metric::WalFlushWait);
             rx.recv_timeout(Duration::from_secs(30))
                 .map_err(invalid)??;
             Ok(())
@@ -241,6 +249,7 @@ impl Wal {
         result
     }
     pub(super) fn entries(&self, from: u64, to: u64) -> io::Result<Vec<Entry<Types>>> {
+        let _read = Timer::start(Metric::WalRead);
         self.check()?;
         if from > to {
             return Ok(Vec::new());

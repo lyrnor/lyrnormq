@@ -48,9 +48,14 @@ struct Timer {
     started: Instant,
     sequence: u64,
     finished: bool,
+    trace_start_us: Option<u64>,
 }
 impl Timer {
     fn emit(&self, outcome: Outcome) {
+        if let Some(start_us) = self.trace_start_us {
+            let end_us = crate::profile::stamp_us();
+            tracing::warn!(event="raft_storage_trace", stage=?self.stage, outcome=?outcome, node=self.context.node, entries=self.context.entries, first=?self.context.first, last=?self.context.last, sequence=self.sequence, start_us, end_us, "Raft storage correlated stage");
+        }
         let count = OUTCOMES[self.stage as usize * 3 + outcome as usize]
             .fetch_add(1, Ordering::Relaxed)
             .saturating_add(1);
@@ -80,6 +85,8 @@ where
         started: Instant::now(),
         sequence,
         finished: false,
+        trace_start_us: trace_allowed(crate::profile::enabled(), sequence)
+            .then(crate::profile::stamp_us),
     };
     if sequence.is_power_of_two() {
         tracing::warn!(event="cluster_storage_start",stage=?stage,node=context.node,entries=context.entries,first=?context.first,last=?context.last,sequence,"cluster storage stage entry");
@@ -108,6 +115,8 @@ pub(super) fn measure_sync<T, E>(
         started: Instant::now(),
         sequence,
         finished: false,
+        trace_start_us: trace_allowed(crate::profile::enabled(), sequence)
+            .then(crate::profile::stamp_us),
     };
     if sequence.is_power_of_two() {
         tracing::warn!(event="cluster_storage_start",stage=?stage,node=context.node,entries=context.entries,first=?context.first,last=?context.last,sequence,"cluster storage stage entry");
@@ -121,9 +130,33 @@ pub(super) fn measure_sync<T, E>(
     timer.finished = true;
     result
 }
+// First 4096 per-stage traces include numeric consensus context only. Existing
+// sparse diagnostics retain their old sampling independently of this opt-in cap.
+fn trace_allowed(enabled: bool, sequence: u64) -> bool {
+    enabled && sequence != 0 && sequence <= 4096
+}
+static CALLBACKS: AtomicU64 = AtomicU64::new(0);
+pub(super) fn flushed(context: Context) {
+    if !crate::profile::enabled() {
+        return;
+    }
+    let sequence = CALLBACKS.fetch_add(1, Ordering::Relaxed).saturating_add(1);
+    if trace_allowed(true, sequence) {
+        tracing::warn!(event="raft_storage_callback", node=context.node, entries=context.entries, first=?context.first, last=?context.last, sequence, stamp_us=crate::profile::stamp_us(), "Raft append callback issued");
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn opt_in_trace_budget_has_exact_boundaries() {
+        assert!(!trace_allowed(false, 1));
+        assert!(!trace_allowed(true, 0));
+        assert!(trace_allowed(true, 1));
+        assert!(trace_allowed(true, 4096));
+        assert!(!trace_allowed(true, 4097));
+        assert!(!trace_allowed(true, u64::MAX));
+    }
     #[tokio::test]
     async fn timing_preserves_errors_success_and_cancellation() {
         let context = Context {

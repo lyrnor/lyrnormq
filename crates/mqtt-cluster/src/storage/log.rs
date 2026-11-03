@@ -1,5 +1,6 @@
 //! Stable checksummed Raft Entry envelopes and guarded suffix replacement.
 use super::*;
+use crate::profile::{Metric, Timer};
 use sha2::{Digest, Sha256};
 pub(super) const FORMAT: u64 = 2;
 const MAX_RECORD: usize = 1024 * 1024;
@@ -17,6 +18,7 @@ fn digest(entry: &Entry<Types>) -> io::Result<String> {
     Ok(format!("{:x}", hash.finalize()))
 }
 pub(super) fn encode_entry(entry: &Entry<Types>) -> io::Result<Vec<u8>> {
+    let _encode = Timer::start(Metric::WalEncode);
     let data = encode(&StoredEntry {
         format: FORMAT,
         entry,
