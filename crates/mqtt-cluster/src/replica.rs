@@ -594,7 +594,11 @@ impl Journal {
             state.importing = false;
             state.installed = true;
             save_repair_state(&tx, &state)?;
+            #[cfg(test)]
+            crash_during_install("before_commit");
             tx.commit().map_err(error)?;
+            #[cfg(test)]
+            crash_during_install("after_commit");
             Ok(store_status(&disk_id, state))
         }).await
     }
@@ -781,6 +785,14 @@ fn hash_string(hash: Sha256) -> String {
         .collect()
 }
 
+/// Compiled only into the unit-test executable, never into the Broker.
+#[cfg(test)]
+fn crash_during_install(point: &str) {
+    if std::env::var("RMQTT_TEST_REPAIR_INSTALL_CRASH").as_deref() == Ok(point) {
+        std::process::exit(if point == "before_commit" { 74 } else { 75 });
+    }
+}
+
 fn execute_transaction(
     db: &mut Connection,
     generation: u64,
@@ -904,6 +916,224 @@ mod tests {
             ("repair-test", 1),
             &[(1, "http://127.0.0.1:9001".to_owned())],
         )
+    }
+    #[tokio::test]
+    async fn repair_install_crash_probe() -> io::Result<()> {
+        let Some(path) = std::env::var_os("RMQTT_TEST_REPAIR_INSTALL_PATH") else {
+            return Ok(());
+        };
+        let journal = test_journal(Path::new(&path))?;
+        journal.finish_import(test_token(1)).await?;
+        Err(rejected())
+    }
+    #[tokio::test]
+    async fn repair_install_process_crashes_leave_old_or_complete_new_set_frozen() -> io::Result<()>
+    {
+        let source_path = repair_path("crash-source");
+        let target_path = repair_path("crash-target");
+        let source = test_journal(&source_path)?;
+        source
+            .execute_at(
+                0,
+                Request::Fence {
+                    key: "c:new".into(),
+                    epoch: 7,
+                },
+            )
+            .await?;
+        let manifest = source
+            .freeze(test_token(1))
+            .await?
+            .manifest
+            .ok_or_else(rejected)?;
+        let page = source.export_page(test_token(1), None, 64).await?;
+        let target = test_journal(&target_path)?;
+        target
+            .execute_at(
+                0,
+                Request::Write {
+                    key: "c:old".into(),
+                    record: Record::empty(1),
+                },
+            )
+            .await?;
+        target.begin_import(test_token(1), manifest.clone()).await?;
+        target.append_page(test_token(1), 0, page.entries).await?;
+        drop(target);
+        let binary = std::env::current_exe()?;
+        for (point, exit_code, installed) in
+            [("before_commit", 74, false), ("after_commit", 75, true)]
+        {
+            let binary = binary.clone();
+            let path = target_path.clone();
+            let output = tokio::task::spawn_blocking(move || {
+                std::process::Command::new(binary)
+                    .args([
+                        "--exact",
+                        "replica::tests::repair_install_crash_probe",
+                        "--nocapture",
+                    ])
+                    .env("RMQTT_TEST_REPAIR_INSTALL_PATH", path)
+                    .env("RMQTT_TEST_REPAIR_INSTALL_CRASH", point)
+                    .output()
+            })
+            .await
+            .map_err(error)??;
+            assert_eq!(
+                output.status.code(),
+                Some(exit_code),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let target = test_journal(&target_path)?;
+            let status = target.status().await?;
+            assert_eq!(status.installed, installed);
+            assert_eq!(status.frozen, Some(test_token(1)));
+            assert!(!target.voting_ready(0));
+            assert!(!target.voting_ready(1));
+            let counts = target
+                .with_db(|db| {
+                    let old = db
+                        .query_row("SELECT count(*) FROM records WHERE key='c:old'", [], |r| {
+                            r.get::<_, i64>(0)
+                        })
+                        .map_err(error)?;
+                    let new = db
+                        .query_row("SELECT count(*) FROM records WHERE key='c:new'", [], |r| {
+                            r.get::<_, i64>(0)
+                        })
+                        .map_err(error)?;
+                    Ok((old, new))
+                })
+                .await?;
+            assert_eq!(counts, if installed { (0, 1) } else { (1, 0) });
+            drop(target);
+        }
+        let target = test_journal(&target_path)?;
+        assert_eq!(target.status().await?.manifest, Some(manifest));
+        target.resume(test_token(1), false).await?;
+        assert!(
+            target
+                .execute_at(
+                    1,
+                    Request::Fence {
+                        key: "c:new".into(),
+                        epoch: 6
+                    }
+                )
+                .await
+                .is_err()
+        );
+        drop(source);
+        drop(target);
+        std::fs::remove_dir_all(source_path)?;
+        std::fs::remove_dir_all(target_path)?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn repair_canonical_manifest_and_capacity_rejections_are_exact() -> io::Result<()> {
+        let path = repair_path("canonical");
+        let journal = test_journal(&path)?;
+        journal
+            .execute_at(
+                0,
+                Request::Fence {
+                    key: "a".into(),
+                    epoch: 1,
+                },
+            )
+            .await?;
+        let frozen = journal.freeze(test_token(1)).await?;
+        let manifest = frozen.manifest.ok_or_else(rejected)?;
+        assert_eq!(manifest.records, 1);
+        assert_eq!(
+            manifest.bytes,
+            b"{\"key\":\"a\",\"min_epoch\":1,\"record\":null}\n".len() as u64
+        );
+        assert_eq!(
+            manifest.digest,
+            "f2f0f40c8422ecc465162c049bf6c476cf8e515f9f5fef9c3aa868d185f399ea"
+        );
+        assert!(journal.export_page(test_token(1), None, 0).await.is_err());
+        let target_path = repair_path("capacity");
+        let target = test_journal(&target_path)?;
+        assert!(
+            target
+                .begin_import(
+                    test_token(1),
+                    RepairManifest {
+                        records: MAX_ENTRIES + 1,
+                        ..manifest.clone()
+                    }
+                )
+                .await
+                .is_err()
+        );
+        assert!(
+            target
+                .begin_import(
+                    test_token(1),
+                    RepairManifest {
+                        bytes: MAX_REPAIR_BYTES + 1,
+                        ..manifest.clone()
+                    }
+                )
+                .await
+                .is_err()
+        );
+        target.begin_import(test_token(1), manifest).await?;
+        assert!(
+            target
+                .append_page(test_token(1), 0, Vec::new())
+                .await
+                .is_err()
+        );
+        let invalid = RepairEntry {
+            key: "a".into(),
+            min_epoch: 1,
+            record: Some(Record::empty(2)),
+        };
+        assert!(
+            target
+                .append_page(test_token(1), 0, vec![invalid])
+                .await
+                .is_err()
+        );
+        assert_eq!(target.status().await?.next_page, 0);
+        assert!(!target.voting_ready(0));
+        drop(journal);
+        drop(target);
+        std::fs::remove_dir_all(path)?;
+        std::fs::remove_dir_all(target_path)?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn repair_export_accepts_near_eight_mib_record_with_maximum_key() -> io::Result<()> {
+        let path = repair_path("large");
+        let journal = test_journal(&path)?;
+        let key = "k".repeat(65538);
+        let mut record = Record::empty(1);
+        record.snapshot = Some(vec![255; (MAX_RECORD - 4096) / 4]);
+        let length = serde_json::to_vec(&record).map_err(error)?.len();
+        assert!(length < MAX_RECORD && length > 7 * 1024 * 1024);
+        journal
+            .execute_at(
+                0,
+                Request::Write {
+                    key: key.clone(),
+                    record,
+                },
+            )
+            .await?;
+        journal.freeze(test_token(1)).await?;
+        let page = journal.export_page(test_token(1), None, 64).await?;
+        assert!(page.done);
+        assert_eq!(page.entries.len(), 1);
+        assert_eq!(page.entries[0].key, key);
+        assert!(canonical_entry(&page.entries[0])?.len() < MAX_PAGE_BYTES);
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
     }
     #[tokio::test]
     async fn repair_pages_install_and_restart_preserve_records_fences_and_generation()
