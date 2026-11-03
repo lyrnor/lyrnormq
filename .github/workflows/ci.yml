@@ -106,6 +106,9 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p cluster_control_optimization_limits_test.py -v
           python3 tests/cluster_control_optimization_blackbox.py -v
+      - name: Independent Raft WAL and checkpoint crash recovery
+        timeout-minutes: 10
+        run: PYTHONPATH=tests python3 -m unittest cluster_raft_wal_blackbox.RaftWalAcceptance -v
       - name: Controller observation sampler verification
         timeout-minutes: 5
         run: python3 -m unittest discover -s tests -p cluster_topology_controller_probe_test.py -v

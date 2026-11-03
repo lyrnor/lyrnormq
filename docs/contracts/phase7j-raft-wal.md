@@ -51,7 +51,7 @@ Downgrade/mixed-version cluster unsupported. No deleting deployed state director
 ## Ownership and acceptance
 
 WAL owner owns ONLY storage/wal.rs and storage/wal/**. Coordinator owns Cargo.toml/
-lock and mod declaration integration. Storage integrator owns storage.rs,
+lock, docs, benchmark scripts and CI integration. Storage integrator owns storage.rs,
 storage/recovery.rs, storage/log.rs and existing storage/tests.rs; coordinate exact
 boundary above first. Quality owns tests/cluster_raft_wal* and independent code
 review; no shared worktree writes. Each assigned independent worktree/branch, test
@@ -75,3 +75,17 @@ no fabricated log entries/last positions. Native append/vote/truncate/purge rema
 Wal::open receives the WAL directory itself, creates only a nonexistent directory;
 existing empty/missing-identity directories fail closed. Strict official DumpApi
 preflight validates ALL existing records before open can auto-clean a tail.
+
+Flush configuration: explicitly zero flush_batch_wait, preserving native ready-queue
+aggregation without the upstream default1ms deliberate wait. Keep finite flush item/
+byte queues, read buffer, payload cache and chunk rollover; report actual configured
+values. Sync completion remains mandatory, no timer-only durability.
+
+Lifecycle clarification: underlying WAL Drop performs sync and joins its worker.
+Store.Inner must move its owned WAL/SQLite/controller.lock together into at most one
+blocking cleanup job when dropped on a Tokio worker; hold directory lock until WAL
+and database shutdown finish. No per-request cleanup tasks. Blocking open may wait
+at most2s for the exclusive directory lock, to tolerate immediately reopening a
+locally closing store; a genuinely held directory still returns WouldBlock. No
+release-lock-then-write race. Synchronous/nonruntime close stays on calling blocking
+thread. The production Controller owns a single Inner instance.

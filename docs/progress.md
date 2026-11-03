@@ -2810,3 +2810,38 @@ barriers; incremental metadata/route accounting; Raft-log durability with period
 snapshots/replay instead of every-entry fullstate rewrite. No Raft safety weakening
 or cluster production code change made during diagnosis. Full evidence:
 [failed-run and diagnosis](performance/cluster-scale-20261103/README.md).
+
+## 2026-11-03 — control optimization and independent Raft WAL rewrite
+
+Phase7h incremental state, sparse applied barriers, checksummed durable committed
+tail and periodic snapshots are implemented. Source10f3002:964 workspace tests
+passed/1 external PostgreSQL test ignored, strict Clippy/fmt passed. Native48
+process gates passed before capacity-only adjustments, followed by focused native
+and Linux committed-tail gates. Corrected1000/s ramp attempted all10000 clients,
+but only320 successful CONNACK/212 alive after hold; remaining matrix stopped.
+Known finite admission mismatches and unconditional background reacquisition can
+amplify overload; invalid PINGRESP frames did not retain reason bytes, so their
+precise disconnect cause is not established. No target-load throughput/p99 claim.
+
+User-directed Phase7j supersedes SQLite Raft log storage: exact raft-log0.4.6
+with chunked-wal0.2.4, frozen contract and three isolated adapter/integration/quality
+worktrees. WAL implementation and initial recovery validation complete. SQLite business
+checkpoints remain; no admission batching change or weakened durability in this
+rewrite. Next gates: store conformance, migration/interrupted publication, committed
+replay and snapshot/purge, independent process crash tests, workspace checks and
+local amd64-musl cross build.
+
+Phase7j implementation integrated: independent raft-log WAL plus validated atomic
+legacy import, snapshot-first purge, committed-only recovery, strict corruption
+preflight, bounded codecs/cache/chunks and off-runtime resource cleanup. Initial
+native recovery7/7 passed98.850s; final immutable binary2a9b81a4…7/7 passed98.591s
+under ResourceWarning-as-error, including real old SQLite migration and2100-filter
+snapshot/purge recovery. Workspace984passed/1externalPGignored; final cluster116
+validated (four loopback tests required sandbox network permission, then4/4 pass);
+WAL11 focused tests, strict all-target workspaceClippy/fmt passed. New CI crash gate
+added. No high-connection server pressure rerun; shared command/heartbeat admission,
+Applied capacity and background reacquire amplification remain open. Evidence:
+[Raft WAL verification](verification/raft-wal-20261103/README.md).
+Final dual-role gate1/1 passed2.783s; local Linux amd64-musl static release build
+passed1m13s, SHA8321c9cbf18cb1715a6b16d10ba463f59bce9053f17253e5d9575735d898e426.
+Zig linker warns deprecated optimization1 ignored; no server build/deployment.

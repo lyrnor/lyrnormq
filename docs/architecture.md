@@ -1048,3 +1048,17 @@ recipient deduplication and completion atomicity stay unchanged.
 
 Phase7g fairness: at most32 Work attempts per key per turn, then immediate keyed
 requeue behind already-ready keys; no per-message success sleep or extra timer.
+
+## Independent Raft WAL (Phase7j)
+
+The control log backend is separated from business checkpoints under
+[the frozen WAL contract](contracts/phase7j-raft-wal.md). `raft-log`0.4.6
+(`chunked-wal`0.2.4) owns consensus entries, votes and committed/purged watermarks
+in `raft-wal/`; `metadata.sqlite` retains directory identity and business-state
+checkpoints. WAL mutations require actual sync completion, not enqueue completion.
+Snapshot durability precedes log purge; restart replays committed tail only.
+Legacy SQLite Raft records are validated and atomically imported without deleting
+the source before publication. This replaces the Phase7h SQLite log backend,
+not its sparse state machine or installed-version barriers. The known controller
+admission/heartbeat/reacquisition bottlenecks are separate work; a WAL backend change
+alone does not establish the requested connection throughput.

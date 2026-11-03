@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Observe local Controller journal catch-up with bounded read-only sampling.
+"""Historical SQLite state-blob observation probe (before Phase7h).
+
+Do not use to measure current Raft replication lag: periodic checkpoints are not
+live applied state. Current scale helper samples authenticated cluster-status RPC.
 
 --leader is an externally established, stable leader's 1-based directory ordinal.
 The probe does not discover or validate Raft leadership. Times measure first
