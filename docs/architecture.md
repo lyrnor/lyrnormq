@@ -1034,3 +1034,17 @@ A normal replacement process serves private repair RPC while MQTT waits, and mus
 be promoted in that same process. Old SQLite directories are refused unchanged;
 there is no automatic migration. The internal ReplicaStore boundary permits a
 future RocksDB backend, with its durability contract still to be designed.
+
+## Phase7g: event-driven forwarding scheduling
+
+[Contract](contracts/phase7g-event-forwarding.md) replaces the100ms outbox scan
+with bounded keyed scheduling. Actor-side mutations signal committed work even
+when the caller abandons its reply. A key has at most one worker; successful
+forwarding drains the next intent immediately, while failures retain responsibility
+and use finite retry timers. Ownership/liveness, repair and readiness events
+schedule recovery. Controller heartbeats and lease expiration checks remain required
+control-plane mechanisms; they are not periodic message discovery. Replication,
+recipient deduplication and completion atomicity stay unchanged.
+
+Phase7g fairness: at most32 Work attempts per key per turn, then immediate keyed
+requeue behind already-ready keys; no per-message success sleep or extra timer.

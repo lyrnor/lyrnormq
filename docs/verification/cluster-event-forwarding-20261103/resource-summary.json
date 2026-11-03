@@ -1,0 +1,33 @@
+{
+  "samples": 269,
+  "seconds": 269.478289954,
+  "six_process_cpu_one_core_percent_mean": 49.473676723511666,
+  "six_process_cpu_one_core_percent_peak": 148.07754780631205,
+  "six_process_rss_sum_peak_mib": 220.75,
+  "data_process_rss_sum_peak_mib": 119.47265625,
+  "controllers_at_end": [
+    {
+      "controller": 1,
+      "applied": 3598,
+      "revision": 546,
+      "read_ns": 11251036454406
+    },
+    {
+      "controller": 2,
+      "applied": 3598,
+      "revision": 546,
+      "read_ns": 11251037247875
+    },
+    {
+      "controller": 3,
+      "applied": 3598,
+      "revision": 546,
+      "read_ns": 11251037924749
+    }
+  ],
+  "max_connections_per_endpoint": {
+    "18831": 20,
+    "18832": 20,
+    "18833": 20
+  }
+}

@@ -84,3 +84,8 @@ bounded typed RAM; Controller Raft/configuration SQLite remains. No SQLite sessi
 mirror in replicated mode. A fresh boot is a new replica identity; catch up in the
 same running process before voting. Whole-group RAM loss cannot recover from
 control metadata. RocksDB is a future backend, not implemented.
+
+Event-driven replicated forwarding additionally follows
+`docs/contracts/phase7g-event-forwarding.md`. Actor commits notify bounded keyed
+workers; no periodic full-directory message scan. Preserve FIFO per key, retry
+state, caller-cancellation safety and metadata/readiness-triggered recovery.

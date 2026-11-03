@@ -2746,3 +2746,37 @@ Deployed Linux musl ELF also passed the full17 RAM real-process fault/repair tes
 in103.434s, after load measurements. First remote harness copy missed an imported
 helper and failed before test execution; complete helper upload resolved it without
 source changes. Evidence retains that setup failure and the full passing log.
+
+## 2026-11-03 — Phase7g event-driven cluster forwarding
+
+Frozen [contract](contracts/phase7g-event-forwarding.md), independent runtime and
+quality worktrees. Production a0939a8/f3b6181 replaces100ms directory polling with
+bounded keyed notification scheduling. Commit/Host/Acquire/Release events schedule
+from actor-side continuation; RPC failure uses per-key retry timers. Ownership,
+node liveness, repair and readiness events restore pending work. Same-key FIFO,
+16workers,32-Work quantum avoids16-hot-key starvation. Activation Arc token fixes
+oldACK/newRelease race without durable schema or wire change. No lib.rs business.
+
+Idle polling and hot-key starvation each reproduced by failing regression before
+fix. Final915Rust tests passed,1externalPG ignored; fmt and strictClippy passed.
+Final native event10 fault cases passed66.998s (bothversions, allQoS FIFO,
+retry without newpublish, lost committed response dedupe, owner/readiness recovery).
+RAM17 and same-server100/s comparison tracked in the
+[evidence report](verification/cluster-event-forwarding-20261103/README.md).
+
+Remaining: metadata cloning/reconciliation on relevant directory changes,
+serialization/repair costs, futureRocksDB backend and whole-group disk recovery.
+Data copies remainRAM; control heartbeats/lease timers remain required. Generic
+outbound logs and MQTT ACK/receipt/quorum atomicity unchanged.
+
+Final unchanged RAM17 also passed117.719s against the same immutable fairness
+binary; no retry. Covers offline/inflight recovery, blank-replica exclusion,
+same-process repair, interrupted import and whole-group RAM loss failing closed.
+
+Same-host six-process server reproduction (Linux locallyzigbuilt SHA0a20f4c9):
+60TCP/100messages/s/128B, QoS0/1/2 each3000sent/3000received, complete sourceACKs,
+zero missing/duplicate/failedpair; offering-deliveryTPS100/100/100. p99 improves
+107.115→5.219ms /106.881→5.668ms /110.069→8.671ms. This is100/s acceptance, not maxTPS.
+Whole-run six-process RSS peak220.75MiB, meanCPU49.47% of onecore; includes startup/
+setup/idle and does not prove a CPU reduction. New fleet under
+/opt/rmqtt-cluster-events/20261103; olddirectories preserved, same privateMQTTports.

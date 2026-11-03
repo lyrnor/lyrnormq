@@ -1,0 +1,32 @@
+[
+  {
+    "qos": 0,
+    "sent": 3000,
+    "received": 3000,
+    "final_source_acks": null,
+    "offering_delivery_tps": 100.0,
+    "baseline_p99_ms": 107.114963,
+    "p99_ms": 5.218995,
+    "p50_ms": 3.13067
+  },
+  {
+    "qos": 1,
+    "sent": 3000,
+    "received": 3000,
+    "final_source_acks": 3000,
+    "offering_delivery_tps": 100.0,
+    "baseline_p99_ms": 106.881468,
+    "p99_ms": 5.668322,
+    "p50_ms": 3.371468
+  },
+  {
+    "qos": 2,
+    "sent": 3000,
+    "received": 3000,
+    "final_source_acks": 3000,
+    "offering_delivery_tps": 100.0,
+    "baseline_p99_ms": 110.068698,
+    "p99_ms": 8.670576,
+    "p50_ms": 5.062155
+  }
+]

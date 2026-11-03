@@ -8,7 +8,10 @@ in a finite scheduler bounded by existing100k directory/actor limit; never silen
 lose a committed notification on a full transient channel. Use notification plus
 bounded keyed state, not unbounded task creation or timer entries.
 
-Worker drains consecutive intents without sleeping between success, respects FIFO
+Worker drains consecutive intents without sleeping between success. Bound each
+worker turn to32 intents then requeue immediately behind already-ready keys, so16
+hot keys cannot permanently starve other clients. This preserves single-key work
+and FIFO; no polling or intentional success delay. Worker respects FIFO
 and target generation, retains receipt idempotence and quorum completion markers.
 RPC failure/unknown completion keeps intent and arms a finite per-key retry timer
 (backoff); no all-directory periodic retry scan. New events cannot start a second
@@ -24,7 +27,7 @@ no locks across await. No new persistent schema or public wire API.
 
 Runtime owner: crates/mqtt-cluster/src/broker.rs and broker/durable.rs and new
 broker/durable/** (lib.rs modules/reexports only); tests first, isolated worktree.
-Quality owns tests/cluster_event* only in separate worktree, reuse MemoryFleet.
+Quality owns tests/cluster_event* and its .github/workflows/ci.yml gate in separate worktree, reuse MemoryFleet.
 Coordinator owns contract/docs/integration/local Zig build/server reproduction.
 Acceptance: deterministic test fails old polling (idle no scans, immediate event,
 coalescing/no lost wake, FIFO drain, retry/ownership/readiness); real-process both
