@@ -62,6 +62,14 @@ struct Cell {
     activate: bool,
 }
 impl Cell {
+    fn observe_generation(&mut self, generation: u64) {
+        if self.data_generation != generation {
+            self.record = None;
+            self.poisoned = true;
+            self.activate = false;
+            self.data_generation = generation;
+        }
+    }
     fn forget_if_disowned(&mut self, metadata: &Metadata, key: &str, node: u64, incarnation: &str) {
         if metadata
             .durable
@@ -129,12 +137,7 @@ impl Durable {
                     .read()
                     .unwrap_or_else(PoisonError::into_inner)
                     .data_generation;
-                if cell.data_generation != generation {
-                    cell.record = None;
-                    cell.poisoned = true;
-                    cell.activate = false;
-                    cell.data_generation = generation;
-                }
+                cell.observe_generation(generation);
                 match job.operation {
                     Operation::ForgetIfDisowned => cell.forget_if_disowned(
                         &runtime
@@ -831,6 +834,23 @@ mod tests {
         fn subscriptions(&self) -> ClusterFuture<'_, Vec<mqtt_cluster_core::ClientSubscriptions>> {
             Box::pin(async { Ok(Vec::new()) })
         }
+    }
+    #[test]
+    fn repair_generation_invalidates_cached_writer_before_any_operation() {
+        let mut cell = Cell {
+            data_generation: 0,
+            record: Some(Record::empty(1)),
+            poisoned: false,
+            activate: true,
+        };
+        cell.observe_generation(1);
+        assert!(cell.record.is_none() && cell.poisoned && !cell.activate);
+        cell.record = Some(Record::empty(5));
+        cell.poisoned = false;
+        cell.observe_generation(1);
+        assert!(cell.record.is_some() && !cell.poisoned);
+        cell.observe_generation(2);
+        assert!(cell.record.is_none() && cell.poisoned);
     }
     #[test]
     fn discarded_handoff_cache_does_not_clear_a_returned_owner() {

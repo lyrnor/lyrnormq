@@ -600,7 +600,9 @@ impl ClusterBridge for BrokerRuntime {
                 .unwrap_or_else(PoisonError::into_inner)
                 .extend(tasks);
             tokio::time::timeout(Duration::from_secs(10), async {
-                while !self.ready() {
+                // Repair maintenance intentionally keeps data voting unavailable.
+                // Donors still need to start and serve authenticated repair RPC.
+                while !self.control_ready() {
                     tokio::time::sleep(Duration::from_millis(20)).await;
                 }
             })

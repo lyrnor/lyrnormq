@@ -599,3 +599,101 @@ impl<'a> Merge<'a> {
         Ok(Some(a))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn frozen_donor_keeps_control_plane_and_abort_rejects_old_generation() -> io::Result<()> {
+        let directory = std::env::temp_dir().join(format!(
+            "rmqtt-repair-runtime-{}-{}",
+            std::process::id(),
+            controller::now()
+        ));
+        let config:Config=serde_json::from_value(serde_json::json!({
+            "role":"broker","cluster_id":"test","node_id":101,"listen":"127.0.0.1:7101","data_dir":directory,"token_file":"unused",
+            "controllers":[{"id":1,"address":"http://127.0.0.1:7001"},{"id":2,"address":"http://127.0.0.1:7002"},{"id":3,"address":"http://127.0.0.1:7003"}],
+            "durable":{"replicas":[{"id":101,"address":"http://127.0.0.1:7101"},{"id":102,"address":"http://127.0.0.1:7102"},{"id":103,"address":"http://127.0.0.1:7103"}]}
+        })).map_err(io::Error::other)?;
+        let runtime = BrokerRuntime::new(config)?;
+        let journal = runtime.journal.as_ref().ok_or_else(unavailable)?;
+        let state = RepairState {
+            id: "repair-test".into(),
+            target: 103,
+            old_disk: "1".repeat(32),
+            new_disk: "2".repeat(32),
+            donors: vec![(101, journal.disk_id().to_owned()), (102, "3".repeat(32))],
+            generation: 1,
+            manifest: None,
+        };
+        journal.freeze(token(&state)).await?;
+        {
+            let mut metadata = runtime
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            metadata.nodes.insert(
+                101,
+                Node {
+                    id: 101,
+                    incarnation: runtime.incarnation.clone(),
+                    address: runtime.config.address(),
+                    expires_at: 100,
+                    max_lease_ms: 3000,
+                    applied: 0,
+                },
+            );
+            metadata.disk_ids.insert(101, journal.disk_id().to_owned());
+            metadata.data_generation = 1;
+            metadata.repair = Some(state.clone());
+            metadata.excluded.insert(103);
+        }
+        runtime.initialized.store(true, Ordering::Release);
+        *runtime
+            .deadline
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) =
+            tokio::time::Instant::now() + Duration::from_secs(30);
+        assert!(runtime.control_ready());
+        assert!(!runtime.ready());
+        {
+            let mut metadata = runtime
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            metadata.repair = None;
+            metadata.last_repair = Some(RepairTerminal {
+                repair: state,
+                outcome: RepairOutcome::Aborted,
+            });
+        }
+        runtime.reconcile_repair().await?;
+        assert!(runtime.ready());
+        assert!(
+            journal
+                .execute_at(
+                    0,
+                    crate::replica::Request::Read {
+                        key: "c:client".into()
+                    }
+                )
+                .await
+                .is_err()
+        );
+        assert!(
+            journal
+                .execute_at(
+                    1,
+                    crate::replica::Request::Read {
+                        key: "c:client".into()
+                    }
+                )
+                .await?
+                .record
+                .is_none()
+        );
+        drop(runtime);
+        std::fs::remove_dir_all(directory)?;
+        Ok(())
+    }
+}
