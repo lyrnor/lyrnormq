@@ -181,7 +181,7 @@ impl BrokerRuntime {
         }
         Ok(())
     }
-    async fn install(&self, next: Metadata) -> io::Result<()> {
+    async fn install(&self, next: Metadata, forwarding_event: bool) -> io::Result<()> {
         let old = self
             .metadata
             .read()
@@ -244,6 +244,10 @@ impl BrokerRuntime {
         }
         self.reconcile_repair().await?;
         self.initialized.store(true, Ordering::Release);
+        if forwarding_event && let Some(data) = &self.data {
+            let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+            data.reconcile(self, Some(&old), &metadata);
+        }
         Ok(())
     }
     async fn watch_loop(self: Arc<Self>) {
@@ -290,10 +294,12 @@ impl BrokerRuntime {
                                     .read()
                                     .unwrap_or_else(PoisonError::into_inner)
                                     .clone();
+                                let forwarding_event =
+                                    durable::Durable::metadata_event(&update, &old);
                                 let Ok(metadata) = update.merge(&old) else {
                                     break;
                                 };
-                                if self.install(metadata).await.is_err() {
+                                if self.install(metadata, forwarding_event).await.is_err() {
                                     break;
                                 }
                             }
@@ -380,6 +386,12 @@ impl BrokerRuntime {
                 && let Ok(local) = self.local()
             {
                 let _ = local.fence_all().await;
+            }
+            if !was_ready
+                && ready
+                && let Some(data) = &self.data
+            {
+                data.ready_again(&self);
             }
             was_ready = ready;
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -728,6 +740,9 @@ impl ClusterBridge for BrokerRuntime {
     fn shutdown(&self) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
             self.stopped.store(true, Ordering::Release);
+            if let Some(data) = &self.data {
+                data.wake();
+            }
             let tasks =
                 std::mem::take(&mut *self.tasks.lock().unwrap_or_else(PoisonError::into_inner));
             for task in tasks {

@@ -5,10 +5,12 @@ use crate::diagnosis::{self, Failure};
 use crate::replica::{Intent, Journal, Recipient, Record, Request};
 use mqtt_cluster_core::{DeliveryId, SessionCommit, SessionLease, SessionMutation};
 use tokio::sync::{mpsc, oneshot};
+mod scheduler;
 
 struct Work {
     intent: Option<Intent>,
     activation: Option<SessionLease>,
+    activation_token: Arc<()>,
 }
 enum Operation {
     ForgetIfDisowned,
@@ -22,6 +24,7 @@ enum Operation {
     Activated {
         epoch: u64,
         revision: u64,
+        token: Arc<()>,
     },
     Acquire {
         generation: u64,
@@ -57,14 +60,30 @@ pub(super) struct Durable {
     operations: Arc<Semaphore>,
     waiters: Arc<Semaphore>,
     bytes: Arc<Semaphore>,
+    scheduler: scheduler::Scheduler,
 }
 struct Cell {
     data_generation: u64,
     record: Option<Record>,
     poisoned: bool,
     activate: bool,
+    activation_token: Arc<()>,
 }
 impl Cell {
+    fn request_activation(&mut self) {
+        self.activate = true;
+        self.activation_token = Arc::new(());
+    }
+    fn activated(&mut self, epoch: u64, revision: u64, token: &Arc<()>) {
+        if Arc::ptr_eq(&self.activation_token, token)
+            && self
+                .record
+                .as_ref()
+                .is_some_and(|r| r.epoch == epoch && r.revision == revision)
+        {
+            self.activate = false;
+        }
+    }
     fn observe_generation(&mut self, generation: u64) {
         if self.data_generation != generation {
             self.record = None;
@@ -105,6 +124,7 @@ impl Durable {
             operations: Arc::new(Semaphore::new(32)),
             waiters: Arc::new(Semaphore::new(32)),
             bytes: Arc::new(Semaphore::new(16 * 1024 * 1024)),
+            scheduler: scheduler::Scheduler::default(),
         }
     }
     fn actor(self: &Arc<Self>, key: &str) -> io::Result<mpsc::Sender<Job>> {
@@ -125,6 +145,7 @@ impl Durable {
                 record: None,
                 poisoned: false,
                 activate: false,
+                activation_token: Arc::new(()),
             };
             while let Some(job) = rx.recv().await {
                 let Some(this) = this.upgrade() else {
@@ -142,6 +163,15 @@ impl Durable {
                     .unwrap_or_else(PoisonError::into_inner)
                     .data_generation;
                 cell.observe_generation(generation);
+                cell.forget_if_disowned(
+                    &runtime
+                        .metadata
+                        .read()
+                        .unwrap_or_else(PoisonError::into_inner),
+                    &key,
+                    runtime.config.node_id,
+                    &runtime.incarnation,
+                );
                 match job.operation {
                     Operation::ForgetIfDisowned => cell.forget_if_disowned(
                         &runtime
@@ -176,33 +206,34 @@ impl Durable {
                                     && o.generation == generation
                             })
                         {
-                            cell.activate = true;
+                            cell.request_activation();
+                            this.changed(&key, &cell);
                         }
                     }
-                    Operation::Activated { epoch, revision } => {
-                        if cell
-                            .record
-                            .as_ref()
-                            .is_some_and(|r| r.epoch == epoch && r.revision == revision)
-                        {
-                            cell.activate = false;
-                        }
+                    Operation::Activated {
+                        epoch,
+                        revision,
+                        token,
+                    } => {
+                        cell.activated(epoch, revision, &token);
                     }
                     Operation::Acquire {
                         generation,
                         expected,
                         reply,
                     } => {
-                        let _ = reply.send(
-                            this.take(&runtime, &key, generation, expected, &mut cell)
-                                .await,
-                        );
+                        let result = this
+                            .take(&runtime, &key, generation, expected, &mut cell)
+                            .await;
+                        this.respond(&key, &cell, reply, result);
                     }
                     Operation::Commit { mutation, reply } => {
-                        let _ = reply.send(this.commit(&runtime, &key, mutation, &mut cell).await);
+                        let result = this.commit(&runtime, &key, mutation, &mut cell).await;
+                        this.respond(&key, &cell, reply, result);
                     }
                     Operation::Host { message, reply } => {
-                        let _ = reply.send(this.host(&runtime, &key, message, &mut cell).await);
+                        let result = this.host(&runtime, &key, message, &mut cell).await;
+                        this.respond(&key, &cell, reply, result);
                     }
                     Operation::Work { reply } => {
                         let _ = reply.send(this.work(&runtime, &key, &cell));
@@ -333,7 +364,7 @@ impl Durable {
             .unwrap_or_else(PoisonError::into_inner)
             .contains_key(key);
         if present {
-            let _ = self.send(key, Operation::ForgetIfDisowned);
+            self.scheduler.schedule(key);
         }
     }
     async fn await_reply<T>(&self, rx: oneshot::Receiver<io::Result<T>>) -> io::Result<T> {
@@ -500,7 +531,10 @@ impl Durable {
         let lease = lease(key, &record);
         cell.record = Some(record);
         cell.poisoned = false;
-        cell.activate = generation == 0;
+        cell.activate = false;
+        if generation == 0 {
+            cell.request_activation();
+        }
         Ok(lease)
     }
     fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<Recipient> {
@@ -704,6 +738,7 @@ impl Durable {
         Ok(Work {
             intent: current.intents.first().cloned(),
             activation: (cell.activate && key.starts_with("c:")).then(|| lease(key, current)),
+            activation_token: cell.activation_token.clone(),
         })
     }
     async fn complete(
@@ -726,7 +761,7 @@ impl Durable {
         });
         self.store(runtime, key, next, cell).await
     }
-    async fn one(self: &Arc<Self>, key: String) -> io::Result<()> {
+    async fn one(self: &Arc<Self>, key: String) -> io::Result<bool> {
         let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
         let (reply, rx) = oneshot::channel();
         self.send(&key, Operation::Work { reply })?;
@@ -749,21 +784,27 @@ impl Durable {
                 }
                 diagnosis::observe(Failure::BackgroundReacquire);
                 let recovered = self.acquire(key.clone(), 0, owner.epoch).await?;
-                if key.starts_with("c:") {
-                    runtime.local()?.activate_session(recovered).await?;
-                }
-                return Ok(());
+                let _ = recovered; // The next Work carries activation and its acknowledgement.
+                return Ok(true);
             }
         };
+        let activated = state.activation.is_some();
         if let Some(activation) = state.activation {
             let epoch = activation.epoch;
             let revision = activation.revision;
             runtime.local()?.activate_session(activation).await?;
-            self.send_wait(&key, Operation::Activated { epoch, revision })
-                .await?;
+            self.send_wait(
+                &key,
+                Operation::Activated {
+                    epoch,
+                    revision,
+                    token: state.activation_token,
+                },
+            )
+            .await?;
         }
         let Some(intent) = state.intent else {
-            return Ok(());
+            return Ok(activated);
         };
         for recipient in &intent.recipients {
             let target_generation = recipient.generation;
@@ -827,9 +868,156 @@ impl Durable {
             .await?;
             self.await_reply(rx).await?;
         }
-        Ok(())
+        Ok(true)
+    }
+    fn respond<T>(
+        &self,
+        key: &str,
+        cell: &Cell,
+        reply: oneshot::Sender<io::Result<T>>,
+        result: io::Result<T>,
+    ) {
+        // Actor-side continuation runs after the quorum attempt even when the
+        // network caller has cancelled its reply. Unknown outcomes retain work.
+        self.changed(key, cell);
+        let _ = reply.send(result);
+    }
+    pub(super) fn metadata_event(update: &MetadataUpdate, old: &Metadata) -> bool {
+        match update {
+            MetadataUpdate::Progress { .. } => false,
+            MetadataUpdate::Snapshot(_) => true,
+            MetadataUpdate::Delta {
+                durable,
+                nodes,
+                data_generation,
+                excluded,
+                repair,
+                last_repair,
+                ..
+            } => {
+                !durable.is_empty()
+                    || *data_generation != old.data_generation
+                    || *excluded != old.excluded
+                    || *repair != old.repair
+                    || *last_repair != old.last_repair
+                    || nodes.iter().any(|(id, next)| {
+                        old.nodes.get(id).map(|n| &n.incarnation)
+                            != next.as_ref().map(|n| &n.incarnation)
+                    })
+            }
+        }
+    }
+    fn changed(&self, key: &str, cell: &Cell) {
+        if cell.poisoned
+            || cell.activate
+            || cell.record.as_ref().is_some_and(|r| !r.intents.is_empty())
+        {
+            self.scheduler.schedule(key);
+        }
+    }
+    pub(super) fn wake(&self) {
+        self.scheduler.wake();
+    }
+    pub(super) fn reconcile(
+        &self,
+        runtime: &BrokerRuntime,
+        old: Option<&Metadata>,
+        next: &Metadata,
+    ) {
+        // Heartbeat progress/lease timestamps do not change routing work. Avoid
+        // a directory reconciliation unless ownership or readiness inputs changed.
+        if let Some(old) = old {
+            let same_nodes = old.nodes.len() == next.nodes.len()
+                && old.nodes.iter().all(|(id, node)| {
+                    next.nodes
+                        .get(id)
+                        .is_some_and(|n| n.incarnation == node.incarnation)
+                });
+            if old.durable == next.durable
+                && same_nodes
+                && old.data_generation == next.data_generation
+                && old.excluded == next.excluded
+                && old.repair == next.repair
+                && old.last_repair == next.last_repair
+            {
+                return;
+            }
+        }
+        let generation_changed = old.is_none_or(|old| {
+            old.data_generation != next.data_generation
+                || old.excluded != next.excluded
+                || old.repair != next.repair
+                || old.last_repair != next.last_repair
+        });
+        for (key, owner) in &next.durable {
+            let ours =
+                owner.node == runtime.config.node_id && owner.incarnation == runtime.incarnation;
+            let live = next
+                .nodes
+                .get(&owner.node)
+                .is_some_and(|n| n.incarnation == owner.incarnation);
+            let changed = generation_changed
+                || old.is_none_or(|old| {
+                    old.durable.get(key) != Some(owner)
+                        || old.nodes.get(&owner.node).map(|n| &n.incarnation)
+                            != next.nodes.get(&owner.node).map(|n| &n.incarnation)
+                });
+            if changed && (ours || !live) {
+                self.scheduler.schedule(key);
+            }
+        }
+    }
+    pub(super) fn ready_again(&self, runtime: &BrokerRuntime) {
+        let metadata = runtime
+            .metadata
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
+        self.reconcile(runtime, None, &metadata);
+    }
+    async fn drain(self: &Arc<Self>, key: String) -> io::Result<()> {
+        loop {
+            let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
+            if runtime.stopped.load(Ordering::Acquire) {
+                return Ok(());
+            }
+            if !runtime.ready() {
+                return Err(unavailable());
+            }
+            let owner = runtime
+                .metadata
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .durable
+                .get(&key)
+                .cloned();
+            let Some(owner) = owner else {
+                self.send_wait(&key, Operation::ForgetIfDisowned).await?;
+                return Ok(());
+            };
+            if owner.node != runtime.config.node_id || owner.incarnation != runtime.incarnation {
+                let live = runtime
+                    .metadata
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .nodes
+                    .get(&owner.node)
+                    .is_some_and(|n| n.incarnation == owner.incarnation);
+                if live {
+                    self.send_wait(&key, Operation::ForgetIfDisowned).await?;
+                    return Ok(());
+                }
+                self.acquire(key.clone(), 0, owner.epoch).await?;
+            }
+            if !tokio::time::timeout(Duration::from_secs(6), self.one(key.clone()))
+                .await
+                .map_err(|_| unavailable())??
+            {
+                return Ok(());
+            }
+        }
     }
     pub async fn run(self: Arc<Self>) {
+        let mut jobs = tokio::task::JoinSet::new();
         loop {
             let Some(runtime) = self.runtime.upgrade() else {
                 return;
@@ -837,47 +1025,31 @@ impl Durable {
             if runtime.stopped.load(Ordering::Acquire) {
                 return;
             }
-            let directory = runtime
-                .metadata
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .durable
-                .clone();
-            if runtime.ready() {
-                let mut jobs = tokio::task::JoinSet::new();
-                for (key, owner) in directory {
-                    if owner.node != runtime.config.node_id
-                        || owner.incarnation != runtime.incarnation
-                    {
-                        self.forget(&key);
-                    }
-                    if jobs.len() >= 16 {
-                        let _ = jobs.join_next().await;
-                    }
-                    let this = self.clone();
-                    let runtime = runtime.clone();
-                    jobs.spawn(async move {
-                        let ours = owner.node == runtime.config.node_id
-                            && owner.incarnation == runtime.incarnation;
-                        let live = runtime
-                            .metadata
-                            .read()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .nodes
-                            .get(&owner.node)
-                            .is_some_and(|n| n.incarnation == owner.incarnation);
-                        if !ours && !live {
-                            let _ = this.acquire(key.clone(), 0, owner.epoch).await;
-                        }
-                        if ours || !live {
-                            let _ =
-                                tokio::time::timeout(Duration::from_secs(6), this.one(key)).await;
-                        }
-                    });
-                }
-                while jobs.join_next().await.is_some() {}
+            while jobs.len() < 16 {
+                let Some(key) = self.scheduler.take() else {
+                    break;
+                };
+                let this = self.clone();
+                jobs.spawn(async move {
+                    let success = this.drain(key.clone()).await.is_ok();
+                    (key, success)
+                });
             }
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            let deadline = if jobs.len() < 16 {
+                self.scheduler.deadline()
+            } else {
+                None
+            };
+            tokio::select! {
+                _=self.scheduler.wake.notified()=>{},
+                Some(joined)=jobs.join_next(), if !jobs.is_empty()=>{
+                    if let Ok((key,success))=joined && self.scheduler.finish(key,success) {
+                        // Overflow is a retained event, reconciled only as slots free.
+                        self.ready_again(&runtime);
+                    }
+                },
+                _=async { if let Some(at)=deadline {tokio::time::sleep_until(at).await} else {std::future::pending::<()>().await} }=>{},
+            }
         }
     }
 }
@@ -1157,6 +1329,7 @@ mod tests {
             record: Some(Record::empty(1)),
             poisoned: false,
             activate: true,
+            activation_token: Arc::new(()),
         };
         cell.observe_generation(1);
         assert!(cell.record.is_none() && cell.poisoned && !cell.activate);
@@ -1178,6 +1351,7 @@ mod tests {
             record: Some(record),
             poisoned: false,
             activate: true,
+            activation_token: Arc::new(()),
         };
         metadata.durable.insert(
             key.clone(),
@@ -1400,6 +1574,7 @@ mod tests {
             record: Some(record),
             poisoned: false,
             activate: false,
+            activation_token: Arc::new(()),
         };
         let result = runtime
             .data
@@ -1486,3 +1661,6 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod event_tests;
