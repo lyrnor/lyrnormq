@@ -5,6 +5,8 @@ use openraft::{BasicNode, Entry, LogId, StoredMembership};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
+#[path = "model/incremental.rs"]
+mod incremental;
 pub type NodeId = u64;
 fn legacy_max_lease() -> u64 {
     30000
@@ -58,8 +60,10 @@ impl DataMode {
 fn legacy_mode() -> Option<DataMode> {
     Some(DataMode::Legacy)
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Metadata {
+    #[serde(skip)]
+    pub(crate) derived: incremental::Derived,
     pub revision: u64,
     #[serde(default = "legacy_mode")]
     pub data_mode: Option<DataMode>,
@@ -78,6 +82,28 @@ pub struct Metadata {
     pub routes: BTreeMap<String, BTreeSet<u64>>,
     #[serde(default)]
     pub durable: BTreeMap<String, DurableOwner>,
+}
+#[cfg(test)]
+thread_local! { static METADATA_CLONES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+impl Clone for Metadata {
+    fn clone(&self) -> Self {
+        #[cfg(test)]
+        METADATA_CLONES.with(|count| count.set(count.get() + 1));
+        Self {
+            derived: self.derived.clone(),
+            revision: self.revision,
+            data_mode: self.data_mode.clone(),
+            disk_ids: self.disk_ids.clone(),
+            data_generation: self.data_generation,
+            excluded: self.excluded.clone(),
+            repair: self.repair.clone(),
+            last_repair: self.last_repair.clone(),
+            nodes: self.nodes.clone(),
+            clients: self.clients.clone(),
+            routes: self.routes.clone(),
+            durable: self.durable.clone(),
+        }
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Command {
@@ -178,39 +204,12 @@ pub struct State {
     pub metadata: Metadata,
 }
 impl Metadata {
-    /// Compatibility implementation; Phase7h replaces full-copy tracking with sparse edits.
     pub fn apply_tracked(&mut self, command: Command) -> (Answer, Option<MetadataUpdate>) {
-        let old = self.clone();
-        let answer = self.apply(command);
-        let delta = (self.revision != old.revision).then(|| MetadataUpdate::between(&old, self));
-        (answer, delta)
+        self.apply_incremental(command)
     }
+    #[allow(dead_code)] // Compatibility API; Raft storage consumes tracked results.
     pub fn apply(&mut self, command: Command) -> Answer {
-        let heartbeat = matches!(command, Command::Heartbeat { .. });
-        if heartbeat {
-            let error = self.mutate(command).err();
-            return Answer {
-                revision: self.revision,
-                error,
-                lease_ms: 0,
-            };
-        }
-        let mut next = self.clone();
-        let mut error = next.mutate(command).err();
-        if error.is_none() {
-            next.rebuild();
-            if serde_json::to_vec(&next).is_ok_and(|bytes| bytes.len() <= 8 * 1024 * 1024) {
-                next.revision = self.revision.saturating_add(1);
-                *self = next;
-            } else {
-                error = Some("metadata byte capacity".into());
-            }
-        }
-        Answer {
-            revision: self.revision,
-            error,
-            lease_ms: 0,
-        }
+        self.apply_tracked(command).0
     }
     fn valid_node(&self, node: u64, incarnation: &str) -> Result<(), String> {
         if self
@@ -490,13 +489,22 @@ impl Metadata {
                     .is_some_and(|n| n.incarnation == incarnation && n.expires_at == expires_at)
                 {
                     self.nodes.remove(&node);
-                    self.clients.retain(|_, c| c.node != node);
+                    let keys = self
+                        .derived
+                        .clients_by_node
+                        .get(&node)
+                        .cloned()
+                        .unwrap_or_default();
+                    for key in keys {
+                        self.clients.remove(&key);
+                    }
                 }
             }
         }
         Ok(())
     }
     fn rebuild(&mut self) {
+        self.derived = incremental::Derived::default();
         self.routes.clear();
         for c in self.clients.values() {
             for filter in &c.filters {
@@ -520,34 +528,30 @@ impl State {
     pub fn apply_tracked(&mut self, entry: Entry<Types>) -> (Answer, Option<MetadataUpdate>) {
         self.last_applied = Some(entry.log_id);
         match entry.payload {
-            openraft::EntryPayload::Normal(command) => self.metadata.apply_tracked(command),
-            payload => (
-                self.apply(Entry {
-                    log_id: entry.log_id,
-                    payload,
-                }),
-                None,
-            ),
-        }
-    }
-    pub fn apply(&mut self, entry: Entry<Types>) -> Answer {
-        self.last_applied = Some(entry.log_id);
-        match entry.payload {
-            openraft::EntryPayload::Blank => Answer {
-                revision: self.metadata.revision,
-                error: None,
-                lease_ms: 0,
-            },
-            openraft::EntryPayload::Membership(m) => {
-                self.membership = StoredMembership::new(Some(entry.log_id), m);
+            openraft::EntryPayload::Blank => (
                 Answer {
                     revision: self.metadata.revision,
                     error: None,
                     lease_ms: 0,
-                }
+                },
+                None,
+            ),
+            openraft::EntryPayload::Membership(m) => {
+                self.membership = StoredMembership::new(Some(entry.log_id), m);
+                (
+                    Answer {
+                        revision: self.metadata.revision,
+                        error: None,
+                        lease_ms: 0,
+                    },
+                    None,
+                )
             }
-            openraft::EntryPayload::Normal(c) => self.metadata.apply(c),
+            openraft::EntryPayload::Normal(c) => self.metadata.apply_tracked(c),
         }
+    }
+    pub fn apply(&mut self, entry: Entry<Types>) -> Answer {
+        self.apply_tracked(entry).0
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -630,9 +634,48 @@ fn patch<K: Ord, V>(map: &mut BTreeMap<K, V>, changes: BTreeMap<K, Option<V>>) {
     }
 }
 impl MetadataUpdate {
-    /// Correct compatibility path, replaced by sparse in-place edits in Phase7h.
     pub fn merge_in_place(self, target: &mut Metadata) -> Result<(), &'static str> {
-        *target = self.merge(target)?;
+        match self {
+            Self::Progress { revision } => {
+                if revision != target.revision {
+                    return Err("metadata revision gap");
+                }
+            }
+            Self::Snapshot(next) => {
+                *target = next;
+                target.derived = incremental::Derived::default();
+            }
+            Self::Delta {
+                base,
+                revision,
+                data_mode,
+                disk_ids,
+                data_generation,
+                excluded,
+                repair,
+                last_repair,
+                nodes,
+                clients,
+                durable,
+                routes,
+            } => {
+                if base != target.revision || revision <= base {
+                    return Err("metadata revision gap");
+                }
+                target.data_mode = data_mode;
+                target.disk_ids = disk_ids;
+                target.data_generation = data_generation;
+                target.excluded = excluded;
+                target.repair = repair;
+                target.last_repair = last_repair;
+                patch(&mut target.nodes, nodes);
+                patch(&mut target.clients, clients);
+                patch(&mut target.durable, durable);
+                patch(&mut target.routes, routes);
+                target.revision = revision;
+                target.derived = incremental::Derived::default();
+            }
+        }
         Ok(())
     }
     pub fn between(old: &Metadata, next: &Metadata) -> Self {
@@ -651,47 +694,14 @@ impl MetadataUpdate {
             routes: diff(&old.routes, &next.routes),
         }
     }
+    #[allow(dead_code)] // Immutable compatibility API; normal watchers patch in place.
     pub fn merge(self, old: &Metadata) -> Result<Metadata, &'static str> {
-        match self {
-            Self::Progress { revision } => {
-                if revision == old.revision {
-                    Ok(old.clone())
-                } else {
-                    Err("metadata revision gap")
-                }
-            }
-            Self::Snapshot(next) => Ok(next),
-            Self::Delta {
-                base,
-                revision,
-                data_mode,
-                disk_ids,
-                data_generation,
-                excluded,
-                repair,
-                last_repair,
-                nodes,
-                clients,
-                durable,
-                routes,
-            } => {
-                if base != old.revision || revision <= base {
-                    return Err("metadata revision gap");
-                }
-                let mut next = old.clone();
-                next.data_mode = data_mode;
-                next.disk_ids = disk_ids;
-                next.data_generation = data_generation;
-                next.excluded = excluded;
-                next.repair = repair;
-                next.last_repair = last_repair;
-                patch(&mut next.nodes, nodes);
-                patch(&mut next.clients, clients);
-                patch(&mut next.durable, durable);
-                patch(&mut next.routes, routes);
-                next.revision = revision;
-                Ok(next)
-            }
-        }
+        let mut next = old.clone();
+        self.merge_in_place(&mut next)?;
+        Ok(next)
     }
 }
+
+#[cfg(test)]
+#[path = "model/incremental_tests.rs"]
+mod incremental_tests;
