@@ -18,6 +18,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install cluster RPC code generator
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -82,6 +84,18 @@ jobs:
           RUST_LOG: warn,rmqtt=info
           RMQTT_LOG_FORMAT: text
         run: python3 tests/http_access_blackbox.py -v
+      - name: Client lifecycle system topics acceptance
+        timeout-minutes: 5
+        run: python3 tests/system_client_events_blackbox.py -v
+      - name: Privileged HTTP downlink acceptance
+        timeout-minutes: 5
+        run: python3 tests/http_publish_blackbox.py -v
+      - name: Embedded Raft cluster and live forwarding acceptance
+        timeout-minutes: 15
+        run: python3 tests/cluster_blackbox.py -v
+      - name: Replicated session and durable forwarding fault acceptance
+        timeout-minutes: 15
+        run: python3 tests/cluster_durable_blackbox.py -v
       - run: python3 -m pip install paho-mqtt==2.1.0
       - run: python3 tests/websocket_paho.py
       - run: python3 tests/paho_interop.py
@@ -168,6 +182,8 @@ jobs:
       - name: Build embedded Dashboard
         working-directory: dashboard/web
         run: npm ci && npm run build
+      - name: Install cluster RPC code generator
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - run: cargo test --locked -p mqtt-auth-postgres -- --include-ignored
       - run: cargo clippy --locked -p mqtt-auth-postgres -p mqtt-auth-http --all-targets -- -D warnings
       - run: cargo check --locked -p rmqtt --no-default-features
