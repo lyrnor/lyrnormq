@@ -169,11 +169,7 @@ impl Metadata {
                 .iter()
                 .find(|p| p.node == *node)
                 .ok_or("repair proof missing")?;
-            if proof.disk_id != *disk
-                || proof.id != id
-                || proof.generation != generation
-                || proof.manifest.is_none()
-            {
+            if proof.disk_id != *disk || proof.id != id || proof.generation != generation {
                 return Err("repair proof mismatch".into());
             }
             if *node == repair.target

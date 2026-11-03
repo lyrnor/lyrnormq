@@ -112,6 +112,22 @@ impl Control {
             .try_acquire_owned()
             .map_err(|_| Status::resource_exhausted("metadata write capacity"))?;
         validate(&command)?;
+        if let Command::RepairCommit {
+            id,
+            generation,
+            proofs,
+        } = &mut command
+        {
+            self.leader().await?;
+            *proofs = crate::broker::repair::verify_commit(
+                &self.rpc,
+                &self.store.metadata(),
+                id,
+                *generation,
+            )
+            .await
+            .map_err(|_| Status::unavailable("repair proof verification failed"))?;
+        }
         if serde_json::to_vec(&command)
             .map_err(|_| Status::invalid_argument("invalid metadata command"))?
             .len()
@@ -434,6 +450,23 @@ impl wire::cluster_server::Cluster for Service {
         });
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
+    async fn repair(
+        &self,
+        request: Request<wire::Envelope>,
+    ) -> Result<Response<wire::Envelope>, Status> {
+        self.rpc.check(&request)?;
+        let broker = self
+            .broker
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("not a repair data endpoint"))?;
+        let reply = broker
+            .repair_request(rpc::decode(request.into_inner())?)
+            .await
+            .map_err(|_| Status::unavailable("repair operation unavailable"))?;
+        Ok(Response::new(rpc::encode(&reply).map_err(|_| {
+            Status::resource_exhausted("repair response capacity")
+        })?))
+    }
     async fn replica(
         &self,
         request: Request<wire::Envelope>,
@@ -450,8 +483,9 @@ impl wire::cluster_server::Cluster for Service {
             .journal
             .as_ref()
             .ok_or_else(|| Status::failed_precondition("not a data replica"))?;
+        let message: crate::broker::ReplicaMessage = rpc::decode(request.into_inner())?;
         let reply = journal
-            .execute(rpc::decode(request.into_inner())?)
+            .execute_at(message.generation, message.operation)
             .await
             .map_err(|_| Status::unavailable("replica write unavailable"))?;
         Ok(Response::new(rpc::encode(&reply).map_err(|_| {

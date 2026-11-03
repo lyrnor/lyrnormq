@@ -15,3 +15,5 @@ pub use model::ClusterStatus;
 
 #[cfg(test)]
 mod tests;
+
+pub use broker::repair::{RepairReport, abort_repair, repair, serve_repair_learner};

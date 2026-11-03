@@ -18,10 +18,16 @@ use std::{
 use tokio::sync::{Notify, OnceCell, Semaphore, watch};
 pub(crate) mod durable;
 mod quorum;
+pub(crate) mod repair;
 #[derive(Default)]
 struct Receipts {
     values: BTreeMap<(u64, String, u64), bool>,
     order: VecDeque<(u64, String, u64)>,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ReplicaMessage {
+    pub generation: u64,
+    pub operation: crate::replica::Request,
 }
 pub struct BrokerRuntime {
     config: Arc<Config>,
@@ -107,6 +113,26 @@ impl BrokerRuntime {
                 .map(|j| Arc::new(durable::Durable::new(weak.clone(), j.clone()))),
             journal,
         }))
+    }
+    pub(crate) fn control_ready(&self) -> bool {
+        if self.stopped.load(Ordering::Acquire)
+            || !self.initialized.load(Ordering::Acquire)
+            || tokio::time::Instant::now()
+                >= *self.deadline.lock().unwrap_or_else(PoisonError::into_inner)
+        {
+            return false;
+        }
+        let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+        metadata
+            .nodes
+            .get(&self.config.node_id)
+            .is_some_and(|n| n.incarnation == self.incarnation)
+            && self.journal.as_ref().is_none_or(|journal| {
+                metadata
+                    .disk_ids
+                    .get(&self.config.node_id)
+                    .is_some_and(|id| id == journal.disk_id())
+            })
     }
     async fn rpc(&self) -> io::Result<&ClientRpc> {
         self.rpc
@@ -212,6 +238,7 @@ impl BrokerRuntime {
                 data.forget(&key);
             }
         }
+        self.reconcile_repair().await?;
         self.initialized.store(true, Ordering::Release);
         Ok(())
     }
@@ -511,24 +538,16 @@ impl ClusterBridge for BrokerRuntime {
         self.journal.is_some()
     }
     fn ready(&self) -> bool {
-        if self.stopped.load(Ordering::Acquire)
-            || !self.initialized.load(Ordering::Acquire)
-            || tokio::time::Instant::now()
-                >= *self.deadline.lock().unwrap_or_else(PoisonError::into_inner)
-        {
+        if !self.control_ready() {
             return false;
         }
         let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
-        metadata
-            .nodes
-            .get(&self.config.node_id)
-            .is_some_and(|n| n.incarnation == self.incarnation)
-            && self.journal.as_ref().is_none_or(|journal| {
-                metadata
-                    .disk_ids
-                    .get(&self.config.node_id)
-                    .is_some_and(|id| id == journal.disk_id())
-            })
+        metadata.repair.is_none()
+            && !metadata.excluded.contains(&self.config.node_id)
+            && self
+                .journal
+                .as_ref()
+                .is_none_or(|j| j.voting_ready(metadata.data_generation))
     }
     fn open(&self, local: Arc<dyn LocalBroker>) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
@@ -749,7 +768,7 @@ pub async fn serve_broker(
     .max_encoding_message_size(rpc::MAX_WIRE);
     let mut server = tonic::transport::Server::builder()
         .concurrency_limit_per_connection(32)
-        .timeout(Duration::from_secs(5));
+        .timeout(Duration::from_secs(60));
     if let Some(tls) = rpc::server_tls(&runtime.config).await? {
         server = server.tls_config(tls).map_err(io::Error::other)?;
     }

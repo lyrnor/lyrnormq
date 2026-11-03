@@ -95,11 +95,29 @@ impl ClientRpc {
         &self,
         address: &str,
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
+        self.client_timeout(address, false).await
+    }
+    pub async fn repair_client(
+        &self,
+        address: &str,
+    ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
+        self.client_timeout(address, true).await
+    }
+    async fn client_timeout(
+        &self,
+        address: &str,
+        repair: bool,
+    ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
+        let cache_key = if repair {
+            format!("repair:{address}")
+        } else {
+            address.to_owned()
+        };
         let cached = self
             .channels
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .get(address)
+            .get(&cache_key)
             .cloned();
         let channel = if let Some(channel) = cached {
             channel
@@ -107,7 +125,7 @@ impl ClientRpc {
             let mut endpoint = Endpoint::from_shared(address.to_owned())
                 .map_err(io_error)?
                 .connect_timeout(Duration::from_secs(1))
-                .timeout(Duration::from_secs(2));
+                .timeout(Duration::from_secs(if repair { 60 } else { 2 }));
             if let Some(tls) = &self.config.tls {
                 let ca = read_bounded(&tls.ca_file, 1024 * 1024).await?;
                 let cert = read_bounded(&tls.cert_file, 1024 * 1024).await?;
@@ -126,7 +144,7 @@ impl ClientRpc {
             if channels.len() >= 1024 {
                 return Err(io_error("cluster peer capacity"));
             }
-            channels.insert(address.to_owned(), channel.clone());
+            channels.insert(cache_key, channel.clone());
             channel
         };
         Ok(wire::cluster_client::ClusterClient::new(channel)
@@ -174,6 +192,23 @@ impl ClientRpc {
                     self.remember_controller(address);
                 }
                 return decode(reply.into_inner()).map_err(io_error);
+            }
+        }
+        Err(io_error("controller quorum unavailable"))
+    }
+    pub async fn repair_mutate(&self, command: Command) -> io::Result<Answer> {
+        for address in self.controller_addresses() {
+            let mut client = self.repair_client(&address).await?;
+            if let Ok(reply) = client.mutate(self.authorize(encode(&command)?)?).await {
+                let answer: Answer = decode(reply.into_inner()).map_err(io_error)?;
+                if let Some(error) = answer.error {
+                    return Err(io_error(error));
+                }
+                *self
+                    .preferred
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner) = Some(address);
+                return Ok(answer);
             }
         }
         Err(io_error("controller quorum unavailable"))

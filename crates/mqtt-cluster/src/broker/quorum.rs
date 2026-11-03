@@ -18,6 +18,11 @@ pub(super) async fn request(
         .ok_or_else(unavailable)?
         .replicas;
     let rpc = runtime.rpc().await?.clone();
+    let generation = runtime
+        .metadata
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .data_generation;
     let mut jobs = JoinSet::new();
     for peer in peers {
         let peer = peer.clone();
@@ -27,11 +32,14 @@ pub(super) async fn request(
         let local = runtime.config.node_id;
         jobs.spawn(async move {
             if peer.id == local {
-                journal.execute(request).await
+                journal.execute_at(generation, request).await
             } else {
                 let mut client = rpc.client(&peer.address).await?;
                 let reply = client
-                    .replica(rpc.authorize(rpc::encode(&request)?)?)
+                    .replica(rpc.authorize(rpc::encode(&ReplicaMessage {
+                        generation,
+                        operation: request,
+                    })?)?)
                     .await
                     .map_err(rpc::io_error)?;
                 rpc::decode::<Reply>(reply.into_inner()).map_err(rpc::io_error)

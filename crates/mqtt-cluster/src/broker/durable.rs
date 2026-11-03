@@ -56,6 +56,7 @@ pub(super) struct Durable {
     bytes: Arc<Semaphore>,
 }
 struct Cell {
+    data_generation: u64,
     record: Option<Record>,
     poisoned: bool,
     activate: bool,
@@ -108,6 +109,7 @@ impl Durable {
         let key = key.to_owned();
         tokio::spawn(async move {
             let mut cell = Cell {
+                data_generation: 0,
                 record: None,
                 poisoned: false,
                 activate: false,
@@ -121,6 +123,17 @@ impl Durable {
                 };
                 if runtime.stopped.load(Ordering::Acquire) {
                     break;
+                }
+                let generation = runtime
+                    .metadata
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .data_generation;
+                if cell.data_generation != generation {
+                    cell.record = None;
+                    cell.poisoned = true;
+                    cell.activate = false;
+                    cell.data_generation = generation;
                 }
                 match job.operation {
                     Operation::ForgetIfDisowned => cell.forget_if_disowned(
@@ -826,6 +839,7 @@ mod tests {
         let mut record = Record::empty(1);
         record.snapshot = Some(vec![1; 1024]);
         let mut cell = Cell {
+            data_generation: 0,
             record: Some(record),
             poisoned: false,
             activate: true,
@@ -957,8 +971,11 @@ mod tests {
             broker: Some(runtime.clone()),
             rpc: rpc.clone(),
         };
-        let request = rpc.authorize(rpc::encode(&Request::Read {
-            key: client_key("recipient"),
+        let request = rpc.authorize(rpc::encode(&ReplicaMessage {
+            generation: 0,
+            operation: Request::Read {
+                key: client_key("recipient"),
+            },
         })?)?;
         assert!(
             crate::rpc::wire::cluster_server::Cluster::replica(&service, request)
@@ -982,8 +999,11 @@ mod tests {
             );
         }
         assert!(runtime.ready());
-        let request = rpc.authorize(rpc::encode(&Request::Read {
-            key: client_key("recipient"),
+        let request = rpc.authorize(rpc::encode(&ReplicaMessage {
+            generation: 0,
+            operation: Request::Read {
+                key: client_key("recipient"),
+            },
         })?)?;
         assert!(
             crate::rpc::wire::cluster_server::Cluster::replica(&service, request)
@@ -1003,6 +1023,7 @@ mod tests {
         record.logical_generation = 2;
         assert!(record.received_or_obsolete(&late));
         let mut cell = Cell {
+            data_generation: 0,
             record: Some(record),
             poisoned: false,
             activate: false,
