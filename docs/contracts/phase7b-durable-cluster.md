@@ -39,6 +39,16 @@ availability or durability promise for loss of two copies, Byzantine peers, or
 unbounded topology changes. Fixed replica membership cannot silently be replaced
 with a new set of empty disks. A missing replica response is not an empty record.
 
+Membership amendment: Controller metadata stores data_mode=None for a new empty
+cluster. The first Register atomically freezes Legacy or Durable(sorted fixed
+replica identities/addresses). Later registrations must match the entire mode and
+group; durable node identity/address must be a group member. Legacy snapshots/log
+commands without the field default conservatively to Legacy, distinct from a new
+empty Metadata::default. No silent legacy upgrade, mixed-mode group, or differing
+replica groups. Existing Controller data must not be deleted to conceal an invalid
+upgrade: in-place migration is a separate gate; use a separately initialized cluster
+for the new durable mode. Mode/group propagate in snapshots and deltas.
+
 ## Atomic record and forwarding
 
 Cluster session record contains opaque existing SessionEngine snapshot (or a
