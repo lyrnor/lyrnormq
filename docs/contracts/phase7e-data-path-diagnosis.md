@@ -18,3 +18,17 @@ and own test harness additions. Each independent worktree commits results.
 Coordinator owns docs, CLI/build/integration/deployment. No changes to the existing
 six-process deployment until a locally built diagnostic binary is ready; use
 separate run directories and preserve prior evidence. Local zigbuild only.
+
+## Confirmed Journal admission fix (Linux diagnostic reproduction)
+
+First JournalOperations rejection precedes QuorumPeer/QuorumInsufficient, then
+background reacquisition and cache poisoning; no quota/version fault is required.
+Preserve32 active blocking-pool Journal jobs. On saturation admit at most32 separate
+async waiters, each waiting at most750ms for FIFO Tokio semaphore capacity. Full
+wait queue or timeout fails explicitly; never spawn a DBjob before acquiring its
+active permit. Waiting cancellation drops its queue entry and never mutates storage.
+Keep transactional freeze/generation/epoch checks at execution time after waiting,
+and retain ambiguity poisoning if an already-submitted write loses quorum.
+This adds bounded backpressure, not a higher execution limit, weaker ACK, unlimited
+queue, or guaranteed throughput on arbitrary disks. Distinguish saturation waiting
+from actual queue-full/timeout diagnostics. No100ms scheduler optimization in this fix.
