@@ -164,7 +164,8 @@ class PublishWireCases(HTTPPublishFixture):
 
     def test_shared_subscription_and_no_local_use_broker_origin(self):
         self.start()
-        device = self.client('device')
+        # Collide with observer source metadata: it must not become MQTT origin.
+        device = self.client('http:backend')
         self.subscribe(device, 'commands/local', no_local=self.version == 5)
         self.accepted({'topic': 'commands/local', 'payload': 'broker'})
         self.delivery(device, 'commands/local', b'broker', 1, self.version)
