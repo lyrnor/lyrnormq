@@ -1,11 +1,10 @@
-//! Independent durable Raft WAL with SQLite business-state checkpoints.
+//! Independent durable Raft WAL with transactional bbolt business checkpoints.
 use crate::model::*;
 use openraft::storage::{LogFlushed, LogState, RaftLogStorage, RaftStateMachine};
 use openraft::{
     BasicNode, Entry, LogId, RaftLogReader, RaftSnapshotBuilder, Snapshot, SnapshotMeta,
     StorageError, StorageIOError, StoredMembership, Vote,
 };
-use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     io::{self, Cursor},
@@ -14,6 +13,7 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 use tokio::sync::{Semaphore, watch};
+mod checkpoint;
 mod history;
 mod log;
 mod recovery;
@@ -27,7 +27,7 @@ pub struct Store {
     apply_gate: Arc<Semaphore>,
 }
 struct Inner {
-    db: Mutex<Option<Connection>>,
+    db: Mutex<Option<checkpoint::Checkpoint>>,
     wal: Mutex<Option<wal::Wal>>,
     _lock: Option<std::fs::File>,
     slots: Arc<Semaphore>,
@@ -73,17 +73,6 @@ fn encode<T: Serialize>(value: &T) -> io::Result<Vec<u8>> {
 fn decode<T: DeserializeOwned>(bytes: &[u8]) -> io::Result<T> {
     serde_json::from_slice(bytes).map_err(db_err)
 }
-fn get<T: DeserializeOwned>(db: &Connection, key: &str) -> io::Result<Option<T>> {
-    let bytes: Option<Vec<u8>> = db
-        .query_row("SELECT data FROM meta WHERE key=?1", [key], |r| r.get(0))
-        .optional()
-        .map_err(db_err)?;
-    bytes.as_deref().map(decode).transpose()
-}
-fn put<T: Serialize>(db: &Connection, key: &str, value: &T) -> io::Result<()> {
-    db.execute("INSERT INTO meta(key,data) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET data=excluded.data",params![key,encode(value)?]).map_err(db_err)?;
-    Ok(())
-}
 impl Store {
     pub async fn open(path: &Path, cluster: &str, node: u64) -> io::Result<Self> {
         let path = path.to_path_buf();
@@ -118,29 +107,7 @@ impl Store {
                     Err(std::fs::TryLockError::Error(error)) => return Err(error),
                 }
             }
-            let db = Connection::open(path.join("metadata.sqlite")).map_err(db_err)?;
-            db.pragma_update(None, "journal_mode", "WAL")
-                .map_err(db_err)?;
-            db.pragma_update(None, "synchronous", "FULL")
-                .map_err(db_err)?;
-            db.execute_batch(
-                "CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,data BLOB NOT NULL);",
-            )
-            .map_err(db_err)?;
-            let identity = (cluster.clone(), node);
-            match get::<(String, u64)>(&db, "identity")? {
-                Some(old) if old != identity => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "controller data identity mismatch",
-                    ));
-                }
-                Some(_) => {}
-                None => put(&db, "identity", &identity)?,
-            }
-            let mut db = db;
-            let mut wal = log::open_or_migrate(&mut db, &path, &cluster, node)?;
-            let state = recovery::recover_wal(&db, &mut wal)?;
+            let (db, wal, state) = recovery::open_stores(&path, &cluster, node)?;
             Ok::<_, io::Error>((db, wal, lock, state))
         })
         .await
@@ -162,7 +129,7 @@ impl Store {
     #[allow(clippy::result_large_err)] // Required by the OpenRaft storage trait.
     async fn run<T: Send + 'static>(
         &self,
-        call: impl FnOnce(&mut Connection) -> io::Result<T> + Send + 'static,
+        call: impl FnOnce(&mut checkpoint::Checkpoint) -> io::Result<T> + Send + 'static,
     ) -> Result<T, StorageError<u64>> {
         let permit = self
             .inner
@@ -184,7 +151,7 @@ impl Store {
         .map_err(err)?
         .map_err(err)
     }
-    /// Raft operations never acquire the SQLite checkpoint mutex.
+    /// Raft operations never acquire the bbolt checkpoint mutex.
     #[allow(clippy::result_large_err)]
     async fn run_wal<T: Send + 'static>(
         &self,
@@ -207,11 +174,11 @@ impl Store {
         .map_err(err)?
         .map_err(err)
     }
-    /// Cross-store operations always lock WAL before SQLite, entirely off runtime workers.
+    /// Cross-store operations always lock WAL before bbolt, entirely off runtime workers.
     #[allow(clippy::result_large_err)]
     async fn run_checkpoint<T: Send + 'static>(
         &self,
-        call: impl FnOnce(&mut wal::Wal, &mut Connection) -> io::Result<T> + Send + 'static,
+        call: impl FnOnce(&mut wal::Wal, &mut checkpoint::Checkpoint) -> io::Result<T> + Send + 'static,
     ) -> Result<T, StorageError<u64>> {
         let permit = self
             .inner
@@ -306,7 +273,7 @@ impl Store {
         let data = saved.data.clone();
         self.run_checkpoint(move |wal, db| {
             recovery::verify_wal_tail(wal, saved.meta.last_log_id)?;
-            let previous = recovery::read_saved_snapshot(db)?;
+            let previous = db.read_snapshot()?;
             if previous.as_ref().is_some_and(|old| {
                 old.meta.last_log_id.map(|id| id.index) > saved.meta.last_log_id.map(|id| id.index)
                     || (old.meta.last_log_id.map(|id| id.index)
@@ -318,9 +285,7 @@ impl Store {
             if previous.as_ref().is_none_or(|old| {
                 old.meta.last_log_id.map(|id| id.index) <= saved.meta.last_log_id.map(|id| id.index)
             }) {
-                let tx = db.transaction().map_err(db_err)?;
-                recovery::put_snapshot(&tx, &saved)?;
-                tx.commit().map_err(db_err)?;
+                db.write_snapshot(&saved)?;
             }
             Ok(())
         })
@@ -455,16 +420,12 @@ impl Store {
         let checkpoint = next.last_applied;
         self.run_checkpoint(move |wal, db| {
             recovery::verify_wal_tail(wal, checkpoint)?;
-            let tx = db.transaction().map_err(db_err)?;
-            if old_checkpoint_conflicts(&tx, wal, saved.meta.last_log_id)? {
+            if old_checkpoint_conflicts(db, wal, saved.meta.last_log_id)? {
                 return Err(db_err(
                     "snapshot regresses or conflicts with durable authority",
                 ));
             }
-            recovery::put_snapshot(&tx, &saved)?;
-            tx.execute("DELETE FROM meta WHERE key='state'", [])
-                .map_err(db_err)?;
-            tx.commit().map_err(db_err)?;
+            db.write_snapshot(&saved)?;
             let old = wal.committed()?;
             if checkpoint.map(|id| id.index) > old.map(|id| id.index) {
                 wal.save_committed(checkpoint)?;
@@ -601,7 +562,7 @@ impl RaftLogStorage<Types> for Store {
 }
 
 fn old_checkpoint_conflicts(
-    db: &Connection,
+    db: &checkpoint::Checkpoint,
     wal: &mut wal::Wal,
     incoming: Option<LogId<u64>>,
 ) -> io::Result<bool> {
@@ -696,7 +657,7 @@ impl RaftStateMachine<Types> for Store {
             .await
     }
     async fn get_current_snapshot(&mut self) -> Result<Option<Snapshot<Types>>, StorageError<u64>> {
-        let saved = self.run(|db| recovery::read_saved_snapshot(db)).await?;
+        let saved = self.run(|db| db.read_snapshot()).await?;
         self.cpu(move || {
             saved
                 .map(|saved| {
@@ -717,3 +678,6 @@ mod tests;
 
 #[cfg(test)]
 mod wal_integration_tests;
+
+#[cfg(test)]
+mod checkpoint_integration_tests;

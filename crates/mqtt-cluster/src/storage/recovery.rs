@@ -12,21 +12,6 @@ pub(super) fn snapshot_digest(
     hasher.update(data);
     Ok(format!("{:x}", hasher.finalize()))
 }
-pub(super) fn put_snapshot(db: &Connection, saved: &SavedSnapshot) -> io::Result<()> {
-    put(db, "snapshot", saved)?;
-    put(db, "snapshot_record_version", &saved.format)
-}
-pub(super) fn read_saved_snapshot(db: &Connection) -> io::Result<Option<SavedSnapshot>> {
-    let saved: Option<SavedSnapshot> = get(db, "snapshot")?;
-    let version: Option<u64> = get(db, "snapshot_record_version")?;
-    match (&saved, version) {
-        (None, None) => {}
-        (Some(saved), None) if saved.format == 0 && saved.digest.is_none() => {}
-        (Some(saved), Some(version)) if saved.format == version && version <= 1 => {}
-        _ => return Err(db_err("snapshot record format/marker mismatch")),
-    }
-    Ok(saved)
-}
 pub(super) fn snapshot_state(saved: &SavedSnapshot) -> io::Result<State> {
     if saved.data.len() > MAX_SNAPSHOT {
         return Err(db_err("snapshot exceeds limit"));
@@ -44,98 +29,15 @@ pub(super) fn snapshot_state(saved: &SavedSnapshot) -> io::Result<State> {
     }
     Ok(state)
 }
-pub(super) fn checkpoint(db: &Connection) -> io::Result<State> {
-    let legacy: Option<State> = get(db, "state")?;
-    let snapshot = read_saved_snapshot(db)?;
-    let mut state = legacy.unwrap_or_default();
-    if let Some(snapshot) = snapshot {
-        let candidate = snapshot_state(&snapshot)?;
-        if candidate.last_applied.map(|id| id.index) >= state.last_applied.map(|id| id.index) {
-            if candidate.last_applied.map(|id| id.index) == state.last_applied.map(|id| id.index)
-                && candidate.last_applied != state.last_applied
-            {
-                return Err(db_err("checkpoint identity conflict"));
-            }
-            if candidate.last_applied == state.last_applied
-                && encode(&candidate)? != encode(&state)?
-            {
-                return Err(db_err("checkpoint state conflict"));
-            }
-            state = candidate;
-        }
-    }
-    Ok(state)
-}
-pub(super) fn recover_legacy(db: &mut Connection) -> io::Result<State> {
-    let tx = db.transaction().map_err(db_err)?;
-    log::migrate_and_validate(&tx)?;
-    let _: Option<Vote<u64>> = get(&tx, "vote")?;
-    let purged: Option<LogId<u64>> = get(&tx, "purged")?;
-    let checkpoint = checkpoint(&tx)?.last_applied;
-    if purged.is_some_and(|purged| {
-        checkpoint.is_none_or(|floor| {
-            floor.index < purged.index || (floor.index == purged.index && floor != purged)
-        })
-    }) {
-        return Err(db_err(
-            "legacy purged prefix has no matching verified checkpoint",
-        ));
-    }
-    let state = recover_committed(&tx)?;
-    tx.commit().map_err(db_err)?;
-    Ok(state)
-}
-fn recover_committed(db: &Connection) -> io::Result<State> {
-    let mut state = checkpoint(db)?;
-    let checkpoint = state.last_applied;
-    let recorded = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
-    let committed = match (recorded, checkpoint) {
-        (Some(a), Some(b)) if a.index == b.index && a != b => {
-            return Err(db_err("committed/checkpoint identity conflict"));
-        }
-        (Some(a), Some(b)) => Some(if a.index >= b.index { a } else { b }),
-        (a, b) => a.or(b),
-    };
-    if let Some(committed) = committed {
-        let start = checkpoint.map_or(0, |id| id.index.saturating_add(1));
-        if checkpoint.is_none_or(|id| id.index < committed.index) {
-            let mut expected = start;
-            let mut statement = db
-                .prepare("SELECT idx,data FROM logs WHERE idx>=?1 AND idx<=?2 ORDER BY idx")
-                .map_err(db_err)?;
-            let mut rows = statement
-                .query(params![
-                    i64::try_from(start).map_err(db_err)?,
-                    i64::try_from(committed.index).map_err(db_err)?
-                ])
-                .map_err(db_err)?;
-            while let Some(row) = rows.next().map_err(db_err)? {
-                let idx: i64 = row.get(0).map_err(db_err)?;
-                let bytes = log::row_bytes(row, 1).map_err(db_err)?;
-                let entry = log::decode_entry(idx, &bytes)?;
-                if idx < 0 || idx as u64 != expected || entry.log_id.index != expected {
-                    return Err(db_err("committed log gap or index mismatch"));
-                }
-                if entry.log_id.index == committed.index && entry.log_id != committed {
-                    return Err(db_err("committed log identity mismatch"));
-                }
-                state.apply(entry);
-                expected = expected
-                    .checked_add(1)
-                    .ok_or_else(|| db_err("log index overflow"))?;
-            }
-            if expected != committed.index.saturating_add(1) {
-                return Err(db_err("missing committed log tail"));
-            }
-        }
-    }
-    if committed != recorded {
-        put(db, "committed", &committed)?;
-    }
-    Ok(state)
+pub(super) fn checkpoint(db: &checkpoint::Checkpoint) -> io::Result<State> {
+    db.read_snapshot()?
+        .as_ref()
+        .map(snapshot_state)
+        .transpose()
+        .map(Option::unwrap_or_default)
 }
 /// Recover only durable committed input after a verified SQLite authority floor.
-pub(super) fn recover_wal(db: &Connection, wal: &mut wal::Wal) -> io::Result<State> {
+pub(super) fn recover_wal(db: &checkpoint::Checkpoint, wal: &mut wal::Wal) -> io::Result<State> {
     let mut state = checkpoint(db)?;
     let floor = state.last_applied;
     let recorded = wal.committed()?;
@@ -228,4 +130,190 @@ fn visit_tail(
             return Err(db_err("missing committed WAL tail"));
         }
     }
+}
+
+const EXCHANGE: &str = "controller-checkpoint.export.json";
+const REQUIRED: &str = "controller.bbolt.required";
+const STAGING: &str = "controller-checkpoint.staging";
+const MAX_EXCHANGE: u64 = 128 * 1024 * 1024;
+#[derive(Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Required {
+    format: u64,
+    identity: (String, u64),
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Exchange {
+    format: u64,
+    identity: (String, u64),
+    #[serde(default)]
+    state: Option<State>,
+    #[serde(default)]
+    snapshot: Option<SavedSnapshot>,
+    #[serde(default)]
+    snapshot_record_version: Option<u64>,
+}
+fn bounded_file(path: &Path, limit: u64) -> io::Result<Vec<u8>> {
+    use std::io::Read;
+    let meta = std::fs::symlink_metadata(path)?;
+    if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > limit {
+        return Err(db_err("invalid bounded controller record"));
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)?
+        .take(limit + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > limit {
+        return Err(db_err("controller record exceeds limit"));
+    }
+    Ok(bytes)
+}
+fn required(path: &Path, cluster: &str, node: u64) -> io::Result<bool> {
+    let file = path.join(REQUIRED);
+    match std::fs::symlink_metadata(&file) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error),
+        Ok(_) => {}
+    }
+    let marker: Required = decode(&bounded_file(&file, 4096)?)?;
+    if marker.format != 1 || marker.identity != (cluster.to_owned(), node) {
+        return Err(db_err(
+            "checkpoint ownership marker identity/version mismatch",
+        ));
+    }
+    Ok(true)
+}
+fn publish_required(path: &Path, cluster: &str, node: u64) -> io::Result<()> {
+    use std::io::Write;
+    let data = encode(&Required {
+        format: 1,
+        identity: (cluster.to_owned(), node),
+    })?;
+    if data.len() > 4096 {
+        return Err(db_err("checkpoint marker exceeds limit"));
+    }
+    let temp = path.join("controller.bbolt.required.tmp");
+    if temp.exists() {
+        std::fs::remove_file(&temp)?;
+    }
+    let mut file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&temp)?;
+    file.write_all(&data)?;
+    file.sync_all()?;
+    drop(file);
+    std::fs::rename(temp, path.join(REQUIRED))?;
+    std::fs::File::open(path)?.sync_all()
+}
+fn exchange_state(path: &Path, cluster: &str, node: u64) -> io::Result<Option<State>> {
+    let exchange: Exchange = decode(&bounded_file(path, MAX_EXCHANGE)?)?;
+    if exchange.format != 1 || exchange.identity != (cluster.to_owned(), node) {
+        return Err(db_err("checkpoint exchange identity/version mismatch"));
+    }
+    match (&exchange.snapshot, exchange.snapshot_record_version) {
+        (None, None) => {}
+        (Some(saved), None) if saved.format == 0 && saved.digest.is_none() => {}
+        (Some(saved), Some(version)) if saved.format == version && version <= 1 => {}
+        _ => return Err(db_err("snapshot exchange format/marker mismatch")),
+    }
+    let mut state = exchange.state;
+    if let Some(saved) = exchange.snapshot {
+        let candidate = snapshot_state(&saved)?;
+        if let Some(previous) = &state {
+            if previous.last_applied.map(|id| id.index) == candidate.last_applied.map(|id| id.index)
+                && (previous.last_applied != candidate.last_applied
+                    || encode(previous)? != encode(&candidate)?)
+            {
+                return Err(db_err(
+                    "exchange checkpoints conflict at the same applied index",
+                ));
+            }
+            if previous.last_applied.map(|id| id.index) > candidate.last_applied.map(|id| id.index)
+            {
+                return Ok(state);
+            }
+        }
+        state = Some(candidate);
+    }
+    // Canonical snapshot validation/bounds also apply to unsigned legacy State.
+    if let Some(state) = &state {
+        make_snapshot(state)?;
+    }
+    Ok(state)
+}
+/// Called only under the exclusive controller directory lock on a blocking worker.
+pub(super) fn open_stores(
+    path: &Path,
+    cluster: &str,
+    node: u64,
+) -> io::Result<(checkpoint::Checkpoint, wal::Wal, State)> {
+    let marker = required(path, cluster, node)?;
+    let db_path = path.join("controller.bbolt");
+    let wal_path = path.join("raft-wal");
+    if db_path.exists() {
+        if !wal_path.is_dir() {
+            return Err(db_err("existing checkpoint is missing its Raft WAL"));
+        }
+        let db = checkpoint::Checkpoint::open(path, cluster, node)?;
+        let mut wal = wal::Wal::open(&wal_path, cluster, node)?;
+        let state = recover_wal(&db, &mut wal)?;
+        if !marker {
+            publish_required(path, cluster, node)?;
+        }
+        return Ok((db, wal, state));
+    }
+    if marker {
+        return Err(db_err("required controller checkpoint is missing"));
+    }
+    let exchange = path.join(EXCHANGE);
+    if exchange.exists() {
+        if !wal_path.is_dir() {
+            return Err(db_err("checkpoint exchange requires existing Raft WAL"));
+        }
+        let chosen = exchange_state(&exchange, cluster, node)?;
+        let mut wal = wal::Wal::open(&wal_path, cluster, node)?;
+        let staging = path.join(STAGING);
+        // Validate the exported authority against the live durable tail before
+        // replacing any incomplete staging output; retain the legacy source.
+        let floor = chosen.as_ref().and_then(|state| state.last_applied);
+        let purged = wal.state()?.last_purged_log_id;
+        if purged.is_some_and(|purged| {
+            floor.is_none_or(|floor| {
+                floor.index < purged.index || (floor.index == purged.index && floor != purged)
+            })
+        }) {
+            return Err(db_err("exchange does not cover purged Raft prefix"));
+        }
+        verify_wal_tail(&mut wal, floor)?;
+        if staging.exists() {
+            std::fs::remove_dir_all(&staging)?;
+        }
+        std::fs::create_dir(&staging)?;
+        let mut db = checkpoint::Checkpoint::open(&staging, cluster, node)?;
+        if let Some(state) = chosen {
+            db.write_snapshot(&make_snapshot(&state)?)?;
+        }
+        let state = recover_wal(&db, &mut wal)?;
+        drop(db);
+        std::fs::File::open(staging.join("controller.bbolt"))?.sync_all()?;
+        std::fs::File::open(&staging)?.sync_all()?;
+        std::fs::rename(staging.join("controller.bbolt"), &db_path)?;
+        std::fs::File::open(path)?.sync_all()?;
+        std::fs::remove_dir(&staging)?;
+        let db = checkpoint::Checkpoint::open(path, cluster, node)?;
+        publish_required(path, cluster, node)?;
+        return Ok((db, wal, state));
+    }
+    if wal_path.exists() || path.join("metadata.sqlite").exists() {
+        return Err(db_err(
+            "existing controller state requires an explicit offline checkpoint export",
+        ));
+    }
+    let db = checkpoint::Checkpoint::open(path, cluster, node)?;
+    let mut wal = wal::Wal::open(&wal_path, cluster, node)?;
+    let state = recover_wal(&db, &mut wal)?;
+    publish_required(path, cluster, node)?;
+    Ok((db, wal, state))
 }
