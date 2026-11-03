@@ -14,10 +14,14 @@ pub(super) struct Connection {
     peer_max_packet: usize,
 }
 impl Connection {
-    pub async fn open(config: &RunConfig, client_id: String) -> Result<Self, LoadError> {
+    pub async fn open(
+        config: &RunConfig,
+        address: std::net::SocketAddr,
+        client_id: String,
+    ) -> Result<Self, LoadError> {
         let stream = timeout(
             Duration::from_millis(config.connect_timeout_ms),
-            TcpStream::connect(config.address),
+            TcpStream::connect(address),
         )
         .await
         .map_err(|_| LoadError::Timeout("TCP connect"))??;

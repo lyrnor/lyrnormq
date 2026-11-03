@@ -40,6 +40,7 @@ pub struct Observed {
     pub payload_lengths: Mutex<Vec<usize>>,
     pub versions: Mutex<Vec<u8>>,
     pub subscribed: AtomicBool,
+    pub client_ids: Mutex<Vec<String>>,
 }
 pub struct Peer {
     pub address: std::net::SocketAddr,
@@ -60,13 +61,23 @@ impl Peer {
         Self::start_pairs(scenario, 1).await
     }
     pub async fn start_pairs(scenario: Scenario, pairs: usize) -> Self {
+        Self::start_with_routes(scenario, pairs, Arc::new(Mutex::new(BTreeMap::new()))).await
+    }
+    pub async fn start_nodes(scenario: Scenario, nodes: usize, pairs_per_node: usize) -> Vec<Self> {
+        let routes = Arc::new(Mutex::new(BTreeMap::new()));
+        let mut peers = Vec::new();
+        for _ in 0..nodes {
+            peers.push(Self::start_with_routes(scenario, pairs_per_node, routes.clone()).await);
+        }
+        peers
+    }
+    async fn start_with_routes(scenario: Scenario, pairs: usize, routes: Routes) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let observed = Arc::new(Observed::default());
         let obs = observed.clone();
         let (stop, mut stopped) = oneshot::channel();
         let task = tokio::spawn(async move {
-            let routes = Arc::new(Mutex::new(BTreeMap::new()));
             let mut tasks = tokio::task::JoinSet::new();
             let mut errors = Vec::new();
             let mut accepted = 0;
@@ -296,6 +307,20 @@ async fn connection(
         return Err(bad("unsupported test version"));
     }
     obs.versions.lock().unwrap().push(version);
+    let mut pos = 10;
+    if version == 5 {
+        skip_props(&b, &mut pos)?;
+    }
+    let len = usize::from(take_id(
+        b.get(pos..).ok_or_else(|| bad("missing client ID"))?,
+    )?);
+    pos += 2;
+    let client_id = std::str::from_utf8(
+        b.get(pos..pos + len)
+            .ok_or_else(|| bad("truncated client ID"))?,
+    )
+    .map_err(|_| bad("non-UTF8 client ID"))?;
+    obs.client_ids.lock().unwrap().push(client_id.to_owned());
     write(
         &mut stream,
         0x20,

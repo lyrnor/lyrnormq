@@ -10,6 +10,7 @@ use tokio::time::timeout;
 fn config(address: std::net::SocketAddr, version: Version, qos: u8) -> RunConfig {
     RunConfig {
         address,
+        addresses: Vec::new(),
         version,
         qos,
         pairs: 1,
@@ -370,6 +371,79 @@ async fn multiple_pairs_window_four_and_warmup_preserve_sample_boundaries() {
                     .max(sample.delivery_ns)
                     .max(sample.write_completed_ns)
             );
+        }
+    }
+}
+
+#[tokio::test]
+async fn distinct_endpoint_mapping_is_balanced_with_both_versions_and_all_qos() {
+    for version in [Version::V311, Version::V5] {
+        for qos in 0..=2 {
+            let peers = Peer::start_nodes(Scenario::default(), 3, 2).await;
+            let addresses: Vec<_> = peers.iter().map(|p| p.address).collect();
+            let mut c = config("127.0.0.1:1".parse().unwrap(), version, qos);
+            c.addresses = addresses.clone();
+            c.pairs = 6;
+            let data = timeout(Duration::from_secs(5), engine::run(c))
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(data.failures.is_empty(), "{:?}", data.failures);
+            assert_eq!(data.pairs.len(), 6);
+            for pair in &data.pairs {
+                assert!(pair.error.is_none(), "{:?}", pair.error);
+                assert!(pair.counters.attempted > 0);
+                assert_eq!(pair.counters.attempted, pair.counters.write_completed);
+                assert_eq!(pair.counters.attempted, pair.counters.delivered_unique);
+                assert_eq!(pair.counters.attempted, pair.counters.completed);
+                assert_eq!(pair.counters.duplicates, 0);
+                assert_eq!(pair.counters.invalid_payload, 0);
+                assert_eq!(pair.counters.unexpected, 0);
+                match qos {
+                    0 => assert_eq!(
+                        pair.counters.puback_received
+                            + pair.counters.pubrec_received
+                            + pair.counters.pubcomp_received,
+                        0
+                    ),
+                    1 => assert_eq!(pair.counters.puback_received, pair.counters.attempted),
+                    2 => {
+                        assert_eq!(pair.counters.pubrec_received, pair.counters.attempted);
+                        assert_eq!(pair.counters.pubcomp_received, pair.counters.attempted);
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            let report = rmqtt_loadgen::metrics::summarize(&data).unwrap();
+            assert!(report.success, "{:?}", report.issues);
+            assert_eq!(report.config.addresses, addresses);
+            assert_eq!(report.configured_endpoint_connections.len(), 3);
+            for (index, peer) in peers.into_iter().enumerate() {
+                let ids = peer.observed.client_ids.lock().unwrap().clone();
+                assert_eq!(ids.len(), 4, "endpoint {index} actual connection count");
+                let mut publishers = 0;
+                let mut subscribers = 0;
+                for id in ids {
+                    assert_eq!(id.len(), 23);
+                    let pair = usize::from_str_radix(&id[18..22], 16).unwrap();
+                    match id.as_bytes()[22] {
+                        b'p' => {
+                            assert_eq!(pair % 3, index);
+                            publishers += 1;
+                        }
+                        b's' => {
+                            assert_eq!((pair + 1) % 3, index);
+                            subscribers += 1;
+                        }
+                        _ => panic!("invalid client role"),
+                    }
+                }
+                assert_eq!((publishers, subscribers), (2, 2));
+                let distribution = &report.configured_endpoint_connections[index];
+                assert_eq!((distribution.publishers, distribution.subscribers), (2, 2));
+                assert_eq!(distribution.address, peer.address);
+                assert!(peer.finish().await.is_empty());
+            }
         }
     }
 }

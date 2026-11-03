@@ -311,6 +311,25 @@ pub fn summarize(data: &RunData) -> Result<Report, LoadError> {
         success: issues.is_empty(),
         run_id: data.run_id,
         config: data.config.clone(),
+        endpoint_mapping: "publisher endpoint=pair%N; subscriber endpoint=(pair+1)%N; N=effective endpoint count",
+        configured_endpoint_connections: data
+            .config
+            .endpoints()
+            .iter()
+            .enumerate()
+            .map(|(index, address)| {
+                let n = data.config.endpoints().len();
+                super::report::EndpointConnections {
+                    address: *address,
+                    publishers: (0..data.config.pairs)
+                        .filter(|pair| pair % n == index)
+                        .count(),
+                    subscribers: (0..data.config.pairs)
+                        .filter(|pair| (pair + 1) % n == index)
+                        .count(),
+                }
+            })
+            .collect(),
         mode: if data.config.rate == 0 {
             "closed_loop"
         } else {

@@ -29,6 +29,16 @@ measured records,64KiB complete-frame bound. Config rejects rate*duration beyond
 sample budget. Existing report/raw paths are NEVER replaced;choose a new path per
 run. `--raw` is optional;all latency samples are retained in memory regardless.
 
+For cluster load, use `--addrs 172.16.240.180:1883,172.16.240.180:1884,172.16.240.180:1885`
+in place of `--addr`. Up to 32 distinct numeric endpoints are accepted. Publisher
+pair `i` connects to endpoint `i % N`, subscriber to `(i + 1) % N`; with two or more
+endpoints every pair traverses nodes. Use pairs divisible by N for exactly equal
+publisher and subscriber counts per endpoint. Report `config.addresses`,
+`endpoint_mapping` and `configured_endpoint_connections` make that assignment
+explicit; configured connection counts are not observed successful connections.
+An empty API `addresses` list preserves legacy `address` behavior. `--addr` and
+`--addrs` cannot combine. All pairs still share one monotonic clock and setup barrier.
+
 Only one generator process is supported per run:the publisher and subscriber use
 the same monotonic epoch. KeepAlive0,clean sessions,TCP_NODELAY,no aliases,auth,TLS,
 WebSocket,reconnect/retransmit,fanout/shared subscription or connection-only mode.

@@ -16,6 +16,9 @@ impl Version {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunConfig {
     pub address: SocketAddr,
+    /// Empty preserves the legacy single address; otherwise ordered cluster endpoints.
+    #[serde(default)]
+    pub addresses: Vec<SocketAddr>,
     pub version: Version,
     pub qos: u8,
     pub pairs: usize,
@@ -35,6 +38,7 @@ impl Default for RunConfig {
     fn default() -> Self {
         Self {
             address: SocketAddr::from(([127, 0, 0, 1], 1883)),
+            addresses: Vec::new(),
             version: Version::V5,
             qos: 0,
             pairs: 2500,
@@ -52,6 +56,20 @@ impl Default for RunConfig {
     }
 }
 impl RunConfig {
+    /// Effective endpoint list, including the legacy single-address fallback.
+    pub fn endpoints(&self) -> &[SocketAddr] {
+        if self.addresses.is_empty() {
+            std::slice::from_ref(&self.address)
+        } else {
+            &self.addresses
+        }
+    }
+    /// Publisher i%N; subscriber (i+1)%N. Distinct endpoints when N >= 2.
+    pub fn pair_endpoints(&self, pair: u32) -> (SocketAddr, SocketAddr) {
+        let endpoints = self.endpoints();
+        let index = pair as usize % endpoints.len();
+        (endpoints[index], endpoints[(index + 1) % endpoints.len()])
+    }
     pub fn quota(&self, pair: u32) -> u64 {
         self.max_messages / self.pairs.max(1) as u64
             + u64::from(u64::from(pair) < self.max_messages % self.pairs.max(1) as u64)

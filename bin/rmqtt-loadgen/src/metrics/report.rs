@@ -8,6 +8,9 @@ pub struct Report {
     pub success: bool,
     pub run_id: u64,
     pub config: RunConfig,
+    pub endpoint_mapping: &'static str,
+    /// Configured TCP connections, not active/observed traffic or connection success.
+    pub configured_endpoint_connections: Vec<EndpointConnections>,
     pub mode: &'static str,
     pub load_semantics: &'static str,
     pub source_completion_definition: &'static str,
@@ -97,4 +100,11 @@ pub struct Latencies {
     /// None for QoS0, never populated from intermediate QoS2 PUBREC.
     pub send_to_source_completed: Option<Distribution>,
     pub send_to_full_completion: Distribution,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EndpointConnections {
+    pub address: std::net::SocketAddr,
+    pub publishers: usize,
+    pub subscribers: usize,
 }

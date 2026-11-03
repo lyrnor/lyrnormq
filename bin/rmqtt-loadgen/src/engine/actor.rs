@@ -43,7 +43,9 @@ impl Clock {
 async fn setup(config: Arc<RunConfig>, pair: u32, run_id: u64) -> Result<Pair, LoadError> {
     let began = Instant::now();
     let topic = format!("rmqtt-loadgen/{run_id}/{pair}");
-    let mut subscriber = Connection::open(&config, client_id(run_id, pair, 's')).await?;
+    let (publisher_address, subscriber_address) = config.pair_endpoints(pair);
+    let mut subscriber =
+        Connection::open(&config, subscriber_address, client_id(run_id, pair, 's')).await?;
     subscriber
         .send(Packet::Subscribe {
             packet_id: 1,
@@ -68,7 +70,8 @@ async fn setup(config: Arc<RunConfig>, pair: u32, run_id: u64) -> Result<Pair, L
             )));
         }
     }
-    let publisher = Connection::open(&config, client_id(run_id, pair, 'p')).await?;
+    let publisher =
+        Connection::open(&config, publisher_address, client_id(run_id, pair, 'p')).await?;
     Ok(Pair {
         pair,
         subscriber,

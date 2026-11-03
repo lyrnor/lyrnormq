@@ -2,8 +2,8 @@ use crate::{
     LoadError,
     model::{RunConfig, Version},
 };
-use std::path::PathBuf;
-pub const USAGE: &str = "rmqtt-loadgen [--addr IP:PORT] [--protocol 5|3.1.1] [--qos 0|1|2] [--pairs N] [--payload-bytes N] [--rate MESSAGES_PER_SECOND (0=closed-loop)] [--duration-ms N] [--warmup-ms N] [--drain-timeout-ms N] [--connect-timeout-ms N] [--io-timeout-ms N] [--inflight N] [--max-messages N] [--max-packet-bytes N] [--output FILE] [--raw FILE]";
+use std::{collections::BTreeSet, path::PathBuf};
+pub const USAGE: &str = "rmqtt-loadgen [--addr IP:PORT | --addrs IP:PORT,IP:PORT,...] [--protocol 5|3.1.1] [--qos 0|1|2] [--pairs N] [--payload-bytes N] [--rate MESSAGES_PER_SECOND (0=closed-loop)] [--duration-ms N] [--warmup-ms N] [--drain-timeout-ms N] [--connect-timeout-ms N] [--io-timeout-ms N] [--inflight N] [--max-messages N] [--max-packet-bytes N] [--output FILE] [--raw FILE]";
 pub struct Options {
     pub config: RunConfig,
     pub output: PathBuf,
@@ -11,6 +11,11 @@ pub struct Options {
 }
 pub fn validate(c: &RunConfig) -> Result<(), LoadError> {
     let bad = |s: &str| LoadError::Config(s.into());
+    if c.addresses.len() > 32
+        || c.addresses.iter().collect::<BTreeSet<_>>().len() != c.addresses.len()
+    {
+        return Err(bad("addrs must contain at most32 distinct endpoints"));
+    }
     if c.pairs == 0 || c.pairs > 60000 {
         return Err(bad("pairs must be1..60000"));
     }
@@ -60,6 +65,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Options>, 
     let mut output = PathBuf::from("loadgen-result.json");
     let mut raw = None;
     let mut it = args.into_iter();
+    let mut address_seen = false;
     while let Some(k) = it.next() {
         if k == "--help" || k == "-h" {
             return Ok(None);
@@ -76,10 +82,23 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Options>, 
                 .map_err(|_| LoadError::Config(format!("{k} exceeds platform size")))
         };
         match k.as_str() {
-            "--addr" => {
-                c.address = v
-                    .parse()
-                    .map_err(|_| LoadError::Config("addr must be IP:PORT".into()))?
+            "--addr" | "--addrs" => {
+                if std::mem::replace(&mut address_seen, true) {
+                    return Err(LoadError::Config("specify --addr or --addrs once".into()));
+                }
+                let parse = |value: &str| {
+                    value
+                        .parse()
+                        .map_err(|_| LoadError::Config("address must be numeric IP:PORT".into()))
+                };
+                if k == "--addr" {
+                    c.address = parse(&v)?;
+                } else {
+                    if v.is_empty() || v.split(',').count() > 32 {
+                        return Err(LoadError::Config("addrs requires1..32 endpoints".into()));
+                    }
+                    c.addresses = v.split(',').map(parse).collect::<Result<_, _>>()?;
+                }
             }
             "--protocol" => {
                 c.version = match v.as_str() {
@@ -123,6 +142,49 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Options>, 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn multiple_endpoint_cli_is_additive_and_unambiguous() {
+        let arguments = ["--addrs", "127.0.0.1:1883,127.0.0.1:1884,127.0.0.1:1885"];
+        let options = parse(arguments.map(str::to_owned)).unwrap().unwrap();
+        let value = serde_json::to_value(options.config).unwrap();
+        assert_eq!(value["addresses"].as_array().unwrap().len(), 3);
+        for arguments in [
+            vec!["--addrs", ""],
+            vec!["--addrs", "127.0.0.1:1883,"],
+            vec!["--addrs", "127.0.0.1:1883,127.0.0.1:1883"],
+            vec!["--addrs", "localhost:1883"],
+            vec!["--addr", "127.0.0.1:1883", "--addrs", "127.0.0.1:1884"],
+            vec!["--addrs", "127.0.0.1:1884", "--addr", "127.0.0.1:1883"],
+            vec!["--addrs", "127.0.0.1:1884", "--addrs", "127.0.0.1:1885"],
+        ] {
+            assert!(parse(arguments.into_iter().map(str::to_owned)).is_err());
+        }
+    }
+
+    #[test]
+    fn endpoint_bounds_and_legacy_configuration_roundtrip() {
+        let mut c = RunConfig::default();
+        let mut old = serde_json::to_value(&c).unwrap();
+        old.as_object_mut().unwrap().remove("addresses");
+        let restored: RunConfig = serde_json::from_value(old).unwrap();
+        assert!(restored.addresses.is_empty());
+        assert_eq!(restored.pair_endpoints(7), (c.address, c.address));
+        c.addresses = (1..=32)
+            .map(|port| format!("127.0.0.1:{port}").parse().unwrap())
+            .collect();
+        assert!(validate(&c).is_ok());
+        c.addresses.push("127.0.0.1:33".parse().unwrap());
+        assert!(validate(&c).is_err());
+        c.addresses.truncate(2);
+        c.addresses[1] = c.addresses[0];
+        assert!(validate(&c).is_err());
+        let addresses = (1..=33)
+            .map(|port| format!("127.0.0.1:{port}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert!(parse(["--addrs".to_owned(), addresses]).is_err());
+    }
+
     #[test]
     fn limits() {
         assert!(validate(&RunConfig::default()).is_ok());
