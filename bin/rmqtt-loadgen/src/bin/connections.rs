@@ -1,17 +1,23 @@
 //! Bounded, absolute-rate MQTT5 connection ramp; independent of message timing.
+#[path = "connections/options.rs"]
+mod options;
+use options::Options;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     io,
     net::SocketAddr,
-    path::PathBuf,
     time::{Duration, Instant},
 };
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
     net::TcpStream,
     task::JoinSet,
 };
+
+fn default_prefix(stamp: u64, process: u32) -> String {
+    format!("c{stamp:010}p{process}")
+}
 
 fn failure(message: &str) -> io::Error {
     io::Error::other(message)
@@ -81,19 +87,40 @@ fn distribution(values: &mut [u64]) -> Value {
 fn count(errors: &mut BTreeMap<String, u64>, message: String) {
     *errors.entry(message).or_default() += 1;
 }
+struct Attempt {
+    lag_us: u64,
+    outcome: io::Result<(TcpStream, u64)>,
+}
+async fn attempt(begin: Instant, due: Duration, address: SocketAddr, id: String) -> Attempt {
+    // Sample only when the task actually runs, immediately before its TCP work.
+    let lag_us = begin.elapsed().saturating_sub(due).as_micros() as u64;
+    let outcome = match tokio::time::timeout(Duration::from_secs(15), connect(address, id)).await {
+        Ok(result) => result,
+        Err(_) => Err(failure("connect timeout")),
+    };
+    Attempt { lag_us, outcome }
+}
 fn completed(
-    result: Result<Result<(TcpStream, u64), io::Error>, tokio::task::JoinError>,
+    result: Result<Attempt, tokio::task::JoinError>,
     live: &mut Vec<TcpStream>,
     times: &mut Vec<u64>,
+    lag: &mut Vec<u64>,
     errors: &mut BTreeMap<String, u64>,
 ) {
     match result {
-        Ok(Ok((stream, time))) => {
-            live.push(stream);
-            times.push(time)
+        Ok(attempt) => {
+            lag.push(attempt.lag_us);
+            match attempt.outcome {
+                Ok((stream, time)) => {
+                    live.push(stream);
+                    times.push(time);
+                }
+                Err(error) => count(errors, error.to_string()),
+            }
         }
-        Ok(Err(e)) => count(errors, e.to_string()),
-        Err(e) => count(errors, e.to_string()),
+        // A panicked task has no trustworthy start timestamp. The case fails rather
+        // than inventing a zero-lag sample; raw coverage will also fail validation.
+        Err(error) => count(errors, error.to_string()),
     }
 }
 async fn healthy(live: Vec<TcpStream>) -> (Vec<TcpStream>, BTreeMap<String, u64>) {
@@ -139,88 +166,137 @@ async fn healthy(live: Vec<TcpStream>) -> (Vec<TcpStream>, BTreeMap<String, u64>
     }
     (good, errors)
 }
+fn unix_ms() -> io::Result<u64> {
+    let elapsed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| failure("wall clock precedes Unix epoch"))?;
+    u64::try_from(elapsed.as_millis()).map_err(|_| failure("wall clock milliseconds overflow"))
+}
+fn observed_wall_ms(shared_start: Option<u64>, begin: Instant) -> io::Result<u64> {
+    match shared_start {
+        Some(start) => start
+            .checked_add(
+                u64::try_from(begin.elapsed().as_millis())
+                    .map_err(|_| failure("elapsed milliseconds overflow"))?,
+            )
+            .ok_or_else(|| failure("observed wall time overflow")),
+        None => unix_ms(),
+    }
+}
+fn shared_hold_ready(completed: Instant, ping: Instant) -> bool {
+    ping.checked_duration_since(completed)
+        .is_some_and(|hold| hold >= Duration::from_secs(10))
+}
+fn raw_step(step: u64, times: &[u64], lag: &[u64]) -> Value {
+    json!({"step":step,"latency_us":times,"schedule_lag_us":lag,
+        "latency_count":times.len(),"schedule_lag_count":lag.len()})
+}
+async fn report(file: &mut tokio::fs::File, value: &Value) -> io::Result<()> {
+    let bytes = serde_json::to_vec_pretty(value).map_err(io::Error::other)?;
+    file.seek(io::SeekFrom::Start(0)).await?;
+    file.set_len(0).await?;
+    file.write_all(&bytes).await?;
+    file.flush().await
+}
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = std::env::args().skip(1);
-    let addrs: Vec<SocketAddr> = args
-        .next()
-        .ok_or_else(|| failure("need endpoints rate output"))?
-        .split(',')
-        .map(str::parse)
-        .collect::<Result<_, _>>()?;
-    let rate: u64 = args.next().ok_or_else(|| failure("need rate"))?.parse()?;
-    let output = PathBuf::from(args.next().ok_or_else(|| failure("need output"))?);
-    let plateaus: u64 = args
-        .next()
-        .map(|value| value.parse())
-        .transpose()?
-        .unwrap_or(10);
-    if args.next().is_some() || !(1..=10).contains(&plateaus) {
-        return Err(failure("optional plateau count must be1..10").into());
-    }
-    if addrs.len() != 3 || rate == 0 || rate > 10000 || output.exists() {
-        return Err(failure("need3 endpoints, rate1..10000, fresh output").into());
-    }
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
+    let now = unix_ms()?;
+    let options = Options::parse(std::env::args().skip(1), now / 1000, std::process::id())?;
+    // Reserve fresh outputs before opening MQTT connections. Alias paths cannot overwrite a report.
+    let mut output = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&options.output)
+        .await?;
+    let mut raw_output = match &options.raw {
+        Some(path) => Some(
+            tokio::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(path)
+                .await?,
+        ),
+        None => None,
+    };
+    let shared = options.schedule(unix_ms()?, Instant::now())?;
     let mut live = Vec::new();
     let mut steps = Vec::new();
-    // At most2048 concurrent handshakes; skipped absolute arrivals are counted.
-    for step in 1..=plateaus {
-        let begin = Instant::now();
+    let mut raw_steps = Vec::new();
+    // At most2048 concurrent handshakes per process; skipped absolute arrivals are counted.
+    for step in 1..=options.plateaus {
+        let begin = shared.map_or_else(Instant::now, |schedule| schedule.start);
+        tokio::time::sleep_until(begin.into()).await;
+        let actual_start = observed_wall_ms(options.start_unix_ms, begin)?;
         let mut tasks = JoinSet::new();
         let mut times = Vec::new();
         let mut errors = BTreeMap::new();
         let mut not_started = 0u64;
         let mut lag = Vec::new();
-        for i in 0..10000u64 {
-            tokio::time::sleep_until(
-                (begin + Duration::from_secs_f64(i as f64 / rate as f64)).into(),
-            )
-            .await;
+        for i in 0..options.connections_per_step {
+            let due = Duration::from_secs_f64(i as f64 / options.rate as f64);
+            tokio::time::sleep_until((begin + due).into()).await;
             while let Some(result) = tasks.try_join_next() {
-                completed(result, &mut live, &mut times, &mut errors)
+                completed(result, &mut live, &mut times, &mut lag, &mut errors)
             }
             if tasks.len() >= 2048 {
                 not_started += 1;
                 continue;
             }
-            lag.push(
-                begin
-                    .elapsed()
-                    .saturating_sub(Duration::from_secs_f64(i as f64 / rate as f64))
-                    .as_micros() as u64,
-            );
-            let index = (step - 1) * 10000 + i;
-            let address = addrs[index as usize % addrs.len()];
-            tasks.spawn(async move {
-                tokio::time::timeout(
-                    Duration::from_secs(15),
-                    connect(address, format!("c{stamp:010}{index:06}")),
-                )
-                .await
-                .map_err(|_| failure("connect timeout"))?
-            });
+            let index = options.index(step, i)?;
+            let address = options.endpoint(index);
+            let id = options.client_id(index);
+            tasks.spawn(attempt(begin, due, address, id));
         }
         while let Some(result) = tasks.join_next().await {
-            completed(result, &mut live, &mut times, &mut errors)
+            completed(result, &mut live, &mut times, &mut lag, &mut errors)
         }
-        let elapsed = begin.elapsed().as_secs_f64();
+        let ramp_end = Instant::now();
+        let completed_wall = observed_wall_ms(options.start_unix_ms, begin)?;
+        let elapsed = ramp_end.duration_since(begin).as_secs_f64();
         let accepted = times.len();
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        let hold_ok = if let Some(schedule) = shared {
+            let okay = shared_hold_ready(ramp_end, schedule.ping);
+            tokio::time::sleep_until(schedule.ping.into()).await;
+            okay
+        } else {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            true
+        };
+        let ping_wall = observed_wall_ms(options.start_unix_ms, begin)?;
+        let observed_hold_ms = ramp_end.elapsed().as_millis();
         let (good, ping_errors) = healthy(live).await;
         live = good;
-        let row = json!({"target":step*10000,"intended_rate":rate,"new_scheduled":10000,"new_attempted":10000-not_started,"not_started":not_started,"new_connack_success":accepted,"new_connack_per_second":accepted as f64/elapsed,"ramp_and_drain_seconds":elapsed,"live_after_hold_ping":live.len(),"hold_seconds":10,"errors":errors,"ping_errors":ping_errors,"connect_latency":distribution(&mut times),"schedule_lag":distribution(&mut lag)});
-        println!("{row}");
-        let plateau_ok = live.len() as u64 == step * 10000
+        if raw_output.is_some() {
+            raw_steps.push(raw_step(step, &times, &lag));
+        }
+        let target = step * options.connections_per_step;
+        let plateau_ok = live.len() as u64 == target
             && errors.is_empty()
             && ping_errors.is_empty()
-            && not_started == 0;
+            && not_started == 0
+            && hold_ok;
+        let row = json!({"target":target,"intended_rate":options.rate,
+            "new_scheduled":options.connections_per_step,"new_attempted":options.connections_per_step-not_started,
+            "not_started":not_started,"new_connack_success":accepted,"new_connack_per_second":accepted as f64/elapsed,
+            "ramp_and_drain_seconds":elapsed,"live_after_hold_ping":live.len(),"hold_seconds":10,
+            "actual_ramp_start_unix_ms":actual_start,"ramp_completed_unix_ms":completed_wall,
+            "ping_started_unix_ms":ping_wall,"observed_hold_ms":observed_hold_ms,
+            "shared_hold_at_least_10s":hold_ok,"errors":errors,"ping_errors":ping_errors,
+            "connect_latency":distribution(&mut times),"schedule_lag":distribution(&mut lag)});
+        println!("{row}");
         steps.push(row);
-        let report = json!({"tool":"Rust Tokio raw MQTT5 connection ramp","endpoints":addrs.iter().map(ToString::to_string).collect::<Vec<_>>(),"rate":rate,"requested_plateaus":plateaus,"max_concurrent_handshakes":2048,"timeout_seconds":15,"plateau_passed":plateau_ok,"remaining_targets_not_attempted":if plateau_ok { Vec::<u64>::new() } else { ((step+1)..=plateaus).map(|n|n*10000).collect() },"steps":steps});
-        tokio::fs::write(&output, serde_json::to_vec_pretty(&report)?).await?;
-        // Do not label higher targets measured after a lower plateau failed.
+        let mut result = options.settings();
+        result["tool"] = json!("Rust Tokio raw MQTT5 connection ramp");
+        result["plateau_passed"] = json!(plateau_ok);
+        result["remaining_targets_not_attempted"] = json!(if plateau_ok {
+            Vec::<u64>::new()
+        } else {
+            ((step + 1)..=options.plateaus)
+                .map(|n| n * options.connections_per_step)
+                .collect()
+        });
+        result["steps"] = json!(steps);
+        report(&mut output, &result).await?;
         if !plateau_ok {
             break;
         }
@@ -228,41 +304,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for mut stream in live {
         let _ = stream.write_all(&[0xe0, 0]).await;
     }
+    if let Some(file) = &mut raw_output {
+        report(
+            file,
+            &json!({"settings":options.settings(),"steps":raw_steps}),
+        )
+        .await?;
+    }
     Ok(())
 }
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn mqtt5_connect_fields() {
-        let p = connect_packet("abc").unwrap();
-        assert_eq!(&p[..2], &[0x10, 16]);
-        assert_eq!(&p[2..13], &[0, 4, b'M', b'Q', b'T', b'T', 5, 2, 0, 0, 0]);
-        assert_eq!(&p[13..], &[0, 3, b'a', b'b', b'c']);
-    }
-    #[tokio::test]
-    async fn successful_connack_and_ping_are_wire_validated() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let peer = tokio::spawn(async move {
-            let (mut socket, _) = listener.accept().await.unwrap();
-            let (header, _) = packet(&mut socket).await.unwrap();
-            assert_eq!(header, 0x10);
-            socket.write_all(&[0x20, 3, 0, 0, 0]).await.unwrap();
-            assert_eq!(packet(&mut socket).await.unwrap().0, 0xc0);
-            socket.write_all(&[0xd0, 0]).await.unwrap();
-        });
-        let (stream, _) = connect(address, "wire-test".into()).await.unwrap();
-        let (live, errors) = healthy(vec![stream]).await;
-        assert_eq!(live.len(), 1);
-        assert!(errors.is_empty());
-        peer.await.unwrap();
-    }
-    #[test]
-    fn exact_nearest_rank() {
-        let mut n = vec![2, 1, 3, 4];
-        let d = distribution(&mut n);
-        assert_eq!(d["p99_us"], 4);
-        assert_eq!(d["mean_us"], 2.5);
-    }
-}
+#[path = "connections/tests.rs"]
+mod tests;
