@@ -1,5 +1,6 @@
 //! Three-voter metadata Raft, durable state and snapshot replication service.
 use std::sync::PoisonError;
+mod applied;
 
 use crate::{
     config::{Config, Role},
@@ -27,6 +28,7 @@ pub(crate) fn now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis().min(u128::from(u64::MAX)) as u64)
 }
+#[cfg(test)]
 fn applied_ready(metadata: &Metadata, revision: u64) -> bool {
     metadata.revision >= revision
         && !metadata.nodes.is_empty()
@@ -101,6 +103,7 @@ pub(crate) struct Control {
     slots: Arc<Semaphore>,
     watchers: Arc<Semaphore>,
     applied_slots: Arc<Semaphore>,
+    progress: applied::Progress,
     lease_ms: u64,
 }
 impl Control {
@@ -110,36 +113,6 @@ impl Control {
             .map_err(|_| Status::unavailable("quorum deadline"))?
             .map_err(|_| Status::unavailable("not current leader"))?;
         Ok(())
-    }
-    async fn applied(&self, revision: u64) -> Result<u64, Status> {
-        let _permit = self
-            .applied_slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| Status::resource_exhausted("applied waiter capacity"))?;
-        tokio::time::timeout(Duration::from_secs(4), async {
-            let mut changes = self.store.changed.subscribe();
-            let mut leadership = self.raft.metrics();
-            self.leader().await?;
-            let term = leadership.borrow().current_term;
-            loop {
-                let authority = {
-                    let metrics = leadership.borrow();
-                    metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term
-                };
-                if !authority { return Err(Status::unavailable("applied leader changed")); }
-                if applied_ready(&self.store.state.lock().unwrap_or_else(PoisonError::into_inner).metadata, revision) {
-                    self.leader().await?;
-                    let unchanged = { let metrics = leadership.borrow(); metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term };
-                    if !unchanged { return Err(Status::unavailable("applied leader changed")); }
-                    if applied_ready(&self.store.state.lock().unwrap_or_else(PoisonError::into_inner).metadata, revision) { return Ok(revision); }
-                }
-                tokio::select! {
-                    result = changes.changed() => { result.map_err(|_| Status::unavailable("applied watch closed"))?; },
-                    result = leadership.changed() => { result.map_err(|_| Status::unavailable("leadership watch closed"))?; },
-                }
-            }
-        }).await.map_err(|_| Status::unavailable("applied deadline"))?
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
         let _slot = self
@@ -402,6 +375,11 @@ impl wire::cluster_server::Cluster for Service {
                 rpc::encode(&control.store.metadata())
             }
             ReadRequest::Applied { revision } => rpc::encode(&control.applied(revision).await?),
+            ReadRequest::AppliedAck {
+                node,
+                incarnation,
+                revision,
+            } => rpc::encode(&control.acknowledge(node, &incarnation, revision)?),
             ReadRequest::Owner { key } => {
                 if key.len() <= 2
                     || key.len() > 65538
@@ -665,6 +643,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
         slots: Arc::new(Semaphore::new(32)),
         watchers: Arc::new(Semaphore::new(128)),
         applied_slots: Arc::new(Semaphore::new(32)),
+        progress: applied::Progress::default(),
         lease_ms: config.lease_ms,
     });
     if config.bootstrap
@@ -829,6 +808,7 @@ mod control_tests {
             slots: Arc::new(Semaphore::new(32)),
             watchers: Arc::new(Semaphore::new(128)),
             applied_slots: Arc::new(Semaphore::new(32)),
+            progress: applied::Progress::default(),
             lease_ms: 3000,
         });
         {
@@ -873,6 +853,36 @@ mod control_tests {
                 .map_err(io::Error::other)?,
             7
         );
+        // Installation ACKs complete the next barrier before a persisted
+        // Heartbeat advances Node.applied, with no Raft log append.
+        control.store.state.lock().unwrap().metadata.revision = 8;
+        let before_ack = control.raft.metrics().borrow().last_applied;
+        let waiter = tokio::spawn({
+            let control = control.clone();
+            async move { control.applied(8).await }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!waiter.is_finished());
+        control
+            .acknowledge(101, "n101", 8)
+            .map_err(io::Error::other)?;
+        assert!(!waiter.is_finished());
+        control
+            .acknowledge(102, "n102", 8)
+            .map_err(io::Error::other)?;
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), waiter)
+                .await
+                .expect("volatile ACK must wake waiter")
+                .map_err(io::Error::other)?
+                .map_err(io::Error::other)?,
+            8
+        );
+        assert_eq!(
+            control.store.state.lock().unwrap().metadata.nodes[&102].applied,
+            7
+        );
+        assert_eq!(control.raft.metrics().borrow().last_applied, before_ack);
         let permits = control
             .applied_slots
             .clone()
@@ -886,12 +896,12 @@ mod control_tests {
         drop(permits);
         {
             let mut state = control.store.state.lock().unwrap();
-            state.metadata.revision = 8;
-            state.metadata.nodes.get_mut(&101).unwrap().applied = 8;
+            state.metadata.revision = 9;
+            state.metadata.nodes.get_mut(&101).unwrap().applied = 9;
         }
         let waiter = tokio::spawn({
             let control = control.clone();
-            async move { control.applied(8).await }
+            async move { control.applied(9).await }
         });
         tokio::time::sleep(Duration::from_millis(20)).await;
         let term = control.raft.metrics().borrow().current_term;

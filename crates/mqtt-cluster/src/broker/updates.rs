@@ -128,6 +128,7 @@ impl BrokerRuntime {
             .map_err(|_| unavailable())?;
         self.reconcile_repair().await?;
         self.initialized.store(true, Ordering::Release);
+        self.announce_applied();
         if let Some(data) = &self.data {
             for key in effects.discard {
                 data.forget(&key);

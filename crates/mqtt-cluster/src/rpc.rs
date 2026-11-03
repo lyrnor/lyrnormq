@@ -178,7 +178,7 @@ impl ClientRpc {
         });
         addresses
     }
-    fn remember_controller(&self, address: String) {
+    pub(crate) fn remember_controller(&self, address: String) {
         *self
             .preferred
             .lock()
@@ -189,6 +189,19 @@ impl ClientRpc {
     }
     pub async fn applied(&self, revision: u64) -> io::Result<u64> {
         self.request_seeds(ReadRequest::Applied { revision }).await
+    }
+    pub async fn acknowledge(
+        &self,
+        node: u64,
+        incarnation: String,
+        revision: u64,
+    ) -> io::Result<u64> {
+        self.request_seeds(ReadRequest::AppliedAck {
+            node,
+            incarnation,
+            revision,
+        })
+        .await
     }
     pub async fn owner(&self, key: String) -> io::Result<Option<DurableOwner>> {
         self.request_seeds(ReadRequest::Owner { key }).await
@@ -249,8 +262,17 @@ impl ClientRpc {
 pub(crate) enum ReadRequest {
     Metadata,
     Status,
-    Applied { revision: u64 },
-    Owner { key: String },
+    Applied {
+        revision: u64,
+    },
+    AppliedAck {
+        node: u64,
+        incarnation: String,
+        revision: u64,
+    },
+    Owner {
+        key: String,
+    },
 }
 pub(crate) async fn server_tls(config: &Config) -> io::Result<Option<ServerTlsConfig>> {
     match &config.tls {

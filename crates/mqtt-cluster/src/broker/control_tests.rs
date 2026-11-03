@@ -11,6 +11,10 @@ struct ReadSpy {
     full: Arc<AtomicUsize>,
     applied: Arc<AtomicUsize>,
     invalidate: Option<Arc<BrokerRuntime>>,
+    acks: Arc<AtomicUsize>,
+    last_ack: Arc<AtomicU64>,
+    hold_first: Arc<AtomicBool>,
+    release: Arc<Notify>,
 }
 #[tonic::async_trait]
 impl Cluster for ReadSpy {
@@ -25,6 +29,14 @@ impl Cluster for ReadSpy {
             let revision = request["revision"].as_u64().unwrap();
             if let Some(runtime) = &self.invalidate {
                 *runtime.deadline.lock().unwrap() = tokio::time::Instant::now();
+            }
+            rpc::encode(&revision).unwrap()
+        } else if let Some(request) = value.get("AppliedAck") {
+            self.acks.fetch_add(1, Ordering::SeqCst);
+            let revision = request["revision"].as_u64().unwrap();
+            self.last_ack.store(revision, Ordering::SeqCst);
+            if self.hold_first.swap(false, Ordering::SeqCst) {
+                self.release.notified().await;
             }
             rpc::encode(&revision).unwrap()
         } else {
@@ -54,9 +66,13 @@ impl Cluster for ReadSpy {
         Err(Status::unimplemented("deliver"))
     }
 }
-async fn barrier_fixture(invalidate: bool) -> io::Result<()> {
+type SpyServer = tokio::task::JoinHandle<Result<(), tonic::transport::Error>>;
+async fn spy_fixture(
+    label: &str,
+    invalidate: bool,
+) -> io::Result<(Arc<BrokerRuntime>, ReadSpy, SpyServer, std::path::PathBuf)> {
     let path = std::env::temp_dir().join(format!(
-        "rmqtt-applied-spy-{invalidate}-{}-{}",
+        "rmqtt-applied-spy-{label}-{invalidate}-{}-{}",
         std::process::id(),
         controller::now()
     ));
@@ -83,12 +99,20 @@ async fn barrier_fixture(invalidate: bool) -> io::Result<()> {
         full: Arc::new(AtomicUsize::new(0)),
         applied: Arc::new(AtomicUsize::new(0)),
         invalidate: invalidate.then(|| runtime.clone()),
+        acks: Arc::new(AtomicUsize::new(0)),
+        last_ack: Arc::new(AtomicU64::new(0)),
+        hold_first: Arc::new(AtomicBool::new(false)),
+        release: Arc::new(Notify::new()),
     };
     let server = tokio::spawn(
         tonic::transport::Server::builder()
             .add_service(ClusterServer::new(spy.clone()))
             .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener)),
     );
+    Ok((runtime, spy, server, path))
+}
+async fn barrier_fixture(invalidate: bool) -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("barrier", invalidate).await?;
     let result = runtime.barrier(7).await;
     server.abort();
     let _ = server.await;
@@ -118,4 +142,55 @@ async fn applied_barrier_never_downloads_directory() -> io::Result<()> {
 #[tokio::test]
 async fn applied_barrier_rechecks_local_lease_after_reply() -> io::Result<()> {
     barrier_fixture(true).await
+}
+
+#[tokio::test]
+async fn installation_ack_sender_coalesces_and_repushes_same_revision() -> io::Result<()> {
+    let (runtime, spy, server, path) = spy_fixture("coalescing", false).await?;
+    spy.hold_first.store(true, Ordering::SeqCst);
+    runtime.metadata.write().unwrap().revision = 1;
+    runtime.announce_applied();
+    let sender = tokio::spawn(runtime.clone().applied_ack_loop());
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while spy.acks.load(Ordering::SeqCst) != 1 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .map_err(io::Error::other)?;
+    for revision in 2..=5000 {
+        runtime.metadata.write().unwrap().revision = revision;
+        runtime.announce_applied();
+    }
+    spy.release.notify_one();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while spy.last_ack.load(Ordering::SeqCst) != 5000 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .map_err(io::Error::other)?;
+    tokio::time::sleep(Duration::from_millis(20)).await;
+    assert_eq!(
+        spy.acks.load(Ordering::SeqCst),
+        2,
+        "one in-flight RPC plus one latest update, not one task per revision"
+    );
+    runtime.announce_applied();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while spy.acks.load(Ordering::SeqCst) != 3 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .map_err(io::Error::other)?;
+    runtime.stopped.store(true, Ordering::Release);
+    sender.abort();
+    let _ = sender.await;
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    assert_eq!(spy.full.load(Ordering::SeqCst), 0);
+    Ok(())
 }

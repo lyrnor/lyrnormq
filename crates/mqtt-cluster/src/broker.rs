@@ -17,6 +17,7 @@ use std::{
 };
 use tokio::sync::{Notify, OnceCell, Semaphore, watch};
 pub(crate) mod durable;
+mod progress;
 mod quorum;
 pub(crate) mod repair;
 mod startup;
@@ -47,6 +48,7 @@ pub struct BrokerRuntime {
     bytes: Arc<Semaphore>,
     receipts: Mutex<Receipts>,
     watch_reconnect: Notify,
+    installed: watch::Sender<u64>,
     weak: Weak<Self>,
     pub(crate) journal: Option<crate::replica::Journal>,
     data: Option<Arc<durable::Durable>>,
@@ -109,6 +111,7 @@ impl BrokerRuntime {
             bytes: Arc::new(Semaphore::new(16 * 1024 * 1024)),
             receipts: Mutex::new(Receipts::default()),
             watch_reconnect: Notify::new(),
+            installed: watch::channel(0).0,
             weak: weak.clone(),
             data: journal
                 .as_ref()
@@ -243,6 +246,7 @@ impl BrokerRuntime {
         }
         self.reconcile_repair().await?;
         self.initialized.store(true, Ordering::Release);
+        self.announce_applied();
         if forwarding_event && let Some(data) = &self.data {
             let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
             data.reconcile(self, Some(&old), &metadata);
@@ -264,6 +268,7 @@ impl BrokerRuntime {
                     continue;
                 };
                 if let Ok(response) = client.watch(request).await {
+                    rpc.remember_controller(address.clone());
                     stream = Some(response.into_inner());
                     break;
                 }
@@ -319,6 +324,7 @@ impl BrokerRuntime {
             if let Ok(rpc) = self.rpc().await {
                 match rpc.mutate(command).await {
                     Ok(answer) => {
+                        self.announce_applied();
                         if answer.revision > applied {
                             self.watch_reconnect.notify_one();
                         }
@@ -576,6 +582,7 @@ impl ClusterBridge for BrokerRuntime {
             let mut tasks = vec![
                 tokio::spawn(this.clone().watch_loop()),
                 tokio::spawn(this.clone().heartbeat_loop()),
+                tokio::spawn(this.clone().applied_ack_loop()),
                 tokio::spawn(this.lease_loop()),
             ];
             if let Some(data) = &self.data {
