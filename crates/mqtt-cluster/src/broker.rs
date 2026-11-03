@@ -20,6 +20,7 @@ pub(crate) mod durable;
 mod quorum;
 pub(crate) mod repair;
 mod startup;
+mod updates;
 #[derive(Default)]
 struct Receipts {
     values: BTreeMap<(u64, String, u64), bool>,
@@ -152,16 +153,14 @@ impl BrokerRuntime {
     }
     async fn barrier(&self, revision: u64) -> io::Result<()> {
         tokio::time::timeout(Duration::from_secs(5), async {
-            loop {
-                if !self.ready() {
-                    return Err(unavailable());
-                }
-                let metadata = self.rpc().await?.metadata().await?;
-                if metadata.nodes.values().all(|node| node.applied >= revision) {
-                    return Ok(());
-                }
-                tokio::time::sleep(Duration::from_millis(20)).await;
+            if !self.ready() {
+                return Err(unavailable());
             }
+            let applied = self.rpc().await?.applied(revision).await?;
+            if applied < revision || !self.ready() {
+                return Err(unavailable());
+            }
+            Ok(())
         })
         .await
         .map_err(|_| unavailable())?
@@ -289,17 +288,7 @@ impl BrokerRuntime {
                                 }
                             }
                             Ok(update) => {
-                                let old = self
-                                    .metadata
-                                    .read()
-                                    .unwrap_or_else(PoisonError::into_inner)
-                                    .clone();
-                                let forwarding_event =
-                                    durable::Durable::metadata_event(&update, &old);
-                                let Ok(metadata) = update.merge(&old) else {
-                                    break;
-                                };
-                                if self.install(metadata, forwarding_event).await.is_err() {
+                                if self.install_update(update).await.is_err() {
                                     break;
                                 }
                             }
@@ -799,3 +788,6 @@ impl Drop for ReceiptGuard<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod control_tests;

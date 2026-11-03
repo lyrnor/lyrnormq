@@ -424,8 +424,12 @@ impl Durable {
             return Err(unavailable());
         }
         let key = client_key(client);
-        let metadata = runtime.rpc().await?.metadata().await?;
-        let epoch = metadata.durable.get(&key).map_or(0, |o| o.epoch);
+        let epoch = runtime
+            .rpc()
+            .await?
+            .owner(key.clone())
+            .await?
+            .map_or(0, |owner| owner.epoch);
         let record =
             quorum::request(runtime, &self.journal, Request::Read { key: key.clone() }).await?;
         let mut result = record
@@ -882,6 +886,7 @@ impl Durable {
         self.changed(key, cell);
         let _ = reply.send(result);
     }
+    #[cfg(test)]
     pub(super) fn metadata_event(update: &MetadataUpdate, old: &Metadata) -> bool {
         match update {
             MetadataUpdate::Progress { .. } => false,
@@ -964,6 +969,25 @@ impl Durable {
                 });
             if changed && (ours || !live) {
                 self.scheduler.schedule(key);
+            }
+        }
+    }
+    pub(super) fn owner_events(&self, runtime: &BrokerRuntime, keys: &[String]) {
+        let metadata = runtime
+            .metadata
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
+        for key in keys {
+            if let Some(owner) = metadata.durable.get(key) {
+                let ours = owner.node == runtime.config.node_id
+                    && owner.incarnation == runtime.incarnation;
+                let live = metadata
+                    .nodes
+                    .get(&owner.node)
+                    .is_some_and(|n| n.incarnation == owner.incarnation);
+                if ours || !live {
+                    self.scheduler.schedule(key);
+                }
             }
         }
     }

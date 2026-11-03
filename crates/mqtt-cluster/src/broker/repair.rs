@@ -219,14 +219,13 @@ impl BrokerRuntime {
         let Some(journal) = &self.journal else {
             return Ok(());
         };
-        let metadata = self
-            .metadata
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone();
-        if metadata.repair.is_some() || journal.voting_ready(metadata.data_generation) {
-            return Ok(());
-        }
+        let metadata = {
+            let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+            if metadata.repair.is_some() || journal.voting_ready(metadata.data_generation) {
+                return Ok(());
+            }
+            metadata.clone()
+        };
         let Some(terminal) = &metadata.last_repair else {
             return Ok(());
         };

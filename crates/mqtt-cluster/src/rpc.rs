@@ -38,6 +38,12 @@ pub(crate) fn decode<T: DeserializeOwned>(envelope: wire::Envelope) -> Result<T,
 pub(crate) fn io_error(_error: impl std::fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::WouldBlock, "cluster RPC unavailable")
 }
+#[derive(Clone, Copy)]
+enum ClientDeadline {
+    Regular,
+    Repair,
+    Applied,
+}
 #[derive(Clone)]
 pub(crate) struct ClientRpc {
     config: Arc<Config>,
@@ -95,23 +101,23 @@ impl ClientRpc {
         &self,
         address: &str,
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
-        self.client_timeout(address, false).await
+        self.client_timeout(address, ClientDeadline::Regular).await
     }
     pub async fn repair_client(
         &self,
         address: &str,
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
-        self.client_timeout(address, true).await
+        self.client_timeout(address, ClientDeadline::Repair).await
     }
     async fn client_timeout(
         &self,
         address: &str,
-        repair: bool,
+        deadline: ClientDeadline,
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
-        let cache_key = if repair {
-            format!("repair:{address}")
-        } else {
-            address.to_owned()
+        let (cache_key, seconds) = match deadline {
+            ClientDeadline::Regular => (address.to_owned(), 2),
+            ClientDeadline::Repair => (format!("repair:{address}"), 60),
+            ClientDeadline::Applied => (format!("applied:{address}"), 5),
         };
         let cached = self
             .channels
@@ -125,7 +131,7 @@ impl ClientRpc {
             let mut endpoint = Endpoint::from_shared(address.to_owned())
                 .map_err(io_error)?
                 .connect_timeout(Duration::from_secs(1))
-                .timeout(Duration::from_secs(if repair { 60 } else { 2 }));
+                .timeout(Duration::from_secs(seconds));
             if let Some(tls) = &self.config.tls {
                 let ca = read_bounded(&tls.ca_file, 1024 * 1024).await?;
                 let cert = read_bounded(&tls.cert_file, 1024 * 1024).await?;
@@ -181,14 +187,25 @@ impl ClientRpc {
     pub async fn metadata(&self) -> io::Result<Metadata> {
         self.request_seeds(ReadRequest::Metadata).await
     }
+    pub async fn applied(&self, revision: u64) -> io::Result<u64> {
+        self.request_seeds(ReadRequest::Applied { revision }).await
+    }
+    pub async fn owner(&self, key: String) -> io::Result<Option<DurableOwner>> {
+        self.request_seeds(ReadRequest::Owner { key }).await
+    }
     pub async fn status(&self) -> io::Result<ClusterStatus> {
         self.request_seeds(ReadRequest::Status).await
     }
     async fn request_seeds<T: DeserializeOwned>(&self, kind: ReadRequest) -> io::Result<T> {
         for address in self.controller_addresses() {
-            let mut client = self.client(&address).await?;
+            let deadline = if matches!(kind, ReadRequest::Applied { .. }) {
+                ClientDeadline::Applied
+            } else {
+                ClientDeadline::Regular
+            };
+            let mut client = self.client_timeout(&address, deadline).await?;
             if let Ok(reply) = client.read(self.authorize(encode(&kind)?)?).await {
-                if matches!(kind, ReadRequest::Metadata) {
+                if !matches!(kind, ReadRequest::Status) {
                     self.remember_controller(address);
                 }
                 return decode(reply.into_inner()).map_err(io_error);
@@ -232,6 +249,8 @@ impl ClientRpc {
 pub(crate) enum ReadRequest {
     Metadata,
     Status,
+    Applied { revision: u64 },
+    Owner { key: String },
 }
 pub(crate) async fn server_tls(config: &Config) -> io::Result<Option<ServerTlsConfig>> {
     match &config.tls {

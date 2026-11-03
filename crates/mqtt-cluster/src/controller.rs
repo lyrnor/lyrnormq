@@ -27,6 +27,11 @@ pub(crate) fn now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis().min(u128::from(u64::MAX)) as u64)
 }
+fn applied_ready(metadata: &Metadata, revision: u64) -> bool {
+    metadata.revision >= revision
+        && !metadata.nodes.is_empty()
+        && metadata.nodes.values().all(|node| node.applied >= revision)
+}
 struct Network {
     rpc: ClientRpc,
 }
@@ -95,6 +100,7 @@ pub(crate) struct Control {
     rpc: ClientRpc,
     slots: Arc<Semaphore>,
     watchers: Arc<Semaphore>,
+    applied_slots: Arc<Semaphore>,
     lease_ms: u64,
 }
 impl Control {
@@ -104,6 +110,36 @@ impl Control {
             .map_err(|_| Status::unavailable("quorum deadline"))?
             .map_err(|_| Status::unavailable("not current leader"))?;
         Ok(())
+    }
+    async fn applied(&self, revision: u64) -> Result<u64, Status> {
+        let _permit = self
+            .applied_slots
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Status::resource_exhausted("applied waiter capacity"))?;
+        tokio::time::timeout(Duration::from_secs(4), async {
+            let mut changes = self.store.changed.subscribe();
+            let mut leadership = self.raft.metrics();
+            self.leader().await?;
+            let term = leadership.borrow().current_term;
+            loop {
+                let authority = {
+                    let metrics = leadership.borrow();
+                    metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term
+                };
+                if !authority { return Err(Status::unavailable("applied leader changed")); }
+                if applied_ready(&self.store.state.lock().unwrap_or_else(PoisonError::into_inner).metadata, revision) {
+                    self.leader().await?;
+                    let unchanged = { let metrics = leadership.borrow(); metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term };
+                    if !unchanged { return Err(Status::unavailable("applied leader changed")); }
+                    if applied_ready(&self.store.state.lock().unwrap_or_else(PoisonError::into_inner).metadata, revision) { return Ok(revision); }
+                }
+                tokio::select! {
+                    result = changes.changed() => { result.map_err(|_| Status::unavailable("applied watch closed"))?; },
+                    result = leadership.changed() => { result.map_err(|_| Status::unavailable("leadership watch closed"))?; },
+                }
+            }
+        }).await.map_err(|_| Status::unavailable("applied deadline"))?
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
         let _slot = self
@@ -365,9 +401,35 @@ impl wire::cluster_server::Cluster for Service {
                 control.leader().await?;
                 rpc::encode(&control.store.metadata())
             }
+            ReadRequest::Applied { revision } => rpc::encode(&control.applied(revision).await?),
+            ReadRequest::Owner { key } => {
+                if key.len() <= 2
+                    || key.len() > 65538
+                    || key.contains('\0')
+                    || !(key.starts_with("c:") || key.starts_with("h:"))
+                {
+                    return Err(Status::invalid_argument("invalid owner key"));
+                }
+                control.leader().await?;
+                let owner = control
+                    .store
+                    .state
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .metadata
+                    .durable
+                    .get(&key)
+                    .cloned();
+                rpc::encode(&owner)
+            }
             ReadRequest::Status => {
                 let m = control.raft.metrics().borrow().clone();
-                let s = control.store.metadata();
+                let state = control
+                    .store
+                    .state
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner);
+                let s = &state.metadata;
                 rpc::encode(&ClusterStatus {
                     data_storage: s
                         .data_mode
@@ -418,35 +480,69 @@ impl wire::cluster_server::Cluster for Service {
         let mut leadership = control.raft.metrics();
         tokio::spawn(async move {
             let _permit = permit;
-            let mut previous: Option<Metadata> = None;
+            let mut base = None;
+            let mut progress = tokio::time::interval(Duration::from_millis(control.lease_ms / 4));
+            progress.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
-                let metadata = control.store.metadata();
-                let update = match &previous {
-                    Some(old) => MetadataUpdate::between(old, &metadata),
-                    None => MetadataUpdate::Snapshot(metadata.clone()),
-                };
-                previous = Some(metadata);
-                let envelope = rpc::encode(&update)
-                    .map_err(|_| Status::resource_exhausted("metadata snapshot capacity"));
-                if tx.send(envelope).await.is_err() {
-                    break;
+                if leadership.borrow().current_leader != Some(control.rpc.config_node()) {
+                    let _ = tx
+                        .send(Err(Status::unavailable("controller leader changed")))
+                        .await;
+                    return;
+                }
+                for update in control.store.watch_updates(base) {
+                    let revision = match &update {
+                        MetadataUpdate::Progress { revision }
+                        | MetadataUpdate::Delta { revision, .. } => *revision,
+                        MetadataUpdate::Snapshot(metadata) => metadata.revision,
+                    };
+                    let envelope = rpc::encode(&update)
+                        .map_err(|_| Status::resource_exhausted("metadata update capacity"));
+                    if tx.send(envelope).await.is_err() {
+                        return;
+                    }
+                    base = Some(revision);
+                }
+                if base
+                    != Some(
+                        control
+                            .store
+                            .state
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .metadata
+                            .revision,
+                    )
+                {
+                    continue;
                 }
                 loop {
-                    tokio::select! { result = changes.changed() => { if result.is_err() { return; } }, result = leadership.changed() => { if result.is_err() { return; } }, _ = tokio::time::sleep(Duration::from_millis(control.lease_ms / 4)) => {
-                        if let Some(old) = &previous {
-                            let progress = rpc::encode(&MetadataUpdate::Progress { revision: old.revision }).map_err(|_| Status::internal("metadata progress encoding"));
-                            if tx.send(progress).await.is_err() { return; }
+                    tokio::select! {
+                        result = changes.changed() => { if result.is_err() { return; } },
+                        result = leadership.changed() => { if result.is_err() { return; } },
+                        _ = progress.tick() => {
+                            if let Some(revision) = base {
+                                let envelope = rpc::encode(&MetadataUpdate::Progress { revision }).map_err(|_| Status::internal("metadata progress encoding"));
+                                if tx.send(envelope).await.is_err() { return; }
+                            }
                         }
-                    } }
+                    }
                     if leadership.borrow().current_leader != Some(control.rpc.config_node()) {
                         let _ = tx
                             .send(Err(Status::unavailable("controller leader changed")))
                             .await;
                         return;
                     }
-                    if previous
-                        .as_ref()
-                        .is_none_or(|old| old.revision != *changes.borrow())
+                    if base
+                        != Some(
+                            control
+                                .store
+                                .state
+                                .lock()
+                                .unwrap_or_else(PoisonError::into_inner)
+                                .metadata
+                                .revision,
+                        )
                     {
                         break;
                     }
@@ -568,6 +664,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
         rpc: rpc.clone(),
         slots: Arc::new(Semaphore::new(32)),
         watchers: Arc::new(Semaphore::new(128)),
+        applied_slots: Arc::new(Semaphore::new(32)),
         lease_ms: config.lease_ms,
     });
     if config.bootstrap
@@ -645,4 +742,179 @@ pub async fn status(config: &Config) -> io::Result<ClusterStatus> {
         .await?
         .status()
         .await
+}
+
+#[cfg(test)]
+mod control_tests {
+    use super::*;
+    #[test]
+    fn barrier_needs_committed_revision_and_every_registered_node() {
+        let mut metadata = Metadata {
+            revision: 7,
+            ..Metadata::default()
+        };
+        assert!(!applied_ready(&metadata, 7));
+        for (id, applied) in [(101, 7), (102, 7), (103, 6)] {
+            metadata.nodes.insert(
+                id,
+                Node {
+                    id,
+                    incarnation: format!("n{id}"),
+                    address: "http://127.0.0.1:1".into(),
+                    expires_at: 0,
+                    max_lease_ms: 3000,
+                    applied,
+                },
+            );
+        }
+        assert!(
+            !applied_ready(&metadata, 7),
+            "two applied nodes are not an all-node visibility barrier"
+        );
+        metadata.nodes.get_mut(&103).unwrap().applied = 7;
+        assert!(applied_ready(&metadata, 7));
+        assert!(!applied_ready(&metadata, 8));
+    }
+    #[tokio::test]
+    async fn applied_waiter_wakes_on_same_revision_heartbeat_and_rejects_new_term() -> io::Result<()>
+    {
+        let path = std::env::temp_dir().join(format!(
+            "rmqtt-control-progress-{}-{}",
+            std::process::id(),
+            now()
+        ));
+        tokio::fs::create_dir_all(&path).await?;
+        tokio::fs::write(path.join("token"), "b".repeat(32)).await?;
+        let config: Config = serde_json::from_value(serde_json::json!({"role":"controller","cluster_id":"progress-test","node_id":1,"listen":"127.0.0.1:64000","data_dir":path,"token_file":path.join("token"),"controllers":[{"id":1,"address":"http://127.0.0.1:64000"},{"id":2,"address":"http://127.0.0.1:64001"},{"id":3,"address":"http://127.0.0.1:64002"}]})).map_err(io::Error::other)?;
+        let store = Store::open(&path, "progress-test", 1).await?;
+        let rpc = ClientRpc::new(Arc::new(config)).await?;
+        let raft = Raft::new(
+            1,
+            Arc::new(
+                openraft::Config::default()
+                    .validate()
+                    .map_err(io::Error::other)?,
+            ),
+            Network { rpc: rpc.clone() },
+            store.clone(),
+            store.clone(),
+        )
+        .await
+        .map_err(io::Error::other)?;
+        raft.initialize(BTreeMap::from([(1, BasicNode::new("127.0.0.1:64000"))]))
+            .await
+            .map_err(io::Error::other)?;
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while raft.metrics().borrow().current_leader != Some(1) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .map_err(io::Error::other)?;
+        // Drain initialization entries before injecting test-only progress data.
+        // Otherwise an in-flight State::apply clone can overwrite the fixture.
+        raft.client_write(Command::Heartbeat {
+            node: u64::MAX,
+            incarnation: "fixture".into(),
+            applied: 0,
+            expires_at: 0,
+            lease_ms: 3000,
+        })
+        .await
+        .map_err(io::Error::other)?;
+        let control = Arc::new(Control {
+            raft,
+            store,
+            rpc,
+            slots: Arc::new(Semaphore::new(32)),
+            watchers: Arc::new(Semaphore::new(128)),
+            applied_slots: Arc::new(Semaphore::new(32)),
+            lease_ms: 3000,
+        });
+        {
+            let mut state = control.store.state.lock().unwrap();
+            state.metadata.revision = 7;
+            for (id, applied) in [(101, 7), (102, 6)] {
+                state.metadata.nodes.insert(
+                    id,
+                    Node {
+                        id,
+                        incarnation: format!("n{id}"),
+                        address: "http://127.0.0.1:1".into(),
+                        expires_at: 0,
+                        max_lease_ms: 3000,
+                        applied,
+                    },
+                );
+            }
+        }
+        let waiter = tokio::spawn({
+            let control = control.clone();
+            async move { control.applied(7).await }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!waiter.is_finished());
+        control
+            .store
+            .state
+            .lock()
+            .unwrap()
+            .metadata
+            .nodes
+            .get_mut(&102)
+            .unwrap()
+            .applied = 7;
+        control.store.changed.send_replace(7);
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), waiter)
+                .await
+                .expect("same-revision heartbeat must wake waiter")
+                .map_err(io::Error::other)?
+                .map_err(io::Error::other)?,
+            7
+        );
+        let permits = control
+            .applied_slots
+            .clone()
+            .acquire_many_owned(32)
+            .await
+            .map_err(io::Error::other)?;
+        assert_eq!(
+            control.applied(7).await.unwrap_err().code(),
+            tonic::Code::ResourceExhausted
+        );
+        drop(permits);
+        {
+            let mut state = control.store.state.lock().unwrap();
+            state.metadata.revision = 8;
+            state.metadata.nodes.get_mut(&101).unwrap().applied = 8;
+        }
+        let waiter = tokio::spawn({
+            let control = control.clone();
+            async move { control.applied(8).await }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let term = control.raft.metrics().borrow().current_term;
+        let last = control.store.state.lock().unwrap().last_applied;
+        control
+            .raft
+            .append_entries(openraft::raft::AppendEntriesRequest {
+                vote: openraft::Vote::new_committed(term + 1, 2),
+                prev_log_id: last,
+                entries: vec![],
+                leader_commit: last,
+            })
+            .await
+            .map_err(io::Error::other)?;
+        assert!(control.raft.metrics().borrow().current_term > term);
+        let result = tokio::time::timeout(Duration::from_secs(2), waiter)
+            .await
+            .expect("higher term must reject waiter")
+            .map_err(io::Error::other)?;
+        assert!(result.is_err(), "new term cannot complete an old barrier");
+        control.raft.shutdown().await.map_err(io::Error::other)?;
+        drop(control);
+        tokio::fs::remove_dir_all(path).await?;
+        Ok(())
+    }
 }
