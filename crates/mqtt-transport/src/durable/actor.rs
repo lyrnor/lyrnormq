@@ -71,6 +71,7 @@ struct Effects {
     removal: Option<String>,
     publications: Vec<Publication>,
     receipt: Option<DeliveryId>,
+    reset_session: bool,
 }
 impl Default for Effects {
     fn default() -> Self {
@@ -83,6 +84,7 @@ impl Default for Effects {
             removal: None,
             publications: Vec::new(),
             receipt: None,
+            reset_session: false,
         }
     }
 }
@@ -274,6 +276,7 @@ fn apply(
             ));
             effects.filters_changed = true;
             effects.notify = true;
+            effects.reset_session = !result.session_present;
             Ok(if let Some(frame) = enhanced_frame {
                 Reply::Authenticated {
                     client: resolved,
@@ -1143,6 +1146,7 @@ impl Actor {
             epoch: lease.epoch,
             expected_revision: lease.revision,
             snapshot,
+            reset_session: effects.reset_session,
             filters,
             publications,
             receipt: effects.receipt.take(),

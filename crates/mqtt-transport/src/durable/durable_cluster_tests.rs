@@ -189,6 +189,7 @@ fn receipt() -> DeliveryId {
         epoch: 2,
         revision: 4,
         index: 0,
+        target_generation: 0,
     }
 }
 
@@ -599,6 +600,18 @@ async fn recovered_filter_cache_is_removed_when_session_expires() {
         bridge.local().subscriptions().await.unwrap().is_empty(),
         "expired recovery filters remain cached"
     );
+    assert!(!tests::connect(&worker, "device", 2, false).await.0);
+    assert!(
+        bridge
+            .data
+            .lock()
+            .unwrap()
+            .mutations
+            .last()
+            .unwrap()
+            .reset_session,
+        "expired session reconnect creates a new logical generation"
+    );
     tests::stop(worker, task).await;
 }
 
@@ -642,4 +655,76 @@ async fn authoritative_tombstone_deletes_a_preexisting_local_mirror_row() {
         rows.sessions.is_empty(),
         "local mirror resurrects a session deleted by the authoritative tombstone"
     );
+}
+
+#[tokio::test]
+async fn only_a_new_logical_session_resets_recipient_generation() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge.clone())).await;
+    assert!(!tests::connect(&worker, "device", 1, false).await.0);
+    assert!(
+        bridge
+            .data
+            .lock()
+            .unwrap()
+            .mutations
+            .last()
+            .unwrap()
+            .reset_session,
+        "first logical session must reset"
+    );
+    tests::subscribe(&worker, "device", 1).await;
+    assert!(
+        !bridge
+            .data
+            .lock()
+            .unwrap()
+            .mutations
+            .last()
+            .unwrap()
+            .reset_session,
+        "subscription is not a new session"
+    );
+    assert!(tests::connect(&worker, "device", 2, false).await.0);
+    assert!(
+        !bridge
+            .data
+            .lock()
+            .unwrap()
+            .mutations
+            .last()
+            .unwrap()
+            .reset_session,
+        "ownership migration alone must preserve logical session"
+    );
+    assert!(!tests::connect(&worker, "device", 3, true).await.0);
+    assert!(
+        bridge
+            .data
+            .lock()
+            .unwrap()
+            .mutations
+            .last()
+            .unwrap()
+            .reset_session,
+        "Clean Start creates a new logical session"
+    );
+    tests::subscribe(&worker, "device", 3).await;
+    bridge
+        .local()
+        .deliver_to("device".into(), receipt(), message(b"message"))
+        .await
+        .unwrap();
+    assert!(
+        !bridge
+            .data
+            .lock()
+            .unwrap()
+            .mutations
+            .last()
+            .unwrap()
+            .reset_session,
+        "delivery receipt cannot reset a logical session"
+    );
+    tests::stop(worker, task).await;
 }
