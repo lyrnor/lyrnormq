@@ -126,6 +126,8 @@ struct Actor {
     receiver: mpsc::Receiver<ActorCommand>,
     weak: mpsc::WeakSender<ActorCommand>,
     row: Option<Vec<u8>>,
+    /// An activated authoritative row has not necessarily reached this node's mirror.
+    mirror_dirty: bool,
     cluster_lease: Option<SessionLease>,
     cluster_invalid: bool,
     accounted: usize,
@@ -183,6 +185,7 @@ pub(super) fn spawn(
         receiver,
         weak: sender.downgrade(),
         row,
+        mirror_dirty: false,
         cluster_lease: None,
         cluster_invalid: false,
         accounted,
@@ -1057,6 +1060,7 @@ impl Actor {
             &self.filters.iter().cloned().collect::<Vec<_>>(),
         );
         self.row = lease.snapshot.take();
+        self.mirror_dirty = self.broker.persistent();
         self.cluster_lease = Some(lease);
         self.cluster_invalid = false;
         self.accounted = accounted;
@@ -1192,7 +1196,7 @@ impl Actor {
                 } else {
                     None
                 };
-                if row != self.row {
+                if self.mirror_dirty || row != self.row {
                     let change = match &row {
                         Some(bytes) => RowChange::PutSession(self.client.clone(), bytes.clone()),
                         None => RowChange::DeleteSession(self.client.clone()),
@@ -1204,6 +1208,7 @@ impl Actor {
                         return Err(error);
                     }
                     self.row = row;
+                    self.mirror_dirty = false;
                 }
             }
             self.accounted = bytes;
@@ -1225,11 +1230,12 @@ impl Actor {
                     self.broker.index.replace(&self.client, &filters);
                     self.filters = filters;
                     let filters = self.filters.iter().cloned().collect::<Vec<_>>();
+                    if self.broker.config.cluster.is_some() {
+                        self.broker.cluster_state.filters(&self.client, &filters);
+                    }
                     if let Some(cluster) = &self.broker.config.cluster
                         && !cluster.durable()
-                    {
-                        self.broker.cluster_state.filters(&self.client, &filters);
-                        if !matches!(
+                        && !matches!(
                             tokio::time::timeout(
                                 Duration::from_secs(5),
                                 cluster.subscriptions(
@@ -1243,13 +1249,13 @@ impl Actor {
                             )
                             .await,
                             Ok(Ok(()))
-                        ) {
-                            self.close_online(ReasonCode::SERVER_UNAVAILABLE);
-                            return Err(failure(
-                                ReasonCode::SERVER_UNAVAILABLE,
-                                "cluster subscription visibility failed",
-                            ));
-                        }
+                        )
+                    {
+                        self.close_online(ReasonCode::SERVER_UNAVAILABLE);
+                        return Err(failure(
+                            ReasonCode::SERVER_UNAVAILABLE,
+                            "cluster subscription visibility failed",
+                        ));
                     }
                 }
             }

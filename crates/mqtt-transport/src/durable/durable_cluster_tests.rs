@@ -490,3 +490,156 @@ async fn replaced_epoch_cannot_publish_or_accept_recipient_receipts() {
     tests::stop(other, other_task).await;
     tests::stop(worker, task).await;
 }
+
+#[tokio::test]
+async fn recovered_filter_cache_is_removed_after_unsubscribe() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge.clone())).await;
+    tests::connect(&worker, "device", 1, false).await;
+    tests::subscribe(&worker, "device", 1).await;
+    assert!(tests::connect(&worker, "device", 2, false).await.0);
+    assert_eq!(
+        bridge.local().subscriptions().await.unwrap()[0].filters,
+        vec!["a"]
+    );
+    tests::handle(
+        &worker,
+        "device",
+        2,
+        Packet::Unsubscribe {
+            packet_id: 9,
+            filters: vec!["a".into()],
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        bridge.local().subscriptions().await.unwrap().is_empty(),
+        "unsubscribed recovery filters remain cached"
+    );
+    tests::stop(worker, task).await;
+}
+
+#[derive(Debug, Default)]
+struct Clock(std::sync::atomic::AtomicU64);
+impl mqtt_session::durable::Clock for Clock {
+    fn now_millis(&self) -> u64 {
+        self.0.load(Ordering::Acquire)
+    }
+}
+#[tokio::test]
+async fn recovered_filter_cache_is_removed_when_session_expires() {
+    let bridge = Arc::new(Bridge::default());
+    let clock = Arc::new(Clock::default());
+    let broker = Broker::start(config(bridge.clone()), clock.clone(), None)
+        .await
+        .unwrap();
+    let (worker, task) = tests::wrap(broker);
+    let (wake, _) = watch::channel(0);
+    let (cancel, _) = watch::channel(false);
+    let (close_reason, _) = watch::channel(None);
+    let mut frame = Frame::v5(Packet::Connect {
+        client_id: "device".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: None,
+        username: None,
+        password: None,
+    });
+    frame.properties.push(Property::SessionExpiryInterval(1));
+    assert!(matches!(
+        worker
+            .request(Operation::ConnectFrame {
+                frame,
+                generation: 1,
+                wake,
+                cancel,
+                close_reason
+            })
+            .await
+            .unwrap(),
+        Reply::Connected(false)
+    ));
+    assert!(matches!(
+        worker
+            .request(Operation::HandleFrameAt {
+                client: "device".into(),
+                generation: 1,
+                frame: Frame::v5(Packet::Subscribe {
+                    packet_id: 1,
+                    filters: vec![("a".into(), 1)]
+                }),
+                received_at_millis: 0
+            })
+            .await
+            .unwrap(),
+        Reply::Frames(_)
+    ));
+    worker
+        .request(Operation::Disconnect {
+            client: "device".into(),
+            generation: 1,
+            graceful: true,
+        })
+        .await
+        .unwrap();
+    let inspected = bridge.inspect_session("device".into()).await.unwrap();
+    let lease = bridge
+        .acquire_session("device".into(), 0, inspected.epoch)
+        .await
+        .unwrap();
+    bridge.local().activate_session(lease).await.unwrap();
+    assert_eq!(
+        bridge.local().subscriptions().await.unwrap()[0].filters,
+        vec!["a"]
+    );
+    clock.0.store(1001, Ordering::Release);
+    worker.request(Operation::Tick).await.unwrap();
+    assert!(
+        bridge.local().subscriptions().await.unwrap().is_empty(),
+        "expired recovery filters remain cached"
+    );
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn authoritative_tombstone_deletes_a_preexisting_local_mirror_row() {
+    let database = tests::Database::new();
+    let stored = database.config();
+    let (worker, task) = tests::worker(stored.clone()).await;
+    tests::connect(&worker, "device", 1, false).await;
+    tests::subscribe(&worker, "device", 1).await;
+    tests::stop(worker, task).await;
+    let limits = mqtt_storage::durable::RowLimits {
+        max_row_bytes: stored.max_state_bytes,
+        max_sessions: stored.max_sessions,
+        max_retained: stored.max_retained,
+        max_legacy_bytes: stored.max_state_bytes,
+    };
+    let mqtt_storage::durable::Contents::Rows(rows) =
+        mqtt_storage::durable::read_contents(&database.0, limits).unwrap()
+    else {
+        panic!("expected rows")
+    };
+    assert_eq!(rows.sessions.len(), 1);
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(BrokerConfig {
+        cluster: Some(bridge.clone()),
+        ..stored
+    })
+    .await;
+    let lease = bridge.acquire_session("device".into(), 0, 0).await.unwrap();
+    assert!(lease.snapshot.is_none());
+    bridge.local().activate_session(lease).await.unwrap();
+    assert!(!tests::connect(&worker, "device", 1, true).await.0);
+    tests::stop(worker, task).await;
+    let mqtt_storage::durable::Contents::Rows(rows) =
+        mqtt_storage::durable::read_contents(&database.0, limits).unwrap()
+    else {
+        panic!("expected rows")
+    };
+    assert!(
+        rows.sessions.is_empty(),
+        "local mirror resurrects a session deleted by the authoritative tombstone"
+    );
+}
