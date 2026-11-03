@@ -96,3 +96,53 @@ async fn durable_vote_commit_state_snapshot_and_exclusive_directory()
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
+
+#[test]
+fn subscription_generation_and_delta_gap_are_fenced() {
+    let mut m = Metadata::default();
+    m.apply(register(1));
+    let claim = Command::Claim {
+        node: 1,
+        incarnation: "node-1".into(),
+        client: "device".into(),
+        generation: 2,
+    };
+    m.apply(claim.clone());
+    m.apply(Command::Filters {
+        node: 1,
+        incarnation: "node-1".into(),
+        client: "device".into(),
+        generation: 2,
+        filters: vec!["devices/+".into()],
+    });
+    m.apply(claim);
+    assert_eq!(m.clients["device"].filters, vec!["devices/+".to_owned()]);
+    assert!(
+        m.apply(Command::Filters {
+            node: 1,
+            incarnation: "node-1".into(),
+            client: "device".into(),
+            generation: 1,
+            filters: vec![]
+        })
+        .error
+        .is_some()
+    );
+    assert!(
+        m.apply(Command::Claim {
+            node: 1,
+            incarnation: "node-1".into(),
+            client: "device".into(),
+            generation: 1
+        })
+        .error
+        .is_some()
+    );
+    let old = m.clone();
+    m.apply(register(2));
+    let delta = MetadataUpdate::between(&old, &m);
+    let merged = delta.clone().merge(&old).expect("merge");
+    assert_eq!(merged.nodes, m.nodes);
+    assert_eq!(merged.routes, m.routes);
+    assert!(delta.merge(&m).is_err());
+}

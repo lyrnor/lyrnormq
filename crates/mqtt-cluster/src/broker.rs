@@ -184,8 +184,16 @@ impl BrokerRuntime {
             if let Some(mut stream) = stream {
                 while !self.stopped.load(Ordering::Acquire) {
                     match stream.message().await {
-                        Ok(Some(message)) => match rpc::decode(message) {
-                            Ok(metadata) => {
+                        Ok(Some(message)) => match rpc::decode::<MetadataUpdate>(message) {
+                            Ok(update) => {
+                                let old = self
+                                    .metadata
+                                    .read()
+                                    .unwrap_or_else(PoisonError::into_inner)
+                                    .clone();
+                                let Ok(metadata) = update.merge(&old) else {
+                                    break;
+                                };
                                 if self.install(metadata).await.is_err() {
                                     break;
                                 }

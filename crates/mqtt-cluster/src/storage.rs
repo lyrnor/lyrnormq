@@ -250,7 +250,17 @@ impl RaftSnapshotBuilder<Types> for Store {
             meta: meta.clone(),
             data: data.clone(),
         };
-        self.run(move |db| put(db, "snapshot", &saved)).await?;
+        self.run(move |db| {
+            let previous: Option<SavedSnapshot> = get(db, "snapshot")?;
+            if previous
+                .as_ref()
+                .is_none_or(|old| old.meta.last_log_id <= saved.meta.last_log_id)
+            {
+                put(db, "snapshot", &saved)?;
+            }
+            Ok(())
+        })
+        .await?;
         Ok(Snapshot {
             meta,
             snapshot: Box::new(Cursor::new(data)),

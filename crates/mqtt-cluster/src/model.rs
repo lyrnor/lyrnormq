@@ -7,7 +7,7 @@ use std::io::Cursor;
 pub type NodeId = u64;
 openraft::declare_raft_types!(pub Types: D=Command,R=Answer,NodeId=NodeId,Node=BasicNode);
 pub type Raft = openraft::Raft<Types>;
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     pub id: u64,
     pub incarnation: String,
@@ -15,7 +15,7 @@ pub struct Node {
     pub expires_at: u64,
     pub applied: u64,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Client {
     pub node: u64,
     pub incarnation: String,
@@ -131,18 +131,17 @@ impl Metadata {
                 if self.nodes.len() >= 1024 && !self.nodes.contains_key(&node) {
                     return Err("node capacity".into());
                 }
-                if self
-                    .nodes
-                    .get(&node)
-                    .is_some_and(|n| n.incarnation != incarnation)
-                {
-                    self.clients.retain(|_, c| c.node != node);
-                }
-                if let Some(old) = self.nodes.get(&node)
-                    && old.incarnation != incarnation
-                {
-                    return Err("previous node incarnation still registered".into());
-                }
+                let applied = if let Some(old) = self.nodes.get(&node) {
+                    if old.incarnation != incarnation {
+                        return Err("previous node incarnation still registered".into());
+                    }
+                    if old.address != address {
+                        return Err("node address cannot change within an incarnation".into());
+                    }
+                    old.applied
+                } else {
+                    0
+                };
                 self.nodes.insert(
                     node,
                     Node {
@@ -150,7 +149,7 @@ impl Metadata {
                         incarnation,
                         address,
                         expires_at,
-                        applied: 0,
+                        applied,
                     },
                 );
             }
@@ -303,4 +302,72 @@ pub struct ClusterStatus {
     pub nodes: usize,
     pub clients: usize,
     pub routes: usize,
+}
+
+/// A reconnect starts with a snapshot; subsequent coalesced deltas require an exact base.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MetadataUpdate {
+    Snapshot(Metadata),
+    Delta {
+        base: u64,
+        revision: u64,
+        nodes: BTreeMap<u64, Option<Node>>,
+        clients: BTreeMap<String, Option<Client>>,
+        routes: BTreeMap<String, Option<BTreeSet<u64>>>,
+    },
+}
+fn diff<K: Ord + Clone, V: Clone + PartialEq>(
+    old: &BTreeMap<K, V>,
+    next: &BTreeMap<K, V>,
+) -> BTreeMap<K, Option<V>> {
+    old.keys()
+        .chain(next.keys())
+        .filter(|key| old.get(*key) != next.get(*key))
+        .map(|key| (key.clone(), next.get(key).cloned()))
+        .collect()
+}
+fn patch<K: Ord, V>(map: &mut BTreeMap<K, V>, changes: BTreeMap<K, Option<V>>) {
+    for (key, value) in changes {
+        match value {
+            Some(value) => {
+                map.insert(key, value);
+            }
+            None => {
+                map.remove(&key);
+            }
+        }
+    }
+}
+impl MetadataUpdate {
+    pub fn between(old: &Metadata, next: &Metadata) -> Self {
+        Self::Delta {
+            base: old.revision,
+            revision: next.revision,
+            nodes: diff(&old.nodes, &next.nodes),
+            clients: diff(&old.clients, &next.clients),
+            routes: diff(&old.routes, &next.routes),
+        }
+    }
+    pub fn merge(self, old: &Metadata) -> Result<Metadata, &'static str> {
+        match self {
+            Self::Snapshot(next) => Ok(next),
+            Self::Delta {
+                base,
+                revision,
+                nodes,
+                clients,
+                routes,
+            } => {
+                if base != old.revision || revision <= base {
+                    return Err("metadata revision gap");
+                }
+                let mut next = old.clone();
+                patch(&mut next.nodes, nodes);
+                patch(&mut next.clients, clients);
+                patch(&mut next.routes, routes);
+                next.revision = revision;
+                Ok(next)
+            }
+        }
+    }
 }

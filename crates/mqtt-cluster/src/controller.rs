@@ -1,4 +1,6 @@
 //! Three-voter metadata Raft, durable state and snapshot replication service.
+use std::sync::PoisonError;
+
 use crate::{
     config::{Config, Role},
     model::*,
@@ -110,8 +112,24 @@ impl Control {
             .map_err(|_| Status::resource_exhausted("metadata write capacity"))?;
         validate(&command)?;
         match &mut command {
-            Command::Register { expires_at, .. } | Command::Heartbeat { expires_at, .. } => {
-                *expires_at = now().saturating_add(self.lease_ms)
+            Command::Register {
+                node, expires_at, ..
+            }
+            | Command::Heartbeat {
+                node, expires_at, ..
+            } => {
+                let previous = self
+                    .store
+                    .state
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .metadata
+                    .nodes
+                    .get(node)
+                    .map_or(0, |n| n.expires_at);
+                *expires_at = now()
+                    .saturating_add(self.lease_ms)
+                    .max(previous.saturating_add(1));
             }
             _ => {}
         }
@@ -145,7 +163,11 @@ impl Control {
             )
             .map_err(|_| Status::internal("Raft encoding failed")),
             RaftRequest::Snapshot(r) => {
-                if r.data.len() > 1024 * 1024 {
+                if r.data.len() > 1024 * 1024
+                    || r.offset
+                        .checked_add(r.data.len() as u64)
+                        .is_none_or(|end| end > 16 * 1024 * 1024)
+                {
                     return Err(Status::resource_exhausted("snapshot chunk limit"));
                 }
                 rpc::encode(
@@ -308,20 +330,33 @@ impl wire::cluster_server::Cluster for Service {
         let mut leadership = control.raft.metrics();
         tokio::spawn(async move {
             let _permit = permit;
+            let mut previous: Option<Metadata> = None;
             loop {
                 let metadata = control.store.metadata();
-                let envelope = rpc::encode(&metadata)
+                let update = match &previous {
+                    Some(old) => MetadataUpdate::between(old, &metadata),
+                    None => MetadataUpdate::Snapshot(metadata.clone()),
+                };
+                previous = Some(metadata);
+                let envelope = rpc::encode(&update)
                     .map_err(|_| Status::resource_exhausted("metadata snapshot capacity"));
                 if tx.send(envelope).await.is_err() {
                     break;
                 }
-                tokio::select! { result = changes.changed() => { if result.is_err() { break; } }, result = leadership.changed() => { if result.is_err() { break; } } }
-                if control.raft.metrics().borrow().current_leader != Some(control.rpc.config_node())
-                {
-                    let _ = tx
-                        .send(Err(Status::unavailable("controller leader changed")))
-                        .await;
-                    break;
+                loop {
+                    tokio::select! { result = changes.changed() => { if result.is_err() { return; } }, result = leadership.changed() => { if result.is_err() { return; } } }
+                    if leadership.borrow().current_leader != Some(control.rpc.config_node()) {
+                        let _ = tx
+                            .send(Err(Status::unavailable("controller leader changed")))
+                            .await;
+                        return;
+                    }
+                    if previous
+                        .as_ref()
+                        .is_none_or(|old| old.revision != *changes.borrow())
+                    {
+                        break;
+                    }
                 }
             }
         });
