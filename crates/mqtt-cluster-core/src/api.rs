@@ -76,6 +76,11 @@ pub trait ClusterBridge: Debug + Send + Sync {
             ))
         })
     }
+    /// Finite startup-only deadline, independent of forwarding/commit deadlines.
+    /// Memory replacement may wait for explicit catch-up before admitting clients.
+    fn startup_timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(5)
+    }
     fn ready(&self) -> bool;
     fn open(&self, local: Arc<dyn LocalBroker>) -> ClusterFuture<'_, ()>;
     fn claim(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()>;

@@ -81,3 +81,12 @@ old remote data untouched; deploy RAM mode into fresh Controller/data dirs.
 Acceptance: build/fmt/strictclippy/workspace tests; actual60connections100/s128B
 QoS0/1/2 reproduction, raw counts/ACK/p99 and no dataSQLite generation. Report memory
 semantics and remaining throughput/correctness limits honestly.
+
+Startup integration amendment: coordinator adds ClusterBridge::startup_timeout()
+with finite5s default; memory runtime overrides625s to enclose its600s repair wait.
+Transport uses this ONLY for open_cluster; forwarding/commit deadlines stay5s.
+Runtime owner is explicitly additionally assigned mqtt-transport/src/durable.rs,
+src/durable/cluster.rs and focused startup test file for this integration. Select
+shutdown against pending cluster start before client admission; do not change
+normal active-service draining. On shutdown cancel pending start and close peer
+service through existing CLI supervision. No indefinite startup/stop wait.

@@ -15,10 +15,6 @@ pub(crate) enum Failure {
     BackgroundActorQueue,
     DurableBytes,
     ActorWaiting,
-    JournalOperations,
-    JournalWaiting,
-    JournalWaitQueueFull,
-    JournalWaitTimeout,
     JournalFrozen,
     JournalGeneration,
     JournalEpoch,
@@ -58,8 +54,7 @@ pub(crate) fn observe(failure: Failure) {
     if should_log(count) {
         if matches!(
             failure,
-            Failure::JournalWaiting
-                | Failure::DurableWaiting
+            Failure::DurableWaiting
                 | Failure::BackgroundOperations
                 | Failure::BackgroundActorQueue
                 | Failure::ActorWaiting
