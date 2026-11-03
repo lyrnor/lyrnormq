@@ -260,6 +260,12 @@ fn validate(command: &Command) -> Result<(), Status> {
             node,
             incarnation,
             ..
+        }
+        | Command::AcquireOnce {
+            key,
+            node,
+            incarnation,
+            ..
         } => {
             *node > 0
                 && text(key, 65538)

@@ -119,7 +119,9 @@ impl Undo {
                 undo.clients
                     .insert(client.clone(), m.clients.get(client).cloned());
             }
-            Command::Acquire { key, .. } | Command::DurableFilters { key, .. } => {
+            Command::Acquire { key, .. }
+            | Command::AcquireOnce { key, .. }
+            | Command::DurableFilters { key, .. } => {
                 undo.durable
                     .insert(key.clone(), m.durable.get(key).cloned());
             }
@@ -278,6 +280,33 @@ impl Metadata {
                 Answer {
                     revision: self.revision,
                     error: Some(error),
+                    lease_ms: 0,
+                },
+                None,
+            );
+        }
+        if let Command::AcquireOnce {
+            key,
+            node,
+            incarnation,
+            generation,
+            expected_epoch,
+        } = &command
+            && let Some(owner) = self.durable.get(key)
+            && owner.node == *node
+            && owner.incarnation == *incarnation
+            && owner.generation == *generation
+            && owner.acquired_from == Some(*expected_epoch)
+        {
+            let result = self.validate_acquirer(*node, incarnation);
+            return (
+                Answer {
+                    revision: if result.is_ok() {
+                        owner.epoch
+                    } else {
+                        self.revision
+                    },
+                    error: result.err(),
                     lease_ms: 0,
                 },
                 None,

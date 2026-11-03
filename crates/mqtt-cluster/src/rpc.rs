@@ -350,8 +350,10 @@ impl ClientRpc {
                         Ok(reply) => {
                             let answer: Answer = decode(reply.into_inner()).map_err(io_error)?;
                             if let Some(error) = answer.error {
-                                if matches!(command, Command::Acquire { .. })
-                                    && error == "stale acquisition epoch"
+                                if matches!(
+                                    command,
+                                    Command::Acquire { .. } | Command::AcquireOnce { .. }
+                                ) && error == "stale acquisition epoch"
                                 {
                                     return Err(io::Error::new(
                                         io::ErrorKind::WouldBlock,

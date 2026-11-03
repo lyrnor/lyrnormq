@@ -39,6 +39,8 @@ pub struct DurableOwner {
     pub filters: Vec<String>,
     #[serde(default)]
     pub logical_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acquired_from: Option<u64>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataMode {
@@ -134,6 +136,13 @@ pub enum Command {
         generation: u64,
         expected_epoch: u64,
     },
+    AcquireOnce {
+        key: String,
+        node: u64,
+        incarnation: String,
+        generation: u64,
+        expected_epoch: u64,
+    },
     DurableFilters {
         key: String,
         node: u64,
@@ -222,11 +231,28 @@ impl Metadata {
             Err("stale node incarnation".into())
         }
     }
+    fn validate_acquirer(&self, node: u64, incarnation: &str) -> Result<(), String> {
+        if self.repair.is_some() {
+            return Err("durable maintenance in progress".into());
+        }
+        self.valid_node(node, incarnation)?;
+        if self.excluded.contains(&node) {
+            return Err("replica excluded pending repair".into());
+        }
+        if !matches!(&self.data_mode,Some(DataMode::Durable(m) | DataMode::Memory(m)) if m.iter().any(|(id,_)|*id==node))
+        {
+            return Err("durable membership required".into());
+        }
+        Ok(())
+    }
     fn mutate(&mut self, command: Command) -> Result<(), String> {
+        let once = matches!(&command, Command::AcquireOnce { .. });
         if self.repair.is_some()
             && matches!(
                 &command,
-                Command::Acquire { .. } | Command::DurableFilters { .. }
+                Command::Acquire { .. }
+                    | Command::AcquireOnce { .. }
+                    | Command::DurableFilters { .. }
             )
         {
             return Err("durable maintenance in progress".into());
@@ -255,15 +281,15 @@ impl Metadata {
                 incarnation,
                 generation,
                 expected_epoch,
+            }
+            | Command::AcquireOnce {
+                key,
+                node,
+                incarnation,
+                generation,
+                expected_epoch,
             } => {
-                self.valid_node(node, &incarnation)?;
-                if self.excluded.contains(&node) {
-                    return Err("replica excluded pending repair".into());
-                }
-                if !matches!(&self.data_mode,Some(DataMode::Durable(m) | DataMode::Memory(m)) if m.iter().any(|(id,_)|*id==node))
-                {
-                    return Err("durable membership required".into());
-                }
+                self.validate_acquirer(node, &incarnation)?;
                 if self.durable.get(&key).map_or(0, |o| o.epoch) != expected_epoch {
                     return Err("stale acquisition epoch".into());
                 }
@@ -297,6 +323,7 @@ impl Metadata {
                         incarnation,
                         generation,
                         epoch: self.revision.checked_add(1).ok_or("epoch exhausted")?,
+                        acquired_from: once.then_some(expected_epoch),
                         filters,
                         logical_generation,
                     },

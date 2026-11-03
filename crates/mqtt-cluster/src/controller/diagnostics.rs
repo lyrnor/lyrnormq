@@ -34,7 +34,7 @@ pub(crate) enum Kind {
 impl Kind {
     pub(crate) fn command(command: &Command) -> Self {
         match command {
-            Command::Acquire { .. } => Self::Acquire,
+            Command::Acquire { .. } | Command::AcquireOnce { .. } => Self::Acquire,
             Command::Heartbeat { .. } => Self::Heartbeat,
             Command::Register { .. } => Self::Register,
             _ => Self::Mutation,

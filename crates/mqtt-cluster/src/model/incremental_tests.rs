@@ -583,6 +583,7 @@ fn one_hundred_thousand_short_id_owners_fit_authorized_metadata_budget() {
                 incarnation: format!("{node:032x}"),
                 generation: id + 1,
                 epoch: 1_000_000 + id,
+                acquired_from: None,
                 filters: Vec::new(),
                 logical_generation: 1,
             },
@@ -690,6 +691,7 @@ fn physical_durable_directory_allows_headroom_but_remains_bounded() {
                 incarnation: format!("{:032x}", 101),
                 generation: 1,
                 epoch: 1,
+                acquired_from: None,
                 filters: Vec::new(),
                 logical_generation: 1,
             },
@@ -735,4 +737,44 @@ fn repair_seal_accepts_same_physical_record_cap_and_rejects_next_record() {
     assert!(seal.valid());
     seal.records = 101_025;
     assert!(!seal.valid());
+}
+
+#[test]
+fn acquisition_once_duplicate_preserves_epoch_and_survives_serialized_state() {
+    let mut metadata = Metadata::default();
+    let peers = (1..=3)
+        .map(|node| (node, format!("http://127.0.0.1:{node}")))
+        .collect();
+    let answer = metadata.apply(Command::Register {
+        node: 1,
+        incarnation: "one".into(),
+        address: "http://127.0.0.1:1".into(),
+        expires_at: 1000,
+        lease_ms: 3000,
+        replicas: Some(peers),
+        memory: true,
+        disk_id: Some(format!("{:032x}", 1)),
+    });
+    assert!(answer.error.is_none());
+    let command:Command=serde_json::from_value(serde_json::json!({"AcquireOnce":{"key":"c:once","node":1,"incarnation":"one","generation":1,"expected_epoch":0}})).expect("new idempotent command must decode");
+    let first = metadata.apply(command.clone());
+    assert!(first.error.is_none());
+    let saved = serde_json::to_vec(&metadata).unwrap();
+    let (again, delta) = metadata.apply_tracked(command.clone());
+    assert!(again.error.is_none());
+    assert_eq!(again.revision, first.revision);
+    assert!(delta.is_none());
+    assert_eq!(serde_json::to_vec(&metadata).unwrap(), saved);
+    let mut reopened: Metadata = serde_json::from_slice(&saved).unwrap();
+    let duplicate = reopened.apply(command);
+    assert_eq!(duplicate.revision, first.revision);
+    assert!(duplicate.error.is_none());
+    let conflict = reopened.apply(Command::Acquire {
+        key: "c:once".into(),
+        node: 1,
+        incarnation: "one".into(),
+        generation: 2,
+        expected_epoch: 0,
+    });
+    assert!(conflict.error.is_some());
 }
