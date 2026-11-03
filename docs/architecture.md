@@ -1,4 +1,35 @@
-# Architecture — revision17 / Phase3 baseline
+# Architecture
+
+## Phase7a cluster integration (2026-11-03)
+
+The current cluster contract is [phase7a-cluster.md](contracts/phase7a-cluster.md).
+The historical partition-directory proposal is superseded: one executable has
+Controller and Broker roles. Three embedded OpenRaft controllers replicate metadata
+using SQLite WAL/FULL journals. Brokers install snapshots and committed revision
+deltas into local route replicas; publications use direct authenticated Broker RPC,
+without a Controller lookup for each message. A conservative quorum-renewed lease
+fences service after loss of authority. Subscription acknowledgements wait for route
+visibility, and connection generations fence delayed ownership changes.
+
+`mqtt-cluster-core` defines the transport boundary; `mqtt-cluster` owns consensus,
+metadata replication and peer RPC. The existing transport owns MQTT sessions,
+local delivery and bounded fanout. Official tonic 0.14 supplies the server/client
+adapter; the preview `grpc` crate is not represented as a drop-in server library.
+Non-loopback peer links require mutual TLS and a separate cluster token. Cluster
+members are trusted peers, not Byzantine participants; the shared token is not a
+per-node authorization identity.
+
+This first gate explicitly refuses cluster retained messages, shared subscriptions,
+Will and persistent-session relocation. Cross-node receipt deduplication is bounded
+and volatile; durable cross-node forwarding responsibility and complete MQTT
+cluster behavior remain later gates. No large-cluster performance claim is made:
+Controller state persistence and route rebuilds still use bounded whole metadata,
+and watch delta calculation scans metadata. Standalone features remain available.
+
+The following sections preserve the original single-node design history; subsequent
+phase contracts supersede their earlier feature availability statements.
+
+## Revision17 / Phase3 baseline
 
 TCP MQTT3.1.1 and the recorded MQTT5 server scope, QoS0/1/2, Retained and Last Will are
 implemented using one bounded SessionEngine/outbox pipeline in both volatile and

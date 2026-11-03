@@ -2,6 +2,7 @@ mod admin;
 mod allocator;
 mod auth_policy;
 mod cli;
+mod cluster;
 mod egress_shutdown;
 mod logging;
 mod tls_identity;
@@ -27,6 +28,45 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let Some(mut options) = cli::parse(std::env::args().skip(1))? else {
         println!("{}", cli::USAGE);
         return Ok(());
+    };
+    let cluster_config = cluster::load(options.cluster_config.as_deref()).await?;
+    if let Some(config) = &cluster_config {
+        options
+            .cluster_sensitive_paths
+            .push(config.token_file.clone());
+        options.cluster_data_dir = Some(config.data_dir.clone());
+        if let Some(tls) = &config.tls {
+            options.cluster_sensitive_paths.extend([
+                tls.cert_file.clone(),
+                tls.key_file.clone(),
+                tls.ca_file.clone(),
+            ]);
+        }
+    }
+    if options.cluster_status {
+        let config = cluster_config
+            .as_ref()
+            .ok_or("cluster configuration required")?;
+        println!(
+            "{}",
+            serde_json::to_string(&mqtt_cluster::status(config).await?)?
+        );
+        return Ok(());
+    }
+    let cluster_runtime = match cluster_config {
+        Some(config) if config.role == mqtt_cluster::Role::Controller => {
+            if options.admin_listen.is_some() {
+                return Err("controller role does not serve MQTT or Dashboard listeners".into());
+            }
+            cluster::controller(config).await?;
+            return Ok(());
+        }
+        Some(config) => {
+            let runtime = cluster::broker(config).await?;
+            options.config.cluster = Some(runtime.clone());
+            Some(runtime)
+        }
+        None => None,
     };
     if options.export_state {
         let config = options.config;
@@ -180,16 +220,32 @@ async fn run() -> Result<(), Box<dyn Error>> {
             None => std::future::pending::<std::io::Result<()>>().await,
         }
     };
-    tokio::pin!(broker, management);
-    let (broker_finished, result) = tokio::select! {
-        result=&mut broker=>(true,result),
-        result=&mut management=>(false,result),
+    let has_cluster = cluster_runtime.is_some();
+    let (cluster_stop, cluster_rx) = watch::channel(false);
+    let cluster_service = async move {
+        match cluster_runtime {
+            Some(runtime) => mqtt_cluster::serve_broker(runtime, cluster_rx).await,
+            None => std::future::pending::<std::io::Result<()>>().await,
+        }
+    };
+    tokio::pin!(broker, management, cluster_service);
+    let (finished, result) = tokio::select! {
+        result=&mut broker=>(0,result),
+        result=&mut management=>(1,result),
+        result=&mut cluster_service=>(2,result),
     };
     let _ = tx.send(true);
-    let other = if broker_finished {
-        if has_admin { management.await } else { Ok(()) }
+    let broker_result = if finished != 0 { broker.await } else { Ok(()) };
+    let admin_result = if finished != 1 && has_admin {
+        management.await
     } else {
-        broker.await
+        Ok(())
+    };
+    let _ = cluster_stop.send(true);
+    let cluster_result = if finished != 2 && has_cluster {
+        cluster_service.await
+    } else {
+        Ok(())
     };
     if let Some(runtime) = rules {
         egress_shutdown::drain(&runtime).await;
@@ -197,7 +253,9 @@ async fn run() -> Result<(), Box<dyn Error>> {
     }
     access.shutdown().await;
     result?;
-    other?;
+    broker_result?;
+    admin_result?;
+    cluster_result?;
     tracing::info!(event = "broker_stopped", "broker stopped");
     Ok(())
 }

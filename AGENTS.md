@@ -5,7 +5,9 @@ Ownership: protocol crates/mqtt-protocol; transport crates/mqtt-transport; route
 Structure: lib.rs contains crate documentation, module declarations and public re-exports only. Put data types, business functions, impl blocks and test bodies in responsibility-specific modules. Preserve existing public import paths and durable schema during structural refactors.
 
 TLS listeners additionally follow docs/contracts/phase4c-tls.md. Cluster implementation
-is deferred; docs/cluster/architecture-proposal.md is a proposal, not a frozen contract.
+follows docs/contracts/phase7a-cluster.md; the historical partition-directory
+proposal is superseded. Cluster owner owns crates/mqtt-cluster, coordinator owns
+crates/mqtt-cluster-core and CLI; transport and quality retain their existing paths.
 WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
 stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
 Authentication admission and mandatory client certificates follow

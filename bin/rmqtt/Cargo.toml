@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+mqtt-cluster = { path = "../../crates/mqtt-cluster" }
 mqtt-auth-http = { path = "../../crates/mqtt-auth-http", default-features = false }
 base64 = "0.22"
 mqtt-rules = { path = "../../crates/mqtt-rules" }

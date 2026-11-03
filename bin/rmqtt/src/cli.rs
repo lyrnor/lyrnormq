@@ -1,10 +1,14 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
+pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--cluster-config PATH] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
 
 pub struct Options {
     pub address: String,
+    pub cluster_config: Option<PathBuf>,
+    pub cluster_status: bool,
+    pub cluster_sensitive_paths: Vec<PathBuf>,
+    pub cluster_data_dir: Option<PathBuf>,
     pub admin_listen: Option<std::net::SocketAddr>,
     pub admin_token_file: Option<PathBuf>,
     pub dashboard_dir: Option<PathBuf>,
@@ -57,6 +61,10 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut args = args.into_iter();
     let mut options = Options {
         address: "127.0.0.1:1883".into(),
+        cluster_config: None,
+        cluster_status: false,
+        cluster_sensitive_paths: Vec::new(),
+        cluster_data_dir: None,
         admin_listen: None,
         admin_token_file: None,
         dashboard_dir: None,
@@ -82,9 +90,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut admission_seen = [false; 4];
     let mut queue_seen = [false; 4];
     while let Some(option) = args.next() {
-        if std::mem::take(&mut first) && option == "export-state" {
-            options.export_state = true;
-            continue;
+        if std::mem::take(&mut first) {
+            if option == "export-state" {
+                options.export_state = true;
+                continue;
+            }
+            if option == "cluster-status" {
+                options.cluster_status = true;
+                continue;
+            }
         }
         if option == "--help" || option == "-h" {
             return Ok(None);
@@ -103,6 +117,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         if !matches!(
             option.as_str(),
             "--listen"
+                | "--cluster-config"
                 | "--admin-listen"
                 | "--admin-token-file"
                 | "--dashboard-dir"
@@ -186,11 +201,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 continue;
             }
             "--admin-token-file"
+            | "--cluster-config"
             | "--dashboard-dir"
             | "--rules-config"
             | "--access-control-config" => {
                 let target = match option.as_str() {
                     "--admin-token-file" => &mut options.admin_token_file,
+                    "--cluster-config" => &mut options.cluster_config,
                     "--rules-config" => &mut options.rules_config,
                     "--access-control-config" => &mut options.access_control_config,
                     _ => &mut options.dashboard_dir,
@@ -383,6 +400,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     }
     if options.export_state && options.tls_cert.is_some() {
         return Err(invalid("TLS options cannot be used with export-state"));
+    }
+    if (options.cluster_status && options.cluster_config.is_none())
+        || (options.export_state && options.cluster_config.is_some())
+    {
+        return Err(invalid(
+            "cluster-status requires --cluster-config; cluster cannot combine with export-state",
+        ));
     }
     if options.export_state && options.config.storage_path.is_none() {
         return Err(invalid("export-state requires --storage-path"));
@@ -974,6 +998,33 @@ mod tests {
             BrokerConfig::default().max_packet_size
         );
         assert!(parse(args(&["--help"])).unwrap().is_none());
+    }
+    #[test]
+    fn cluster_configuration_and_status_are_explicit() {
+        let options = parse(args(&["--cluster-config", "cluster.json"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(options.cluster_config, Some(PathBuf::from("cluster.json")));
+        assert!(!options.cluster_status);
+        assert!(parse(args(&["cluster-status"])).is_err());
+        assert!(parse(args(&["--cluster-config", ""])).is_err());
+        assert!(parse(args(&["--cluster-config", "a", "--cluster-config", "b"])).is_err());
+        assert!(
+            parse(args(&[
+                "export-state",
+                "--storage-path",
+                "state",
+                "--cluster-config",
+                "a"
+            ]))
+            .is_err()
+        );
+        assert!(
+            parse(args(&["cluster-status", "--cluster-config", "a"]))
+                .unwrap()
+                .unwrap()
+                .cluster_status
+        );
     }
     #[test]
     fn export_state_is_a_leading_subcommand_requiring_storage() {
