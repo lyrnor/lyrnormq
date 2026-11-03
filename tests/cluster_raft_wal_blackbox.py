@@ -6,6 +6,7 @@ RMQTT_LEGACY_BIN must name a pre-Phase7j binary for actual SQLite migration.
 Only private temporary fixture directories are corrupted/removed by these tests.
 These SIGKILL/reopen checks do not simulate physical power failure or failed fsync.
 """
+from contextlib import closing
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,11 @@ from cluster_memory_blackbox import MemoryFixture
 
 
 class RaftWalAcceptance(control.ControlTail):
+    def checkpoint(self, controller):
+        database = Path(controller.config['data_dir']) / 'metadata.sqlite'
+        with closing(sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2)) as db:
+            return db.execute("SELECT key,data FROM meta WHERE key IN ('state','snapshot') ORDER BY key").fetchall()
+
     # Inherits the committed-tail/expired-authority/QoS2 recovery gate verbatim.
     def wal_files(self, node):
         directory = Path(node.config['data_dir']) / 'raft-wal'
@@ -32,7 +38,7 @@ class RaftWalAcceptance(control.ControlTail):
 
     def sql_raft_records(self, node):
         database = Path(node.config['data_dir']) / 'metadata.sqlite'
-        with sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2) as db:
+        with closing(sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2)) as db:
             has_logs = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='logs'").fetchone()
             logs = db.execute('SELECT idx,data FROM logs ORDER BY idx').fetchall() if has_logs else []
             meta = db.execute("SELECT key,data FROM meta WHERE key IN ('vote','committed','purged') ORDER BY key").fetchall()
@@ -165,7 +171,7 @@ class LegacyMigration(MemoryFixture, unittest.TestCase):
             node.stop(crash=True)
             directory = Path(node.config['data_dir'])
             self.assertFalse((directory / 'raft-wal').exists(), 'legacy fixture unexpectedly uses new WAL')
-            with sqlite3.connect(directory / 'metadata.sqlite') as db:
+            with closing(sqlite3.connect(directory / 'metadata.sqlite')) as db:
                 self.assertGreater(db.execute('SELECT count(*) FROM logs').fetchone()[0], 0)
         target.close()
         for cycle in range(2):
