@@ -194,3 +194,90 @@ fn oversized_existing_chunk_rejected_without_reading_or_truncating() {
     assert_eq!(std::fs::metadata(f).unwrap().len(), MAX_CHUNK_BYTES + 1);
     std::fs::remove_dir_all(p).unwrap();
 }
+
+#[test]
+fn actual_chunk_rotation_remains_readable_with_finite_recovery_bounds() {
+    let p = path();
+    let mut wal = Wal::open(&p, "test", 1).unwrap();
+    let entries = (0..20)
+        .map(|index| Entry {
+            log_id: id(index),
+            payload: EntryPayload::Normal(crate::model::Command::Register {
+                node: 1,
+                incarnation: "rotation".into(),
+                address: "a".repeat(500 * 1024),
+                expires_at: 1000,
+                lease_ms: 1000,
+                replicas: None,
+                memory: true,
+                disk_id: None,
+            }),
+        })
+        .collect();
+    wal.append(entries).unwrap();
+    wal.save_committed(Some(id(19))).unwrap();
+    drop(wal);
+    assert!(chunks(&p).len() > 1);
+    for file in chunks(&p) {
+        assert!(std::fs::metadata(file).unwrap().len() <= MAX_CHUNK_BYTES);
+    }
+    let wal = Wal::open(&p, "test", 1).unwrap();
+    assert_eq!(wal.entries(0, u64::MAX).unwrap().len(), 20);
+    assert_eq!(wal.committed().unwrap(), Some(id(19)));
+    drop(wal);
+    std::fs::remove_dir_all(p).unwrap();
+    let p = path();
+    let mut wal = Wal::open(&p, "test", 1).unwrap();
+    wal.append((0..5000).map(entry).collect()).unwrap();
+    wal.save_committed(Some(id(4999))).unwrap();
+    drop(wal);
+    assert!(chunks(&p).len() > 1);
+    let wal = Wal::open(&p, "test", 1).unwrap();
+    assert_eq!(wal.entries(0, u64::MAX).unwrap().len(), 5000);
+    assert_eq!(wal.committed().unwrap(), Some(id(4999)));
+    drop(wal);
+    std::fs::remove_dir_all(p).unwrap();
+}
+#[test]
+fn excessive_small_records_rejected_before_native_replay() {
+    let p = path();
+    std::fs::create_dir(&p).unwrap();
+    let mut cfg = (*config(&p).unwrap()).clone();
+    cfg.wal.chunk_max_records = Some(CHUNK_RECORDS * 2);
+    let mut native = RaftLog::<WalTypes>::open(Arc::new(cfg)).unwrap();
+    native
+        .save_user_data(Some(Metadata {
+            format: 1,
+            cluster: "test".into(),
+            node: 1,
+            committed: None,
+        }))
+        .unwrap();
+    for term in 1..MAX_CHUNK_RECORDS + 2 {
+        native.save_vote(VoteKey(Vote::new(term, 1))).unwrap();
+    }
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    native
+        .flush(
+            true,
+            Some(Completion {
+                sender: tx,
+                injected_error: false,
+            }),
+        )
+        .unwrap();
+    rx.recv().unwrap().unwrap();
+    drop(native);
+    let before = chunks(&p)
+        .into_iter()
+        .map(|f| {
+            let bytes = std::fs::read(&f).unwrap();
+            (f, bytes)
+        })
+        .collect::<Vec<_>>();
+    assert!(Wal::open(&p, "test", 1).is_err());
+    for (file, bytes) in before {
+        assert_eq!(std::fs::read(file).unwrap(), bytes);
+    }
+    std::fs::remove_dir_all(p).unwrap();
+}
