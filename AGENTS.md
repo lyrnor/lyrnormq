@@ -96,3 +96,7 @@ watermarks durable, replay committed tails only, snapshot before log purge. Norm
 metadata changes and watches are sparse; applied barriers use bounded revision
 notifications and preserve all-live-node visibility. Coordinator additionally owns
 this phase's tests/cluster_control_optimization* and CI/preflight integration.
+
+Independent Raft WAL follows `docs/contracts/phase7j-raft-wal.md`: raft-log owns
+consensus log/vote/watermarks; SQLite retains checkpoints only. Keep fsync callback,
+committed-only replay, migration fencing and snapshot-before-purge ordering.
