@@ -1,0 +1,10 @@
+test_ring_cross_node_qos_0_1_2_both_protocol_versions (__main__.CombinedMQTTCases.test_ring_cross_node_qos_0_1_2_both_protocol_versions) ... ok
+test_sigint_closes_controller_and_broker_ports_and_restarts_same_disks (__main__.CombinedMQTTCases.test_sigint_closes_controller_and_broker_ports_and_restarts_same_disks) ... ok
+test_controller_bind_failure_terminates_entire_process (__main__.CombinedStartupCases.test_controller_bind_failure_terminates_entire_process) ... ok
+test_incompatible_pairings_rejected_before_listeners (__main__.CombinedStartupCases.test_incompatible_pairings_rejected_before_listeners) ... ok
+test_inspection_commands_reject_combined_start_option (__main__.CombinedStartupCases.test_inspection_commands_reject_combined_start_option) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 25.658s
+
+OK

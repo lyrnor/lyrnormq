@@ -53,3 +53,7 @@ bounds concurrently active pair setup before the global warmup barrier. No silen
 connect retries. Final comparison uses1 to separate steady message pressure from
 burst connection admission; 30-pair burst preflight is retained as a distinct failure.
 Report config includes setup concurrency. Does not change messages or ACK accounting.
+
+Quality also owns the small .github/workflows/ci.yml addition invoking dual-role
+blackbox and controller-probe unit tests. Local execution does not imply hosted
+Actions execution or performance CI acceptance.

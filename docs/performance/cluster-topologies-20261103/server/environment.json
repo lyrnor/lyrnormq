@@ -1,0 +1,15 @@
+{
+  "hostname": "iZt4n2fkof08f8pp56ejgjZ",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "cpus": 8,
+  "python": "3.14.4",
+  "meminfo": "MemTotal:       15687640 kB\nMemFree:        14590580 kB\nMemAvailable:   15043996 kB\nBuffers:           27092 kB\nCached:           668112 kB\nSwapCached:            0 kB\nActive:           411976 kB\nInactive:         415892 kB\nActive(anon):     142132 kB\nInactive(anon):        0 kB\nActive(file):     269844 kB\nInactive(file):   415892 kB\nUnevictable:       10524 kB\nMlocked:            9584 kB\nSwapTotal:             0 kB\nSwapFree:              0 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:               680 kB\nWriteback:             0 kB\nAnonPages:        143556 kB\nMapped:           171112 kB\nShmem:              2032 kB\nKReclaimable:      37948 kB\nSlab:             119424 kB\nSReclaimable:      37948 kB\nSUnreclaim:        81476 kB\nKernelStack:        4816 kB\nPageTables:         5160 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:     7843820 kB\nCommitted_AS:     978784 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:       16752 kB\nVmallocChunk:          0 kB\nPercpu:             5920 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:      2048 kB\nFilePmdMapped:         0 kB\nCmaTotal:              0 kB\nCmaFree:         1882112 kB\nUnaccepted:            0 kB\nBalloon:               0 kB\nGPUActive:             0 kB\nGPUReclaim:            0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:      146704 kB\nDirectMap2M:     4536320 kB\nDirectMap1G:    11534336 kB\n",
+  "worker_threads": {
+    "combined_each": 4,
+    "separate_each": 2,
+    "total_each_topology": 12
+  },
+  "server_private": "172.16.240.180",
+  "clock_hz": 100,
+  "binary_sha256": "8a63ca6216d1a57266ad3f19c20b62727843c3d2b5012721705f515114822f2c"
+}

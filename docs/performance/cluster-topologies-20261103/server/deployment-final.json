@@ -1,0 +1,17 @@
+[
+  {
+    "node": 101,
+    "http_status": 200,
+    "ready": true
+  },
+  {
+    "node": 102,
+    "http_status": 200,
+    "ready": true
+  },
+  {
+    "node": 103,
+    "http_status": 200,
+    "ready": true
+  }
+]

@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "success": true,
+  "run_id": 1793688363722841934,
+  "config": {
+    "address": "127.0.0.1:1883",
+    "addresses": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "version": "V5",
+    "qos": 0,
+    "pairs": 6,
+    "setup_concurrency": 1,
+    "payload_bytes": 128,
+    "rate": 30,
+    "duration_ms": 30000,
+    "warmup_ms": 3000,
+    "drain_timeout_ms": 30000,
+    "connect_timeout_ms": 60000,
+    "io_timeout_ms": 30000,
+    "inflight": 1,
+    "max_messages": 2000000,
+    "max_packet_bytes": 65536
+  },
+  "endpoint_mapping": "publisher endpoint=pair%N; subscriber endpoint=(pair+1)%N; N=effective endpoint count",
+  "configured_endpoint_connections": [
+    {
+      "address": "172.16.240.180:18831",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18832",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18833",
+      "publishers": 2,
+      "subscribers": 2
+    }
+  ],
+  "mode": "absolute_rate",
+  "load_semantics": "absolute-rate intended deadlines; bounded inflight can delay writes; scheduling lag and not-sent messages retained",
+  "source_completion_definition": "not applicable: QoS0 has no wire acknowledgement",
+  "delivery_definition": "validated unique subscriber application delivery; QoS2 recorded at PUBREL; duplicates excluded",
+  "throughput_definition": "offering-window event timestamps in [start,end); cohort-through-drain includes late events using finish-start denominator; never sum ingress and egress",
+  "clock": "one-process std::time::Instant epoch",
+  "percentile_method": "exact nearest rank ceil(q*N), integer nanoseconds, no interpolation",
+  "timestamp_unit": "nanoseconds",
+  "timing": {
+    "measured_start_ns": 10982018958,
+    "measured_end_ns": 40982018958,
+    "finished_ns": 41022886621,
+    "offering_window_ns": 30000000000,
+    "observed_cohort_horizon_ns": 30040867663,
+    "drain_elapsed_ns": 40867663
+  },
+  "accounting": {
+    "counters": {
+      "scheduled": 900,
+      "attempted": 900,
+      "write_completed": 900,
+      "puback_received": 0,
+      "pubrec_received": 0,
+      "pubcomp_received": 0,
+      "delivered_unique": 900,
+      "duplicates": 0,
+      "unexpected": 0,
+      "invalid_payload": 0,
+      "completed": 900
+    },
+    "samples_retained": 900,
+    "not_sent": 0,
+    "not_delivered": 0,
+    "not_source_confirmed": null,
+    "incomplete_attempts": 0,
+    "failed_pairs": 0,
+    "configured_pairs": 6,
+    "returned_pairs": 6
+  },
+  "offering_window_events": {
+    "attempted": 900,
+    "write_completed": 900,
+    "delivered_unique": 899,
+    "source_completed": null,
+    "fully_completed": 899
+  },
+  "after_offering_window_events": {
+    "attempted": 0,
+    "write_completed": 0,
+    "delivered_unique": 1,
+    "source_completed": null,
+    "fully_completed": 1
+  },
+  "offering_window_tps": {
+    "denominator_ns": 30000000000,
+    "attempted_per_second": 30.0,
+    "write_completed_per_second": 30.0,
+    "delivered_unique_per_second": 29.966666666666665,
+    "source_completed_per_second": null,
+    "fully_completed_per_second": 29.966666666666665
+  },
+  "measured_cohort_tps_through_drain": {
+    "denominator_ns": 30040867663,
+    "attempted_per_second": 29.95918793345939,
+    "write_completed_per_second": 29.95918793345939,
+    "delivered_unique_per_second": 29.95918793345939,
+    "source_completed_per_second": null,
+    "fully_completed_per_second": 29.95918793345939
+  },
+  "latencies": {
+    "schedule_to_send": {
+      "count": 900,
+      "min_ns": 151015,
+      "p50_ns": 1006826,
+      "p95_ns": 1709549,
+      "p99_ns": 1838608,
+      "max_ns": 6360047,
+      "mean_ns": 1021619.3722222223
+    },
+    "send_to_write_completed": {
+      "count": 900,
+      "min_ns": 21634,
+      "p50_ns": 45457,
+      "p95_ns": 66944,
+      "p99_ns": 91523,
+      "max_ns": 133840,
+      "mean_ns": 47560.305555555555
+    },
+    "send_to_delivery": {
+      "count": 900,
+      "min_ns": 20760779,
+      "p50_ns": 71984141,
+      "p95_ns": 125681314,
+      "p99_ns": 133582048,
+      "max_ns": 161428092,
+      "mean_ns": 73559911.98222223
+    },
+    "schedule_to_delivery": {
+      "count": 900,
+      "min_ns": 21710180,
+      "p50_ns": 72811847,
+      "p95_ns": 126835077,
+      "p99_ns": 134318404,
+      "max_ns": 162728277,
+      "mean_ns": 74581531.35444444
+    },
+    "send_to_source_completed": null,
+    "send_to_full_completion": {
+      "count": 900,
+      "min_ns": 20760779,
+      "p50_ns": 71984141,
+      "p95_ns": 125681314,
+      "p99_ns": 133582048,
+      "max_ns": 161428092,
+      "mean_ns": 73559911.98222223
+    }
+  },
+  "issues": [],
+  "warnings": [],
+  "environment": {
+    "tool_version": "0.1.0",
+    "build_profile": "release",
+    "git_revision": "b650e3999fc30cb02e542b4ce3bf9231355a33d6",
+    "code_tree_dirty": "false",
+    "os": "linux",
+    "architecture": "x86_64",
+    "available_parallelism": 8,
+    "started_unix_ms": 1793688363721,
+    "arguments": [
+      "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+      "--addrs",
+      "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+      "--protocol",
+      "5",
+      "--qos",
+      "0",
+      "--setup-concurrency",
+      "1",
+      "--pairs",
+      "6",
+      "--payload-bytes",
+      "128",
+      "--rate",
+      "30",
+      "--inflight",
+      "1",
+      "--warmup-ms",
+      "3000",
+      "--duration-ms",
+      "30000",
+      "--drain-timeout-ms",
+      "30000",
+      "--connect-timeout-ms",
+      "60000",
+      "--io-timeout-ms",
+      "30000",
+      "--max-messages",
+      "2000000",
+      "--output",
+      "/opt/rmqtt-cluster-load/20261103/combined/baseline-q0.json",
+      "--raw",
+      "/opt/rmqtt-cluster-load/20261103/combined/baseline-q0.jsonl"
+    ],
+    "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
+  }
+}

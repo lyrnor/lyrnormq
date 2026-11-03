@@ -1,0 +1,31 @@
+Independent reconstruction; no imports from production/loadgen/analyze.py
+combined baseline-pressure-q0 PASS raw verification run_success=True scheduled/attempted/delivered=(498, 498, 498) p99_ns=215388051
+combined baseline-pressure-q1 PASS raw verification run_success=True scheduled/attempted/delivered=(500, 500, 500) p99_ns=144567095
+combined baseline-pressure-q2 PASS raw verification run_success=True scheduled/attempted/delivered=(397, 397, 397) p99_ns=193477356
+combined baseline-q0 PASS raw verification run_success=True scheduled/attempted/delivered=(900, 900, 900) p99_ns=133582048
+combined baseline-q1 PASS raw verification run_success=True scheduled/attempted/delivered=(900, 900, 900) p99_ns=139130861
+combined baseline-q2 PASS raw verification run_success=True scheduled/attempted/delivered=(900, 900, 900) p99_ns=151812480
+combined-high fixed-q0 PASS raw verification run_success=False scheduled/attempted/delivered=(3000, 0, 0) p99_ns=None
+combined-high fixed-q1 PASS raw verification run_success=False scheduled/attempted/delivered=(3000, 0, 0) p99_ns=None
+combined-high fixed-q2 PASS raw verification run_success=False scheduled/attempted/delivered=(3000, 0, 0) p99_ns=None
+combined-high pressure-q0 PASS raw verification run_success=False scheduled/attempted/delivered=(0, 0, 0) p99_ns=None
+combined-high pressure-q1 PASS raw verification run_success=False scheduled/attempted/delivered=(0, 0, 0) p99_ns=None
+combined-high pressure-q2 PASS raw verification run_success=False scheduled/attempted/delivered=(0, 0, 0) p99_ns=None
+combined-high v311-q0 PASS raw verification run_success=True scheduled/attempted/delivered=(150, 150, 150) p99_ns=148389789
+combined-high v311-q1 PASS raw verification run_success=True scheduled/attempted/delivered=(150, 150, 150) p99_ns=146952399
+combined-high v311-q2 PASS raw verification run_success=True scheduled/attempted/delivered=(150, 150, 150) p99_ns=166642182
+
+Controller first-observation independent linear search:
+applied_index follower 2 observed advances 455 matched 455 censored 0 alreadybeforeleader 13 p99_ns 10248898
+applied_index follower 3 observed advances 455 matched 455 censored 0 alreadybeforeleader 19 p99_ns 1442678
+metadata_revision follower 2 observed advances 115 matched 115 censored 0 alreadybeforeleader 1 p99_ns 10280919
+metadata_revision follower 3 observed advances 115 matched 115 censored 0 alreadybeforeleader 1 p99_ns 2996331
+controller read errors 0 interval_ms 10
+external status before {"leader":1,"term":1,"last_applied":799,"nodes":3,"clients":53,"routes":26,"data_generation":0,"excluded":[],"repair":null,"last_repair":null}
+external status after {"leader":1,"term":1,"last_applied":1301,"nodes":3,"clients":94,"routes":25,"data_generation":0,"excluded":[],"repair":null,"last_repair":null}
+
+Actual established MQTT connection balance:
+combined equal(nonzero)connections/node samplecounts {3: 6, 4: 142, 1: 5, 2: 21} peakcounts [4, 4, 4]
+combined-high equal(nonzero)connections/node samplecounts {1: 5, 3: 6, 4: 25, 5: 5, 6: 1, 7: 5, 8: 2, 9: 5, 10: 3, 11: 6, 12: 3, 13: 4, 14: 3, 15: 4, 16: 3, 17: 4, 18: 3, 19: 5, 20: 5, 2: 1} peakcounts [20, 20, 20]
+
+Independent verification complete. Payload bytes are not included in JSONL; raw reconstruction validates instrumentation counters/timing, not a second decode of message body. Actual per-role connection placement relies on independently tested endpoint mapping plus observed aggregate sockets. High-load aborted warmup => no zero-loss capacity conclusion.

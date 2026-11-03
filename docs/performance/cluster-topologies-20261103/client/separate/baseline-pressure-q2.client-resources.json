@@ -1,0 +1,298 @@
+{
+  "name": "baseline-pressure-q2",
+  "topology": "separate",
+  "command": [
+    "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+    "--addrs",
+    "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+    "--protocol",
+    "5",
+    "--qos",
+    "2",
+    "--setup-concurrency",
+    "1",
+    "--pairs",
+    "6",
+    "--payload-bytes",
+    "128",
+    "--rate",
+    "0",
+    "--inflight",
+    "1",
+    "--warmup-ms",
+    "3000",
+    "--duration-ms",
+    "10000",
+    "--drain-timeout-ms",
+    "30000",
+    "--connect-timeout-ms",
+    "60000",
+    "--io-timeout-ms",
+    "30000",
+    "--max-messages",
+    "2000000",
+    "--output",
+    "/opt/rmqtt-cluster-load/20261103/separate/baseline-pressure-q2.json",
+    "--raw",
+    "/opt/rmqtt-cluster-load/20261103/separate/baseline-pressure-q2.jsonl"
+  ],
+  "pid": 5388,
+  "exit_code": 0,
+  "wall_start_ns": 1793689168995521498,
+  "wall_end_ns": 1793689190012011926,
+  "cpu_hz": 100,
+  "samples": [
+    {
+      "wall_ns": 1793689168996251361,
+      "ticks": 0,
+      "rss_bytes": 729088,
+      "threads": 1
+    },
+    {
+      "wall_ns": 1793689169496551808,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689169996926754,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689170497265876,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689170997617594,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689171497992102,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689171998364000,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689172498721127,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689172999076611,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689173499478177,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689173999883545,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689174500246006,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689175000616541,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689175500980769,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689176001334759,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689176501765380,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689177002175744,
+      "ticks": 0,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689177502508558,
+      "ticks": 0,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689178002879974,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689178503269658,
+      "ticks": 2,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689179003617115,
+      "ticks": 3,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689179503959750,
+      "ticks": 3,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689180004326224,
+      "ticks": 4,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689180504686638,
+      "ticks": 5,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689181005048600,
+      "ticks": 5,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689181505409781,
+      "ticks": 6,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689182005829523,
+      "ticks": 7,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689182506171264,
+      "ticks": 7,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689183006532861,
+      "ticks": 8,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689183506971258,
+      "ticks": 8,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689184007326016,
+      "ticks": 9,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689184507797591,
+      "ticks": 9,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689185008179825,
+      "ticks": 10,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689185508546251,
+      "ticks": 11,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689186008922400,
+      "ticks": 11,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689186509275448,
+      "ticks": 12,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689187009687451,
+      "ticks": 13,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689187510042416,
+      "ticks": 13,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689188010426826,
+      "ticks": 14,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689188510834758,
+      "ticks": 14,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689189011206011,
+      "ticks": 15,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793689189511589450,
+      "ticks": 16,
+      "rss_bytes": 1589248,
+      "threads": 9
+    }
+  ]
+}

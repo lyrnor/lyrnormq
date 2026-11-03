@@ -1,0 +1,2 @@
+rmqtt-loadgen: 30 pairs / 60 TCP connections; QoS0; 128 bytes; closed-loop
+report: /opt/rmqtt-cluster-load/20261103/combined/pressure-q0.json (success=false)

@@ -1,0 +1,298 @@
+{
+  "protocol": "5",
+  "endpoints": [
+    "172.16.240.180:18831",
+    "172.16.240.180:18832",
+    "172.16.240.180:18833"
+  ],
+  "trials": 30,
+  "success": true,
+  "limitations": "Observation includes route synchronization, network, write and scheduling. Repeated QoS0 visibility probes are not loss measurements or pure Raft latency.",
+  "subscribe_to_suback": {
+    "count": 30,
+    "p50_ns": 267863999,
+    "p95_ns": 282790359,
+    "p99_ns": 296877410,
+    "max_ns": 296877410
+  },
+  "suback_to_first_cross_node_delivery": {
+    "count": 30,
+    "p50_ns": 25535213,
+    "p95_ns": 107366897,
+    "p99_ns": 111055993,
+    "max_ns": 111055993
+  },
+  "samples": [
+    {
+      "trial": 0,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 252350231,
+      "suback_to_delivery_ns": 15889839,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 1,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 271635872,
+      "suback_to_delivery_ns": 34596542,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 2,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 270381239,
+      "suback_to_delivery_ns": 20358102,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 3,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 267617503,
+      "suback_to_delivery_ns": 16355508,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 4,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 250935969,
+      "suback_to_delivery_ns": 36821106,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 5,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 269031000,
+      "suback_to_delivery_ns": 39648146,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 6,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 262933439,
+      "suback_to_delivery_ns": 24990194,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 7,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 264556668,
+      "suback_to_delivery_ns": 26236252,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 8,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 253091700,
+      "suback_to_delivery_ns": 28388483,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 9,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 271692622,
+      "suback_to_delivery_ns": 36449077,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 10,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 276199960,
+      "suback_to_delivery_ns": 19731368,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 11,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 270919847,
+      "suback_to_delivery_ns": 107366897,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 12,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 266889770,
+      "suback_to_delivery_ns": 23979718,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 13,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 258975339,
+      "suback_to_delivery_ns": 29427059,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 14,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 282790359,
+      "suback_to_delivery_ns": 15254476,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 15,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 296877410,
+      "suback_to_delivery_ns": 85451009,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 16,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 267629199,
+      "suback_to_delivery_ns": 87525513,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 17,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 268381952,
+      "suback_to_delivery_ns": 18836978,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 18,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 266363924,
+      "suback_to_delivery_ns": 20901416,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 19,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 268637673,
+      "suback_to_delivery_ns": 25535213,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 20,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 250062777,
+      "suback_to_delivery_ns": 34245775,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 21,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 266869381,
+      "suback_to_delivery_ns": 22704566,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 22,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 267863999,
+      "suback_to_delivery_ns": 19651289,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 23,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 271466881,
+      "suback_to_delivery_ns": 16272394,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 24,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 274220983,
+      "suback_to_delivery_ns": 111055993,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 25,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 271305837,
+      "suback_to_delivery_ns": 41895889,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 26,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 267640863,
+      "suback_to_delivery_ns": 17302056,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 27,
+      "source_endpoint": "172.16.240.180:18832",
+      "target_endpoint": "172.16.240.180:18831",
+      "subscribe_to_suback_ns": 276561921,
+      "suback_to_delivery_ns": 19222631,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 28,
+      "source_endpoint": "172.16.240.180:18833",
+      "target_endpoint": "172.16.240.180:18832",
+      "subscribe_to_suback_ns": 244432619,
+      "suback_to_delivery_ns": 37489518,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    },
+    {
+      "trial": 29,
+      "source_endpoint": "172.16.240.180:18831",
+      "target_endpoint": "172.16.240.180:18833",
+      "subscribe_to_suback_ns": 270856397,
+      "suback_to_delivery_ns": 40594875,
+      "publish_attempts": 1,
+      "late_prior_probe_observations": 0
+    }
+  ],
+  "failures": []
+}

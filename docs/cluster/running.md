@@ -50,6 +50,24 @@ Use clean sessions without Wills; retained publications and shared subscriptions
 are refused in this gate. Existing Dashboard Bearer HTTP publishing routes to
 remote subscribers as well. Standalone startup is unchanged.
 
+To host a Controller and Broker in **one process**, supply both existing role
+configurations. Each role keeps its own node ID, peer endpoint and data directory;
+the process shares one Tokio runtime and exits if either service fails:
+
+```sh
+./target/release/rmqtt --cluster-config /path/to/broker-101.json \
+  --cluster-controller-config /path/to/controller-1.json --listen 127.0.0.1:1884
+```
+
+Repeat for Broker102/Controller2 and Broker103/Controller3, starting all three
+processes before testing readiness. The two configurations must have identical
+cluster/membership, token path, TLS and lease settings, distinct IDs/listeners, and
+non-overlapping canonical data directories. The additional option is only for
+normal Broker startup, not status/export/repair commands. Existing standalone and
+single-role commands remain valid. This is role cohosting, not additional physical
+failure domains or a new Raft/data storage schema. See the
+[comparison contract](../contracts/phase7d-cluster-benchmark.md).
+
 Non-loopback peer endpoints require HTTPS and mutual TLS: add tls with cert_file,
 key_file, ca_file and domain_name; use numeric HTTPS endpoint addresses with a
 certificate matching domain_name. Controller membership is fixed at three nodes.

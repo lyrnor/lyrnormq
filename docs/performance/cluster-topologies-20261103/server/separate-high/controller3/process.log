@@ -1,0 +1,1 @@
+2026-11-03T06:50:00.793067Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:committed; current my vote: None; when (VoteResponse)

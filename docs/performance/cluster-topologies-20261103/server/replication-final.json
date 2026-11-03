@@ -1,0 +1,202 @@
+[
+  {
+    "phase": "combined-high",
+    "controllers": [
+      {
+        "controller": 1,
+        "revision": 1329,
+        "data_nodes": {
+          "101": {
+            "applied": 1329
+          },
+          "102": {
+            "applied": 1329
+          },
+          "103": {
+            "applied": 1329
+          }
+        }
+      },
+      {
+        "controller": 2,
+        "revision": 1329,
+        "data_nodes": {
+          "101": {
+            "applied": 1329
+          },
+          "102": {
+            "applied": 1329
+          },
+          "103": {
+            "applied": 1329
+          }
+        }
+      },
+      {
+        "controller": 3,
+        "revision": 1329,
+        "data_nodes": {
+          "101": {
+            "applied": 1329
+          },
+          "102": {
+            "applied": 1329
+          },
+          "103": {
+            "applied": 1329
+          }
+        }
+      }
+    ]
+  },
+  {
+    "phase": "combined",
+    "controllers": [
+      {
+        "controller": 1,
+        "revision": 294,
+        "data_nodes": {
+          "101": {
+            "applied": 294
+          },
+          "102": {
+            "applied": 294
+          },
+          "103": {
+            "applied": 294
+          }
+        }
+      },
+      {
+        "controller": 2,
+        "revision": 294,
+        "data_nodes": {
+          "101": {
+            "applied": 294
+          },
+          "102": {
+            "applied": 294
+          },
+          "103": {
+            "applied": 294
+          }
+        }
+      },
+      {
+        "controller": 3,
+        "revision": 294,
+        "data_nodes": {
+          "101": {
+            "applied": 294
+          },
+          "102": {
+            "applied": 294
+          },
+          "103": {
+            "applied": 294
+          }
+        }
+      }
+    ]
+  },
+  {
+    "phase": "separate-high",
+    "controllers": [
+      {
+        "controller": 1,
+        "revision": 1335,
+        "data_nodes": {
+          "101": {
+            "applied": 1335
+          },
+          "102": {
+            "applied": 1335
+          },
+          "103": {
+            "applied": 1335
+          }
+        }
+      },
+      {
+        "controller": 2,
+        "revision": 1335,
+        "data_nodes": {
+          "101": {
+            "applied": 1335
+          },
+          "102": {
+            "applied": 1335
+          },
+          "103": {
+            "applied": 1335
+          }
+        }
+      },
+      {
+        "controller": 3,
+        "revision": 1335,
+        "data_nodes": {
+          "101": {
+            "applied": 1335
+          },
+          "102": {
+            "applied": 1335
+          },
+          "103": {
+            "applied": 1335
+          }
+        }
+      }
+    ]
+  },
+  {
+    "phase": "separate",
+    "controllers": [
+      {
+        "controller": 1,
+        "revision": 294,
+        "data_nodes": {
+          "101": {
+            "applied": 294
+          },
+          "102": {
+            "applied": 294
+          },
+          "103": {
+            "applied": 294
+          }
+        }
+      },
+      {
+        "controller": 2,
+        "revision": 294,
+        "data_nodes": {
+          "101": {
+            "applied": 294
+          },
+          "102": {
+            "applied": 294
+          },
+          "103": {
+            "applied": 294
+          }
+        }
+      },
+      {
+        "controller": 3,
+        "revision": 294,
+        "data_nodes": {
+          "101": {
+            "applied": 294
+          },
+          "102": {
+            "applied": 294
+          },
+          "103": {
+            "applied": 294
+          }
+        }
+      }
+    ]
+  }
+]

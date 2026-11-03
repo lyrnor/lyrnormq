@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "success": true,
+  "run_id": 1793688466852115689,
+  "config": {
+    "address": "127.0.0.1:1883",
+    "addresses": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "version": "V5",
+    "qos": 1,
+    "pairs": 6,
+    "setup_concurrency": 1,
+    "payload_bytes": 128,
+    "rate": 0,
+    "duration_ms": 10000,
+    "warmup_ms": 3000,
+    "drain_timeout_ms": 30000,
+    "connect_timeout_ms": 60000,
+    "io_timeout_ms": 30000,
+    "inflight": 1,
+    "max_messages": 2000000,
+    "max_packet_bytes": 65536
+  },
+  "endpoint_mapping": "publisher endpoint=pair%N; subscriber endpoint=(pair+1)%N; N=effective endpoint count",
+  "configured_endpoint_connections": [
+    {
+      "address": "172.16.240.180:18831",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18832",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18833",
+      "publishers": 2,
+      "subscribers": 2
+    }
+  ],
+  "mode": "closed_loop",
+  "load_semantics": "closed-loop window credits wait for source completion and unique delivery; no open-loop or coordinated-omission-corrected latency claim",
+  "source_completion_definition": "positive PUBACK received for the published packet identifier",
+  "delivery_definition": "validated unique subscriber application delivery; QoS2 recorded at PUBREL; duplicates excluded",
+  "throughput_definition": "offering-window event timestamps in [start,end); cohort-through-drain includes late events using finish-start denominator; never sum ingress and egress",
+  "clock": "one-process std::time::Instant epoch",
+  "percentile_method": "exact nearest rank ceil(q*N), integer nanoseconds, no interpolation",
+  "timestamp_unit": "nanoseconds",
+  "timing": {
+    "measured_start_ns": 10900184159,
+    "measured_end_ns": 20900184159,
+    "finished_ns": 21011750427,
+    "offering_window_ns": 10000000000,
+    "observed_cohort_horizon_ns": 10111566268,
+    "drain_elapsed_ns": 111566268
+  },
+  "accounting": {
+    "counters": {
+      "scheduled": 500,
+      "attempted": 500,
+      "write_completed": 500,
+      "puback_received": 500,
+      "pubrec_received": 0,
+      "pubcomp_received": 0,
+      "delivered_unique": 500,
+      "duplicates": 0,
+      "unexpected": 0,
+      "invalid_payload": 0,
+      "completed": 500
+    },
+    "samples_retained": 500,
+    "not_sent": 0,
+    "not_delivered": 0,
+    "not_source_confirmed": 0,
+    "incomplete_attempts": 0,
+    "failed_pairs": 0,
+    "configured_pairs": 6,
+    "returned_pairs": 6
+  },
+  "offering_window_events": {
+    "attempted": 500,
+    "write_completed": 500,
+    "delivered_unique": 494,
+    "source_completed": 500,
+    "fully_completed": 494
+  },
+  "after_offering_window_events": {
+    "attempted": 0,
+    "write_completed": 0,
+    "delivered_unique": 6,
+    "source_completed": 0,
+    "fully_completed": 6
+  },
+  "offering_window_tps": {
+    "denominator_ns": 10000000000,
+    "attempted_per_second": 50.0,
+    "write_completed_per_second": 50.0,
+    "delivered_unique_per_second": 49.4,
+    "source_completed_per_second": 50.0,
+    "fully_completed_per_second": 49.4
+  },
+  "measured_cohort_tps_through_drain": {
+    "denominator_ns": 10111566268,
+    "attempted_per_second": 49.44832350872746,
+    "write_completed_per_second": 49.44832350872746,
+    "delivered_unique_per_second": 49.44832350872746,
+    "source_completed_per_second": 49.44832350872746,
+    "fully_completed_per_second": 49.44832350872746
+  },
+  "latencies": {
+    "schedule_to_send": {
+      "count": 500,
+      "min_ns": 138,
+      "p50_ns": 626,
+      "p95_ns": 980,
+      "p99_ns": 1177,
+      "max_ns": 1224,
+      "mean_ns": 608.804
+    },
+    "send_to_write_completed": {
+      "count": 500,
+      "min_ns": 6311,
+      "p50_ns": 9977,
+      "p95_ns": 25529,
+      "p99_ns": 36216,
+      "max_ns": 84949,
+      "mean_ns": 11982.028
+    },
+    "send_to_delivery": {
+      "count": 500,
+      "min_ns": 104539019,
+      "p50_ns": 118518699,
+      "p95_ns": 131376927,
+      "p99_ns": 144567095,
+      "max_ns": 164090641,
+      "mean_ns": 119777522.63
+    },
+    "schedule_to_delivery": {
+      "count": 500,
+      "min_ns": 104539343,
+      "p50_ns": 118519453,
+      "p95_ns": 131377509,
+      "p99_ns": 144568108,
+      "max_ns": 164090961,
+      "mean_ns": 119778131.434
+    },
+    "send_to_source_completed": {
+      "count": 500,
+      "min_ns": 3979523,
+      "p50_ns": 8723199,
+      "p95_ns": 13462206,
+      "p99_ns": 16126097,
+      "max_ns": 27919477,
+      "mean_ns": 9023966.87
+    },
+    "send_to_full_completion": {
+      "count": 500,
+      "min_ns": 104539019,
+      "p50_ns": 118518699,
+      "p95_ns": 131376927,
+      "p99_ns": 144567095,
+      "max_ns": 164090641,
+      "mean_ns": 119777522.63
+    }
+  },
+  "issues": [],
+  "warnings": [],
+  "environment": {
+    "tool_version": "0.1.0",
+    "build_profile": "release",
+    "git_revision": "b650e3999fc30cb02e542b4ce3bf9231355a33d6",
+    "code_tree_dirty": "false",
+    "os": "linux",
+    "architecture": "x86_64",
+    "available_parallelism": 8,
+    "started_unix_ms": 1793688466851,
+    "arguments": [
+      "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+      "--addrs",
+      "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+      "--protocol",
+      "5",
+      "--qos",
+      "1",
+      "--setup-concurrency",
+      "1",
+      "--pairs",
+      "6",
+      "--payload-bytes",
+      "128",
+      "--rate",
+      "0",
+      "--inflight",
+      "1",
+      "--warmup-ms",
+      "3000",
+      "--duration-ms",
+      "10000",
+      "--drain-timeout-ms",
+      "30000",
+      "--connect-timeout-ms",
+      "60000",
+      "--io-timeout-ms",
+      "30000",
+      "--max-messages",
+      "2000000",
+      "--output",
+      "/opt/rmqtt-cluster-load/20261103/combined/baseline-pressure-q1.json",
+      "--raw",
+      "/opt/rmqtt-cluster-load/20261103/combined/baseline-pressure-q1.jsonl"
+    ],
+    "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
+  }
+}

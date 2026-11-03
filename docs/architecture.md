@@ -1,5 +1,22 @@
 # Architecture
 
+## Phase7d role cohosting and topology measurement (2026-11-03)
+
+The CLI can host an existing Controller configuration alongside a Broker with
+`--cluster-controller-config`, using separate identities, endpoints and journals
+on one runtime. Startup validates compatible cluster/security settings and
+non-overlapping data directories; either service failure stops the process.
+Broker draining precedes Controller shutdown. Existing role schemas, quorum and
+outbox transactions remain unchanged; this adds process placement, not a third
+Raft role or additional physical failure domains.
+
+The load generator supports bounded setup and explicit multi-endpoint cyclic
+pairing. One process measures cross-node QoS0/1/2 using a shared monotonic clock.
+The [frozen comparison contract](contracts/phase7d-cluster-benchmark.md) separates
+actual delivery, source confirmation, failed warmup, observed Controller catch-up
+and resource windows. [Remote evidence](performance/cluster-topologies-20261103/README.md)
+records the three combined-process versus six separate-process experiment.
+
 ## Phase7c maintenance replica repair (2026-11-03)
 
 [Phase7c](contracts/phase7c-replica-repair.md) adds an explicit maintenance repair

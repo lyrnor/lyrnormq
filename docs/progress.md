@@ -2631,3 +2631,49 @@ tombstone/abandoned-host cleanup; cluster Retained/Will/shared semantics; peer m
 wire and multi-machine network-fault acceptance; indexed routing/quota/scheduling
 profiling and reproducible performance gates. Use the new
 [repair runbook](cluster/replica-repair.md), not directory deletion, for disk replacement.
+
+## 2026-11-03 — Phase7d remote topology comparison completed; load gate failed
+
+Added supervised Controller+Broker cohosting in one process using the existing two
+role configurations/journals. Froze the topology/metric contract, used independent
+loadgen and quality worktrees, integrated bounded setup, cyclic cross-node endpoint
+assignment, raw-metric checks, Controller observation probes and CI commands.
+No new role/storage schema or lower quorum was introduced. lib.rs remains thin.
+
+Locally zigbuilt static amd64 musl releases were uploaded to47.84.224.186; Rust
+loadgen ran on47.84.241.200 over172.16.240.180/181. Tested3 combined processes,
+then3 pure Controllers+3 pure Brokers, all on the same8vCPU/one-disk Broker host.
+Each topology had12 configured Tokio workers and RF3/W2 durability.
+
+Both topologies passed all QoS0/1/2 at the stable12-connection30/s baseline:
+each cohort900/900, no missing/duplicate or client-detected corrupt payloads;
+MQTT3.1.1 interoperability150/150 eachQoS also passed. Bounded-window10s delivery
+TPS forQ0/1/2 was49.2/49.4/39.1 combined and49.2/50.2/40.4 split. These are not
+maximum capacity numbers. Independent raw reconstructions match all latency
+series, event counts/TPS, finalACK and completion records.
+
+IMPORTANT: all six60-connection maincases per topology failed DURING WARMUP with
+0x83/0x8b errors. No measured cohort exists; TPS/p99 capacity and zero-loss claims
+are invalid for those failed gates. Splitting roles did not remove the failure.
+Default auth-limit4 refusal was a separate preserved preflight failure; final
+settings128 and setup-concurrency1 still reproduced the data-path failures.
+
+Controller probes matched all observed apply/revision advances without read errors
+or censored catch-up; all data replicas finally reported the same metadata revision.
+10ms sampling/ordered reads and differing setup traffic limit quantitative latency
+comparison. Both paced route probes passed30trials. Overall baseline resource
+meanCPU/peakaggregateRSS:0.60core/142.9MiB combined,0.52core/195.3MiB split; these
+whole-phase windows include setup, warmup, drain, probes and idle. Shared physical
+disk and failure domains preclude extrapolation to3/6 physical hosts.
+
+Local893Rust tests passed/one livePG ignore; strictClippy/fmt and9 new topology/probe
+checks passed; CI wiring added but no hostedActions run claimed. Full hashes,
+rawrecords, independent audits, resource windows, reproduction and limitations:
+[report](performance/cluster-topologies-20261103/README.md).
+
+Six-process test deployment remains running on privateMQTT18831/18832/18833, with
+no autostart; loadgen/monitors exited. Remaining blocker: identify actual rejection
+branches via bounded counters/profiling before altering Durable32/Journal32 quotas,
+100ms work scheduling, complete-record/quota scans and sync behavior. Preserve
+quorum, atomic outbox/receipts and generation fencing. Large-load acceptance,
+multi-machine/multi-disk tests, existing cluster feature/cleanup limits remain open.

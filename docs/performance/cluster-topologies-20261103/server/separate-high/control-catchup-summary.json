@@ -1,0 +1,100 @@
+{
+  "success": true,
+  "data_directories": [
+    "/opt/rmqtt-cluster-benchmark/20261103/separate/controller-data1",
+    "/opt/rmqtt-cluster-benchmark/20261103/separate/controller-data2",
+    "/opt/rmqtt-cluster-benchmark/20261103/separate/controller-data3"
+  ],
+  "assumed_leader_ordinal": 1,
+  "leadership_validation": "external stable-leader assumption; probe does not establish Raft leader authority or detect every election",
+  "semantics": "First observed leader advance to first follower observation >= value. Includes polling resolution, sequential SQLite read order and read duration. Zero with not_before_leader_bound=true means follower was already observed; it does not establish zero replication delay.",
+  "limitations": "Not pure Raft commit/network latency; no unseen intermediate entries reconstructed. Leases and housekeeping contribute to revisions. Censored advances are not zero-delay observations. Read-only sampling consumes CPU/IO on the same host.",
+  "requested_duration_seconds": 30.0,
+  "requested_interval_ms": 10,
+  "started_monotonic_ns": 4796554230063,
+  "finished_monotonic_ns": 4826554643507,
+  "actual_duration_ns": 30000413444,
+  "sample_limit": 100000,
+  "read_samples": 8961,
+  "read_errors": 0,
+  "leader_observation_available": true,
+  "analysis": {
+    "applied_index": {
+      "leader_observations": 2987,
+      "leader_advances": 409,
+      "intermediate_unobserved_advances_are_not_invented": true,
+      "nonmonotonic_controllers": [],
+      "followers": [
+        {
+          "controller": 2,
+          "observed_advances": 409,
+          "matched_advances": 409,
+          "censored_advances": 0,
+          "already_observed_before_leader_count": 14,
+          "observed_delay": {
+            "count": 409,
+            "min_ns": 0,
+            "p50_ns": 84748,
+            "p95_ns": 153619,
+            "p99_ns": 779933,
+            "max_ns": 10126574
+          }
+        },
+        {
+          "controller": 3,
+          "observed_advances": 409,
+          "matched_advances": 409,
+          "censored_advances": 0,
+          "already_observed_before_leader_count": 16,
+          "observed_delay": {
+            "count": 409,
+            "min_ns": 0,
+            "p50_ns": 168041,
+            "p95_ns": 292794,
+            "p99_ns": 882175,
+            "max_ns": 10197862
+          }
+        }
+      ]
+    },
+    "metadata_revision": {
+      "leader_observations": 2987,
+      "leader_advances": 85,
+      "intermediate_unobserved_advances_are_not_invented": true,
+      "nonmonotonic_controllers": [],
+      "followers": [
+        {
+          "controller": 2,
+          "observed_advances": 85,
+          "matched_advances": 85,
+          "censored_advances": 0,
+          "already_observed_before_leader_count": 5,
+          "observed_delay": {
+            "count": 85,
+            "min_ns": 0,
+            "p50_ns": 97654,
+            "p95_ns": 147925,
+            "p99_ns": 169149,
+            "max_ns": 169149
+          }
+        },
+        {
+          "controller": 3,
+          "observed_advances": 85,
+          "matched_advances": 85,
+          "censored_advances": 0,
+          "already_observed_before_leader_count": 5,
+          "observed_delay": {
+            "count": 85,
+            "min_ns": 0,
+            "p50_ns": 185926,
+            "p95_ns": 290088,
+            "p99_ns": 308505,
+            "max_ns": 308505
+          }
+        }
+      ]
+    }
+  },
+  "raw_evidence": "control-catchup.json.gz"
+}

@@ -1,0 +1,42 @@
+Independent reconstruction; no imports from production/loadgen/analyze.py
+separate baseline-pressure-q0 PASS raw verification run_success=True scheduled/attempted/delivered=(498, 498, 498) p99_ns=166896874
+separate baseline-pressure-q1 PASS raw verification run_success=True scheduled/attempted/delivered=(508, 508, 508) p99_ns=140627246
+separate baseline-pressure-q2 PASS raw verification run_success=True scheduled/attempted/delivered=(410, 410, 410) p99_ns=193164314
+separate baseline-q0 PASS raw verification run_success=True scheduled/attempted/delivered=(900, 900, 900) p99_ns=138096451
+separate baseline-q1 PASS raw verification run_success=True scheduled/attempted/delivered=(900, 900, 900) p99_ns=136997242
+separate baseline-q2 PASS raw verification run_success=True scheduled/attempted/delivered=(900, 900, 900) p99_ns=166213288
+separate-high fixed-q0 PASS raw verification run_success=False scheduled/attempted/delivered=(3000, 0, 0) p99_ns=None
+separate-high fixed-q1 PASS raw verification run_success=False scheduled/attempted/delivered=(3000, 0, 0) p99_ns=None
+separate-high fixed-q2 PASS raw verification run_success=False scheduled/attempted/delivered=(3000, 0, 0) p99_ns=None
+separate-high pressure-q0 PASS raw verification run_success=False scheduled/attempted/delivered=(0, 0, 0) p99_ns=None
+separate-high pressure-q1 PASS raw verification run_success=False scheduled/attempted/delivered=(0, 0, 0) p99_ns=None
+separate-high pressure-q2 PASS raw verification run_success=False scheduled/attempted/delivered=(0, 0, 0) p99_ns=None
+separate-high v311-q0 PASS raw verification run_success=True scheduled/attempted/delivered=(150, 150, 150) p99_ns=170859784
+separate-high v311-q1 PASS raw verification run_success=True scheduled/attempted/delivered=(150, 150, 150) p99_ns=150414117
+separate-high v311-q2 PASS raw verification run_success=True scheduled/attempted/delivered=(150, 150, 150) p99_ns=213857224
+
+Controller first-observation independent linear search:
+applied_index follower 2 observed advances 409 matched 409 censored 0 alreadybeforeleader 14 p99_ns 779933
+applied_index follower 3 observed advances 409 matched 409 censored 0 alreadybeforeleader 16 p99_ns 882175
+metadata_revision follower 2 observed advances 85 matched 85 censored 0 alreadybeforeleader 5 p99_ns 169149
+metadata_revision follower 3 observed advances 85 matched 85 censored 0 alreadybeforeleader 5 p99_ns 308505
+controller read errors 0 interval_ms 10
+external status before {"leader":1,"term":1,"last_applied":302,"nodes":3,"clients":0,"routes":0,"data_generation":0,"excluded":[],"repair":null,"last_repair":null}
+external status after {"leader":1,"term":1,"last_applied":730,"nodes":3,"clients":33,"routes":17,"data_generation":0,"excluded":[],"repair":null,"last_repair":null}
+
+Actual established MQTT connection balance:
+separate equal(nonzero)connections/node samplecounts {4: 141, 1: 5, 2: 19, 3: 4} peakcounts [4, 4, 4]
+separate-high equal(nonzero)connections/node samplecounts {1: 7, 2: 5, 3: 8, 4: 30, 5: 3, 6: 3, 7: 4, 8: 3, 9: 4, 10: 3, 11: 4, 12: 3, 13: 4, 15: 4, 17: 4, 19: 6, 20: 4, 14: 3, 16: 3, 18: 3} peakcounts [20, 20, 20]
+
+Independent verification complete. Payload bytes are not included in JSONL; raw reconstruction validates instrumentation counters/timing, not a second decode of message body. Actual per-role connection placement relies on independently tested endpoint mapping plus observed aggregate sockets. High-load aborted warmup => no zero-loss capacity conclusion.
+
+Final Controller replica snapshots (sequential reads, not simultaneous):
+combined applied [3129, 3129, 3129] revision [294, 294, 294] read_span_ns 1411999
+combined-high applied [5349, 5349, 5349] revision [1329, 1329, 1329] read_span_ns 3038351
+separate applied [3415, 3415, 3415] revision [294, 294, 294] read_span_ns 1504780
+separate-high applied [5528, 5529, 5529] revision [1335, 1335, 1335] read_span_ns 3932842
+
+Separate route probes:
+separate-sync-final.json success True trials 30 distribution {'count': 30, 'p50_ns': 34479714, 'p95_ns': 49637142, 'p99_ns': 50050260, 'max_ns': 50050260} error None
+
+Final audit PASS. Cross-topology raw bodies not retained; do not overstate independent byte verification. Both topologies6maincases remain failed/warmup-censored and cannot support zero-loss under60connectionload.

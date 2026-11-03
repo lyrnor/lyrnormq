@@ -1,0 +1,19 @@
+test_ring_cross_node_qos_0_1_2_both_protocol_versions (__main__.CombinedMQTTCases.test_ring_cross_node_qos_0_1_2_both_protocol_versions) ... ok
+test_sigint_closes_controller_and_broker_ports_and_restarts_same_disks (__main__.CombinedMQTTCases.test_sigint_closes_controller_and_broker_ports_and_restarts_same_disks) ... ok
+test_controller_bind_failure_terminates_entire_process (__main__.CombinedStartupCases.test_controller_bind_failure_terminates_entire_process) ... ok
+test_incompatible_pairings_rejected_before_listeners (__main__.CombinedStartupCases.test_incompatible_pairings_rejected_before_listeners) ... ok
+test_inspection_commands_reject_combined_start_option (__main__.CombinedStartupCases.test_inspection_commands_reject_combined_start_option) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 22.868s
+
+OK
+test_exact_observation_delay_censoring_and_follower_ahead (cluster_topology_controller_probe_test.ControllerProbeCases.test_exact_observation_delay_censoring_and_follower_ahead) ... ok
+test_finite_budget_and_leader_validation (cluster_topology_controller_probe_test.ControllerProbeCases.test_finite_budget_and_leader_validation) ... ok
+test_read_errors_and_missing_leader_not_success (cluster_topology_controller_probe_test.ControllerProbeCases.test_read_errors_and_missing_leader_not_success) ... ok
+test_sampling_readonly_sqlite_observes_synthetic_follower_lag (cluster_topology_controller_probe_test.ControllerProbeCases.test_sampling_readonly_sqlite_observes_synthetic_follower_lag) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.560s
+
+OK

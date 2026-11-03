@@ -1,0 +1,24 @@
+{
+  "cluster_id": "rmqtt-topology-separate-20261103",
+  "token_file": "/opt/rmqtt-cluster-benchmark/20261103/peer.token",
+  "controllers": [
+    {
+      "id": 1,
+      "address": "http://127.0.0.1:17001"
+    },
+    {
+      "id": 2,
+      "address": "http://127.0.0.1:17002"
+    },
+    {
+      "id": 3,
+      "address": "http://127.0.0.1:17003"
+    }
+  ],
+  "lease_ms": 3000,
+  "role": "controller",
+  "node_id": 2,
+  "listen": "127.0.0.1:17002",
+  "data_dir": "/opt/rmqtt-cluster-benchmark/20261103/separate/controller-data2",
+  "bootstrap": false
+}

@@ -1,0 +1,158 @@
+{
+  "name": "tiny-q1",
+  "topology": "combined",
+  "command": [
+    "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+    "--addrs",
+    "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+    "--protocol",
+    "5",
+    "--qos",
+    "1",
+    "--pairs",
+    "3",
+    "--payload-bytes",
+    "128",
+    "--rate",
+    "3",
+    "--inflight",
+    "1",
+    "--warmup-ms",
+    "3000",
+    "--duration-ms",
+    "5000",
+    "--drain-timeout-ms",
+    "30000",
+    "--connect-timeout-ms",
+    "60000",
+    "--io-timeout-ms",
+    "30000",
+    "--max-messages",
+    "2000000",
+    "--output",
+    "/opt/rmqtt-cluster-load/20261103/combined/tiny-q1.json",
+    "--raw",
+    "/opt/rmqtt-cluster-load/20261103/combined/tiny-q1.jsonl"
+  ],
+  "pid": 3130,
+  "exit_code": 0,
+  "wall_start_ns": 1793687768693390572,
+  "wall_end_ns": 1793687778201444248,
+  "cpu_hz": 100,
+  "samples": [
+    {
+      "wall_ns": 1793687768693945574,
+      "ticks": 0,
+      "rss_bytes": 593920,
+      "threads": 1
+    },
+    {
+      "wall_ns": 1793687769194195564,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687769694677295,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687770195088107,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687770695478859,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687771195876792,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687771696248666,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687772196604655,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687772696974060,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687773197320926,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687773697705441,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687774198133180,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687774698566253,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687775198953051,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687775699375640,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687776199848710,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687776700236018,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687777200589700,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793687777700979570,
+      "ticks": 0,
+      "rss_bytes": 1318912,
+      "threads": 9
+    }
+  ]
+}

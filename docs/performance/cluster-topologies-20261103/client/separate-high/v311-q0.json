@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "success": true,
+  "run_id": 1793688890065208108,
+  "config": {
+    "address": "127.0.0.1:1883",
+    "addresses": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "version": "V311",
+    "qos": 0,
+    "pairs": 6,
+    "setup_concurrency": 1,
+    "payload_bytes": 128,
+    "rate": 30,
+    "duration_ms": 5000,
+    "warmup_ms": 3000,
+    "drain_timeout_ms": 30000,
+    "connect_timeout_ms": 60000,
+    "io_timeout_ms": 30000,
+    "inflight": 1,
+    "max_messages": 2000000,
+    "max_packet_bytes": 65536
+  },
+  "endpoint_mapping": "publisher endpoint=pair%N; subscriber endpoint=(pair+1)%N; N=effective endpoint count",
+  "configured_endpoint_connections": [
+    {
+      "address": "172.16.240.180:18831",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18832",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18833",
+      "publishers": 2,
+      "subscribers": 2
+    }
+  ],
+  "mode": "absolute_rate",
+  "load_semantics": "absolute-rate intended deadlines; bounded inflight can delay writes; scheduling lag and not-sent messages retained",
+  "source_completion_definition": "not applicable: QoS0 has no wire acknowledgement",
+  "delivery_definition": "validated unique subscriber application delivery; QoS2 recorded at PUBREL; duplicates excluded",
+  "throughput_definition": "offering-window event timestamps in [start,end); cohort-through-drain includes late events using finish-start denominator; never sum ingress and egress",
+  "clock": "one-process std::time::Instant epoch",
+  "percentile_method": "exact nearest rank ceil(q*N), integer nanoseconds, no interpolation",
+  "timestamp_unit": "nanoseconds",
+  "timing": {
+    "measured_start_ns": 10872596709,
+    "measured_end_ns": 15872596709,
+    "finished_ns": 15936112278,
+    "offering_window_ns": 5000000000,
+    "observed_cohort_horizon_ns": 5063515569,
+    "drain_elapsed_ns": 63515569
+  },
+  "accounting": {
+    "counters": {
+      "scheduled": 150,
+      "attempted": 150,
+      "write_completed": 150,
+      "puback_received": 0,
+      "pubrec_received": 0,
+      "pubcomp_received": 0,
+      "delivered_unique": 150,
+      "duplicates": 0,
+      "unexpected": 0,
+      "invalid_payload": 0,
+      "completed": 150
+    },
+    "samples_retained": 150,
+    "not_sent": 0,
+    "not_delivered": 0,
+    "not_source_confirmed": null,
+    "incomplete_attempts": 0,
+    "failed_pairs": 0,
+    "configured_pairs": 6,
+    "returned_pairs": 6
+  },
+  "offering_window_events": {
+    "attempted": 150,
+    "write_completed": 150,
+    "delivered_unique": 149,
+    "source_completed": null,
+    "fully_completed": 149
+  },
+  "after_offering_window_events": {
+    "attempted": 0,
+    "write_completed": 0,
+    "delivered_unique": 1,
+    "source_completed": null,
+    "fully_completed": 1
+  },
+  "offering_window_tps": {
+    "denominator_ns": 5000000000,
+    "attempted_per_second": 30.0,
+    "write_completed_per_second": 30.0,
+    "delivered_unique_per_second": 29.8,
+    "source_completed_per_second": null,
+    "fully_completed_per_second": 29.8
+  },
+  "measured_cohort_tps_through_drain": {
+    "denominator_ns": 5063515569,
+    "attempted_per_second": 29.623686933705564,
+    "write_completed_per_second": 29.623686933705564,
+    "delivered_unique_per_second": 29.623686933705564,
+    "source_completed_per_second": null,
+    "fully_completed_per_second": 29.623686933705564
+  },
+  "latencies": {
+    "schedule_to_send": {
+      "count": 150,
+      "min_ns": 260518,
+      "p50_ns": 1024359,
+      "p95_ns": 1816053,
+      "p99_ns": 1866209,
+      "max_ns": 1902580,
+      "mean_ns": 1049641.82
+    },
+    "send_to_write_completed": {
+      "count": 150,
+      "min_ns": 22585,
+      "p50_ns": 50506,
+      "p95_ns": 69623,
+      "p99_ns": 85410,
+      "max_ns": 146959,
+      "mean_ns": 51485.02
+    },
+    "send_to_delivery": {
+      "count": 150,
+      "min_ns": 23603937,
+      "p50_ns": 82117171,
+      "p95_ns": 141002838,
+      "p99_ns": 170859784,
+      "max_ns": 171235206,
+      "mean_ns": 84068169.73333333
+    },
+    "schedule_to_delivery": {
+      "count": 150,
+      "min_ns": 24542868,
+      "p50_ns": 83111468,
+      "p95_ns": 142232529,
+      "p99_ns": 171943275,
+      "max_ns": 172956886,
+      "mean_ns": 85117811.55333333
+    },
+    "send_to_source_completed": null,
+    "send_to_full_completion": {
+      "count": 150,
+      "min_ns": 23603937,
+      "p50_ns": 82117171,
+      "p95_ns": 141002838,
+      "p99_ns": 170859784,
+      "max_ns": 171235206,
+      "mean_ns": 84068169.73333333
+    }
+  },
+  "issues": [],
+  "warnings": [],
+  "environment": {
+    "tool_version": "0.1.0",
+    "build_profile": "release",
+    "git_revision": "b650e3999fc30cb02e542b4ce3bf9231355a33d6",
+    "code_tree_dirty": "false",
+    "os": "linux",
+    "architecture": "x86_64",
+    "available_parallelism": 8,
+    "started_unix_ms": 1793688890063,
+    "arguments": [
+      "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+      "--addrs",
+      "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+      "--protocol",
+      "3.1.1",
+      "--qos",
+      "0",
+      "--setup-concurrency",
+      "1",
+      "--pairs",
+      "6",
+      "--payload-bytes",
+      "128",
+      "--rate",
+      "30",
+      "--inflight",
+      "1",
+      "--warmup-ms",
+      "3000",
+      "--duration-ms",
+      "5000",
+      "--drain-timeout-ms",
+      "30000",
+      "--connect-timeout-ms",
+      "60000",
+      "--io-timeout-ms",
+      "30000",
+      "--max-messages",
+      "2000000",
+      "--output",
+      "/opt/rmqtt-cluster-load/20261103/separate/v311-q0.json",
+      "--raw",
+      "/opt/rmqtt-cluster-load/20261103/separate/v311-q0.jsonl"
+    ],
+    "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
+  }
+}

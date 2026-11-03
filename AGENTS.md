@@ -16,6 +16,9 @@ Replica repair additionally follows docs/contracts/phase7c-replica-repair.md.
 Repair runtime owns mqtt-cluster except src/replica.rs; repair storage owns that
 file only; coordinator owns Cargo/CLI/docs. Uncaught-up/replacement disks never
 vote, including startup/restart windows; persistent generation fences survive thaw.
+Role cohosting and topology measurement follow docs/contracts/phase7d-cluster-benchmark.md.
+Coordinator owns CLI/loadgen integration; quality owns topology/probe tests and CI.
+Failed warmup is not a zero-loss or zero-latency measurement; preserve raw failures.
 WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
 stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
 Authentication admission and mandatory client certificates follow

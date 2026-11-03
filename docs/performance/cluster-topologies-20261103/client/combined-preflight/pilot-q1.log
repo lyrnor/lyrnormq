@@ -1,0 +1,2 @@
+rmqtt-loadgen: 30 pairs / 60 TCP connections; QoS1; 128 bytes; closed-loop
+rmqtt-loadgen: invalid data: unexpected CONNACK: ConnAck { session_present: false, code: 137 }

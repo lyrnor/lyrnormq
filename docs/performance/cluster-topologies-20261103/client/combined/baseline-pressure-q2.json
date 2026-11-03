@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "success": true,
+  "run_id": 1793688529428618454,
+  "config": {
+    "address": "127.0.0.1:1883",
+    "addresses": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "version": "V5",
+    "qos": 2,
+    "pairs": 6,
+    "setup_concurrency": 1,
+    "payload_bytes": 128,
+    "rate": 0,
+    "duration_ms": 10000,
+    "warmup_ms": 3000,
+    "drain_timeout_ms": 30000,
+    "connect_timeout_ms": 60000,
+    "io_timeout_ms": 30000,
+    "inflight": 1,
+    "max_messages": 2000000,
+    "max_packet_bytes": 65536
+  },
+  "endpoint_mapping": "publisher endpoint=pair%N; subscriber endpoint=(pair+1)%N; N=effective endpoint count",
+  "configured_endpoint_connections": [
+    {
+      "address": "172.16.240.180:18831",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18832",
+      "publishers": 2,
+      "subscribers": 2
+    },
+    {
+      "address": "172.16.240.180:18833",
+      "publishers": 2,
+      "subscribers": 2
+    }
+  ],
+  "mode": "closed_loop",
+  "load_semantics": "closed-loop window credits wait for source completion and unique delivery; no open-loop or coordinated-omission-corrected latency claim",
+  "source_completion_definition": "positive final PUBCOMP received; PUBREC is intermediate and never source completion",
+  "delivery_definition": "validated unique subscriber application delivery; QoS2 recorded at PUBREL; duplicates excluded",
+  "throughput_definition": "offering-window event timestamps in [start,end); cohort-through-drain includes late events using finish-start denominator; never sum ingress and egress",
+  "clock": "one-process std::time::Instant epoch",
+  "percentile_method": "exact nearest rank ceil(q*N), integer nanoseconds, no interpolation",
+  "timestamp_unit": "nanoseconds",
+  "timing": {
+    "measured_start_ns": 10927824313,
+    "measured_end_ns": 20927824313,
+    "finished_ns": 21045089529,
+    "offering_window_ns": 10000000000,
+    "observed_cohort_horizon_ns": 10117265216,
+    "drain_elapsed_ns": 117265216
+  },
+  "accounting": {
+    "counters": {
+      "scheduled": 397,
+      "attempted": 397,
+      "write_completed": 397,
+      "puback_received": 0,
+      "pubrec_received": 397,
+      "pubcomp_received": 397,
+      "delivered_unique": 397,
+      "duplicates": 0,
+      "unexpected": 0,
+      "invalid_payload": 0,
+      "completed": 397
+    },
+    "samples_retained": 397,
+    "not_sent": 0,
+    "not_delivered": 0,
+    "not_source_confirmed": 0,
+    "incomplete_attempts": 0,
+    "failed_pairs": 0,
+    "configured_pairs": 6,
+    "returned_pairs": 6
+  },
+  "offering_window_events": {
+    "attempted": 397,
+    "write_completed": 397,
+    "delivered_unique": 391,
+    "source_completed": 395,
+    "fully_completed": 391
+  },
+  "after_offering_window_events": {
+    "attempted": 0,
+    "write_completed": 0,
+    "delivered_unique": 6,
+    "source_completed": 2,
+    "fully_completed": 6
+  },
+  "offering_window_tps": {
+    "denominator_ns": 10000000000,
+    "attempted_per_second": 39.7,
+    "write_completed_per_second": 39.7,
+    "delivered_unique_per_second": 39.1,
+    "source_completed_per_second": 39.5,
+    "fully_completed_per_second": 39.1
+  },
+  "measured_cohort_tps_through_drain": {
+    "denominator_ns": 10117265216,
+    "attempted_per_second": 39.239853016026736,
+    "write_completed_per_second": 39.239853016026736,
+    "delivered_unique_per_second": 39.239853016026736,
+    "source_completed_per_second": 39.239853016026736,
+    "fully_completed_per_second": 39.239853016026736
+  },
+  "latencies": {
+    "schedule_to_send": {
+      "count": 397,
+      "min_ns": 139,
+      "p50_ns": 460,
+      "p95_ns": 904,
+      "p99_ns": 1257,
+      "max_ns": 18645,
+      "mean_ns": 549.0881612090681
+    },
+    "send_to_write_completed": {
+      "count": 397,
+      "min_ns": 6777,
+      "p50_ns": 10957,
+      "p95_ns": 29514,
+      "p99_ns": 68018,
+      "max_ns": 405722,
+      "mean_ns": 14535.843828715366
+    },
+    "send_to_delivery": {
+      "count": 397,
+      "min_ns": 117005219,
+      "p50_ns": 146347388,
+      "p95_ns": 186183414,
+      "p99_ns": 193477356,
+      "max_ns": 314843242,
+      "mean_ns": 151027589.80856425
+    },
+    "schedule_to_delivery": {
+      "count": 397,
+      "min_ns": 117005441,
+      "p50_ns": 146348139,
+      "p95_ns": 186183645,
+      "p99_ns": 193477706,
+      "max_ns": 314843809,
+      "mean_ns": 151028138.89672545
+    },
+    "send_to_source_completed": {
+      "count": 397,
+      "min_ns": 21672966,
+      "p50_ns": 42060742,
+      "p95_ns": 63943483,
+      "p99_ns": 74129305,
+      "max_ns": 84629670,
+      "mean_ns": 43945434.702770784
+    },
+    "send_to_full_completion": {
+      "count": 397,
+      "min_ns": 117005219,
+      "p50_ns": 146347388,
+      "p95_ns": 186183414,
+      "p99_ns": 193477356,
+      "max_ns": 314843242,
+      "mean_ns": 151027589.80856425
+    }
+  },
+  "issues": [],
+  "warnings": [],
+  "environment": {
+    "tool_version": "0.1.0",
+    "build_profile": "release",
+    "git_revision": "b650e3999fc30cb02e542b4ce3bf9231355a33d6",
+    "code_tree_dirty": "false",
+    "os": "linux",
+    "architecture": "x86_64",
+    "available_parallelism": 8,
+    "started_unix_ms": 1793688529427,
+    "arguments": [
+      "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+      "--addrs",
+      "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+      "--protocol",
+      "5",
+      "--qos",
+      "2",
+      "--setup-concurrency",
+      "1",
+      "--pairs",
+      "6",
+      "--payload-bytes",
+      "128",
+      "--rate",
+      "0",
+      "--inflight",
+      "1",
+      "--warmup-ms",
+      "3000",
+      "--duration-ms",
+      "10000",
+      "--drain-timeout-ms",
+      "30000",
+      "--connect-timeout-ms",
+      "60000",
+      "--io-timeout-ms",
+      "30000",
+      "--max-messages",
+      "2000000",
+      "--output",
+      "/opt/rmqtt-cluster-load/20261103/combined/baseline-pressure-q2.json",
+      "--raw",
+      "/opt/rmqtt-cluster-load/20261103/combined/baseline-pressure-q2.jsonl"
+    ],
+    "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
+  }
+}

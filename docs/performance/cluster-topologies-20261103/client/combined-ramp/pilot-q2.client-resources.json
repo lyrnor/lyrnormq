@@ -1,0 +1,50 @@
+{
+  "name": "pilot-q2",
+  "topology": "combined",
+  "command": [
+    "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+    "--addrs",
+    "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+    "--protocol",
+    "5",
+    "--qos",
+    "2",
+    "--pairs",
+    "30",
+    "--payload-bytes",
+    "128",
+    "--rate",
+    "0",
+    "--inflight",
+    "1",
+    "--warmup-ms",
+    "3000",
+    "--duration-ms",
+    "5000",
+    "--drain-timeout-ms",
+    "30000",
+    "--connect-timeout-ms",
+    "60000",
+    "--io-timeout-ms",
+    "30000",
+    "--max-messages",
+    "2000000",
+    "--output",
+    "/opt/rmqtt-cluster-load/20261103/combined/pilot-q2.json",
+    "--raw",
+    "/opt/rmqtt-cluster-load/20261103/combined/pilot-q2.jsonl"
+  ],
+  "pid": 3280,
+  "exit_code": 1,
+  "wall_start_ns": 1793687851388709947,
+  "wall_end_ns": 1793687851889600354,
+  "cpu_hz": 100,
+  "samples": [
+    {
+      "wall_ns": 1793687851389270673,
+      "ticks": 0,
+      "rss_bytes": 241664,
+      "threads": 1
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "cluster_id": "rmqtt-topology-separate-20261103",
+  "token_file": "/opt/rmqtt-cluster-benchmark/20261103/peer.token",
+  "controllers": [
+    {
+      "id": 1,
+      "address": "http://127.0.0.1:17001"
+    },
+    {
+      "id": 2,
+      "address": "http://127.0.0.1:17002"
+    },
+    {
+      "id": 3,
+      "address": "http://127.0.0.1:17003"
+    }
+  ],
+  "lease_ms": 3000,
+  "role": "broker",
+  "node_id": 103,
+  "listen": "127.0.0.1:17103",
+  "advertise": "http://127.0.0.1:17103",
+  "data_dir": "/opt/rmqtt-cluster-benchmark/20261103/separate/broker-data103",
+  "durable": {
+    "replicas": [
+      {
+        "id": 101,
+        "address": "http://127.0.0.1:17101"
+      },
+      {
+        "id": 102,
+        "address": "http://127.0.0.1:17102"
+      },
+      {
+        "id": 103,
+        "address": "http://127.0.0.1:17103"
+      }
+    ]
+  }
+}
