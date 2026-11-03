@@ -1,9 +1,11 @@
 //! Three-voter metadata Raft, durable state and snapshot replication service.
+use crate::profile::{Metric, Timer};
 use std::sync::PoisonError;
 mod admission;
 mod applied;
 mod batching;
 pub(crate) mod diagnostics;
+mod network_profile;
 use diagnostics::{Kind, Stage, measure};
 const MAX_REPLICATION_ENTRIES: u64 = 24;
 
@@ -43,13 +45,15 @@ struct Network {
     rpc: ClientRpc,
 }
 struct Peer {
+    target: u64,
     rpc: ClientRpc,
     address: String,
 }
 impl RaftNetworkFactory<Types> for Network {
     type Network = Peer;
-    async fn new_client(&mut self, _target: u64, node: &BasicNode) -> Peer {
+    async fn new_client(&mut self, target: u64, node: &BasicNode) -> Peer {
         Peer {
+            target,
             rpc: self.rpc.clone(),
             address: node.addr.clone(),
         }
@@ -61,16 +65,26 @@ impl Peer {
         &self,
         request: RaftRequest,
     ) -> Result<T, RPCError<u64, BasicNode, RaftError<u64, E>>> {
+        let is_append = matches!(request, RaftRequest::Append(_));
+        let mut trace = network_profile::Trace::new(self.rpc.config_node(), self.target, &request);
         let result = async {
             let mut client = self.rpc.client(&self.address).await?;
-            let reply = client
-                .raft(self.rpc.authorize(rpc::encode(&request)?)?)
-                .await
-                .map_err(rpc::io_error)?;
+            let request = {
+                let _timer = is_append.then(|| Timer::start(Metric::AppendRpcEncode));
+                self.rpc.authorize(rpc::encode(&request)?)?
+            };
+            let reply = {
+                let _timer = is_append.then(|| Timer::start(Metric::AppendRpcRoundtrip));
+                client.raft(request).await.map_err(rpc::io_error)?
+            };
+            let _timer = is_append.then(|| Timer::start(Metric::AppendRpcDecode));
             let envelope = reply.into_inner();
             serde_json::from_slice(&envelope.data).map_err(io::Error::other)
         }
         .await;
+        if let Some(trace) = &mut trace {
+            trace.finish(result.is_ok());
+        }
         result.map_err(|error: io::Error| RPCError::Network(NetworkError::new(&error)))
     }
 }
@@ -111,6 +125,7 @@ pub(crate) struct Control {
 }
 impl Control {
     async fn leader(&self) -> Result<(), Status> {
+        let _timer = Timer::start(Metric::ReadIndex);
         measure(Stage::ReadIndex, Kind::Authority, async {
             tokio::time::timeout(Duration::from_secs(1), self.raft.ensure_linearizable())
                 .await
@@ -121,8 +136,12 @@ impl Control {
         .await
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
+        let _timer = Timer::start(Metric::ControlWrite);
         measure(Stage::Write, Kind::command(&command), async {
-            validate(&command)?;
+            {
+                let _timer = Timer::start(Metric::Validate);
+                validate(&command)?;
+            }
             if let Command::RepairCommit {
                 id,
                 generation,
@@ -139,11 +158,13 @@ impl Control {
                 .await
                 .map_err(|_| Status::unavailable("repair proof verification failed"))?;
             }
-            if serde_json::to_vec(&command)
-                .map_err(|_| Status::invalid_argument("invalid metadata command"))?
-                .len()
-                > 512 * 1024
-            {
+            let bytes = {
+                let _timer = Timer::start(Metric::Encode);
+                serde_json::to_vec(&command)
+                    .map_err(|_| Status::invalid_argument("invalid metadata command"))?
+                    .len()
+            };
+            if bytes > 512 * 1024 {
                 return Err(Status::resource_exhausted("metadata command byte limit"));
             }
             self.writes.write(command).await
@@ -491,6 +512,7 @@ impl wire::cluster_server::Cluster for Service {
 }
 pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>) -> io::Result<()> {
     config.validate()?;
+    let _profile = crate::profile::Reporter::start(config.node_id);
     if config.role != Role::Controller {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
