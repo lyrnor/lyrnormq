@@ -65,3 +65,13 @@ replica recovery tests. Fmt, strict all-target Clippy, workspace tests, local lo
 amd64-musl Zig release. No performance claim without measured comparison. Server
 pressure only after storage correctness gate; other known admission bottlenecks
 must remain reported rather than silently attributed to SQLite alone.
+
+Adapter mapping clarification (coordinator approved before implementation): persist
+committed watermark in raft-log UserData alongside identity/format, in the same WAL
+checkpoint record with sync completion, rather than native commit action. Native
+commit requires <=last and forbids covered truncation, incompatible with the existing
+snapshot-floor/direct-trait semantics. Preserve monotonicity and same-index identity;
+no fabricated log entries/last positions. Native append/vote/truncate/purge remain.
+Wal::open receives the WAL directory itself, creates only a nonexistent directory;
+existing empty/missing-identity directories fail closed. Strict official DumpApi
+preflight validates ALL existing records before open can auto-clean a tail.
