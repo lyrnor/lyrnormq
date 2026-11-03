@@ -2909,3 +2909,21 @@ CPUavg1.69cores/8,sampledpeak2.72,RSSpeak467.4MiB. Allprocessesstopped; noconfig
 changed. Backgroundreacquire>=1024/node andnode2quorumfailure remain. Firstfault~2s
 matchesRPCdeadline timing but exactstage unproven; no performance success claim.
 [Actual deployment evidence](performance/cluster-quota-free-20261103/README.md).
+
+## 2026-11-03 — Phase7n first-failure diagnosis, not a performance fix
+
+Frozen diagnostic-only contract; isolated runtime/control commits integrated through
+34fd5a6. Native finite900-CONNECT reproduction confirms firstAcquire2s unknown
+reply→RecoveryMissing→newAcquire/epoch/fencing. Core timing proves717API calls in
+1.318s withNotify waiting1.311s. Individual synchronousWAL work and API queueing
+remain; notify-only and5ms-round experiments allfailed. SplitReadIndex timing shows
+998917us obtainingreadID versus2511us subsequentappliedwait, preventing a false
+metrics-only diagnosis. No ControllerSQLite runtime or storage-corruption evidence.
+
+1024workspace tests pass/1externalPGignored;fmt/strictalltargetClippy pass; existing
+3combined-process dualversionQoS0/1/2 test passes3.107s. Productiondependency/lock
+unchanged; onlytiminginstrumentation integrated. ExperimentalOpenRaft copies remain
+scratch/evidenceonly; rootrelease restored to diagnostic-onlybinary. Allprocesses
+stopped; no serverpressure/deployment. Required nextfix: realControllercommandbatching,
+Corefairness and unknownAcquire reconciliation, then strictReadIndex/barrier review.
+[Evidence and failed interventions](verification/cluster-rootcause-20261103/README.md).

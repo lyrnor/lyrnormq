@@ -1,0 +1,105 @@
+--- a/src/core/raft_core.rs
++++ b/src/core/raft_core.rs
+@@ -919,6 +919,8 @@
+     ) -> Result<Infallible, Fatal<C::NodeId>> {
+         // Ratio control the ratio of number of RaftMsg to process to number of Notify to process.
+         let mut balancer = Balancer::new(10_000);
++        let diagnostic_interleave = std::env::var_os("RMQTT_DIAG_INTERLEAVE_NOTIFY").is_some();
++        let diagnostic_time_slice = std::env::var_os("RMQTT_DIAG_TIME_SLICE").is_some();
+ 
+         loop {
+             self.flush_metrics();
+@@ -965,7 +967,7 @@
+ 
+             // There is a message waking up the loop, process channels one by one.
+ 
+-            let raft_msg_processed = self.process_raft_msg(balancer.raft_msg()).await?;
++            let raft_msg_processed = self.process_raft_msg(balancer.raft_msg(), diagnostic_interleave, diagnostic_time_slice).await?;
+             let notify_processed = self.process_notify(balancer.notify()).await?;
+ 
+             // If one of the channel consumed all its budget, re-balance the budget ratio.
+@@ -987,7 +989,19 @@
+     ///
+     /// It returns the number of processed message.
+     /// If the input channel is closed, it returns `Fatal::Stopped`.
+-    async fn process_raft_msg(&mut self, at_most: u64) -> Result<u64, Fatal<C::NodeId>> {
++    async fn process_raft_msg(&mut self, at_most: u64, diagnostic_interleave: bool, diagnostic_time_slice: bool) -> Result<u64, Fatal<C::NodeId>> {
++        let started = std::time::Instant::now();
++        let mut pending_since = (self.rx_notify.len() > 0).then(std::time::Instant::now);
++        let mut pending_peak = self.rx_notify.len();
++        let emit = |processed: u64, pending_since: Option<std::time::Instant>, pending_peak: usize, pending_end: usize| {
++            if started.elapsed().as_millis() >= 20 {
++                static LONG_BATCHES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++                let count = LONG_BATCHES.fetch_add(1, Ordering::Relaxed) + 1;
++                if count.is_power_of_two() {
++                    tracing::warn!(event="diag_raft_api_batch", count, processed, elapsed_us=started.elapsed().as_micros() as u64, pending_peak, pending_end, pending_observed_us=pending_since.map(|s|s.elapsed().as_micros() as u64), diagnostic_interleave);
++                }
++            }
++        };
+         for i in 0..at_most {
+             let res = self.rx_api.try_recv();
+             let msg = match res {
+@@ -995,6 +1009,7 @@
+                 Err(e) => match e {
+                     mpsc::error::TryRecvError::Empty => {
+                         tracing::debug!("all RaftMsg are processed, wait for more");
++                        emit(i, pending_since, pending_peak, self.rx_notify.len());
+                         return Ok(i + 1);
+                     }
+                     mpsc::error::TryRecvError::Disconnected => {
+@@ -1011,7 +1026,16 @@
+             //       better performance.
+ 
+             self.run_engine_commands().await?;
+-        }
++            let pending = self.rx_notify.len();
++            pending_peak = pending_peak.max(pending);
++            if pending > 0 && pending_since.is_none() { pending_since = Some(std::time::Instant::now()); }
++            if diagnostic_interleave { self.process_notify(64).await?; }
++            if diagnostic_time_slice && started.elapsed() >= Duration::from_millis(5) {
++                emit(i + 1, pending_since, pending_peak, self.rx_notify.len());
++                return Ok(i + 1);
++            }
++        }
++        emit(at_most, pending_since, pending_peak, self.rx_notify.len());
+ 
+         tracing::debug!("at_most({}) reached, there are more queued RaftMsg to process", at_most);
+ 
+--- a/src/raft/mod.rs
++++ b/src/raft/mod.rs
+@@ -572,7 +572,27 @@
+     pub async fn ensure_linearizable(
+         &self,
+     ) -> Result<Option<LogId<C::NodeId>>, RaftError<C::NodeId, CheckIsLeaderError<C::NodeId, C::Node>>> {
++        struct ReadDiagnostic {
++            started: std::time::Instant,
++            acquired_us: Option<u64>,
++            target: Option<u64>,
++            applied: Option<u64>,
++            done: bool,
++        }
++        impl Drop for ReadDiagnostic {
++            fn drop(&mut self) {
++                static COUNTS: [std::sync::atomic::AtomicU64; 2] = [const { std::sync::atomic::AtomicU64::new(0) }; 2];
++                let count = COUNTS[self.done as usize].fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
++                if count.is_power_of_two() {
++                    tracing::warn!(event="diag_linearizable", count, done=self.done, acquired_us=self.acquired_us, target=self.target, applied=self.applied, total_us=self.started.elapsed().as_micros() as u64);
++                }
++            }
++        }
++        let mut diagnostic = ReadDiagnostic { started: std::time::Instant::now(), acquired_us: None, target: None, applied: None, done: false };
+         let (read_log_id, applied) = self.get_read_log_id().await?;
++        diagnostic.acquired_us = Some(diagnostic.started.elapsed().as_micros() as u64);
++        diagnostic.target = read_log_id.index();
++        diagnostic.applied = applied.index();
+ 
+         if read_log_id.index() > applied.index() {
+             self.wait(None)
+@@ -585,6 +605,7 @@
+                     WaitError::ShuttingDown => Fatal::Stopped,
+                 })?;
+         }
++        diagnostic.done = true;
+         Ok(read_log_id)
+     }
+ 

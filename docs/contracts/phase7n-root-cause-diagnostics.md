@@ -20,3 +20,9 @@ with existing real three-process fixture at finite small connection counts,
 retaining raw errors and cleaning up processes on all exits. Any fault injection
 must be clearly labeled, cannot stand in for reproducing the actual first trigger.
 No performance or complete-root-cause claim without observed supporting evidence.
+
+Approved diagnostic ownership extension: Control owner also instruments storage.rs
+and storage/diagnostics.rs to separate lock/worker waiting from WAL work and state
+application. Coordinator may use an isolated scratch dependency copy for A/B
+Core scheduling/read-stage diagnostics, preserving fsync/quorum conditions. Such
+failed experiments do not update production dependencies or establish a fix.

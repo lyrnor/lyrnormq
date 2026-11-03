@@ -1,0 +1,79 @@
+{
+  "source": "34fd5a6",
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "cpu_count": 10,
+    "runtime_workers_per_process": 4,
+    "processes": 3,
+    "network": "loopback",
+    "data": "fresh directories per case"
+  },
+  "cases": {
+    "staged900": {
+      "count": 900,
+      "success": 4,
+      "failures": {
+        "EOFError('connection closed')": 384,
+        "008800": 512
+      },
+      "mean_success_ms": 2019.0299374808092,
+      "last_actual_start_seconds": 3.1764693330042064
+    },
+    "core-a900": {
+      "count": 900,
+      "success": 3,
+      "failures": {
+        "EOFError('connection closed')": 386,
+        "008800": 511
+      },
+      "mean_success_ms": 1878.7305140091728,
+      "last_actual_start_seconds": 3.138066208048258
+    },
+    "core-b900": {
+      "count": 900,
+      "success": 49,
+      "failures": {
+        "008800": 848,
+        "EOFError('connection closed')": 3
+      },
+      "mean_success_ms": 2968.082033980362,
+      "last_actual_start_seconds": 2.8616888329852372
+    },
+    "core-c900": {
+      "count": 900,
+      "success": 0,
+      "failures": {
+        "EOFError('connection closed')": 351,
+        "008800": 549
+      },
+      "mean_success_ms": null,
+      "last_actual_start_seconds": 3.1653540410334244
+    },
+    "readsplit-c900": {
+      "count": 900,
+      "success": 124,
+      "failures": {
+        "EOFError('connection closed')": 281,
+        "008800": 495
+      },
+      "mean_success_ms": 3658.8661767178096,
+      "last_actual_start_seconds": 3.1015014169970527
+    },
+    "core-a2-900": {
+      "count": 900,
+      "success": 0,
+      "failures": {
+        "EOFError('connection closed')": 510,
+        "008800": 390
+      },
+      "mean_success_ms": null,
+      "last_actual_start_seconds": 3.1481309160008095
+    }
+  },
+  "artifacts": {
+    "rmqtt-7n-native": "b635d1cd4872ce903e9120e93b8eb7f7cf3c3e74d81e85cdafca50a75eb66b5c",
+    "rmqtt-7n-experiment-native": "8a224f82fc5df73c9663fdbd5903694dcc293d5a9180ac230b6aae95427e885f",
+    "rmqtt-7n-timeslice-native": "84e2bb008ca9c19b5d1366cd015752c17d20794c2e81c79124e136655c380ccb",
+    "rmqtt-7n-readsplit-native": "7546c39af5ad21c03982e93a405a7d2d35d5ff5a041c9ad199452a9acdea5f46"
+  }
+}

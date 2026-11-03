@@ -671,3 +671,17 @@ superseded, not an outstanding prerequisite. No automatic main merge or deployme
   at1000/s→10k. Stopped allprocesses; no further pressure afterfailure. Initial
   cache-fault/recovery-loop cause and request-correlated stage profiling remain open.
   Evidence:docs/performance/cluster-quota-free-20261103/README.md.
+
+## Phase7n — root-cause follow-up (supersedes unspecified first-stage diagnosis)
+
+- [x] Capture exactfirststage and typed recoverycause using isolateddiagnosticcommits.
+- [x] Reproduce locally; prove longCoreAPIround/Notifywait and individualdurableIOcost.
+- [x] Separate ReadIndex acquisition from applied-metricswait; preserve negative results.
+- [x] Full1024workspace tests/strictClippy/fmt and dualversionQoSprocessregression.
+- [ ] Freeze realControllercommandbatch semantics (per-commandepoch/result/replay) and
+  amortizeWALsync without earlyACK. WAL-onlygroupcommit cannot bypass Corecallbackwait.
+- [ ] Coordinate CoreAPI/Notify/progressfairness; failedexperimentalpatches are notfixes.
+- [ ] Reconcile unknownAcquire results before fresh epoch; preserveauthority/fencing.
+- [ ] Review safeReadIndex/Appliedcoalescing and effectivecapacity beforedeadlinechanges.
+- [ ] Repeat serverfirstcohort only after integratedfix andcorrectnessacceptance.
+  Detailed evidence:docs/verification/cluster-rootcause-20261103/README.md.

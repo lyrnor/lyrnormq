@@ -1,0 +1,20 @@
+{
+  "source": "34fd5a6",
+  "fmt_check": "passed",
+  "strict_workspace_all_targets_clippy": "passed",
+  "workspace_tests": {
+    "passed": 1024,
+    "failed": 0,
+    "ignored": 1,
+    "ignored_reason": "external PostgreSQL integration environment"
+  },
+  "process_tests": {
+    "passed": 1,
+    "case": "MemoryCombined.test_three_combined_processes_both_versions_all_qos",
+    "seconds": 3.107
+  },
+  "server_load": "not run",
+  "production_dependency_changed": false,
+  "production_fix": "not implemented; failed diagnostic experiments excluded",
+  "root_release_sha256": "b635d1cd4872ce903e9120e93b8eb7f7cf3c3e74d81e85cdafca50a75eb66b5c"
+}
