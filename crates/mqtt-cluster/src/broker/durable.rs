@@ -975,7 +975,10 @@ impl Durable {
         self.reconcile(runtime, None, &metadata);
     }
     async fn drain(self: &Arc<Self>, key: String) -> io::Result<()> {
-        loop {
+        // A continuously backlogged key must give older waiting keys a turn.
+        // Requeue without sleeping after a finite quantum; the scheduler keeps
+        // the key running until finish(), so a second worker cannot overlap.
+        for _ in 0..32 {
             let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
             if runtime.stopped.load(Ordering::Acquire) {
                 return Ok(());
@@ -1015,6 +1018,8 @@ impl Durable {
                 return Ok(());
             }
         }
+        self.scheduler.schedule(&key);
+        Ok(())
     }
     pub async fn run(self: Arc<Self>) {
         let mut jobs = tokio::task::JoinSet::new();

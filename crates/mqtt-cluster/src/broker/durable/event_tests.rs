@@ -245,3 +245,96 @@ fn stale_activation_ack_cannot_clear_new_release_at_same_record_version() {
     cell.activated(1, 0, &current);
     assert!(!cell.activate);
 }
+
+#[tokio::test]
+async fn sixteen_hot_keys_yield_to_seventeenth_waiting_key() -> io::Result<()> {
+    let (runtime, path) = fixture("fairness")?;
+    let data = runtime.data.as_ref().unwrap().clone();
+    let gate = Arc::new(tokio::sync::Barrier::new(17));
+    let (started, mut starts) = mpsc::channel(16);
+    let mut actors = tokio::task::JoinSet::new();
+    for index in 0..16 {
+        let key = format!("c:hot-{index}");
+        let owner = runtime.metadata.read().unwrap().durable["c:idle"].clone();
+        runtime
+            .metadata
+            .write()
+            .unwrap()
+            .durable
+            .insert(key.clone(), owner);
+        let (tx, mut rx) = mpsc::channel::<Job>(8);
+        data.actors.lock().unwrap().insert(key.clone(), tx);
+        let gate = gate.clone();
+        let started = started.clone();
+        data.scheduler.schedule(&key);
+        actors.spawn(async move {
+            for count in 0..32 {
+                let job = rx.recv().await.unwrap();
+                let Operation::Work { reply } = job.operation else {
+                    panic!("expected Work");
+                };
+                if count == 0 {
+                    started.send(()).await.unwrap();
+                    gate.wait().await;
+                }
+                let intent = Intent {
+                    id: DeliveryId {
+                        source: key.clone(),
+                        epoch: 1,
+                        revision: 1,
+                        index: count,
+                        target_generation: 0,
+                    },
+                    message: ClusterMessage {
+                        topic: "hot".into(),
+                        payload: vec![],
+                        qos: 0,
+                        retain: false,
+                        properties: Default::default(),
+                        expires_at: None,
+                        publisher: None,
+                        observer_client: String::new(),
+                        scope: ForwardScope::Ordinary,
+                    },
+                    recipients: vec![],
+                    completed: BTreeSet::new(),
+                };
+                let _ = reply.send(Ok(Work {
+                    intent: Some(intent),
+                    activation: None,
+                    activation_token: Arc::new(()),
+                }));
+            }
+            // Keep all 16 actors backlogged after their quantum. Old unbounded
+            // drains occupy every worker here and never visit the waiting key.
+            let _held = rx.recv().await;
+            std::future::pending::<()>().await;
+        });
+    }
+    let (tx, mut cold) = mpsc::channel::<Job>(8);
+    data.actors.lock().unwrap().insert("c:idle".into(), tx);
+    let runner = tokio::spawn(data.clone().run());
+    // Every hot worker reaches its first Work before the cold key is queued.
+    // Waiting at the barrier also makes the test independent of scheduler speed.
+    for _ in 0..16 {
+        tokio::time::timeout(Duration::from_secs(2), starts.recv())
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    data.scheduler.schedule("c:idle");
+    gate.wait().await;
+    let progressed = tokio::time::timeout(Duration::from_millis(500), cold.recv()).await;
+    runner.abort();
+    let _ = runner.await;
+    actors.abort_all();
+    while actors.join_next().await.is_some() {}
+    assert!(
+        progressed.is_ok(),
+        "16 continuously hot keys starved the 17th waiting key"
+    );
+    drop(data);
+    drop(runtime);
+    std::fs::remove_dir_all(path)?;
+    Ok(())
+}
