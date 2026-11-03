@@ -1,0 +1,934 @@
+{
+  "name": "q0",
+  "topology": "fixed2",
+  "command": [
+    "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+    "--addrs",
+    "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
+    "--protocol",
+    "5",
+    "--qos",
+    "0",
+    "--setup-concurrency",
+    "1",
+    "--pairs",
+    "30",
+    "--payload-bytes",
+    "128",
+    "--rate",
+    "100",
+    "--inflight",
+    "1",
+    "--warmup-ms",
+    "3000",
+    "--duration-ms",
+    "30000",
+    "--drain-timeout-ms",
+    "30000",
+    "--connect-timeout-ms",
+    "60000",
+    "--io-timeout-ms",
+    "30000",
+    "--max-messages",
+    "2000000",
+    "--output",
+    "/opt/rmqtt-cluster-load/20261103/fixed2/q0.json",
+    "--raw",
+    "/opt/rmqtt-cluster-load/20261103/fixed2/q0.jsonl"
+  ],
+  "pid": 6488,
+  "exit_code": 2,
+  "wall_start_ns": 1793691171967900338,
+  "wall_end_ns": 1793691246032790372,
+  "cpu_hz": 100,
+  "samples": [
+    {
+      "wall_ns": 1793691171968624372,
+      "ticks": 0,
+      "rss_bytes": 540672,
+      "threads": 1
+    },
+    {
+      "wall_ns": 1793691172468958969,
+      "ticks": 0,
+      "rss_bytes": 1196032,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691172969442187,
+      "ticks": 0,
+      "rss_bytes": 1196032,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691173469941375,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691173970410040,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691174470916347,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691174971360314,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691175471832706,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691175972201221,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691176472558158,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691176972958883,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691177473428755,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691177973895334,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691178474386074,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691178974840302,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691179475316490,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691179975749196,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691180476182302,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691180976655721,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691181477124611,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691181977565854,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691182477979462,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691182978407990,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691183478921204,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691183979390302,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691184479852890,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691184980246914,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691185480692650,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691185981074885,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691186481470476,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691186981949534,
+      "ticks": 0,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691187482424436,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691187982916079,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691188483383755,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691188983840920,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691189484219310,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691189984687252,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691190485081357,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691190985484565,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691191485979170,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691191986396410,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691192486891598,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691192987273945,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691193487707814,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691193988163360,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691194488568647,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691194988997299,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691195489422635,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691195989952080,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691196490409676,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691196990801932,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691197491264222,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691197991682540,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691198492073750,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691198992501211,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691199492931007,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691199993406695,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691200493857673,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691200994280530,
+      "ticks": 1,
+      "rss_bytes": 1327104,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691201494724340,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691201995099605,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691202495521404,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691202995903707,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691203496332283,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691203996714851,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691204497152861,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691204997538307,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691205498010347,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691205998402206,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691206498840436,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691206999263545,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691207499702769,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691208000085626,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691208500461574,
+      "ticks": 1,
+      "rss_bytes": 1458176,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691209000890495,
+      "ticks": 1,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691209501312031,
+      "ticks": 1,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691210001730214,
+      "ticks": 2,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691210502096080,
+      "ticks": 2,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691211002511986,
+      "ticks": 2,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691211502990377,
+      "ticks": 2,
+      "rss_bytes": 1589248,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691212003476817,
+      "ticks": 2,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691212503892682,
+      "ticks": 3,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691213004286299,
+      "ticks": 3,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691213504720402,
+      "ticks": 4,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691214005191438,
+      "ticks": 4,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691214505598323,
+      "ticks": 4,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691215006010490,
+      "ticks": 5,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691215506439507,
+      "ticks": 6,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691216006798129,
+      "ticks": 6,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691216507174880,
+      "ticks": 6,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691217007587818,
+      "ticks": 6,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691217508096867,
+      "ticks": 7,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691218008554110,
+      "ticks": 7,
+      "rss_bytes": 1982464,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691218509032520,
+      "ticks": 8,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691219009462268,
+      "ticks": 9,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691219509998292,
+      "ticks": 9,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691220010417875,
+      "ticks": 9,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691220510814888,
+      "ticks": 9,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691221011239245,
+      "ticks": 10,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691221511582115,
+      "ticks": 10,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691222012031449,
+      "ticks": 10,
+      "rss_bytes": 2113536,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691222512430743,
+      "ticks": 10,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691223012867097,
+      "ticks": 11,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691223513303146,
+      "ticks": 12,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691224013743872,
+      "ticks": 12,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691224514200509,
+      "ticks": 12,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691225014560408,
+      "ticks": 12,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691225515001054,
+      "ticks": 12,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691226015433638,
+      "ticks": 14,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691226515797265,
+      "ticks": 14,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691227016146249,
+      "ticks": 14,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691227516536472,
+      "ticks": 14,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691228016974696,
+      "ticks": 15,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691228517408218,
+      "ticks": 16,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691229017830708,
+      "ticks": 16,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691229518280116,
+      "ticks": 16,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691230018734564,
+      "ticks": 17,
+      "rss_bytes": 2244608,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691230519178772,
+      "ticks": 17,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691231019551268,
+      "ticks": 18,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691231520015082,
+      "ticks": 18,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691232020410878,
+      "ticks": 18,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691232520885699,
+      "ticks": 18,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691233021379902,
+      "ticks": 19,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691233521871191,
+      "ticks": 19,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691234022325348,
+      "ticks": 19,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691234522736380,
+      "ticks": 20,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691235023235787,
+      "ticks": 21,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691235523689251,
+      "ticks": 21,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691236024102720,
+      "ticks": 21,
+      "rss_bytes": 2375680,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691236524530941,
+      "ticks": 21,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691237024913196,
+      "ticks": 21,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691237525316061,
+      "ticks": 23,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691238025695933,
+      "ticks": 23,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691238526071972,
+      "ticks": 23,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691239026446535,
+      "ticks": 24,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691239526870312,
+      "ticks": 24,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691240027291078,
+      "ticks": 24,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691240527703246,
+      "ticks": 25,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691241028067486,
+      "ticks": 25,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691241528446051,
+      "ticks": 25,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691242028903289,
+      "ticks": 25,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691242529372158,
+      "ticks": 26,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691243029759846,
+      "ticks": 27,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691243530232689,
+      "ticks": 27,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691244030727563,
+      "ticks": 27,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691244531208591,
+      "ticks": 27,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691245031579830,
+      "ticks": 27,
+      "rss_bytes": 2506752,
+      "threads": 9
+    },
+    {
+      "wall_ns": 1793691245532066239,
+      "ticks": 29,
+      "rss_bytes": 2506752,
+      "threads": 9
+    }
+  ]
+}

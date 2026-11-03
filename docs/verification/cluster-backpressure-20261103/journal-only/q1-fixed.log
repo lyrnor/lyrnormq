@@ -1,0 +1,2 @@
+rmqtt-loadgen: 30 pairs / 60 TCP connections; QoS1; 128 bytes; fixed absolute schedule
+report: /opt/rmqtt-cluster-diagnosis-load/20261103/q1-fixed.json (success=false)

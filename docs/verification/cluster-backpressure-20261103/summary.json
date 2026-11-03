@@ -1,0 +1,42 @@
+{
+  "capacity_gate_passed": false,
+  "rows": [
+    {
+      "qos": 0,
+      "capacity_gate_passed": false,
+      "attempted": 1773,
+      "delivered": 1773,
+      "not_sent": 1227,
+      "failed_pairs": 0,
+      "missing": 0,
+      "duplicates": 0,
+      "delivered_tps": 58.1,
+      "p99_ms": 908.108238
+    },
+    {
+      "qos": 1,
+      "capacity_gate_passed": false,
+      "attempted": 1531,
+      "delivered": 1531,
+      "not_sent": 1469,
+      "failed_pairs": 0,
+      "missing": 0,
+      "duplicates": 0,
+      "delivered_tps": 50.03333333333333,
+      "p99_ms": 1006.411863
+    },
+    {
+      "qos": 2,
+      "capacity_gate_passed": false,
+      "attempted": 1101,
+      "delivered": 1101,
+      "not_sent": 1899,
+      "failed_pairs": 0,
+      "missing": 0,
+      "duplicates": 0,
+      "delivered_tps": 35.7,
+      "p99_ms": 984.081818
+    }
+  ],
+  "raw_counts_p99_and_final_ack_verified": true
+}

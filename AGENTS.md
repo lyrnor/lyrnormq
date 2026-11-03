@@ -19,6 +19,8 @@ vote, including startup/restart windows; persistent generation fences survive th
 Role cohosting and topology measurement follow docs/contracts/phase7d-cluster-benchmark.md.
 Coordinator owns CLI/loadgen integration; quality owns topology/probe tests and CI.
 Failed warmup is not a zero-loss or zero-latency measurement; preserve raw failures.
+Data-path diagnostics/backpressure follows docs/contracts/phase7e-data-path-diagnosis.md;
+preserve execution/body/actor limits, finite cancellable waiting and generation fencing.
 WS/WSS additionally follows docs/contracts/phase4d-websocket.md, including binary
 stream framing, strict mqtt subprotocol, finite buffers and bounded closing.
 Authentication admission and mandatory client certificates follow

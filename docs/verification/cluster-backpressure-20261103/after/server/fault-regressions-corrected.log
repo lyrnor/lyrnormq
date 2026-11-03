@@ -1,0 +1,7 @@
+test_rf1_refuses_new_durable_connack_and_publication_success (cluster_durable_blackbox.DurableFaults.test_rf1_refuses_new_durable_connack_and_publication_success) ... ok
+test_recipient_crash_preserves_receipt_and_unacknowledged_delivery (cluster_durable_blackbox.DurableFaults.test_recipient_crash_preserves_receipt_and_unacknowledged_delivery) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 8.652s
+
+OK

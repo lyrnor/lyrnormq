@@ -1,0 +1,22 @@
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-data-diagnosis-runtime/crates/mqtt-cluster)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.89s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-dd7d19b2376afb94)
+
+running 1 test
+test broker::durable::tests::business_admission_waits_for_existing_operation_slot ... FAILED
+
+failures:
+
+---- broker::durable::tests::business_admission_waits_for_existing_operation_slot stdout ----
+
+thread 'broker::durable::tests::business_admission_waits_for_existing_operation_slot' (18665698) panicked at crates/mqtt-cluster/src/broker/durable.rs:883:9:
+a legitimate business operation must wait rather than fail-fast at transient global admission saturation
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    broker::durable::tests::business_admission_waits_for_existing_operation_slot
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p mqtt-cluster --lib`

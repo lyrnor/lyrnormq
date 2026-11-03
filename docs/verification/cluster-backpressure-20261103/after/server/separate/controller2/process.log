@@ -1,0 +1,2 @@
+2026-11-03T07:32:05.810730Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:uncommitted; current my vote: None; when (VoteResponse)
+2026-11-03T07:32:05.826605Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:committed; current my vote: None; when (VoteResponse)

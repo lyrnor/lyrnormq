@@ -1,0 +1,20 @@
+test_rf1_refuses_new_durable_connack_and_publication_success (unittest.loader._FailedTest.test_rf1_refuses_new_durable_connack_and_publication_success) ... ERROR
+test_recipient_crash_preserves_receipt_and_unacknowledged_delivery (unittest.loader._FailedTest.test_recipient_crash_preserves_receipt_and_unacknowledged_delivery) ... ERROR
+test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery (cluster_durable_blackbox.Durable5.test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery) ... ok
+test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails (cluster_repair_blackbox.RepairFaults.test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails) ... ok
+test_installed_target_crash_before_control_commit_remains_nonvoting (cluster_repair_blackbox.RepairFaults.test_installed_target_crash_before_control_commit_remains_nonvoting) ... ok
+
+======================================================================
+ERROR: test_rf1_refuses_new_durable_connack_and_publication_success (unittest.loader._FailedTest.test_rf1_refuses_new_durable_connack_and_publication_success)
+----------------------------------------------------------------------
+AttributeError: type object 'Durable5' has no attribute 'test_rf1_refuses_new_durable_connack_and_publication_success'
+
+======================================================================
+ERROR: test_recipient_crash_preserves_receipt_and_unacknowledged_delivery (unittest.loader._FailedTest.test_recipient_crash_preserves_receipt_and_unacknowledged_delivery)
+----------------------------------------------------------------------
+AttributeError: type object 'Durable5' has no attribute 'test_recipient_crash_preserves_receipt_and_unacknowledged_delivery'
+
+----------------------------------------------------------------------
+Ran 5 tests in 32.441s
+
+FAILED (errors=2)

@@ -1,5 +1,8 @@
 # Cluster topology comparison — 2026-11-03
 
+Historical pre-fix comparison. Subsequent deployment and admission fixes are in
+[Phase7e evidence](../../verification/cluster-backpressure-20261103/README.md).
+
 **Performance gate FAILED for both topologies.** All six 60-connection main cases
 per topology failed during warmup; there is no measured cohort or valid capacity
 TPS/p99 from those runs. The smaller baseline passed without observed missing,

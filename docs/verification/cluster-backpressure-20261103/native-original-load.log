@@ -1,0 +1,8 @@
+test_sixty_connections_at_aggregate_one_hundred_per_second (__main__.DataPathCases.test_sixty_connections_at_aggregate_one_hundred_per_second) ...
+Preserved data-path evidence: /var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-data-path-evidence-2mav5t3k
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 72.850s
+
+OK

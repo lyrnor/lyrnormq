@@ -1,0 +1,116 @@
+[
+  {
+    "name": "controller1",
+    "pid": 32592,
+    "command": [
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/rmqtt",
+      "--cluster-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/controller1.json"
+    ],
+    "start_ticks": "619886"
+  },
+  {
+    "name": "controller2",
+    "pid": 32594,
+    "command": [
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/rmqtt",
+      "--cluster-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/controller2.json"
+    ],
+    "start_ticks": "619886"
+  },
+  {
+    "name": "controller3",
+    "pid": 32599,
+    "command": [
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/rmqtt",
+      "--cluster-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/controller3.json"
+    ],
+    "start_ticks": "619886"
+  },
+  {
+    "name": "node1",
+    "pid": 32603,
+    "command": [
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/rmqtt",
+      "--cluster-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/broker101.json",
+      "--listen",
+      "172.16.240.180:18831",
+      "--admin-listen",
+      "127.0.0.1:18761",
+      "--admin-token-file",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/admin.token",
+      "--rules-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/node1/rules.sqlite",
+      "--access-control-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/node1/access.sqlite",
+      "--auth-rate-per-second",
+      "0",
+      "--max-handshakes",
+      "1024",
+      "--max-auth-tasks",
+      "128",
+      "--max-connections",
+      "20000"
+    ],
+    "start_ticks": "619887"
+  },
+  {
+    "name": "node2",
+    "pid": 32612,
+    "command": [
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/rmqtt",
+      "--cluster-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/broker102.json",
+      "--listen",
+      "172.16.240.180:18832",
+      "--admin-listen",
+      "127.0.0.1:18762",
+      "--admin-token-file",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/admin.token",
+      "--rules-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/node2/rules.sqlite",
+      "--access-control-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/node2/access.sqlite",
+      "--auth-rate-per-second",
+      "0",
+      "--max-handshakes",
+      "1024",
+      "--max-auth-tasks",
+      "128",
+      "--max-connections",
+      "20000"
+    ],
+    "start_ticks": "619887"
+  },
+  {
+    "name": "node3",
+    "pid": 32617,
+    "command": [
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/rmqtt",
+      "--cluster-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/broker103.json",
+      "--listen",
+      "172.16.240.180:18833",
+      "--admin-listen",
+      "127.0.0.1:18763",
+      "--admin-token-file",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/admin.token",
+      "--rules-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/node3/rules.sqlite",
+      "--access-control-config",
+      "/opt/rmqtt-cluster-diagnosis/20261103/diagnostic/separate/node3/access.sqlite",
+      "--auth-rate-per-second",
+      "0",
+      "--max-handshakes",
+      "1024",
+      "--max-auth-tasks",
+      "128",
+      "--max-connections",
+      "20000"
+    ],
+    "start_ticks": "619887"
+  }
+]

@@ -1,0 +1,22 @@
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-data-diagnosis-runtime/crates/mqtt-cluster)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.28s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-dd7d19b2376afb94)
+
+running 1 test
+test replica::tests::saturated_journal_waits_without_submitting_more_blocking_jobs ... FAILED
+
+failures:
+
+---- replica::tests::saturated_journal_waits_without_submitting_more_blocking_jobs stdout ----
+
+thread 'replica::tests::saturated_journal_waits_without_submitting_more_blocking_jobs' (18645193) panicked at crates/mqtt-cluster/src/replica.rs:956:9:
+a short Journal burst must wait for an existing slot rather than reject the data transaction
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    replica::tests::saturated_journal_waits_without_submitting_more_blocking_jobs
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p mqtt-cluster --lib`

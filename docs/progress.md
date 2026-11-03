@@ -2677,3 +2677,32 @@ branches via bounded counters/profiling before altering Durable32/Journal32 quot
 100ms work scheduling, complete-record/quota scans and sync behavior. Preserve
 quorum, atomic outbox/receipts and generation fencing. Large-load acceptance,
 multi-machine/multi-disk tests, existing cluster feature/cleanup limits remain open.
+
+## 2026-11-03 — Phase7e confirmed admission failure, bounded-backpressure fixes
+
+Linux diagnostics confirmed Journal32 immediate rejection precedes quorum failure,
+cache poisoning/reacquisition and disconnection. Journal waiting exposed the same
+fail-fast policy in upper Durable32. Both layers now retain execution limits and
+use finite32-entry/750ms async waiting; business body16MiB and actor8 bounds remain.
+Body is charged before waiting; actor capacity precedes global business admission.
+Background Work/Forget skip without occupying business waiting budget. W2,
+outbox/receipt atomicity and persistent generation fencing are unchanged.
+
+Old deterministic saturation regressions failed before fixes. Final904Rust tests
+passed/one livePG ignore; strictClippy/fmt passed. Five selectedLinux quorum,
+receipt/QoS2 recovery and non-voting repair tests passed; selector errors from first
+command retained separately. Code review and implementation used independent WTs.
+
+On the same60-connection100/s128B case, no failed pairs remained; QoS0/1/2 sent and
+delivered1773/1531/1101 with complete finalACKs and no duplicates. HOWEVER planned
+3000 percase was not achieved: missing sends1227/1469/1899, so capacity gate remains
+FAILED. Offering deliveryTPS58.1/50.033/35.7 andp99~908/1006/984ms. This resolves the
+false-failure/disconnect chain, not the remaining throughput problem. Shared-disk
+IO sample util averaged36.8%/peaked82.6%; no proof hardware saturation explains it.
+Remaining: profile serialization/SQLite critical section/sync/scheduling separately;
+evaluate Group Commit and pending-work indexing/notifications without weaker ACKs.
+
+Finalsource d8d0eb0 locally zigbuilt and hashverified onserver; six-process test
+fleet now runs under /opt/rmqtt-cluster-diagnosis/20261103/fixed2/separate (same
+privateMQTT ports), olddirectories preserved/stopped. No new mixed-role or physical
+multi-host capacity claim. [Evidence](verification/cluster-backpressure-20261103/README.md).

@@ -32,3 +32,21 @@ and retain ambiguity poisoning if an already-submitted write loses quorum.
 This adds bounded backpressure, not a higher execution limit, weaker ACK, unlimited
 queue, or guaranteed throughput on arbitrary disks. Distinguish saturation waiting
 from actual queue-full/timeout diagnostics. No100ms scheduler optimization in this fix.
+
+The extra32 waiting requests retain decoded request bodies/closures. This is a new
+finite memory budget, not a claim of unchanged peak RSS or a precise RAM cap;
+existing frame/record limits and decoding overhead still apply. Sustained stalls
+or overload can still fail with explicit full/timeout diagnostics. The fix only
+removes immediate quorum failure caused by short Journal admission bursts.
+
+## Upper-layer completion after Journal backpressure
+
+Linux retest removed Journal immediate rejections but exposed DurableOperations
+as the next first rejection. Keep32 business operations, actor channel8 and total
+16MiB payload permits unchanged. Business admission may queue at most32 async
+waiters for750ms; charge payload before waiting, reserve actor capacity and FIFO
+operation capacity before submitting any Job. Cancellation/timeout submits nothing.
+Work/Forget remain nonblocking best effort and do not consume this waiting budget;
+a rejected background admission must not trigger ownership reacquisition. Internal
+Release may become async; public ClusterBridge/durable schemas remain unchanged.
+Existing committed/ambiguous outcomes still follow original authority fencing.

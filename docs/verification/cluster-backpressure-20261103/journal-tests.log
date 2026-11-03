@@ -1,0 +1,48 @@
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-data-diagnosis-runtime/crates/mqtt-cluster)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.26s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-dd7d19b2376afb94)
+
+running 35 tests
+test diagnosis::tests::logarithmic_sampling_has_finite_volume_per_fixed_category ... ok
+test broker::durable::tests::repair_generation_invalidates_cached_writer_before_any_operation ... ok
+test diagnosis::tests::fixed_categories_preserve_retry_kind_without_sensitive_context ... ok
+test broker::durable::tests::discarded_handoff_cache_does_not_clear_a_returned_owner ... ok
+test repair_state::tests::begin_abort_never_reenables_unrepaired_target_or_loses_old_anchor ... ok
+test repair_state::tests::commit_requires_exact_original_proofs_and_installed_sealed_target ... ok
+test replica::tests::journal_lock_acquisition_waits_for_the_child_pre_exec_window ... ok
+test broker::repair::tests::frozen_donor_keeps_control_plane_and_abort_rejects_old_generation ... ok
+test replica::tests::repair_install_crash_probe ... ok
+test broker::durable::tests::committed_receipt_bypasses_full_recipient_queue ... ok
+test replica::tests::canceled_journal_wait_never_submits_the_write ... ok
+test replica::tests::fence_returns_prior_write_and_rejects_stale_or_conflicting_records ... ok
+test replica::tests::repair_canonical_manifest_and_capacity_rejections_are_exact ... ok
+test replica::tests::repair_resume_requires_exact_token_or_explicit_unfrozen_abort_authorization ... ok
+test replica::tests::repair_rejects_bad_tokens_and_digest_without_exposing_staging ... ok
+test replica::tests::repair_pages_install_and_restart_preserve_records_fences_and_generation ... ok
+test replica::watermark_tests::disk_identity_is_stable_and_empty_replacement_gets_a_new_identity ... ok
+test replica::watermark_tests::sequential_messages_and_legacy_receipts_use_bounded_source_watermarks ... ok
+test tests::durable_directory_preserves_interest_and_rejects_mixed_membership ... ok
+test tests::expired_replica_identity_cannot_be_replaced_by_a_new_empty_disk ... ok
+test tests::mixed_controller_leases_preserve_all_outstanding_grants ... ok
+test tests::mixed_lease_election_waits_old_maximum_and_tracks_new_grants_monotonically ... ok
+test tests::offline_cas_cannot_steal_an_owner_that_is_live_again ... ok
+test replica::tests::saturated_journal_waits_without_submitting_more_blocking_jobs ... ok
+test tests::ownership_release_is_fenced_and_expiry_is_conditional ... ok
+test tests::subscription_generation_and_delta_gap_are_fenced ... ok
+test tests::durable_vote_commit_state_snapshot_and_exclusive_directory ... ok
+test replica::tests::repair_install_process_crashes_leave_old_or_complete_new_set_frozen ... ok
+test replica::tests::queued_journal_request_rechecks_freeze_and_generation_after_admission ... ok
+test replica::tests::ordinary_status_refresh_never_briefly_revokes_replica_readiness ... ok
+test replica::watermark_tests::full_source_quota_fails_closed_and_preserves_receipts_after_restart ... ok
+test replica::tests::completed_blocking_operations_release_all_journal_ownership_before_return ... ok
+test replica::tests::journal_wait_budget_and_deadline_are_finite ... ok
+test replica::tests::repair_export_accepts_near_eight_mib_record_with_maximum_key ... ok
+test tests::openraft_storage_conformance ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.46s
+
+   Doc-tests mqtt_cluster
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
