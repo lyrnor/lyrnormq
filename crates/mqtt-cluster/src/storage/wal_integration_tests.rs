@@ -328,3 +328,45 @@ async fn repeated_prefix_is_idempotent_but_committed_conflict_requires_checkpoin
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
+
+#[test]
+fn final_store_drop_defers_all_io_and_retains_directory_lock_until_cleanup()
+-> Result<(), Box<dyn std::error::Error>> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .max_blocking_threads(1)
+        .build()?;
+    let dir = directory();
+    runtime.block_on(async {
+        let store = Store::open(&dir, "test", 1).await?;
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let blocked = tokio::task::spawn_blocking(move || {
+            entered_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+        });
+        entered_rx.await?;
+        drop(store);
+        let probe = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(dir.join("controller.lock"))?;
+        let retained = probe.try_lock().is_err();
+        drop(probe);
+        release_tx.send(())?;
+        blocked.await?;
+        assert!(
+            retained,
+            "async final drop must defer closing and retain directory ownership while cleanup waits"
+        );
+        let store = Store::open(&dir, "test", 1).await?;
+        drop(store);
+        // Opening again also waits for the preceding cleanup rather than racing it.
+        let store = Store::open(&dir, "test", 1).await?;
+        drop(store);
+        Ok::<_, Box<dyn std::error::Error>>(())
+    })?;
+    drop(runtime); // Runtime shutdown joins the one pending blocking cleanup.
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}

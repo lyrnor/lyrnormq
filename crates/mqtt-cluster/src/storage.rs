@@ -27,11 +27,40 @@ pub struct Store {
     apply_gate: Arc<Semaphore>,
 }
 struct Inner {
-    db: Mutex<Connection>,
-    wal: Mutex<wal::Wal>,
-    _lock: std::fs::File,
+    db: Mutex<Option<Connection>>,
+    wal: Mutex<Option<wal::Wal>>,
+    _lock: Option<std::fs::File>,
     slots: Arc<Semaphore>,
 }
+impl Drop for Inner {
+    fn drop(&mut self) {
+        let db = self
+            .db
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        let wal = self
+            .wal
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        let lock = self._lock.take();
+        // Exactly one cleanup per controller store, never per request. Keep the
+        // directory lease until the native WAL worker has flushed and joined.
+        let close = move || {
+            drop(wal);
+            drop(db);
+            drop(lock);
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(runtime) => {
+                drop(runtime.spawn_blocking(close));
+            }
+            Err(_) => close(),
+        }
+    }
+}
+
 fn err(error: impl std::fmt::Display) -> StorageError<u64> {
     StorageIOError::write_state_machine(&io::Error::other(error.to_string())).into()
 }
@@ -71,12 +100,24 @@ impl Store {
                 .read(true)
                 .write(true)
                 .open(path.join("controller.lock"))?;
-            lock.try_lock().map_err(|_| {
-                io::Error::new(
-                    io::ErrorKind::WouldBlock,
-                    "controller data directory is already in use",
-                )
-            })?;
+            let lock_deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            loop {
+                match lock.try_lock() {
+                    Ok(()) => break,
+                    Err(std::fs::TryLockError::WouldBlock)
+                        if std::time::Instant::now() < lock_deadline =>
+                    {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    Err(std::fs::TryLockError::WouldBlock) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::WouldBlock,
+                            "controller data directory is already in use",
+                        ));
+                    }
+                    Err(std::fs::TryLockError::Error(error)) => return Err(error),
+                }
+            }
             let db = Connection::open(path.join("metadata.sqlite")).map_err(db_err)?;
             db.pragma_update(None, "journal_mode", "WAL")
                 .map_err(db_err)?;
@@ -107,9 +148,9 @@ impl Store {
         let (changed, _) = watch::channel(state.metadata.revision);
         Ok(Self {
             inner: Arc::new(Inner {
-                db: Mutex::new(db),
-                wal: Mutex::new(wal),
-                _lock: lock,
+                db: Mutex::new(Some(db)),
+                wal: Mutex::new(Some(wal)),
+                _lock: Some(lock),
                 slots: Arc::new(Semaphore::new(32)),
             }),
             state: Arc::new(Mutex::new(state)),
@@ -133,7 +174,11 @@ impl Store {
         let inner = self.inner.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            call(&mut inner.db.lock().unwrap_or_else(PoisonError::into_inner))
+            let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+            call(
+                db.as_mut()
+                    .ok_or_else(|| db_err("checkpoint store is closed"))?,
+            )
         })
         .await
         .map_err(err)?
@@ -155,7 +200,8 @@ impl Store {
         let inner = self.inner.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            call(&mut inner.wal.lock().unwrap_or_else(PoisonError::into_inner))
+            let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
+            call(wal.as_mut().ok_or_else(|| db_err("Raft WAL is closed"))?)
         })
         .await
         .map_err(err)?
@@ -179,7 +225,11 @@ impl Store {
             let _permit = permit;
             let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
             let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
-            call(&mut wal, &mut db)
+            call(
+                wal.as_mut().ok_or_else(|| db_err("Raft WAL is closed"))?,
+                db.as_mut()
+                    .ok_or_else(|| db_err("checkpoint store is closed"))?,
+            )
         })
         .await
         .map_err(err)?

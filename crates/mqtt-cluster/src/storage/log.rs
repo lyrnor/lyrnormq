@@ -262,7 +262,7 @@ fn legacy_logs_exist(db: &Connection) -> io::Result<bool> {
 /// suffix unless its complete input is already covered by a durable checkpoint.
 pub(super) fn append_checked(
     wal: &mut wal::Wal,
-    db: &Mutex<Connection>,
+    db: &Mutex<Option<Connection>>,
     mut entries: Vec<Entry<Types>>,
 ) -> io::Result<()> {
     let state = wal.state()?;
@@ -319,8 +319,14 @@ pub(super) fn append_checked(
         .is_some_and(|last| first.index <= last.index)
     {
         let committed = wal.committed()?;
-        let checkpoint =
-            recovery::checkpoint(&db.lock().unwrap_or_else(PoisonError::into_inner))?.last_applied;
+        let checkpoint = {
+            let db = db.lock().unwrap_or_else(PoisonError::into_inner);
+            recovery::checkpoint(
+                db.as_ref()
+                    .ok_or_else(|| db_err("checkpoint store is closed"))?,
+            )?
+            .last_applied
+        };
         if committed.is_some_and(|last| {
             last.index >= first.index && checkpoint.is_none_or(|covered| covered.index < last.index)
         }) {
