@@ -311,3 +311,51 @@ fn physical_collision_and_logical_envelope_bounds_fail_closed() {
     invalid[..4].copy_from_slice(&u32::MAX.to_be_bytes());
     assert!(business_unpack(b"routes", &business_key(b"a"), &invalid).is_err());
 }
+#[test]
+fn native_bbolt_sorted_hash_growth_preserves_old_keys() {
+    let p = dir();
+    let db = bbolt::Db::open(p.join("native.bbolt"), 0o600, None).unwrap();
+    db.update(|tx| {
+        tx.create_bucket(b"rows")?;
+        Ok(())
+    })
+    .unwrap();
+    let full = (0..10)
+        .flat_map(|c| (0..210).map(move |i| format!("gate/{c}/{i}")))
+        .collect::<std::collections::BTreeSet<_>>();
+    for count in [100, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2100] {
+        let rows = full
+            .iter()
+            .take(count)
+            .map(|k| {
+                (
+                    business_key(k.as_bytes()),
+                    business_record(b"routes", k.as_bytes(), b"[1]").unwrap(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        db.update(|tx| {
+            let bucket = tx.bucket(b"rows")?.unwrap();
+            for (key, value) in &rows {
+                if bucket.get(key)?.as_deref() != Some(value) {
+                    bucket.put(key, value)?;
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+        db.view(|tx| {
+            let bucket = tx.bucket(b"rows")?.unwrap();
+            for key in rows.keys() {
+                assert!(
+                    bucket.get(key)?.is_some(),
+                    "native missing after growth count={count}"
+                );
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+    drop(db);
+    std::fs::remove_dir_all(p).unwrap();
+}
