@@ -255,8 +255,8 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bbolt"
-version = "0.1.0"
-source = "git+https://github.com/biaogd/bbolt-rs?tag=v0.1.0#3aa4b1c1f44fe3a67e5a8b718978dc7af0315962"
+version = "0.1.1"
+source = "git+https://github.com/biaogd/bbolt-rs?tag=v0.1.1#3e33a39f4e3ac32123ddc8bfaa7638277a3e7a23"
 dependencies = [
  "libc",
  "memmap2",

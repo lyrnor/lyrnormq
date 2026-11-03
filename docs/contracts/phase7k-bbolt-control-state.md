@@ -97,3 +97,22 @@ If marker exists and Bbolt is missing, never reimport a stale exchange. Validate
 marker content/identity; existing valid DB without marker is verified/recovered
 before completing the marker. Marker is the O(1) missing-store fence, not business
 storage or a substitute for the independent Raft committed watermark.
+
+Long-key amendment before deployment: bbolt physical keys are capped32768bytes,
+while valid MQTT Client IDs/Topic Filters and prefixed owner keys can reach65538.
+Business buckets use32-byte SHA256(logical key) physical keys; values include a
+bounded u32 logical-key length, full UTF8 logical key, contextual record digest and
+data. Validate physical hash, logical length/checksum and duplicate/collision before
+publishing a checkpoint. Metadata static keys stay unchanged. Never narrow MQTT
+limits to accommodate the KV backend. This replaces the initial raw-key layout
+before any deployed Phase7k business state exists.
+
+Dependency correctness amendment: process snapshot gate exposed valid-row/global-
+digest inconsistency with initial v0.1.0. Native-only repeated sorted-hash writes
+reproduce missing keys at512 rows. Root cause: append hint did not enforce the
+cached leaf's right boundary. The upstream fix limits the hint to a root leaf and
+uses branch lookup otherwise (format/API unchanged), released as v0.1.1 at
+3e33a39f4e3ac32123ddc8bfaa7638277a3e7a23 on an independent upstream branch.
+Use THIS exact tag/locked revision, superseding the initial v0.1.0 requirement.
+Keep deterministic native and repeated keyed-checkpoint RED regressions enabled.
+No affected Phase7k store was deployed; prior failed fixture evidence retained.
