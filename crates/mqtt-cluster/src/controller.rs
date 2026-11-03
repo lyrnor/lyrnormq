@@ -200,6 +200,20 @@ impl Control {
 fn validate(command: &Command) -> Result<(), Status> {
     let text = |s: &str, max: usize| !s.is_empty() && s.len() <= max && !s.contains('\0');
     let okay = match command {
+        Command::RepairBegin {
+            target,
+            old_disk,
+            new_disk,
+            ..
+        } => *target > 0 && text(old_disk, 32) && text(new_disk, 32),
+        Command::RepairSeal {
+            id,
+            generation,
+            manifest,
+        } => text(id, 128) && *generation > 0 && manifest.valid(),
+        Command::RepairCommit { id, generation, .. } | Command::RepairAbort { id, generation } => {
+            text(id, 128) && *generation > 0
+        }
         Command::Acquire {
             key,
             node,
@@ -346,6 +360,15 @@ impl wire::cluster_server::Cluster for Service {
                     clients: s.clients.len()
                         + s.durable.keys().filter(|key| key.starts_with("c:")).count(),
                     routes: s.routes.len(),
+                    data_generation: s.data_generation,
+                    excluded: s.excluded.iter().copied().collect(),
+                    repair: s.repair.as_ref().map(|r| r.summary("active")),
+                    last_repair: s.last_repair.as_ref().map(|r| {
+                        r.repair.summary(match r.outcome {
+                            crate::repair_state::RepairOutcome::Committed => "committed",
+                            crate::repair_state::RepairOutcome::Aborted => "aborted",
+                        })
+                    }),
                 })
             }
         }

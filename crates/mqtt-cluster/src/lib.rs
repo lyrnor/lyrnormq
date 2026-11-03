@@ -4,6 +4,7 @@ mod config;
 mod controller;
 mod lease;
 mod model;
+mod repair_state;
 mod replica;
 mod rpc;
 mod storage;

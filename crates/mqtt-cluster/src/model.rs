@@ -1,4 +1,5 @@
 //! Deterministic bounded controller metadata state machine.
+use crate::repair_state::{RepairProof, RepairSeal, RepairState, RepairSummary, RepairTerminal};
 use mqtt_cluster_core::ClusterMessage;
 use openraft::{BasicNode, Entry, LogId, StoredMembership};
 use serde::{Deserialize, Serialize};
@@ -52,6 +53,14 @@ pub struct Metadata {
     pub data_mode: Option<DataMode>,
     #[serde(default)]
     pub disk_ids: BTreeMap<u64, String>,
+    #[serde(default)]
+    pub data_generation: u64,
+    #[serde(default)]
+    pub excluded: BTreeSet<u64>,
+    #[serde(default)]
+    pub repair: Option<RepairState>,
+    #[serde(default)]
+    pub last_repair: Option<RepairTerminal>,
     pub nodes: BTreeMap<u64, Node>,
     pub clients: BTreeMap<String, Client>,
     pub routes: BTreeMap<String, BTreeSet<u64>>,
@@ -60,6 +69,26 @@ pub struct Metadata {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Command {
+    RepairBegin {
+        target: u64,
+        old_disk: String,
+        new_disk: String,
+        expected_generation: u64,
+    },
+    RepairSeal {
+        id: String,
+        generation: u64,
+        manifest: RepairSeal,
+    },
+    RepairCommit {
+        id: String,
+        generation: u64,
+        proofs: Vec<RepairProof>,
+    },
+    RepairAbort {
+        id: String,
+        generation: u64,
+    },
     Acquire {
         key: String,
         node: u64,
@@ -174,7 +203,32 @@ impl Metadata {
         }
     }
     fn mutate(&mut self, command: Command) -> Result<(), String> {
+        if self.repair.is_some()
+            && matches!(
+                &command,
+                Command::Acquire { .. } | Command::DurableFilters { .. }
+            )
+        {
+            return Err("durable maintenance in progress".into());
+        }
         match command {
+            Command::RepairBegin {
+                target,
+                old_disk,
+                new_disk,
+                expected_generation,
+            } => self.begin_repair(target, old_disk, new_disk, expected_generation)?,
+            Command::RepairSeal {
+                id,
+                generation,
+                manifest,
+            } => self.seal_repair(&id, generation, manifest)?,
+            Command::RepairCommit {
+                id,
+                generation,
+                proofs,
+            } => self.commit_repair(&id, generation, proofs)?,
+            Command::RepairAbort { id, generation } => self.abort_repair(&id, generation)?,
             Command::Acquire {
                 key,
                 node,
@@ -183,6 +237,9 @@ impl Metadata {
                 expected_epoch,
             } => {
                 self.valid_node(node, &incarnation)?;
+                if self.excluded.contains(&node) {
+                    return Err("replica excluded pending repair".into());
+                }
                 if !matches!(&self.data_mode,Some(DataMode::Durable(m)) if m.iter().any(|(id,_)|*id==node))
                 {
                     return Err("durable membership required".into());
@@ -253,6 +310,11 @@ impl Metadata {
                 replicas,
                 disk_id,
             } => {
+                if self.excluded.contains(&node)
+                    || self.repair.as_ref().is_some_and(|r| r.target == node)
+                {
+                    return Err("replica excluded pending repair".into());
+                }
                 let mode = match replicas {
                     Some(mut peers) => {
                         peers.sort();
@@ -470,6 +532,14 @@ pub struct ClusterStatus {
     pub nodes: usize,
     pub clients: usize,
     pub routes: usize,
+    #[serde(default)]
+    pub data_generation: u64,
+    #[serde(default)]
+    pub excluded: Vec<u64>,
+    #[serde(default)]
+    pub repair: Option<RepairSummary>,
+    #[serde(default)]
+    pub last_repair: Option<RepairSummary>,
 }
 
 /// A reconnect starts with a snapshot; subsequent coalesced deltas require an exact base.
@@ -484,6 +554,10 @@ pub enum MetadataUpdate {
         revision: u64,
         data_mode: Option<DataMode>,
         disk_ids: BTreeMap<u64, String>,
+        data_generation: u64,
+        excluded: BTreeSet<u64>,
+        repair: Option<RepairState>,
+        last_repair: Option<RepairTerminal>,
         nodes: BTreeMap<u64, Option<Node>>,
         clients: BTreeMap<String, Option<Client>>,
         durable: BTreeMap<String, Option<DurableOwner>>,
@@ -519,6 +593,10 @@ impl MetadataUpdate {
             revision: next.revision,
             data_mode: next.data_mode.clone(),
             disk_ids: next.disk_ids.clone(),
+            data_generation: next.data_generation,
+            excluded: next.excluded.clone(),
+            repair: next.repair.clone(),
+            last_repair: next.last_repair.clone(),
             nodes: diff(&old.nodes, &next.nodes),
             clients: diff(&old.clients, &next.clients),
             durable: diff(&old.durable, &next.durable),
@@ -540,6 +618,10 @@ impl MetadataUpdate {
                 revision,
                 data_mode,
                 disk_ids,
+                data_generation,
+                excluded,
+                repair,
+                last_repair,
                 nodes,
                 clients,
                 durable,
@@ -551,6 +633,10 @@ impl MetadataUpdate {
                 let mut next = old.clone();
                 next.data_mode = data_mode;
                 next.disk_ids = disk_ids;
+                next.data_generation = data_generation;
+                next.excluded = excluded;
+                next.repair = repair;
+                next.last_repair = last_repair;
                 patch(&mut next.nodes, nodes);
                 patch(&mut next.clients, clients);
                 patch(&mut next.durable, durable);
