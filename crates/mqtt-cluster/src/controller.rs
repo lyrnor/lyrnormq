@@ -6,6 +6,7 @@ mod applied;
 mod batching;
 pub(crate) mod diagnostics;
 mod network_profile;
+mod readindex;
 use diagnostics::{Kind, Stage, measure};
 const MAX_REPLICATION_ENTRIES: u64 = 24;
 
@@ -122,18 +123,12 @@ pub(crate) struct Control {
     progress: applied::Progress,
     lease_ms: u64,
     writes: batching::Writer,
+    reads: readindex::Reader,
 }
 impl Control {
     async fn leader(&self) -> Result<(), Status> {
         let _timer = Timer::start(Metric::ReadIndex);
-        measure(Stage::ReadIndex, Kind::Authority, async {
-            tokio::time::timeout(Duration::from_secs(1), self.raft.ensure_linearizable())
-                .await
-                .map_err(|_| Status::unavailable("quorum deadline"))?
-                .map_err(|_| Status::unavailable("not current leader"))?;
-            Ok(())
-        })
-        .await
+        measure(Stage::ReadIndex, Kind::Authority, self.reads.check()).await
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
         let _timer = Timer::start(Metric::ControlWrite);
@@ -547,6 +542,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     .map_err(io::Error::other)?;
     let writes = batching::start(raft.clone(), store.clone(), config.node_id, config.lease_ms);
     let control = Arc::new(Control {
+        reads: readindex::start(raft.clone()),
         raft,
         store,
         writes,
@@ -714,6 +710,7 @@ mod control_tests {
         .map_err(io::Error::other)?;
         let writes = batching::start(raft.clone(), store.clone(), 1, 3000);
         let control = Arc::new(Control {
+            reads: readindex::start(raft.clone()),
             raft,
             store,
             writes,
