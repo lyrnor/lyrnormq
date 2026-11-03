@@ -91,3 +91,15 @@ and repeats the same finite900case; report real results, not desired targets.
 Only after local correctness and reproduction pass, build locally cargo zigbuild
 amd64musl and repeat the previously authorized first server1000/s→10000cohort with
 private network. Stop on first failure; no larger cohorts until it passes.
+
+Recovery clarification after audit: a delayed Recover job must recheck Cell health
+and authority at execution; if intervening foreground work has already recovered,
+no-op rather than acquire/activate/fence the live connection. Host/system ingress
+uses the same pending identity logic. On a proven CAS rejection restore any prior
+pending identity rather than replacing it with a definitively failed request. If
+reconciliation reads an ours-owned AcquireOnce owner, reconstruct its exact
+(generation,acquired_from) identity and retry that identity, not a new epoch.
+Foreign ownership stops local recovery. A genuinely poisoned legacy owner without
+acquired_from may need one new fenced recovery, then retains that identity.
+Numeric TCP-accept generations are not an extra latest-generation admission rule;
+asynchronous CONNECT/authentication completion need not follow accept order.
