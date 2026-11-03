@@ -1,5 +1,6 @@
 //! Quorum register RPC; fences return values from the same successful quorum.
 use super::*;
+use crate::diagnosis::{self, Failure};
 use crate::replica::{Journal, Record, Reply, Request};
 use tokio::task::JoinSet;
 
@@ -9,7 +10,7 @@ pub(super) async fn request(
     request: Request,
 ) -> io::Result<Option<Record>> {
     if !runtime.ready() {
-        return Err(unavailable());
+        return Err(diagnosis::reject(Failure::QuorumNotReady));
     }
     let peers = &runtime
         .config
@@ -57,7 +58,7 @@ pub(super) async fn request(
                         && serde_json::to_vec(old).map_err(io::Error::other)?
                             != serde_json::to_vec(&record).map_err(io::Error::other)?
                     {
-                        return Err(unavailable());
+                        return Err(diagnosis::reject(Failure::QuorumConflict));
                     }
                     if old.version() >= record.version() {
                         if responses >= 2 {
@@ -72,11 +73,17 @@ pub(super) async fn request(
             if responses >= 2 {
                 break;
             }
+        } else {
+            diagnosis::observe(if result.is_err() {
+                Failure::QuorumJoin
+            } else {
+                Failure::QuorumPeer
+            });
         }
     }
     if responses >= 2 {
         Ok(chosen)
     } else {
-        Err(unavailable())
+        Err(diagnosis::reject(Failure::QuorumInsufficient))
     }
 }

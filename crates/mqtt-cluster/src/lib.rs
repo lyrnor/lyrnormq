@@ -2,6 +2,7 @@
 mod broker;
 mod config;
 mod controller;
+mod diagnosis;
 mod lease;
 mod model;
 mod repair_state;

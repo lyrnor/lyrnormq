@@ -1,4 +1,5 @@
 //! Bounded durable data-replica register. Fence and its returned value are atomic.
+use crate::diagnosis::{self, Failure};
 use mqtt_cluster_core::{ClusterMessage, DeliveryId};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
@@ -337,7 +338,7 @@ impl Journal {
             .slots
             .clone()
             .try_acquire_owned()
-            .map_err(|_| rejected())?;
+            .map_err(|_| diagnosis::reject(Failure::JournalOperations))?;
         let inner = self.0.clone();
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
@@ -825,8 +826,11 @@ fn execute_transaction(
 ) -> io::Result<Reply> {
     let tx = db.transaction().map_err(error)?;
     let repair = read_repair_state(&tx)?;
-    if repair.frozen.is_some() || repair.generation != generation {
-        return Err(rejected());
+    if repair.frozen.is_some() {
+        return Err(diagnosis::reject(Failure::JournalFrozen));
+    }
+    if repair.generation != generation {
+        return Err(diagnosis::reject(Failure::JournalGeneration));
     }
     let (key, epoch) = match &request {
         Request::Read { key } => (key, 0),
@@ -850,7 +854,7 @@ fn execute_transaction(
         .map_err(error)?;
     let (minimum, bytes) = old.unwrap_or((0, None));
     if !matches!(&request, Request::Read { .. }) && (epoch as i64) < minimum {
-        return Err(rejected());
+        return Err(diagnosis::reject(Failure::JournalEpoch));
     }
     if bytes.as_ref().is_some_and(|b| b.len() > MAX_RECORD) {
         return Err(rejected());
@@ -889,12 +893,15 @@ fn execute_transaction(
             if next_bytes.len() > MAX_RECORD {
                 return Err(rejected());
             }
-            if let Some(old) = &record
-                && (old.version() > next.version()
-                    || (old.version() == next.version()
-                        && serde_json::to_vec(old).map_err(error)? != next_bytes))
-            {
-                return Err(rejected());
+            if let Some(old) = &record {
+                if old.version() > next.version() {
+                    return Err(diagnosis::reject(Failure::JournalOlderVersion));
+                }
+                if old.version() == next.version()
+                    && serde_json::to_vec(old).map_err(error)? != next_bytes
+                {
+                    return Err(diagnosis::reject(Failure::JournalConflictingValue));
+                }
             }
             let total: i64 = tx
                 .query_row(

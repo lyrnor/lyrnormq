@@ -1,5 +1,6 @@
 //! Serialized replicated session transactions and restartable forwarding ownership.
 use super::*;
+use crate::diagnosis::{self, Failure};
 use crate::replica::{Intent, Journal, Recipient, Record, Request};
 use mqtt_cluster_core::{DeliveryId, SessionCommit, SessionLease, SessionMutation};
 use tokio::sync::{mpsc, oneshot};
@@ -239,19 +240,24 @@ impl Durable {
             .operations
             .clone()
             .try_acquire_owned()
-            .map_err(|_| unavailable())?;
+            .map_err(|_| diagnosis::reject(Failure::DurableOperations))?;
         let bytes = self
             .bytes
             .clone()
             .try_acquire_many_owned(bytes)
-            .map_err(|_| unavailable())?;
+            .map_err(|_| diagnosis::reject(Failure::DurableBytes))?;
         self.actor(key)?
             .try_send(Job {
                 operation,
                 _permit: permit,
                 _bytes: bytes,
             })
-            .map_err(|_| unavailable())
+            .map_err(|error| {
+                diagnosis::reject(match error {
+                    mpsc::error::TrySendError::Full(_) => Failure::ActorQueue,
+                    mpsc::error::TrySendError::Closed(_) => Failure::ActorClosed,
+                })
+            })
     }
     pub fn forget(self: &Arc<Self>, key: &str) {
         // Keep the channel/serialization identity; discard only obsolete payload cache.
@@ -393,7 +399,7 @@ impl Durable {
         )
         .await?;
         if !Self::authoritative(runtime, key, record.epoch) {
-            return Err(unavailable());
+            return Err(diagnosis::reject(Failure::TakeAuthority));
         }
         let filters_differ = runtime
             .metadata
@@ -491,7 +497,7 @@ impl Durable {
         cell: &mut Cell,
     ) -> io::Result<()> {
         if cell.poisoned || !Self::authoritative(runtime, key, next.epoch) {
-            return Err(unavailable());
+            return Err(diagnosis::reject(Failure::StoreAuthority));
         }
         next.physical_revision = next
             .physical_revision
@@ -509,7 +515,7 @@ impl Durable {
         )
         .await?;
         if !Self::authoritative(runtime, key, next.epoch) {
-            return Err(unavailable());
+            return Err(diagnosis::reject(Failure::StoreAfterWriteAuthority));
         }
         cell.record = Some(next);
         cell.poisoned = false;
@@ -522,12 +528,18 @@ impl Durable {
         mutation: SessionMutation,
         cell: &mut Cell,
     ) -> io::Result<SessionCommit> {
-        let current = cell.record.as_ref().ok_or_else(unavailable)?;
-        if cell.poisoned
-            || mutation.epoch != current.epoch
-            || !Self::authoritative(runtime, key, current.epoch)
-        {
-            return Err(unavailable());
+        let current = cell
+            .record
+            .as_ref()
+            .ok_or_else(|| diagnosis::reject(Failure::CommitNoRecord))?;
+        if cell.poisoned {
+            return Err(diagnosis::reject(Failure::CommitPoisoned));
+        }
+        if mutation.epoch != current.epoch {
+            return Err(diagnosis::reject(Failure::CommitEpoch));
+        }
+        if !Self::authoritative(runtime, key, current.epoch) {
+            return Err(diagnosis::reject(Failure::CommitAuthority));
         }
         if mutation
             .receipt
@@ -540,7 +552,7 @@ impl Durable {
             });
         }
         if mutation.expected_revision != current.revision {
-            return Err(unavailable());
+            return Err(diagnosis::reject(Failure::CommitRevision));
         }
         let mut next = current.clone();
         next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
@@ -651,6 +663,7 @@ impl Durable {
         let state = match outcome {
             Ok(state) => state,
             Err(_) => {
+                diagnosis::observe(Failure::BackgroundWorkReply);
                 let owner = runtime
                     .metadata
                     .read()
@@ -663,6 +676,7 @@ impl Durable {
                 {
                     return Err(unavailable());
                 }
+                diagnosis::observe(Failure::BackgroundReacquire);
                 let recovered = self.acquire(key.clone(), 0, owner.epoch).await?;
                 if key.starts_with("c:") {
                     runtime.local()?.activate_session(recovered).await?;
