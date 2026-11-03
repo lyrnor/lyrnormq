@@ -169,6 +169,13 @@ fn bounded_file(path: &Path, limit: u64) -> io::Result<Vec<u8>> {
     }
     Ok(bytes)
 }
+fn present(path: &Path) -> io::Result<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
+    }
+}
 fn required(path: &Path, cluster: &str, node: u64) -> io::Result<bool> {
     let file = path.join(REQUIRED);
     match std::fs::symlink_metadata(&file) {
@@ -252,7 +259,7 @@ pub(super) fn open_stores(
     let marker = required(path, cluster, node)?;
     let db_path = path.join("controller.bbolt");
     let wal_path = path.join("raft-wal");
-    if db_path.exists() {
+    if present(&db_path)? {
         if !wal_path.is_dir() {
             return Err(db_err("existing checkpoint is missing its Raft WAL"));
         }
@@ -268,7 +275,7 @@ pub(super) fn open_stores(
         return Err(db_err("required controller checkpoint is missing"));
     }
     let exchange = path.join(EXCHANGE);
-    if exchange.exists() {
+    if present(&exchange)? {
         if !wal_path.is_dir() {
             return Err(db_err("checkpoint exchange requires existing Raft WAL"));
         }
@@ -306,7 +313,7 @@ pub(super) fn open_stores(
         publish_required(path, cluster, node)?;
         return Ok((db, wal, state));
     }
-    if wal_path.exists() || path.join("metadata.sqlite").exists() {
+    if present(&wal_path)? || present(&path.join("metadata.sqlite"))? {
         return Err(db_err(
             "existing controller state requires an explicit offline checkpoint export",
         ));
