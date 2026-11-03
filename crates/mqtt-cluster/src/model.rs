@@ -307,6 +307,9 @@ pub struct ClusterStatus {
 /// A reconnect starts with a snapshot; subsequent coalesced deltas require an exact base.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MetadataUpdate {
+    Progress {
+        revision: u64,
+    },
     Snapshot(Metadata),
     Delta {
         base: u64,
@@ -350,6 +353,13 @@ impl MetadataUpdate {
     }
     pub fn merge(self, old: &Metadata) -> Result<Metadata, &'static str> {
         match self {
+            Self::Progress { revision } => {
+                if revision == old.revision {
+                    Ok(old.clone())
+                } else {
+                    Err("metadata revision gap")
+                }
+            }
             Self::Snapshot(next) => Ok(next),
             Self::Delta {
                 base,

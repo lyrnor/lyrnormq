@@ -146,3 +146,26 @@ fn subscription_generation_and_delta_gap_are_fenced() {
     assert_eq!(merged.routes, m.routes);
     assert!(delta.merge(&m).is_err());
 }
+
+struct StoreBuilder;
+struct StoreGuard(std::path::PathBuf);
+impl Drop for StoreGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+impl openraft::testing::StoreBuilder<Types, Store, Store, StoreGuard> for StoreBuilder {
+    async fn build(&self) -> Result<(StoreGuard, Store, Store), openraft::StorageError<u64>> {
+        let dir = path();
+        let store = Store::open(&dir, "conformance", 1)
+            .await
+            .map_err(|error| openraft::StorageIOError::write_state_machine(&error))?;
+        Ok((StoreGuard(dir), store.clone(), store))
+    }
+}
+#[test]
+fn openraft_storage_conformance() -> Result<(), openraft::StorageError<u64>> {
+    openraft::testing::Suite::<Types, Store, Store, StoreBuilder, StoreGuard>::test_all(
+        StoreBuilder,
+    )
+}

@@ -111,6 +111,13 @@ impl Control {
             .try_acquire_owned()
             .map_err(|_| Status::resource_exhausted("metadata write capacity"))?;
         validate(&command)?;
+        if serde_json::to_vec(&command)
+            .map_err(|_| Status::invalid_argument("invalid metadata command"))?
+            .len()
+            > 512 * 1024
+        {
+            return Err(Status::resource_exhausted("metadata command byte limit"));
+        }
         match &mut command {
             Command::Register {
                 node, expires_at, ..
@@ -344,7 +351,12 @@ impl wire::cluster_server::Cluster for Service {
                     break;
                 }
                 loop {
-                    tokio::select! { result = changes.changed() => { if result.is_err() { return; } }, result = leadership.changed() => { if result.is_err() { return; } } }
+                    tokio::select! { result = changes.changed() => { if result.is_err() { return; } }, result = leadership.changed() => { if result.is_err() { return; } }, _ = tokio::time::sleep(Duration::from_millis(control.lease_ms / 4)) => {
+                        if let Some(old) = &previous {
+                            let progress = rpc::encode(&MetadataUpdate::Progress { revision: old.revision }).map_err(|_| Status::internal("metadata progress encoding"));
+                            if tx.send(progress).await.is_err() { return; }
+                        }
+                    } }
                     if leadership.borrow().current_leader != Some(control.rpc.config_node()) {
                         let _ = tx
                             .send(Err(Status::unavailable("controller leader changed")))
@@ -392,9 +404,11 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     let settings = Arc::new(
         openraft::Config {
             heartbeat_interval: 150,
+            max_payload_entries: 8,
             election_timeout_min: 500,
             election_timeout_max: 900,
             snapshot_policy: openraft::SnapshotPolicy::LogsSinceLast(1000),
+            snapshot_max_chunk_size: 1024 * 1024,
             max_in_snapshot_log_to_keep: 1000,
             ..Default::default()
         }

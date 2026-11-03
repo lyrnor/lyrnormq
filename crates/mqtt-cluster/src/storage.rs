@@ -52,16 +52,25 @@ impl Store {
     pub async fn open(path: &Path, cluster: &str, node: u64) -> io::Result<Self> {
         let path = path.to_path_buf();
         let cluster = cluster.to_owned();
-        let (db,lock,state)=tokio::task::spawn_blocking(move||{
-   std::fs::create_dir_all(&path)?;
-   let lock=std::fs::OpenOptions::new().create(true).truncate(false).read(true).write(true).open(path.join("controller.lock"))?;
-   lock.try_lock().map_err(|_|io::Error::new(io::ErrorKind::WouldBlock,"controller data directory is already in use"))?;
-   let db=Connection::open(path.join("metadata.sqlite")).map_err(db_err)?;
-   db.pragma_update(None,"journal_mode","WAL").map_err(db_err)?;db.pragma_update(None,"synchronous","FULL").map_err(db_err)?;
-   db.execute_batch("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,data BLOB NOT NULL); CREATE TABLE IF NOT EXISTS logs(idx INTEGER PRIMARY KEY,data BLOB NOT NULL);").map_err(db_err)?;
-   let identity=(cluster,node);match get::<(String,u64)>(&db,"identity")?{Some(old)if old!=identity=>return Err(io::Error::new(io::ErrorKind::InvalidInput,"controller data identity mismatch")),Some(_)=>{},None=>put(&db,"identity",&identity)?}
-   let state=get::<State>(&db,"state")?.unwrap_or_default();Ok::<_,io::Error>((db,lock,state))
-  }).await.map_err(db_err)??;
+        let (db, lock, state) = tokio::task::spawn_blocking(move || {
+            std::fs::create_dir_all(&path)?;
+            let lock = std::fs::OpenOptions::new()
+                .create(true).truncate(false).read(true).write(true)
+                .open(path.join("controller.lock"))?;
+            lock.try_lock().map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, "controller data directory is already in use"))?;
+            let db = Connection::open(path.join("metadata.sqlite")).map_err(db_err)?;
+            db.pragma_update(None, "journal_mode", "WAL").map_err(db_err)?;
+            db.pragma_update(None, "synchronous", "FULL").map_err(db_err)?;
+            db.execute_batch("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,data BLOB NOT NULL); CREATE TABLE IF NOT EXISTS logs(idx INTEGER PRIMARY KEY,data BLOB NOT NULL);").map_err(db_err)?;
+            let identity = (cluster, node);
+            match get::<(String, u64)>(&db, "identity")? {
+                Some(old) if old != identity => return Err(io::Error::new(io::ErrorKind::InvalidInput, "controller data identity mismatch")),
+                Some(_) => {},
+                None => put(&db, "identity", &identity)?,
+            }
+            let state = get::<State>(&db, "state")?.unwrap_or_default();
+            Ok::<_, io::Error>((db, lock, state))
+        }).await.map_err(db_err)??;
         let (changed, _) = watch::channel(state.metadata.revision);
         Ok(Self {
             inner: Arc::new(Inner {
@@ -195,7 +204,14 @@ impl RaftLogStorage<Types> for Store {
         I::IntoIter: Send,
     {
         let entries: Vec<_> = entries.into_iter().collect();
-        self.run(move|db|{let tx=db.transaction().map_err(db_err)?;for entry in entries{let idx=i64::try_from(entry.log_id.index).map_err(db_err)?;tx.execute("INSERT INTO logs(idx,data) VALUES(?1,?2) ON CONFLICT(idx) DO UPDATE SET data=excluded.data",params![idx,encode(&entry)?]).map_err(db_err)?;}tx.commit().map_err(db_err)}).await?;
+        self.run(move |db| {
+            let tx = db.transaction().map_err(db_err)?;
+            for entry in entries {
+                let idx = i64::try_from(entry.log_id.index).map_err(db_err)?;
+                tx.execute("INSERT INTO logs(idx,data) VALUES(?1,?2) ON CONFLICT(idx) DO UPDATE SET data=excluded.data", params![idx, encode(&entry)?]).map_err(db_err)?;
+            }
+            tx.commit().map_err(db_err)
+        }).await?;
         callback.log_io_completed(Ok(()));
         Ok(())
     }

@@ -15,7 +15,7 @@ use std::{
     },
     time::Duration,
 };
-use tokio::sync::{OnceCell, Semaphore, watch};
+use tokio::sync::{Notify, OnceCell, Semaphore, watch};
 #[derive(Default)]
 struct Receipts {
     values: BTreeMap<(u64, String, u64), bool>,
@@ -36,6 +36,7 @@ pub struct BrokerRuntime {
     slots: Arc<Semaphore>,
     bytes: Arc<Semaphore>,
     receipts: Mutex<Receipts>,
+    watch_reconnect: Notify,
     weak: Weak<Self>,
 }
 impl fmt::Debug for BrokerRuntime {
@@ -79,6 +80,7 @@ impl BrokerRuntime {
             slots: Arc::new(Semaphore::new(32)),
             bytes: Arc::new(Semaphore::new(16 * 1024 * 1024)),
             receipts: Mutex::new(Receipts::default()),
+            watch_reconnect: Notify::new(),
             weak: weak.clone(),
         }))
     }
@@ -183,8 +185,23 @@ impl BrokerRuntime {
             }
             if let Some(mut stream) = stream {
                 while !self.stopped.load(Ordering::Acquire) {
-                    match stream.message().await {
-                        Ok(Some(message)) => match rpc::decode::<MetadataUpdate>(message) {
+                    let next = tokio::select! {
+                        next = tokio::time::timeout(Duration::from_millis(self.config.lease_ms / 2), stream.message()) => next,
+                        _ = self.watch_reconnect.notified() => break,
+                    };
+                    match next {
+                        Ok(Ok(Some(message))) => match rpc::decode::<MetadataUpdate>(message) {
+                            Ok(MetadataUpdate::Progress { revision }) => {
+                                if self
+                                    .metadata
+                                    .read()
+                                    .unwrap_or_else(PoisonError::into_inner)
+                                    .revision
+                                    != revision
+                                {
+                                    break;
+                                }
+                            }
                             Ok(update) => {
                                 let old = self
                                     .metadata
@@ -224,6 +241,9 @@ impl BrokerRuntime {
             if let Ok(rpc) = self.rpc().await
                 && let Ok(answer) = rpc.mutate(command).await
             {
+                if answer.revision > applied {
+                    self.watch_reconnect.notify_one();
+                }
                 let lease = self.config.lease_ms.min(answer.lease_ms);
                 if lease >= 1000 {
                     *self.deadline.lock().unwrap_or_else(PoisonError::into_inner) =
