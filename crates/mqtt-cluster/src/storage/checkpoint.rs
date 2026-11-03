@@ -9,6 +9,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 const FILE_LIMIT: u64 = 256 * 1024 * 1024;
+const METADATA_LIMIT: usize = 16 * 1024 * 1024 - 64 * 1024;
 const RECORD_LIMIT: usize = recovery::MAX_SNAPSHOT + 64 * 1024;
 const TRANSACTION_LIMIT: usize = 64 * 1024 * 1024;
 const BUCKETS: [&[u8]; 5] = [b"metadata", b"nodes", b"clients", b"routes", b"durable"];
@@ -201,6 +202,9 @@ impl Checkpoint {
                 }
             }
             let state: State = serde_json::from_value(value).map_err(bad)?;
+            if encode(&state.metadata).map_err(bad)?.len() > METADATA_LIMIT {
+                return Err(bad("checkpoint metadata exceeds limit"));
+            }
             let data = encode(&state).map_err(bad)?;
             let saved = SavedSnapshot {
                 format: 1,
@@ -223,6 +227,9 @@ impl Checkpoint {
             return self.result(Err(bad("injected checkpoint write failure")));
         }
         let state = recovery::snapshot_state(saved)?;
+        if encode(&state.metadata)?.len() > METADATA_LIMIT {
+            return Err(io_error("checkpoint metadata exceeds limit"));
+        }
         let data = encode(&state)?;
         let digest = recovery::snapshot_digest(&saved.meta, &data)?;
         let mut scalars = serde_json::to_value(&state).map_err(io_error)?;
@@ -236,7 +243,13 @@ impl Checkpoint {
             let key = std::str::from_utf8(name).map_err(io_error)?;
             let map = metadata
                 .remove(key)
-                .and_then(|v| v.as_object().cloned())
+                .and_then(|v| {
+                    if let serde_json::Value::Object(map) = v {
+                        Some(map)
+                    } else {
+                        None
+                    }
+                })
                 .ok_or_else(|| io_error("checkpoint business map"))?;
             let mut rows = BTreeMap::new();
             for (key, value) in map {

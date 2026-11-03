@@ -125,3 +125,44 @@ fn oversized_file_and_oversized_record_fail_without_reinitializing() {
     assert!(unpack(b"nodes", b"1", &vec![0; RECORD_LIMIT + 33]).is_err());
     std::fs::remove_dir_all(p).unwrap();
 }
+#[test]
+fn missing_or_rebound_business_record_cannot_validate_snapshot() {
+    for remove in [true, false] {
+        let p = dir();
+        let mut db = Checkpoint::open(&p, "test", 1).unwrap();
+        let mut state = State::default();
+        state.metadata.routes.insert("one".into(), [1].into());
+        db.write_snapshot(&super::super::make_snapshot(&state).unwrap())
+            .unwrap();
+        db.db
+            .update(|tx| {
+                let bucket = tx.bucket(b"routes")?.unwrap();
+                let row = bucket.get(b"one")?.unwrap();
+                bucket.delete(b"one")?;
+                if !remove {
+                    bucket.put(b"two", &row)?;
+                }
+                Ok(())
+            })
+            .unwrap();
+        assert!(db.read_snapshot().is_err());
+        drop(db);
+        assert!(Checkpoint::open(&p, "test", 1).is_err());
+        std::fs::remove_dir_all(p).unwrap();
+    }
+}
+#[test]
+fn metadata_budget_remains_enforced_before_transaction() {
+    let p = dir();
+    let mut db = Checkpoint::open(&p, "test", 1).unwrap();
+    let mut state = State::default();
+    state
+        .metadata
+        .routes
+        .insert("k".repeat(METADATA_LIMIT), [1].into());
+    let saved = super::super::make_snapshot(&state).unwrap();
+    assert!(db.write_snapshot(&saved).is_err());
+    assert!(db.read_snapshot().unwrap().is_none());
+    drop(db);
+    std::fs::remove_dir_all(p).unwrap();
+}
