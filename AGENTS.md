@@ -122,3 +122,9 @@ epochs within durable Raft batches, bounded ready-only aggregation, committed-on
 replay and all-live barriers. Retry pending AcquireOnce identities; delayed recovery
 must not fence a successfully recovered connection. Upgrade all Controllers together
 before writing batch records; older Controller binaries cannot read the new command.
+
+Opt-in Raft chain diagnostics follow `docs/contracts/phase7r-raft-chain-diagnosis.md`.
+Preserve disabled-by-default fixed-cardinality timers and bounded traces, existing
+durability/admission/ACK semantics, and same-node monotonic log-index correlation.
+Do not mix nested wall times, histogram upper bounds or partially decoded CPU stacks
+with exact operation percentiles or CPU attribution. Failed load gates stop escalation.

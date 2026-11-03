@@ -26,7 +26,10 @@ def server(action):
 
 
 def prepare():
-    OUT.mkdir(exist_ok=False)
+    resume = sys.argv[1:] == ['--resume-upload']
+    if resume:
+        assert OUT.is_dir() and not (OUT / 'start.log').exists(), 'resume is only allowed before Broker start'
+    OUT.mkdir(exist_ok=resume)
     for host in (prior.SERVER, prior.CLIENT):
         code = f'''from pathlib import Path
 import json,os
@@ -39,14 +42,16 @@ for p in Path('/proc').iterdir():
   except OSError:pass
 print(json.dumps({{'live':live,'cpus':os.cpu_count()}}))
 assert not live,'existing workload must not be interrupted'
-Path({BASE!r}).mkdir(mode=0o700,parents=True,exist_ok=False)
+base=Path({BASE!r})
+assert not (base/'c2000').exists() and not (base/'client').exists(),'test already started; do not resume'
+base.mkdir(mode=0o700,parents=True,exist_ok={resume!r})
 '''
         (OUT / f'{host}-preflight.json').write_text(prior.remote(host, 'python3 -c ' + shlex.quote(code)))
     hashes = {}
     for host, source, name in [(prior.SERVER, LOCAL_BROKER, 'rmqtt'),
             (prior.CLIENT, prior.LOCAL_PROBE, 'connections'),
             (prior.CLIENT, PRIOR / 'client.py', 'client.py')]:
-        subprocess.run(['scp', *prior.SSH[1:], str(source), f'root@{host}:{BASE}/{name}'], check=True, timeout=180)
+        subprocess.run(['scp', '-C', *prior.SSH[1:], str(source), f'root@{host}:{BASE}/{name}'], check=True, timeout=600)
         digest = hashlib.sha256(source.read_bytes()).hexdigest()
         assert prior.remote(host, f'sha256sum {BASE}/{name}').split()[0] == digest
         hashes[name] = digest
@@ -105,22 +110,25 @@ print('observers stopped')
 def collect_perf():
     # perf may emit warnings on this VM; preserve stdout/stderr and status explicitly.
     code = f'''import pathlib,subprocess,json,tarfile,sys
-base=pathlib.Path({BASE!r});results=[]
+base=pathlib.Path({BASE!r});export=base/'perf-export.json'
+results=json.loads(export.read_text()) if export.exists() else []
 for command,name in [(['perf','script','--ns','-F','comm,pid,tid,time,period,event,ip,sym,dso','-i',str(base/'perf.data')],'perf-script'),
- (['perf','report','--stdio','--no-children','-i',str(base/'perf.data')],'perf-report')]:
+ (['perf','report','--stdio','--no-children','-i',str(base/'perf.data')],'perf-report'),
+ (['perf','script','--ns','-G','-F','comm,pid,tid,time,period,event,ip,sym,dso','-i',str(base/'perf.data')],'perf-flat')]:
+ if (base/(name+'.txt')).exists() and any(r.get('command')==command and r.get('returncode')==0 for r in results):continue
  try:
   with (base/(name+'.txt')).open('wb') as out,(base/(name+'.err')).open('wb') as err:
    p=subprocess.run(command,stdout=out,stderr=err,timeout=90)
    results.append(dict(command=command,returncode=p.returncode))
  except subprocess.TimeoutExpired:results.append(dict(command=command,timeout=True))
 (base/'perf-export.json').write_text(json.dumps(results,indent=2))
-files=['perf.data','perf-script.txt','perf-script.err','perf-report.txt','perf-report.err','perf-stat.txt','perf-export.json','observers.json','observer0.log','observer1.log','observer2.log']
-with tarfile.open(fileobj=sys.stdout.buffer,mode='w|gz') as archive:
+files=['perf.data','perf-script.txt','perf-script.err','perf-report.txt','perf-report.err','perf-flat.txt','perf-flat.err','perf-stat.txt','perf-export.json','observers.json','observer0.log','observer1.log','observer2.log']
+with tarfile.open(base/'perf-evidence.tar.gz',mode='w:gz',compresslevel=1) as archive:
  for name in files:
   if (base/name).is_file():archive.add(base/name,arcname=name,recursive=False)
 '''
-    with (OUT / 'perf.tar.gz').open('xb') as dest:
-        subprocess.run(prior.SSH + ['root@' + prior.SERVER, 'python3 -c ' + shlex.quote(code)], stdout=dest, check=True, timeout=210)
+    prior.remote(prior.SERVER, 'python3 -c ' + shlex.quote(code), timeout=300)
+    subprocess.run(['scp', *prior.SSH[1:], f'root@{prior.SERVER}:{BASE}/perf-evidence.tar.gz', str(OUT / 'perf.tar.gz')], check=True, timeout=600)
 
 
 def main():

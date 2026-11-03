@@ -1,0 +1,72 @@
+{
+  "method": "Sum process CPU ticks over complete adjacent same-PID intervals inside each phase; monotonic duration; no boundary interpolation. RSS is simultaneous sampled sum. Broker/client phase alignment uses wall time, without measured cross-host clock offset.",
+  "boundaries_ns": {
+    "start": 1793719535088000000,
+    "drained": 1793719541962180871,
+    "ping": 1793719570088000000
+  },
+  "broker": {
+    "ramp": {
+      "samples": 6,
+      "complete_intervals": 5,
+      "sampled_interval_seconds": 5.280057365,
+      "cpu_average_cores": 6.998030029925632,
+      "cpu_peak_interval_cores": 7.128510216508674,
+      "simultaneous_sum_rss_peak_mib": 1049.83984375,
+      "first_sample_wall_ns": 1793719535732657111,
+      "last_sample_wall_ns": 1793719541012714027
+    },
+    "hold_before_ping": {
+      "samples": 27,
+      "complete_intervals": 26,
+      "sampled_interval_seconds": 27.537149706,
+      "cpu_average_cores": 0.15361066941065205,
+      "cpu_peak_interval_cores": 0.24357072220562778,
+      "simultaneous_sum_rss_peak_mib": 1065.71484375,
+      "first_sample_wall_ns": 1793719542079445606,
+      "last_sample_wall_ns": 1793719569616595572
+    },
+    "ramp_and_hold": {
+      "samples": 33,
+      "complete_intervals": 32,
+      "sampled_interval_seconds": 33.883938057,
+      "cpu_average_cores": 1.4130588929614865,
+      "cpu_peak_interval_cores": 7.128510216508674,
+      "simultaneous_sum_rss_peak_mib": 1065.71484375,
+      "first_sample_wall_ns": 1793719535732657111,
+      "last_sample_wall_ns": 1793719569616595572
+    }
+  },
+  "client": {
+    "ramp": {
+      "samples": 35,
+      "complete_intervals": 34,
+      "sampled_interval_seconds": 6.818603227,
+      "cpu_average_cores": 0.26984998814919314,
+      "cpu_peak_interval_cores": 0.4487218449914617,
+      "simultaneous_sum_rss_peak_mib": 11.90625,
+      "first_sample_wall_ns": 1793719535119123756,
+      "last_sample_wall_ns": 1793719541937726812
+    },
+    "hold_before_ping": {
+      "samples": 140,
+      "complete_intervals": 139,
+      "sampled_interval_seconds": 27.877300848,
+      "cpu_average_cores": 0.0,
+      "cpu_peak_interval_cores": 0.0,
+      "simultaneous_sum_rss_peak_mib": 11.90625,
+      "first_sample_wall_ns": 1793719542138268634,
+      "last_sample_wall_ns": 1793719570015569212
+    },
+    "ramp_and_hold": {
+      "samples": 175,
+      "complete_intervals": 174,
+      "sampled_interval_seconds": 34.896445409,
+      "cpu_average_cores": 0.052727433365618755,
+      "cpu_peak_interval_cores": 0.4487218449914617,
+      "simultaneous_sum_rss_peak_mib": 11.90625,
+      "first_sample_wall_ns": 1793719535119123756,
+      "last_sample_wall_ns": 1793719570015569212
+    }
+  }
+}

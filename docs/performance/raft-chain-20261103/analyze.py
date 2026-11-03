@@ -105,10 +105,17 @@ def correlate(events, start, end):
             after_apply_us=batch['finished_us'] - apply['end_us'],
             command_queue_sum_us=batch['queue_sum_us'], command_queue_max_us=batch['queue_max_us'])
         assert sum(row[k] for k in ('before_append_us','append_us','post_append_to_apply_us','apply_us','after_apply_us')) == row['total_us']
+        committed = [e for e in storage if e['node'] == batch['node'] and e['stage'] == 'SaveCommitted'
+                     and e['last'] == index and append['end_us'] <= e['start_us'] <= e['end_us'] <= apply['start_us']]
+        if len(committed) == 1:
+            mark = committed[0]
+            row.update(before_watermark_us=mark['start_us']-append['end_us'],
+                       watermark_us=mark['end_us']-mark['start_us'],
+                       after_watermark_us=apply['start_us']-mark['end_us'])
         pairs.append(row)
-    keys = ['total_us','before_append_us','append_us','post_append_to_apply_us','apply_us','after_apply_us','count','bytes']
+    keys = ['total_us','before_append_us','append_us','post_append_to_apply_us','apply_us','after_apply_us','count','bytes','before_watermark_us','watermark_us','after_watermark_us']
     return dict(batches=len(batches), matched=len(pairs), unmatched=unmatched,
-        distributions={k: distribution([p[k] for p in pairs]) for k in keys}, pairs=pairs,
+        distributions={k: distribution([p[k] for p in pairs if k in p]) for k in keys}, pairs=pairs,
         note='Same-node log-index matching; post_append_to_apply includes replication/commit/apply dispatch, not network alone. Components telescope; do not add nested WAL/apply submetrics again.')
 
 
@@ -150,10 +157,35 @@ def cpu_samples(root, start, end):
                     name += ' (' + match[2] + ')'
                 stack.append(name)
     flush()
+    chain_weight = weight
+    flat_path = root / 'perf' / 'perf-flat.txt'
+    flat_count, flat_missing = 0, 0
+    if flat_path.exists():
+        leaves = collections.Counter()
+        weight = 0
+        for line in flat_path.read_text(errors='replace').splitlines():
+            header = re.search(r'\s(\d+\.\d+):\s+(\d+)\s+cpu-clock:', line)
+            if not header or not begin <= float(header[1]) <= finish:
+                continue
+            flat_count += 1
+            period = int(header[2]); weight += period
+            symbol = re.search(r'cpu-clock:\s+[0-9a-f]+\s+(.*?)\s+\((/[^)]*|\[[^]]+\])\)\s*$', line)
+            if symbol:
+                name = re.sub(r'\+0x[0-9a-f]+$', '', symbol[1])
+                if name == '[unknown]': name += ' (' + symbol[2] + ')'
+            else:
+                name = '[unparsed sampled IP]'; flat_missing += 1
+            leaves[name] += period
+        assert flat_count == headers_in_window, 'flat/stack sample windows differ'
+    else:
+        # Never report percentages over only the successfully unwound subset.
+        return dict(error='flat sampled-IP evidence needed for incomplete callchains',
+                    headers_in_window=headers_in_window, decoded_callchains=samples, missing_stack=missing_stack)
     def top(counter):
-        return [dict(symbol=s, percent=w / weight * 100, weight=w) for s, w in counter.most_common(40)] if weight else []
-    return dict(samples=samples, headers_total=headers_total, headers_in_window=headers_in_window, missing_stack=missing_stack, sampled_cpu_ns=weight, start_monotonic=begin,end_monotonic=finish,
-        leaf=top(leaves), inclusive=top(inclusive), note='Software cpu-clock period-weighted samples in ramp/drain. Inclusive symbols overlap; not wall waiting or exact per-operation CPU. Cross-host alignment uses wall-clock approximation.')
+        ordered = sorted(counter.items(), key=lambda item: (-item[1], item[0]))[:40]
+        return [dict(symbol=s, percent=w / weight * 100, weight=w) for s, w in ordered] if weight else []
+    return dict(samples=flat_count, callchain_samples=samples, callchain_cpu_ns=chain_weight, flat_unparsed=flat_missing, headers_total=headers_total, headers_in_window=headers_in_window, missing_stack=missing_stack, sampled_cpu_ns=weight, start_monotonic=begin,end_monotonic=finish,
+        leaf=top(leaves), inclusive=top(inclusive), note='Software cpu-clock period-weighted samples in ramp/drain. Leaf uses every sampled IP; inclusive is only decoded callchains and overlaps, so a lower bound. Not wall waiting or exact per-operation CPU. Cross-host alignment uses wall-clock approximation.')
 
 
 def main(root):

@@ -1,0 +1,417 @@
+{
+  "samples": 1685,
+  "callchain_samples": 323,
+  "callchain_cpu_ns": 6591836649,
+  "flat_unparsed": 0,
+  "headers_total": 2374,
+  "headers_in_window": 1685,
+  "missing_stack": 1362,
+  "sampled_cpu_ns": 34387754655,
+  "start_monotonic": 35704.406532632,
+  "end_monotonic": 35711.280713503,
+  "leaf": [
+    {
+      "symbol": "<alloc::vec::Vec<mqtt_cluster::replica::model::Recipient> as alloc::vec::spec_from_iter_nested::SpecFromIterNested<mqtt_cluster::replica::model::Recipient, core::iter::adapters::filter_map::FilterMap<core::iter::adapters::filter::Filter<alloc::collections::btree::map::Iter<alloc::string::String, mqtt_cluster::model::DurableOwner>, <mqtt_cluster::broker::durable::Durable>::recipients::{closure#0}>, <mqtt_cluster::broker::durable::Durable>::recipients::{closure#1}>>>::from_iter",
+      "percent": 5.8753709198813056,
+      "weight": 2020408137
+    },
+    {
+      "symbol": "compiler_rt.memcpy.memcpyFast",
+      "percent": 5.8753709198813056,
+      "weight": 2020408137
+    },
+    {
+      "symbol": "heap.SmpAllocator.alloc",
+      "percent": 4.451038575667656,
+      "weight": 1530612225
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 3.4421364985163203,
+      "weight": 1183673454
+    },
+    {
+      "symbol": "<alloc::collections::btree::map::Iter<alloc::string::String, core::option::Option<mqtt_cluster::model::DurableOwner>> as core::iter::traits::iterator::Iterator>::next",
+      "percent": 2.0771513353115725,
+      "weight": 714285705
+    },
+    {
+      "symbol": "c.malloc.free",
+      "percent": 2.0178041543026706,
+      "weight": 693877542
+    },
+    {
+      "symbol": "compiler_rt.memcmp",
+      "percent": 1.7804154302670623,
+      "weight": 612244890
+    },
+    {
+      "symbol": "finish_task_switch.isra.0",
+      "percent": 1.543026706231454,
+      "weight": 530612238
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run_task",
+      "percent": 0.8902077151335311,
+      "weight": 306122445
+    },
+    {
+      "symbol": "syscall",
+      "percent": 0.8902077151335311,
+      "weight": 306122445
+    },
+    {
+      "symbol": "serde_json::ser::format_escaped_str::<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter>",
+      "percent": 0.830860534124629,
+      "weight": 285714282
+    },
+    {
+      "symbol": "do_syscall_64",
+      "percent": 0.771513353115727,
+      "weight": 265306119
+    },
+    {
+      "symbol": "<tokio::util::sharded_list::ShardedList<tokio::runtime::task::Task<alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>>::remove",
+      "percent": 0.7121661721068249,
+      "weight": 244897956
+    },
+    {
+      "symbol": "sccp",
+      "percent": 0.7121661721068249,
+      "weight": 244897956
+    },
+    {
+      "symbol": "bytes::bytes_mut::shared_v_drop",
+      "percent": 0.6528189910979229,
+      "weight": 224489793
+    },
+    {
+      "symbol": "compiler_rt.bcmp",
+      "percent": 0.6528189910979229,
+      "weight": 224489793
+    },
+    {
+      "symbol": "<h2::proto::connection::Connection<hyper::common::io::compat::Compat<tonic::transport::channel::service::io::BoxedIo>, h2::client::Peer, hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>::poll",
+      "percent": 0.5934718100890208,
+      "weight": 204081630
+    },
+    {
+      "symbol": "<tokio::runtime::task::state::State>::transition_to_notified_by_val",
+      "percent": 0.5934718100890208,
+      "weight": 204081630
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run",
+      "percent": 0.5341246290801187,
+      "weight": 183673467
+    },
+    {
+      "symbol": "c.malloc.malloc",
+      "percent": 0.5341246290801187,
+      "weight": 183673467
+    },
+    {
+      "symbol": "core::str::converts::from_utf8",
+      "percent": 0.5341246290801187,
+      "weight": 183673467
+    },
+    {
+      "symbol": "h2::hpack::huffman::decode::decode",
+      "percent": 0.5341246290801187,
+      "weight": 183673467
+    },
+    {
+      "symbol": "_raw_spin_unlock_irq",
+      "percent": 0.4747774480712166,
+      "weight": 163265304
+    },
+    {
+      "symbol": "do_user_addr_fault",
+      "percent": 0.4747774480712166,
+      "weight": 163265304
+    },
+    {
+      "symbol": "h2::codec::framed_read::decode_frame",
+      "percent": 0.4747774480712166,
+      "weight": 163265304
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 0.4747774480712166,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<http::header::map::HeaderMap>::get::<&str>",
+      "percent": 0.4154302670623145,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<hyper::proto::h2::client::H2ClientFuture<tonic::body::Body, tonic::transport::channel::service::io::BoxedIo, tonic::transport::channel::service::executor::SharedExec> as core::future::future::Future>::poll",
+      "percent": 0.4154302670623145,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<mqtt_cluster::broker::durable::Durable>::actor",
+      "percent": 0.4154302670623145,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<tokio::runtime::task::list::OwnedTasks<alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>::bind_inner",
+      "percent": 0.4154302670623145,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<bytes::bytes_mut::BytesMut>::split_to",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<h2::hpack::table::Table>::index",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<indexmap::map::IndexMap<h2::frame::stream_id::StreamId, h2::proto::streams::store::SlabIndex>>::swap_remove::<h2::frame::stream_id::StreamId>",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::handle::Handle>::bind_new_task::<core::pin::Pin<alloc::boxed::Box<dyn core::future::future::Future<Output = ()> + core::marker::Send>>>",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::runtime::time::wheel::Wheel>::insert",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::time::sleep::Sleep as core::future::future::Future>::poll",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tonic::client::grpc::Grpc<tonic::transport::channel::Channel>>::unary::<mqtt_cluster::rpc::wire::Envelope, mqtt_cluster::rpc::wire::Envelope, tonic_prost::codec::ProstCodec<mqtt_cluster::rpc::wire::Envelope, mqtt_cluster::rpc::wire::Envelope>>::{closure#0}",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "[unknown] ([vdso])",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    },
+    {
+      "symbol": "http::header::name::parse_hdr",
+      "percent": 0.35608308605341243,
+      "weight": 122448978
+    }
+  ],
+  "inclusive": [
+    {
+      "symbol": "do_syscall_64",
+      "percent": 15.66765578635015,
+      "weight": 5387755032
+    },
+    {
+      "symbol": "entry_SYSCALL_64_after_hwframe",
+      "percent": 15.66765578635015,
+      "weight": 5387755032
+    },
+    {
+      "symbol": "x64_sys_call",
+      "percent": 14.599406528189911,
+      "weight": 5020408098
+    },
+    {
+      "symbol": "__x64_sys_writev",
+      "percent": 5.934718100890208,
+      "weight": 2040816300
+    },
+    {
+      "symbol": "do_writev",
+      "percent": 5.8753709198813056,
+      "weight": 2020408137
+    },
+    {
+      "symbol": "vfs_writev",
+      "percent": 5.756676557863502,
+      "weight": 1979591811
+    },
+    {
+      "symbol": "do_iter_readv_writev",
+      "percent": 5.222551928783383,
+      "weight": 1795918344
+    },
+    {
+      "symbol": "sock_write_iter",
+      "percent": 5.222551928783383,
+      "weight": 1795918344
+    },
+    {
+      "symbol": "inet_sendmsg",
+      "percent": 5.103857566765579,
+      "weight": 1755102018
+    },
+    {
+      "symbol": "tcp_sendmsg",
+      "percent": 5.103857566765579,
+      "weight": 1755102018
+    },
+    {
+      "symbol": "tcp_sendmsg_locked",
+      "percent": 4.807121661721069,
+      "weight": 1653061203
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 4.510385756676557,
+      "weight": 1551020388
+    },
+    {
+      "symbol": "__x64_sys_futex",
+      "percent": 4.213649851632048,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "__tcp_transmit_skb",
+      "percent": 4.154302670623145,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "do_futex",
+      "percent": 4.154302670623145,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "tcp_push",
+      "percent": 4.154302670623145,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "__tcp_push_pending_frames",
+      "percent": 4.094955489614243,
+      "weight": 1408163247
+    },
+    {
+      "symbol": "ip_queue_xmit",
+      "percent": 3.9169139465875373,
+      "weight": 1346938758
+    },
+    {
+      "symbol": "tcp_write_xmit",
+      "percent": 3.9169139465875373,
+      "weight": 1346938758
+    },
+    {
+      "symbol": "__ip_queue_xmit",
+      "percent": 3.857566765578635,
+      "weight": 1326530595
+    },
+    {
+      "symbol": "ip_local_out",
+      "percent": 3.857566765578635,
+      "weight": 1326530595
+    },
+    {
+      "symbol": "ip_finish_output",
+      "percent": 3.7982195845697326,
+      "weight": 1306122432
+    },
+    {
+      "symbol": "__ip_finish_output",
+      "percent": 3.7388724035608307,
+      "weight": 1285714269
+    },
+    {
+      "symbol": "ip_output",
+      "percent": 3.7388724035608307,
+      "weight": 1285714269
+    },
+    {
+      "symbol": "ip_finish_output2",
+      "percent": 3.620178041543027,
+      "weight": 1244897943
+    },
+    {
+      "symbol": "net_rx_action",
+      "percent": 3.5014836795252227,
+      "weight": 1204081617
+    },
+    {
+      "symbol": "__dev_queue_xmit",
+      "percent": 3.4421364985163203,
+      "weight": 1183673454
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 3.4421364985163203,
+      "weight": 1183673454
+    },
+    {
+      "symbol": "neigh_hh_output",
+      "percent": 3.3827893175074184,
+      "weight": 1163265291
+    },
+    {
+      "symbol": "__napi_poll",
+      "percent": 3.086053412462908,
+      "weight": 1061224476
+    },
+    {
+      "symbol": "futex_wake",
+      "percent": 2.7299703264094957,
+      "weight": 938775498
+    },
+    {
+      "symbol": "__local_bh_enable_ip",
+      "percent": 2.6706231454005933,
+      "weight": 918367335
+    },
+    {
+      "symbol": "do_softirq.part.0",
+      "percent": 2.6706231454005933,
+      "weight": 918367335
+    },
+    {
+      "symbol": "__do_softirq",
+      "percent": 2.6112759643916914,
+      "weight": 897959172
+    },
+    {
+      "symbol": "ip_local_deliver",
+      "percent": 2.433234421364985,
+      "weight": 836734683
+    },
+    {
+      "symbol": "ip_local_deliver_finish",
+      "percent": 2.433234421364985,
+      "weight": 836734683
+    },
+    {
+      "symbol": "ip_protocol_deliver_rcu",
+      "percent": 2.433234421364985,
+      "weight": 836734683
+    },
+    {
+      "symbol": "try_to_wake_up",
+      "percent": 2.314540059347181,
+      "weight": 795918357
+    },
+    {
+      "symbol": "wake_up_q",
+      "percent": 2.314540059347181,
+      "weight": 795918357
+    },
+    {
+      "symbol": "tcp_v4_rcv",
+      "percent": 2.2551928783382786,
+      "weight": 775510194
+    }
+  ],
+  "note": "Software cpu-clock period-weighted samples in ramp/drain. Leaf uses every sampled IP; inclusive is only decoded callchains and overlaps, so a lower bound. Not wall waiting or exact per-operation CPU. Cross-host alignment uses wall-clock approximation."
+}

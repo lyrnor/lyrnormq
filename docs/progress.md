@@ -2999,3 +2999,35 @@ exact failure branch, maximum capacity, or that larger server limits solve queue
 Allprocesses stopped; no4000/s, messageQoS0/1/2 or100k tests afterfailure. Next:
 instrument admission rejection/inflight, write queue/batch and CPU before further
 pressure. [Evidence](performance/cluster-multiprocess-load-20261103/README.md).
+
+## 2026-11-03 — Phase7r measured Raft chain and entry rejection
+
+Frozen diagnostic-only contract; three isolated control/storage/admission agents
+implemented default-disabled fixed-cardinality timers and bounded correlated traces.
+Integrated381cluster/transport tests, strict workspace all-target Clippy/fmt and
+2profile-enabled real-process cross-node dual-version QoS/recovery tests pass.
+Locally built symbol-bearing optimized amd64musl release; no server compilation.
+
+One unchanged four-probe2000/s10k cohort:10000attempted/0skipped,7505CONNACK/PINGlive,
+2495failures. Exact handshake counters prove2495entryrejections; allnodes peak1024.
+Successfulconnectmean2060.884ms/p992792.502ms;Broker6.998cores/RSS1065.715MiB,
+probes0.270cores. Alltestprocesses stopped; no higher/message/capacity loads.
+
+15058controlwrites average975.866ms,528.752ms mailbox-capacity wait+416.589ms queued
+residence=96.872% of write walltime.239uniquelycorrelated Raftbatches average28.493ms,
+p9948.085ms,231full64; serialservice6.810s within6.874s ramp. Same-batch average:
+Append4.678ms,Append→SaveCommitted13.463ms,SaveCommitted3.898ms,Apply3.636ms.
+13.463ms includes replication/quorum/Core scheduling; not isolated network latency.
+
+37531ReadIndex/76146AppendEntriesRPC: source review confirms normally5ReadIndex per
+newCONNECT, each independently fans out two emptyAppendEntries in OpenRaft0.9.25.
+Flat CPU samples locate global Durable::recipients iteration5.88%,memcpy5.88%,
+allocator4.45%; only323/1685callchains decode, so percentages use all1685sampledIPs.
+WAL repeatedinputvalidation0.540ms/batch is secondary; no checkpoint in window.
+Raw accounting independently reviewed by allthree agents; archives/hash/cleanup saved.
+
+No performance fix or capacity improvement claimed. Next: safe fresh-round ReadIndex
+coalescing, indexed recipient matching, then reassess bounded batch pipelining;
+preserve quorum, all-live barriers, fencing and durable ACKs. Instrumentation changes
+cost, so this is diagnosis rather than an uninstrumented throughput comparison.
+[Full report and reproducible evidence](performance/raft-chain-20261103/README.md).

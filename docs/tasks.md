@@ -715,8 +715,8 @@ Evidence:docs/verification/cluster-control-batching-20261103/README.md.
 - [x] Read-only independent review, strict config/count checks and fresh case directories.
 - [x] Run2000/s10k:7009started=accepted=holdPINGlive,2991not_started; targetFAIL.
 - [x] Stop remaining matrix, preserve raw evidence and verify remote cleanup.
-- [ ] Profile Controller write queue residence, batch occupancy/completion and CPU;
-  current sparse stage timings cannot exactly apportion wait/IO/application cost.
+- [x] Profile Controller write queue residence, batch occupancy/completion and CPU
+  in Phase7r; retain explicit limits on quorum/scheduler and CPU callchain attribution.
 - [ ] Revalidate higher offered connection rate after addressing observed queueing.
 - [ ] Still unmeasured:4000/s,5000pairs/10000msg/s128B QoS0/1/2 and10k..100k capacity.
 
@@ -730,9 +730,32 @@ Evidence:docs/performance/cluster-higher-load-20261103/README.md.
 - [x] Four500/s2500connection probes:10000attempted/0skipped,7747success/live,
   2253RST/EOF; independently recompute raw p99 and preserve failed gate.
 - [x] Resource capture and remote cleanup; do not continue after failure.
-- [ ] Count actual handshake rejection/inflight;1024/node entry cap is a candidate,
-  not a proved explanation for every error without counters.
-- [ ] Profile Controller queue residence/batch occupancy and CPU; sampled writes>1s.
+- [x] Count actual handshake rejection/inflight in Phase7r:2495entryrejections exactly
+  match2495failedCONNECTs in the diagnostic cohort; allthree nodes peak1024.
+- [x] Profile Controller queue residence/batch occupancy and CPU in Phase7r.
 - [ ] After resolving server failure, resume higher connection and QoS message gates.
 
 Evidence:docs/performance/cluster-multiprocess-load-20261103/README.md.
+
+## Phase7r — measured chain complete; optimization still pending
+
+- [x] Freeze diagnostic-only API/measurement contract; three isolated agent worktrees.
+- [x] Instrument entry/queue/batch/ReadIndex/RPC/WAL/apply/checkpoint boundaries;
+  fixed metrics, bounded traces, default disabled, no protocol/durability changes.
+- [x]381cluster/transport tests, workspace strictClippy/fmt,2process recovery tests.
+- [x] Local optimized symbol-bearing musl build; single2000/s10k diagnostic cohort.
+- [x] Prove entryrejection and96.872% meancontrolwritequeueing; correlate239batches.
+- [x] Verify37531ReadIndex/76146RPC source path and5ReadIndex normalnewCONNECT.
+- [x] Complete1685flatIPs for CPU attribution; disclose only323decodedcallchains.
+- [x] Independently audit raw counters/means/CPU, archive hashes, stop allprocesses.
+- [ ] Freeze and implement fresh-round queuedReadIndex coalescing; preserve linearity,
+  term/applied/all-live checks. No stale in-flight result reuse for later arrivals.
+- [ ] Index durable recipient lookup/empty-subscription fastpath without changing
+  routing, logicalgeneration or durable forward semantics.
+- [ ] After those fixes, remeasure13.463ms replication/quorum/Core gap and evaluate
+  bounded batch pipelining; do not bypass durable commit/apply ACK ordering.
+- [ ] Consider redundantWALread/decode inputvalidation only after primary hotspots.
+- [ ] Same-load correctness/performance gate, then resume higher/QoS/capacity matrix.
+
+Evidence:docs/performance/raft-chain-20261103/README.md. No optimization implemented
+in Phase7r; observed overhead includes opt-in profiling and cohosted3node contention.

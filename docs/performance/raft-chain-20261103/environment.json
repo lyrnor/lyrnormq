@@ -1,0 +1,1 @@
+{"hostname": "iZt4n2fkof08f8pp56ejgjZ", "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43", "cpus": 8, "python": "3.14.4", "worker_threads": {"combined_each": 4, "separate_each": 2, "total_each_topology": 12}, "server_private": "172.16.240.180", "clock_hz": 100, "binary_sha256": "3afae822833de60e3a3443f72abae622b569625e1d25b7c56d5606191ac94e3b"}

@@ -1,0 +1,31 @@
+{
+  "production_code_revision": "a626877",
+  "probe_sha256": "556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad",
+  "broker_sha256": "3afae822833de60e3a3443f72abae622b569625e1d25b7c56d5606191ac94e3b",
+  "instrumentation_default_disabled": true,
+  "protocol_or_storage_semantics_changed": false,
+  "cluster_tests": 178,
+  "transport_tests": 203,
+  "process_tests": 2,
+  "fmt": true,
+  "strict_workspace_all_target_clippy": true,
+  "local_musl_release": true,
+  "optimized_with_debug_symbols": true,
+  "server_diagnostic_cohorts": 1,
+  "server_connection_gate": false,
+  "all_attempted": 10000,
+  "success_and_ping_alive": 7505,
+  "entry_rejected": 2495,
+  "independent_stage_and_cpu_recalculation": true,
+  "all_test_processes_stopped": true,
+  "perf_recorded_samples": 2374,
+  "perf_ramp_samples": 1685,
+  "decoded_ramp_callchains": 323,
+  "flat_unparsed": 0,
+  "not_run": [
+    "higher rates",
+    "message QoS throughput",
+    "100000 connection capacity"
+  ],
+  "evidence_transfer": "Initial full-symbol upload and streaming perf archive timed out before/after workload respectively; compressed upload and completed-file SCP recovered evidence. No workload repetition."
+}

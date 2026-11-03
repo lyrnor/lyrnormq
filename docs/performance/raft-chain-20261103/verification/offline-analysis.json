@@ -1,0 +1,10 @@
+{
+  "embedded_remote_scripts_compiled": 4,
+  "archive_checksums": true,
+  "offline_exact_reproduction": true,
+  "239_batches_watermark_order": true,
+  "entry_rejection_counts": true,
+  "histogram_snapshot_consistency": true,
+  "flat_cpu_denominator_regression": true,
+  "equal_weight_symbol_order": "deterministic"
+}
