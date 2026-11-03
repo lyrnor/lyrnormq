@@ -78,6 +78,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let mut admin = if let Some(address) = options.admin_listen {
         let handle = mqtt_transport::management::ManagementHandle::new();
         options.config.management = Some(handle.clone());
+        options.config.publisher = Some(mqtt_transport::PublishHandle::new());
         let listen = listener.local_addr()?.to_string();
         let (returned, state) = tokio::task::spawn_blocking(move || {
             let state = admin::prepare(&options, listen, handle, None)?;

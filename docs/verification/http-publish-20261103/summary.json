@@ -1,0 +1,17 @@
+{
+  "binary_sha256": "ea9dd57c7acadf921bed580e1429d01020ee8095ae91e11bf1574c91bedcde36",
+  "rust_passed": 837,
+  "rust_ignored": 1,
+  "wire_cases": {
+    "http_publish": 23,
+    "system_events": 25,
+    "http_access": 29
+  },
+  "strict_clippy": true,
+  "native_release": "macOS arm64",
+  "mqtt_auth_module_changes": false,
+  "auth_cache": false,
+  "new_dependencies": false,
+  "deployment": false,
+  "performance_benchmark": false
+}

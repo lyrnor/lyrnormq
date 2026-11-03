@@ -7,8 +7,8 @@ No Basic parsing/cache, new mqtt-auth API or HTTP publisher client_id context.
 POST /api/v1/mqtt/publish on existing admin HTTP listener. HTTP supported directly;
 HTTPS optional via reverse proxy. Same exact Bearer validation as every management
 API: one Authorization: Bearer <admin-token> header, invalid/missing401 plus Bearer
-challenge. Token grants privileged server-origin publishing, no HTTP/PostgreSQL/local
-MQTT auth or ACL call at publish or delivery admission. Existing recipient delivery
+challenge. Token grants privileged server-origin publishing, no source HTTP/PostgreSQL/local
+MQTT auth or ACL call and no new receive-time backend check. Existing recipient delivery
 semantics and subscription ACL remain unchanged; no new auth backend or token store.
 All other management routes retain existing protection. Existing loopback listener
 CLI/token-file pairing stays unchanged; remote use through an HTTP/HTTPS proxy.

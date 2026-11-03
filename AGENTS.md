@@ -56,3 +56,9 @@ Subscribable client lifecycle system topics additionally follow
 lifecycle emission and dispatch; session owns unconditional client system-publication
 and Will guards; quality owns independent wire tests. No schema_version field in
 event JSON, no retained presence, no implied crash-complete event journal.
+
+Privileged HTTP downlink publishing additionally follows
+`docs/contracts/phase6e-http-publish.md`: same management Bearer token, bypass MQTT
+source authentication/ACL; no Basic/cache or synthetic MQTT connection. Publisher
+host handle is separate from read-only management. Preserve recipient semantics,
+reserved system-topic guards and bounded admission.

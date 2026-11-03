@@ -65,3 +65,48 @@ fn management_busy_and_not_ready_have_distinct_statuses() {
         StatusCode::SERVICE_UNAVAILABLE
     );
 }
+
+#[tokio::test]
+async fn publish_shares_the_management_bearer_gate_without_basic_or_mqtt_identity() {
+    let state = Arc::new(State {
+        handle: mqtt_transport::management::ManagementHandle::new(),
+        rules: None,
+        access_control: None,
+        publisher: None,
+        token: b"0123456789abcdef0123456789abcdef".to_vec(),
+        assets: Default::default(),
+        instance: json!({}),
+        configuration: json!({}),
+    });
+    for credential in [None, Some("Basic YTpi"), Some("Bearer wrong")] {
+        let mut builder = Request::builder()
+            .method(Method::POST)
+            .uri(super::super::publish::PATH);
+        if let Some(value) = credential {
+            builder = builder.header(header::AUTHORIZATION, value);
+        }
+        let response = dispatch(
+            ExtractState(state.clone()),
+            builder.body(Body::empty()).unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(response.headers()[header::WWW_AUTHENTICATE], "Bearer");
+    }
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri(super::super::publish::PATH)
+        .header(
+            header::AUTHORIZATION,
+            "Bearer 0123456789abcdef0123456789abcdef",
+        )
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(r#"{"topic":"devices/a","payload":"x"}"#))
+        .unwrap();
+    // No MQTT authentication runtime is consulted. The only unavailable object
+    // is the separately installed privileged broker publisher.
+    assert_eq!(
+        dispatch(ExtractState(state), request).await.status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+}

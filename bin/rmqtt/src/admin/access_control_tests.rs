@@ -72,6 +72,7 @@ impl Drop for Directory {
 }
 fn state(runtime: Arc<mqtt_auth_http::Runtime>) -> State {
     State {
+        publisher: None,
         handle: ManagementHandle::new(),
         rules: None,
         access_control: Some(runtime),

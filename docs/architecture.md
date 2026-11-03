@@ -886,3 +886,19 @@ System subscriptions still use configured ACL and root dollar wildcard isolation
 No new durable session or outbound schema, separate event connector or rules-only
 namespace is introduced. Bounded event and rule admission remain best effort before
 durable outbound acceptance; crash-complete lifecycle auditing is not promised.
+
+## Phase6e: privileged HTTP downlink publication
+
+[Contract](contracts/phase6e-http-publish.md) exposes POST/api/v1/mqtt/publish behind
+exactly the existing management Bearer gate. The user explicitly canceled Basic and
+HTTP-auth-cache proposals; no authentication module, dependency or TTL setting was
+added. The token conveys privileged server-origin Publish authority, independently
+of MQTT HTTP/PostgreSQL/static authentication and source ACL. Existing subscriber
+admission and recipient semantics remain unchanged; SYS still cannot be forged.
+
+An opt-in PublishHandle is installed with a Weak broker reference separately from
+ManagementHandle. It bounds32operations/16MiB, validates topic/packet/resources and
+reuses retained durability and ordinary/shared dispatch. No MQTT connection/session
+or lifecycle event is fabricated. Publication.publisher=None preserves NoLocal;
+observer client_id=http reuses SQL and generic outbounds. HTTP202 is acceptance only,
+not delivery/execution, a cross-recipient transaction or automatic retry dedup.

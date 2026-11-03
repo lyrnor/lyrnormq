@@ -3,6 +3,7 @@ mod access_control;
 mod asset_rules;
 mod assets;
 mod http;
+mod publish;
 mod rules;
 mod settings;
 #[cfg(test)]

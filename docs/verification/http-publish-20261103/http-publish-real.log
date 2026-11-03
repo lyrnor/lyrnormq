@@ -1,0 +1,28 @@
+test_mqtt_subscribe_still_uses_normal_topic_authorization (__main__.HTTPPublish311.test_mqtt_subscribe_still_uses_normal_topic_authorization) ... ok
+test_no_synthetic_mqtt_session_or_lifecycle_event (__main__.HTTPPublish311.test_no_synthetic_mqtt_session_or_lifecycle_event) ... ok
+test_offline_qos2_survives_broker_crash_and_resume (__main__.HTTPPublish311.test_offline_qos2_survives_broker_crash_and_resume) ... ok
+test_privileged_publish_bypasses_denied_or_unavailable_mqtt_backends (__main__.HTTPPublish311.test_privileged_publish_bypasses_denied_or_unavailable_mqtt_backends) ... ok
+test_qos_zero_one_two_and_default_utf8 (__main__.HTTPPublish311.test_qos_zero_one_two_and_default_utf8) ... ok
+test_reserved_namespace_has_no_effect (__main__.HTTPPublish311.test_reserved_namespace_has_no_effect) ... ok
+test_retained_update_delete_and_replay (__main__.HTTPPublish311.test_retained_update_delete_and_replay) ... ok
+test_shared_subscription_and_no_local_use_broker_origin (__main__.HTTPPublish311.test_shared_subscription_and_no_local_use_broker_origin) ... ok
+test_sql_webhook_reuses_service_identity (__main__.HTTPPublish311.test_sql_webhook_reuses_service_identity) ... ok
+test_mqtt_subscribe_still_uses_normal_topic_authorization (__main__.HTTPPublish5.test_mqtt_subscribe_still_uses_normal_topic_authorization) ... ok
+test_no_synthetic_mqtt_session_or_lifecycle_event (__main__.HTTPPublish5.test_no_synthetic_mqtt_session_or_lifecycle_event) ... ok
+test_offline_qos2_survives_broker_crash_and_resume (__main__.HTTPPublish5.test_offline_qos2_survives_broker_crash_and_resume) ... ok
+test_privileged_publish_bypasses_denied_or_unavailable_mqtt_backends (__main__.HTTPPublish5.test_privileged_publish_bypasses_denied_or_unavailable_mqtt_backends) ... ok
+test_qos_zero_one_two_and_default_utf8 (__main__.HTTPPublish5.test_qos_zero_one_two_and_default_utf8) ... ok
+test_reserved_namespace_has_no_effect (__main__.HTTPPublish5.test_reserved_namespace_has_no_effect) ... ok
+test_retained_update_delete_and_replay (__main__.HTTPPublish5.test_retained_update_delete_and_replay) ... ok
+test_shared_subscription_and_no_local_use_broker_origin (__main__.HTTPPublish5.test_shared_subscription_and_no_local_use_broker_origin) ... ok
+test_sql_webhook_reuses_service_identity (__main__.HTTPPublish5.test_sql_webhook_reuses_service_identity) ... ok
+test_actual_mqtt_packet_limit (__main__.HTTPPublishSecurity.test_actual_mqtt_packet_limit) ... ok
+test_duplicate_bearer_header_rejected (__main__.HTTPPublishSecurity.test_duplicate_bearer_header_rejected) ... ok
+test_no_mqtt_credentials_are_needed_when_anonymous_policy_is_default (__main__.HTTPPublishSecurity.test_no_mqtt_credentials_are_needed_when_anonymous_policy_is_default) ... ok
+test_same_dashboard_bearer_required_basic_and_wrong_tokens_rejected (__main__.HTTPPublishSecurity.test_same_dashboard_bearer_required_basic_and_wrong_tokens_rejected) ... ok
+test_strict_body_topic_and_size_validation (__main__.HTTPPublishSecurity.test_strict_body_topic_and_size_validation) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 14.924s
+
+OK

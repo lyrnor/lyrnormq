@@ -637,3 +637,6 @@ No fixed business tables are required. See [configuration, SQL contracts and lim
 
 Client online/offline MQTT system topics and SQL/Webhook usage:
 [System topics](docs/system-topics.md).
+
+Privileged downlink over HTTP using the Dashboard Bearer token:
+[HTTP publishing API](docs/http-publish.md).

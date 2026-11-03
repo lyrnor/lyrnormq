@@ -3,6 +3,7 @@ use mqtt_transport::management::ManagementHandle;
 
 fn state() -> State {
     State {
+        publisher: None,
         handle: ManagementHandle::new(),
         rules: None,
         access_control: None,

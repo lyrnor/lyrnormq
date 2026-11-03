@@ -631,3 +631,16 @@ superseded, not an outstanding prerequisite. No automatic main merge or deployme
 - [ ] Future: durable lifecycle audit before best-effort admission, only if requested.
 
 [Acceptance and explicit limits](verification/system-client-events-20261103/README.md).
+
+## Phase6e — privileged HTTP downlink completed
+
+- [x] Replace canceled Basic/cache design with sameDashboardBearer contract.
+- [x] Restore canceled auth changes; no auth/cache/dependency/TTL CLI additions.
+- [x] Isolated transport/quality implementations plus coordinator HTTP integration.
+- [x] Bounded source-ACL-free host ingress, existing recipient/retained/QoS semantics.
+- [x] Token security, backenddeny/outagebypass, SYS/body/packet/resource boundaries.
+- [x] Retained/offlineQoS2 crashrestart, MQTT5shared/NoLocal and SQLWebhook acceptance.
+- [x] 837Rust+77wire, strictClippy/fmt, lockednativeRelease.
+- [ ] Optional followup: measured HTTP throughput/P99 and connection reuse profiling.
+
+[Evidence and limits](verification/http-publish-20261103/README.md).

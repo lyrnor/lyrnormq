@@ -2514,3 +2514,19 @@ Retained/Will20,Shared22 regression cases passed on the preceding integrated bin
 NativeRelease rebuilt; no deployment/main merge/push. Event admission remains
 bounded best effort; crash-complete audit and performance improvement not claimed.
 [Evidence](verification/system-client-events-20261103/README.md).
+
+## 2026-11-03 — Phase6e privileged HTTP publishing accepted
+
+User replaced the initial Basic/cache proposal with the same Dashboard Bearer token.
+Canceled auth worktree restored; mqtt-auth/mqtt-auth-http/lock/CLI unchanged. Delivered
+POST/api/v1/mqtt/publish with topic,payload,qos(default1),retain(defaultfalse), HTTP
+support and existing management protection. MQTT source authentication/ACL are not
+called, even when configured backends deny or are unavailable. Ordinary MQTT clients
+still follow authentication and subscription permissions.
+
+Independent transport/quality worktrees delivered bounded host ingress and wire
+acceptance; coordinator integrated HTTP/state/wiring/docs. Reused existing routing,
+QoS/offline sessions/retained durability/shared/SQL/outbounds; no synthetic sessions.
+Actual837Rust tests pass (1explicitlivePGignore), strictClippy/fmt,23newHTTPwire,
+25systemevent and29HTTPaccess cases pass on identical nativeRelease. No newperfclaim,
+deployment or mainmerge/push. [Evidence](verification/http-publish-20261103/README.md).
