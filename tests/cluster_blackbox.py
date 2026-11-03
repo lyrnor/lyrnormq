@@ -270,6 +270,27 @@ class ClusterFixture:
     def quiet(self, sock, timeout=.2):
         self.assertFalse(select.select([sock], [], [], timeout)[0], 'unexpected MQTT output')
 
+    def wait_broker_recovery(self):
+        # A new Raft leader is observable before watches and node leases converge.
+        # Verify actual data-plane admission with a bounded recovery allowance.
+        def probe(index):
+            try:
+                with socket.create_connection(('127.0.0.1', self.fleet.brokers[index].mqtt), timeout=3) as sock:
+                    sock.settimeout(8)
+                    sock.sendall(self.packet(f'recovery-probe-{index}'))
+                    header, data = receive(sock)
+                    if header != 0x20 or data[:2] != b'\x00\x00':
+                        return False
+                    sock.sendall(frame(0xc0))
+                    if receive(sock) != (0xd0, b''):
+                        return False
+                    sock.sendall(frame(0xe0))
+                    return True
+            except (OSError, EOFError):
+                return False
+        for index in range(len(self.fleet.brokers)):
+            wait_until(lambda index=index: probe(index), 30)
+
     def cross_roundtrip(self, suffix='one'):
         subscriber = self.client('subscriber-' + suffix, 1)
         self.subscribe(subscriber, 'cluster/' + suffix)
@@ -407,6 +428,7 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
         node = next(node for node in self.fleet.controllers if node.config['node_id'] == leader)
         node.stop(crash=True)
         wait_until(lambda: (state if (state := self.fleet.status()) and state.get('leader') not in (None, leader) else None), 20)
+        self.wait_broker_recovery()
         self.cross_roundtrip('after-election')
         node.start()
         self.cross_roundtrip('after-return')
@@ -422,6 +444,7 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
         try:
             wait_until(lambda: (current if (current := self.fleet.status()) and
                                 current.get('leader') not in (None, leader) else None), 25)
+            self.wait_broker_recovery()
             self.cross_roundtrip('while-old-leader-unresponsive')
         finally:
             os.kill(node.process.pid, signal.SIGCONT)
@@ -448,6 +471,7 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
         for node in selected:
             node.start()
         wait_until(lambda: (self.fleet.status() or {}).get('leader'), 20)
+        self.wait_broker_recovery()
         self.cross_roundtrip('after-majority-return')
 
     def test_controller_journals_recover_after_total_process_crash(self):
@@ -470,6 +494,7 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
                 applied = applied['index']
             return state if applied >= baseline else None
         wait_until(restored, 25)
+        self.wait_broker_recovery()
         self.cross_roundtrip('after-controller-crash')
 
     def test_wrong_cluster_identity_and_private_token_cannot_register(self):
