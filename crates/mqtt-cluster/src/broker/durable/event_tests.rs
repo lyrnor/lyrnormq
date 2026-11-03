@@ -104,6 +104,7 @@ async fn empty_snapshot_commit_is_idle_but_unknown_commit_retains_recovery() -> 
     let (runtime, path) = fixture("unknown")?;
     let data = runtime.data.as_ref().unwrap();
     let mut cell = Cell {
+        pending: None,
         data_generation: 0,
         record: Some(Record::empty(1)),
         poisoned: false,
@@ -185,6 +186,7 @@ async fn dropped_mutation_reply_does_not_cancel_committed_work_notification() ->
     let (runtime, path) = fixture("cancelled-caller")?;
     let data = runtime.data.as_ref().unwrap();
     let cell = Cell {
+        pending: None,
         data_generation: 0,
         record: None,
         poisoned: true,
@@ -197,6 +199,7 @@ async fn dropped_mutation_reply_does_not_cancel_committed_work_notification() ->
     assert_eq!(data.scheduler.take().as_deref(), Some("c:idle"));
     data.scheduler.finish("c:idle".into(), true);
     let cell = Cell {
+        pending: None,
         data_generation: 0,
         record: Some(Record::empty(1)),
         poisoned: false,
@@ -228,6 +231,7 @@ async fn dropped_mutation_reply_does_not_cancel_committed_work_notification() ->
 #[test]
 fn stale_activation_ack_cannot_clear_new_release_at_same_record_version() {
     let mut cell = Cell {
+        pending: None,
         data_generation: 0,
         record: Some(Record::empty(1)),
         poisoned: false,

@@ -69,6 +69,9 @@ enum Operation {
         expected: u64,
         reply: oneshot::Sender<io::Result<SessionLease>>,
     },
+    Recover {
+        reply: oneshot::Sender<io::Result<()>>,
+    },
     Commit {
         mutation: SessionMutation,
         reply: oneshot::Sender<io::Result<SessionCommit>>,
@@ -95,7 +98,13 @@ pub(super) struct Durable {
     actors: Mutex<BTreeMap<String, mpsc::Sender<Job>>>,
     scheduler: scheduler::Scheduler,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Acquisition {
+    generation: u64,
+    expected: u64,
+}
 struct Cell {
+    pending: Option<Acquisition>,
     data_generation: u64,
     record: Option<Record>,
     poisoned: bool,
@@ -151,6 +160,17 @@ fn lease(key: &str, record: &Record) -> SessionLease {
         snapshot: record.snapshot.clone(),
     }
 }
+fn acquired_record(mut record: Record, epoch: u64) -> io::Result<Record> {
+    if record.epoch > epoch {
+        return Err(unavailable());
+    }
+    if record.epoch < epoch {
+        record.epoch = epoch;
+        record.physical_revision = 0;
+    }
+    Ok(record)
+}
+
 impl Durable {
     pub fn new(runtime: Weak<BrokerRuntime>, journal: Journal) -> Self {
         Self {
@@ -176,6 +196,7 @@ impl Durable {
         let key = key.to_owned();
         tokio::spawn(async move {
             let mut cell = Cell {
+                pending: None,
                 data_generation: 0,
                 record: None,
                 poisoned: false,
@@ -260,6 +281,10 @@ impl Durable {
                         let result = this
                             .take(&runtime, &key, generation, expected, &mut cell)
                             .await;
+                        this.respond_acquisition(&key, &mut cell, reply, result);
+                    }
+                    Operation::Recover { reply } => {
+                        let result = this.recover_cell(&runtime, &key, &mut cell).await;
                         this.respond(&key, &cell, reply, result);
                     }
                     Operation::Commit { mutation, reply } => {
@@ -427,10 +452,15 @@ impl Durable {
         // A lost reply may hide a committed ownership change. Invalidate cached
         // authority BEFORE submission, not after receiving the successful reply.
         let previously_poisoned = cell.poisoned;
+        let prior_pending = cell.pending;
+        cell.pending = Some(Acquisition {
+            generation,
+            expected,
+        });
         cell.poisoned = true;
         let answer = measure(
             Stage::TakeMutate,
-            rpc.mutate(Command::Acquire {
+            rpc.mutate(Command::AcquireOnce {
                 key: key.to_owned(),
                 node: runtime.config.node_id,
                 incarnation: runtime.incarnation.clone(),
@@ -442,7 +472,32 @@ impl Durable {
         let answer = match answer {
             Ok(answer) => answer,
             Err(error) => {
-                cell.acquisition_failed(previously_poisoned, acquisition_cache_unchanged(&error));
+                if rpc::not_submitted(&error) {
+                    cell.pending = prior_pending;
+                    cell.acquisition_failed(
+                        previously_poisoned,
+                        acquisition_cache_unchanged(&error),
+                    );
+                    // A rejected older CONNECT must not destroy a still-valid
+                    // cache or a previously unresolved acquisition. Numeric TCP
+                    // generations do not define MQTT takeover order.
+                    if prior_pending.is_none()
+                        && !previously_poisoned
+                        && error.get_ref().is_some_and(|cause| {
+                            cause.is::<mqtt_cluster_core::AcquisitionConflict>()
+                        })
+                        && let Ok(Some(owner)) = rpc.owner(key.to_owned()).await
+                        && owner.node == runtime.config.node_id
+                        && owner.incarnation == runtime.incarnation
+                        && cell
+                            .record
+                            .as_ref()
+                            .is_some_and(|record| record.epoch == owner.epoch)
+                        && Self::authoritative(runtime, key, owner.epoch)
+                    {
+                        cell.poisoned = false;
+                    }
+                }
                 return Err(error);
             }
         };
@@ -459,9 +514,10 @@ impl Durable {
             ),
         )
         .await?;
-        let mut record = old.unwrap_or_else(|| Record::empty(answer.revision));
-        record.epoch = answer.revision;
-        record.physical_revision = 0;
+        let record = acquired_record(
+            old.unwrap_or_else(|| Record::empty(answer.revision)),
+            answer.revision,
+        )?;
         measure(
             Stage::TakeWrite,
             quorum::request(
@@ -510,14 +566,111 @@ impl Durable {
             Ok(())
         })
         .await?;
+        // Filter synchronization may await another control round trip. Ownership
+        // can change during it, so the earlier post-write check is insufficient.
+        if !Self::authoritative(runtime, key, record.epoch) {
+            return Err(diagnosis::reject(Failure::TakeAuthority));
+        }
         let lease = lease(key, &record);
         cell.record = Some(record);
+        cell.pending = None;
         cell.poisoned = false;
         cell.activate = false;
-        if generation == 0 {
+        if generation == 0 && key.starts_with("c:") {
             cell.request_activation();
         }
         Ok(lease)
+    }
+    async fn recover(self: &Arc<Self>, key: &str) -> io::Result<()> {
+        let (reply, rx) = oneshot::channel();
+        self.send(key, Operation::Recover { reply }).await?;
+        self.await_reply(rx).await
+    }
+    async fn recover_cell(
+        &self,
+        runtime: &BrokerRuntime,
+        key: &str,
+        cell: &mut Cell,
+    ) -> io::Result<()> {
+        // Work can become stale while Recover waits in the mailbox. Re-check
+        // inside the same actor: a newer successful CONNECT/Commit needs no
+        // fresh epoch, offline activation or connection fencing.
+        if cell.pending.is_none()
+            && !cell.poisoned
+            && cell
+                .record
+                .as_ref()
+                .is_some_and(|record| Self::authoritative(runtime, key, record.epoch))
+        {
+            return Ok(());
+        }
+        let acquisition = cell.pending.unwrap_or_else(|| Acquisition {
+            generation: 0,
+            expected: runtime
+                .metadata
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .durable
+                .get(key)
+                .map_or(0, |owner| owner.epoch),
+        });
+        let result = self
+            .take(
+                runtime,
+                key,
+                acquisition.generation,
+                acquisition.expected,
+                cell,
+            )
+            .await;
+        match result {
+            Ok(_) => {}
+            Err(error)
+                if error
+                    .get_ref()
+                    .is_some_and(|cause| cause.is::<mqtt_cluster_core::AcquisitionConflict>()) =>
+            {
+                // This identity was definitely rejected. Reconcile with a
+                // linearizable owner rather than guessing a new predecessor.
+                let owner = runtime.rpc().await?.owner(key.to_owned()).await?;
+                let Some(owner) = owner.filter(|owner| {
+                    owner.node == runtime.config.node_id && owner.incarnation == runtime.incarnation
+                }) else {
+                    cell.pending = None;
+                    cell.record = None;
+                    cell.poisoned = true;
+                    cell.activate = false;
+                    return Err(error);
+                };
+                let confirmed = Acquisition {
+                    generation: owner.acquired_from.map_or(0, |_| owner.generation),
+                    // Legacy owners have no retry identity: one genuine fenced
+                    // recovery is allowed, retained on every subsequent failure.
+                    expected: owner.acquired_from.unwrap_or(owner.epoch),
+                };
+                cell.pending = Some(confirmed);
+                self.take(runtime, key, confirmed.generation, confirmed.expected, cell)
+                    .await?;
+            }
+            Err(error) => return Err(error),
+        }
+        if key.starts_with("c:") {
+            cell.request_activation();
+        }
+        Ok(())
+    }
+    fn respond_acquisition(
+        &self,
+        key: &str,
+        cell: &mut Cell,
+        reply: oneshot::Sender<io::Result<SessionLease>>,
+        result: io::Result<SessionLease>,
+    ) {
+        let acquired = result.is_ok();
+        if reply.send(result).is_err() && acquired && key.starts_with("c:") {
+            cell.request_activation();
+        }
+        self.changed(key, cell);
     }
     fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<Recipient> {
         runtime
@@ -691,21 +844,14 @@ impl Durable {
         message: ClusterMessage,
         cell: &mut Cell,
     ) -> io::Result<()> {
-        if cell.poisoned
+        if cell.pending.is_some()
+            || cell.poisoned
             || cell
                 .record
                 .as_ref()
-                .is_none_or(|r| !Self::authoritative(runtime, key, r.epoch))
+                .is_none_or(|record| !Self::authoritative(runtime, key, record.epoch))
         {
-            let expected = runtime
-                .metadata
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .durable
-                .get(key)
-                .map_or(0, |o| o.epoch);
-            // This runs inside the one record actor. Do not enqueue another Acquire to self.
-            self.take(runtime, key, 0, expected, cell).await?;
+            self.recover_cell(runtime, key, cell).await?;
         }
         let mut next = cell.record.clone().ok_or_else(unavailable)?;
         next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
@@ -777,8 +923,8 @@ impl Durable {
                     return Err(unavailable());
                 }
                 diagnosis::observe(Failure::BackgroundReacquire);
-                let recovered = self.acquire(key.clone(), 0, owner.epoch).await?;
-                let _ = recovered; // The next Work carries activation and its acknowledgement.
+                self.recover(&key).await?;
+                // The next Work carries offline activation and its acknowledgement.
                 return Ok(true);
             }
         };
@@ -1023,7 +1169,7 @@ impl Durable {
                     self.send(&key, Operation::ForgetIfDisowned).await?;
                     return Ok(());
                 }
-                self.acquire(key.clone(), 0, owner.epoch).await?;
+                self.recover(&key).await?;
             }
             if !tokio::time::timeout(WORK_TIMEOUT, self.one(key.clone()))
                 .await
@@ -1354,6 +1500,29 @@ mod tests {
     }
 
     #[test]
+    fn retry_at_existing_epoch_keeps_physical_revision_and_session_data() {
+        let mut record = Record::empty(7);
+        record.physical_revision = 9;
+        record.revision = 4;
+        record.snapshot = Some(vec![1, 2]);
+        record.logical_generation = 3;
+        let repeated = acquired_record(record.clone(), 7).unwrap();
+        assert_eq!(
+            repeated.physical_revision, 9,
+            "same-epoch retry must not roll durable version backward"
+        );
+        assert_eq!(repeated.snapshot, record.snapshot);
+        assert_eq!(repeated.logical_generation, 3);
+        assert_eq!(repeated.revision, 4);
+        let advanced = acquired_record(record.clone(), 8).unwrap();
+        assert_eq!(advanced.physical_revision, 0);
+        assert!(
+            acquired_record(record, 6).is_err(),
+            "stale acquisition cannot rewrite a newer epoch"
+        );
+    }
+
+    #[test]
     fn rejected_stale_epoch_does_not_restore_cached_authority() {
         let error = io::Error::new(
             io::ErrorKind::WouldBlock,
@@ -1373,6 +1542,7 @@ mod tests {
             (true, false, true),
         ] {
             let mut cell = Cell {
+                pending: None,
                 data_generation: 1,
                 record: Some(Record::empty(7)),
                 poisoned: true,
@@ -1414,6 +1584,7 @@ mod tests {
     #[test]
     fn repair_generation_invalidates_cached_writer_before_any_operation() {
         let mut cell = Cell {
+            pending: None,
             data_generation: 0,
             record: Some(Record::empty(1)),
             poisoned: false,
@@ -1436,6 +1607,7 @@ mod tests {
         let mut record = Record::empty(1);
         record.snapshot = Some(vec![1; 1024]);
         let mut cell = Cell {
+            pending: None,
             data_generation: 0,
             record: Some(record),
             poisoned: false,
@@ -1661,6 +1833,7 @@ mod tests {
         record.logical_generation = 2;
         assert!(record.received_or_obsolete(&late));
         let mut cell = Cell {
+            pending: None,
             data_generation: 0,
             record: Some(record),
             poisoned: false,
@@ -1755,3 +1928,6 @@ mod tests {
 
 #[cfg(test)]
 mod event_tests;
+
+#[cfg(test)]
+mod recovery_tests;
