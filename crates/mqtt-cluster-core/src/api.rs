@@ -83,8 +83,10 @@ pub trait ClusterBridge: Debug + Send + Sync {
         generation: u64,
         filters: Vec<String>,
     ) -> ClusterFuture<'_, ()>;
-    /// Route using the installed local metadata, exclude local ordinary recipients;
-    /// local ordinary dispatch remains transport-owned. Shared selection is deferred.
+    /// Legacy mode routes remote ordinary recipients using local metadata.
+    /// Durable mode accepts host/system publications into the replicated outbox
+    /// for all recipients; transport must suppress its separate local fanout.
+    /// Shared selection remains deferred.
     fn forward(&self, message: ClusterMessage) -> ClusterFuture<'_, ()>;
     fn shutdown(&self) -> ClusterFuture<'_, ()>;
 }

@@ -85,6 +85,21 @@ retention is bounded and may fail admission when full; it cannot evict a receipt
 while a replay can still reference it. Any later GC requires durable source-terminal
 evidence and an explicit protocol, not a timeout guess.
 
+Receipt compaction amendment: use one durable high watermark per stable source
+record, ordered by (epoch,session revision,publication index), rather than retaining
+every message forever. This is permitted ONLY with strict per-source FIFO: process
+the first pending intent; confirm/expire all its frozen recipients and W2-commit
+its completion before processing the next. At most one drain task per source record.
+Migration preserves original intent IDs/order and drains old-epoch intents before
+new-epoch appends. A recipient accepts a new ID only if above that source watermark;
+IDs at/below it are duplicates. Earlier intents that did not select the recipient
+can never acquire it on retry, so skipping such numeric gaps loses no delivery.
+Late old-owner RPCs remain at/below the watermark and cannot deliver again. Do not
+apply this scheme to concurrently reordered source intents. Source-stream count
+and encoded record bytes remain bounded; 8192 is the source-stream limit, not a
+lifetime message limit. Cover FIFO, epoch migration, lost replies and repeated
+delivery into a full recipient queue with regression tests.
+
 QoS1/2 acknowledge replicated responsibility, not immediate subscriber receipt.
 QoS0 socket delivery remains MQTT best effort, even if its forwarding intent was
 durably accepted; do not claim end-to-end QoS0 exactly once. Preserve MQTT QoS2
