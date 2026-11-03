@@ -332,11 +332,15 @@ impl Journal {
             // was already committed and must remain fail-closed.
             match read_repair_state(&db) {
                 Ok(state) => {
-                    inner.frozen.store(true, Ordering::Release);
-                    inner.generation.store(state.generation, Ordering::Release);
-                    inner
-                        .frozen
-                        .store(state.frozen.is_some(), Ordering::Release);
+                    if state.frozen.is_some() {
+                        inner.frozen.store(true, Ordering::Release);
+                        inner.generation.store(state.generation, Ordering::Release);
+                    } else {
+                        // Ordinary transactions must not briefly advertise a
+                        // frozen node: lease observers would fence healthy peers.
+                        inner.generation.store(state.generation, Ordering::Release);
+                        inner.frozen.store(false, Ordering::Release);
+                    }
                 }
                 Err(_) => inner.frozen.store(true, Ordering::Release),
             }
@@ -919,6 +923,34 @@ mod tests {
         )
     }
     #[tokio::test]
+    async fn ordinary_status_refresh_never_briefly_revokes_replica_readiness() -> io::Result<()> {
+        let path = repair_path("readiness");
+        let journal = test_journal(&path)?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let observer = journal.clone();
+        let done = stop.clone();
+        let watcher = std::thread::spawn(move || {
+            while !done.load(Ordering::Acquire) {
+                if !observer.voting_ready(0) {
+                    return false;
+                }
+                std::hint::spin_loop();
+            }
+            true
+        });
+        for _ in 0..2048 {
+            journal.status().await?;
+        }
+        stop.store(true, Ordering::Release);
+        assert!(
+            watcher.join().map_err(|_| rejected())?,
+            "ordinary refresh temporarily fenced a healthy journal"
+        );
+        drop(journal);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+    #[tokio::test]
     async fn repair_install_crash_probe() -> io::Result<()> {
         let Some(path) = std::env::var_os("RMQTT_TEST_REPAIR_INSTALL_PATH") else {
             return Ok(());
@@ -1122,16 +1154,28 @@ mod tests {
                 0,
                 Request::Write {
                     key: key.clone(),
+                    record: record.clone(),
+                },
+            )
+            .await?;
+        journal
+            .execute_at(
+                0,
+                Request::Write {
+                    key: "z".repeat(65538),
                     record,
                 },
             )
             .await?;
         journal.freeze(test_token(1)).await?;
         let page = journal.export_page(test_token(1), None, 64).await?;
-        assert!(page.done);
+        assert!(!page.done);
         assert_eq!(page.entries.len(), 1);
         assert_eq!(page.entries[0].key, key);
         assert!(canonical_entry(&page.entries[0])?.len() < MAX_PAGE_BYTES);
+        let last = journal.export_page(test_token(1), page.next, 64).await?;
+        assert!(last.done);
+        assert_eq!(last.entries.len(), 1);
         drop(journal);
         std::fs::remove_dir_all(path)?;
         Ok(())
