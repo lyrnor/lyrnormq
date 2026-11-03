@@ -89,3 +89,10 @@ Event-driven replicated forwarding additionally follows
 `docs/contracts/phase7g-event-forwarding.md`. Actor commits notify bounded keyed
 workers; no periodic full-directory message scan. Preserve FIFO per key, retry
 state, caller-cancellation safety and metadata/readiness-triggered recovery.
+
+Control-plane optimization additionally follows
+`docs/contracts/phase7h-control-optimization.md`. Keep Raft WAL/vote/committed
+watermarks durable, replay committed tails only, snapshot before log purge. Normal
+metadata changes and watches are sparse; applied barriers use bounded revision
+notifications and preserve all-live-node visibility. Coordinator additionally owns
+this phase's tests/cluster_control_optimization* and CI/preflight integration.

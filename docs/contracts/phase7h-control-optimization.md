@@ -99,3 +99,8 @@ case10000TCP=5000pairs,10000publish/s,128B,QoS0/1/2, mean/p99/ACK/loss with expl
 setup/measurement/drain. Stop on first real failure for diagnosis, do not run rest
 of known-failing matrix. No target-load p99 for failed setup. Existing RAM17/event10/
 legacy controller crash/recovery tests retained; fullfmt/strictClippy/workspace tests.
+
+Coordinator clarification: exact byte validation includes FINAL revision digits and
+Heartbeat updates. Old code checked before revision increment and bypassed heartbeat
+bytes; fix both with RED regression, deterministic rejection and complete rollback.
+Do not add uncoordinated reserve policy or relax the8MiB bound.

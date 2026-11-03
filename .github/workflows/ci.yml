@@ -101,6 +101,11 @@ jobs:
       - name: Event-driven forwarding retry and ownership acceptance
         timeout-minutes: 10
         run: python3 tests/cluster_event_blackbox.py -v
+      - name: Incremental control and committed-tail recovery acceptance
+        timeout-minutes: 5
+        run: |
+          python3 -m unittest discover -s tests -p cluster_control_optimization_limits_test.py -v
+          python3 tests/cluster_control_optimization_blackbox.py -v
       - name: Controller observation sampler verification
         timeout-minutes: 5
         run: python3 -m unittest discover -s tests -p cluster_topology_controller_probe_test.py -v
