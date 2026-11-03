@@ -43,6 +43,7 @@ pub(crate) struct ClientRpc {
     config: Arc<Config>,
     token: Arc<str>,
     channels: Arc<Mutex<BTreeMap<String, Channel>>>,
+    preferred: Arc<Mutex<Option<String>>>,
 }
 impl ClientRpc {
     pub fn config_node(&self) -> u64 {
@@ -54,6 +55,7 @@ impl ClientRpc {
             config,
             token: Arc::from(secret),
             channels: Arc::new(Mutex::new(BTreeMap::new())),
+            preferred: Arc::new(Mutex::new(None)),
         })
     }
     pub fn authorize<T>(&self, value: T) -> io::Result<Request<T>> {
@@ -131,6 +133,33 @@ impl ClientRpc {
             .max_decoding_message_size(MAX_WIRE)
             .max_encoding_message_size(MAX_WIRE))
     }
+    pub fn controller_addresses(&self) -> Vec<String> {
+        let preferred = self
+            .preferred
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        let mut addresses: Vec<_> = self
+            .config
+            .controllers
+            .iter()
+            .map(|c| c.address.clone())
+            .collect();
+        addresses.sort_by_key(|address| {
+            if Some(address) == preferred.as_ref() {
+                0
+            } else {
+                1
+            }
+        });
+        addresses
+    }
+    fn remember_controller(&self, address: String) {
+        *self
+            .preferred
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(address);
+    }
     pub async fn metadata(&self) -> io::Result<Metadata> {
         self.request_seeds(ReadRequest::Metadata).await
     }
@@ -138,22 +167,26 @@ impl ClientRpc {
         self.request_seeds(ReadRequest::Status).await
     }
     async fn request_seeds<T: DeserializeOwned>(&self, kind: ReadRequest) -> io::Result<T> {
-        for peer in &self.config.controllers {
-            let mut client = self.client(&peer.address).await?;
+        for address in self.controller_addresses() {
+            let mut client = self.client(&address).await?;
             if let Ok(reply) = client.read(self.authorize(encode(&kind)?)?).await {
+                if matches!(kind, ReadRequest::Metadata) {
+                    self.remember_controller(address);
+                }
                 return decode(reply.into_inner()).map_err(io_error);
             }
         }
         Err(io_error("controller quorum unavailable"))
     }
     pub async fn mutate(&self, command: Command) -> io::Result<Answer> {
-        for peer in &self.config.controllers {
-            let mut client = self.client(&peer.address).await?;
+        for address in self.controller_addresses() {
+            let mut client = self.client(&address).await?;
             if let Ok(reply) = client.mutate(self.authorize(encode(&command)?)?).await {
                 let answer: Answer = decode(reply.into_inner()).map_err(io_error)?;
                 if let Some(error) = answer.error {
                     return Err(io_error(error));
                 }
+                self.remember_controller(address);
                 return Ok(answer);
             }
         }

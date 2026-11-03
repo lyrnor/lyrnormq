@@ -164,8 +164,9 @@ impl openraft::testing::StoreBuilder<Types, Store, Store, StoreGuard> for StoreB
     }
 }
 #[test]
-fn openraft_storage_conformance() -> Result<(), openraft::StorageError<u64>> {
+fn openraft_storage_conformance() -> Result<(), Box<dyn std::error::Error>> {
     openraft::testing::Suite::<Types, Store, Store, StoreBuilder, StoreGuard>::test_all(
         StoreBuilder,
-    )
+    )?;
+    Ok(())
 }

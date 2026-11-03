@@ -171,8 +171,8 @@ impl BrokerRuntime {
                 Err(_) => return,
             };
             let mut stream = None;
-            for peer in &self.config.controllers {
-                let Ok(mut client) = rpc.client(&peer.address).await else {
+            for address in rpc.controller_addresses() {
+                let Ok(mut client) = rpc.client(&address).await else {
                     continue;
                 };
                 let Ok(request) = rpc.authorize(wire::Envelope { data: Vec::new() }) else {
@@ -238,20 +238,46 @@ impl BrokerRuntime {
                 applied,
                 expires_at: controller::now().saturating_add(self.config.lease_ms),
             };
-            if let Ok(rpc) = self.rpc().await
-                && let Ok(answer) = rpc.mutate(command).await
-            {
-                if answer.revision > applied {
-                    self.watch_reconnect.notify_one();
-                }
-                let lease = self.config.lease_ms.min(answer.lease_ms);
-                if lease >= 1000 {
-                    *self.deadline.lock().unwrap_or_else(PoisonError::into_inner) =
-                        start + Duration::from_millis(lease.saturating_sub(100));
+            if let Ok(rpc) = self.rpc().await {
+                match rpc.mutate(command).await {
+                    Ok(answer) => {
+                        if answer.revision > applied {
+                            self.watch_reconnect.notify_one();
+                        }
+                        let lease = self.config.lease_ms.min(answer.lease_ms);
+                        if lease >= 1000 {
+                            *self.deadline.lock().unwrap_or_else(PoisonError::into_inner) =
+                                start + Duration::from_millis(lease.saturating_sub(100));
+                        }
+                    }
+                    Err(_) => {
+                        let _ = self.recover_registration(rpc).await;
+                    }
                 }
             }
             tokio::time::sleep(Duration::from_millis(250)).await;
         }
+    }
+    async fn recover_registration(&self, rpc: &ClientRpc) -> io::Result<()> {
+        // Only an authoritative quorum read may prove that this incarnation was removed.
+        // Never replace another incarnation, and never resurrect the fenced local sessions.
+        let metadata = rpc.metadata().await?;
+        if metadata.nodes.contains_key(&self.config.node_id) {
+            return Ok(());
+        }
+        self.initialized.store(false, Ordering::Release);
+        *self.deadline.lock().unwrap_or_else(PoisonError::into_inner) = tokio::time::Instant::now();
+        self.local()?.fence_all().await?;
+        rpc.mutate(Command::Register {
+            node: self.config.node_id,
+            incarnation: self.incarnation.clone(),
+            address: self.config.address(),
+            expires_at: 0,
+        })
+        .await?;
+        self.watch_reconnect.notify_one();
+        // A fresh watch snapshot and subsequent confirmed heartbeat are both required for ready.
+        Ok(())
     }
     async fn lease_loop(self: Arc<Self>) {
         let mut was_ready = false;
