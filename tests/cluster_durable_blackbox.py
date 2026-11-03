@@ -108,16 +108,20 @@ class DurableFixture(ClusterFixture):
 
     def disconnect(self, sock):
         sock.sendall(frame(0xe0))
-        # Disconnect+PING on another connection is not a storage barrier. A later
-        # ownership acquisition must serialize against the old close itself.
-        sock.shutdown(socket.SHUT_WR)
+        # A normal DISCONNECT is committed by the MQTT actor before the server
+        # closes its socket. Do not kill the owner immediately after sendall and
+        # assume that an unprocessed DISCONNECT established an expiry deadline.
+        try:
+            self.assertEqual(sock.recv(1), b'')
+        except ConnectionResetError:
+            pass
         sock.close()
 
     def message(self, sock):
         packet = receive(sock)
         return parse5(packet) if self.version == 5 else parse_publish(packet)
 
-    def complete_message(self, sock, message):
+    def complete_message(self, sock, message, barrier=True):
         qos, packet_id = message[2:4]
         if qos == 1:
             sock.sendall(ack(0x40, packet_id))
@@ -125,7 +129,8 @@ class DurableFixture(ClusterFixture):
             sock.sendall(ack(0x50, packet_id))
             self.assertEqual(receive(sock), (0x62, struct.pack('!H', packet_id)))
             sock.sendall(ack(0x70, packet_id))
-        self.ping(sock)
+        if barrier:
+            self.ping(sock)
 
     def send_publish(self, sock, topic, payload, qos, packet_id=17, dup=False):
         packet = (publication5(topic, payload, qos, packet_id, dup=dup)
@@ -165,7 +170,9 @@ class DurableSessionCases(DurableFixture):
         resumed = self.persistent('offline-device', 1, present=True, retry=True)
         for qos in (1, 2):
             message = self.expect_message(resumed, 'durable/offline', f'offline-{qos}'.encode(), qos)
-            self.complete_message(resumed, message)
+            # Both messages may already be inflight after CONNACK. A PING barrier
+            # before reading the second would mistake its PUBLISH for PINGRESP.
+            self.complete_message(resumed, message, barrier=qos == 2)
         self.quiet(resumed)
 
     def test_outgoing_awaitack_recovers_same_packet_id_with_dup_on_other_disk(self):
