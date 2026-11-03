@@ -667,5 +667,7 @@ superseded, not an outstanding prerequisite. No automatic main merge or deployme
   explicit RPC/HTTP2 concurrency quotas; preserve owned completion and deadlines.
 - [x] Preserve per-client FIFO with asynchronous mailbox backpressure and authority/W2.
 - [x] Validate threshold-crossing, FIFO/cancellation, workspace and process recovery.
-- No further server pressure; the failed Phase7l benchmark remains recorded. Initial
+- Explicitly authorized deployment followup FAILED:9857attempts/143skipped/0success
+  at1000/s→10k. Stopped allprocesses; no further pressure afterfailure. Initial
   cache-fault/recovery-loop cause and request-correlated stage profiling remain open.
+  Evidence:docs/performance/cluster-quota-free-20261103/README.md.

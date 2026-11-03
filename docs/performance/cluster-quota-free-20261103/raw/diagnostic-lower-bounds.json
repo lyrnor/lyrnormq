@@ -1,0 +1,28 @@
+{
+  "lower_bounds": {
+    "node1": {
+      "BackgroundWorkReply": 1024,
+      "BackgroundReacquire": 1024,
+      "QuorumNotReady": 8
+    },
+    "node3": {
+      "BackgroundWorkReply": 1024,
+      "BackgroundReacquire": 1024,
+      "JournalOlderVersion": 2,
+      "QuorumNotReady": 8
+    },
+    "node2": {
+      "BackgroundWorkReply": 1024,
+      "BackgroundReacquire": 1024,
+      "QuorumPeer": 512,
+      "QuorumInsufficient": 256,
+      "QuorumNotReady": 4
+    }
+  },
+  "first_work_reply_seconds_after_client_process_start": {
+    "node1": 2.0093178749084473,
+    "node3": 2.00903582572937,
+    "node2": 2.010363817214966
+  },
+  "counts_are_exact": false
+}

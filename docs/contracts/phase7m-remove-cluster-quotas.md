@@ -45,3 +45,9 @@ not an in-flight admission quota. Pending deliveries must not be rejected merely
 because the map has8192 pending entries; never evict pending receipt identities.
 Enforce finite completed retention when deliveries complete, keep duplicate pending
 idempotence and cancellation cleanup. Durable per-record receipt/schema bounds stay.
+
+Deployment acceptance followup (explicit user instruction after integration): deploy
+source950fa70/Linuxmusl SHAe8f2b38b… to fresh47.84.224.186 run directories and use
+47.84.241.200 over private addresses. Repeat first1000/s→10000 cohort with10s hold
+and validatedPING; retain identical probe and configuration. Record actual failures,
+latencies/resources and stop first failed cohort. Preserve all prior failed data.

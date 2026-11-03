@@ -1,0 +1,13 @@
+{
+  "server_samples": 28,
+  "active_samples": 20,
+  "load_window_s": 20.008263772,
+  "broker_cpu_average_cores": 1.6881541750268392,
+  "broker_cpu_peak_sample_cores": 2.7170335823714917,
+  "broker_cpu_intervals": 19,
+  "broker_rss_peak_MiB": 467.4140625,
+  "broker_fd_peak": 2154,
+  "tcp_established_peak": 2047,
+  "client_cpu_average_cores": 0.08838707715548698,
+  "client_rss_peak_MiB": 4.89453125
+}

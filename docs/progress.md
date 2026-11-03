@@ -2898,3 +2898,14 @@ Zigamd64musl releases compiled; no further deployment/serverpressure. Directory/
 protocol/storage bounds and worker pools remain. No claim that the unresolved
 initial cachefault/epoch-recovery loop or target performance is fixed.
 [Verification](verification/cluster-quota-removal-20261103/README.md).
+
+## 2026-11-03 — Phase7m deployment retest failed; stopped
+
+User explicitly requested deploying quota-free source950fa70. Verified Linuxmusl
+SHAe8f2b38b… on47.84.224.186, fresh3combined-role processes; identical Rust probe on
+47.84.241.200 over privateIP. First1000/s target10k:9857attempted,143window-skipped,
+0CONNACKsuccess,4795CONNACK0x88+5062EOF. No latency sample/greater load/message case.
+CPUavg1.69cores/8,sampledpeak2.72,RSSpeak467.4MiB. Allprocessesstopped; noconfigsysctl
+changed. Backgroundreacquire>=1024/node andnode2quorumfailure remain. Firstfault~2s
+matchesRPCdeadline timing but exactstage unproven; no performance success claim.
+[Actual deployment evidence](performance/cluster-quota-free-20261103/README.md).

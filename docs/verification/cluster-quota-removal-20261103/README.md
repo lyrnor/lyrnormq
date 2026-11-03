@@ -53,3 +53,9 @@ MQTT3.1.1/5QoS/order, global takeover and no reflected/repeated forwarding rules
 Log /private/tmp/7m-final-process-tests.log; these are functional/fault tests, not
 throughput/latency capacity measurements. Preflight Python5tests passed. No server
 processes started or deployment changed after the preceding failed pressure gate.
+
+Subsequent explicit user authorization deployed this same source and ran the first
+1000/s→10kcohort. It FAILED with0successfulCONNACKs; allprocessesstopped.
+[Measured followup](../../performance/cluster-quota-free-20261103/README.md) preserves
+actual accounting/resources and remaining diagnostic gaps. The functional-test
+results above are not a target-load performance acceptance claim.
