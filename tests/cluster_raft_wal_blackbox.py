@@ -148,7 +148,7 @@ class LegacyMigration(MemoryFixture, unittest.TestCase):
         self.assertIn('RMQTT_LEGACY_BIN', os.environ, 'actual migration requires the old SQLite binary')
         legacy = os.environ['RMQTT_LEGACY_BIN']
         self.assertTrue(Path(legacy).is_file(), legacy)
-        with mock.patch('cluster_blackbox.BINARY', legacy), mock.patch('cluster_durable_blackbox.BINARY', legacy):
+        with mock.patch('cluster_blackbox.BINARY', legacy):
             super().setUp()
 
     def test_actual_sqlite_committed_tail_import_and_second_restart(self):
