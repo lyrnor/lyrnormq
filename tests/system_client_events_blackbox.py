@@ -8,6 +8,7 @@ Event admission is best effort, not a crash-complete audit log or ACK transactio
 """
 import json
 from pathlib import Path
+import queue
 import socket
 import struct
 import tempfile
@@ -301,13 +302,13 @@ class LifecycleCases:
                 self.assertEqual(body[1], 0x87 if self.version == 5 else 5)
                 self.quiet_for(observer, f'bad-will-{index}')
 
-    def configure_webhook(self):
-        webhook = Webhook()
+    def configure_webhook(self, statuses=(204,), **delivery):
+        webhook = Webhook(statuses=statuses)
         self.addCleanup(webhook.close)
         sql = ('SELECT client_id, payload.event AS event, payload.username AS username, '
                'payload.connection_id AS connection_id, payload.reason AS reason '
                'FROM "$SYS/events/client/+" WHERE payload.client_id = \'subject\'')
-        value = config_for(webhook.url, sql=sql, batch_wait_ms=0)
+        value = config_for(webhook.url, sql=sql, batch_wait_ms=0, **delivery)
         code, _, result = self.broker.request(CONFIG, method='PUT',
                                              body=json.dumps(value),
                                              headers={'Content-Type': 'application/json'})
@@ -338,6 +339,31 @@ class LifecycleCases:
         outbound = self.webhook_event(webhook, 'disconnected')
         self.assertEqual(outbound['data']['connection_id'], disconnected['connection_id'])
         self.assertEqual(outbound['data']['reason'], 'normal')
+
+    def test_unavailable_webhook_shutdown_is_bounded_and_replays_durable_events(self):
+        self.start()
+        webhook = self.configure_webhook(statuses=(503,), max_attempts=5, retry_base_ms=1000)
+        self.client('subject')
+        connected = self.webhook_event(webhook, 'connected')
+        started = time.monotonic()
+        self.broker.stop()
+        self.assertLess(time.monotonic() - started, 8, 'shutdown must not wait indefinitely for HTTP')
+        # Clear old failed-attempt observations, then recover the same durable
+        # queue/configuration against an available destination.
+        while True:
+            try:
+                webhook.records.get_nowait()
+            except queue.Empty:
+                break
+        with webhook.lock:
+            webhook.statuses.clear()
+            webhook.statuses.append(204)
+        self.broker.start()
+        replay = self.webhook_event(webhook, 'connected')
+        self.assertEqual(replay['event_id'], connected['event_id'])
+        disconnected = self.webhook_event(webhook, 'disconnected')
+        self.assertEqual(disconnected['data']['reason'], 'server_shutdown')
+        self.assertEqual(disconnected['data']['connection_id'], connected['data']['connection_id'])
 
     def test_graceful_shutdown_feeds_existing_webhook_queue(self):
         self.start()
