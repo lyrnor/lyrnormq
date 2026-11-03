@@ -277,6 +277,33 @@ class Durable5(DurableSessionCases, unittest.TestCase):
 class DurableFaults(DurableFixture, unittest.TestCase):
     version = 5
 
+    def test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives(self):
+        target = self.persistent('disk-device')
+        self.subscribe(target, 'durable/disk', 1)
+        source = self.client('disk-source', 2)
+        self.publish(source, 'durable/disk', b'confirmed before disk loss', 1)
+        original = self.expect_message(target, 'durable/disk', b'confirmed before disk loss', 1)
+        node = self.fleet.brokers[0]
+        self.lose_owner()
+        # Preserve the failed node's old disk without sharing it with B/C. A new
+        # empty path at the same configured identity cannot become a blank voter.
+        old_disk = node.root / 'cluster-data'
+        old_disk.rename(node.root / 'preserved-failed-disk')
+        node.config['data_dir'] = str(node.root / 'replacement-empty-disk')
+        node.spawn()
+        wait_until(lambda: node.process.poll() is not None, 30)
+        self.assertNotEqual(node.process.returncode, 0,
+                            'same node ID on an unseeded replacement disk must fail closed')
+        resumed = self.persistent('disk-device', 1, present=True, retry=True)
+        replay = self.expect_message(resumed, 'durable/disk', b'confirmed before disk loss', 1)
+        self.assertEqual(replay[:4], original[:4])
+        self.assertTrue(replay[4])
+        self.complete_message(resumed, replay)
+        replacement_source = self.client('remaining-disk-source', 2)
+        self.publish(replacement_source, 'durable/disk', b'remaining original disks work', 1)
+        message = self.expect_message(resumed, 'durable/disk', b'remaining original disks work', 1)
+        self.complete_message(resumed, message)
+
     def test_fixed_group_refuses_legacy_and_different_replica_membership(self):
         for node_id, durable in [(201, None), (202, True)]:
             node = self.fleet.new_broker(node_id)
