@@ -685,3 +685,26 @@ superseded, not an outstanding prerequisite. No automatic main merge or deployme
 - [ ] Review safeReadIndex/Appliedcoalescing and effectivecapacity beforedeadlinechanges.
 - [ ] Repeat serverfirstcohort only after integratedfix andcorrectnessacceptance.
   Detailed evidence:docs/verification/cluster-rootcause-20261103/README.md.
+
+## Phase7o — control batching and pending acquisition repair
+
+Supersedes Phase7n's proposed OpenRaft scheduling experiments: one owned Controller
+worker now limits outstanding writes and batches ready requests without a Core fork.
+
+- [x] Freeze child result/epoch, sparse delta, WAL replay and retry identity contracts.
+- [x] Isolated control/runtime/quality worktrees; integration and mutual read-only review.
+- [x] FIFO64/512KiB batches, no fill timer or early ACK;514 accepted/canceled requests
+  apply as9 durable Raft entries in the controlled fixture.
+- [x] AcquireOnce/pending recovery, same-epoch physical revision, delayed Recover
+  no-op, Host ingress reuse, cancellation and post-Filters authority recheck.
+- [x] Committed batch/retry replay and checkpoint/purge recovery tests.
+- [x] Workspace1047passes/1externalPGignored, fmt and strict all-target Clippy.
+- [x] Complete36process tests and finite900-CONNECT reproduction:900success/900PING.
+- [x] Local amd64musl release and first server1000/s→10000cohort:10000success,
+  10000alive after10s/PING, no skipped/failed attempts; all test processes stopped.
+- [ ] Only after that gate: previously requested higher connection rates/counts and
+ 10000TCP/10000publish/s128B QoS0/1/2 message latency/loss acceptance.
+- [ ] Profile high rampCPU and the two150ms AppendEntries tail timeouts before
+  claiming spare capacity at higher connection rates; retain current successful gate.
+
+Evidence:docs/verification/cluster-control-batching-20261103/README.md.

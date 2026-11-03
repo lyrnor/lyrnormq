@@ -1,0 +1,23 @@
+{
+  "resource_phases": {
+    "ramp": {
+      "sample_count": 9,
+      "interval_count": 8,
+      "cpu_average_cores": 6.828541701941261
+    },
+    "hold_and_ping": {
+      "sample_count": 10,
+      "interval_count": 9,
+      "cpu_average_cores": 0.2063482706433209
+    }
+  },
+  "phase_boundary_note": "split uses load process wall-clock start + measured ramp/drain; resource samples are approximate 1s intervals",
+  "errors_during_load_window": {
+    "1": [
+      "2026-11-03T14:08:14.068250Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->3",
+      "2026-11-03T14:08:14.190135Z ERROR openraft::replication: RPCError err=timeout after 150ms when AppendEntries 1->2"
+    ],
+    "2": [],
+    "3": []
+  }
+}

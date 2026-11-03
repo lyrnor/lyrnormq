@@ -115,3 +115,10 @@ Explicit cluster quota removal supersedes Phase7l admission counts via
 `docs/contracts/phase7m-remove-cluster-quotas.md`. No global transaction/queued/body,
 Controller write/watch/barrier or RPC concurrency quota. Keep per-client FIFO async
 backpressure, owned submitted completion, protocol/storage limits and worker pools.
+
+Control batching and ambiguous acquisition recovery follow
+`docs/contracts/phase7o-control-batching-recovery.md`. Keep per-command results and
+epochs within durable Raft batches, bounded ready-only aggregation, committed-only
+replay and all-live barriers. Retry pending AcquireOnce identities; delayed recovery
+must not fence a successfully recovered connection. Upgrade all Controllers together
+before writing batch records; older Controller binaries cannot read the new command.

@@ -2927,3 +2927,33 @@ scratch/evidenceonly; rootrelease restored to diagnostic-onlybinary. Allprocesse
 stopped; no serverpressure/deployment. Required nextfix: realControllercommandbatching,
 Corefairness and unknownAcquire reconciliation, then strictReadIndex/barrier review.
 [Evidence and failed interventions](verification/cluster-rootcause-20261103/README.md).
+
+## 2026-11-03 — Phase7o control batching and acquisition repair
+
+Frozen contract, isolated control/runtime/quality commits and mutual reviews are
+integrated through9c2798e. One FIFO Controller worker batches already-ready writes
+(64/512KiB) and awaits quorum/apply; each child retains its own result/epoch and
+watch updates remain sparse.514 accepted/canceled fixture requests used9 durable
+Raft entries. AcquireOnce and actor-local pending identities stop unknown replies
+from rotating epochs; same-epoch physical revisions and post-Filters authority are
+preserved. Delayed recovery no-ops after foreground success. No OpenRaft patch,
+weaker quorum, larger deadlines or reject-on-capacity admission was introduced.
+
+1047workspace Rust tests pass/1externalPGignored; fmt/strictalltargetClippy and
+36real-process function/fault tests pass. Same finite900case now accepts900 and
+keeps900alive afterhold/PING, versus0accepted in the preceding diagnostic. Local
+latencies are not a server capacity claim; older run had concurrent build load.
+
+Locally-built locked amd64musl binary87ced3e8 was deployed to fresh directories on
+47.84.224.186;47.84.241.200 generated the unchanged private-network1000/s first10k
+cohort against three cohosted Controller/data processes.10000/10000 CONNECTs pass,
+none skipped,10000alive after10s/PING. MeanCONNACK175.323ms,p99319.228ms; scheduled
+ramp+drain10.125s (987.646completed/s), schedulelagp991.104ms. All3controllers
+report10000metadataowners/term1/leader1; all test processes stopped afterwards.
+Higher rates/counts and message throughput/latency remain separate acceptance work.
+
+[Implementation and local evidence](verification/cluster-control-batching-20261103/README.md).
+[Server results and resource samples](performance/cluster-control-batching-20261103/README.md):
+three-process RSS peak1278.168MiB; rampCPU6.829cores,hold/PING0.206cores. Two150ms
+AppendEntries timeouts at the end of the load window are retained as follow-up
+profiling evidence; do not describe the run as error-log-free or a capacity ceiling.

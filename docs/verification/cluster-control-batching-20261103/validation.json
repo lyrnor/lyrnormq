@@ -1,0 +1,101 @@
+{
+  "source": "9c2798ead3d9a632c9cb53f0ebdec753f87785fb",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "native_sha256": "725f9eafcf4fb4291352d65f203787616d560ffeae56aa9e909c8421dcb59491",
+  "workspace": {
+    "passed": 1047,
+    "ignored": 1,
+    "ignored_reason": "external PostgreSQL fixture",
+    "failed": 0
+  },
+  "fmt": true,
+  "clippy_all_targets_deny_warnings": true,
+  "capture_tests": 4,
+  "limits_tests": 5,
+  "process_acceptance": {
+    "passed": 36,
+    "failed": 0,
+    "suites": {
+      "functional": 2,
+      "event": 10,
+      "memory": 17,
+      "control_optimization": 1,
+      "raft_wal": 6
+    }
+  },
+  "local_900": {
+    "binary": "/private/tmp/rmqtt-7o-native",
+    "binary_sha256": "725f9eafcf4fb4291352d65f203787616d560ffeae56aa9e909c8421dcb59491",
+    "environment": {
+      "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+      "cpu_count": 10,
+      "python": "3.14.7"
+    },
+    "planned": 900,
+    "planned_rate_per_second": 1000,
+    "worker_cap": 384,
+    "hold_seconds": 1,
+    "tokio_workers_per_process": "4",
+    "completed": true,
+    "ramp_and_drain_seconds": 1.0328258340014145,
+    "accepted": 900,
+    "alive_after_hold_and_ping": 900,
+    "connack_success_mean_ms": 117.88333916389901,
+    "connack_success_p99_ms": 154.50770797906443,
+    "actual_start_lag_p99_ms": 9.983709023799747,
+    "status": {
+      "data_storage": "memory",
+      "leader": 1,
+      "term": 1,
+      "last_applied": 65,
+      "nodes": 3,
+      "clients": 900,
+      "routes": 0,
+      "data_generation": 0,
+      "excluded": [],
+      "repair": null,
+      "last_repair": null
+    },
+    "passed": true,
+    "logs": [
+      {
+        "file": "node1.log",
+        "source_bytes": 58391,
+        "capture_limit_bytes": 2097152,
+        "truncated": false,
+        "saved_bytes": 58391
+      },
+      {
+        "file": "node2.log",
+        "source_bytes": 40443,
+        "capture_limit_bytes": 2097152,
+        "truncated": false,
+        "saved_bytes": 40443
+      },
+      {
+        "file": "node3.log",
+        "source_bytes": 40407,
+        "capture_limit_bytes": 2097152,
+        "truncated": false,
+        "saved_bytes": 40407
+      }
+    ],
+    "all_processes_stopped": true
+  },
+  "server_cohort": {
+    "passed": true,
+    "rate": 1000,
+    "target": 10000,
+    "report": "../../performance/cluster-control-batching-20261103/report.json",
+    "all_processes_stopped": true
+  },
+  "linux_build": {
+    "target": "x86_64-unknown-linux-musl",
+    "local_zigbuild": true,
+    "locked": true,
+    "sha256": "87ced3e81da295b4273b2757c8fc4472409d88472e5c77cca77ba472fd28854b",
+    "static_elf": true,
+    "warning": "linker ignores deprecated optimization setting 1"
+  }
+}

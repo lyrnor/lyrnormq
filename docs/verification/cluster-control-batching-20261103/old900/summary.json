@@ -1,0 +1,36 @@
+{
+  "binary": "/private/tmp/rmqtt-7n-native",
+  "binary_sha256": "b635d1cd4872ce903e9120e93b8eb7f7cf3c3e74d81e85cdafca50a75eb66b5c",
+  "environment": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "cpu_count": 10,
+    "python": "3.14.7"
+  },
+  "planned": 900,
+  "planned_rate_per_second": 1000,
+  "worker_cap": 384,
+  "hold_seconds": 1,
+  "tokio_workers_per_process": "4",
+  "completed": true,
+  "ramp_and_drain_seconds": 3.2065365839516744,
+  "accepted": 0,
+  "alive_after_hold_and_ping": 0,
+  "connack_success_mean_ms": null,
+  "connack_success_p99_ms": null,
+  "actual_start_lag_p99_ms": 2651.84850001242,
+  "status": {
+    "data_storage": "memory",
+    "leader": 1,
+    "term": 1,
+    "last_applied": 968,
+    "nodes": 3,
+    "clients": 482,
+    "routes": 0,
+    "data_generation": 0,
+    "excluded": [],
+    "repair": null,
+    "last_repair": null
+  },
+  "passed": false,
+  "all_processes_stopped": true
+}

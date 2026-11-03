@@ -1,0 +1,42 @@
+{
+  "endpoints": [
+    "172.16.240.180:18831",
+    "172.16.240.180:18832",
+    "172.16.240.180:18833"
+  ],
+  "max_concurrent_handshakes": 2048,
+  "plateau_passed": true,
+  "rate": 1000,
+  "remaining_targets_not_attempted": [],
+  "requested_plateaus": 1,
+  "steps": [
+    {
+      "connect_latency": {
+        "count": 10000,
+        "max_us": 370489,
+        "mean_us": 175323.4543,
+        "p99_us": 319228
+      },
+      "errors": {},
+      "hold_seconds": 10,
+      "intended_rate": 1000,
+      "live_after_hold_ping": 10000,
+      "new_attempted": 10000,
+      "new_connack_per_second": 987.645792995447,
+      "new_connack_success": 10000,
+      "new_scheduled": 10000,
+      "not_started": 0,
+      "ping_errors": {},
+      "ramp_and_drain_seconds": 10.125087426,
+      "schedule_lag": {
+        "count": 10000,
+        "max_us": 9955,
+        "mean_us": 475.6207,
+        "p99_us": 1104
+      },
+      "target": 10000
+    }
+  ],
+  "timeout_seconds": 15,
+  "tool": "Rust Tokio raw MQTT5 connection ramp"
+}

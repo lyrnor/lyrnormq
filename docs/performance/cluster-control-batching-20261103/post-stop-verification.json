@@ -1,0 +1,7 @@
+{
+  "broker_host": "47.84.224.186",
+  "load_host": "47.84.241.200",
+  "broker_live_test_processes": [],
+  "load_live_test_processes": [],
+  "checked_by": "remote /proc executable path inspection after orchestrator stop"
+}

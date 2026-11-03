@@ -1118,3 +1118,23 @@ visibility, ReadIndex, ownership epochs and unknown-outcome fencing stay unchang
 Protocol/record/session bounds and actual finite worker/buffer scheduling remain.
 The previously measured417/10000 failed cohort predates this removal; no performance
 improvement is inferred and no further server pressure is part of this change.
+
+## Controller command batches and acquisition recovery (Phase7o)
+
+[Contract](contracts/phase7o-control-batching-recovery.md) amortizes control WAL
+work without changing OpenRaft or acknowledging before quorum/application. One
+owned FIFO worker drains already-ready requests, up to64 commands/512KiB, and
+awaits one durable Raft write before submitting another. Each child retains its
+own result and metadata epoch; rejected children do not undo successful siblings.
+Watch updates merge touched keys into one sparse delta. The mailbox asynchronously
+waits for space; it does not reintroduce a capacity-rejection quota or batch timer.
+
+AcquireOnce records its predecessor in the current owner. An identical retry
+returns the original epoch, including after WAL replay/checkpoint recovery. Data
+actors retain pending identities through uncertain replies and quorum failures;
+the recovery job chooses that identity inside the same FIFO. A delayed job checks
+whether foreground work has already restored authority before doing anything.
+Same-epoch recovery preserves physical revision, and cache installation rechecks
+authority after filter synchronization. Outbox, W2, ReadIndex and all-live-node
+visibility remain unchanged. All Controllers must be upgraded together before new
+batch records are written; no mixed-version or downgrade compatibility is claimed.
