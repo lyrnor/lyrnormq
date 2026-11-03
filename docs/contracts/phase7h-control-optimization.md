@@ -104,3 +104,19 @@ Coordinator clarification: exact byte validation includes FINAL revision digits 
 Heartbeat updates. Old code checked before revision increment and bypassed heartbeat
 bytes; fix both with RED regression, deterministic rejection and complete rollback.
 Do not add uncoordinated reserve policy or relax the8MiB bound.
+
+Applied-progress amendment (coordinator approved before implementation): add
+ReadRequest::AppliedAck{node,incarnation,revision}. Controller leader keeps at most
+1024 volatile monotonic per-node ACKs, bound to current incarnation and Raft term;
+reject unknown/stale/excluded node or revision beyond committed/applied metadata.
+ACK cache loses authority on term change; no Raft/SQLite write per ACK. Barrier can
+use same-incarnation volatile installation ACK OR durable Heartbeat.applied; initial
+and final ReadIndex and all-current-live-node condition remain mandatory. A Broker
+single coalescing task pushes latest installed revision only after fence/merge/
+repair reconciliation; heartbeat success/leader change repushes current revision
+even with no new delta. Finite retries and shutdown, no task per revision. This
+removes250ms heartbeat reporting as the routine barrier latency floor without
+multiplying consensus writes. Lost cache can delay/retry a barrier, never fake ACK.
+
+Revision-exhaustion clarification: reject nonheartbeat mutation at u64::MAX rather
+than saturating revision while changing state without a Delta. Rejection atomic.
