@@ -66,9 +66,21 @@ pub(super) fn checkpoint(db: &Connection) -> io::Result<State> {
     }
     Ok(state)
 }
-pub(super) fn recover(db: &mut Connection) -> io::Result<State> {
+pub(super) fn recover_legacy(db: &mut Connection) -> io::Result<State> {
     let tx = db.transaction().map_err(db_err)?;
     log::migrate_and_validate(&tx)?;
+    let _: Option<Vote<u64>> = get(&tx, "vote")?;
+    let purged: Option<LogId<u64>> = get(&tx, "purged")?;
+    let checkpoint = checkpoint(&tx)?.last_applied;
+    if purged.is_some_and(|purged| {
+        checkpoint.is_none_or(|floor| {
+            floor.index < purged.index || (floor.index == purged.index && floor != purged)
+        })
+    }) {
+        return Err(db_err(
+            "legacy purged prefix has no matching verified checkpoint",
+        ));
+    }
     let state = recover_committed(&tx)?;
     tx.commit().map_err(db_err)?;
     Ok(state)
@@ -122,14 +134,37 @@ fn recover_committed(db: &Connection) -> io::Result<State> {
     }
     Ok(state)
 }
-/// Proper Raft calls have already flushed logs and saved the commit watermark.
-/// Direct state-machine callers must instead persist a checkpoint; they must not
-/// inject state-machine entries into the independent Raft log-store interface.
-pub(super) fn applied_input_durable(db: &Connection, entries: &[Entry<Types>]) -> io::Result<bool> {
+/// Recover only durable committed input after a verified SQLite authority floor.
+pub(super) fn recover_wal(db: &Connection, wal: &mut wal::Wal) -> io::Result<State> {
+    let mut state = checkpoint(db)?;
+    let floor = state.last_applied;
+    let recorded = wal.committed()?;
+    if let (Some(a), Some(b)) = (recorded, floor)
+        && a.index == b.index
+        && a != b
+    {
+        return Err(db_err("committed/checkpoint identity conflict"));
+    }
+    visit_tail(wal, floor, |entry| {
+        state.apply(entry);
+        Ok(())
+    })?;
+    // A crash after checkpoint commit but before advancing the WAL is recoverable.
+    if floor.map(|id| id.index) > recorded.map(|id| id.index) {
+        wal.save_committed(floor)?;
+    }
+    Ok(state)
+}
+/// Proper Raft calls have flushed logs and committed; direct trait callers must
+/// checkpoint instead, never inject entries into the independent log-store API.
+pub(super) fn applied_input_durable(
+    wal: &mut wal::Wal,
+    entries: &[Entry<Types>],
+) -> io::Result<bool> {
     let Some(last) = entries.last().map(|entry| entry.log_id) else {
         return Ok(true);
     };
-    let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+    let committed = wal.committed()?;
     if committed.is_none_or(|id| id.index < last.index) {
         return Ok(false);
     }
@@ -137,58 +172,60 @@ pub(super) fn applied_input_durable(db: &Connection, entries: &[Entry<Types>]) -
         return Err(db_err("applied committed identity conflict"));
     }
     for entry in entries {
-        let idx = i64::try_from(entry.log_id.index).map_err(db_err)?;
-        let bytes: Option<Vec<u8>> = db
-            .query_row("SELECT data FROM logs WHERE idx=?1", [idx], |row| {
-                log::row_bytes(row, 0)
-            })
-            .optional()
-            .map_err(db_err)?;
-        match bytes {
-            Some(bytes) if encode(&log::decode_entry(idx, &bytes)?)? == encode(entry)? => {}
-            None => return Ok(false),
-            Some(_) => return Err(db_err("applied input conflicts with durable log")),
+        let saved = wal.entries(entry.log_id.index, entry.log_id.index)?;
+        match saved.as_slice() {
+            [saved] if encode(saved)? == encode(entry)? => {}
+            [] => return Ok(false),
+            _ => return Err(db_err("applied input conflicts with durable log")),
         }
     }
     Ok(true)
 }
-
-/// A checkpoint cannot acknowledge a state whose higher persisted commit marker
-/// refers to missing input. This also protects unusual direct trait callers.
-pub(super) fn verify_remaining_tail(db: &Connection, floor: Option<LogId<u64>>) -> io::Result<()> {
-    let Some(committed) = get::<Option<LogId<u64>>>(db, "committed")?.flatten() else {
+pub(super) fn verify_wal_tail(wal: &mut wal::Wal, floor: Option<LogId<u64>>) -> io::Result<()> {
+    visit_tail(wal, floor, |_| Ok(()))
+}
+fn visit_tail(
+    wal: &mut wal::Wal,
+    floor: Option<LogId<u64>>,
+    mut visit: impl FnMut(Entry<Types>) -> io::Result<()>,
+) -> io::Result<()> {
+    let Some(committed) = wal.committed()? else {
         return Ok(());
     };
-    if floor.is_some_and(|id| id.index >= committed.index) {
-        return Ok(());
-    }
-    let mut expected = floor.map_or(0, |id| id.index.saturating_add(1));
-    let mut statement = db
-        .prepare("SELECT idx,data FROM logs WHERE idx>=?1 AND idx<=?2 ORDER BY idx")
-        .map_err(db_err)?;
-    let mut rows = statement
-        .query(params![
-            i64::try_from(expected).map_err(db_err)?,
-            i64::try_from(committed.index).map_err(db_err)?
-        ])
-        .map_err(db_err)?;
-    while let Some(row) = rows.next().map_err(db_err)? {
-        let index: i64 = row.get(0).map_err(db_err)?;
-        let bytes = log::row_bytes(row, 1).map_err(db_err)?;
-        let entry = log::decode_entry(index, &bytes)?;
-        if index < 0
-            || index as u64 != expected
-            || entry.log_id.index != expected
-            || (expected == committed.index && entry.log_id != committed)
-        {
-            return Err(db_err("checkpoint committed tail mismatch"));
+    if let Some(floor) = floor {
+        if floor.index == committed.index && floor != committed {
+            return Err(db_err("checkpoint committed identity mismatch"));
         }
-        expected = expected
+        if floor.index >= committed.index {
+            return Ok(());
+        }
+    }
+    let mut expected = match floor {
+        Some(id) => id
+            .index
             .checked_add(1)
-            .ok_or_else(|| db_err("log index overflow"))?;
+            .ok_or_else(|| db_err("log index overflow"))?,
+        None => 0,
+    };
+    loop {
+        let end = expected.saturating_add(15).min(committed.index);
+        let entries = wal.entries(expected, end)?;
+        for entry in entries {
+            if entry.log_id.index != expected
+                || (expected == committed.index && entry.log_id != committed)
+            {
+                return Err(db_err("committed WAL gap or identity mismatch"));
+            }
+            visit(entry)?;
+            if expected == committed.index {
+                return Ok(());
+            }
+            expected = expected
+                .checked_add(1)
+                .ok_or_else(|| db_err("log index overflow"))?;
+        }
+        if expected <= end {
+            return Err(db_err("missing committed WAL tail"));
+        }
     }
-    if expected != committed.index.saturating_add(1) {
-        return Err(db_err("checkpoint missing committed tail"));
-    }
-    Ok(())
 }

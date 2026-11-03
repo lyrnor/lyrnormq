@@ -1,4 +1,4 @@
-//! SQLite WAL/FULL durable Raft log, vote, commit and state-machine snapshots.
+//! Independent durable Raft WAL with SQLite business-state checkpoints.
 use crate::model::*;
 use openraft::storage::{LogFlushed, LogState, RaftLogStorage, RaftStateMachine};
 use openraft::{
@@ -17,6 +17,7 @@ use tokio::sync::{Semaphore, watch};
 mod history;
 mod log;
 mod recovery;
+mod wal;
 #[derive(Clone)]
 pub struct Store {
     inner: Arc<Inner>,
@@ -27,6 +28,7 @@ pub struct Store {
 }
 struct Inner {
     db: Mutex<Connection>,
+    wal: Mutex<wal::Wal>,
     _lock: std::fs::File,
     slots: Arc<Semaphore>,
 }
@@ -57,34 +59,56 @@ impl Store {
     pub async fn open(path: &Path, cluster: &str, node: u64) -> io::Result<Self> {
         let path = path.to_path_buf();
         let cluster = cluster.to_owned();
-        let (db, lock, state) = tokio::task::spawn_blocking(move || {
+        let (db, wal, lock, state) = tokio::task::spawn_blocking(move || {
             #[cfg(test)]
             let _process_start = crate::replica::TEST_PROCESS_START_LOCK
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner);
             std::fs::create_dir_all(&path)?;
             let lock = std::fs::OpenOptions::new()
-                .create(true).truncate(false).read(true).write(true)
+                .create(true)
+                .truncate(false)
+                .read(true)
+                .write(true)
                 .open(path.join("controller.lock"))?;
-            lock.try_lock().map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, "controller data directory is already in use"))?;
+            lock.try_lock().map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    "controller data directory is already in use",
+                )
+            })?;
             let db = Connection::open(path.join("metadata.sqlite")).map_err(db_err)?;
-            db.pragma_update(None, "journal_mode", "WAL").map_err(db_err)?;
-            db.pragma_update(None, "synchronous", "FULL").map_err(db_err)?;
-            db.execute_batch("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,data BLOB NOT NULL); CREATE TABLE IF NOT EXISTS logs(idx INTEGER PRIMARY KEY,data BLOB NOT NULL);").map_err(db_err)?;
-            let identity = (cluster, node);
+            db.pragma_update(None, "journal_mode", "WAL")
+                .map_err(db_err)?;
+            db.pragma_update(None, "synchronous", "FULL")
+                .map_err(db_err)?;
+            db.execute_batch(
+                "CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,data BLOB NOT NULL);",
+            )
+            .map_err(db_err)?;
+            let identity = (cluster.clone(), node);
             match get::<(String, u64)>(&db, "identity")? {
-                Some(old) if old != identity => return Err(io::Error::new(io::ErrorKind::InvalidInput, "controller data identity mismatch")),
-                Some(_) => {},
+                Some(old) if old != identity => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "controller data identity mismatch",
+                    ));
+                }
+                Some(_) => {}
                 None => put(&db, "identity", &identity)?,
             }
             let mut db = db;
-            let state = recovery::recover(&mut db)?;
-            Ok::<_, io::Error>((db, lock, state))
-        }).await.map_err(db_err)??;
+            let mut wal = log::open_or_migrate(&mut db, &path, &cluster, node)?;
+            let state = recovery::recover_wal(&db, &mut wal)?;
+            Ok::<_, io::Error>((db, wal, lock, state))
+        })
+        .await
+        .map_err(db_err)??;
         let (changed, _) = watch::channel(state.metadata.revision);
         Ok(Self {
             inner: Arc::new(Inner {
                 db: Mutex::new(db),
+                wal: Mutex::new(wal),
                 _lock: lock,
                 slots: Arc::new(Semaphore::new(32)),
             }),
@@ -110,6 +134,52 @@ impl Store {
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
             call(&mut inner.db.lock().unwrap_or_else(PoisonError::into_inner))
+        })
+        .await
+        .map_err(err)?
+        .map_err(err)
+    }
+    /// Raft operations never acquire the SQLite checkpoint mutex.
+    #[allow(clippy::result_large_err)]
+    async fn run_wal<T: Send + 'static>(
+        &self,
+        call: impl FnOnce(&mut wal::Wal) -> io::Result<T> + Send + 'static,
+    ) -> Result<T, StorageError<u64>> {
+        let permit = self
+            .inner
+            .slots
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(err)?;
+        let inner = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            call(&mut inner.wal.lock().unwrap_or_else(PoisonError::into_inner))
+        })
+        .await
+        .map_err(err)?
+        .map_err(err)
+    }
+    /// Cross-store operations always lock WAL before SQLite, entirely off runtime workers.
+    #[allow(clippy::result_large_err)]
+    async fn run_checkpoint<T: Send + 'static>(
+        &self,
+        call: impl FnOnce(&mut wal::Wal, &mut Connection) -> io::Result<T> + Send + 'static,
+    ) -> Result<T, StorageError<u64>> {
+        let permit = self
+            .inner
+            .slots
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(err)?;
+        let inner = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+            call(&mut wal, &mut db)
         })
         .await
         .map_err(err)?
@@ -184,8 +254,8 @@ impl Store {
             .await?;
         let meta = saved.meta.clone();
         let data = saved.data.clone();
-        self.run(move |db| {
-            recovery::verify_remaining_tail(db, saved.meta.last_log_id)?;
+        self.run_checkpoint(move |wal, db| {
+            recovery::verify_wal_tail(wal, saved.meta.last_log_id)?;
             let previous = recovery::read_saved_snapshot(db)?;
             if previous.as_ref().is_some_and(|old| {
                 old.meta.last_log_id.map(|id| id.index) > saved.meta.last_log_id.map(|id| id.index)
@@ -233,8 +303,8 @@ impl Store {
             }
         }
         let (entries, durable) = self
-            .run(move |db| {
-                let durable = recovery::applied_input_durable(db, &entries)?;
+            .run_wal(move |wal| {
+                let durable = recovery::applied_input_durable(wal, &entries)?;
                 Ok((entries, durable))
             })
             .await?;
@@ -333,9 +403,10 @@ impl Store {
             })
             .await?;
         let checkpoint = next.last_applied;
-        self.run(move |db| {
+        self.run_checkpoint(move |wal, db| {
+            recovery::verify_wal_tail(wal, checkpoint)?;
             let tx = db.transaction().map_err(db_err)?;
-            if old_checkpoint_conflicts(&tx, saved.meta.last_log_id)? {
+            if old_checkpoint_conflicts(&tx, wal, saved.meta.last_log_id)? {
                 return Err(db_err(
                     "snapshot regresses or conflicts with durable authority",
                 ));
@@ -343,11 +414,12 @@ impl Store {
             recovery::put_snapshot(&tx, &saved)?;
             tx.execute("DELETE FROM meta WHERE key='state'", [])
                 .map_err(db_err)?;
-            let old = get::<Option<LogId<u64>>>(&tx, "committed")?.flatten();
+            tx.commit().map_err(db_err)?;
+            let old = wal.committed()?;
             if checkpoint.map(|id| id.index) > old.map(|id| id.index) {
-                put(&tx, "committed", &checkpoint)?;
+                wal.save_committed(checkpoint)?;
             }
-            tx.commit().map_err(db_err)
+            Ok(())
         })
         .await?;
         let state = self.state.clone();
@@ -393,79 +465,29 @@ impl RaftLogReader<Types> for Store {
             Bound::Excluded(n) => n.saturating_sub(1),
             Bound::Unbounded => i64::MAX as u64,
         };
-        self.run(move |db| {
-            let mut stmt = db
-                .prepare("SELECT idx,data FROM logs WHERE idx>=?1 AND idx<=?2 ORDER BY idx")
-                .map_err(db_err)?;
-            let rows = stmt
-                .query_map(
-                    params![
-                        from.min(i64::MAX as u64) as i64,
-                        to.min(i64::MAX as u64) as i64
-                    ],
-                    |row| Ok((row.get::<_, i64>(0)?, log::row_bytes(row, 1)?)),
-                )
-                .map_err(db_err)?;
-            let mut result = Vec::new();
-            for row in rows {
-                let (index, bytes) = row.map_err(db_err)?;
-                result.push(log::decode_entry(index, &bytes)?);
-            }
-            Ok(result)
-        })
-        .await
+        self.run_wal(move |wal| wal.entries(from, to)).await
     }
 }
 impl RaftLogStorage<Types> for Store {
     type LogReader = Self;
     async fn get_log_state(&mut self) -> Result<LogState<Types>, StorageError<u64>> {
-        self.run(|db| {
-            let purged = get(db, "purged")?;
-            let last: Option<(i64, Vec<u8>)> = db
-                .query_row(
-                    "SELECT idx,data FROM logs ORDER BY idx DESC LIMIT 1",
-                    [],
-                    |row| Ok((row.get(0)?, log::row_bytes(row, 1)?)),
-                )
-                .optional()
-                .map_err(db_err)?;
-            let last = last
-                .map(|(index, bytes)| log::decode_entry(index, &bytes))
-                .transpose()?
-                .map(|e| e.log_id)
-                .or(purged);
-            Ok(LogState {
-                last_purged_log_id: purged,
-                last_log_id: last,
-            })
-        })
-        .await
+        self.run_wal(|wal| wal.state()).await
     }
     async fn get_log_reader(&mut self) -> Self {
         self.clone()
     }
     async fn save_vote(&mut self, vote: &Vote<u64>) -> Result<(), StorageError<u64>> {
         let vote = *vote;
-        self.run(move |db| put(db, "vote", &vote)).await
+        self.run_wal(move |wal| wal.save_vote(vote)).await
     }
     async fn read_vote(&mut self) -> Result<Option<Vote<u64>>, StorageError<u64>> {
-        self.run(|db| get(db, "vote")).await
+        self.run_wal(|wal| wal.vote()).await
     }
     async fn save_committed(&mut self, id: Option<LogId<u64>>) -> Result<(), StorageError<u64>> {
-        self.run(move |db| {
-            let previous = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
-            if previous.is_some_and(|old| {
-                id.is_none_or(|new| new.index < old.index || (new.index == old.index && new != old))
-            }) {
-                return Err(db_err("committed log watermark cannot regress"));
-            }
-            put(db, "committed", &id)
-        })
-        .await
+        self.run_wal(move |wal| wal.save_committed(id)).await
     }
     async fn read_committed(&mut self) -> Result<Option<LogId<u64>>, StorageError<u64>> {
-        self.run(|db| Ok(get::<Option<LogId<u64>>>(db, "committed")?.flatten()))
-            .await
+        self.run_wal(|wal| wal.committed()).await
     }
     async fn append<I>(
         &mut self,
@@ -477,20 +499,16 @@ impl RaftLogStorage<Types> for Store {
         I::IntoIter: Send,
     {
         let entries: Vec<_> = entries.into_iter().collect();
-        self.run(move |db| {
-            let tx = db.transaction().map_err(db_err)?;
-            for entry in entries {
-                let idx = i64::try_from(entry.log_id.index).map_err(db_err)?;
-                tx.execute("INSERT INTO logs(idx,data) VALUES(?1,?2) ON CONFLICT(idx) DO UPDATE SET data=excluded.data", params![idx, log::encode_entry(&entry)?]).map_err(db_err)?;
-            }
-            tx.commit().map_err(db_err)
-        }).await?;
+        // The blocking continuation owns WAL serialization even if its caller cancels.
+        let inner = self.inner.clone();
+        self.run_wal(move |wal| log::append_checked(wal, &inner.db, entries))
+            .await?;
         callback.log_io_completed(Ok(()));
         Ok(())
     }
     async fn truncate(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
-        self.run(move |db| {
-            let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+        self.run_checkpoint(move |wal, db| {
+            let committed = wal.committed()?;
             let checkpoint = recovery::checkpoint(db)?.last_applied;
             if committed.is_some_and(|last| {
                 last.index >= id.index
@@ -500,51 +518,45 @@ impl RaftLogStorage<Types> for Store {
                     "truncate would remove unsnapshotted committed entries",
                 ));
             }
-            db.execute(
-                "DELETE FROM logs WHERE idx>=?1",
-                [id.index.min(i64::MAX as u64) as i64],
-            )
-            .map_err(db_err)?;
-            Ok(())
+            wal.truncate(id)
         })
         .await
     }
     async fn purge(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
         let needs_checkpoint = self
-            .run(move |db| {
-                let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+            .run_checkpoint(move |wal, db| {
+                let committed = wal.committed()?;
                 let checkpoint = recovery::checkpoint(db)?.last_applied;
-                let needed = committed.map(|log| log.index.min(id.index));
-                Ok(needed.is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed)))
+                Ok(committed
+                    .map(|log| log.index.min(id.index))
+                    .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed)))
             })
             .await?;
         if needs_checkpoint {
             self.build_snapshot().await?;
         }
-        self.run(move |db| {
-            let tx = db.transaction().map_err(db_err)?;
-            let committed = get::<Option<LogId<u64>>>(&tx, "committed")?.flatten();
-            let checkpoint = recovery::checkpoint(&tx)?.last_applied;
+        self.run_checkpoint(move |wal, db| {
+            let committed = wal.committed()?;
+            let checkpoint = recovery::checkpoint(db)?.last_applied;
             if committed
                 .map(|log| log.index.min(id.index))
                 .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed))
             {
                 return Err(db_err("purge would remove unsnapshotted committed entries"));
             }
-            put(&tx, "purged", &id)?;
-            tx.execute(
-                "DELETE FROM logs WHERE idx<=?1",
-                [i64::try_from(id.index).map_err(db_err)?],
-            )
-            .map_err(db_err)?;
-            tx.commit().map_err(db_err)
+            wal.purge(id)
         })
         .await
     }
 }
-fn old_checkpoint_conflicts(db: &Connection, incoming: Option<LogId<u64>>) -> io::Result<bool> {
+
+fn old_checkpoint_conflicts(
+    db: &Connection,
+    wal: &mut wal::Wal,
+    incoming: Option<LogId<u64>>,
+) -> io::Result<bool> {
     let checkpoint = recovery::checkpoint(db)?.last_applied;
-    let committed = get::<Option<LogId<u64>>>(db, "committed")?.flatten();
+    let committed = wal.committed()?;
     Ok(checkpoint.map(|id| id.index) > incoming.map(|id| id.index)
         || checkpoint
             .is_some_and(|old| incoming.is_some_and(|new| old.index == new.index && old != new))
@@ -652,3 +664,6 @@ impl RaftStateMachine<Types> for Store {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod wal_integration_tests;

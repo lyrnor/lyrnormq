@@ -1,7 +1,7 @@
 use super::*;
 use openraft::{CommittedLeaderId, EntryPayload};
 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-fn directory() -> std::path::PathBuf {
+pub(super) fn directory() -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
         "control-log-tests-{}-{}-{}",
         std::process::id(),
@@ -12,7 +12,7 @@ fn directory() -> std::path::PathBuf {
             .as_nanos()
     ))
 }
-fn entry(index: u64, node: u64) -> Entry<Types> {
+pub(super) fn entry(index: u64, node: u64) -> Entry<Types> {
     Entry {
         log_id: LogId::new(CommittedLeaderId::new(1, 1), index),
         payload: EntryPayload::Normal(Command::Register {
@@ -90,25 +90,18 @@ async fn history_returns_sparse_delta_and_heartbeat_wakes_waiters()
 }
 
 #[allow(clippy::result_large_err)] // Same error as the storage trait under test.
-async fn prime(
+pub(super) async fn prime(
     store: &Store,
     entries: Vec<Entry<Types>>,
     committed: Option<LogId<u64>>,
 ) -> Result<(), StorageError<u64>> {
     store
-        .run(move |db| {
-            let tx = db.transaction().map_err(db_err)?;
-            for entry in entries {
-                tx.execute(
-                    "INSERT INTO logs(idx,data) VALUES(?1,?2)",
-                    params![entry.log_id.index as i64, log::encode_entry(&entry)?],
-                )
-                .map_err(db_err)?;
-            }
+        .run_wal(move |wal| {
+            wal.append(entries)?;
             if let Some(id) = committed {
-                put(&tx, "committed", &Some(id))?;
+                wal.save_committed(Some(id))?;
             }
-            tx.commit().map_err(db_err)
+            Ok(())
         })
         .await
 }
@@ -136,14 +129,15 @@ async fn committed_tail_replays_but_speculative_tail_does_not()
 async fn missing_committed_log_and_unknown_format_fail_closed()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let store = Store::open(&dir, "test", 1).await?;
-    prime(
-        &store,
-        vec![entry(0, 1), entry(2, 3)],
-        Some(entry(2, 3).log_id),
-    )
-    .await?;
-    drop(store);
+    let db = legacy_database(&dir)?;
+    for entry in [entry(0, 1), entry(2, 3)] {
+        db.execute(
+            "INSERT INTO logs(idx,data) VALUES(?1,?2)",
+            params![entry.log_id.index as i64, log::encode_entry(&entry)?],
+        )?;
+    }
+    put(&db, "committed", &Some(entry(2, 3).log_id))?;
+    drop(db);
     assert!(Store::open(&dir, "test", 1).await.is_err());
     let db = Connection::open(dir.join("metadata.sqlite"))?;
     put(&db, "control_log_format", &999u64)?;
@@ -511,33 +505,23 @@ async fn older_or_out_of_order_apply_cannot_roll_ram_back_behind_durable_checkpo
 }
 
 #[tokio::test]
-async fn valid_json_committed_log_payload_change_is_detected_before_replay()
+async fn valid_json_legacy_log_payload_change_is_detected_before_import()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
-    let first = entry(0, 1);
-    prime(&store, vec![first.clone()], Some(first.log_id)).await?;
-    store.apply([first]).await?;
-    let tail = entry(1, 2);
-    prime(&store, vec![tail.clone()], Some(tail.log_id)).await?;
-    drop(store);
-    let db = Connection::open(dir.join("metadata.sqlite"))?;
-    let bytes: Vec<u8> = db.query_row("SELECT data FROM logs WHERE idx=1", [], |row| row.get(0))?;
-    let mut value: serde_json::Value = serde_json::from_slice(&bytes)?;
-    if value.get("entry").is_some() {
-        value["entry"]["payload"]["Normal"]["Register"]["expires_at"] = serde_json::json!(9000);
-    } else {
-        value["payload"]["Normal"]["Register"]["expires_at"] = serde_json::json!(9000);
-    }
+    let db = legacy_database(&dir)?;
+    let mut value = serde_json::from_slice::<serde_json::Value>(&log::encode_entry(&entry(0, 1))?)?;
+    value["entry"]["payload"]["Normal"]["Register"]["expires_at"] = serde_json::json!(9000);
     db.execute(
-        "UPDATE logs SET data=?1 WHERE idx=1",
+        "INSERT INTO logs(idx,data) VALUES(0,?1)",
         [serde_json::to_vec(&value)?],
     )?;
+    put(&db, "committed", &Some(entry(0, 1).log_id))?;
     drop(db);
     assert!(
         Store::open(&dir, "test", 1).await.is_err(),
-        "valid-JSON payload corruption must not silently change replayed state"
+        "valid JSON corruption must fail closed before publication"
     );
+    assert!(!dir.join("raft-wal").exists());
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
@@ -547,9 +531,7 @@ async fn legacy_raw_log_migration_is_atomic_and_never_replays_uncommitted_tail()
 -> Result<(), Box<dyn std::error::Error>> {
     for format in [None, Some(1u64)] {
         let dir = directory();
-        let store = Store::open(&dir, "test", 1).await?;
-        drop(store);
-        let db = Connection::open(dir.join("metadata.sqlite"))?;
+        let db = legacy_database(&dir)?;
         if let Some(format) = format {
             put(&db, "control_log_format", &format)?;
         } else {
@@ -583,9 +565,7 @@ async fn legacy_raw_log_migration_is_atomic_and_never_replays_uncommitted_tail()
 async fn legacy_migration_failure_rolls_back_wrapped_rows_and_format_marker()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let store = Store::open(&dir, "test", 1).await?;
-    drop(store);
-    let db = Connection::open(dir.join("metadata.sqlite"))?;
+    let db = legacy_database(&dir)?;
     put(&db, "control_log_format", &1u64)?;
     let raw = encode(&entry(0, 1))?;
     db.execute("INSERT INTO logs(idx,data) VALUES(0,?1)", [&raw])?;
@@ -604,19 +584,13 @@ async fn legacy_migration_failure_rolls_back_wrapped_rows_and_format_marker()
     Ok(())
 }
 #[tokio::test]
-async fn all_new_log_read_paths_reject_missing_hash_unknown_version_or_bare_entry()
+async fn legacy_import_rejects_missing_hash_unknown_version_or_bare_entry()
 -> Result<(), Box<dyn std::error::Error>> {
     for kind in ["missing-hash", "unknown-version", "bare-entry"] {
         let dir = directory();
-        let mut store = Store::open(&dir, "test", 1).await?;
-        let first = entry(0, 1);
-        prime(&store, vec![first.clone()], Some(first.log_id)).await?;
-        store.apply([first]).await?;
-        let tail = entry(1, 2);
-        prime(&store, vec![tail.clone()], Some(tail.log_id)).await?;
-        let db = Connection::open(dir.join("metadata.sqlite"))?;
-        let bytes: Vec<u8> = db.query_row("SELECT data FROM logs WHERE idx=1", [], |r| r.get(0))?;
-        let mut value: serde_json::Value = serde_json::from_slice(&bytes)?;
+        let db = legacy_database(&dir)?;
+        let tail = entry(0, 1);
+        let mut value: serde_json::Value = serde_json::from_slice(&log::encode_entry(&tail)?)?;
         match kind {
             "missing-hash" => {
                 value.as_object_mut().ok_or("object")?.remove("digest");
@@ -624,18 +598,23 @@ async fn all_new_log_read_paths_reject_missing_hash_unknown_version_or_bare_entr
             "unknown-version" => value["format"] = serde_json::json!(999),
             _ => value = serde_json::to_value(&tail)?,
         }
-        db.execute(
-            "UPDATE logs SET data=?1 WHERE idx=1",
-            [serde_json::to_vec(&value)?],
-        )?;
+        let bytes = serde_json::to_vec(&value)?;
+        assert!(log::decode_entry(0, &bytes).is_err());
+        db.execute("INSERT INTO logs(idx,data) VALUES(0,?1)", [bytes])?;
+        put(&db, "committed", &Some(tail.log_id))?;
         drop(db);
-        assert!(store.get_log_state().await.is_err());
-        assert!(store.try_get_log_entries(0..=1).await.is_err());
-        assert!(store.apply([tail]).await.is_err());
-        assert_eq!(store.metadata().nodes.len(), 1);
-        drop(store);
         assert!(Store::open(&dir, "test", 1).await.is_err());
+        assert!(!dir.join("raft-wal").exists());
         std::fs::remove_dir_all(dir)?;
     }
     Ok(())
+}
+
+pub(super) fn legacy_database(dir: &Path) -> io::Result<Connection> {
+    std::fs::create_dir_all(dir)?;
+    let db = Connection::open(dir.join("metadata.sqlite")).map_err(db_err)?;
+    db.execute_batch("CREATE TABLE meta(key TEXT PRIMARY KEY,data BLOB NOT NULL); CREATE TABLE logs(idx INTEGER PRIMARY KEY,data BLOB NOT NULL)").map_err(db_err)?;
+    put(&db, "identity", &("test", 1u64))?;
+    put(&db, "control_log_format", &log::FORMAT)?;
+    Ok(db)
 }
