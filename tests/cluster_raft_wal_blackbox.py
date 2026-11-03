@@ -109,11 +109,13 @@ class RaftWalAcceptance(control.ControlTail):
     def test_periodic_snapshot_and_compacted_tail_recover_sessions(self):
         target = self.persistent('wal-snapshot-target', 1, expiry=600)
         self.subscribe(target, 'wal/snapshot', 2)
+        targets = [target] + [self.persistent(f'wal-snapshot-extra-device-{slot}', 1, expiry=600)
+                              for slot in range(1, 10)]
         baseline = self.fleet.status()['last_applied']
         # Actual separate SUBSCRIBE operations cross the production snapshot
         # threshold and retained-log window; do not force internal test hooks.
         for index in range(2100):
-            self.subscribe(target, 'wal/snapshot-extra', 1 + index % 2)
+            self.subscribe(targets[index // 210], f'wal/snapshot-extra/{index}', 1)
         def checkpoint_advanced():
             status = self.fleet.status()
             if not status or status['last_applied'] < baseline + 2000:
@@ -130,16 +132,20 @@ class RaftWalAcceptance(control.ControlTail):
         wait_until(checkpoint_advanced, 20)
         for node in self.fleet.controllers:
             node.stop(crash=True)
-        target.close()
+        for subscriber in targets:
+            subscriber.close()
         for node in self.fleet.controllers:
             node.start()
         self.healthy(0)
         self.healthy(1)
         restored = self.persistent('wal-snapshot-target', 1, present=True, expiry=600, retry=True)
         source = self.client('wal-snapshot-source', 0, retry=True)
-        for topic in ('wal/snapshot', 'wal/snapshot-extra'):
+        for topic in ('wal/snapshot', 'wal/snapshot-extra/0', 'wal/snapshot-extra/209'):
             self.publish(source, topic, b'after-snapshot-crash', 1)
             self.complete_message(restored, self.expect_message(restored, topic, b'after-snapshot-crash', 1))
+        last = self.persistent('wal-snapshot-extra-device-9', 1, present=True, expiry=600, retry=True)
+        self.publish(source, 'wal/snapshot-extra/2099', b'last-snapshot-route', 1)
+        self.complete_message(last, self.expect_message(last, 'wal/snapshot-extra/2099', b'last-snapshot-route', 1))
         self.data_files()
 
 
