@@ -1,0 +1,10 @@
+syntax = "proto3";
+package rmqtt.cluster.v1;
+message Envelope { bytes data = 1; }
+service Cluster {
+  rpc Raft(Envelope) returns (Envelope);
+  rpc Mutate(Envelope) returns (Envelope);
+  rpc Read(Envelope) returns (Envelope);
+  rpc Watch(Envelope) returns (stream Envelope);
+  rpc Deliver(Envelope) returns (Envelope);
+}
