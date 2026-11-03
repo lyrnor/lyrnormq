@@ -127,6 +127,8 @@ class PublishWireCases(HTTPPublishFixture):
         self.start()
         self.accepted({'topic': 'state/device', 'payload': 'first', 'qos': 2, 'retain': True})
         self.accepted({'topic': 'state/device', 'payload': 'latest', 'retain': True})
+        self.broker.stop(crash=True)
+        self.broker.start()
         device = self.client('device')
         self.subscribe(device, 'state/device')
         value = self.delivery(device, 'state/device', b'latest', 1, self.version)
