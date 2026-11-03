@@ -55,3 +55,14 @@ Boundary clarification: EnqueueWait measures reserve().await before mailbox owne
 QueueResidence begins at successful permit.send and ends when the worker takes it.
 ApplySlotWait is the bounded blocking-worker semaphore wait; ApplySpawnWait begins
 after that permit is acquired. AppendCallback traces identify actual callback timing.
+
+Histogram bucket0 covers0..1; bucketN covers values through2^N, except final
+bucket63 is an overflow bucket throughu64::MAX. Cumulative snapshots are not
+atomic across fields; fixed diagnostic runs stay far below u64 sum/count wrap.
+
+Review clarification: ApplyMutexWait must cover prechecks and clone lock acquisition
+as well as normal apply locks. CheckpointClone times whole-State cloning separately;
+CheckpointWait measures run_checkpoint slot+dispatch+locks before CheckpointPersist.
+CheckpointTotal is persist_checkpoint only; whole snapshot cost includes prior clone.
+WAL/apply timers are nested wall times, not additive CPU. Callback stamp is observed
+after notification, so concurrent Core wake can precede it by a small interval.

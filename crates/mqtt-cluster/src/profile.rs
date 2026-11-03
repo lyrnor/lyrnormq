@@ -40,13 +40,15 @@ pub(crate) enum Metric {
     ApplyMutexWait,
     ApplyMutate,
     ApplyHistory,
+    CheckpointWait,
+    CheckpointClone,
     CheckpointTotal,
     CheckpointEncode,
     CheckpointPersist,
     BatchSize,
     BatchBytes,
 }
-const METRICS: [Metric; 33] = [
+const METRICS: [Metric; 35] = [
     Metric::ControlWrite,
     Metric::Validate,
     Metric::Encode,
@@ -75,6 +77,8 @@ const METRICS: [Metric; 33] = [
     Metric::ApplyMutexWait,
     Metric::ApplyMutate,
     Metric::ApplyHistory,
+    Metric::CheckpointWait,
+    Metric::CheckpointClone,
     Metric::CheckpointTotal,
     Metric::CheckpointEncode,
     Metric::CheckpointPersist,
