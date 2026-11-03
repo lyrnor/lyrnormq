@@ -5,10 +5,45 @@ RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_control_batching_blackbox.py -v
 The separate cluster_control_batching_diagnostic.py runs the finite 900-client
 performance reproduction; default functional tests have no throughput assertion.
 """
+import copy
+from contextlib import ExitStack, contextmanager
+import json
+import socket
+import subprocess
 import unittest
 
-from cluster_blackbox import wait_until
+from cluster_blackbox import BINARY, wait_until
 from cluster_memory_blackbox import CombinedMemoryFleet, MemoryFixture
+
+
+@contextmanager
+def controller_only_status(fleet, node):
+    """Query one Controller; all other seeds are reserved, non-listening ports.
+
+    The normal CLI may fall back across seeds. Keeping both refused sockets bound
+    prevents accidental reuse by another listener, and putting the target first
+    avoids making a healthy target wait behind unrelated connect failures.
+    """
+    config = copy.deepcopy(node.config)
+    with ExitStack() as resources:
+        for peer in config['controllers']:
+            if peer['id'] != node.config['node_id']:
+                refused = resources.enter_context(socket.socket())
+                refused.bind(('127.0.0.1', 0))
+                peer['address'] = f'http://127.0.0.1:{refused.getsockname()[1]}'
+        config['controllers'].sort(key=lambda peer: peer['id'] != node.config['node_id'])
+        path = node.root / 'status-only.json'
+        path.write_text(json.dumps(config))
+
+        def query():
+            try:
+                result = subprocess.run([BINARY, 'cluster-status', '--cluster-config', str(path)],
+                                        cwd=fleet.root, capture_output=True, timeout=4)
+            except subprocess.TimeoutExpired:
+                return None
+            return json.loads(result.stdout) if result.returncode == 0 else None
+
+        yield query
 
 
 class CleanupCombinedMemoryFleet(CombinedMemoryFleet):
@@ -69,9 +104,22 @@ class ControlBatchRecovery(MemoryFixture, unittest.TestCase):
                 # Readiness/leases converge after leader election. Admission is
                 # probed only in recovery; the measured diagnostic never retries.
                 self.wait_broker_recovery()
-                leader.spawn()
-                wait_until(lambda: leader.process.poll() is None and
-                           (self.fleet.status() or {}).get('nodes') == 3, 20)
+                with controller_only_status(self.fleet, leader) as restarted_status:
+                    # The other two Controllers are alive. A response here would
+                    # prove the probe can silently fall back, invalidating it.
+                    self.assertIsNone(restarted_status())
+                    leader.spawn()
+
+                    def caught_up():
+                        leader.alive()
+                        state = restarted_status()
+                        return state if state and all(
+                            state[field] >= before[field]
+                            for field in ('last_applied', 'routes', 'clients')
+                        ) else None
+
+                    restored = wait_until(caught_up, 20)
+                    self.assertEqual(restored['nodes'], 3, restored)
                 publisher = self.client(f'batch-recovery-source-{version}', 2, expiry=0)
                 for qos in (1, 2):
                     self.publish(publisher, topic, f'after-restart-{qos}'.encode(),
