@@ -65,7 +65,7 @@ crash boundaries/install/purge, gaps/corruption, legacy DB and OpenRaft conforma
 
 ## Runtime/barrier owner
 
-Own controller.rs, rpc.rs, broker.rs and broker/** (not model/storage). Add authenticated
+Own controller.rs, controller/**, rpc.rs, rpc/**, broker.rs and broker/** (not model/storage). Add authenticated
 bounded ReadRequest::Applied{revision} and Owner{key}; keep legacy Metadata/Status.
 Applied waits via changed notifications for committed metadata revision and ALL
 current live nodes applied>=target, not quorum-only. Revalidate leadership on success;
@@ -120,3 +120,15 @@ multiplying consensus writes. Lost cache can delay/retry a barrier, never fake A
 
 Revision-exhaustion clarification: reject nonheartbeat mutation at u64::MAX rather
 than saturating revision while changing state without a Delta. Rejection atomic.
+
+Private checkpoint integrity amendment: versioned SavedSnapshot may add a SHA256
+digest over meta+raw state bytes. Legacy unversioned snapshots load compatibly;
+new-version records require a valid digest, matching last-included ID/membership.
+Missing/mismatched digest for a new record fails closed. No public State, RPC
+Snapshot or SQLite table schema change; use existing sha2 dependency.
+
+Bounded replication batching amendment: permit max_payload_entries24 instead of8.
+With512KiB command admission and small Entry/Append envelopes,24 full-sized entries
+must encode within existing16MiB RPC bound; add actual encoder regression before
+changing the setting. Single-command/MQTT/snapshot bounds and WAL/FULL unchanged.
+This is finite replication batching, not an unbounded queue or weaker flush ACK.

@@ -15,8 +15,7 @@ class ControlTail(MemoryFixture, unittest.TestCase):
     def checkpoint(self, controller):
         database = Path(controller.config['data_dir']) / 'metadata.sqlite'
         with sqlite3.connect(f'file:{database}?mode=ro', uri=True, timeout=2) as db:
-            row = db.execute("SELECT data FROM meta WHERE key='state'").fetchone()
-            return row[0] if row else None
+            return db.execute("SELECT key,data FROM meta WHERE key IN ('state','snapshot') ORDER BY key").fetchall()
 
     def test_no_per_apply_state_blob_then_committed_tail_survives_controller_crash(self):
         self.assert_memory_status()
