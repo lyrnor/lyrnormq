@@ -228,15 +228,14 @@ fn exchange_state(path: &Path, cluster: &str, node: u64) -> io::Result<Option<St
     let mut state = exchange.state;
     if let Some(saved) = exchange.snapshot {
         let candidate = snapshot_state(&saved)?;
-        if let Some(previous) = &state {
-            if previous.last_applied.map(|id| id.index) == candidate.last_applied.map(|id| id.index)
-                && (previous.last_applied != candidate.last_applied
-                    || encode(previous)? != encode(&candidate)?)
-            {
-                return Err(db_err(
-                    "exchange checkpoints conflict at the same applied index",
-                ));
-            }
+        if let Some(previous) = &state
+            && previous.last_applied.map(|id| id.index) == candidate.last_applied.map(|id| id.index)
+            && (previous.last_applied != candidate.last_applied
+                || encode(previous)? != encode(&candidate)?)
+        {
+            return Err(db_err(
+                "exchange checkpoints conflict at the same applied index",
+            ));
         }
         if state.as_ref().is_none_or(|previous| {
             previous.last_applied.map(|id| id.index) <= candidate.last_applied.map(|id| id.index)
