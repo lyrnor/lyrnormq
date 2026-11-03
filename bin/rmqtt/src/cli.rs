@@ -1,12 +1,14 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state] [--listen ADDRESS] [--cluster-config PATH] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
+pub const USAGE: &str = "usage: rmqtt [export-state|cluster-status|cluster-repair-learner|cluster-repair|cluster-repair-abort] [--listen ADDRESS] [--cluster-config PATH] [--target-node ID (cluster-repair only)] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
 
 pub struct Options {
     pub address: String,
     pub cluster_config: Option<PathBuf>,
     pub cluster_status: bool,
+    pub cluster_repair: Option<ClusterRepair>,
+    pub cluster_repair_target: Option<u64>,
     pub cluster_sensitive_paths: Vec<PathBuf>,
     pub cluster_data_dir: Option<PathBuf>,
     pub admin_listen: Option<std::net::SocketAddr>,
@@ -28,6 +30,13 @@ pub struct Options {
     /// Print the merged stored state of a stopped broker instead of serving.
     pub export_state: bool,
     pub config: BrokerConfig,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClusterRepair {
+    Learner,
+    Run,
+    Abort,
 }
 
 impl Options {
@@ -63,6 +72,8 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
         address: "127.0.0.1:1883".into(),
         cluster_config: None,
         cluster_status: false,
+        cluster_repair: None,
+        cluster_repair_target: None,
         cluster_sensitive_paths: Vec::new(),
         cluster_data_dir: None,
         admin_listen: None,
@@ -99,9 +110,32 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
                 options.cluster_status = true;
                 continue;
             }
+            options.cluster_repair = match option.as_str() {
+                "cluster-repair-learner" => Some(ClusterRepair::Learner),
+                "cluster-repair" => Some(ClusterRepair::Run),
+                "cluster-repair-abort" => Some(ClusterRepair::Abort),
+                _ => None,
+            };
+            if options.cluster_repair.is_some() {
+                continue;
+            }
         }
         if option == "--help" || option == "-h" {
             return Ok(None);
+        }
+        if option == "--target-node" {
+            let value = args
+                .next()
+                .ok_or_else(|| invalid("--target-node requires an ID"))?;
+            let id = value
+                .parse::<u64>()
+                .ok()
+                .filter(|id| *id > 0)
+                .ok_or_else(|| invalid("--target-node requires a positive node ID"))?;
+            if options.cluster_repair_target.replace(id).is_some() {
+                return Err(invalid("--target-node cannot be repeated"));
+            }
+            continue;
         }
         if option == "--enhanced-auth-plain" {
             options.enhanced_auth_plain = true;
@@ -401,11 +435,29 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     if options.export_state && options.tls_cert.is_some() {
         return Err(invalid("TLS options cannot be used with export-state"));
     }
-    if (options.cluster_status && options.cluster_config.is_none())
+    if ((options.cluster_status || options.cluster_repair.is_some())
+        && options.cluster_config.is_none())
         || (options.export_state && options.cluster_config.is_some())
     {
         return Err(invalid(
             "cluster-status requires --cluster-config; cluster cannot combine with export-state",
+        ));
+    }
+    if (options.cluster_repair == Some(ClusterRepair::Run))
+        != options.cluster_repair_target.is_some()
+    {
+        return Err(invalid("--target-node is required only for cluster-repair"));
+    }
+    if options.cluster_repair.is_some()
+        && (options.admin_listen.is_some()
+            || options.rules_config.is_some()
+            || options.access_control_config.is_some()
+            || options.config.storage_path.is_some()
+            || options.websocket
+            || options.tls_cert.is_some())
+    {
+        return Err(invalid(
+            "cluster repair commands do not serve MQTT or management listeners",
         ));
     }
     if options.export_state && options.config.storage_path.is_none() {
@@ -1025,6 +1077,88 @@ mod tests {
                 .unwrap()
                 .cluster_status
         );
+    }
+    #[test]
+    fn repair_commands_require_isolated_configuration_and_explicit_target() {
+        let run = parse(args(&[
+            "cluster-repair",
+            "--cluster-config",
+            "a",
+            "--target-node",
+            "103",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert_eq!(run.cluster_repair, Some(ClusterRepair::Run));
+        assert_eq!(run.cluster_repair_target, Some(103));
+        for command in ["cluster-repair-learner", "cluster-repair-abort"] {
+            assert!(
+                parse(args(&[command, "--cluster-config", "a"]))
+                    .unwrap()
+                    .is_some()
+            );
+        }
+        for input in [
+            vec!["cluster-repair"],
+            vec!["cluster-repair", "--cluster-config", "a"],
+            vec![
+                "cluster-repair",
+                "--cluster-config",
+                "a",
+                "--target-node",
+                "0",
+            ],
+            vec![
+                "cluster-repair",
+                "--cluster-config",
+                "a",
+                "--target-node",
+                "-1",
+            ],
+            vec![
+                "cluster-repair",
+                "--cluster-config",
+                "a",
+                "--target-node",
+                "103",
+                "--target-node",
+                "102",
+            ],
+            vec!["--target-node", "103"],
+            vec![
+                "cluster-repair-learner",
+                "--cluster-config",
+                "a",
+                "--target-node",
+                "103",
+            ],
+            vec![
+                "cluster-repair-abort",
+                "--cluster-config",
+                "a",
+                "--target-node",
+                "103",
+            ],
+            vec![
+                "cluster-repair-learner",
+                "--cluster-config",
+                "a",
+                "--storage-path",
+                "mirror.sqlite",
+            ],
+            vec![
+                "cluster-repair-abort",
+                "--cluster-config",
+                "a",
+                "--rules-config",
+                "rules.sqlite",
+            ],
+        ] {
+            assert!(
+                parse(args(&input)).is_err(),
+                "unexpectedly accepted: {input:?}"
+            );
+        }
     }
     #[test]
     fn export_state_is_a_leading_subcommand_requiring_storage() {

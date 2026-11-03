@@ -45,6 +45,15 @@ pub(crate) async fn controller(config: mqtt_cluster::Config) -> io::Result<()> {
     });
     mqtt_cluster::run_controller(config, rx).await
 }
+pub(crate) async fn learner(config: mqtt_cluster::Config) -> io::Result<()> {
+    let (tx, rx) = watch::channel(false);
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            let _ = tx.send(true);
+        }
+    });
+    mqtt_cluster::serve_repair_learner(config, rx).await
+}
 pub(crate) async fn broker(
     config: mqtt_cluster::Config,
 ) -> io::Result<Arc<mqtt_cluster::BrokerRuntime>> {

@@ -43,6 +43,30 @@ async fn run() -> Result<(), Box<dyn Error>> {
             ]);
         }
     }
+    if let Some(command) = options.cluster_repair {
+        let config = cluster_config
+            .as_ref()
+            .ok_or("cluster configuration required")?;
+        match command {
+            cli::ClusterRepair::Learner => cluster::learner(config.clone()).await?,
+            cli::ClusterRepair::Run => {
+                let target = options
+                    .cluster_repair_target
+                    .ok_or("repair target required")?;
+                println!(
+                    "{}",
+                    serde_json::to_string(&mqtt_cluster::repair(config, target).await?)?
+                );
+            }
+            cli::ClusterRepair::Abort => {
+                println!(
+                    "{}",
+                    serde_json::to_string(&mqtt_cluster::abort_repair(config).await?)?
+                );
+            }
+        }
+        return Ok(());
+    }
     if options.cluster_status {
         let config = cluster_config
             .as_ref()

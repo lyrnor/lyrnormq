@@ -79,6 +79,10 @@ This restores safe two-donor operation after capacity failure/abandoned target.
 Resume is idempotent; a lower-generation or different same-generation token cannot
 release a later freeze. A donor not yet frozen when Abort happened can advance its
 generation only after terminal-Abort authorization and matching disk identity.
+With that authorization, resume(token,true) may also replace an older frozen
+token when the new generation is strictly greater; this covers a donor that
+missed intermediate terminal transitions. Equal-generation different tokens and
+all rollback remain errors. The caller cannot supply this permission arbitrarily.
 Completed repairs cannot be aborted. Retry/new repair never wipes original donors.
 
 Interrupted driver/target/controller resumes the persisted repair, safely restarting
