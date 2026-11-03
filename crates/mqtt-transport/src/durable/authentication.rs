@@ -409,7 +409,11 @@ impl Worker {
                                         request.cluster_lease = Some(lease);
                                         return Ok(());
                                     }
-                                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                                    Err(error)
+                                        if error.get_ref().is_some_and(|inner| {
+                                            inner.is::<mqtt_cluster_core::AcquisitionConflict>()
+                                        }) =>
+                                    {
                                         continue;
                                     }
                                     Err(error) => return Err(error),

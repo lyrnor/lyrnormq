@@ -31,6 +31,10 @@ pub(super) struct Bridge {
     entered: tokio::sync::Notify,
     resume: tokio::sync::Notify,
     acquisitions: AtomicUsize,
+    inspect_calls: AtomicUsize,
+    acquire_calls: AtomicUsize,
+    acquire_errors: AtomicUsize,
+    acquire_conflict: AtomicBool,
     host: AtomicUsize,
 }
 impl std::fmt::Debug for Bridge {
@@ -65,6 +69,7 @@ impl ClusterBridge for Bridge {
     }
     fn inspect_session(&self, client_id: String) -> ClusterFuture<'_, SessionLease> {
         Box::pin(async move {
+            self.inspect_calls.fetch_add(1, Ordering::AcqRel);
             let data = self.data.lock().unwrap();
             let record = data.records.get(&client_id);
             Ok(SessionLease {
@@ -82,10 +87,41 @@ impl ClusterBridge for Bridge {
         expected_epoch: u64,
     ) -> ClusterFuture<'_, SessionLease> {
         Box::pin(async move {
+            self.acquire_calls.fetch_add(1, Ordering::AcqRel);
+            if self
+                .acquire_errors
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |remaining| {
+                    remaining.checked_sub(1)
+                })
+                .is_ok()
+            {
+                if self.acquire_conflict.load(Ordering::Acquire) {
+                    // Another owner won after inspection; the rejected attempt
+                    // has no effects, and only a fresh inspection can retry it.
+                    self.data
+                        .lock()
+                        .unwrap()
+                        .records
+                        .entry(client_id.clone())
+                        .or_default()
+                        .epoch += 1;
+                    return Err(io::Error::new(
+                        io::ErrorKind::WouldBlock,
+                        mqtt_cluster_core::AcquisitionConflict,
+                    ));
+                }
+                return Err(io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    "Acquire outcome unknown",
+                ));
+            }
             let mut data = self.data.lock().unwrap();
             let record = data.records.entry(client_id.clone()).or_default();
             if record.epoch != expected_epoch {
-                return Err(io::Error::new(io::ErrorKind::WouldBlock, "epoch changed"));
+                return Err(io::Error::new(
+                    io::ErrorKind::WouldBlock,
+                    mqtt_cluster_core::AcquisitionConflict,
+                ));
             }
             record.epoch += 1;
             self.acquisitions.fetch_add(1, Ordering::AcqRel);
@@ -795,6 +831,54 @@ async fn ping_keeps_replicated_revision_unchanged_for_both_versions() {
                 .await
                 .is_err()
         );
+        tests::stop(worker, task).await;
+    }
+}
+
+#[tokio::test]
+async fn unknown_acquire_outcome_is_not_retried_during_admission() {
+    let bridge = Arc::new(Bridge::default());
+    bridge.acquire_errors.store(3, Ordering::Release);
+    let (worker, task) = tests::worker(BrokerConfig {
+        access_control: Arc::new(Named),
+        ..config(bridge.clone())
+    })
+    .await;
+    let (reply, _) = named_connect(&worker, "alice", 1, false).await;
+    assert!(matches!(reply, Reply::Rejected(_)));
+    assert_eq!(
+        bridge.acquire_calls.load(Ordering::Acquire),
+        1,
+        "WouldBlock can mean a committed Acquire with a lost reply; never blindly retry it"
+    );
+    assert_eq!(bridge.inspect_calls.load(Ordering::Acquire), 1);
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn explicit_acquire_conflict_reinspects_and_retries_at_most_three_times() {
+    for failures in [2, 3] {
+        let bridge = Arc::new(Bridge::default());
+        bridge.acquire_errors.store(failures, Ordering::Release);
+        bridge.acquire_conflict.store(true, Ordering::Release);
+        let (worker, task) = tests::worker(BrokerConfig {
+            access_control: Arc::new(Named),
+            ..config(bridge.clone())
+        })
+        .await;
+        let (reply, _) = named_connect(&worker, "alice", 1, false).await;
+        if failures == 2 {
+            assert!(
+                matches!(reply, Reply::Connected(false)),
+                "fresh inspection must observe each conflict's new epoch"
+            );
+            assert_eq!(bridge.acquisitions.load(Ordering::Acquire), 1);
+        } else {
+            assert!(matches!(reply, Reply::Rejected(_)));
+            assert_eq!(bridge.acquisitions.load(Ordering::Acquire), 0);
+        }
+        assert_eq!(bridge.acquire_calls.load(Ordering::Acquire), 3);
+        assert_eq!(bridge.inspect_calls.load(Ordering::Acquire), 3);
         tests::stop(worker, task).await;
     }
 }
