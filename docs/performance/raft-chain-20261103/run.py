@@ -63,15 +63,16 @@ base=pathlib.Path({BASE!r});root=base/'c2000'/'combined'
 pids=','.join(str(p['pid']) for p in json.loads((root/'processes.json').read_text()))
 commands=[
  ['python3',{prior.SERVER_SCRIPT!r},'monitor','combined','--seconds','180'],
- ['timeout','--signal=INT','50','perf','record','-e','cpu-clock','-F','49','--call-graph','dwarf,8192','-p',pids,'-o',str(base/'perf.data'),'--','sleep','45'],
- ['timeout','--signal=INT','50','perf','stat','-e','task-clock,context-switches,cpu-migrations,page-faults','-I','1000','-p',pids,'-o',str(base/'perf-stat.txt'),'--','sleep','45']]
+ ['timeout','--signal=INT','--kill-after=5','50','perf','record','-e','cpu-clock','-F','49','--call-graph','dwarf,8192','-p',pids,'-o',str(base/'perf.data'),'--','sleep','45'],
+ ['timeout','--signal=INT','--kill-after=5','50','perf','stat','-e','task-clock,context-switches,cpu-migrations,page-faults','-I','1000','-p',pids,'-o',str(base/'perf-stat.txt'),'--','sleep','45']]
 items=[]
+(base/'observers.json').write_text('[]')
 for i,command in enumerate(commands):
  log=(base/f'observer{{i}}.log').open('xb')
  child=subprocess.Popen(command,stdout=log,stderr=log,stdin=subprocess.DEVNULL,start_new_session=True,
     env=dict(os.environ,RMQTT_BENCH_ROOT=str(base/'c2000'),RMQTT_BENCH_BIN=str(base/'rmqtt')))
  items.append(dict(pid=child.pid,command=command,start_ticks=pathlib.Path(f'/proc/{{child.pid}}/stat').read_text().rsplit(')',1)[1].split()[19]))
-(base/'observers.json').write_text(json.dumps(items,indent=2))
+ (base/'observers.json').write_text(json.dumps(items,indent=2))
 print(json.dumps(dict(observers=items,wall_ns=time.time_ns(),monotonic_ns=time.monotonic_ns())))
 '''
     (OUT / 'observers.json').write_text(prior.remote(prior.SERVER, 'python3 -c ' + shlex.quote(code)))
@@ -81,13 +82,22 @@ def stop_observers():
     # PID+start-time validation protects against unrelated processes; no broad pkill.
     code = f'''import pathlib,json,os,signal,time
 base=pathlib.Path({BASE!r});(base/'c2000'/'combined'/'monitor.stop').touch()
-for item in json.loads((base/'observers.json').read_text()):
+items=json.loads((base/'observers.json').read_text()) if (base/'observers.json').exists() else []
+def alive(item):
  try:
   stat=pathlib.Path('/proc/'+str(item['pid'])+'/stat').read_text().rsplit(')',1)[1].split()
-  if stat[0]!='Z' and stat[19]==item['start_ticks']:os.killpg(item['pid'],signal.SIGINT)
- except ProcessLookupError:pass
- except FileNotFoundError:pass
-print('observer signals sent')
+  return stat[0]!='Z' and stat[19]==item['start_ticks']
+ except (ProcessLookupError,FileNotFoundError):return False
+for sig,wait in [(signal.SIGINT,5),(signal.SIGTERM,2),(signal.SIGKILL,2)]:
+ for item in items:
+  if alive(item):
+   try:os.killpg(item['pid'],sig)
+   except ProcessLookupError:pass
+ deadline=time.monotonic()+wait
+ while time.monotonic()<deadline and any(alive(item) for item in items):time.sleep(.1)
+ if not any(alive(item) for item in items):break
+assert not any(alive(item) for item in items),'observer failed to exit'
+print('observers stopped')
 '''
     return prior.remote(prior.SERVER, 'python3 -c ' + shlex.quote(code))
 
@@ -96,7 +106,7 @@ def collect_perf():
     # perf may emit warnings on this VM; preserve stdout/stderr and status explicitly.
     code = f'''import pathlib,subprocess,json,tarfile,sys
 base=pathlib.Path({BASE!r});results=[]
-for command,name in [(['perf','script','--ns','-i',str(base/'perf.data')],'perf-script'),
+for command,name in [(['perf','script','--ns','-F','comm,pid,tid,time,period,event,ip,sym,dso','-i',str(base/'perf.data')],'perf-script'),
  (['perf','report','--stdio','--no-children','-i',str(base/'perf.data')],'perf-report')]:
  try:
   with (base/(name+'.txt')).open('wb') as out,(base/(name+'.err')).open('wb') as err:
@@ -119,17 +129,20 @@ def main():
     observers = False
     try:
         (OUT / 'start.log').write_text(server('start'))
-        start_observers(); observers = True
+        observers = True
+        start_observers()
         print('Started profile-enabled cluster and finite perf capture', flush=True)
         result = prior.remote(prior.CLIENT, f'RMQTT_MULTI_ROOT={BASE}/client RMQTT_MULTI_BIN={BASE}/connections '
             f'RMQTT_MULTI_RATE=2000 python3 {BASE}/client.py', timeout=240)
         (OUT / 'client-output.json').write_text(result)
         (OUT / 'state.json').write_text(server('state'))
     finally:
-        if observers:
-            (OUT / 'observer-stop.log').write_text(stop_observers())
-        if active:
-            (OUT / 'stop.log').write_text(server('stop'))
+        try:
+            if observers:
+                (OUT / 'observer-stop.log').write_text(stop_observers())
+        finally:
+            if active:
+                (OUT / 'stop.log').write_text(server('stop'))
     prior.collect()
     result = prior.aggregate(OUT / 'client')
     (OUT / 'aggregate.json').write_text(json.dumps(result, indent=2) + '\n')
