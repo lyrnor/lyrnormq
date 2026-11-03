@@ -403,3 +403,83 @@ async fn more_than_old_broker_command_limit_waits_instead_of_rejecting() -> io::
     tokio::fs::remove_dir_all(path).await?;
     Ok(())
 }
+
+#[test]
+fn legacy_receipts_accept_more_than_8192_pending_deliveries() {
+    let mut receipts = Receipts::default();
+    for sequence in 0..8193 {
+        assert!(
+            receipts.begin(&(101, "inc".into(), sequence)).is_ok(),
+            "pending deliveries must not impose admission quota"
+        );
+    }
+    assert_eq!(receipts.values.len(), 8193);
+    assert!(receipts.order.is_empty());
+    assert!(
+        receipts.begin(&(101, "inc".into(), 0)).is_err(),
+        "duplicate pending delivery remains rejected"
+    );
+}
+#[test]
+fn legacy_completed_receipts_are_bounded_without_evicting_pending() {
+    let mut receipts = Receipts::default();
+    for sequence in 0..9000 {
+        receipts.values.insert((101, "inc".into(), sequence), false);
+    }
+    for sequence in 0..8500 {
+        receipts.finish((101, "inc".into(), sequence), true);
+    }
+    assert_eq!(receipts.order.len(), 8192);
+    assert_eq!(receipts.values.len(), 8192 + 500);
+    for sequence in 8500..9000 {
+        assert_eq!(
+            receipts.values.get(&(101, "inc".into(), sequence)),
+            Some(&false)
+        );
+    }
+    assert!(
+        !receipts.begin(&(101, "inc".into(), 8499)).unwrap(),
+        "completed duplicate is acknowledged without redelivery"
+    );
+}
+
+#[tokio::test]
+async fn legacy_receipt_guard_cleans_cancellation_without_deleting_a_retry() -> io::Result<()> {
+    let (runtime, _spy, server, path) = spy_fixture("receipt-guard", false).await?;
+    let key = (101, "inc".to_owned(), 1);
+    assert!(runtime.receipts.lock().unwrap().begin(&key)?);
+    let guard = ReceiptGuard {
+        runtime: &runtime,
+        key: key.clone(),
+        active: true,
+    };
+    drop(guard); // Cancellation before finalization removes only the pending attempt.
+    assert!(!runtime.receipts.lock().unwrap().values.contains_key(&key));
+    assert!(runtime.receipts.lock().unwrap().begin(&key)?);
+    let mut guard = ReceiptGuard {
+        runtime: &runtime,
+        key: key.clone(),
+        active: true,
+    };
+    {
+        let mut receipts = runtime.receipts.lock().unwrap();
+        receipts.finish(key.clone(), true);
+        guard.active = false;
+        // Simulate completed-cache eviction and a later attempt at the same identity.
+        receipts.values.remove(&key);
+        receipts.order.clear();
+        assert!(receipts.begin(&key)?);
+    }
+    drop(guard);
+    assert_eq!(
+        runtime.receipts.lock().unwrap().values.get(&key),
+        Some(&false)
+    );
+    runtime.receipts.lock().unwrap().finish(key.clone(), false);
+    assert!(!runtime.receipts.lock().unwrap().values.contains_key(&key));
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+    tokio::fs::remove_dir_all(path).await?;
+    Ok(())
+}

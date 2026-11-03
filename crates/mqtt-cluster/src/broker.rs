@@ -27,6 +27,30 @@ struct Receipts {
     values: BTreeMap<(u64, String, u64), bool>,
     order: VecDeque<(u64, String, u64)>,
 }
+impl Receipts {
+    fn begin(&mut self, key: &(u64, String, u64)) -> io::Result<bool> {
+        if let Some(done) = self.values.get(key) {
+            return if *done { Ok(false) } else { Err(unavailable()) };
+        }
+        self.values.insert(key.clone(), false);
+        Ok(true)
+    }
+    fn finish(&mut self, key: (u64, String, u64), success: bool) {
+        if success {
+            self.values.insert(key.clone(), true);
+            self.order.push_back(key);
+            // Only completed identities occupy this bounded deduplication cache.
+            // Pending work is never rejected or evicted to enforce a count limit.
+            while self.order.len() > 8192 {
+                if let Some(old) = self.order.pop_front() {
+                    self.values.remove(&old);
+                }
+            }
+        } else {
+            self.values.remove(&key);
+        }
+    }
+}
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ReplicaMessage {
     pub generation: u64,
@@ -445,21 +469,14 @@ impl BrokerRuntime {
         let key = (forward.node, forward.incarnation, forward.sequence);
         {
             let mut receipts = self.receipts.lock().unwrap_or_else(PoisonError::into_inner);
-            if let Some(done) = receipts.values.get(&key) {
-                return if *done { Ok(()) } else { Err(unavailable()) };
+            if !receipts.begin(&key)? {
+                return Ok(());
             }
-            if receipts.values.len() >= 8192 {
-                if let Some(old) = receipts.order.pop_front() {
-                    receipts.values.remove(&old);
-                } else {
-                    return Err(unavailable());
-                }
-            }
-            receipts.values.insert(key.clone(), false);
         }
-        let guard = ReceiptGuard {
+        let mut guard = ReceiptGuard {
             runtime: self,
             key: key.clone(),
+            active: true,
         };
         let result = tokio::time::timeout(
             Duration::from_secs(4),
@@ -468,12 +485,10 @@ impl BrokerRuntime {
         .await
         .unwrap_or_else(|_| Err(unavailable()));
         let mut receipts = self.receipts.lock().unwrap_or_else(PoisonError::into_inner);
-        if result.is_ok() {
-            receipts.values.insert(key.clone(), true);
-            receipts.order.push_back(key);
-        } else {
-            receipts.values.remove(&key);
-        }
+        receipts.finish(key, result.is_ok());
+        // Disarm under the same lock: a completed entry may be evicted and retried
+        // before this response drops its guard. Never delete a subsequent delivery.
+        guard.active = false;
         drop(receipts);
         drop(guard);
         result
@@ -744,9 +759,13 @@ pub async fn serve_broker(
 struct ReceiptGuard<'a> {
     runtime: &'a BrokerRuntime,
     key: (u64, String, u64),
+    active: bool,
 }
 impl Drop for ReceiptGuard<'_> {
     fn drop(&mut self) {
+        if !self.active {
+            return;
+        }
         let mut receipts = self
             .runtime
             .receipts
