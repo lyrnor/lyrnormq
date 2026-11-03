@@ -2,6 +2,8 @@
 use std::sync::PoisonError;
 mod admission;
 mod applied;
+pub(crate) mod diagnostics;
+use diagnostics::{Kind, Stage, measure};
 const MAX_REPLICATION_ENTRIES: u64 = 24;
 
 use crate::{
@@ -107,84 +109,93 @@ pub(crate) struct Control {
 }
 impl Control {
     async fn leader(&self) -> Result<(), Status> {
-        tokio::time::timeout(Duration::from_secs(1), self.raft.ensure_linearizable())
-            .await
-            .map_err(|_| Status::unavailable("quorum deadline"))?
-            .map_err(|_| Status::unavailable("not current leader"))?;
-        Ok(())
+        measure(Stage::ReadIndex, Kind::Authority, async {
+            tokio::time::timeout(Duration::from_secs(1), self.raft.ensure_linearizable())
+                .await
+                .map_err(|_| Status::unavailable("quorum deadline"))?
+                .map_err(|_| Status::unavailable("not current leader"))?;
+            Ok(())
+        })
+        .await
     }
     async fn write(&self, mut command: Command) -> Result<Answer, Status> {
-        validate(&command)?;
-        if let Command::RepairCommit {
-            id,
-            generation,
-            proofs,
-        } = &mut command
-        {
-            self.leader().await?;
-            *proofs = crate::broker::repair::verify_commit(
-                &self.rpc,
-                &self.store.metadata(),
+        measure(Stage::Write, Kind::command(&command), async {
+            validate(&command)?;
+            if let Command::RepairCommit {
                 id,
-                *generation,
-            )
-            .await
-            .map_err(|_| Status::unavailable("repair proof verification failed"))?;
-        }
-        if serde_json::to_vec(&command)
-            .map_err(|_| Status::invalid_argument("invalid metadata command"))?
-            .len()
-            > 512 * 1024
-        {
-            return Err(Status::resource_exhausted("metadata command byte limit"));
-        }
-        match &mut command {
-            Command::Register {
-                node,
-                expires_at,
-                lease_ms,
-                ..
+                generation,
+                proofs,
+            } = &mut command
+            {
+                self.leader().await?;
+                *proofs = crate::broker::repair::verify_commit(
+                    &self.rpc,
+                    &self.store.metadata(),
+                    id,
+                    *generation,
+                )
+                .await
+                .map_err(|_| Status::unavailable("repair proof verification failed"))?;
             }
-            | Command::Heartbeat {
-                node,
-                expires_at,
-                lease_ms,
-                ..
-            } => {
-                *lease_ms = self.lease_ms;
-                let previous = self
-                    .store
-                    .state
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .metadata
-                    .nodes
-                    .get(node)
-                    .map_or(0, |n| n.expires_at);
-                *expires_at = now()
-                    .saturating_add(self.lease_ms)
-                    .max(previous.saturating_add(1));
+            if serde_json::to_vec(&command)
+                .map_err(|_| Status::invalid_argument("invalid metadata command"))?
+                .len()
+                > 512 * 1024
+            {
+                return Err(Status::resource_exhausted("metadata command byte limit"));
             }
-            _ => {}
-        }
-        // This rejection is provably before submission. Errors from client_write below
-        // must not be used to infer that a command never entered the consensus log.
-        if self.raft.metrics().borrow().current_leader != Some(self.rpc.config_node()) {
-            return Err(Status::failed_precondition(
-                "metadata not submitted: not current leader",
-            ));
-        }
-        let raft = self.raft.clone();
-        // Admission belongs to submitted work, not to the cancellable response future.
-        let pending = admission::submit(async move { raft.client_write(command).await });
-        let result = tokio::time::timeout(Duration::from_secs(2), pending)
-            .await
-            .map_err(|_| Status::unavailable("metadata commit deadline"))?
-            .map_err(|_| Status::unavailable("metadata commit task outcome unknown"))?
-            .map_err(|_| Status::unavailable("metadata commit outcome unknown"))?;
-        let mut answer = result.data;
-        answer.lease_ms = self.lease_ms;
-        Ok(answer)
+            match &mut command {
+                Command::Register {
+                    node,
+                    expires_at,
+                    lease_ms,
+                    ..
+                }
+                | Command::Heartbeat {
+                    node,
+                    expires_at,
+                    lease_ms,
+                    ..
+                } => {
+                    *lease_ms = self.lease_ms;
+                    let previous = self
+                        .store
+                        .state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .metadata
+                        .nodes
+                        .get(node)
+                        .map_or(0, |n| n.expires_at);
+                    *expires_at = now()
+                        .saturating_add(self.lease_ms)
+                        .max(previous.saturating_add(1));
+                }
+                _ => {}
+            }
+            // This rejection is provably before submission. Errors from client_write below
+            // must not be used to infer that a command never entered the consensus log.
+            if self.raft.metrics().borrow().current_leader != Some(self.rpc.config_node()) {
+                return Err(Status::failed_precondition(
+                    "metadata not submitted: not current leader",
+                ));
+            }
+            let raft = self.raft.clone();
+            // Admission belongs to submitted work, not to the cancellable response future.
+            let kind = Kind::command(&command);
+            let pending = admission::submit(async move {
+                measure(Stage::RaftResult, kind, raft.client_write(command)).await
+            });
+            let result = tokio::time::timeout(Duration::from_secs(2), pending)
+                .await
+                .map_err(|_| Status::unavailable("metadata commit deadline"))?
+                .map_err(|_| Status::unavailable("metadata commit task outcome unknown"))?
+                .map_err(|_| Status::unavailable("metadata commit outcome unknown"))?;
+            let mut answer = result.data;
+            answer.lease_ms = self.lease_ms;
+            Ok(answer)
+        })
+        .await
     }
     pub(crate) async fn raft_request(
         &self,
@@ -374,85 +385,88 @@ impl wire::cluster_server::Cluster for Service {
             .as_ref()
             .ok_or_else(|| Status::failed_precondition("not a controller"))?;
         let request: ReadRequest = rpc::decode(request.into_inner())?;
-        let envelope = match request {
-            ReadRequest::Metadata => {
-                control.leader().await?;
-                rpc::encode(&control.store.metadata())
-            }
-            ReadRequest::Applied { revision } => rpc::encode(&control.applied(revision).await?),
-            ReadRequest::AppliedAck {
-                node,
-                incarnation,
-                revision,
-            } => rpc::encode(&control.acknowledge(node, &incarnation, revision)?),
-            ReadRequest::Owner { key } => {
-                if key.len() <= 2
-                    || key.len() > 65538
-                    || key.contains('\0')
-                    || !(key.starts_with("c:") || key.starts_with("h:"))
-                {
-                    return Err(Status::invalid_argument("invalid owner key"));
+        measure(Stage::Read, Kind::read(&request), async {
+            let envelope = match request {
+                ReadRequest::Metadata => {
+                    control.leader().await?;
+                    rpc::encode(&control.store.metadata())
                 }
-                control.leader().await?;
-                let owner = control
-                    .store
-                    .state
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .metadata
-                    .durable
-                    .get(&key)
-                    .cloned();
-                rpc::encode(&owner)
+                ReadRequest::Applied { revision } => rpc::encode(&control.applied(revision).await?),
+                ReadRequest::AppliedAck {
+                    node,
+                    incarnation,
+                    revision,
+                } => rpc::encode(&control.acknowledge(node, &incarnation, revision)?),
+                ReadRequest::Owner { key } => {
+                    if key.len() <= 2
+                        || key.len() > 65538
+                        || key.contains('\0')
+                        || !(key.starts_with("c:") || key.starts_with("h:"))
+                    {
+                        return Err(Status::invalid_argument("invalid owner key"));
+                    }
+                    control.leader().await?;
+                    let owner = control
+                        .store
+                        .state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .metadata
+                        .durable
+                        .get(&key)
+                        .cloned();
+                    rpc::encode(&owner)
+                }
+                ReadRequest::Node { node } => {
+                    control.leader().await?;
+                    let value = control
+                        .store
+                        .state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .metadata
+                        .nodes
+                        .get(&node)
+                        .cloned();
+                    rpc::encode(&value)
+                }
+                ReadRequest::Status => {
+                    let m = control.raft.metrics().borrow().clone();
+                    let state = control
+                        .store
+                        .state
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner);
+                    let s = &state.metadata;
+                    rpc::encode(&ClusterStatus {
+                        data_storage: s
+                            .data_mode
+                            .as_ref()
+                            .map_or("none", DataMode::storage_name)
+                            .to_owned(),
+                        leader: m.current_leader,
+                        term: m.current_term,
+                        last_applied: m.last_applied.map_or(0, |id| id.index),
+                        nodes: s.nodes.len(),
+                        clients: s.clients.len()
+                            + s.durable.keys().filter(|key| key.starts_with("c:")).count(),
+                        routes: s.routes.len(),
+                        data_generation: s.data_generation,
+                        excluded: s.excluded.iter().copied().collect(),
+                        repair: s.repair.as_ref().map(|r| r.summary("active")),
+                        last_repair: s.last_repair.as_ref().map(|r| {
+                            r.repair.summary(match r.outcome {
+                                crate::repair_state::RepairOutcome::Committed => "committed",
+                                crate::repair_state::RepairOutcome::Aborted => "aborted",
+                            })
+                        }),
+                    })
+                }
             }
-            ReadRequest::Node { node } => {
-                control.leader().await?;
-                let value = control
-                    .store
-                    .state
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .metadata
-                    .nodes
-                    .get(&node)
-                    .cloned();
-                rpc::encode(&value)
-            }
-            ReadRequest::Status => {
-                let m = control.raft.metrics().borrow().clone();
-                let state = control
-                    .store
-                    .state
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner);
-                let s = &state.metadata;
-                rpc::encode(&ClusterStatus {
-                    data_storage: s
-                        .data_mode
-                        .as_ref()
-                        .map_or("none", DataMode::storage_name)
-                        .to_owned(),
-                    leader: m.current_leader,
-                    term: m.current_term,
-                    last_applied: m.last_applied.map_or(0, |id| id.index),
-                    nodes: s.nodes.len(),
-                    clients: s.clients.len()
-                        + s.durable.keys().filter(|key| key.starts_with("c:")).count(),
-                    routes: s.routes.len(),
-                    data_generation: s.data_generation,
-                    excluded: s.excluded.iter().copied().collect(),
-                    repair: s.repair.as_ref().map(|r| r.summary("active")),
-                    last_repair: s.last_repair.as_ref().map(|r| {
-                        r.repair.summary(match r.outcome {
-                            crate::repair_state::RepairOutcome::Committed => "committed",
-                            crate::repair_state::RepairOutcome::Aborted => "aborted",
-                        })
-                    }),
-                })
-            }
-        }
-        .map_err(|_| Status::internal("metadata encoding"))?;
-        Ok(Response::new(envelope))
+            .map_err(|_| Status::internal("metadata encoding"))?;
+            Ok(Response::new(envelope))
+        })
+        .await
     }
     type WatchStream = WatchStream;
     async fn watch(

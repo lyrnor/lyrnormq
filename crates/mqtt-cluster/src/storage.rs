@@ -14,12 +14,14 @@ use std::{
 };
 use tokio::sync::{Semaphore, watch};
 mod checkpoint;
+mod diagnostics;
 mod history;
 mod log;
 mod recovery;
 mod wal;
 #[derive(Clone)]
 pub struct Store {
+    node: u64,
     inner: Arc<Inner>,
     pub state: Arc<Mutex<State>>,
     pub changed: watch::Sender<u64>,
@@ -114,6 +116,7 @@ impl Store {
         .map_err(db_err)??;
         let (changed, _) = watch::channel(state.metadata.revision);
         Ok(Self {
+            node,
             inner: Arc::new(Inner {
                 db: Mutex::new(Some(db)),
                 wal: Mutex::new(Some(wal)),
@@ -495,7 +498,22 @@ impl RaftLogStorage<Types> for Store {
         self.run_wal(|wal| wal.vote()).await
     }
     async fn save_committed(&mut self, id: Option<LogId<u64>>) -> Result<(), StorageError<u64>> {
-        self.run_wal(move |wal| wal.save_committed(id)).await
+        let context = diagnostics::Context {
+            node: self.node,
+            entries: 0,
+            first: None,
+            last: id.map(|id| id.index),
+        };
+        diagnostics::measure(
+            diagnostics::Stage::SaveCommitted,
+            context,
+            self.run_wal(move |wal| {
+                diagnostics::measure_sync(diagnostics::Stage::WalCommit, context, || {
+                    wal.save_committed(id)
+                })
+            }),
+        )
+        .await
     }
     async fn read_committed(&mut self) -> Result<Option<LogId<u64>>, StorageError<u64>> {
         self.run_wal(|wal| wal.committed()).await
@@ -512,8 +530,17 @@ impl RaftLogStorage<Types> for Store {
         let entries: Vec<_> = entries.into_iter().collect();
         // The blocking continuation owns WAL serialization even if its caller cancels.
         let inner = self.inner.clone();
-        self.run_wal(move |wal| log::append_checked(wal, &inner.db, entries))
-            .await?;
+        let context = diagnostics::Context::entries(self.node, &entries);
+        diagnostics::measure(
+            diagnostics::Stage::Append,
+            context,
+            self.run_wal(move |wal| {
+                diagnostics::measure_sync(diagnostics::Stage::WalAppend, context, || {
+                    log::append_checked(wal, &inner.db, entries)
+                })
+            }),
+        )
+        .await?;
         callback.log_io_completed(Ok(()));
         Ok(())
     }
@@ -635,8 +662,20 @@ impl RaftStateMachine<Types> for Store {
         if entries.is_empty() {
             return Ok(Vec::new());
         }
-        self.serialized(move |this| async move { this.apply_entries(entries).await })
-            .await
+        let context = diagnostics::Context::entries(self.node, &entries);
+        diagnostics::measure(
+            diagnostics::Stage::ApplyQueued,
+            context,
+            self.serialized(move |this| async move {
+                diagnostics::measure(
+                    diagnostics::Stage::ApplyState,
+                    context,
+                    this.apply_entries(entries),
+                )
+                .await
+            }),
+        )
+        .await
     }
     async fn get_snapshot_builder(&mut self) -> Self {
         self.clone()
