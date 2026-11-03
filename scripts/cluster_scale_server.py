@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse,os,json,pathlib,subprocess,time,signal,http.client,secrets,sqlite3,sys,platform,hashlib,socket
+import argparse,os,json,pathlib,subprocess,time,signal,http.client,secrets,sys,platform,hashlib,socket
 from cluster_scale_limits import mqtt_options, validate_commands
 
 ROOT=pathlib.Path(os.environ.get('RMQTT_BENCH_ROOT','/opt/rmqtt-cluster-benchmark/20261103'))

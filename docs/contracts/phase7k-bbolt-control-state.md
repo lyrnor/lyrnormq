@@ -67,7 +67,8 @@ fail closed; no losing acknowledged business state. Legacy source preserved.
 ## Quality, integration and benchmark
 
 Quality owner owns tests/cluster_bbolt* and coordinated updates to
-cluster_control_optimization_blackbox.py and cluster_raft_wal_blackbox.py only.
+cluster_control_optimization_blackbox.py, cluster_raft_wal_blackbox.py and the
+Controller file-layout assertion in cluster_memory_blackbox.py only.
 New assertions inspect real Controller file layout and no creation/modification of
 SQLite. Keep historical SQLite-gate evidence, update current CI to bbolt gates.
 Real previous Phase7j binary used for migration/restart validation. Test corruption,
@@ -85,3 +86,14 @@ logs/resources and restore source port settings. Only if it passes continue2000/
 4000 and10kTCP/10kpublish/s128B QoS0/1/2, correct mean/p99/ACK/loss reporting.
 Backend replacement alone does not prove prior admission/reacquisition bottlenecks
 fixed. Never compile Rust on servers or hide failed setup as measured message TPS.
+
+Coordinator clarifications before integration: input snapshots are validated against
+their original digest/identity/membership before canonical State serialization and
+recomputed checkpoint digest; public logical State preserved, raw JSON whitespace
+is not a durable contract. No duplicate raw snapshot body is required.
+Publish bounded `controller.bbolt.required` identity/version marker atomically with
+file+parent-directory sync AFTER Bbolt publication and BEFORE Store readiness/ACK.
+If marker exists and Bbolt is missing, never reimport a stale exchange. Validate
+marker content/identity; existing valid DB without marker is verified/recovered
+before completing the marker. Marker is the O(1) missing-store fence, not business
+storage or a substitute for the independent Raft committed watermark.

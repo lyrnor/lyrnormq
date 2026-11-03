@@ -110,7 +110,11 @@ async fn healthy(live: Vec<TcpStream>) -> (Vec<TcpStream>, BTreeMap<String, u64>
                         stream.write_all(&[0xc0, 0]).await?;
                         let (h, b) = packet(&mut stream).await?;
                         if h != 0xd0 || !b.is_empty() {
-                            return Err(failure("invalid PINGRESP"));
+                            return Err(failure(&format!(
+                                "invalid PINGRESP header=0x{h:02x} reason={:?} length={}",
+                                b.first(),
+                                b.len()
+                            )));
                         }
                         Ok::<_, io::Error>(())
                     })
