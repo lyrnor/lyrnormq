@@ -117,6 +117,7 @@ pub(crate) struct Reply {
 struct Inner {
     db: Mutex<Connection>,
     _lock: std::fs::File,
+    disk_id: String,
     slots: Arc<Semaphore>,
 }
 #[derive(Clone)]
@@ -142,6 +143,33 @@ impl Journal {
         db.pragma_update(None, "max_page_count", 65536)
             .map_err(error)?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS identity(id INTEGER PRIMARY KEY CHECK(id=1), data BLOB NOT NULL); CREATE TABLE IF NOT EXISTS records(key TEXT PRIMARY KEY,min_epoch INTEGER NOT NULL,data BLOB);").map_err(error)?;
+        db.execute_batch("CREATE TABLE IF NOT EXISTS disk_identity(id INTEGER PRIMARY KEY CHECK(id=1), disk_id TEXT NOT NULL);").map_err(error)?;
+        let disk_id: Option<String> = db
+            .query_row("SELECT disk_id FROM disk_identity WHERE id=1", [], |r| {
+                r.get(0)
+            })
+            .optional()
+            .map_err(error)?;
+        let disk_id = match disk_id {
+            Some(id) if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) => id,
+            Some(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "invalid replica disk identity",
+                ));
+            }
+            None => {
+                let mut random = [0u8; 16];
+                getrandom::getrandom(&mut random).map_err(error)?;
+                let id = random
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>();
+                db.execute("INSERT INTO disk_identity VALUES(1,?1)", [&id])
+                    .map_err(error)?;
+                id
+            }
+        };
         let mut members = members.to_vec();
         members.sort();
         let value = serde_json::to_vec(&(identity, members)).map_err(error)?;
@@ -163,8 +191,12 @@ impl Journal {
         Ok(Self(Arc::new(Inner {
             db: Mutex::new(db),
             _lock: lock,
+            disk_id,
             slots: Arc::new(Semaphore::new(32)),
         })))
+    }
+    pub fn disk_id(&self) -> &str {
+        &self.0.disk_id
     }
     pub async fn execute(&self, request: Request) -> io::Result<Reply> {
         let permit = self
@@ -381,6 +413,22 @@ mod watermark_tests {
         assert_eq!(restored.len(), 2);
         assert!(restored.contains(&id("c:source".into(), 1, 9)));
         assert!(!restored.contains(&id("c:source".into(), 1, 11)));
+    }
+    #[test]
+    fn disk_identity_is_stable_and_empty_replacement_gets_a_new_identity() -> io::Result<()> {
+        let path = std::env::temp_dir().join(format!("rmqtt-disk-identity-{}", std::process::id()));
+        let first = Journal::open(&path, ("disk", 1), &[])?;
+        let id = first.disk_id().to_owned();
+        drop(first);
+        let reopened = Journal::open(&path, ("disk", 1), &[])?;
+        assert_eq!(reopened.disk_id(), id);
+        drop(reopened);
+        std::fs::remove_dir_all(&path)?;
+        let empty = Journal::open(&path, ("disk", 1), &[])?;
+        assert_ne!(empty.disk_id(), id);
+        drop(empty);
+        std::fs::remove_dir_all(path)?;
+        Ok(())
     }
     #[tokio::test]
     async fn full_source_quota_fails_closed_and_preserves_receipts_after_restart() -> io::Result<()>

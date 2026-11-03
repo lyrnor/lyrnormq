@@ -7,6 +7,7 @@ use crate::{
     rpc::{self, ClientRpc, ReadRequest, wire},
     storage::Store,
 };
+use mqtt_cluster_core::ClusterBridge;
 use openraft::error::{InstallSnapshotError, NetworkError, RPCError, RaftError};
 use openraft::network::RPCOption;
 use openraft::{BasicNode, RaftNetwork, RaftNetworkFactory};
@@ -413,10 +414,16 @@ impl wire::cluster_server::Cluster for Service {
         request: Request<wire::Envelope>,
     ) -> Result<Response<wire::Envelope>, Status> {
         self.rpc.check(&request)?;
-        let journal = self
+        let broker = self
             .broker
             .as_ref()
-            .and_then(|b| b.journal.as_ref())
+            .ok_or_else(|| Status::failed_precondition("not a data replica"))?;
+        if !broker.ready() {
+            return Err(Status::unavailable("unregistered replica disk"));
+        }
+        let journal = broker
+            .journal
+            .as_ref()
             .ok_or_else(|| Status::failed_precondition("not a data replica"))?;
         let reply = journal
             .execute(rpc::decode(request.into_inner())?)

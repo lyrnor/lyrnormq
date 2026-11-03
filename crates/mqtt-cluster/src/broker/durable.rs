@@ -818,6 +818,76 @@ mod tests {
                 },
             );
         }
+        assert!(!runtime.ready(), "a fresh unanchored disk cannot vote");
+        let probe_key = client_key("unanchored-vote");
+        assert!(
+            quorum::request(
+                &runtime,
+                runtime.journal.as_ref().ok_or_else(unavailable)?,
+                Request::Write {
+                    key: probe_key.clone(),
+                    record: Record::empty(1)
+                }
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            runtime
+                .journal
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .execute(Request::Read { key: probe_key })
+                .await?
+                .record
+                .is_none(),
+            "local bypass cannot vote before anchoring"
+        );
+        tokio::fs::write(
+            path.join("token"),
+            "data-replica-test-0123456789abcdef0123456789abcdef",
+        )
+        .await?;
+        let rpc = ClientRpc::new(runtime.config.clone()).await?;
+        let service = Service {
+            control: None,
+            broker: Some(runtime.clone()),
+            rpc: rpc.clone(),
+        };
+        let request = rpc.authorize(rpc::encode(&Request::Read {
+            key: client_key("recipient"),
+        })?)?;
+        assert!(
+            crate::rpc::wire::cluster_server::Cluster::replica(&service, request)
+                .await
+                .is_err(),
+            "remote replica RPC cannot vote before anchoring"
+        );
+        {
+            let mut metadata = runtime
+                .metadata
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            metadata.disk_ids.insert(
+                101,
+                runtime
+                    .journal
+                    .as_ref()
+                    .ok_or_else(unavailable)?
+                    .disk_id()
+                    .to_owned(),
+            );
+        }
+        assert!(runtime.ready());
+        let request = rpc.authorize(rpc::encode(&Request::Read {
+            key: client_key("recipient"),
+        })?)?;
+        assert!(
+            crate::rpc::wire::cluster_server::Cluster::replica(&service, request)
+                .await
+                .is_ok()
+        );
+        drop(service);
         // Isolate the already-committed record-cache boundary from MQTT actor capacity.
         // The reply is loaded from the real reopened-format journal, not assumed success.
         let (tx, mut rx) = mpsc::channel::<Job>(1);

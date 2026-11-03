@@ -8,6 +8,9 @@ pub(super) async fn request(
     journal: &Journal,
     request: Request,
 ) -> io::Result<Option<Record>> {
+    if !runtime.ready() {
+        return Err(unavailable());
+    }
     let peers = &runtime
         .config
         .durable

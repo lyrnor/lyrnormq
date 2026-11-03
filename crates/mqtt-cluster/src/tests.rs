@@ -20,6 +20,7 @@ fn register(node: u64) -> Command {
         incarnation: format!("node-{node}"),
         address: format!("http://127.0.0.1:{}", 10000 + node),
         replicas: None,
+        disk_id: None,
         expires_at: 100,
         lease_ms: 3000,
     }
@@ -226,7 +227,11 @@ fn durable_directory_preserves_interest_and_rejects_mixed_membership() {
     ];
     let mut metadata = Metadata::default();
     let mut first = register(1);
-    if let Command::Register { replicas, .. } = &mut first {
+    if let Command::Register {
+        replicas, disk_id, ..
+    } = &mut first
+    {
+        *disk_id = Some(format!("{:032x}", 1));
         *replicas = Some(members.clone());
     }
     assert!(metadata.apply(first).error.is_none());
@@ -302,7 +307,11 @@ fn offline_cas_cannot_steal_an_owner_that_is_live_again() {
     let mut metadata = Metadata::default();
     for node in [1, 2] {
         let mut command = register(node);
-        if let Command::Register { replicas, .. } = &mut command {
+        if let Command::Register {
+            replicas, disk_id, ..
+        } = &mut command
+        {
+            *disk_id = Some(format!("{node:032x}"));
             *replicas = Some(members.clone());
         }
         assert!(metadata.apply(command).error.is_none());
@@ -351,5 +360,50 @@ fn offline_cas_cannot_steal_an_owner_that_is_live_again() {
             .error
             .is_none(),
         "own poisoned record may acquire a newer epoch"
+    );
+}
+
+#[test]
+fn expired_replica_identity_cannot_be_replaced_by_a_new_empty_disk() {
+    let mut metadata = Metadata::default();
+    let members = vec![
+        (1, "http://127.0.0.1:10001".into()),
+        (2, "http://127.0.0.1:10002".into()),
+        (3, "http://127.0.0.1:10003".into()),
+    ];
+    let original = format!("{:032x}", 1);
+    let mut first = register(1);
+    if let Command::Register {
+        replicas, disk_id, ..
+    } = &mut first
+    {
+        *replicas = Some(members.clone());
+        *disk_id = Some(original.clone());
+    }
+    assert!(metadata.apply(first.clone()).error.is_none());
+    metadata.apply(Command::Expire {
+        node: 1,
+        incarnation: "node-1".into(),
+        expires_at: 100,
+    });
+    let mut replacement = first.clone();
+    if let Command::Register {
+        incarnation,
+        disk_id,
+        ..
+    } = &mut replacement
+    {
+        *incarnation = "node-1-restarted".into();
+        *disk_id = Some(format!("{:032x}", 2));
+    }
+    assert!(metadata.apply(replacement).error.is_some());
+    assert_eq!(metadata.disk_ids[&1], original);
+    assert!(!metadata.nodes.contains_key(&1));
+    if let Command::Register { incarnation, .. } = &mut first {
+        *incarnation = "node-1-restarted".into();
+    }
+    assert!(
+        metadata.apply(first).error.is_none(),
+        "the original durable disk may return after fencing"
     );
 }

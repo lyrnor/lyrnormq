@@ -48,6 +48,8 @@ pub struct Metadata {
     pub revision: u64,
     #[serde(default = "legacy_mode")]
     pub data_mode: Option<DataMode>,
+    #[serde(default)]
+    pub disk_ids: BTreeMap<u64, String>,
     pub nodes: BTreeMap<u64, Node>,
     pub clients: BTreeMap<String, Client>,
     pub routes: BTreeMap<String, BTreeSet<u64>>,
@@ -79,6 +81,8 @@ pub enum Command {
         lease_ms: u64,
         #[serde(default)]
         replicas: Option<Vec<(u64, String)>>,
+        #[serde(default)]
+        disk_id: Option<String>,
     },
     Heartbeat {
         node: u64,
@@ -233,6 +237,7 @@ impl Metadata {
                 expires_at,
                 lease_ms,
                 replicas,
+                disk_id,
             } => {
                 let mode = match replicas {
                     Some(mut peers) => {
@@ -253,6 +258,18 @@ impl Metadata {
                     }
                 } else {
                     self.data_mode = Some(mode);
+                }
+                match (&self.data_mode, disk_id) {
+                    (Some(DataMode::Durable(_)), Some(id))
+                        if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) =>
+                    {
+                        if self.disk_ids.get(&node).is_some_and(|old| old != &id) {
+                            return Err("data disk replacement requires repair".into());
+                        }
+                        self.disk_ids.insert(node, id);
+                    }
+                    (Some(DataMode::Legacy), None) => {}
+                    _ => return Err("data disk identity required".into()),
                 }
                 if self.nodes.len() >= 1024 && !self.nodes.contains_key(&node) {
                     return Err("node capacity".into());
@@ -452,6 +469,7 @@ pub enum MetadataUpdate {
         base: u64,
         revision: u64,
         data_mode: Option<DataMode>,
+        disk_ids: BTreeMap<u64, String>,
         nodes: BTreeMap<u64, Option<Node>>,
         clients: BTreeMap<String, Option<Client>>,
         durable: BTreeMap<String, Option<DurableOwner>>,
@@ -486,6 +504,7 @@ impl MetadataUpdate {
             base: old.revision,
             revision: next.revision,
             data_mode: next.data_mode.clone(),
+            disk_ids: next.disk_ids.clone(),
             nodes: diff(&old.nodes, &next.nodes),
             clients: diff(&old.clients, &next.clients),
             durable: diff(&old.durable, &next.durable),
@@ -506,6 +525,7 @@ impl MetadataUpdate {
                 base,
                 revision,
                 data_mode,
+                disk_ids,
                 nodes,
                 clients,
                 durable,
@@ -516,6 +536,7 @@ impl MetadataUpdate {
                 }
                 let mut next = old.clone();
                 next.data_mode = data_mode;
+                next.disk_ids = disk_ids;
                 patch(&mut next.nodes, nodes);
                 patch(&mut next.clients, clients);
                 patch(&mut next.durable, durable);

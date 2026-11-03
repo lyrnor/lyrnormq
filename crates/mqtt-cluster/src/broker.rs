@@ -310,6 +310,7 @@ impl BrokerRuntime {
             node: self.config.node_id,
             incarnation: self.incarnation.clone(),
             address: self.config.address(),
+            disk_id: self.journal.as_ref().map(|j| j.disk_id().to_owned()),
             replicas: self.config.durable.as_ref().map(|d| {
                 d.replicas
                     .iter()
@@ -496,17 +497,24 @@ impl ClusterBridge for BrokerRuntime {
         self.journal.is_some()
     }
     fn ready(&self) -> bool {
-        !self.stopped.load(Ordering::Acquire)
-            && self.initialized.load(Ordering::Acquire)
-            && tokio::time::Instant::now()
-                < *self.deadline.lock().unwrap_or_else(PoisonError::into_inner)
-            && self
-                .metadata
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .nodes
-                .get(&self.config.node_id)
-                .is_some_and(|n| n.incarnation == self.incarnation)
+        if self.stopped.load(Ordering::Acquire)
+            || !self.initialized.load(Ordering::Acquire)
+            || tokio::time::Instant::now()
+                >= *self.deadline.lock().unwrap_or_else(PoisonError::into_inner)
+        {
+            return false;
+        }
+        let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+        metadata
+            .nodes
+            .get(&self.config.node_id)
+            .is_some_and(|n| n.incarnation == self.incarnation)
+            && self.journal.as_ref().is_none_or(|journal| {
+                metadata
+                    .disk_ids
+                    .get(&self.config.node_id)
+                    .is_some_and(|id| id == journal.disk_id())
+            })
     }
     fn open(&self, local: Arc<dyn LocalBroker>) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
@@ -525,6 +533,7 @@ impl ClusterBridge for BrokerRuntime {
                             node: self.config.node_id,
                             incarnation: self.incarnation.clone(),
                             address: self.config.address(),
+                            disk_id: self.journal.as_ref().map(|j| j.disk_id().to_owned()),
                             replicas: self.config.durable.as_ref().map(|d| {
                                 d.replicas
                                     .iter()
