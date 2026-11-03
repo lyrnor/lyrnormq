@@ -28,6 +28,14 @@ impl std::error::Error for RecoveryRequired {}
 fn recovery_required(error: &io::Error) -> bool {
     error.get_ref().is_some_and(|e| e.is::<RecoveryRequired>())
 }
+fn acquisition_cache_unchanged(error: &io::Error) -> bool {
+    // A stale epoch proves no mutation by this request, but also disproves the
+    // cached ownership assumption. Only genuine pre-submission failure restores it.
+    rpc::not_submitted(error)
+        && error
+            .get_ref()
+            .is_none_or(|cause| !cause.is::<mqtt_cluster_core::AcquisitionConflict>())
+}
 fn recovery_error(reason: RecoveryRequired) -> io::Error {
     io::Error::new(io::ErrorKind::WouldBlock, reason)
 }
@@ -96,6 +104,9 @@ struct Cell {
     activation_token: Arc<()>,
 }
 impl Cell {
+    fn acquisition_failed(&mut self, previously_poisoned: bool, cache_unchanged: bool) {
+        self.poisoned = previously_poisoned || !cache_unchanged;
+    }
     fn request_activation(&mut self) {
         self.activate = true;
         self.activation_token = Arc::new(());
@@ -501,6 +512,7 @@ impl Durable {
         let rpc = runtime.rpc().await?;
         // A lost reply may hide a committed ownership change. Invalidate cached
         // authority BEFORE submission, not after receiving the successful reply.
+        let previously_poisoned = cell.poisoned;
         cell.poisoned = true;
         let answer = rpc
             .mutate(Command::Acquire {
@@ -510,7 +522,14 @@ impl Durable {
                 generation,
                 expected_epoch: expected,
             })
-            .await?;
+            .await;
+        let answer = match answer {
+            Ok(answer) => answer,
+            Err(error) => {
+                cell.acquisition_failed(previously_poisoned, acquisition_cache_unchanged(&error));
+                return Err(error);
+            }
+        };
         runtime.barrier(answer.revision).await?;
         let old = quorum::request(
             runtime,
@@ -1518,6 +1537,41 @@ mod tests {
         drop(runtime);
         std::fs::remove_dir_all(path)?;
         Ok(())
+    }
+
+    #[test]
+    fn rejected_stale_epoch_does_not_restore_cached_authority() {
+        let error = io::Error::new(
+            io::ErrorKind::WouldBlock,
+            mqtt_cluster_core::AcquisitionConflict,
+        );
+        assert!(rpc::not_submitted(&error));
+        assert!(!acquisition_cache_unchanged(&error));
+        assert!(!acquisition_cache_unchanged(&unavailable()));
+    }
+
+    #[test]
+    fn safe_acquisition_rejection_restores_only_previous_cache_authority() {
+        for (previously_poisoned, not_submitted, expected) in [
+            (false, true, false),
+            (true, true, true),
+            (false, false, true),
+            (true, false, true),
+        ] {
+            let mut cell = Cell {
+                data_generation: 1,
+                record: Some(Record::empty(7)),
+                poisoned: true,
+                activate: false,
+                activation_token: Arc::new(()),
+            };
+            cell.acquisition_failed(previously_poisoned, not_submitted);
+            assert_eq!(
+                cell.poisoned, expected,
+                "safe rejection may restore an authoritative cache; unknown outcomes never do"
+            );
+            assert_eq!(cell.record.as_ref().map(|r| r.epoch), Some(7));
+        }
     }
 
     #[test]
