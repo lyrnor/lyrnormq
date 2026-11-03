@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-03",
+  "source_commit": "7fa2784",
+  "platform": "Darwin arm64",
+  "rustc": "1.98.1",
+  "binary_sha256": "5057c0c976b5c14ecbc2177bd1c48e8c17efc5344e38299cd05ae1eaa79f6d60",
+  "rust_passed": 872,
+  "rust_ignored": 1,
+  "durable_cluster_wire_passed": 27,
+  "legacy_cluster_wire_passed": 20,
+  "standalone_wire_passed": 77,
+  "strict_clippy": "passed",
+  "fmt": "passed",
+  "remote_ci_run": false,
+  "large_cluster_performance_claim": false
+}

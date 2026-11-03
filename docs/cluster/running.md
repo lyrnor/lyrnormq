@@ -82,3 +82,66 @@ Current fixed implementation limits (acceptance bounds, not capacity measurement
 The byte limit can be reached before the count limit. Whole metadata serialization,
 route rebuilding and per-watch delta calculation need profiling and optimization
 before making a large-scale performance promise.
+
+## Durable forwarding and session failover
+
+The Phase7b mode uses three fixed Broker data replicas, separate from the three
+Controllers. Add this identical block to **each Broker** configuration (not the
+Controller configurations); their existing node IDs, listen and advertise must
+match the group:
+
+```json
+"durable": {
+  "replicas": [
+    {"id": 101, "address": "http://127.0.0.1:7101"},
+    {"id": 102, "address": "http://127.0.0.1:7102"},
+    {"id": 103, "address": "http://127.0.0.1:7103"}
+  ]
+}
+```
+
+Initialize a separate cluster ID and fresh, separate Controller/Broker directories
+for this mode. The first Broker registration freezes the cluster's mode and full
+replica group. Existing legacy Controller data stays legacy; in-place migration is
+not implemented. Preserve old data. Do not delete a journal or change the replica
+list to bypass this protection. A different group or mixed legacy registration is
+rejected. Non-loopback addresses still require mutual TLS.
+
+Each data journal also has an automatically persisted disk identity anchored by
+the Controllers. Restarting with the original disk is supported. A new empty disk
+under an old node ID is refused, including during the RPC startup window; it must
+not count as an empty quorum vote. Explicit replica repair/replacement is a later
+gate. Losing one node leaves the other two able to continue; do not wipe its
+directory as a recovery procedure.
+
+Start all six processes before admitting traffic. Durable operations require two
+data replicas: a successful ACK means replicated session/forwarding responsibility,
+not that a subscriber has already received the message. One failed Broker can be
+recovered on another disk; with fewer than two replicas, new durable operations
+fail. Startup/listener availability alone is not a data-quorum health guarantee.
+
+The authoritative Broker journal is data.sqlite under config.data_dir. Optional
+--storage-path is a local compatibility mirror, not a failover backup. Controllers
+hold ownership epochs/filter metadata only. Cross-node recovery restores existing
+MQTT snapshots and packet identifiers; acknowledged forwarding intents survive
+source client disconnect and do not require that client to reconnect for draining.
+QoS0 subscriber delivery remains best effort. Retained/Will/shared cluster features
+remain refused. See [Phase7b contract](../contracts/phase7b-durable-cluster.md) and
+the corresponding verification report for actual accepted gates and limits.
+
+Durable-mode bounds currently include 100,000 journal records, 256 MiB aggregate
+encoded record data (SQLite pages/WAL add overhead), 8 MiB per encoded record,
+2 MiB per opaque snapshot, 256 pending intents per source record and 8192 distinct
+source-stream watermarks per recipient. Earlier byte/SessionEngine limits can
+bind first. Full capacity fails admission; it never falls back to volatile success.
+The source watermark does not grow once per message for a fixed producer.
+
+Clean Start or expiry/recreation gets a new logical session generation. Pending
+deliveries freeze that generation, so reusing a Client ID and topic cannot admit
+old queued work into the new session. Ordinary persistent owner failover preserves
+the generation and can resume its pending deliveries.
+
+This is a correctness gate, not large-cluster performance acceptance: directory
+scans, journal quota scans and whole-record serialization still need profiling.
+General tombstone/abandoned-host cleanup, disk repair, membership reconfiguration
+and rolling-version migration are not provided by this gate.

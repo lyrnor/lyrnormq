@@ -1,0 +1,29 @@
+   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-cluster-durable-transport/crates/mqtt-transport)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_transport-f2ae8739566f4ace)
+
+running 2 tests
+test durable::durable_cluster_tests::recovered_filter_cache_is_removed_when_session_expires ... FAILED
+test durable::durable_cluster_tests::recovered_filter_cache_is_removed_after_unsubscribe ... FAILED
+
+failures:
+
+---- durable::durable_cluster_tests::recovered_filter_cache_is_removed_when_session_expires stdout ----
+
+thread 'durable::durable_cluster_tests::recovered_filter_cache_is_removed_when_session_expires' (18365940) panicked at crates/mqtt-transport/src/durable/durable_cluster_tests.rs:598:5:
+expired recovery filters remain cached
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- durable::durable_cluster_tests::recovered_filter_cache_is_removed_after_unsubscribe stdout ----
+
+thread 'durable::durable_cluster_tests::recovered_filter_cache_is_removed_after_unsubscribe' (18365939) panicked at crates/mqtt-transport/src/durable/durable_cluster_tests.rs:516:5:
+unsubscribed recovery filters remain cached
+
+
+failures:
+    durable::durable_cluster_tests::recovered_filter_cache_is_removed_after_unsubscribe
+    durable::durable_cluster_tests::recovered_filter_cache_is_removed_when_session_expires
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 192 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p mqtt-transport --lib`

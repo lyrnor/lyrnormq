@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_transport-f2ae8739566f4ace)
+
+running 1 test
+test durable::durable_cluster_tests::authoritative_tombstone_deletes_a_preexisting_local_mirror_row ... FAILED
+
+failures:
+
+---- durable::durable_cluster_tests::authoritative_tombstone_deletes_a_preexisting_local_mirror_row stdout ----
+
+thread 'durable::durable_cluster_tests::authoritative_tombstone_deletes_a_preexisting_local_mirror_row' (18365979) panicked at crates/mqtt-transport/src/durable/durable_cluster_tests.rs:641:5:
+local mirror resurrects a session deleted by the authoritative tombstone
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    durable::durable_cluster_tests::authoritative_tombstone_deletes_a_preexisting_local_mirror_row
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 193 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p mqtt-transport --lib`

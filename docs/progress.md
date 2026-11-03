@@ -2562,3 +2562,42 @@ failover, retained/Will/shared cluster semantics, real compaction/snapshot-trans
 faults, peer mTLS interoperability, auth/config distribution, large-topology profiling
 and optimized indexed metadata/routing. Unsupported cluster features are explicitly
 refused; this is not full MQTT cluster compatibility or production HA acceptance.
+
+## 2026-11-03 — Phase7b reliable forwarding and persistent failover accepted
+
+Frozen phase7b transaction contract/core API, then used three independent writing
+worktrees for runtime, transport and quality. Added explicit durable mode with
+three fixed Broker data replicas and W2 acknowledgment; Controller Raft still holds
+metadata only. New group/mode and disk identities are durably anchored, so mixed
+replica groups or empty replacement voters cannot silently discard confirmed data.
+
+Existing SessionEngine snapshots/QoS/outbox are reused. Source snapshot and stable
+forward intents commit together; recipient snapshot and receipt watermark commit
+together. FIFO source streams freeze recipient identities/logical generations and
+retain original IDs through migration. A logical reset clears old recipient state
+without erasing already accepted source obligations. Authenticated inspection and
+epoch CAS precede takeover; recovering an abandoned owner drains pending work
+without requiring the source client to reconnect. Old local RowStore rows remain
+mirrors and cannot overrule quorum recovery.
+
+Independent failures/review exposed host lazy-initialization races, empty-disk
+voting, full-queue duplicate progress, automatic recovery racing a live owner,
+historical payload cache retention, stale filter/mirror state and target reset
+isolation. Added regressions and integrated fixes. MQTT5 completed-PUBREL test
+correction accepts the normative0x92 only at the three completed-retry call sites;
+initial-success and no-duplicate-delivery assertions remain strict.
+
+Actual final identical native binary through7fa2784: 27 new durable cluster wire,
+20 prior cluster wire, and77 standalone wire cases pass. 872Rust tests pass with
+one explicit live-PG ignore; formal OpenRaft storage suite, strictClippy/fmt pass.
+CI adds protoc and the real cluster/system-event/HTTP gates; no remote Actions run
+is claimed. [Reproduction, logs and limits](verification/cluster-durable-20261103/README.md).
+
+This is a fixed-three-data-node correctness gate, not large-cluster capacity or
+production-complete MQTT acceptance. Retained/Will/shared cluster support, replica
+repair/replacement, topology changes, legacy/rolling migration, generic tombstone
+reclamation, invalid-actor retirement and performance acceptance remain. QoS0
+subscriber delivery stays best effort. Byte/count exhaustion fails closed. No new
+Linux execution, cluster mTLS wire, physical power-loss, TPS/P99, mainmerge/push or
+deployment result. Next work: safe replica repair and cleanup, then profile pending
+scheduling/indexed matching/quota accounting with reproducible equivalent loads.

@@ -1,5 +1,31 @@
 # Architecture
 
+## Phase7b durable data mode (2026-11-03)
+
+The additive [Phase7b contract](contracts/phase7b-durable-cluster.md) enables
+reliable forwarding and persistent-session failover on a fixed three-Broker data
+group. Two independent data journals must confirm a mutation. Controllers retain
+ownership epochs, disk identities, group membership and subscription metadata;
+session snapshots and message bodies stay on Brokers.
+
+`mqtt-cluster::replica` implements the bounded WAL/FULL data register.
+`broker::quorum` fences and reads from the same responding quorum; `broker::durable`
+serializes session/outbox/receipt transactions per source or recipient record.
+Transport reuses SessionEngine snapshots, incoming/outgoing QoS state and packet
+IDs. It commits the source proposal and stable outbox before ACK/fanout, and the
+recipient proposal plus delivery watermark before confirming receipt. Strict
+per-source FIFO permits bounded per-source receipt high watermarks. Background
+epoch-CAS recovery drains accepted work without a source client reconnect.
+
+New owners raise replica fencing epochs and write the recovered state back to a
+quorum before activation. Unknown writes invalidate local authority; old local
+RowStore rows cannot overrule replicated state. Controller-anchored disk identities
+prevent an empty replacement disk from voting a confirmed value out of existence.
+Mode/group are immutable for this gate, and legacy operation remains available.
+Disk replacement/repair, changing groups, broad cluster scaling and performance
+acceptance are separate gates. Retained/Will/shared cluster semantics remain
+unsupported; the durable mode supersedes only phase7a's persistent-session refusal.
+
 ## Phase7a cluster integration (2026-11-03)
 
 The current cluster contract is [phase7a-cluster.md](contracts/phase7a-cluster.md).

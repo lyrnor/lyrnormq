@@ -1,0 +1,25 @@
+test_broker_restart_rebuilds_route_snapshot (__main__.Cluster311.test_broker_restart_rebuilds_route_snapshot) ... ok
+test_cross_node_qos_zero_one_two_and_order (__main__.Cluster311.test_cross_node_qos_zero_one_two_and_order) ... ok
+test_forwarding_does_not_reflect_or_repeat_source_rules (__main__.Cluster311.test_forwarding_does_not_reflect_or_repeat_source_rules) ... ok
+test_global_takeover_and_stale_cleanup_preserve_replacement (__main__.Cluster311.test_global_takeover_and_stale_cleanup_preserve_replacement) ... ok
+test_http_downlink_routes_to_remote_subscriber (__main__.Cluster311.test_http_downlink_routes_to_remote_subscriber) ... ok
+test_initial_cluster_feature_limits_are_explicit (__main__.Cluster311.test_initial_cluster_feature_limits_are_explicit) ... ok
+test_suback_is_route_visibility_barrier_and_unsubscribe_removes_interest (__main__.Cluster311.test_suback_is_route_visibility_barrier_and_unsubscribe_removes_interest) ... ok
+test_broker_restart_rebuilds_route_snapshot (__main__.Cluster5.test_broker_restart_rebuilds_route_snapshot) ... ok
+test_cross_node_qos_zero_one_two_and_order (__main__.Cluster5.test_cross_node_qos_zero_one_two_and_order) ... ok
+test_forwarding_does_not_reflect_or_repeat_source_rules (__main__.Cluster5.test_forwarding_does_not_reflect_or_repeat_source_rules) ... ok
+test_global_takeover_and_stale_cleanup_preserve_replacement (__main__.Cluster5.test_global_takeover_and_stale_cleanup_preserve_replacement) ... ok
+test_http_downlink_routes_to_remote_subscriber (__main__.Cluster5.test_http_downlink_routes_to_remote_subscriber) ... ok
+test_initial_cluster_feature_limits_are_explicit (__main__.Cluster5.test_initial_cluster_feature_limits_are_explicit) ... ok
+test_suback_is_route_visibility_barrier_and_unsubscribe_removes_interest (__main__.Cluster5.test_suback_is_route_visibility_barrier_and_unsubscribe_removes_interest) ... ok
+test_actual_raft_leader_failure_elects_replacement_and_routes (__main__.ClusterFaults.test_actual_raft_leader_failure_elects_replacement_and_routes) ... ok
+test_controller_journals_recover_after_total_process_crash (__main__.ClusterFaults.test_controller_journals_recover_after_total_process_crash) ... ok
+test_expired_broker_rejoins_without_process_restart (__main__.ClusterFaults.test_expired_broker_rejoins_without_process_restart) ... ok
+test_loss_of_majority_expires_broker_service_then_recovers (__main__.ClusterFaults.test_loss_of_majority_expires_broker_service_then_recovers) ... ok
+test_unresponsive_leader_does_not_strand_metadata_watch (__main__.ClusterFaults.test_unresponsive_leader_does_not_strand_metadata_watch) ... ok
+test_wrong_cluster_identity_and_private_token_cannot_register (__main__.ClusterFaults.test_wrong_cluster_identity_and_private_token_cannot_register) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 87.037s
+
+OK

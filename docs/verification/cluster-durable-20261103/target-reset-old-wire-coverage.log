@@ -1,0 +1,6 @@
+test_pending_old_delivery_cannot_enter_clean_started_recreated_session (cluster_durable_blackbox.DurableFaults.test_pending_old_delivery_cannot_enter_clean_started_recreated_session) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 5.657s
+
+OK

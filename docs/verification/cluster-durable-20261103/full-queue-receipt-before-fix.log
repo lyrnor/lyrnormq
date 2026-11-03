@@ -1,0 +1,42 @@
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-cluster-durable-runtime/crates/mqtt-cluster)
+warning: variant `Received` is never constructed
+  --> crates/mqtt-cluster/src/broker/durable.rs:12:5
+   |
+11 | enum Operation {
+   |      --------- variant in this enum
+12 |     Received {
+   |     ^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `received` is never used
+   --> crates/mqtt-cluster/src/broker/durable.rs:276:18
+    |
+ 73 | impl Durable {
+    | ------------ method in this implementation
+...
+276 |     pub async fn received(self: &Arc<Self>, client: &str, id: DeliveryId) -> io::Result<bool> {
+    |                  ^^^^^^^^
+
+warning: `mqtt-cluster` (lib test) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.87s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-ee7cad46e1c9209a)
+
+running 1 test
+test broker::durable::tests::committed_receipt_bypasses_full_recipient_queue ... FAILED
+
+failures:
+
+---- broker::durable::tests::committed_receipt_bypasses_full_recipient_queue stdout ----
+
+thread 'broker::durable::tests::committed_receipt_bypasses_full_recipient_queue' (18357394) panicked at crates/mqtt-cluster/src/broker/durable.rs:865:9:
+a previously committed delivery cannot require queue capacity again
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    broker::durable::tests::committed_receipt_bypasses_full_recipient_queue
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p mqtt-cluster --lib`
