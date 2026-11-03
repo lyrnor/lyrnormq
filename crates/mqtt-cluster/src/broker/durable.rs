@@ -5,7 +5,9 @@ use crate::diagnosis::{self, Failure};
 use crate::replica::{Intent, Journal, Recipient, Record, Request};
 use mqtt_cluster_core::{DeliveryId, SessionCommit, SessionLease, SessionMutation};
 use tokio::sync::{mpsc, oneshot};
+mod diagnostics;
 mod scheduler;
+use diagnostics::{Stage, measure};
 
 const REPLY_TIMEOUT: Duration = Duration::from_secs(8);
 const WORK_TIMEOUT: Duration = Duration::from_secs(30);
@@ -34,7 +36,13 @@ fn acquisition_cache_unchanged(error: &io::Error) -> bool {
             .is_none_or(|cause| !cause.is::<mqtt_cluster_core::AcquisitionConflict>())
 }
 fn recovery_error(reason: RecoveryRequired) -> io::Error {
-    io::Error::new(io::ErrorKind::WouldBlock, reason)
+    let stage = match reason {
+        RecoveryRequired::Missing => Stage::RecoveryMissing,
+        RecoveryRequired::Poisoned => Stage::RecoveryPoisoned,
+        RecoveryRequired::StaleEpoch => Stage::RecoveryStaleEpoch,
+    };
+    let error = io::Error::new(io::ErrorKind::WouldBlock, reason);
+    diagnostics::recovery(stage, error)
 }
 
 struct Work {
@@ -398,6 +406,20 @@ impl Durable {
         expected: u64,
         cell: &mut Cell,
     ) -> io::Result<SessionLease> {
+        measure(
+            Stage::TakeFinish,
+            self.take_inner(runtime, key, generation, expected, cell),
+        )
+        .await
+    }
+    async fn take_inner(
+        &self,
+        runtime: &BrokerRuntime,
+        key: &str,
+        generation: u64,
+        expected: u64,
+        cell: &mut Cell,
+    ) -> io::Result<SessionLease> {
         if !runtime.ready() {
             return Err(unavailable());
         }
@@ -406,15 +428,17 @@ impl Durable {
         // authority BEFORE submission, not after receiving the successful reply.
         let previously_poisoned = cell.poisoned;
         cell.poisoned = true;
-        let answer = rpc
-            .mutate(Command::Acquire {
+        let answer = measure(
+            Stage::TakeMutate,
+            rpc.mutate(Command::Acquire {
                 key: key.to_owned(),
                 node: runtime.config.node_id,
                 incarnation: runtime.incarnation.clone(),
                 generation,
                 expected_epoch: expected,
-            })
-            .await;
+            }),
+        )
+        .await;
         let answer = match answer {
             Ok(answer) => answer,
             Err(error) => {
@@ -422,31 +446,41 @@ impl Durable {
                 return Err(error);
             }
         };
-        runtime.barrier(answer.revision).await?;
-        let old = quorum::request(
-            runtime,
-            &self.journal,
-            Request::Fence {
-                key: key.to_owned(),
-                epoch: answer.revision,
-            },
+        measure(Stage::TakeBarrier, runtime.barrier(answer.revision)).await?;
+        let old = measure(
+            Stage::TakeFence,
+            quorum::request(
+                runtime,
+                &self.journal,
+                Request::Fence {
+                    key: key.to_owned(),
+                    epoch: answer.revision,
+                },
+            ),
         )
         .await?;
         let mut record = old.unwrap_or_else(|| Record::empty(answer.revision));
         record.epoch = answer.revision;
         record.physical_revision = 0;
-        quorum::request(
-            runtime,
-            &self.journal,
-            Request::Write {
-                key: key.to_owned(),
-                record: record.clone(),
-            },
+        measure(
+            Stage::TakeWrite,
+            quorum::request(
+                runtime,
+                &self.journal,
+                Request::Write {
+                    key: key.to_owned(),
+                    record: record.clone(),
+                },
+            ),
         )
         .await?;
-        if !Self::authoritative(runtime, key, record.epoch) {
-            return Err(diagnosis::reject(Failure::TakeAuthority));
-        }
+        let authority_start = std::time::Instant::now();
+        let authority = if !Self::authoritative(runtime, key, record.epoch) {
+            Err(diagnosis::reject(Failure::TakeAuthority))
+        } else {
+            Ok(())
+        };
+        diagnostics::finish(Stage::TakeAuthority, authority_start, authority)?;
         let filters_differ = runtime
             .metadata
             .read()
@@ -457,21 +491,25 @@ impl Durable {
                 owner.filters != record.filters
                     || owner.logical_generation != record.logical_generation
             });
-        if filters_differ {
-            runtime
-                .command(
-                    Command::DurableFilters {
-                        key: key.to_owned(),
-                        node: runtime.config.node_id,
-                        incarnation: runtime.incarnation.clone(),
-                        epoch: record.epoch,
-                        filters: record.filters.clone(),
-                        logical_generation: record.logical_generation,
-                    },
-                    true,
-                )
-                .await?;
-        }
+        measure(Stage::TakeFilters, async {
+            if filters_differ {
+                runtime
+                    .command(
+                        Command::DurableFilters {
+                            key: key.to_owned(),
+                            node: runtime.config.node_id,
+                            incarnation: runtime.incarnation.clone(),
+                            epoch: record.epoch,
+                            filters: record.filters.clone(),
+                            logical_generation: record.logical_generation,
+                        },
+                        true,
+                    )
+                    .await?;
+            }
+            Ok(())
+        })
+        .await?;
         let lease = lease(key, &record);
         cell.record = Some(record);
         cell.poisoned = false;
