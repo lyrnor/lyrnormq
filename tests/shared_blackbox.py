@@ -71,9 +71,9 @@ class SharedBlackbox(unittest.TestCase):
 
     def test_wildcards_system_topics_and_literal_nested_share_namespace(self):
         self.start();pub = self.client('source');normal = self.client('normal');system = self.client('system');literal = self.client('literal')
-        self.group(normal, '#');self.group(system, '$SYS/+', identifier=61)
+        self.group(normal, '#');self.group(system, '$OTHER/+', identifier=61)
         self.group(literal, '$share/literal/+', identifier=62)
-        self.publish(pub, '$SYS/load', b'system');self.msg(system, '$SYS/load', b'system', ids=[61]);self.quiet(normal)
+        self.publish(pub, '$OTHER/load', b'system');self.msg(system, '$OTHER/load', b'system', ids=[61]);self.quiet(normal)
         self.publish(pub, '$share/literal/a', b'literal');self.msg(literal, '$share/literal/a', b'literal', ids=[62]);self.quiet(normal)
         self.publish(pub, 'empty//tail', b'normal');self.msg(normal, 'empty//tail', b'normal')
 

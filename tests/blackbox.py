@@ -147,15 +147,15 @@ class MQTTBlackbox(unittest.TestCase):
         sub = self.client('system-sub')
         pub = self.client('system-pub')
         self.assertEqual(self.subscribe(sub, [('#', 0)]), (0x90, b'\x00\x01\x00'))
-        pub.sendall(frame(0x30, string('$SYS/status') + b'private'))
+        pub.sendall(frame(0x30, string('$OTHER/status') + b'private'))
         self.assertEqual(self.subscribe(pub, [('barrier', 0)]), (0x90, b'\x00\x01\x00'))
         sub.settimeout(.2)
         with self.assertRaises(socket.timeout):
             sub.recv(1)
         sub.settimeout(3)
-        self.assertEqual(self.subscribe(sub, [('$SYS/#', 0)]), (0x90, b'\x00\x01\x00'))
-        pub.sendall(frame(0x30, string('$SYS/status') + b'visible'))
-        self.assertEqual(receive(sub), (0x30, string('$SYS/status') + b'visible'))
+        self.assertEqual(self.subscribe(sub, [('$OTHER/#', 0)]), (0x90, b'\x00\x01\x00'))
+        pub.sendall(frame(0x30, string('$OTHER/status') + b'visible'))
+        self.assertEqual(receive(sub), (0x30, string('$OTHER/status') + b'visible'))
 
     def test_fragmented_connect_and_coalesced_packets(self):
         sock = self.broker.socket()

@@ -34,7 +34,7 @@ def policy():
         return dict(username=name, password_hash=password_hash, client_id_prefix=prefix,
                     publish=publish, subscribe=subscribe)
     return dict(allow_anonymous=False, users=[
-        user('admin', ['#', '$SYS/#'], ['#', '$SYS/#']),
+        user('admin', ['#', '$SYS/#', '$OTHER/#'], ['#', '$SYS/#', '$OTHER/#']),
         user('alice', ['allowed/#'], ['allowed/#']),
         user('bob', ['other/#'], ['other/#']),
         user('single', ['allowed/#'], ['allowed/+']),
@@ -208,7 +208,7 @@ class AuthAclBlackbox(unittest.TestCase):
         self.broker.use_policy = False
         self.start()
         anonymous = self.client('default', user=None, password=None)
-        self.publish(anonymous, '$SYS/open-default', b'previous default behavior', qos=0)
+        self.publish(anonymous, '$OTHER/open-default', b'previous default behavior', qos=0)
         self.refused('unexpected-credentials', 4)
         self.barrier(anonymous)
 
@@ -331,15 +331,15 @@ class AuthAclBlackbox(unittest.TestCase):
     def test_mixed_subscribe_grants_and_retained_replay_respect_acl(self):
         self.start()
         admin = self.client('mixed-admin', 'admin')
-        for topic in ('allowed/state', 'other/state', '$SYS/info'):
+        for topic in ('allowed/state', 'other/state', '$OTHER/info'):
             self.publish(admin, topic, topic.encode(), qos=2, retain=True)
         alice = self.client('mixed-alice')
         filters = [('allowed/#', 1), ('#', 2), ('other/#', 0),
-                   ('allowed/+/value', 2), ('$SYS/#', 0)]
+                   ('allowed/+/value', 2), ('$OTHER/#', 0)]
         self.subscribe(alice, filters, [1, 128, 128, 2, 128])
         self.delivery(alice, 'allowed/state', b'allowed/state', 1, retain=True)
         self.quiet(alice)
-        for topic in ('other/live', '$SYS/live'):
+        for topic in ('other/live', '$OTHER/live'):
             self.publish(admin, topic, b'forbidden live delivery')
         self.publish(admin, 'allowed/live', b'authorized live delivery')
         self.delivery(alice, 'allowed/live', b'authorized live delivery', 1)
@@ -352,13 +352,13 @@ class AuthAclBlackbox(unittest.TestCase):
                    ('allowed/', 0), ('allowed', 0), ('+/+', 0)]
         self.subscribe(single, filters, [1, 128, 128, 0, 128, 128])
         normal = self.client('normal-filter', 'normal')
-        self.subscribe(normal, [('#', 0), ('$SYS/#', 0)], [0, 128])
-        normal.sendall(publication('$SYS/forbidden', b'root wildcard cannot publish system', 1))
+        self.subscribe(normal, [('#', 0), ('$OTHER/#', 0)], [0, 128])
+        normal.sendall(publication('$OTHER/forbidden', b'root wildcard cannot publish dollar topics', 1))
         self.closed(normal)
         explicit = self.client('explicit-system', 'admin')
-        self.subscribe(explicit, [('$SYS/#', 1)])
-        self.publish(explicit, '$SYS/authorized', b'explicit permission')
-        self.delivery(explicit, '$SYS/authorized', b'explicit permission', 1)
+        self.subscribe(explicit, [('$OTHER/#', 1)])
+        self.publish(explicit, '$OTHER/authorized', b'explicit permission')
+        self.delivery(explicit, '$OTHER/authorized', b'explicit permission', 1)
 
     def test_unsubscribe_and_control_packets_do_not_require_publish_permission(self):
         self.start()

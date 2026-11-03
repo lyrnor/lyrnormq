@@ -160,7 +160,7 @@ class RetainedWillBlackbox(unittest.TestCase):
     def test_retained_wildcards_system_topics_and_resubscribe(self):
         self.start()
         publisher = self.client('wildcard-writer')
-        for topic in ('normal/a', 'normal/b', '$SYS/info'):
+        for topic in ('normal/a', 'normal/b', '$OTHER/info'):
             self.publish(publisher, topic, topic.encode(), qos=2, retain=True)
         sub = self.client('wildcard-sub')
         self.subscribe(sub, [('#', 0)])
@@ -168,16 +168,16 @@ class RetainedWillBlackbox(unittest.TestCase):
         self.assertEqual([(m[0], m[2], m[5]) for m in messages],
                          [('normal/a', 0, True), ('normal/b', 0, True)])
         self.barrier(sub)
-        self.subscribe(sub, [('$SYS/#', 1)])
-        self.delivery(sub, '$SYS/info', b'$SYS/info', 1, True)
+        self.subscribe(sub, [('$OTHER/#', 1)])
+        self.delivery(sub, '$OTHER/info', b'$OTHER/info', 1, True)
         self.subscribe(sub, [('normal/+', 0)])
         for topic in ('normal/a', 'normal/b'):
             message = parse_publish(receive(sub))
             self.assertEqual((message[0], message[2], message[5]), (topic, 0, True))
         self.barrier(sub)
         # Replacing an identical filter must send retained data again.
-        self.subscribe(sub, [('$SYS/#', 0)])
-        self.delivery(sub, '$SYS/info', b'$SYS/info', 0, True)
+        self.subscribe(sub, [('$OTHER/#', 0)])
+        self.delivery(sub, '$OTHER/info', b'$OTHER/info', 0, True)
 
     def test_multiple_filters_replay_as_sequential_subscriptions(self):
         self.start()
