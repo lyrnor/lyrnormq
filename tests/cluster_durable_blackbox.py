@@ -270,6 +270,23 @@ class Durable5(DurableSessionCases, unittest.TestCase):
 class DurableFaults(DurableFixture, unittest.TestCase):
     version = 5
 
+    def test_fixed_group_refuses_legacy_and_different_replica_membership(self):
+        for node_id, durable in [(201, None), (202, True)]:
+            node = self.fleet.new_broker(node_id)
+            self.addCleanup(node.close)
+            if durable:
+                node.config['durable'] = {'replicas': [
+                    {'id': peer.config['node_id'], 'address': peer.config['advertise']}
+                    for peer in [*self.fleet.brokers[:2], node]]}
+            node.spawn()
+            wait_until(lambda: node.process.poll() is not None, 30)
+            self.assertNotEqual(node.process.returncode, 0,
+                                'a mismatched member must not become an active Broker')
+        # Refused membership cannot rewrite the accepted group's metadata or make
+        # its data-plane unusable.
+        self.healthy(0)
+        self.cross_roundtrip('membership-still-valid')
+
     def test_source_backlog_recovers_without_source_client_reconnect(self):
         target = self.persistent('backlog-target')
         self.subscribe(target, 'durable/backlog', 2)
@@ -286,6 +303,31 @@ class DurableFaults(DurableFixture, unittest.TestCase):
             os.kill(stopped.process.pid, signal.SIGCONT)
         resumed = self.persistent('backlog-target', 1, present=True, retry=True)
         message = self.expect_message(resumed, 'durable/backlog', b'accepted durable responsibility', 2)
+        self.complete_message(resumed, message)
+        self.quiet(resumed, .4)
+
+    def test_host_backlog_survives_source_death_and_restarted_host_accepts_new_work(self):
+        target = self.persistent('host-backlog-target')
+        self.subscribe(target, 'durable/host-backlog', 1)
+        self.disconnect(target)
+        stopped = self.fleet.brokers[0]
+        os.kill(stopped.process.pid, signal.SIGSTOP)
+        try:
+            status, value = self.fleet.brokers[2].request('/api/v1/mqtt/publish', method='POST',
+                body={'topic': 'durable/host-backlog', 'payload': 'accepted host backlog', 'qos': 1})
+            self.assertEqual((status, value), (202, {'accepted': True}))
+            self.lose_owner(2)
+        finally:
+            os.kill(stopped.process.pid, signal.SIGCONT)
+        resumed = self.persistent('host-backlog-target', 1, present=True, retry=True)
+        message = self.expect_message(resumed, 'durable/host-backlog', b'accepted host backlog', 1)
+        self.complete_message(resumed, message)
+        self.fleet.brokers[2].start()
+        self.healthy(2)
+        status, value = self.fleet.brokers[2].request('/api/v1/mqtt/publish', method='POST',
+            body={'topic': 'durable/host-backlog', 'payload': 'new host incarnation', 'qos': 1})
+        self.assertEqual((status, value), (202, {'accepted': True}))
+        message = self.expect_message(resumed, 'durable/host-backlog', b'new host incarnation', 1)
         self.complete_message(resumed, message)
         self.quiet(resumed, .4)
 
