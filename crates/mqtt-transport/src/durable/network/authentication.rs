@@ -54,6 +54,13 @@ pub(super) async fn handshake_reply(
     *context.authenticating = false;
     // CONNACK must reach the socket before terminal errors from pipelined input.
     send_handshake(context, frame).await?;
+    *context.lifecycle = context.worker.broker.events.connected(
+        context.identity.as_deref().unwrap_or("").to_owned(),
+        context.worker.auth.username(context.generation),
+        context.generation,
+        version,
+        context.worker.broker.clock.now_millis(),
+    );
     context.worker.release_handshake();
     Ok(true)
 }

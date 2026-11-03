@@ -382,6 +382,8 @@ struct Context<'a> {
     shutdown: watch::Receiver<bool>,
     flush: &'a mut bool,
     mqtt_disconnected: &'a mut bool,
+    lifecycle: &'a mut Option<super::system_events::Connection>,
+    disconnect_with_will: &'a mut bool,
 }
 fn terminal_frame(context: &Context<'_>, frame: Frame) {
     context.terminal.send_replace(Some(frame));
@@ -428,6 +430,10 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
     let mut authenticating = false;
     let mut flush = false;
     let mut mqtt_disconnected = false;
+    let mut lifecycle = None;
+    let mut disconnect_with_will = false;
+    let shutdown_status = shutdown.clone();
+    let close_status = close.clone();
     let result = drive(
         &mut reader,
         Context {
@@ -452,6 +458,8 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
             shutdown,
             flush: &mut flush,
             mqtt_disconnected: &mut mqtt_disconnected,
+            lifecycle: &mut lifecycle,
+            disconnect_with_will: &mut disconnect_with_will,
         },
     )
     .await;
@@ -501,7 +509,57 @@ pub(super) async fn connection_loop<S: crate::io_stream::IoStream>(
         flush = true;
     }
     drop(output);
-    finish_writer(writer, result, flush, config.write_timeout).await
+    // Preserve the receive-loop cause: writer/drain timeouts are not Keep Alive.
+    let drive_reason = disconnect_reason(result.as_ref().err());
+    let drive_failed = result.is_err();
+    let result = finish_writer(writer, result, flush, config.write_timeout).await;
+    if let Some(connection) = lifecycle {
+        let reason = if mqtt_disconnected {
+            if disconnect_with_will {
+                "disconnect_with_will"
+            } else {
+                "normal"
+            }
+        } else if *shutdown_status.borrow() {
+            "server_shutdown"
+        } else if *close_status.borrow() == Some(ReasonCode::SESSION_TAKEN_OVER) {
+            "session_taken_over"
+        } else {
+            if !drive_failed && result.is_err() {
+                "network_error"
+            } else {
+                drive_reason
+            }
+        };
+        worker
+            .broker
+            .events
+            .disconnected(connection, worker.broker.clock.now_millis(), reason);
+    }
+    result
+}
+fn disconnect_reason(error: Option<&io::Error>) -> &'static str {
+    let Some(error) = error else {
+        return "network_closed";
+    };
+    match super::reason(error) {
+        Some(ReasonCode::SESSION_TAKEN_OVER) => "session_taken_over",
+        Some(ReasonCode::NOT_AUTHORIZED) => "not_authorized",
+        Some(
+            ReasonCode::QUOTA_EXCEEDED
+            | ReasonCode::RECEIVE_MAXIMUM_EXCEEDED
+            | ReasonCode::PACKET_TOO_LARGE
+            | ReasonCode::SERVER_BUSY,
+        ) => "resource_limit",
+        Some(
+            ReasonCode::PROTOCOL_ERROR
+            | ReasonCode::MALFORMED_PACKET
+            | ReasonCode::TOPIC_ALIAS_INVALID
+            | ReasonCode::TOPIC_NAME_INVALID,
+        ) => "protocol_error",
+        Some(ReasonCode::KEEP_ALIVE_TIMEOUT) => "keep_alive_timeout",
+        _ => "network_error",
+    }
 }
 pub(super) async fn finish_writer(
     mut writer: tokio::task::JoinHandle<io::Result<()>>,
@@ -627,8 +685,8 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                     "initial authentication deadline exceeded",
                 ));
             }
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
+            return Err(failure(
+                ReasonCode::KEEP_ALIVE_TIMEOUT,
                 "MQTT receive deadline exceeded",
             ));
         }
@@ -844,6 +902,7 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
                         }
                     });
                     let graceful = frame.reason_code == ReasonCode::SUCCESS;
+                    *context.disconnect_with_will = frame.reason_code.value() == 4;
                     let Reply::Done = context
                         .worker
                         .request(Operation::DisconnectOptions {
@@ -935,7 +994,7 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
             _=crate::packet_io::deadline(match (expires, reauth_deadline) { (Some(a),Some(b))=>Some(a.min(b)), (a,b)=>a.or(b) })=>{
                 if reauth_deadline.is_some_and(|at|Instant::now()>=at) { return Err(failure(ReasonCode::NOT_AUTHORIZED,"reauthentication deadline exceeded")); }
                 if initial_auth { return Err(failure(ReasonCode::NOT_AUTHORIZED,"initial authentication deadline exceeded")); }
-                return Err(io::Error::new(io::ErrorKind::TimedOut,"MQTT receive deadline exceeded"));
+                return Err(failure(ReasonCode::KEEP_ALIVE_TIMEOUT,"MQTT receive deadline exceeded"));
             },
             _=context.wake.changed(),if *context.connected=>{needs_poll=true;}
             permit=context.output.reserve(),if pending.is_some()=>{
@@ -950,6 +1009,31 @@ async fn drive<R: AsyncRead + Unpin>(reader: &mut R, mut context: Context<'_>) -
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn lifecycle_distinguishes_receive_deadline_from_writer_timeout() {
+        assert_eq!(
+            disconnect_reason(Some(&failure(
+                ReasonCode::KEEP_ALIVE_TIMEOUT,
+                "receive deadline"
+            ))),
+            "keep_alive_timeout"
+        );
+        assert_eq!(
+            disconnect_reason(Some(&io::Error::new(
+                io::ErrorKind::TimedOut,
+                "socket write timed out"
+            ))),
+            "network_error"
+        );
+        assert_eq!(
+            disconnect_reason(Some(&io::Error::new(
+                io::ErrorKind::TimedOut,
+                "terminal frame write timed out"
+            ))),
+            "network_error"
+        );
+        assert_eq!(disconnect_reason(None), "network_closed");
+    }
     #[test]
     fn phase2h_identifier_capability_preserves_handshake_size_and_other_limits() {
         let config = BrokerConfig::default();

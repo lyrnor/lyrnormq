@@ -90,6 +90,7 @@ pub(super) struct Broker {
     pub(super) admission: crate::admission::Admission,
     pub(super) session_config: SessionConfig,
     pub(super) clock: Arc<dyn Clock>,
+    pub(super) events: system_events::Events,
     registry: Registry,
     actors: AtomicUsize,
     next_actor: AtomicU64,
@@ -316,6 +317,7 @@ impl Broker {
             admission,
             config,
             clock,
+            events: system_events::Events::new()?,
             registry: Registry::new(),
             actors: AtomicUsize::new(0),
             next_actor: AtomicU64::new(1),
@@ -329,6 +331,7 @@ impl Broker {
             finished: tokio::sync::Mutex::new(finished),
             handoffs: Mutex::new(Some(tokio::task::JoinSet::new())),
         });
+        broker.events.start(Arc::downgrade(&broker));
         // Index every restored subscription before any actor runs its first
         // tick, so recovered Wills route to subscribers spawned later.
         for (client, engine, _) in &restored.partitions {
@@ -703,6 +706,15 @@ impl Broker {
     /// and acknowledgements are returned for [`Self::complete`] when `wait` or
     /// QoS>0 requires member-by-member acceptance.
     pub(super) fn dispatch(&self, publication: Arc<Publication>, wait: bool) -> Option<Fanout> {
+        self.dispatch_observed(publication, wait, None)
+    }
+
+    pub(super) fn dispatch_observed(
+        &self,
+        publication: Arc<Publication>,
+        wait: bool,
+        observer_client: Option<&str>,
+    ) -> Option<Fanout> {
         if publication.expired {
             return None;
         }
@@ -714,7 +726,9 @@ impl Broker {
             observer.observe(
                 &publication.topic,
                 &publication.payload,
-                publication.publisher.as_deref().unwrap_or(""),
+                observer_client
+                    .or(publication.publisher.as_deref())
+                    .unwrap_or(""),
                 publication.qos,
                 publication.retain,
             );
@@ -826,6 +840,7 @@ impl Broker {
 
     /// Stop every actor after connections have closed, then drain storage.
     pub(super) async fn shutdown(&self) -> io::Result<()> {
+        self.events.shutdown().await;
         if let Some(management) = &self.config.management {
             management.stop();
         }

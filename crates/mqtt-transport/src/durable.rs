@@ -35,6 +35,9 @@ pub(crate) mod export;
 mod network;
 mod operation_access;
 mod remote_plain;
+mod system_events;
+#[cfg(test)]
+mod system_events_tests;
 #[cfg(test)]
 use mqtt_session::durable::Clock;
 #[cfg(test)]

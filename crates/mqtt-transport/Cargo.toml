@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 [dependencies]
+serde_json = "1"
+tracing = "0.1"
 serde = { version = "1", features = ["derive"] }
 getrandom = "0.2"
 mqtt-auth = { path = "../mqtt-auth" }

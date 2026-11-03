@@ -9,6 +9,7 @@ use std::sync::{
 struct Entry {
     cancelled: AtomicBool,
     established: AtomicBool,
+    username: Mutex<Option<String>>,
     handoff: Mutex<Option<oneshot::Sender<bool>>>,
 }
 impl Entry {
@@ -45,6 +46,19 @@ impl State {
         let entry = Arc::new(Entry::default());
         entries.insert(generation, entry.clone());
         Ok(entry)
+    }
+    pub(super) fn username(&self, generation: u64) -> Option<String> {
+        self.entries
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&generation)
+            .and_then(|entry| {
+                entry
+                    .username
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .clone()
+            })
     }
     fn established(&self, generation: u64) -> bool {
         self.entries
@@ -306,6 +320,14 @@ impl Worker {
                         "authentication cancelled",
                     ));
                 }
+                *entry
+                    .username
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner) = principal
+                    .name
+                    .strip_prefix("user:")
+                    .map(str::to_owned)
+                    .or_else(|| request.username.clone());
                 let client = request.client.clone();
                 let overload = refusal(&request, ReasonCode::SERVER_BUSY);
                 let (adopt, adopted) = oneshot::channel();
