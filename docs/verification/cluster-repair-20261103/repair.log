@@ -1,0 +1,17 @@
+test_new_disk_and_one_original_resume_qos_states_without_old_owner_files (__main__.Repair311.test_new_disk_and_one_original_resume_qos_states_without_old_owner_files) ... ok
+test_new_disk_and_one_original_resume_qos_states_without_old_owner_files (__main__.Repair5.test_new_disk_and_one_original_resume_qos_states_without_old_owner_files) ... ok
+test_all_controllers_crash_during_sealed_repair_then_resume (__main__.RepairFaults.test_all_controllers_crash_during_sealed_repair_then_resume) ... ok
+test_commit_survives_driver_and_target_crash_before_target_resume (__main__.RepairFaults.test_commit_survives_driver_and_target_crash_before_target_resume) ... ok
+test_completed_repair_survives_fleet_crash_and_old_disk_stays_rejected (__main__.RepairFaults.test_completed_repair_survives_fleet_crash_and_old_disk_stays_rejected) ... ok
+test_corrupt_manifest_rejected_without_voting_then_abort_and_retry (__main__.RepairFaults.test_corrupt_manifest_rejected_without_voting_then_abort_and_retry) ... ok
+test_driver_crash_after_first_import_page_resumes_exact_repair (__main__.RepairFaults.test_driver_crash_after_first_import_page_resumes_exact_repair) ... ok
+test_installed_target_crash_before_control_commit_remains_nonvoting (__main__.RepairFaults.test_installed_target_crash_before_control_commit_remains_nonvoting) ... ok
+test_learner_crash_after_first_import_page_keeps_staging_nonvoting (__main__.RepairFaults.test_learner_crash_after_first_import_page_keeps_staging_nonvoting) ... ok
+test_source_outbox_and_fence_only_donor_recover_without_source_reconnect (__main__.RepairFaults.test_source_outbox_and_fence_only_donor_recover_without_source_reconnect) ... ok
+test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails (__main__.RepairFaults.test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails) ... ok
+test_wrong_learner_token_cannot_start_a_repair (__main__.RepairFaults.test_wrong_learner_token_cannot_start_a_repair) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 156.117s
+
+OK

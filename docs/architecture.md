@@ -1,5 +1,34 @@
 # Architecture
 
+## Phase7c maintenance replica repair (2026-11-03)
+
+[Phase7c](contracts/phase7c-replica-repair.md) adds an explicit maintenance repair
+for the existing fixed data group. Two original Journals are durably frozen before
+streaming their key-ordered union into an excluded learner. The union preserves
+maximum fencing epochs and highest complete record versions; a sealed SHA256
+manifest and atomic staged installation precede Controller disk-anchor replacement.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ExcludedTarget
+    ExcludedTarget --> FrozenDonors: Raft Begin and data generation
+    FrozenDonors --> Importing: Stable paged union and seal
+    Importing --> InstalledFrozen: Verify manifest and atomic install
+    InstalledFrozen --> Committed: Controller verifies proofs
+    Committed --> Voting: Resume and normal Broker startup
+    FrozenDonors --> TwoOriginalVoters: Explicit Abort
+    Importing --> TwoOriginalVoters: Explicit Abort
+    TwoOriginalVoters --> ExcludedTarget: Retry repair, target remains excluded
+```
+
+Ordinary data requests carry the persistent generation and check it transactionally,
+so delayed pre-maintenance requests cannot write after thaw. Cache authority is
+reacquired across a generation change. Control readiness remains separate from data
+readiness, allowing frozen donors to restart and serve repair RPC. Target install,
+Controller commit and voter activation remain distinct durable steps. This does
+not provide online repair or arbitrary membership changes. Operational commands
+are documented in [replica-repair.md](cluster/replica-repair.md).
+
 ## Phase7b durable data mode (2026-11-03)
 
 The additive [Phase7b contract](contracts/phase7b-durable-cluster.md) enables
@@ -22,8 +51,8 @@ quorum before activation. Unknown writes invalidate local authority; old local
 RowStore rows cannot overrule replicated state. Controller-anchored disk identities
 prevent an empty replacement disk from voting a confirmed value out of existence.
 Mode/group are immutable for this gate, and legacy operation remains available.
-Disk replacement/repair, changing groups, broad cluster scaling and performance
-acceptance are separate gates. Retained/Will/shared cluster semantics remain
+Disk replacement/repair is supplied by Phase7c above. Changing groups, broad cluster
+scaling and performance acceptance remain separate gates. Retained/Will/shared cluster semantics remain
 unsupported; the durable mode supersedes only phase7a's persistent-session refusal.
 
 ## Phase7a cluster integration (2026-11-03)

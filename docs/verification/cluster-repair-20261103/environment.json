@@ -1,0 +1,16 @@
+{
+  "collected_utc": "2026-11-03T06:19:43.706428+00:00",
+  "server": "47.84.224.186",
+  "private_address": "172.16.240.180",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+  "architecture": "x86_64",
+  "os": "Ubuntu 26.04.1 LTS",
+  "logical_cpus": 8,
+  "memory_total_kib": 15687640,
+  "disk_total_bytes": 41882943488,
+  "disk_free_bytes": 37196001280,
+  "python": "3.14.4",
+  "binary_sha256": "ed8dcbbecc17064ce3b3ab59bc29139e1cf445fbb722db32dba32279f0b2710c",
+  "test_layout": "single-host three Controller plus three Broker isolated processes",
+  "compiled_on_server": false
+}

@@ -110,8 +110,9 @@ rejected. Non-loopback addresses still require mutual TLS.
 Each data journal also has an automatically persisted disk identity anchored by
 the Controllers. Restarting with the original disk is supported. A new empty disk
 under an old node ID is refused, including during the RPC startup window; it must
-not count as an empty quorum vote. Explicit replica repair/replacement is a later
-gate. Losing one node leaves the other two able to continue; do not wipe its
+not count as an empty quorum vote. Phase7c provides explicit maintenance-window
+[repair/replacement](replica-repair.md) using two original donors and an excluded
+learner. Losing one node leaves the other two able to continue; do not wipe its
 directory as a recovery procedure.
 
 Start all six processes before admitting traffic. Durable operations require two
@@ -143,5 +144,5 @@ the generation and can resume its pending deliveries.
 
 This is a correctness gate, not large-cluster performance acceptance: directory
 scans, journal quota scans and whole-record serialization still need profiling.
-General tombstone/abandoned-host cleanup, disk repair, membership reconfiguration
-and rolling-version migration are not provided by this gate.
+General tombstone/abandoned-host cleanup, membership reconfiguration and rolling-version
+migration remain unsupported. Controlled disk repair follows the Phase7c guide.

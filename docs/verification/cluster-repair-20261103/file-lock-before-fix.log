@@ -1,0 +1,22 @@
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-cluster-repair-storage/crates/mqtt-cluster)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.38s
+     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-216c33fca59d9615)
+
+running 1 test
+test replica::tests::journal_lock_acquisition_waits_for_the_child_pre_exec_window ... FAILED
+
+failures:
+
+---- replica::tests::journal_lock_acquisition_waits_for_the_child_pre_exec_window stdout ----
+
+thread 'replica::tests::journal_lock_acquisition_waits_for_the_child_pre_exec_window' (18511772) panicked at crates/mqtt-cluster/src/replica.rs:955:9:
+journal opened while child descriptors could still be inherited
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    replica::tests::journal_lock_acquisition_waits_for_the_child_pre_exec_window
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p mqtt-cluster --lib`

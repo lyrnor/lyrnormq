@@ -2601,3 +2601,33 @@ subscriber delivery stays best effort. Byte/count exhaustion fails closed. No ne
 Linux execution, cluster mTLS wire, physical power-loss, TPS/P99, mainmerge/push or
 deployment result. Next work: safe replica repair and cleanup, then profile pending
 scheduling/indexed matching/quota accounting with reproducible equivalent loads.
+
+## 2026-11-03 — Phase7c replica repair and empty-disk replacement accepted
+
+Frozen the repair/generation/learner contract before three independent runtime,
+Journal and quality worktrees implemented and committed their owned modules.
+Coordinator integrated CLI and reviewed transaction boundaries. Maintenance repair
+freezes the two original donors, imports their bounded version/fence union into an
+excluded learner, verifies SHA256 and installs atomically. Controller proof checks
+precede disk-anchor replacement and voter activation. Ordinary requests enforce
+persistent generations; Abort restores the originals while the target stays excluded.
+
+Independent tests and review fixed frozen-donor restart readiness, transient freeze
+on ordinary transactions and blocking Journal ownership release. Crash-test process
+startup now isolates test-only fork/exec file-lock inheritance; deterministic
+regressions preceded the fixes. lib.rs remains declarations/re-exports only.
+
+Actual server 47.84.224.186: locally zigbuilt static Linux amd64 musl release,
+checksum verified, no server compilation. Repair12, durable27, prior cluster20 and
+standalone77 wire cases all passed. Local Rust887 passed/one live-PG ignore, strict
+all-target Clippy and fmt passed. Full environment, binary hash, timings, logs and
+reproduction: [verification](verification/cluster-repair-20261103/README.md).
+
+This is a single-host multi-process correctness gate; no capacity/TPS/P99,
+physical power-loss or multi-host HA result is claimed. Test processes exited and
+no production service was installed. Branch integration only, no main merge/push.
+Remaining: online incremental repair; membership changes and rolling migration;
+tombstone/abandoned-host cleanup; cluster Retained/Will/shared semantics; peer mTLS
+wire and multi-machine network-fault acceptance; indexed routing/quota/scheduling
+profiling and reproducible performance gates. Use the new
+[repair runbook](cluster/replica-repair.md), not directory deletion, for disk replacement.

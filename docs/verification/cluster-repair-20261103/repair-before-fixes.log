@@ -1,0 +1,116 @@
+test_new_disk_and_one_original_resume_qos_states_without_old_owner_files (__main__.Repair311.test_new_disk_and_one_original_resume_qos_states_without_old_owner_files) ... ok
+test_new_disk_and_one_original_resume_qos_states_without_old_owner_files (__main__.Repair5.test_new_disk_and_one_original_resume_qos_states_without_old_owner_files) ... ok
+test_all_controllers_crash_during_sealed_repair_then_resume (__main__.RepairFaults.test_all_controllers_crash_during_sealed_repair_then_resume) ... ok
+test_completed_repair_survives_fleet_crash_and_old_disk_stays_rejected (__main__.RepairFaults.test_completed_repair_survives_fleet_crash_and_old_disk_stays_rejected) ... ok
+test_corrupt_manifest_rejected_without_voting_then_abort_and_retry (__main__.RepairFaults.test_corrupt_manifest_rejected_without_voting_then_abort_and_retry) ... ok
+test_driver_crash_after_first_import_page_resumes_exact_repair (__main__.RepairFaults.test_driver_crash_after_first_import_page_resumes_exact_repair) ... FAIL
+
+--- controller 1 exit=None ---
+2026-11-03T05:54:10.337809Z ERROR openraft::core::raft_core: while requesting vote error=NetworkError: core::io::error::Error: cluster RPC unavailable target=3
+2026-11-03T05:54:10.340737Z  WARN openraft::replication: error replication to target=3 error=NetworkError: core::io::error::Error: cluster RPC unavailable
+2026-11-03T05:54:10.340755Z ERROR openraft::replication: RPCError err=NetworkError: core::io::error::Error: cluster RPC unavailable
+2026-11-03T05:54:10.340774Z  WARN openraft::engine::handler::replication_handler: update progress error request_id=AppendEntries(1) result=NetworkError: core::io::error::Error: cluster RPC unavailable
+
+
+--- controller 2 exit=None ---
+2026-11-03T05:54:10.339270Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:uncommitted; current my vote: None; when (VoteResponse)
+2026-11-03T05:54:10.341517Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:committed; current my vote: None; when (VoteResponse)
+
+
+--- controller 3 exit=None ---
+2026-11-03T05:54:10.343142Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:committed; current my vote: None; when (VoteResponse)
+
+
+--- broker 101 exit=None ---
+
+
+--- broker 102 exit=None ---
+
+
+--- broker 103 exit=None ---
+
+test_learner_crash_after_first_import_page_keeps_staging_nonvoting (__main__.RepairFaults.test_learner_crash_after_first_import_page_keeps_staging_nonvoting) ... ok
+test_source_outbox_and_fence_only_donor_recover_without_source_reconnect (__main__.RepairFaults.test_source_outbox_and_fence_only_donor_recover_without_source_reconnect) ... ok
+test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails (__main__.RepairFaults.test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails) ... FAIL
+
+--- controller 1 exit=None ---
+2026-11-03T05:54:39.608362Z ERROR openraft::core::raft_core: while requesting vote error=NetworkError: core::io::error::Error: cluster RPC unavailable target=3
+2026-11-03T05:54:39.610424Z  WARN openraft::replication: error replication to target=3 error=NetworkError: core::io::error::Error: cluster RPC unavailable
+2026-11-03T05:54:39.610460Z ERROR openraft::replication: RPCError err=NetworkError: core::io::error::Error: cluster RPC unavailable
+2026-11-03T05:54:39.610479Z  WARN openraft::engine::handler::replication_handler: update progress error request_id=AppendEntries(1) result=NetworkError: core::io::error::Error: cluster RPC unavailable
+
+
+--- controller 2 exit=None ---
+2026-11-03T05:54:39.609014Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:uncommitted; current my vote: None; when (VoteResponse)
+2026-11-03T05:54:39.610943Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:committed; current my vote: None; when (VoteResponse)
+
+
+--- controller 3 exit=None ---
+2026-11-03T05:54:39.611588Z  WARN openraft::core::raft_core: A message will be ignored because vote changed: msg sent by vote: T1-N1:committed; current my vote: None; when (VoteResponse)
+
+
+--- broker 101 exit=None ---
+
+
+--- broker 102 exit=None ---
+
+
+--- broker 103 exit=1 ---
+2026-11-03T05:54:50.113366Z ERROR rmqtt: broker stopped with an error event="broker_failed"
+Error: Custom { kind: Other, error: WorkerFailure { reason: ReasonCode(136), message: "cluster unavailable or capacity exhausted" } }
+
+test_wrong_learner_token_cannot_start_a_repair (__main__.RepairFaults.test_wrong_learner_token_cannot_start_a_repair) ... ok
+
+======================================================================
+FAIL: test_driver_crash_after_first_import_page_resumes_exact_repair (__main__.RepairFaults.test_driver_crash_after_first_import_page_resumes_exact_repair)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 402, in test_driver_crash_after_first_import_page_resumes_exact_repair
+    self.seed_pages()
+    ~~~~~~~~~~~~~~~^^
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 321, in seed_pages
+    sockets = list(pool.map(lambda i: self.persistent(f'repair-page-{i}', 1, expiry=3600),
+                            range(70)))
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 645, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 312, in _result_or_cancel
+    return fut.result(timeout)
+           ~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 447, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 396, in __get_result
+    raise self._exception
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 321, in <lambda>
+    sockets = list(pool.map(lambda i: self.persistent(f'repair-page-{i}', 1, expiry=3600),
+                                      ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_durable_blackbox.py", line 109, in persistent
+    return self.client(client, node, clean=False, present=present, **kwargs)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_durable_blackbox.py", line 105, in client
+    self.fail(f'no successful MQTT CONNECT on Broker {node}: {last!r}')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: no successful MQTT CONNECT on Broker 1: b'\x00\x89\x00'
+
+======================================================================
+FAIL: test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails (__main__.RepairFaults.test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 377, in test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails
+    self.fleet.brokers[2].start()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_blackbox.py", line 123, in start
+    raise AssertionError(f'Broker did not become ready: {self.logs()}') from None
+AssertionError: Broker did not become ready: 2026-11-03T05:54:50.113366Z ERROR rmqtt: broker stopped with an error event="broker_failed"
+Error: Custom { kind: Other, error: WorkerFailure { reason: ReasonCode(136), message: "cluster unavailable or capacity exhausted" } }
+
+
+----------------------------------------------------------------------
+Ran 10 tests in 110.226s
+
+FAILED (failures=2)

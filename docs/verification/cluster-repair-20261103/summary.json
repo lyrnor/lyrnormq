@@ -1,0 +1,36 @@
+{
+  "source_commit": "69b6ad2",
+  "production_source_commit": "3666fe7",
+  "linux_sha256": "ed8dcbbecc17064ce3b3ab59bc29139e1cf445fbb722db32dba32279f0b2710c",
+  "remote_server": "47.84.224.186",
+  "compiled_on_server": false,
+  "remote_suites": [
+    {
+      "suite": "repair",
+      "passed": 12,
+      "seconds": 156.117
+    },
+    {
+      "suite": "durable",
+      "passed": 27,
+      "seconds": 164.95
+    },
+    {
+      "suite": "legacy",
+      "passed": 20,
+      "seconds": 70.511
+    },
+    {
+      "suite": "standalone",
+      "passed": 77,
+      "seconds": 36.858
+    }
+  ],
+  "local_rust": {
+    "passed": 887,
+    "ignored": 1,
+    "ignore_reason": "live PostgreSQL environment"
+  },
+  "clippy": "passed strict workspace all-targets",
+  "scope": "single-host multi-process maintenance-window correctness; no performance or physical power-loss claim"
+}
