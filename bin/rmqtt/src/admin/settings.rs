@@ -65,18 +65,25 @@ pub fn prepare(
     };
     // Existing queue contents may include payloads and binding credentials. Static
     // assets are copied into memory at startup; never copy a file from that tree.
-    if let Some(directory) = &options.cluster_data_dir
-        && let Ok(directory) = fs::canonicalize(directory)
-        && assets.values().any(|asset| {
-            asset.source.as_ref().is_some_and(|source| {
-                fs::canonicalize(source).is_ok_and(|source| source.starts_with(&directory))
-            })
-        })
+    for directory in [
+        &options.cluster_data_dir,
+        &options.cluster_controller_data_dir,
+    ]
+    .into_iter()
+    .flatten()
     {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "cluster data cannot be a dashboard asset",
-        ));
+        if let Ok(directory) = fs::canonicalize(directory)
+            && assets.values().any(|asset| {
+                asset.source.as_ref().is_some_and(|source| {
+                    fs::canonicalize(source).is_ok_and(|source| source.starts_with(&directory))
+                })
+            })
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cluster data cannot be a dashboard asset",
+            ));
+        }
     }
     if let Some(directory) = options.queue_directory()
         && let Ok(directory) = fs::canonicalize(directory)
@@ -105,6 +112,7 @@ pub fn prepare(
     let mut sensitive: Vec<_> = [
         options.admin_token_file.as_deref(),
         options.cluster_config.as_deref(),
+        options.cluster_controller_config.as_deref(),
         options.tls_cert.as_deref(),
         options.tls_key.as_deref(),
         options.tls_client_ca.as_deref(),

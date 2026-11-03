@@ -1,16 +1,18 @@
 use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
 use std::{io, path::PathBuf, time::Duration};
 
-pub const USAGE: &str = "usage: rmqtt [export-state|cluster-status|cluster-repair-learner|cluster-repair|cluster-repair-abort] [--listen ADDRESS] [--cluster-config PATH] [--target-node ID (cluster-repair only)] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
+pub const USAGE: &str = "usage: rmqtt [export-state|cluster-status|cluster-repair-learner|cluster-repair|cluster-repair-abort] [--listen ADDRESS] [--cluster-config PATH] [--cluster-controller-config PATH] [--target-node ID (cluster-repair only)] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
 
 pub struct Options {
     pub address: String,
     pub cluster_config: Option<PathBuf>,
+    pub cluster_controller_config: Option<PathBuf>,
     pub cluster_status: bool,
     pub cluster_repair: Option<ClusterRepair>,
     pub cluster_repair_target: Option<u64>,
     pub cluster_sensitive_paths: Vec<PathBuf>,
     pub cluster_data_dir: Option<PathBuf>,
+    pub cluster_controller_data_dir: Option<PathBuf>,
     pub admin_listen: Option<std::net::SocketAddr>,
     pub admin_token_file: Option<PathBuf>,
     pub dashboard_dir: Option<PathBuf>,
@@ -71,11 +73,13 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
     let mut options = Options {
         address: "127.0.0.1:1883".into(),
         cluster_config: None,
+        cluster_controller_config: None,
         cluster_status: false,
         cluster_repair: None,
         cluster_repair_target: None,
         cluster_sensitive_paths: Vec::new(),
         cluster_data_dir: None,
+        cluster_controller_data_dir: None,
         admin_listen: None,
         admin_token_file: None,
         dashboard_dir: None,
@@ -152,6 +156,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             option.as_str(),
             "--listen"
                 | "--cluster-config"
+                | "--cluster-controller-config"
                 | "--admin-listen"
                 | "--admin-token-file"
                 | "--dashboard-dir"
@@ -236,12 +241,14 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             }
             "--admin-token-file"
             | "--cluster-config"
+            | "--cluster-controller-config"
             | "--dashboard-dir"
             | "--rules-config"
             | "--access-control-config" => {
                 let target = match option.as_str() {
                     "--admin-token-file" => &mut options.admin_token_file,
                     "--cluster-config" => &mut options.cluster_config,
+                    "--cluster-controller-config" => &mut options.cluster_controller_config,
                     "--rules-config" => &mut options.rules_config,
                     "--access-control-config" => &mut options.access_control_config,
                     _ => &mut options.dashboard_dir,
@@ -443,6 +450,16 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
             "cluster-status requires --cluster-config; cluster cannot combine with export-state",
         ));
     }
+    if options.cluster_controller_config.is_some()
+        && (options.cluster_config.is_none()
+            || options.cluster_status
+            || options.cluster_repair.is_some()
+            || options.export_state)
+    {
+        return Err(invalid(
+            "--cluster-controller-config requires normal Broker cluster startup",
+        ));
+    }
     if (options.cluster_repair == Some(ClusterRepair::Run))
         != options.cluster_repair_target.is_some()
     {
@@ -496,6 +513,49 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Option
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn combined_controller_option_requires_broker_serving_mode() {
+        let options = parse(args(&[
+            "--cluster-config",
+            "broker.json",
+            "--cluster-controller-config",
+            "controller.json",
+        ]))
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            options.cluster_controller_config,
+            Some(PathBuf::from("controller.json"))
+        );
+        for input in [
+            vec!["--cluster-controller-config", "controller.json"],
+            vec![
+                "cluster-status",
+                "--cluster-config",
+                "broker.json",
+                "--cluster-controller-config",
+                "controller.json",
+            ],
+            vec![
+                "cluster-repair-abort",
+                "--cluster-config",
+                "broker.json",
+                "--cluster-controller-config",
+                "controller.json",
+            ],
+            vec![
+                "--cluster-config",
+                "broker.json",
+                "--cluster-controller-config",
+                "a",
+                "--cluster-controller-config",
+                "b",
+            ],
+        ] {
+            assert!(parse(args(&input)).is_err());
+        }
+    }
 
     #[test]
     fn access_config_path_is_private_sibling_and_never_created_by_export() {

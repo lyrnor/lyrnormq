@@ -25,11 +25,46 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn run() -> Result<(), Box<dyn Error>> {
-    let Some(mut options) = cli::parse(std::env::args().skip(1))? else {
+    let Some(options) = cli::parse(std::env::args().skip(1))? else {
         println!("{}", cli::USAGE);
         return Ok(());
     };
     let cluster_config = cluster::load(options.cluster_config.as_deref()).await?;
+    let controller = cluster::load(options.cluster_controller_config.as_deref()).await?;
+    if let Some(control) = &controller {
+        cluster::validate_combined(
+            cluster_config
+                .as_ref()
+                .ok_or("broker configuration required")?,
+            control,
+        )
+        .await?;
+    }
+    let (broker_stop, broker_shutdown) = watch::channel(false);
+    let service = run_services(options, cluster_config, controller.clone(), broker_shutdown);
+    match controller {
+        Some(config) => cluster::combined(config, broker_stop, service).await,
+        None => service.await,
+    }
+}
+
+async fn run_services(
+    mut options: cli::Options,
+    cluster_config: Option<mqtt_cluster::Config>,
+    controller_config: Option<mqtt_cluster::Config>,
+    mut external_shutdown: watch::Receiver<bool>,
+) -> Result<(), Box<dyn Error>> {
+    if let Some(config) = &controller_config {
+        options.cluster_controller_data_dir = Some(config.data_dir.clone());
+        options.cluster_sensitive_paths.extend([
+            config.token_file.clone(),
+            config.data_dir.join("metadata.sqlite"),
+        ]);
+        if let Some(path) = &options.cluster_controller_config {
+            options.cluster_sensitive_paths.push(path.clone());
+        }
+    }
+
     if let Some(config) = &cluster_config {
         options
             .cluster_sensitive_paths
@@ -205,6 +240,12 @@ async fn run() -> Result<(), Box<dyn Error>> {
         );
     }
     let (tx, rx) = watch::channel(false);
+    let external_tx = tx.clone();
+    tokio::spawn(async move {
+        if external_shutdown.wait_for(|stopped| *stopped).await.is_ok() {
+            let _ = external_tx.send(true);
+        }
+    });
     let signal_tx = tx.clone();
     tokio::spawn(async move {
         match tokio::signal::ctrl_c().await {
