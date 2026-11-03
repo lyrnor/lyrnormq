@@ -46,7 +46,7 @@ pub(crate) enum Metric {
     BatchSize,
     BatchBytes,
 }
-const METRICS: [Metric; 32] = [
+const METRICS: [Metric; 33] = [
     Metric::ControlWrite,
     Metric::Validate,
     Metric::Encode,
