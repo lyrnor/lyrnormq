@@ -43,6 +43,13 @@ class CapacityPreflight(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source ports'):
             limits.validate_environment(100000, 250000, 32768, 60999)
 
+    def test_success_flag_without_target_cohort_is_not_capacity_success(self):
+        self.assertFalse(limits.case_passed('q0', {'exit': 0, 'timeout': False,
+                                                'report': {'success': True, 'config': {'pairs': 5000}, 'accounting': {'not_sent': 1}}}))
+        self.assertFalse(limits.case_passed('c1000', {'exit': 0, 'timeout': False,
+                                                    'report': {'plateau_passed': True, 'steps': [{'target': 10000, 'live_after_hold_ping': 10000}]}}))
+        self.assertFalse(limits.case_passed('q2', {'exit': -9, 'timeout': True}))
+
 
 if __name__ == '__main__':
     unittest.main()

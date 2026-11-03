@@ -149,3 +149,22 @@ open; no destructive migration, no checksum claim for corruption predating legac
 migration. Snapshot/State/wire/SQLite table schemas unchanged. Malformed or gapped
 committed tails still fail; uncommitted entries are never replayed. Add direct
 valid-JSON corruption RED before fix and retain complete OpenRaft conformance.
+
+Explicit scale-budget amendment (coordinator authorization for requested100k test):
+The former8MiB metadata limit cannot hold100k ordinary JSON owner entries. Set the
+new exact metadata budget to16MiB minus64KiB (16,711,680bytes), retaining100k count
+bounds,16MiB RPC/raw snapshot bounds,512KiB command cap and all safety checks. The
+64KiB reserve covers State/membership/Snapshot/protobuf envelope overhead; add an
+actual maximal-metadata snapshot/wire-bound test. This documented resource increase
+supersedes8MiB references above; no hidden unlimited allocation or schema change.
+Preflight/report must record it. Long IDs/filters can still bind before100k entries.
+
+Physical-record headroom amendment: client lifecycle/HTTP forwarding creates h:
+internal records in the same bounded durable directory/replica store. The old100000
+TOTAL-record cap would reject the last connections of a100000-client fresh run.
+Set physical durable-directory and replica/repair-manifest record caps to101024,
+providing1024 entries of explicit headroom for internal/tombstone records; this is
+not reserved priority capacity. Legacy clients map remains100000. Keep byte budgets
+and all other limits. Record this physical cap in preflight/benchmark evidence.
+Model owner updates durable count/RepairSeal; storage owner additionally assigned
+replica/memory.rs constant and focused tests for this coordinated limit change only.

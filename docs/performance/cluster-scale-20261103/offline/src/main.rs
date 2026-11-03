@@ -1,7 +1,5 @@
 #![allow(dead_code)]
-#[path = "../../../../../crates/mqtt-cluster/src/model.rs"]
 mod model;
-#[path = "../../../../../crates/mqtt-cluster/src/repair_state.rs"]
 mod repair_state;
 use serde_json::{Value, json};
 use std::{hint::black_box, io, time::Instant};

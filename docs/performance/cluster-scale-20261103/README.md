@@ -146,3 +146,8 @@ persistence. Split CPU work from SQLite IO lock and evaluate bounded group commi
 Do not disableFULL or remove consensus safety merely to improve numbers. A future
 RocksDB/log backend alone will not remove these CPU/serialization/barrier costs.
 
+
+Historical offline diagnostic now carries frozen model/repair source copied from
+f3b6181 so subsequent incremental-model changes do not silently alter the baseline
+CPU workload. Its full-State clone/apply/encode stage is historical, not the new
+Phase7h RAM-apply hot path.

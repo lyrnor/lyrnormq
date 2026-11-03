@@ -17,7 +17,8 @@ def planned_limits(target, nodes=3):
             'max_state_bytes': 256 * 1024 * 1024,
             'minimum_load_nofile': target + 4096,
             'minimum_source_ports_per_destination': per_node,
-            'control_metadata_byte_limit': 8 * 1024 * 1024,
+            'physical_record_limit': 101024,
+            'control_metadata_byte_limit': 16 * 1024 * 1024 - 64 * 1024,
             'note': 'count limits do not guarantee encoded metadata fits; stop at actual quota'}
 
 
@@ -54,6 +55,34 @@ def validate_environment(target, nofile, first_port, last_port):
     if last_port - first_port + 1 < plan['minimum_source_ports_per_destination'] + 1024:
         raise ValueError('source ports cannot cover each destination with headroom')
     return plan
+
+
+def case_passed(name, record):
+    if record.get('timeout') or record.get('exit') != 0:
+        return False
+    report = record.get('report') or {}
+    if name.startswith('c'):
+        steps = report.get('steps') or []
+        return bool(report.get('plateau_passed') and len(steps) == 10
+                    and steps[-1].get('target') == 100000
+                    and steps[-1].get('live_after_hold_ping') == 100000)
+    accounting = report.get('accounting') or {}
+    counters = accounting.get('counters') or {}
+    config = report.get('config') or {}
+    expected = 600000
+    if not report.get('success') or config.get('pairs') != 5000:
+        return False
+    if any(counters.get(field) != expected for field in ('scheduled', 'attempted', 'write_completed', 'delivered_unique', 'completed')):
+        return False
+    if any(accounting.get(field) != 0 for field in ('not_sent', 'not_delivered', 'failed_pairs', 'incomplete_attempts')):
+        return False
+    if any(counters.get(field) != 0 for field in ('duplicates', 'unexpected', 'invalid_payload')):
+        return False
+    qos = config.get('qos')
+    if qos in (1, 2) and counters.get('puback_received' if qos == 1 else 'pubcomp_received') != expected:
+        return False
+    return (accounting.get('returned_pairs') == 5000
+            and (report.get('latencies', {}).get('send_to_delivery') or {}).get('count') == expected)
 
 
 def main():
