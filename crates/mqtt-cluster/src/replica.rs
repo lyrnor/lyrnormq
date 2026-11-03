@@ -20,6 +20,12 @@ const MAX_REPAIR_BYTES: u64 = 768 * 1024 * 1024;
 const MAX_PAGE_BYTES: usize = 12 * 1024 * 1024;
 const MAX_ENTRIES: u64 = 100_000;
 
+// A spawned test process briefly inherits open file descriptions before exec
+// closes CLOEXEC descriptors. Serialize that short interval with lock acquisition
+// so unrelated parallel drop/reopen tests cannot observe inherited flock owners.
+#[cfg(test)]
+pub(crate) static TEST_PROCESS_START_LOCK: Mutex<()> = Mutex::new(());
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RepairToken {
     pub id: String,
@@ -222,6 +228,10 @@ pub(crate) struct Journal(Arc<Inner>);
 impl Journal {
     /// Must be called from a blocking worker, before the Broker begins service.
     pub fn open(path: &Path, identity: (&str, u64), members: &[(u64, String)]) -> io::Result<Self> {
+        #[cfg(test)]
+        let _process_start = TEST_PROCESS_START_LOCK
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         std::fs::create_dir_all(path)?;
         let lock = std::fs::OpenOptions::new()
             .create(true)
@@ -229,7 +239,12 @@ impl Journal {
             .read(true)
             .write(true)
             .open(path.join("data.lock"))?;
-        lock.try_lock().map_err(|_| rejected())?;
+        lock.try_lock().map_err(|cause| {
+            io::Error::new(
+                io::ErrorKind::WouldBlock,
+                format!("replica directory lock unavailable: {cause}"),
+            )
+        })?;
         let db = Connection::open(path.join("data.sqlite")).map_err(error)?;
         db.pragma_update(None, "journal_mode", "WAL")
             .map_err(error)?;
@@ -344,6 +359,11 @@ impl Journal {
                 }
                 Err(_) => inner.frozen.store(true, Ordering::Release),
             }
+            // Do not let task-environment teardown retain the directory lock
+            // beyond the point at which the JoinHandle publishes completion.
+            drop(db);
+            drop(inner);
+            drop(_permit);
             result
         })
         .await
@@ -923,6 +943,32 @@ mod tests {
         )
     }
     #[tokio::test]
+    async fn completed_blocking_operations_release_all_journal_ownership_before_return()
+    -> io::Result<()> {
+        let path = repair_path("blocking-lifetime");
+        for round in 0..128 {
+            let journal = test_journal(&path).map_err(|cause| {
+                io::Error::new(cause.kind(), format!("round {round} open: {cause}"))
+            })?;
+            journal.status().await?;
+            assert_eq!(
+                Arc::strong_count(&journal.0),
+                1,
+                "completed blocking task retained the journal"
+            );
+            drop(journal);
+            let reopened = test_journal(&path).map_err(|cause| {
+                io::Error::new(
+                    cause.kind(),
+                    format!("round {round} immediate reopen: {cause}"),
+                )
+            })?;
+            drop(reopened);
+        }
+        std::fs::remove_dir_all(path)?;
+        Ok(())
+    }
+    #[tokio::test]
     async fn ordinary_status_refresh_never_briefly_revokes_replica_readiness() -> io::Result<()> {
         let path = repair_path("readiness");
         let journal = test_journal(&path)?;
@@ -1000,7 +1046,10 @@ mod tests {
             let binary = binary.clone();
             let path = target_path.clone();
             let output = tokio::task::spawn_blocking(move || {
-                std::process::Command::new(binary)
+                let process_start = TEST_PROCESS_START_LOCK
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner);
+                let child = std::process::Command::new(binary)
                     .args([
                         "--exact",
                         "replica::tests::repair_install_crash_probe",
@@ -1008,7 +1057,11 @@ mod tests {
                     ])
                     .env("RMQTT_TEST_REPAIR_INSTALL_PATH", path)
                     .env("RMQTT_TEST_REPAIR_INSTALL_CRASH", point)
-                    .output()
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped())
+                    .spawn();
+                drop(process_start);
+                child?.wait_with_output()
             })
             .await
             .map_err(error)??;
