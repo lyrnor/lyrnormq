@@ -39,6 +39,9 @@ pub trait LocalBroker: Debug + Send + Sync {
 /// Runtime-neutral metadata and forwarding bridge. Every awaited operation must
 /// have a finite deadline; forwarding/mutation admission must be bounded.
 pub trait ClusterBridge: Debug + Send + Sync {
+    /// Historical name for the replicated session/outbox transaction path.
+    /// This flag does not promise disk persistence: memory replicas acknowledge
+    /// live quorum acceptance and lose their local data when the process dies.
     fn durable(&self) -> bool {
         false
     }
@@ -84,7 +87,7 @@ pub trait ClusterBridge: Debug + Send + Sync {
         filters: Vec<String>,
     ) -> ClusterFuture<'_, ()>;
     /// Legacy mode routes remote ordinary recipients using local metadata.
-    /// Durable mode accepts host/system publications into the replicated outbox
+    /// Replicated mode accepts host/system publications into the shared outbox
     /// for all recipients; transport must suppress its separate local fanout.
     /// Shared selection remains deferred.
     fn forward(&self, message: ClusterMessage) -> ClusterFuture<'_, ()>;

@@ -30,6 +30,10 @@ async fn run() -> Result<(), Box<dyn Error>> {
         return Ok(());
     };
     let cluster_config = cluster::load(options.cluster_config.as_deref()).await?;
+    cluster::validate_data_options(
+        cluster_config.as_ref(),
+        options.config.storage_path.as_deref(),
+    )?;
     let controller = cluster::load(options.cluster_controller_config.as_deref()).await?;
     if let Some(control) = &controller {
         cluster::validate_combined(

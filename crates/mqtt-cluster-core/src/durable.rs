@@ -1,4 +1,5 @@
 //! Opaque replicated session transactions; MQTT snapshot schema stays session-owned.
+//! Persistence is a backend property; live memory-quorum acceptance is volatile.
 use crate::ClusterMessage;
 use serde::{Deserialize, Serialize};
 

@@ -36,6 +36,20 @@ pub(crate) async fn load(path: Option<&Path>) -> io::Result<Option<mqtt_cluster:
     .await
     .map_err(io::Error::other)?
 }
+/// Replicated memory sessions must not silently fall back to a SQLite mirror.
+pub(crate) fn validate_data_options(
+    config: Option<&mqtt_cluster::Config>,
+    storage_path: Option<&Path>,
+) -> io::Result<()> {
+    if config.is_some_and(|config| config.durable.is_some()) && storage_path.is_some() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "replicated memory mode cannot use --storage-path; session data is volatile",
+        ));
+    }
+    Ok(())
+}
+
 pub(crate) async fn controller(config: mqtt_cluster::Config) -> io::Result<()> {
     let (tx, rx) = watch::channel(false);
     tokio::spawn(async move {
@@ -135,3 +149,7 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[path = "cluster_tests.rs"]
+mod tests;
