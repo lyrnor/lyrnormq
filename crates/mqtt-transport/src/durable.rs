@@ -731,6 +731,7 @@ async fn serve_with_tls(
     } else {
         start(config.clone()).await?
     };
+    let _profile_exit = broker.admission.profile_on_exit();
     let mut fatal = broker.fatal.subscribe();
     let permits = Arc::new(Semaphore::new(config.max_connections));
     let (stop_tx, stop_rx) = watch::channel(false);
@@ -749,7 +750,10 @@ async fn serve_with_tls(
                 if let Some(message) = fatal.borrow().clone() { break Err(io::Error::other(message)); }
             }
             Some(joined) = tasks.join_next(), if !tasks.is_empty() => { if let Err(error) = joined { break Err(io::Error::other(error)); } }
-            _ = ticks.tick() => { if let Err(error) = broker.prune_retained().await { break Err(error); } }
+            _ = ticks.tick() => {
+                broker.admission.emit_profile(false);
+                if let Err(error) = broker.prune_retained().await { break Err(error); }
+            }
             accepted = listener.accept() => {
                 let (stream, _) = match accepted { Ok(value) => value, Err(error) => break Err(error) };
                 let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else { drop(stream); continue; };
