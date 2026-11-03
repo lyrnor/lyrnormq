@@ -220,6 +220,18 @@ class ClusterFixture:
         self.addCleanup(self.fleet.stop)
         self.fleet.start()
 
+    def tearDown(self):
+        result = self._outcome.result
+        if any(test is self for test, _ in [*result.failures, *result.errors]):
+            # Temp directories are removed by cleanup. Preserve finite diagnostics
+            # before teardown, while never emitting the fixture credentials.
+            for node in [*self.fleet.controllers, *self.fleet.brokers]:
+                logs = node.logs()
+                for secret in (CLUSTER_TOKEN, TOKEN, 'incorrect-private-cluster-token-abc123'):
+                    logs = logs.replace(secret, '[redacted]')
+                print(f'\n--- {node.config["role"]} {node.config["node_id"]} '
+                      f'exit={node.process.poll()} ---\n{logs}', flush=True)
+
     def raw(self, node=0):
         sock = socket.create_connection(('127.0.0.1', self.fleet.brokers[node].mqtt), timeout=6)
         sock.settimeout(8)
@@ -496,6 +508,26 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
         wait_until(restored, 25)
         self.wait_broker_recovery()
         self.cross_roundtrip('after-controller-crash')
+
+    def test_expired_broker_rejoins_without_process_restart(self):
+        self.cross_roundtrip('before-broker-lease-expiry')
+        old = self.client('lease-expired-owner', 0)
+        node = self.fleet.brokers[0]
+        os.kill(node.process.pid, signal.SIGSTOP)
+        try:
+            wait_until(lambda: (state if (state := self.fleet.status()) and
+                                state.get('nodes') == 1 else None), 20)
+        finally:
+            os.kill(node.process.pid, signal.SIGCONT)
+        self.wait_broker_recovery()
+        try:
+            header, data = receive(old)
+        except EOFError:
+            pass
+        else:
+            self.assertEqual(header, 0xe0)
+            self.assertEqual(data[0], 0x88)
+        self.cross_roundtrip('after-broker-lease-rejoin')
 
     def test_wrong_cluster_identity_and_private_token_cannot_register(self):
         wrong_token = self.fleet.root / 'wrong.token'
