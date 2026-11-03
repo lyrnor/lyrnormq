@@ -1,0 +1,8 @@
+[package]
+name = "mqtt-cluster-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+mqtt-protocol = { path = "../mqtt-protocol" }
+serde = { version = "1", features = ["derive"] }
