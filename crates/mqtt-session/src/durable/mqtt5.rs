@@ -371,6 +371,7 @@ impl SessionEngine {
         if bytes.len() > self.config.max_packet_size {
             return Err(mqtt5_error(0x95));
         }
+        self.reject_reserved_publication(client_id, &frame.packet)?;
         self.expire_sessions()?;
         if version == ProtocolVersion::V311 {
             return self

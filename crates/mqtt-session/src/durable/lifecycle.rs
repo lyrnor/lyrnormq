@@ -118,6 +118,12 @@ impl SessionEngine {
                 &will_properties,
             )?;
         }
+        if will
+            .as_ref()
+            .is_some_and(|will| super::authorization::reserved_system_topic(&will.topic))
+        {
+            return Err(EngineError::NotAuthorized);
+        }
         self.expire_sessions()?;
         self.validate_client(client_id)?;
         Self::validate_owner(&principal.name).map_err(|_| EngineError::NotAuthorized)?;
@@ -366,6 +372,12 @@ impl SessionEngine {
     /// retained store defers it unchanged; any other error is not swallowed.
     pub fn retry_wills(&mut self) -> Result<bool, EngineError> {
         let mut progressed = self.expire_sessions()?;
+        // Legacy snapshots can contain Wills created before `$SYS` became
+        // broker-owned. Retire their durable intent instead of forging events.
+        let before = self.wills.len();
+        self.wills
+            .retain(|_, record| !super::authorization::reserved_system_topic(&record.will.topic));
+        progressed |= self.wills.len() != before;
         progressed |= self.prune_wills();
         let pending: Vec<String> = self
             .wills

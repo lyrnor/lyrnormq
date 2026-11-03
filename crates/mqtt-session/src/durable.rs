@@ -877,6 +877,7 @@ impl SessionEngine {
         if bytes.len() > self.config.max_packet_size {
             return Err(EngineError::Capacity);
         }
+        self.reject_reserved_publication(client_id, &packet)?;
         let owner = self
             .sessions
             .get(client_id)
@@ -1497,3 +1498,6 @@ mod phase2m_tests;
 
 #[cfg(test)]
 mod phase2n_rap_tests;
+
+#[cfg(test)]
+mod system_topic_tests;

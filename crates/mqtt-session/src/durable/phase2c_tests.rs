@@ -178,7 +178,11 @@ fn retained_resubscription_sequence_system_topics_and_reconnect_keep_flags() {
     let mut state = state();
     state.connect("pub", true).unwrap();
     event(&mut state, "pub", publication("a/b", b"a", 1, true, 1));
-    event(&mut state, "pub", publication("$SYS/x", b"sys", 0, true, 0));
+    event(
+        &mut state,
+        "pub",
+        publication("$OTHER/x", b"sys", 0, true, 0),
+    );
     state.connect("sub", false).unwrap();
     subscribe(&mut state, "sub", "#", 1);
     let first = state.poll("sub").unwrap().unwrap();
@@ -198,7 +202,7 @@ fn retained_resubscription_sequence_system_topics_and_reconnect_keep_flags() {
     complete(&mut state, "sub", &replay);
     subscribe(&mut state, "sub", "#", 0);
     check(&state.poll("sub").unwrap().unwrap(), b"a", 0, true);
-    subscribe(&mut state, "sub", "$SYS/#", 2);
+    subscribe(&mut state, "sub", "$OTHER/#", 2);
     check(&state.poll("sub").unwrap().unwrap(), b"sys", 0, true);
     event(
         &mut state,

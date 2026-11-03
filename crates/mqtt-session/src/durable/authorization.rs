@@ -5,7 +5,33 @@ use crate::profiling::{self, Operation};
 use mqtt_auth::{Action, Principal};
 use mqtt_protocol::Packet;
 
+/// Broker-owned namespace; other `$` roots retain ordinary MQTT semantics.
+pub(super) fn reserved_system_topic(topic: &str) -> bool {
+    topic == "$SYS" || topic.starts_with("$SYS/")
+}
+
 impl SessionEngine {
+    /// A new client publication cannot impersonate a broker event. Already
+    /// accepted QoS2 exchanges retain their existing duplicate/PUBREL semantics.
+    pub(super) fn reject_reserved_publication(
+        &self,
+        client_id: &str,
+        packet: &Packet,
+    ) -> Result<(), EngineError> {
+        if let Packet::Publish {
+            topic,
+            qos,
+            packet_id,
+            ..
+        } = packet
+            && reserved_system_topic(topic)
+            && !(*qos == 2 && packet_id.is_some_and(|id| self.has_incoming_exchange(client_id, id)))
+        {
+            return Err(EngineError::NotAuthorized);
+        }
+        Ok(())
+    }
+
     /// Whether an accepted inbound QoS2 exchange still awaits PUBREL.
     /// This is runtime state inspection and does not authorize a new operation.
     pub fn has_incoming_exchange(&self, client_id: &str, packet_id: u16) -> bool {
