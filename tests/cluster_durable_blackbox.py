@@ -137,12 +137,19 @@ class DurableFixture(ClusterFixture):
                   if self.version == 5 else publication(topic, payload, qos, packet_id, dup=dup))
         sock.sendall(packet)
 
-    def expect_ack(self, sock, header, packet_id):
+    def expect_ack(self, sock, header, packet_id, completed=False):
         actual, data = receive(sock)
         self.assertEqual(actual, header, data)
         self.assertEqual(data[:2], struct.pack('!H', packet_id))
-        if len(data) > 2:
-            self.assertEqual(data[2], 0, data)
+        reason = data[2] if len(data) > 2 else 0
+        if completed and self.version == 5:
+            self.assertEqual(header, 0x70, 'only completed PUBREL retries use this exception')
+            # OASIS MQTT5 §3.7.2.1 Table3-7 permits PUBCOMP Packet Identifier not
+            # found during recovery. First pending exchanges still require 0.
+            # https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html
+            self.assertIn(reason, (0, 0x92), data)
+        else:
+            self.assertEqual(reason, 0, data)
 
     def expect_message(self, sock, topic, payload, qos):
         message = self.message(sock)
@@ -223,7 +230,7 @@ class DurableSessionCases(DurableFixture):
         received = self.expect_message(target, 'durable/incoming', b'pending qos2', 2)
         self.complete_message(target, received)
         resumed.sendall(ack(0x62, 23))
-        self.expect_ack(resumed, 0x70, 23)
+        self.expect_ack(resumed, 0x70, 23, completed=True)
         self.quiet(target)
 
     def test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery(self):
@@ -240,7 +247,7 @@ class DurableSessionCases(DurableFixture):
         self.lose_owner()
         resumed = self.persistent('comp-source', 1, present=True, retry=True)
         resumed.sendall(ack(0x62, 41))
-        self.expect_ack(resumed, 0x70, 41)
+        self.expect_ack(resumed, 0x70, 41, completed=True)
         self.quiet(target, .4)
 
     def test_clean_start_discards_old_subscription_on_another_owner(self):
@@ -349,7 +356,7 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         # create another recipient exchange after its receipt has been migrated.
         self.expect_ack(source, 0x70, 55)
         source.sendall(ack(0x62, 55))
-        self.expect_ack(source, 0x70, 55)
+        self.expect_ack(source, 0x70, 55, completed=True)
         self.quiet(resumed, .4)
 
     def test_rf1_refuses_new_durable_connack_and_publication_success(self):
