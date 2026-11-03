@@ -21,6 +21,12 @@ pub struct TlsConfig {
     pub ca_file: PathBuf,
     pub domain_name: String,
 }
+/// Fixed data-replica membership. It is independent of Controller Raft membership.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DurableConfig {
+    pub replicas: Vec<Controller>,
+}
 fn lease() -> u64 {
     3000
 }
@@ -42,6 +48,8 @@ pub struct Config {
     pub lease_ms: u64,
     #[serde(default)]
     pub tls: Option<TlsConfig>,
+    #[serde(default)]
+    pub durable: Option<DurableConfig>,
 }
 impl Config {
     pub fn validate(&self) -> io::Result<()> {
@@ -81,6 +89,29 @@ impl Config {
         }
         if self.role == Role::Broker && self.bootstrap {
             return Err(bad());
+        }
+        if let Some(durable) = &self.durable {
+            let mut ids = BTreeSet::new();
+            let mut addresses = BTreeSet::new();
+            if self.role != Role::Broker || durable.replicas.len() != 3 {
+                return Err(bad());
+            }
+            for peer in &durable.replicas {
+                if peer.id == 0
+                    || !ids.insert(peer.id)
+                    || !addresses.insert(&peer.address)
+                    || !endpoint_valid(&peer.address, self.tls.is_some())
+                {
+                    return Err(bad());
+                }
+            }
+            if !durable
+                .replicas
+                .iter()
+                .any(|p| p.id == self.node_id && p.address == self.address())
+            {
+                return Err(bad());
+            }
         }
         Ok(())
     }

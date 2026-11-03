@@ -38,6 +38,7 @@ pub struct BrokerRuntime {
     receipts: Mutex<Receipts>,
     watch_reconnect: Notify,
     weak: Weak<Self>,
+    pub(crate) journal: Option<crate::replica::Journal>,
 }
 impl fmt::Debug for BrokerRuntime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -62,6 +63,22 @@ impl BrokerRuntime {
                 "broker role required",
             ));
         }
+        let journal = config
+            .durable
+            .as_ref()
+            .map(|d| {
+                let members = d
+                    .replicas
+                    .iter()
+                    .map(|p| (p.id, p.address.clone()))
+                    .collect::<Vec<_>>();
+                crate::replica::Journal::open(
+                    &config.data_dir,
+                    (&config.cluster_id, config.node_id),
+                    &members,
+                )
+            })
+            .transpose()?;
         let mut random = [0u8; 16];
         getrandom::getrandom(&mut random).map_err(io::Error::other)?;
         let incarnation = random.iter().map(|b| format!("{b:02x}")).collect();
@@ -82,6 +99,7 @@ impl BrokerRuntime {
             receipts: Mutex::new(Receipts::default()),
             watch_reconnect: Notify::new(),
             weak: weak.clone(),
+            journal,
         }))
     }
     async fn rpc(&self) -> io::Result<&ClientRpc> {
@@ -378,6 +396,9 @@ impl BrokerRuntime {
     }
 }
 impl ClusterBridge for BrokerRuntime {
+    fn durable(&self) -> bool {
+        self.journal.is_some()
+    }
     fn ready(&self) -> bool {
         !self.stopped.load(Ordering::Acquire)
             && self.initialized.load(Ordering::Acquire)

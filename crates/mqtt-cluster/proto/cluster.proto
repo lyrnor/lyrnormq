@@ -6,5 +6,6 @@ service Cluster {
   rpc Mutate(Envelope) returns (Envelope);
   rpc Read(Envelope) returns (Envelope);
   rpc Watch(Envelope) returns (stream Envelope);
+  rpc Replica(Envelope) returns (Envelope);
   rpc Deliver(Envelope) returns (Envelope);
 }

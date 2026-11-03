@@ -381,6 +381,24 @@ impl wire::cluster_server::Cluster for Service {
         });
         Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
+    async fn replica(
+        &self,
+        request: Request<wire::Envelope>,
+    ) -> Result<Response<wire::Envelope>, Status> {
+        self.rpc.check(&request)?;
+        let journal = self
+            .broker
+            .as_ref()
+            .and_then(|b| b.journal.as_ref())
+            .ok_or_else(|| Status::failed_precondition("not a data replica"))?;
+        let reply = journal
+            .execute(rpc::decode(request.into_inner())?)
+            .await
+            .map_err(|_| Status::unavailable("replica write unavailable"))?;
+        Ok(Response::new(rpc::encode(&reply).map_err(|_| {
+            Status::resource_exhausted("replica response capacity")
+        })?))
+    }
     async fn deliver(
         &self,
         request: Request<wire::Envelope>,
