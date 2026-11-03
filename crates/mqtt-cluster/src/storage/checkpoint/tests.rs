@@ -267,7 +267,7 @@ fn multipage_realistic_metadata_roundtrips_all_rows() {
 }
 #[test]
 fn long_business_keys_roundtrip_and_delete() {
-    use crate::model::Client;
+    use crate::model::{Client, DurableOwner};
     let p = dir();
     let mut db = Checkpoint::open(&p, "test", 1).unwrap();
     let mut state = State::default();
@@ -282,6 +282,17 @@ fn long_business_keys_roundtrip_and_delete() {
             filters: vec![],
         },
     );
+    state.metadata.durable.insert(
+        format!("c::{}", "d".repeat(65535)),
+        DurableOwner {
+            node: 1,
+            incarnation: "i".into(),
+            generation: 1,
+            epoch: 1,
+            filters: vec![],
+            logical_generation: 1,
+        },
+    );
     let saved = super::super::make_snapshot(&state).unwrap();
     db.write_snapshot(&saved).unwrap();
     assert_eq!(db.read_snapshot().unwrap().unwrap().data, saved.data);
@@ -290,6 +301,7 @@ fn long_business_keys_roundtrip_and_delete() {
     assert_eq!(db.read_snapshot().unwrap().unwrap().data, saved.data);
     state.metadata.routes.clear();
     state.metadata.clients.clear();
+    state.metadata.durable.clear();
     let saved = super::super::make_snapshot(&state).unwrap();
     db.write_snapshot(&saved).unwrap();
     drop(db);
