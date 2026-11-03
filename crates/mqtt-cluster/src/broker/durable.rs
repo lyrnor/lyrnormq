@@ -1,6 +1,6 @@
 //! Serialized replicated session transactions and restartable forwarding ownership.
 use super::*;
-use crate::replica::{Intent, Journal, Record, Request};
+use crate::replica::{Intent, Journal, Recipient, Record, Request};
 use mqtt_cluster_core::{DeliveryId, SessionCommit, SessionLease, SessionMutation};
 use tokio::sync::{mpsc, oneshot};
 
@@ -139,7 +139,7 @@ impl Durable {
                             .filter(|r| {
                                 !cell.poisoned && Self::authoritative(&runtime, &key, r.epoch)
                             })
-                            .map(|r| r.receipts.contains(&id))
+                            .map(|r| r.received_or_obsolete(&id))
                             .ok_or_else(unavailable);
                         let _ = reply.send(result);
                     }
@@ -385,7 +385,10 @@ impl Durable {
             .unwrap_or_else(PoisonError::into_inner)
             .durable
             .get(key)
-            .is_none_or(|owner| owner.filters != record.filters);
+            .is_none_or(|owner| {
+                owner.filters != record.filters
+                    || owner.logical_generation != record.logical_generation
+            });
         if filters_differ {
             runtime
                 .command(
@@ -395,6 +398,7 @@ impl Durable {
                         incarnation: runtime.incarnation.clone(),
                         epoch: record.epoch,
                         filters: record.filters.clone(),
+                        logical_generation: record.logical_generation,
                     },
                     true,
                 )
@@ -406,7 +410,7 @@ impl Durable {
         cell.activate = generation == 0;
         Ok(lease)
     }
-    fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<String> {
+    fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<Recipient> {
         runtime
             .metadata
             .read()
@@ -420,7 +424,12 @@ impl Durable {
                         .iter()
                         .any(|filter| mqtt_router::matches_topic_filter(filter, &message.topic))
             })
-            .filter_map(|(key, _)| key.strip_prefix("c:").map(str::to_owned))
+            .filter_map(|(key, owner)| {
+                key.strip_prefix("c:").map(|id| Recipient {
+                    client_id: id.to_owned(),
+                    generation: owner.logical_generation,
+                })
+            })
             .collect()
     }
     fn append(
@@ -445,6 +454,7 @@ impl Durable {
                         epoch: record.epoch,
                         revision: record.revision,
                         index: u32::try_from(index).map_err(|_| unavailable())?,
+                        target_generation: 0,
                     },
                     message,
                     recipients,
@@ -506,7 +516,7 @@ impl Durable {
         if mutation
             .receipt
             .as_ref()
-            .is_some_and(|id| current.receipts.contains(id))
+            .is_some_and(|id| current.received_or_obsolete(id))
         {
             return Ok(SessionCommit {
                 revision: current.revision,
@@ -518,13 +528,21 @@ impl Durable {
         }
         let mut next = current.clone();
         next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
+        if mutation.reset_session {
+            next.logical_generation = next
+                .logical_generation
+                .checked_add(1)
+                .ok_or_else(unavailable)?;
+            next.receipts.clear();
+        }
         next.snapshot = mutation.snapshot;
         next.filters = mutation.filters;
         if let Some(id) = mutation.receipt {
             next.receipts.insert(id);
         }
         Self::append(runtime, key, &mut next, mutation.publications)?;
-        let filters_changed = current.filters != next.filters;
+        let filters_changed = current.filters != next.filters
+            || current.logical_generation != next.logical_generation;
         self.store(runtime, key, next, cell).await?;
         let record = cell.record.as_ref().ok_or_else(unavailable)?;
         if filters_changed
@@ -536,6 +554,7 @@ impl Durable {
                         incarnation: runtime.incarnation.clone(),
                         epoch: record.epoch,
                         filters: record.filters.clone(),
+                        logical_generation: record.logical_generation,
                     },
                     true,
                 )
@@ -601,8 +620,11 @@ impl Durable {
             return Ok(());
         };
         intent.completed.insert(recipient);
-        next.intents
-            .retain(|i| i.recipients.iter().any(|r| !i.completed.contains(r)));
+        next.intents.retain(|i| {
+            i.recipients
+                .iter()
+                .any(|r| !i.completed.contains(&r.client_id))
+        });
         self.store(runtime, key, next, cell).await
     }
     async fn one(self: &Arc<Self>, key: String) -> io::Result<()> {
@@ -642,6 +664,10 @@ impl Durable {
             return Ok(());
         };
         for recipient in &intent.recipients {
+            let target_generation = recipient.generation;
+            let recipient = &recipient.client_id;
+            let mut delivery_id = intent.id.clone();
+            delivery_id.target_generation = target_generation;
             if intent.completed.contains(recipient) {
                 continue;
             }
@@ -663,7 +689,7 @@ impl Durable {
                     runtime
                         .deliver_recipient(RecipientDelivery {
                             client_id: recipient.clone(),
-                            id: intent.id.clone(),
+                            id: delivery_id.clone(),
                             message: intent.message.clone(),
                         })
                         .await?;
@@ -680,7 +706,7 @@ impl Durable {
                     client
                         .deliver_to(rpc.authorize(rpc::encode(&RecipientDelivery {
                             client_id: recipient.clone(),
-                            id: intent.id.clone(),
+                            id: delivery_id.clone(),
                             message: intent.message.clone(),
                         })?)?)
                         .await
@@ -811,6 +837,7 @@ mod tests {
                 incarnation: "other".into(),
                 generation: 1,
                 epoch: 2,
+                logical_generation: 0,
                 filters: Vec::new(),
             },
         );
@@ -846,6 +873,7 @@ mod tests {
             epoch: 1,
             revision: 1,
             index: 0,
+            target_generation: 0,
         };
         let journal = runtime.journal.as_ref().ok_or_else(unavailable)?.clone();
         let mut record = Record::empty(1);
@@ -888,6 +916,7 @@ mod tests {
                     incarnation: runtime.incarnation.clone(),
                     generation: 1,
                     epoch: 1,
+                    logical_generation: 0,
                     filters: vec!["events/#".into()],
                 },
             );
@@ -962,6 +991,54 @@ mod tests {
                 .is_ok()
         );
         drop(service);
+        // A preflight may race a clean replacement; the replicated commit guard must
+        // discard its already-computed old-session proposal even after preflight.
+        let mut late = id.clone();
+        late.target_generation = 1;
+        let mut record = Record::empty(1);
+        record.revision = 8;
+        record.logical_generation = 1;
+        record.snapshot = Some(vec![1]);
+        assert!(!record.received_or_obsolete(&late));
+        record.logical_generation = 2;
+        assert!(record.received_or_obsolete(&late));
+        let mut cell = Cell {
+            record: Some(record),
+            poisoned: false,
+            activate: false,
+        };
+        let result = runtime
+            .data
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .commit(
+                &runtime,
+                &client_key("recipient"),
+                SessionMutation {
+                    client_id: "recipient".into(),
+                    epoch: 1,
+                    expected_revision: 8,
+                    snapshot: Some(vec![9]),
+                    reset_session: false,
+                    filters: Vec::new(),
+                    publications: Vec::new(),
+                    receipt: Some(late),
+                },
+                &mut cell,
+            )
+            .await?;
+        assert_eq!(
+            result,
+            SessionCommit {
+                revision: 8,
+                duplicate: true
+            }
+        );
+        assert_eq!(
+            cell.record.as_ref().and_then(|r| r.snapshot.as_deref()),
+            Some([1].as_slice())
+        );
+
         // Isolate the already-committed record-cache boundary from MQTT actor capacity.
         // The reply is loaded from the real reopened-format journal, not assumed success.
         let (tx, mut rx) = mpsc::channel::<Job>(1);
@@ -981,7 +1058,7 @@ mod tests {
                             key: client_key("recipient"),
                         })
                         .await
-                        .map(|r| r.record.is_some_and(|r| r.receipts.contains(&id)));
+                        .map(|r| r.record.is_some_and(|r| r.received_or_obsolete(&id)));
                     let _ = reply.send(result);
                 }
             }

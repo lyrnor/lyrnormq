@@ -217,6 +217,7 @@ fn validate(command: &Command) -> Result<(), Status> {
             incarnation,
             epoch,
             filters,
+            ..
         } => {
             *node > 0
                 && *epoch > 0
@@ -342,7 +343,8 @@ impl wire::cluster_server::Cluster for Service {
                     term: m.current_term,
                     last_applied: m.last_applied.map_or(0, |id| id.index),
                     nodes: s.nodes.len(),
-                    clients: s.clients.len(),
+                    clients: s.clients.len()
+                        + s.durable.keys().filter(|key| key.starts_with("c:")).count(),
                     routes: s.routes.len(),
                 })
             }

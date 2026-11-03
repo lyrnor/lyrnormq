@@ -275,6 +275,7 @@ fn durable_directory_preserves_interest_and_rejects_mixed_membership() {
                 node: 1,
                 incarnation: "node-1".into(),
                 epoch,
+                logical_generation: 0,
                 filters: vec!["events/+".into()]
             })
             .error

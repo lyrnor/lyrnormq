@@ -34,6 +34,8 @@ pub struct DurableOwner {
     pub generation: u64,
     pub epoch: u64,
     pub filters: Vec<String>,
+    #[serde(default)]
+    pub logical_generation: u64,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataMode {
@@ -71,6 +73,8 @@ pub enum Command {
         incarnation: String,
         epoch: u64,
         filters: Vec<String>,
+        #[serde(default)]
+        logical_generation: u64,
     },
     Register {
         node: u64,
@@ -205,6 +209,10 @@ impl Metadata {
                     .get(&key)
                     .map(|o| o.filters.clone())
                     .unwrap_or_default();
+                let logical_generation = self
+                    .durable
+                    .get(&key)
+                    .map_or(0, |owner| owner.logical_generation);
                 self.durable.insert(
                     key,
                     DurableOwner {
@@ -213,6 +221,7 @@ impl Metadata {
                         generation,
                         epoch: self.revision.checked_add(1).ok_or("epoch exhausted")?,
                         filters,
+                        logical_generation,
                     },
                 );
             }
@@ -222,12 +231,17 @@ impl Metadata {
                 incarnation,
                 epoch,
                 filters,
+                logical_generation,
             } => {
                 self.valid_node(node, &incarnation)?;
                 let owner = self.durable.get_mut(&key).ok_or("unknown durable owner")?;
                 if owner.node != node || owner.incarnation != incarnation || owner.epoch != epoch {
                     return Err("stale durable owner".into());
                 }
+                if logical_generation < owner.logical_generation {
+                    return Err("logical session generation rollback".into());
+                }
+                owner.logical_generation = logical_generation;
                 owner.filters = filters;
             }
             Command::Register {

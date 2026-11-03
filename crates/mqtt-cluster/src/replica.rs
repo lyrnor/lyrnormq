@@ -39,6 +39,9 @@ impl Receipts {
             *entry = id;
         }
     }
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -71,11 +74,43 @@ impl<'de> Deserialize<'de> for Receipts {
         Ok(result)
     }
 }
+#[derive(Clone, Serialize)]
+pub(crate) struct Recipient {
+    pub client_id: String,
+    pub generation: u64,
+}
+impl<'de> Deserialize<'de> for Recipient {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Value {
+            Current {
+                client_id: String,
+                #[serde(default)]
+                generation: u64,
+            },
+            Legacy(String),
+        }
+        Ok(match Value::deserialize(deserializer)? {
+            Value::Current {
+                client_id,
+                generation,
+            } => Self {
+                client_id,
+                generation,
+            },
+            Value::Legacy(client_id) => Self {
+                client_id,
+                generation: 0,
+            },
+        })
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct Intent {
     pub id: DeliveryId,
     pub message: ClusterMessage,
-    pub recipients: Vec<String>,
+    pub recipients: Vec<Recipient>,
     pub completed: BTreeSet<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -83,12 +118,17 @@ pub(crate) struct Record {
     pub epoch: u64,
     pub physical_revision: u64,
     pub revision: u64,
+    #[serde(default)]
+    pub logical_generation: u64,
     pub snapshot: Option<Vec<u8>>,
     pub filters: Vec<String>,
     pub intents: Vec<Intent>,
     pub receipts: Receipts,
 }
 impl Record {
+    pub fn received_or_obsolete(&self, id: &DeliveryId) -> bool {
+        self.logical_generation != id.target_generation || self.receipts.contains(id)
+    }
     pub fn version(&self) -> (u64, u64) {
         (self.epoch, self.physical_revision)
     }
@@ -97,6 +137,7 @@ impl Record {
             epoch,
             physical_revision: 0,
             revision: 0,
+            logical_generation: 0,
             snapshot: None,
             filters: Vec::new(),
             intents: Vec::new(),
@@ -389,6 +430,7 @@ mod watermark_tests {
             epoch,
             revision,
             index: 0,
+            target_generation: 0,
         }
     }
     #[test]
