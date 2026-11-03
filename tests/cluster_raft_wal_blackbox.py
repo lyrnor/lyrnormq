@@ -115,7 +115,7 @@ class RaftWalAcceptance(control.ControlTail):
         # Actual separate SUBSCRIBE operations cross the production snapshot
         # threshold and retained-log window; do not force internal test hooks.
         for index in range(2100):
-            self.subscribe(targets[index // 210], f'wal/snapshot-extra/{index}', 1)
+            self.subscribe(targets[index % len(targets)], f'wal/snapshot-extra/{index}', 1)
         def checkpoint_advanced():
             status = self.fleet.status()
             if not status or status['last_applied'] < baseline + 2000:
@@ -140,7 +140,7 @@ class RaftWalAcceptance(control.ControlTail):
         self.healthy(1)
         restored = self.persistent('wal-snapshot-target', 1, present=True, expiry=600, retry=True)
         source = self.client('wal-snapshot-source', 0, retry=True)
-        for topic in ('wal/snapshot', 'wal/snapshot-extra/0', 'wal/snapshot-extra/209'):
+        for topic in ('wal/snapshot', 'wal/snapshot-extra/0', 'wal/snapshot-extra/2090'):
             self.publish(source, topic, b'after-snapshot-crash', 1)
             self.complete_message(restored, self.expect_message(restored, topic, b'after-snapshot-crash', 1))
         last = self.persistent('wal-snapshot-extra-device-9', 1, present=True, expiry=600, retry=True)
