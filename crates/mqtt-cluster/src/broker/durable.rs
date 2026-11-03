@@ -252,23 +252,6 @@ impl Durable {
     pub async fn enqueue(self: &Arc<Self>, message: ClusterMessage) -> io::Result<()> {
         let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
         let key = format!("h:{}:{}", runtime.config.node_id, runtime.incarnation);
-        let owner = runtime
-            .metadata
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .durable
-            .get(&key)
-            .cloned();
-        if !owner.as_ref().is_some_and(|o| {
-            o.node == runtime.config.node_id && o.incarnation == runtime.incarnation
-        }) {
-            let expected = owner.as_ref().map_or(0, |o| o.epoch);
-            // Another current owner may be finishing an older host backlog; use a unique boot key.
-            if owner.is_some() {
-                return Err(unavailable());
-            }
-            self.acquire(key.clone(), 0, expected).await?;
-        }
         let (reply, rx) = oneshot::channel();
         self.send(&key, Operation::Host { message, reply })?;
         self.await_reply(rx).await
@@ -540,6 +523,22 @@ impl Durable {
         message: ClusterMessage,
         cell: &mut Cell,
     ) -> io::Result<()> {
+        if cell.poisoned
+            || cell
+                .record
+                .as_ref()
+                .is_none_or(|r| !Self::authoritative(runtime, key, r.epoch))
+        {
+            let expected = runtime
+                .metadata
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .durable
+                .get(key)
+                .map_or(0, |o| o.epoch);
+            // This runs inside the one record actor. Do not enqueue another Acquire to self.
+            self.take(runtime, key, 0, expected, cell).await?;
+        }
         let mut next = cell.record.clone().ok_or_else(unavailable)?;
         next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
         Self::append(runtime, key, &mut next, vec![message])?;
