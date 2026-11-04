@@ -35,3 +35,13 @@ Preserve epochs/quorum/WAL/checkpoint semantics. Count clientattempted/success/P
 per-node established connections throughout hold, precise duration, mean/p99/max,
 resource peaks and all raw failures. Stop processes, verify source-port restoration
 and archive evidence/hashes. Coordinator owns docs/harness; agents read-only review.
+
+Probe amendment after setup-only failure: old556b3d binary rejects >60s shared
+PING spans before any TCP traffic. Keep that failed setup and restored ports.
+Coordinator owns the small connections/options.rs and tests.rs fix: finite maximum
+shared span600000ms (10min), same <=60s future start, same packet/rate/ID/deadline/
+PING paths. Regression first, loadgen tests/fmt/workspaceClippy, local zigbuild only
+probe, pin its new hash before fresh-dir actual cohort. Broker remains unchanged.
+All startup/full/hold-end/final Raft gates are included in overall acceptance.
+
+Validated long-hold probe SHA256 dac46888dfb38b0ee1fc4ec38e67074b00eddb37728271bc392767256bc1b528.

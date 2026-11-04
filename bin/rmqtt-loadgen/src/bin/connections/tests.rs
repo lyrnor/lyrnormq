@@ -178,7 +178,7 @@ fn shared_deadlines_are_fixed_and_validate_stale_incomplete_and_impossible_windo
         vec!["1", "--ping-unix-ms", "40000"],
         vec!["2", "--start-unix-ms", "5000", "--ping-unix-ms", "40000"],
         vec!["1", "--start-unix-ms", "5000", "--ping-unix-ms", "14999"],
-        vec!["1", "--start-unix-ms", "5000", "--ping-unix-ms", "65001"],
+        vec!["1", "--start-unix-ms", "5000", "--ping-unix-ms", "605001"],
         vec![
             "1",
             "--connections-per-step",
@@ -254,5 +254,59 @@ async fn schedule_lag_includes_delay_before_task_polling_even_on_connect_failure
     assert!(
         attempt.lag_us >= 20000,
         "lag must include runtime delay before polling"
+    );
+}
+
+#[test]
+fn shared_schedule_supports_five_minute_hold_after_100k_sharded_ramp() {
+    let settings = options(&[
+        "1",
+        "--connections-per-step",
+        "25000",
+        "--start-unix-ms",
+        "5000",
+        "--ping-unix-ms",
+        "375000",
+    ])
+    .unwrap();
+    let now = Instant::now();
+    let schedule = settings.schedule(1000, now).unwrap().unwrap();
+    assert_eq!(
+        schedule.ping.duration_since(schedule.start),
+        Duration::from_secs(370)
+    );
+    let last_arrival = schedule.start + Duration::from_millis(49998);
+    assert!(schedule.ping.duration_since(last_arrival) >= Duration::from_secs(300));
+}
+
+#[test]
+fn shared_ping_window_remains_bounded_at_ten_minutes() {
+    let settings = options(&[
+        "1",
+        "--connections-per-step",
+        "1",
+        "--start-unix-ms",
+        "5000",
+        "--ping-unix-ms",
+        "605000",
+    ])
+    .unwrap();
+    let now = Instant::now();
+    let schedule = settings.schedule(1000, now).unwrap().unwrap();
+    assert_eq!(
+        schedule.ping.duration_since(schedule.start),
+        Duration::from_secs(600)
+    );
+    assert!(
+        options(&[
+            "1",
+            "--connections-per-step",
+            "1",
+            "--start-unix-ms",
+            "5000",
+            "--ping-unix-ms",
+            "605001"
+        ])
+        .is_err()
     );
 }

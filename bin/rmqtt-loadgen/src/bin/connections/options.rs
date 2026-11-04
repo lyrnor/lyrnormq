@@ -124,7 +124,7 @@ impl Options {
             (None, None) => {}
             (Some(start), Some(ping))
                 if self.plateaus == 1
-                    && matches!(ping.checked_sub(start),Some(ms) if (10000..=60000).contains(&ms)) =>
+                    && matches!(ping.checked_sub(start),Some(ms) if (10000..=600000).contains(&ms)) =>
             {
                 let latest = Duration::from_secs_f64(
                     (self.connections_per_step - 1) as f64 / self.rate as f64,
@@ -135,7 +135,7 @@ impl Options {
             }
             _ => {
                 return Err(failure(
-                    "shared start/PING require1plateau and10000..60000ms separation",
+                    "shared start/PING require1plateau and10000..600000ms separation",
                 ));
             }
         }

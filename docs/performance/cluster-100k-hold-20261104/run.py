@@ -3,12 +3,13 @@ import concurrent.futures,hashlib,importlib.util,json,pathlib,shlex,subprocess,t
 HERE=pathlib.Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('ssh_prior',HERE.parent/'cluster-multiprocess-load-20261103/run.py');prior=importlib.util.module_from_spec(spec);spec.loader.exec_module(prior)
 spec=importlib.util.spec_from_file_location('hold_aggregate',HERE/'aggregate.py');agg=importlib.util.module_from_spec(spec);spec.loader.exec_module(agg)
-BASE='/opt/rmqtt-100k-hold/20261104'
-OUT=pathlib.Path('/Volumes/data/rmqtt/target/cluster-100k-hold-results-20261104')
+BASE='/opt/rmqtt-100k-hold/20261104-validated-probe'
+OUT=pathlib.Path('/Volumes/data/rmqtt/target/cluster-100k-hold-validated-results-20261104')
 BROKER='/opt/rmqtt-quorum-cpu/20261104/rmqtt'
-PROBE='/opt/rmqtt-quorum-cpu/20261104/connections'
+PROBE=BASE+'/connections'
+LOCAL_PROBE=pathlib.Path('/Volumes/data/rmqtt/target/x86_64-unknown-linux-musl/release/connections')
 EXPECTED_BROKER='eb6f4be285dc7b8af33e820de4f8b4bed64772c9c6961a581b3423c72f4b55b4'
-EXPECTED_PROBE='556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad'
+EXPECTED_PROBE='dac46888dfb38b0ee1fc4ec38e67074b00eddb37728271bc392767256bc1b528'
 
 
 def server(action):
@@ -38,7 +39,18 @@ print(json.dumps(dict(active=live,source_ports=Path('/proc/sys/net/ipv4/ip_local
     actual=prior.remote(prior.SERVER,f'sha256sum {BROKER} {prior.SERVER_SCRIPT}').splitlines()
     assert actual[0].split()[0]==EXPECTED_BROKER
     assert actual[1].split()[0]=='a74f6d32f91716c21c9e898ed30d9dcbfb0a66a75465b3708f3154cf5bed61b3'
+    subprocess.run(['scp',*prior.SSH[1:],str(LOCAL_PROBE),f'root@{prior.CLIENT}:{PROBE}'],check=True,timeout=120)
+    prior.remote(prior.CLIENT,f'chmod 755 {PROBE}')
     assert prior.remote(prior.CLIENT,f'sha256sum {PROBE}').split()[0]==EXPECTED_PROBE
+    code='''import pathlib,subprocess,time,json,os
+base=pathlib.Path('''+repr(BASE)+''');marker=base/'preflight-existing-output';marker.write_text('reserved')
+start=time.time_ns()//1000000+8000
+args=['''+repr(PROBE)+''','172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833','500',str(marker),'1','--connections-per-step','25000','--client-prefix','hold-preflight','--index-offset','75000','--start-unix-ms',str(start),'--ping-unix-ms',str(start+370000)]
+p=subprocess.run(args,capture_output=True,text=True,timeout=10,env=dict(os.environ,TOKIO_WORKER_THREADS='2'))
+assert p.returncode!=0 and 'file exists' in p.stderr.lower(),p.stderr
+print(json.dumps(dict(parameter_validation_passed=True,stopped_before_network_on_existing_output=True,stderr=p.stderr)))
+'''
+    (OUT/'probe-argument-preflight.json').write_text(prior.remote(prior.CLIENT,'python3 -c '+shlex.quote(code)))
     hashes=dict(broker=EXPECTED_BROKER,probe=EXPECTED_PROBE,server_helper=actual[1].split()[0])
     for host,name in ((prior.SERVER,'observer.py'),(prior.CLIENT,'client.py')):
         subprocess.run(['scp',*prior.SSH[1:],str(HERE/name),f'root@{host}:{BASE}/{name}'],check=True,timeout=120)
@@ -127,6 +139,12 @@ print('test processes stopped after graceful timeout')
     collect();result=agg.aggregate(OUT/'client/client')
     result['totals_are_partial'] = len(result['workers']) != 4
     if aborted:result['passed']=False;result['issues'].append('aborted: '+','.join(aborted))
+    result['raft_gates']={}
+    for phase in ('startup','full','hold-end','final'):
+        path=OUT/'server'/('raft-'+phase+'.json')
+        passed=path.exists() and json.loads(path.read_text()).get('passed') is True
+        result['raft_gates'][phase]=passed
+        if not passed:result['passed']=False;result['issues'].append('Raft gate failed or missing: '+phase)
     (OUT/'aggregate.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result),flush=True)
 
 
