@@ -140,3 +140,9 @@ Bounded control-write pipelining follows
 in-flight batch only. Sequential enqueue, four active batches, durable applied ACK,
 FIFO result mapping and bounded pending lease grants are mandatory. Overlapping
 batch durations are not additive wall utilization; preserve shared WAL/apply ranges.
+
+Quorum CPU and RPC buffer optimization follows
+`docs/contracts/phase7u-quorum-cpu.md`. One owned three-peer driver retains W2 early
+reply and bounded tail completion; no per-peer spawn or repeated remote encoding.
+Immutable Envelope Bytes preserve protobuf wire and JSON schemas. CPU comparisons
+include raw bracketing ticks/padding and h2 resets, not latency alone.
