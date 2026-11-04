@@ -12,8 +12,12 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread::{self, JoinHandle, Thread},
-    time::Duration,
+    time::{Duration, Instant},
 };
+/// Fold later updates of the same key into one transaction. Purge and truncate
+/// wait until the checkpoint covers the log, so the WAL keeps this short tail.
+const COMMIT_MIN: Duration = Duration::from_millis(200);
+const COMMIT_MAX: Duration = Duration::from_secs(1);
 
 const NODE_BUCKET: &[u8] = b"nodes";
 const CLIENT_BUCKET: &[u8] = b"clients";
@@ -258,7 +262,7 @@ fn run(inner: Weak<Inner>, state: Arc<FlushState>) {
             continue;
         }
         match write_dirty(&inner, &state) {
-            Ok(true) => {}
+            Ok(true) => hold_for_coalesce(&state),
             Ok(false) => {
                 if state.stop.load(Ordering::Acquire) {
                     break;
@@ -275,6 +279,31 @@ fn run(inner: Weak<Inner>, state: Arc<FlushState>) {
                 state.need_full.store(true, Ordering::Release);
             }
         }
+    }
+}
+/// `None` means the next dirty transaction may start. A wait inside the minimum
+/// is not extended by new keys; after that, dirty keys hold the next commit
+/// until the maximum.
+fn next_commit_delay(elapsed: Duration, dirty: bool) -> Option<Duration> {
+    if elapsed >= COMMIT_MAX {
+        return None;
+    }
+    if elapsed < COMMIT_MIN {
+        return Some(COMMIT_MIN.saturating_sub(elapsed));
+    }
+    dirty.then(|| COMMIT_MAX.saturating_sub(elapsed))
+}
+fn hold_for_coalesce(state: &FlushState) {
+    let started = Instant::now();
+    loop {
+        if state.stop.load(Ordering::Acquire) || state.need_full.load(Ordering::Acquire) {
+            return;
+        }
+        let Some(wait) = next_commit_delay(started.elapsed(), pending(state)) else {
+            return;
+        };
+        state.wake.store(false, Ordering::Release);
+        thread::park_timeout(wait);
     }
 }
 fn pending(state: &FlushState) -> bool {
@@ -459,5 +488,33 @@ fn write_full(inner: &Inner, state: &FlushState) -> std::io::Result<()> {
 impl Owner {
     pub(super) fn state(&self) -> &Arc<FlushState> {
         &self.state
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn commit_interval_waits_at_least_200ms_and_at_most_1s() {
+        assert_eq!(next_commit_delay(Duration::ZERO, false), Some(COMMIT_MIN));
+        assert_eq!(
+            next_commit_delay(Duration::from_millis(199), true),
+            Some(Duration::from_millis(1))
+        );
+        assert_eq!(next_commit_delay(COMMIT_MIN, false), None);
+        assert_eq!(
+            next_commit_delay(COMMIT_MIN, true),
+            Some(Duration::from_millis(800))
+        );
+        assert_eq!(
+            next_commit_delay(Duration::from_millis(500), true),
+            Some(Duration::from_millis(500))
+        );
+        assert_eq!(next_commit_delay(COMMIT_MAX, true), None);
+        assert_eq!(
+            next_commit_delay(COMMIT_MAX + Duration::from_millis(1), true),
+            None
+        );
     }
 }

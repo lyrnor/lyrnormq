@@ -48,3 +48,48 @@ impl Drop for Trace {
             "AppendEntries RPC timing");
     }
 }
+static INCOMING: AtomicU64 = AtomicU64::new(0);
+/// Follower-side handler time. Includes waiting for the Raft thread and the WAL flush.
+pub(super) struct Incoming {
+    node: u64,
+    sequence: u64,
+    entries: usize,
+    first: Option<u64>,
+    last: Option<u64>,
+    started_us: u64,
+    outcome: &'static str,
+}
+impl Incoming {
+    pub(super) fn begin(node: u64, request: &RaftRequest) -> Option<Self> {
+        if !profile::enabled() {
+            return None;
+        }
+        let RaftRequest::Append(request) = request else {
+            return None;
+        };
+        let sequence = INCOMING.fetch_add(1, Ordering::Relaxed).saturating_add(1);
+        if sequence > LIMIT {
+            return None;
+        }
+        Some(Self {
+            node,
+            sequence,
+            entries: request.entries.len(),
+            first: request.entries.first().map(|entry| entry.log_id.index),
+            last: request.entries.last().map(|entry| entry.log_id.index),
+            started_us: profile::stamp_us(),
+            outcome: "cancelled",
+        })
+    }
+    pub(super) fn finish(&mut self, success: bool) {
+        self.outcome = if success { "success" } else { "error" };
+    }
+}
+impl Drop for Incoming {
+    fn drop(&mut self) {
+        tracing::warn!(event="raft_append_handler", node=self.node, sequence=self.sequence,
+            entries=self.entries, first=?self.first, last=?self.last,
+            started_us=self.started_us, finished_us=profile::stamp_us(), outcome=self.outcome,
+            "AppendEntries handler timing");
+    }
+}

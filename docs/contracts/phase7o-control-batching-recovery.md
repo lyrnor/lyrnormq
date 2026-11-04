@@ -14,7 +14,7 @@ fixture adaptations only. No broker/durable changes. Independent worktree.
 Add internal Command::Batch { commands: Vec<Command> } and Answer.results: Vec<Answer>
 (default empty, omit empty on serialization). Only the Controller's internal worker
 may construct a batch; reject incoming Mutate Batch and nested/empty/malformed
-batches before mutation. At most64 commands and512KiB encoded command batch; keep
+batches before mutation. At most256 commands and512KiB encoded command batch; keep
 existing512KiB single-command/1MiB WAL/16MiB RPC limits. Size counting must include
 wrappers. Oversized individual valid commands run alone without artificial padding.
 

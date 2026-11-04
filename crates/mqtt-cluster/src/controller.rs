@@ -256,11 +256,13 @@ impl wire::cluster_server::Cluster for Service {
             .control
             .as_ref()
             .ok_or_else(|| Status::failed_precondition("not a controller"))?;
-        Ok(Response::new(
-            control
-                .raft_request(rpc::decode(request.into_inner())?)
-                .await?,
-        ))
+        let decoded = rpc::decode(request.into_inner())?;
+        let mut incoming = network_profile::Incoming::begin(self.rpc.config_node(), &decoded);
+        let response = control.raft_request(decoded).await;
+        if let Some(trace) = incoming.as_mut() {
+            trace.finish(response.is_ok());
+        }
+        Ok(Response::new(response?))
     }
     async fn mutate(
         &self,

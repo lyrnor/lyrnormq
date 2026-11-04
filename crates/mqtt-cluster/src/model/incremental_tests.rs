@@ -845,7 +845,7 @@ fn malformed_batch_is_rejected_before_any_child_mutates() {
     };
     for commands in [
         vec![],
-        vec![valid.clone(); 65],
+        vec![valid.clone(); super::batch::MAX_COMMANDS + 1],
         vec![
             valid.clone(),
             Command::Batch {

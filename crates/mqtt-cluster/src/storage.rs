@@ -861,3 +861,6 @@ mod checkpoint_integration_tests;
 
 #[cfg(test)]
 mod pipeline_tests;
+
+#[cfg(test)]
+mod wal_append_bench;

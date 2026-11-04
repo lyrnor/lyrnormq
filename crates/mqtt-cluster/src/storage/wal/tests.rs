@@ -61,6 +61,20 @@ fn durable_append_vote_commit_reopen_and_snapshot_only_floor() {
     std::fs::remove_dir_all(p).unwrap();
 }
 #[test]
+fn next_append_keeps_commit_watermark_across_reopen() {
+    let p = path();
+    let mut wal = Wal::open(&p, "test", 1).unwrap();
+    wal.append(vec![entry(0)]).unwrap();
+    wal.save_committed(Some(id(0))).unwrap();
+    wal.append(vec![entry(1)]).unwrap();
+    drop(wal);
+    let wal = Wal::open(&p, "test", 1).unwrap();
+    assert_eq!(wal.committed().unwrap(), Some(id(0)));
+    assert_eq!(wal.state().unwrap().last_log_id, Some(id(1)));
+    drop(wal);
+    std::fs::remove_dir_all(p).unwrap();
+}
+#[test]
 fn suffix_truncate_then_append_and_purge_survive_reopen() {
     let p = path();
     let mut wal = Wal::open(&p, "test", 1).unwrap();

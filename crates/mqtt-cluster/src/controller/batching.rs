@@ -266,29 +266,31 @@ mod tests {
     }
     #[test]
     fn ready_drain_is_fifo_count_bounded_and_never_waits_for_fill() {
-        let (tx, mut rx) = mpsc::channel(200);
-        for i in 1..130 {
+        let queued_count = MAX_COMMANDS * 2 + 1;
+        let (tx, mut rx) = mpsc::channel(queued_count);
+        for i in 1..=queued_count {
             tx.try_send(queued(claim(i))).unwrap();
         }
         let first = ready(queued(claim(0)), &mut rx, |_| {});
-        assert_eq!(first.commands.len(), 64);
+        assert_eq!(first.commands.len(), MAX_COMMANDS);
         assert!(first.carry.is_none());
         assert_eq!(
-            serde_json::to_vec(&first.commands[63]).unwrap(),
-            serde_json::to_vec(&claim(63)).unwrap()
+            serde_json::to_vec(&first.commands[MAX_COMMANDS - 1]).unwrap(),
+            serde_json::to_vec(&claim(MAX_COMMANDS - 1)).unwrap()
         );
         let next = rx.try_recv().unwrap();
         let second = ready(next, &mut rx, |_| {});
-        assert_eq!(second.commands.len(), 64);
+        assert_eq!(second.commands.len(), MAX_COMMANDS);
         let next = rx.try_recv().unwrap();
         let last = ready(next, &mut rx, |_| {});
         assert_eq!(last.commands.len(), 2);
+        let tail = MAX_COMMANDS * 2 + 1;
         assert_eq!(
             last.commands.last().map(|c| serde_json::to_vec(c).unwrap()),
-            Some(serde_json::to_vec(&claim(129)).unwrap())
+            Some(serde_json::to_vec(&claim(tail)).unwrap())
         );
         // The sender stays open. No receive/timeout is needed to return this singleton.
-        let empty = ready(queued(claim(130)), &mut rx, |_| {});
+        let empty = ready(queued(claim(tail + 1)), &mut rx, |_| {});
         assert_eq!(empty.commands.len(), 1);
     }
     #[test]

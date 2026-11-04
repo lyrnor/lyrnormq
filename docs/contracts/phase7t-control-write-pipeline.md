@@ -1,7 +1,7 @@
 # Phase7t — bounded FIFO control write pipeline
 
 User requests continuing optimization after Phase7s. Supersedes only Phase7o's
-one-outstanding-batch scheduling rule. Preserve batch64/512KiB, mailbox1024 async
+one-outstanding-batch scheduling rule. Preserve batch256/512KiB, mailbox1024 async
 backpressure, two-second caller deadline, schemas, WAL flush/committed-only replay,
 ReadIndex/all-live barriers, session/outbox semantics and admission limits.
 No OpenRaft fork, dependency upgrade or relaxed ACK/durability. lib.rs stays thin.

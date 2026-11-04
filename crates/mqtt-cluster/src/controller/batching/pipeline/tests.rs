@@ -1,4 +1,5 @@
 use super::*;
+use crate::model::batch::MAX_COMMANDS;
 use std::sync::{Arc, atomic::AtomicBool};
 
 struct Submission {
@@ -79,7 +80,7 @@ fn fixture(
     mpsc::Receiver<Submission>,
     tokio::task::JoinHandle<()>,
 ) {
-    let (sender, receiver) = mpsc::channel(MAILBOX);
+    let (sender, receiver) = mpsc::channel(MAX_COMMANDS * 5);
     let (submissions, calls) = mpsc::channel(8);
     let backend = Fake {
         submissions,
@@ -123,7 +124,8 @@ fn complete(submission: Submission) {
 #[tokio::test]
 async fn four_batches_overlap_but_fifth_waits_and_replies_remain_fifo() {
     let (sender, mut calls, task) = fixture(None);
-    let mut replies: Vec<_> = (0..320).map(|n| enqueue(&sender, claim(n))).collect();
+    let batch = MAX_COMMANDS as u64;
+    let mut replies: Vec<_> = (0..batch * 5).map(|n| enqueue(&sender, claim(n))).collect();
     let first = next(&mut calls).await;
     let second = next(&mut calls).await;
     let third = next(&mut calls).await;
@@ -135,7 +137,7 @@ async fn four_batches_overlap_but_fifth_waits_and_replies_remain_fifo() {
             first_index(&third.command),
             first_index(&fourth.command)
         ],
-        [0, 64, 128, 192]
+        [0, batch, batch * 2, batch * 3]
     );
     assert!(calls.try_recv().is_err());
     for reply in &mut replies {
@@ -153,12 +155,12 @@ async fn four_batches_overlap_but_fifth_waits_and_replies_remain_fifo() {
         "later completion cannot bypass the oldest result"
     );
     assert!(matches!(
-        replies[64].try_recv(),
+        replies[batch as usize].try_recv(),
         Err(oneshot::error::TryRecvError::Empty)
     ));
     complete(first);
     let fifth = next(&mut calls).await;
-    assert_eq!(first_index(&fifth.command), 256);
+    assert_eq!(first_index(&fifth.command), batch * 4);
     complete(fifth);
     drop(sender); // Closing input still drains submitted replies.
     for (n, reply) in replies.into_iter().enumerate() {
@@ -171,8 +173,9 @@ async fn four_batches_overlap_but_fifth_waits_and_replies_remain_fifo() {
 
 #[tokio::test]
 async fn cancellation_and_submit_failure_do_not_discard_other_batches() {
-    let (sender, mut calls, task) = fixture(Some(64));
-    let mut replies: Vec<_> = (0..192).map(|n| enqueue(&sender, claim(n))).collect();
+    let batch = MAX_COMMANDS as u64;
+    let (sender, mut calls, task) = fixture(Some(batch));
+    let mut replies: Vec<_> = (0..batch * 3).map(|n| enqueue(&sender, claim(n))).collect();
     drop(replies.remove(0));
     let first = next(&mut calls).await;
     let third = next(&mut calls).await;
@@ -181,10 +184,10 @@ async fn cancellation_and_submit_failure_do_not_discard_other_batches() {
         0,
         "canceled accepted work is still submitted"
     );
-    assert_eq!(first_index(&third.command), 128);
+    assert_eq!(first_index(&third.command), batch * 2);
     assert!(
         matches!(
-            replies[63].try_recv(),
+            replies[batch as usize - 1].try_recv(),
             Err(oneshot::error::TryRecvError::Empty)
         ),
         "failed submission result waits behind earlier owned work"
@@ -192,9 +195,9 @@ async fn cancellation_and_submit_failure_do_not_discard_other_batches() {
     complete(first);
     complete(third);
     drop(sender);
-    for (n, reply) in (1..192).zip(replies) {
+    for (n, reply) in (1..batch * 3).zip(replies) {
         let result = reply.await.unwrap().result;
-        if (64..128).contains(&n) {
+        if (batch..batch * 2).contains(&n) {
             assert_eq!(result.unwrap_err().code(), tonic::Code::Unavailable);
         } else {
             assert_eq!(result.unwrap().revision, n);
@@ -206,7 +209,8 @@ async fn cancellation_and_submit_failure_do_not_discard_other_batches() {
 #[tokio::test]
 async fn dropped_response_and_malformed_results_fail_only_their_batches() {
     let (sender, mut calls, task) = fixture(None);
-    let replies: Vec<_> = (0..192).map(|n| enqueue(&sender, claim(n))).collect();
+    let batch = MAX_COMMANDS as u64;
+    let replies: Vec<_> = (0..batch * 3).map(|n| enqueue(&sender, claim(n))).collect();
     let first = next(&mut calls).await;
     let second = next(&mut calls).await;
     let third = next(&mut calls).await;
@@ -218,9 +222,9 @@ async fn dropped_response_and_malformed_results_fail_only_their_batches() {
     drop(sender);
     for (n, reply) in replies.into_iter().enumerate() {
         let result = reply.await.unwrap().result;
-        if n < 64 {
+        if (n as u64) < batch {
             assert_eq!(result.unwrap_err().code(), tonic::Code::Unavailable);
-        } else if n < 128 {
+        } else if (n as u64) < batch * 2 {
             assert_eq!(result.unwrap_err().code(), tonic::Code::Internal);
         } else {
             assert_eq!(result.unwrap().revision, n as u64);
@@ -247,7 +251,8 @@ fn expiry(command: &Command) -> u64 {
 #[tokio::test]
 async fn pending_lease_grants_are_monotonic_across_batches() {
     let (sender, mut calls, task) = fixture(None);
-    let replies: Vec<_> = (0..128).map(|_| enqueue(&sender, heartbeat(7))).collect();
+    let count = (MAX_COMMANDS * 2) as u64;
+    let replies: Vec<_> = (0..count).map(|_| enqueue(&sender, heartbeat(7))).collect();
     let first = next(&mut calls).await;
     let second = next(&mut calls).await;
     let values: Vec<_> = children(&first.command)
@@ -255,7 +260,7 @@ async fn pending_lease_grants_are_monotonic_across_batches() {
         .chain(children(&second.command))
         .map(expiry)
         .collect();
-    assert_eq!(values, (5001..=5128).collect::<Vec<_>>());
+    assert_eq!(values, (5001..=5000 + count).collect::<Vec<_>>());
     complete(first);
     complete(second);
     drop(sender);

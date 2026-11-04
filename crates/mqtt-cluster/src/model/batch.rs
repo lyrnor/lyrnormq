@@ -1,6 +1,6 @@
 //! Sequential child transactions with one sparse final watch update.
 use super::*;
-pub(crate) const MAX_COMMANDS: usize = 64;
+pub(crate) const MAX_COMMANDS: usize = 256;
 pub(crate) const MAX_BYTES: usize = 512 * 1024;
 pub(crate) const EMPTY_BYTES: usize = b"{\"Batch\":{\"commands\":[]}}".len();
 #[derive(Serialize)]

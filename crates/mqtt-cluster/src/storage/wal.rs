@@ -222,6 +222,16 @@ impl Wal {
         &mut self,
         operation: impl FnOnce(&mut RaftLog<WalTypes>) -> io::Result<()>,
     ) -> io::Result<()> {
+        self.mutate_with(true, operation)
+    }
+    /// `sync` false still waits until the write callback. It does not fsync.
+    /// The next `flush(true)` calls `sync_data` on this file and persists the
+    /// earlier bytes with that append.
+    fn mutate_with(
+        &mut self,
+        sync: bool,
+        operation: impl FnOnce(&mut RaftLog<WalTypes>) -> io::Result<()>,
+    ) -> io::Result<()> {
         self.check()?;
         let result = (|| {
             {
@@ -236,7 +246,7 @@ impl Wal {
             };
             {
                 let _enqueue = Timer::start(Metric::WalFlushEnqueue);
-                self.inner.flush(true, Some(callback))?;
+                self.inner.flush(sync, Some(callback))?;
             }
             let _callback_wait = Timer::start(Metric::WalFlushWait);
             rx.recv_timeout(Duration::from_secs(30))
@@ -313,7 +323,10 @@ impl Wal {
             .clone()
             .ok_or_else(|| invalid("WAL identity missing"))?;
         meta.committed = id.map(LogKey);
-        self.mutate(move |wal| {
+        // Same file as the log. Skip this fsync; the next append's sync_data
+        // persists the watermark. A crash before that append leaves the marker
+        // one batch behind the already-fsynced log.
+        self.mutate_with(false, move |wal| {
             wal.save_user_data(Some(meta))?;
             Ok(())
         })
