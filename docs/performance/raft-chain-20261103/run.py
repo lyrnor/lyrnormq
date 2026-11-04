@@ -114,7 +114,8 @@ base=pathlib.Path({BASE!r});export=base/'perf-export.json'
 results=json.loads(export.read_text()) if export.exists() else []
 for command,name in [(['perf','script','--ns','-F','comm,pid,tid,time,period,event,ip,sym,dso','-i',str(base/'perf.data')],'perf-script'),
  (['perf','report','--stdio','--no-children','-i',str(base/'perf.data')],'perf-report'),
- (['perf','script','--ns','-G','-F','comm,pid,tid,time,period,event,ip,sym,dso','-i',str(base/'perf.data')],'perf-flat')]:
+ (['perf','script','--ns','-G','-F','comm,pid,tid,time,period,event,ip,sym,dso','-i',str(base/'perf.data')],'perf-flat'),
+ (['perf','report','--header-only','-i',str(base/'perf.data')],'perf-header')]:
  if (base/(name+'.txt')).exists() and any(r.get('command')==command and r.get('returncode')==0 for r in results):continue
  try:
   with (base/(name+'.txt')).open('wb') as out,(base/(name+'.err')).open('wb') as err:
@@ -122,7 +123,7 @@ for command,name in [(['perf','script','--ns','-F','comm,pid,tid,time,period,eve
    results.append(dict(command=command,returncode=p.returncode))
  except subprocess.TimeoutExpired:results.append(dict(command=command,timeout=True))
 (base/'perf-export.json').write_text(json.dumps(results,indent=2))
-files=['perf.data','perf-script.txt','perf-script.err','perf-report.txt','perf-report.err','perf-flat.txt','perf-flat.err','perf-stat.txt','perf-export.json','observers.json','observer0.log','observer1.log','observer2.log']
+files=['perf.data','perf-script.txt','perf-script.err','perf-report.txt','perf-report.err','perf-flat.txt','perf-flat.err','perf-header.txt','perf-header.err','perf-stat.txt','perf-export.json','observers.json','observer0.log','observer1.log','observer2.log']
 with tarfile.open(base/'perf-evidence.tar.gz',mode='w:gz',compresslevel=1) as archive:
  for name in files:
   if (base/name).is_file():archive.add(base/name,arcname=name,recursive=False)
