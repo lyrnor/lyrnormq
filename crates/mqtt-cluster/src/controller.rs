@@ -487,7 +487,7 @@ impl wire::cluster_server::Cluster for Service {
             .deliver_recipient(rpc::decode(request.into_inner())?)
             .await
             .map_err(|_| Status::unavailable("recipient unavailable"))?;
-        Ok(Response::new(wire::Envelope { data: Vec::new() }))
+        Ok(Response::new(wire::Envelope::default()))
     }
     async fn deliver(
         &self,
@@ -502,7 +502,7 @@ impl wire::cluster_server::Cluster for Service {
             .deliver(rpc::decode(request.into_inner())?)
             .await
             .map_err(|_| Status::unavailable("broker delivery rejected"))?;
-        Ok(Response::new(wire::Envelope { data: Vec::new() }))
+        Ok(Response::new(wire::Envelope::default()))
     }
 }
 pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>) -> io::Result<()> {

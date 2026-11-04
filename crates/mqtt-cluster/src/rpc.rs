@@ -13,6 +13,7 @@ use std::{
 };
 use tonic::{
     Request, Status,
+    metadata::{Ascii, MetadataValue},
     transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity, ServerTlsConfig},
 };
 pub(crate) mod wire {
@@ -27,7 +28,7 @@ pub(crate) fn encode<T: Serialize>(value: &T) -> io::Result<wire::Envelope> {
             "cluster message exceeds limit",
         ));
     }
-    Ok(wire::Envelope { data })
+    Ok(wire::Envelope { data: data.into() })
 }
 pub(crate) fn decode<T: DeserializeOwned>(envelope: wire::Envelope) -> Result<T, Status> {
     if envelope.data.len() > MAX_WIRE {
@@ -98,7 +99,8 @@ enum ClientDeadline {
 #[derive(Clone)]
 pub(crate) struct ClientRpc {
     config: Arc<Config>,
-    token: Arc<str>,
+    cluster_header: MetadataValue<Ascii>,
+    authorization: MetadataValue<Ascii>,
     channels: Arc<Mutex<BTreeMap<String, Channel>>>,
     preferred: Arc<Mutex<Option<String>>>,
 }
@@ -108,23 +110,24 @@ impl ClientRpc {
     }
     pub async fn new(config: Arc<Config>) -> io::Result<Self> {
         let secret = token(&config).await?;
+        let cluster_header = config.cluster_id.parse().map_err(io_error)?;
+        let authorization = format!("Bearer {secret}").parse().map_err(io_error)?;
         Ok(Self {
             config,
-            token: Arc::from(secret),
+            cluster_header,
+            authorization,
             channels: Arc::new(Mutex::new(BTreeMap::new())),
             preferred: Arc::new(Mutex::new(None)),
         })
     }
     pub fn authorize<T>(&self, value: T) -> io::Result<Request<T>> {
         let mut request = Request::new(value);
-        request.metadata_mut().insert(
-            "x-rmqtt-cluster",
-            self.config.cluster_id.parse().map_err(io_error)?,
-        );
-        request.metadata_mut().insert(
-            "authorization",
-            format!("Bearer {}", self.token).parse().map_err(io_error)?,
-        );
+        request
+            .metadata_mut()
+            .insert("x-rmqtt-cluster", self.cluster_header.clone());
+        request
+            .metadata_mut()
+            .insert("authorization", self.authorization.clone());
         Ok(request)
     }
     pub fn check<T>(&self, request: &Request<T>) -> Result<(), Status> {
@@ -137,12 +140,12 @@ impl ClientRpc {
             .get("authorization")
             .map(|v| v.as_bytes())
             .unwrap_or_default();
-        let expected = format!("Bearer {}", self.token);
+        let expected = self.authorization.as_bytes();
         let mut difference = supplied.len() ^ expected.len();
-        for (i, b) in expected.bytes().enumerate() {
+        for (i, b) in expected.iter().enumerate() {
             difference |= usize::from(b ^ supplied.get(i).copied().unwrap_or(0));
         }
-        if difference != 0 || cluster != Some(self.config.cluster_id.as_bytes()) {
+        if difference != 0 || cluster != Some(self.cluster_header.as_bytes()) {
             Err(Status::unauthenticated("cluster authentication required"))
         } else {
             Ok(())
@@ -421,6 +424,8 @@ pub(crate) async fn server_tls(config: &Config) -> io::Result<Option<ServerTlsCo
     }
 }
 
+#[cfg(test)]
+mod buffer_tests;
 #[cfg(test)]
 mod tests {
     use super::*;

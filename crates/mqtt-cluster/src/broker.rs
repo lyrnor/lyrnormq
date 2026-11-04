@@ -292,7 +292,7 @@ impl BrokerRuntime {
                 let Ok(mut client) = rpc.client(&address).await else {
                     continue;
                 };
-                let Ok(request) = rpc.authorize(wire::Envelope { data: Vec::new() }) else {
+                let Ok(request) = rpc.authorize(wire::Envelope::default()) else {
                     continue;
                 };
                 if let Ok(response) = client.watch(request).await {
