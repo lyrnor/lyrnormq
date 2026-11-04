@@ -1,0 +1,183 @@
+{
+  "passed": true,
+  "issues": [],
+  "settings": {
+    "instances": 4,
+    "aggregate_rate": 2000,
+    "aggregate_target": 10000,
+    "per_instance_rate": 500,
+    "per_instance_target": 2500,
+    "start_unix_ms": 1793751074710,
+    "ping_unix_ms": 1793751109710,
+    "endpoints": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "tokio_workers_each": 2,
+    "max_inflight_each": 2048,
+    "binary_sha256": "556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad"
+  },
+  "totals": {
+    "new_scheduled": 10000,
+    "new_attempted": 10000,
+    "new_connack_success": 10000,
+    "not_started": 0,
+    "live_after_hold_ping": 10000
+  },
+  "successful_connect_latency": {
+    "count": 10000,
+    "mean_us": 365661.7588,
+    "p99_us": 527243,
+    "max_us": 582658
+  },
+  "actual_task_start_schedule_lag": {
+    "count": 10000,
+    "mean_us": 934.4064,
+    "p99_us": 1555,
+    "max_us": 9872
+  },
+  "global_ramp_and_drain_seconds": 5.249560905,
+  "completed_per_second": 1904.9212269306931,
+  "global_simultaneous_hold_ms": 29751,
+  "workers": [
+    {
+      "index": 0,
+      "prefix": "m6aea781a00",
+      "actual_ramp_start_unix_ms": 1793751074711,
+      "connect_latency": {
+        "count": 2500,
+        "max_us": 582658,
+        "mean_us": 366212.3524,
+        "p99_us": 526286
+      },
+      "errors": {},
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 2500,
+      "new_attempted": 2500,
+      "new_connack_per_second": 476.2303067326733,
+      "new_connack_success": 2500,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 29750,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793751109710,
+      "ramp_and_drain_seconds": 5.249560905,
+      "ramp_completed_unix_ms": 1793751079959,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 9872,
+        "mean_us": 736.1316,
+        "p99_us": 1271
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    },
+    {
+      "index": 1,
+      "prefix": "m6aea781a01",
+      "actual_ramp_start_unix_ms": 1793751074711,
+      "connect_latency": {
+        "count": 2500,
+        "max_us": 579166,
+        "mean_us": 364998.7088,
+        "p99_us": 526553
+      },
+      "errors": {},
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 2500,
+      "new_attempted": 2500,
+      "new_connack_per_second": 476.2308979434085,
+      "new_connack_success": 2500,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 29751,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793751109711,
+      "ramp_and_drain_seconds": 5.249554388,
+      "ramp_completed_unix_ms": 1793751079959,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 9849,
+        "mean_us": 1047.1872,
+        "p99_us": 1581
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    },
+    {
+      "index": 2,
+      "prefix": "m6aea781a02",
+      "actual_ramp_start_unix_ms": 1793751074711,
+      "connect_latency": {
+        "count": 2500,
+        "max_us": 569837,
+        "mean_us": 365622.6864,
+        "p99_us": 529374
+      },
+      "errors": {},
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 2500,
+      "new_attempted": 2500,
+      "new_connack_per_second": 476.2761401242316,
+      "new_connack_success": 2500,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 29752,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793751109711,
+      "ramp_and_drain_seconds": 5.249055725,
+      "ramp_completed_unix_ms": 1793751079959,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 9280,
+        "mean_us": 989.3808,
+        "p99_us": 1514
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    },
+    {
+      "index": 3,
+      "prefix": "m6aea781a03",
+      "actual_ramp_start_unix_ms": 1793751074711,
+      "connect_latency": {
+        "count": 2500,
+        "max_us": 577313,
+        "mean_us": 365813.2876,
+        "p99_us": 528519
+      },
+      "errors": {},
+      "hold_seconds": 10,
+      "intended_rate": 500,
+      "live_after_hold_ping": 2500,
+      "new_attempted": 2500,
+      "new_connack_per_second": 476.2943666063932,
+      "new_connack_success": 2500,
+      "new_scheduled": 2500,
+      "not_started": 0,
+      "observed_hold_ms": 29752,
+      "ping_errors": {},
+      "ping_started_unix_ms": 1793751109711,
+      "ramp_and_drain_seconds": 5.248854858,
+      "ramp_completed_unix_ms": 1793751079958,
+      "schedule_lag": {
+        "count": 2500,
+        "max_us": 9694,
+        "mean_us": 964.926,
+        "p99_us": 1494
+      },
+      "shared_hold_at_least_10s": true,
+      "target": 2500
+    }
+  ],
+  "metric_notes": [
+    "success latency excludes failed/unstarted connections",
+    "p99 computed from merged original observations, not shard percentiles",
+    "global window=max monotonic ramp elapsed anchored at the common start",
+    "four synchronous streams create approximate four-arrival bursts every2ms at2000/s"
+  ]
+}

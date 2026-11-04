@@ -3070,3 +3070,37 @@ withdraw per-phase samplepercentages, preserve raw2260samples, pin futureclock o
 Next: freeze boundedwritebatchpipelining/necessarycommandcoalescing and recovery
 ordering before changing serialservice. Do not increase handshake admission to hide
 backlog. [Evidence and remaining bottleneck](performance/raft-optimization-20261104/README.md).
+
+## 2026-11-04 — Phase7t bounded control write pipeline passes same-load gate
+
+Frozen contract and three isolated worktrees: up to4unfinished batches, sequential
+OpenRaft0.9.25 client_write_ff enqueue, owned FIFO completion only after quorum/apply.
+Pending lease grants remain monotonic/bounded; caller cancellation, input close,
+unknown outcomes and per-child mapping preserved. No WAL/checkpoint/schema/limits/
+timeout changes or SDK fork. lib.rs unchanged. Regression first; integrated404tests,
+strictworkspaceClippy/fmt and5profile-enabled real-process QoS/recovery tests pass.
+
+Local cargozigbuild static symbol-bearing amd64musl SHA60753c36 deployed. One
+unchanged4x500/s2500 cohort:10000attempted/10000CONNACK/10000PING,0failed/skipped/
+entryrejects; commonhold29.751s, gatePASS. Meanconnection1258.875→365.662ms(-70.95%),
+p991922.663→527.243ms(-72.58%); these are connection, not message, latencies.
+Broker ramp6.951cores,hold0.153cores,RSSpeak1256.914MiB. CPU did not decrease;
+more connections succeed and finish sooner. Admissionpeak368/326/324,limit1024unchanged.
+
+Controlwritemean587.144→78.247ms; totalqueue564.888→22.475ms.50006logicalreads
+become414freshrounds,1755AppendEntriesRPC.411strictbatches/20051commands,252full64;
+intervalunion5.250669s,overlappingsum20.686719s,peak4,timeweightedactive3.940.
+429histogrambatches reflect paddedwindow; BatchSubmitmean2.093us.288batches share
+106Applyranges; exactSaveCommittedsplit only229/411, so subsetmeans cannot be
+combined withfullpopulationstages. No checkpoint; WALlogicalwaits676/471/474,
+not measuredfsyncsyscalls. Finalfreshstatuses allterm1/leader1/applied901/owners10000.
+
+Perfclock explicitlyMONOTONIC andheaderverified;1584rampleafsamples fullyparsed,
+396systemcallchains but no usableRustuserchains. memcpy/alloc/network/scheduling
+costs remain; exact businessCPU attribution is unresolved.43rampHTTP2reset-limit
+warnings need RPC lifecycle diagnosis. NoreplicationtimeoutbeforePING; one150ms
+1→3AppendEntries timeout duringmassdisconnect, preserved instead of claiming cleanlogs.
+Threeindependentrawaudits agree; archives/hashes/offline reproduction saved and both
+hosts verifiedstopped. No higher/message/capacityloads. Next:HTTP2streamlifecycle,
+usercallchaincapture andpostAppend→Applymixedwait before restoring broader matrix.
+[Evidence and limits](performance/raft-pipeline-20261104/README.md).

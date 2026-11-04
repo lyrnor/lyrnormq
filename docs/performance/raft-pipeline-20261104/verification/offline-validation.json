@@ -1,0 +1,13 @@
+{
+  "archive_hashes_verified": true,
+  "perf_data_hash_verified": true,
+  "outputs_identical": [
+    "comparison.json",
+    "cpu-analysis.json",
+    "chain-analysis.json",
+    "resource-summary.json"
+  ],
+  "offline_no_network_or_load": true,
+  "overlap_union_and_touching_boundaries_passed": true,
+  "python_ast_passed": true
+}

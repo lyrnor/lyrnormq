@@ -1,0 +1,20 @@
+{
+  "source_commit": "5a0c29b",
+  "cluster_tests": 201,
+  "transport_tests": 203,
+  "real_process_tests": 5,
+  "real_process_seconds": 28.73,
+  "fmt_passed": true,
+  "strict_workspace_clippy_passed": true,
+  "profile_enabled_in_process_tests": true,
+  "local_musl_static_elf": {
+    "path": "target/x86_64-unknown-linux-musl/release/rmqtt",
+    "target": "x86_64-unknown-linux-musl",
+    "bytes": 253791184,
+    "sha256": "60753c36961bf63658451e5ff6d7f90ac6dd97a17326f1b67752e0b1472044f6",
+    "interpreter": false,
+    "needed_shared_libraries": [],
+    "note": "ELF inspection only, not execution on Linux"
+  },
+  "production_sdk_modified": false
+}

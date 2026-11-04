@@ -1,0 +1,420 @@
+{
+  "samples": 1584,
+  "callchain_samples": 396,
+  "callchain_cpu_ns": 8081632548,
+  "flat_unparsed": 0,
+  "headers_total": 2086,
+  "headers_in_window": 1584,
+  "missing_stack": 1188,
+  "sampled_cpu_ns": 32326530192,
+  "start_monotonic": 67244.028532038,
+  "end_monotonic": 67249.278092943,
+  "leaf": [
+    {
+      "symbol": "compiler_rt.memcpy.memcpyFast",
+      "percent": 7.765151515151516,
+      "weight": 2510204049
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 4.103535353535354,
+      "weight": 1326530595
+    },
+    {
+      "symbol": "heap.SmpAllocator.alloc",
+      "percent": 3.5984848484848486,
+      "weight": 1163265291
+    },
+    {
+      "symbol": "compiler_rt.memcmp",
+      "percent": 2.462121212121212,
+      "weight": 795918357
+    },
+    {
+      "symbol": "c.malloc.free",
+      "percent": 2.083333333333333,
+      "weight": 673469379
+    },
+    {
+      "symbol": "finish_task_switch.isra.0",
+      "percent": 1.7676767676767675,
+      "weight": 571428564
+    },
+    {
+      "symbol": "<tokio::util::sharded_list::ShardedList<tokio::runtime::task::Task<alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>>::remove",
+      "percent": 0.8207070707070708,
+      "weight": 265306119
+    },
+    {
+      "symbol": "sccp",
+      "percent": 0.8207070707070708,
+      "weight": 265306119
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run_task",
+      "percent": 0.7575757575757576,
+      "weight": 244897956
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 0.7575757575757576,
+      "weight": 244897956
+    },
+    {
+      "symbol": "do_syscall_64",
+      "percent": 0.6944444444444444,
+      "weight": 224489793
+    },
+    {
+      "symbol": "<h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref",
+      "percent": 0.6313131313131313,
+      "weight": 204081630
+    },
+    {
+      "symbol": "<slab::Slab<h2::proto::streams::buffer::Slot<h2::proto::streams::recv::Event>>>::insert_at",
+      "percent": 0.6313131313131313,
+      "weight": 204081630
+    },
+    {
+      "symbol": "serde_json::ser::format_escaped_str::<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter>",
+      "percent": 0.6313131313131313,
+      "weight": 204081630
+    },
+    {
+      "symbol": "syscall",
+      "percent": 0.6313131313131313,
+      "weight": 204081630
+    },
+    {
+      "symbol": "<h2::hpack::table::Table>::index",
+      "percent": 0.5681818181818182,
+      "weight": 183673467
+    },
+    {
+      "symbol": "<hyper::proto::h2::client::H2ClientFuture<tonic::body::Body, tonic::transport::channel::service::io::BoxedIo, tonic::transport::channel::service::executor::SharedExec> as core::future::future::Future>::poll",
+      "percent": 0.5681818181818182,
+      "weight": 183673467
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run",
+      "percent": 0.5681818181818182,
+      "weight": 183673467
+    },
+    {
+      "symbol": "<h2::frame::headers::Iter as core::iter::traits::iterator::Iterator>::next",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<h2::proto::connection::Connection<hyper::common::io::compat::Compat<hyper_util::common::rewind::Rewind<hyper_util::rt::tokio::TokioIo<tonic::transport::server::service::io::ServerIo<tokio::net::tcp::stream::TcpStream>>>>, h2::server::Peer, hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>::poll",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<h2::proto::streams::streams::StreamRef<hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>::send_data",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<mqtt_cluster::broker::BrokerRuntime>::control_ready",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<slab::Slab<h2::proto::streams::buffer::Slot<h2::frame::Frame<hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>>>::insert_at",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "_raw_spin_lock",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "c.malloc.realloc",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "do_user_addr_fault",
+      "percent": 0.5050505050505051,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<http::header::map::HeaderMap>::get::<&str>",
+      "percent": 0.4419191919191919,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<http::header::map::HeaderMap>::remove::<&http::header::name::HeaderName>",
+      "percent": 0.4419191919191919,
+      "weight": 142857141
+    },
+    {
+      "symbol": "__rcu_read_lock",
+      "percent": 0.4419191919191919,
+      "weight": 142857141
+    },
+    {
+      "symbol": "core::ptr::drop_glue::<tracing::span::Span>",
+      "percent": 0.4419191919191919,
+      "weight": 142857141
+    },
+    {
+      "symbol": "h2::codec::framed_read::decode_frame",
+      "percent": 0.4419191919191919,
+      "weight": 142857141
+    },
+    {
+      "symbol": "tcp_clean_rtx_queue",
+      "percent": 0.4419191919191919,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<h2::codec::framed_write::Encoder<h2::proto::streams::prioritize::Prioritized<hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>>>::buffer",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<h2::proto::streams::streams::OpaqueStreamRef as core::ops::drop::Drop>::drop",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::runtime::task::state::State>::transition_to_notified_by_val",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::sync::notify::NotifiedProject>::poll_notified",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "[unknown] ([vdso])",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "c.malloc.malloc",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "compiler_rt.bcmp",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    },
+    {
+      "symbol": "memset_orig",
+      "percent": 0.3787878787878788,
+      "weight": 122448978
+    }
+  ],
+  "inclusive": [
+    {
+      "symbol": "do_syscall_64",
+      "percent": 18.244949494949495,
+      "weight": 5897959107
+    },
+    {
+      "symbol": "entry_SYSCALL_64_after_hwframe",
+      "percent": 18.244949494949495,
+      "weight": 5897959107
+    },
+    {
+      "symbol": "x64_sys_call",
+      "percent": 17.234848484848484,
+      "weight": 5571428499
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 7.133838383838384,
+      "weight": 2306122419
+    },
+    {
+      "symbol": "__x64_sys_writev",
+      "percent": 6.186868686868687,
+      "weight": 1999999974
+    },
+    {
+      "symbol": "do_writev",
+      "percent": 6.123737373737374,
+      "weight": 1979591811
+    },
+    {
+      "symbol": "inet_sendmsg",
+      "percent": 5.871212121212121,
+      "weight": 1897959159
+    },
+    {
+      "symbol": "tcp_sendmsg",
+      "percent": 5.808080808080808,
+      "weight": 1877550996
+    },
+    {
+      "symbol": "vfs_writev",
+      "percent": 5.808080808080808,
+      "weight": 1877550996
+    },
+    {
+      "symbol": "net_rx_action",
+      "percent": 5.744949494949495,
+      "weight": 1857142833
+    },
+    {
+      "symbol": "do_iter_readv_writev",
+      "percent": 5.555555555555555,
+      "weight": 1795918344
+    },
+    {
+      "symbol": "sock_write_iter",
+      "percent": 5.555555555555555,
+      "weight": 1795918344
+    },
+    {
+      "symbol": "tcp_sendmsg_locked",
+      "percent": 5.42929292929293,
+      "weight": 1755102018
+    },
+    {
+      "symbol": "__tcp_transmit_skb",
+      "percent": 5.23989898989899,
+      "weight": 1693877529
+    },
+    {
+      "symbol": "__x64_sys_futex",
+      "percent": 5.05050505050505,
+      "weight": 1632653040
+    },
+    {
+      "symbol": "do_futex",
+      "percent": 5.05050505050505,
+      "weight": 1632653040
+    },
+    {
+      "symbol": "ip_queue_xmit",
+      "percent": 4.924242424242424,
+      "weight": 1591836714
+    },
+    {
+      "symbol": "__ip_queue_xmit",
+      "percent": 4.861111111111112,
+      "weight": 1571428551
+    },
+    {
+      "symbol": "__napi_poll",
+      "percent": 4.734848484848484,
+      "weight": 1530612225
+    },
+    {
+      "symbol": "ip_local_out",
+      "percent": 4.734848484848484,
+      "weight": 1530612225
+    },
+    {
+      "symbol": "ip_finish_output",
+      "percent": 4.545454545454546,
+      "weight": 1469387736
+    },
+    {
+      "symbol": "__ip_finish_output",
+      "percent": 4.482323232323232,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "ip_finish_output2",
+      "percent": 4.482323232323232,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "ip_output",
+      "percent": 4.482323232323232,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "__tcp_push_pending_frames",
+      "percent": 4.41919191919192,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "tcp_push",
+      "percent": 4.41919191919192,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "tcp_write_xmit",
+      "percent": 4.41919191919192,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "__dev_queue_xmit",
+      "percent": 4.22979797979798,
+      "weight": 1367346921
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 4.166666666666666,
+      "weight": 1346938758
+    },
+    {
+      "symbol": "neigh_hh_output",
+      "percent": 3.977272727272727,
+      "weight": 1285714269
+    },
+    {
+      "symbol": "__irq_exit_rcu",
+      "percent": 3.6616161616161618,
+      "weight": 1183673454
+    },
+    {
+      "symbol": "irq_exit_rcu",
+      "percent": 3.6616161616161618,
+      "weight": 1183673454
+    },
+    {
+      "symbol": "do_softirq.part.0",
+      "percent": 3.5984848484848486,
+      "weight": 1163265291
+    },
+    {
+      "symbol": "__do_softirq",
+      "percent": 3.535353535353535,
+      "weight": 1142857128
+    },
+    {
+      "symbol": "__local_bh_enable_ip",
+      "percent": 3.535353535353535,
+      "weight": 1142857128
+    },
+    {
+      "symbol": "ip_local_deliver",
+      "percent": 3.345959595959596,
+      "weight": 1081632639
+    },
+    {
+      "symbol": "ip_local_deliver_finish",
+      "percent": 3.345959595959596,
+      "weight": 1081632639
+    },
+    {
+      "symbol": "ip_protocol_deliver_rcu",
+      "percent": 3.345959595959596,
+      "weight": 1081632639
+    },
+    {
+      "symbol": "asm_common_interrupt",
+      "percent": 3.2828282828282833,
+      "weight": 1061224476
+    },
+    {
+      "symbol": "common_interrupt",
+      "percent": 3.2828282828282833,
+      "weight": 1061224476
+    }
+  ],
+  "note": "Software cpu-clock period-weighted samples in ramp/drain. Leaf uses every sampled IP; inclusive is only decoded callchains and overlaps, so a lower bound. Not wall waiting or exact per-operation CPU. Cross-host alignment uses wall-clock approximation.",
+  "phase_alignment_valid": true,
+  "clock_note": "Capture command and perf header both specify CLOCK_MONOTONIC; CLOCK_DATA reference is archived. Cross-host wall alignment remains approximate.",
+  "clock_header_verified": true
+}

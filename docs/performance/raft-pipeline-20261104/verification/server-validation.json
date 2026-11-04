@@ -1,0 +1,15 @@
+{
+  "server_diagnostic_cohorts": 1,
+  "gate_passed": true,
+  "all_attempted_success_ping_alive": 10000,
+  "entry_rejected": 0,
+  "same_probe_and_limits": true,
+  "same_server_helper_sha256": true,
+  "all_test_processes_stopped": true,
+  "independent_raw_recomputation_passed": true,
+  "perf_clock_header_verified": true,
+  "perf_decoded_rmqtt_user_callchains": 0,
+  "higher_load_or_business_message_benchmark_run": false,
+  "cleanup_replication_timeouts": 1,
+  "ramp_h2_reset_warnings": 43
+}

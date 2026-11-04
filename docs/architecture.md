@@ -1158,3 +1158,21 @@ mixed filter/generation views. Deleted owners release reusable local slots;
 unsubscribed owners occupy no index entries. Lookup preserves literal filters,
 root-$ rules, overlap deduplication and lexical client order, with each recipient's
 current logical_generation. This derived index changes neither wire nor disk schema.
+
+## Bounded control write pipeline (Phase7t)
+
+[Contract](contracts/phase7t-control-write-pipeline.md) allows four unfinished control
+batches in one FIFO worker. Each batch retains the64-command/512KiB bound. The
+worker sequentially awaits OpenRaft client_write_ff submissions, preserving Core
+enqueue order, and owns their result receivers until quorum/application completes.
+The returned receiver is not an acknowledgement. Replies are processed oldest first;
+ready completions take priority over filling available slots. Caller cancellation
+does not cancel accepted work, and input closure drains carry and submitted batches.
+
+Lease timestamps include committed state and earlier outstanding grants. Grant maps
+belong to active batches and retire with them; there is no historical unbounded map.
+Pre-submit leadership checks and unknown-outcome recovery classifications remain.
+Storage still serializes WAL access and ordered state application; the pipeline does
+not promise concurrent fsync or alter durable formats, flush or committed-prefix
+replay. Diagnostics distinguish submission from completed results and compute the
+union of overlapping batch intervals rather than summing them as wall utilization.

@@ -717,7 +717,8 @@ Evidence:docs/verification/cluster-control-batching-20261103/README.md.
 - [x] Stop remaining matrix, preserve raw evidence and verify remote cleanup.
 - [x] Profile Controller write queue residence, batch occupancy/completion and CPU
   in Phase7r; retain explicit limits on quorum/scheduler and CPU callchain attribution.
-- [ ] Revalidate higher offered connection rate after addressing observed queueing.
+- [x] Phase7t revalidated2000/s10k after queue optimization:10000success/PING;
+  further rates remain in the unmeasured matrix below.
 - [ ] Still unmeasured:4000/s,5000pairs/10000msg/s128B QoS0/1/2 and10k..100k capacity.
 
 Evidence:docs/performance/cluster-higher-load-20261103/README.md.
@@ -753,10 +754,11 @@ Evidence:docs/performance/cluster-multiprocess-load-20261103/README.md.
   term/applied/all-live checks. No stale in-flight result reuse for later arrivals.
 - [x] Phase7s: index durable recipient lookup/empty-subscription fastpath without changing
   routing, logicalgeneration or durable forward semantics.
-- [ ] After those fixes, remeasure13.463ms replication/quorum/Core gap and evaluate
-  bounded batch pipelining; do not bypass durable commit/apply ACK ordering.
+- [x] Phase7s remeasured the mixed gap at7.933ms; Phase7t implements bounded
+  four-batch pipelining while preserving durable commit/apply ACK ordering.
 - [ ] Consider redundantWALread/decode inputvalidation only after primary hotspots.
-- [ ] Same-load correctness/performance gate, then resume higher/QoS/capacity matrix.
+- [x] Phase7t same-load2000/s10k correctness/performance gate passes;
+  higher/QoS/capacity matrix remains pending in Phase7t tasks.
 
 Evidence:docs/performance/raft-chain-20261103/README.md. No optimization implemented
 in Phase7r; observed overhead includes opt-in profiling and cohosted3node contention.
@@ -774,12 +776,41 @@ in Phase7r; observed overhead includes opt-in profiling and cohosted3node conten
   resources/latencies/entrycounts and allprocesscleanup; archive raw/hash evidence.
 - [x] Correct perf defaultclock assumption, retain rawdata, pin future --clockid mono;
   no newpressure to replace profiling evidence. /procCPU andRafttimings remainvalid.
-- [ ] Freeze bounded controlwrite pipeline or commandcoalescing semantics: preserve
-  per-command order/results, lease preparation, ambiguous outcomes, quorum/applyACK
-  and committed-only recovery. Currentserial64-command batches remain saturated.
-- [ ] Implement/regress that change, then repeat samegate before higher/message tests.
+- [x] Phase7t freezes four-batch FIFO controlwrite pipelining: per-command
+  order/results, pending lease preparation, ambiguous outcomes, quorum/applyACK
+  and committed-only recovery are preserved.
+- [x] Phase7t implemented/regressed the bounded pipeline; same2000/s10k gate passes
+  with10000success/PING and0entryrejects before any higher/message tests.
 - [ ] Assess4replicationtimeouts in massdisconnect window; no ramp/PING-window
   replicationtimeouts thiscohort. Do not claim error-log-free operation.
 
 Evidence:docs/performance/raft-optimization-20261104/README.md. Mean/p99 improved
 38.92%/31.15%, but no complete10k acceptance or maximumthroughput claim.
+
+## Phase7t — bounded FIFO control write pipeline
+
+- [x] Freeze four-batch ordered submission/completion and pending grant contract.
+- [x] Three independent worktrees; control implementation, storage recovery tests
+  and real-process failure test integrated; mutual source review completed.
+- [x] Regression first against one-slot worker, seven pipeline boundaries and three
+  storage recovery/cancellation tests; no production storage or schema changes.
+- [x] Integrated404cluster/transport tests, strictworkspaceClippy/fmt,5profile-enabled
+  real-process dualversionQoS/leader-restart/recipient/recovery tests pass.
+- [x] Local optimized symbol-bearing static amd64musl release built and inspected.
+- [x] One unchanged2000/s10k comparison:10000attempted/success/PING,0rejects;
+  mean365.662ms/p99527.243ms, independently recomputed from original samples.
+- [x] Independently audit411batches/5.250669sintervalunion/peak4, sharedApply ranges,
+  writequeue22.475ms,CPU6.951cores/RSS1256.914MiB, CLOCK_MONOTONIC header proof.
+- [x] Archive originals/hashes/offline reproduction and verify all testprocesses stopped;
+  no higher/message/capacity loads thisphase.
+- [ ] Locate43rampHTTP2reset-limit warnings by RPC caller and stream lifecycle;
+  prove whether cancellation/recreation contributes measurable overhead before fixing.
+- [ ] Capture usable Rust usercallchains; current leaf evidence shows HTTP2, memory
+  operations and scheduling but cannot assign generic memcpy/alloc to business code.
+- [ ] Diagnose post-Append→Apply32.623ms mixedwait and cleanup1→3AppendEntries
+  timeout; keep quorum/WAL/applicationACK and existing successful gate.
+- [ ] Then resume previously requested higher-rate/capacity/QoS message matrix,
+  reporting message latency separately from this connection-only p99.
+
+Contract:docs/contracts/phase7t-control-write-pipeline.md.
+Evidence:docs/performance/raft-pipeline-20261104/README.md.

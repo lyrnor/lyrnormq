@@ -43,6 +43,14 @@ def main(root):
     prior = module(HERE.parent / 'raft-optimization-20261104/compare.py', 'prior_comparison')
     with contextlib.redirect_stdout(io.StringIO()):
         prior.main(root)
+    header = (root/'perf/perf-header.txt').read_text()
+    assert '# clockid: monotonic (1)' in header and '# reference time:' in header, 'perf clock evidence missing'
+    cpu_path = root/'cpu-analysis.json'
+    cpu = json.loads(cpu_path.read_text())
+    assert cpu['phase_alignment_valid'], 'capture command and header clock disagree'
+    cpu['clock_header_verified'] = True
+    cpu['clock_note'] = 'Capture command and perf header both specify CLOCK_MONOTONIC; CLOCK_DATA reference is archived. Cross-host wall alignment remains approximate.'
+    cpu_path.write_text(json.dumps(cpu,indent=2)+'\n')
     before = prior.summarize(HERE.parent / 'raft-optimization-20261104')
     after = prior.summarize(root)
     analysis = module(HERE.parent / 'raft-chain-20261103/analyze.py', 'chain_analysis')
@@ -62,6 +70,7 @@ def main(root):
             row[stage] = [dict(first=e['first'],last=e['last'],start_us=e['start_us'],end_us=e['end_us']) for e in matches]
         ranges.append(row)
     overlap = intervals(batches)
+    overlap['time_weighted_active_batches'] = overlap['sum_batch_us']/overlap['observed_span_us'] if overlap['observed_span_us'] else None
     overlap['shared_append_batches'] = sum(len(r['Append'])==1 and r['Append'][0]['last']>r['Append'][0]['first'] for r in ranges)
     overlap['shared_apply_batches'] = sum(len(r['ApplyQueued'])==1 and r['ApplyQueued'][0]['last']>r['ApplyQueued'][0]['first'] for r in ranges)
     overlap['range_matches'] = ranges
@@ -69,6 +78,9 @@ def main(root):
     after['mean_submit_us'] = hist.get('BatchSubmit',{}).get('mean')
     after['window_observations'] = hist.get('BatchWindow')
     after['wal_flush_wait_operations'] = hist.get('WalFlushWait',{}).get('count')
+    distributions = chain['nodes'][leader]['correlated']['distributions']
+    after['stage_sample_counts'] = {key:value['count'] for key,value in distributions.items() if key.endswith('_us') and value}
+    after['watermark_stage_note'] = 'Exact-index SaveCommitted stages cover a subset; do not combine subset means with the full-population five-stage breakdown.'
     comparison = dict(before=before,after=after,pipeline=overlap,
         note='One same-load cohort per version. Raw before/after populations differ if admission fails. Batch wall times may overlap or share WAL/apply ranges; do not sum them as elapsed time, sync counts or CPU. Perf now pins CLOCK_MONOTONIC; old per-phase perf attribution remains invalid.')
     (root/'comparison.json').write_text(json.dumps(comparison,indent=2)+'\n')

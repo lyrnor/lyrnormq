@@ -1,0 +1,133 @@
+{
+  "method": "Three independent read-only subagent recomputations from original client samples/server logs/perf; no additional server load.",
+  "quality": {
+    "probe_and_client_script_hashes_equal": true,
+    "normalized_broker_commands_and_limits_equal": true,
+    "attempted_success_ping_alive": 10000,
+    "failed_or_unstarted": 0,
+    "mean_us": 365661.7588,
+    "p99_us": 527243,
+    "broker_ramp_cores": 6.950568714368612,
+    "broker_hold_cores": 0.1528362859966679,
+    "broker_peak_rss_mib": 1256.9140625,
+    "admission_peak_by_node": [
+      368,
+      326,
+      324
+    ]
+  },
+  "control": {
+    "logical_reads": 50006,
+    "rounds": 414,
+    "rpc_total": 1755,
+    "rpc_empty": 1305,
+    "rpc_with_entries": 450,
+    "rpc_carried_entries": 858,
+    "strict_batches": 411,
+    "strict_commands": 20051,
+    "full64_batches": 252,
+    "histogram_batches": 429,
+    "histogram_window_padding_ms": [
+      749.798016,
+      1000.862007
+    ],
+    "union_us": 5250669,
+    "sum_us": 20686719,
+    "peak_overlap": 4,
+    "time_at_active_1_2_3_4_us": [
+      38576,
+      48275,
+      103679,
+      5060139
+    ],
+    "submit_observations_at_1_2_3_4": [
+      17,
+      83,
+      106,
+      223
+    ],
+    "unique_append": 411,
+    "unique_apply": 229,
+    "apply_ranges_1_2_3_entries": [
+      123,
+      30,
+      76
+    ],
+    "shared_apply_batches": 288,
+    "shared_apply_ranges": 106,
+    "exact_watermark_batches": 229,
+    "higher_index_watermark_batches": 182,
+    "note": "Overlapping ranges and partial watermarks must not be counted as exclusive service/CPU."
+  },
+  "storage_cpu": {
+    "clockid": "monotonic (1)",
+    "clock_data_wall_minus_mono_ns": 1793683830681474334,
+    "observer_offset_median_ns": 1793683830681474522,
+    "observer_offset_span_ns": 20751,
+    "observer_rows": 47,
+    "total_samples": 2086,
+    "ramp_samples": 1584,
+    "unparsed_flat": 0,
+    "period_ns_each": 20408163,
+    "decoded_frames": 396,
+    "decoded_kernel_frames": 390,
+    "decoded_rmqtt_user_frames": 0,
+    "leaf_classification_first_match": {
+      "kernel_dso": 390,
+      "h2_hyper_tonic_http_http_body_symbol": 447,
+      "compiler_rt_heap_SmpAllocator_c_malloc_symbol": 278,
+      "tokio_symbol": 182,
+      "mqtt_cluster_symbol": 96,
+      "serde_json_symbol": 22,
+      "openraft_raft_log_bbolt_symbol": 0,
+      "other": 169
+    },
+    "classification_note": "First-match mutually exclusive leaf-symbol classes, not total module CPU. No decoded Rust user chains; memory leaf attribution to business paths is unproven. Cross-host clocks uncalibrated.",
+    "h2_ramp_remote_local_by_node": [
+      [
+        32,
+        2
+      ],
+      [
+        3,
+        1
+      ],
+      [
+        5,
+        0
+      ]
+    ],
+    "h2_cleanup_remote_by_node": [
+      3,
+      0,
+      1
+    ],
+    "wal_flush_wait_by_node": [
+      676,
+      471,
+      474
+    ],
+    "wal_flush_mean_us_by_node": [
+      3595.102071,
+      3689.861996,
+      3692.373418
+    ],
+    "runtime_checkpoint_counts": [
+      0,
+      0,
+      0
+    ],
+    "flush_note": "Approximately seven-second padded window; library operations not fsync syscalls.",
+    "replication_timeouts_start_through_ping": 0,
+    "replication_timeouts_cleanup": 1,
+    "cleanup_timeout_rpc": "AppendEntries 1->3",
+    "cleanup_timeout_ms": 150,
+    "final_fresh_status_each": {
+      "term": 1,
+      "leader": 1,
+      "applied": 901,
+      "owners": 10000
+    },
+    "state_note": "Fresh final counts/progress agree; not a full metadata hash comparison. Periodic observer status is cached and not a per-second propagation measurement."
+  }
+}
