@@ -65,3 +65,7 @@ QuorumRemoteEncode timer counts/time for once-per-operation remote body encode;
 QuorumRemoteBytes observes that single encoded length; QuorumTail timer measures
 drain after a selected result (not caller wait); QuorumTailTimeout observes1 only
 when absolute tail/overall budget ends unfinished work. No identities in metrics.
+
+CPU work additionally brackets ramp+three-second tail allowance in BOTH versions,
+so draining accepted tail work is not hidden just beyond the last CONNACK. Record
+padding separately; the added quiet/tail interval is not pure connection latency.

@@ -1,0 +1,420 @@
+{
+  "samples": 1588,
+  "callchain_samples": 386,
+  "callchain_cpu_ns": 7877550918,
+  "flat_unparsed": 0,
+  "headers_total": 1992,
+  "headers_in_window": 1588,
+  "missing_stack": 1202,
+  "sampled_cpu_ns": 32408162844,
+  "start_monotonic": 74292.351532158,
+  "end_monotonic": 74297.548638554,
+  "leaf": [
+    {
+      "symbol": "compiler_rt.memcpy.memcpyFast",
+      "percent": 6.98992443324937,
+      "weight": 2265306093
+    },
+    {
+      "symbol": "heap.SmpAllocator.alloc",
+      "percent": 4.471032745591939,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 3.400503778337532,
+      "weight": 1102040802
+    },
+    {
+      "symbol": "compiler_rt.memcmp",
+      "percent": 3.1486146095717884,
+      "weight": 1020408150
+    },
+    {
+      "symbol": "c.malloc.free",
+      "percent": 2.455919395465995,
+      "weight": 795918357
+    },
+    {
+      "symbol": "finish_task_switch.isra.0",
+      "percent": 1.5743073047858942,
+      "weight": 510204075
+    },
+    {
+      "symbol": "do_user_addr_fault",
+      "percent": 0.818639798488665,
+      "weight": 265306119
+    },
+    {
+      "symbol": "sccp",
+      "percent": 0.818639798488665,
+      "weight": 265306119
+    },
+    {
+      "symbol": "<tokio::util::sharded_list::ShardedList<tokio::runtime::task::Task<alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>>::remove",
+      "percent": 0.7556675062972292,
+      "weight": 244897956
+    },
+    {
+      "symbol": "<hyper::proto::h2::client::H2ClientFuture<tonic::body::Body, tonic::transport::channel::service::io::BoxedIo, tonic::transport::channel::service::executor::SharedExec> as core::future::future::Future>::poll",
+      "percent": 0.6926952141057935,
+      "weight": 224489793
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::multi_thread::worker::Context>::run_task",
+      "percent": 0.6297229219143577,
+      "weight": 204081630
+    },
+    {
+      "symbol": "bytes::bytes_mut::shared_v_drop",
+      "percent": 0.6297229219143577,
+      "weight": 204081630
+    },
+    {
+      "symbol": "compiler_rt.bcmp",
+      "percent": 0.6297229219143577,
+      "weight": 204081630
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 0.6297229219143577,
+      "weight": 204081630
+    },
+    {
+      "symbol": "serde_json::ser::format_escaped_str::<&mut alloc::vec::Vec<u8>, serde_json::ser::CompactFormatter>",
+      "percent": 0.6297229219143577,
+      "weight": 204081630
+    },
+    {
+      "symbol": "<h2::frame::headers::Iter as core::iter::traits::iterator::Iterator>::next",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "[unknown] ([vdso])",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "__rcu_read_lock",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "core::ptr::drop_glue::<tracing::span::Span>",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "do_syscall_64",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "mqtt_cluster::broker::quorum::request::{closure#0}::{closure#1}",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "tokio::runtime::task::waker::drop_waker",
+      "percent": 0.5037783375314862,
+      "weight": 163265304
+    },
+    {
+      "symbol": "<h2::hpack::table::Table>::index",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<h2::proto::streams::buffer::Deque>::pop_front::<h2::proto::streams::recv::Event>",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<serde_json::read::SliceRead as serde_json::read::Read>::parse_str",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<tokio::runtime::task::list::OwnedTasks<alloc::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>>::bind_inner",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "_raw_spin_unlock_irq",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "h2::codec::framed_read::decode_frame",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "kernel_init_pages",
+      "percent": 0.4408060453400504,
+      "weight": 142857141
+    },
+    {
+      "symbol": "<h2::hpack::decoder::Decoder>::decode::<<h2::frame::headers::HeaderBlock>::load::{closure#0}>",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<h2::proto::streams::counts::Counts>::transition_after",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<http::header::map::HeaderMap>::get::<&str>",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<mqtt_cluster::broker::durable::Durable>::actor::{closure#0}",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<mqtt_cluster::replica::memory::MemoryStore as mqtt_cluster::replica::store::ReplicaStore>::execute_at::{closure#0}",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::runtime::scheduler::Handle>::current",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<tokio::runtime::task::state::State>::transition_to_notified_by_val",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "bytes::bytes::shared_drop",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "syscall",
+      "percent": 0.3778337531486146,
+      "weight": 122448978
+    },
+    {
+      "symbol": "<h2::proto::streams::streams::Actions>::reset_on_recv_stream_err_deferred::<hyper::proto::h2::SendBuf<bytes::bytes::Bytes>>",
+      "percent": 0.3148614609571789,
+      "weight": 102040815
+    }
+  ],
+  "inclusive": [
+    {
+      "symbol": "do_syscall_64",
+      "percent": 17.56926952141058,
+      "weight": 5693877477
+    },
+    {
+      "symbol": "entry_SYSCALL_64_after_hwframe",
+      "percent": 17.56926952141058,
+      "weight": 5693877477
+    },
+    {
+      "symbol": "x64_sys_call",
+      "percent": 16.876574307304786,
+      "weight": 5469387684
+    },
+    {
+      "symbol": "__x64_sys_writev",
+      "percent": 6.738035264483627,
+      "weight": 2183673441
+    },
+    {
+      "symbol": "do_writev",
+      "percent": 6.738035264483627,
+      "weight": 2183673441
+    },
+    {
+      "symbol": "vfs_writev",
+      "percent": 6.6120906801007555,
+      "weight": 2142857115
+    },
+    {
+      "symbol": "do_iter_readv_writev",
+      "percent": 6.486146095717885,
+      "weight": 2102040789
+    },
+    {
+      "symbol": "sock_write_iter",
+      "percent": 6.360201511335013,
+      "weight": 2061224463
+    },
+    {
+      "symbol": "inet_sendmsg",
+      "percent": 6.297229219143577,
+      "weight": 2040816300
+    },
+    {
+      "symbol": "tcp_sendmsg",
+      "percent": 6.234256926952141,
+      "weight": 2020408137
+    },
+    {
+      "symbol": "tcp_sendmsg_locked",
+      "percent": 5.856423173803527,
+      "weight": 1897959159
+    },
+    {
+      "symbol": "handle_softirqs",
+      "percent": 5.604534005037784,
+      "weight": 1816326507
+    },
+    {
+      "symbol": "__tcp_transmit_skb",
+      "percent": 5.226700251889168,
+      "weight": 1693877529
+    },
+    {
+      "symbol": "__x64_sys_futex",
+      "percent": 5.226700251889168,
+      "weight": 1693877529
+    },
+    {
+      "symbol": "do_futex",
+      "percent": 5.226700251889168,
+      "weight": 1693877529
+    },
+    {
+      "symbol": "__tcp_push_pending_frames",
+      "percent": 4.848866498740554,
+      "weight": 1571428551
+    },
+    {
+      "symbol": "tcp_push",
+      "percent": 4.848866498740554,
+      "weight": 1571428551
+    },
+    {
+      "symbol": "tcp_write_xmit",
+      "percent": 4.722921914357682,
+      "weight": 1530612225
+    },
+    {
+      "symbol": "ip_queue_xmit",
+      "percent": 4.659949622166247,
+      "weight": 1510204062
+    },
+    {
+      "symbol": "__ip_queue_xmit",
+      "percent": 4.596977329974812,
+      "weight": 1489795899
+    },
+    {
+      "symbol": "ip_local_out",
+      "percent": 4.596977329974812,
+      "weight": 1489795899
+    },
+    {
+      "symbol": "__ip_finish_output",
+      "percent": 4.471032745591939,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "ip_finish_output",
+      "percent": 4.471032745591939,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "ip_output",
+      "percent": 4.471032745591939,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "net_rx_action",
+      "percent": 4.471032745591939,
+      "weight": 1448979573
+    },
+    {
+      "symbol": "ip_finish_output2",
+      "percent": 4.408060453400504,
+      "weight": 1428571410
+    },
+    {
+      "symbol": "__dev_queue_xmit",
+      "percent": 4.156171284634761,
+      "weight": 1346938758
+    },
+    {
+      "symbol": "neigh_hh_output",
+      "percent": 4.093198992443325,
+      "weight": 1326530595
+    },
+    {
+      "symbol": "asm_exc_page_fault",
+      "percent": 3.9042821158690177,
+      "weight": 1265306106
+    },
+    {
+      "symbol": "do_user_addr_fault",
+      "percent": 3.9042821158690177,
+      "weight": 1265306106
+    },
+    {
+      "symbol": "exc_page_fault",
+      "percent": 3.9042821158690177,
+      "weight": 1265306106
+    },
+    {
+      "symbol": "__napi_poll",
+      "percent": 3.71536523929471,
+      "weight": 1204081617
+    },
+    {
+      "symbol": "_raw_spin_unlock_irqrestore",
+      "percent": 3.4634760705289676,
+      "weight": 1122448965
+    },
+    {
+      "symbol": "__local_bh_enable_ip",
+      "percent": 3.400503778337532,
+      "weight": 1102040802
+    },
+    {
+      "symbol": "futex_wake",
+      "percent": 3.400503778337532,
+      "weight": 1102040802
+    },
+    {
+      "symbol": "do_softirq.part.0",
+      "percent": 3.3375314861460956,
+      "weight": 1081632639
+    },
+    {
+      "symbol": "__do_softirq",
+      "percent": 3.27455919395466,
+      "weight": 1061224476
+    },
+    {
+      "symbol": "try_to_wake_up",
+      "percent": 2.770780856423174,
+      "weight": 897959172
+    },
+    {
+      "symbol": "wake_up_q",
+      "percent": 2.707808564231738,
+      "weight": 877551009
+    },
+    {
+      "symbol": "ip_local_deliver_finish",
+      "percent": 2.644836272040302,
+      "weight": 857142846
+    }
+  ],
+  "note": "Software cpu-clock period-weighted samples in ramp/drain. Leaf uses every sampled IP; inclusive is only decoded callchains and overlaps, so a lower bound. Not wall waiting or exact per-operation CPU. Cross-host alignment uses wall-clock approximation.",
+  "phase_alignment_valid": true,
+  "clock_note": "Capture command and perf header both specify CLOCK_MONOTONIC; CLOCK_DATA reference is archived. Cross-host wall alignment remains approximate.",
+  "clock_header_verified": true
+}

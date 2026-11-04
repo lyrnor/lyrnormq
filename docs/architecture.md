@@ -1176,3 +1176,22 @@ Storage still serializes WAL access and ordered state application; the pipeline 
 not promise concurrent fsync or alter durable formats, flush or committed-prefix
 replay. Diagnostics distinguish submission from completed results and compute the
 union of overlapping batch intervals rather than summing them as wall utilization.
+
+## Quorum RPC ownership and shared buffers (Phase7u)
+
+[Contract](contracts/phase7u-quorum-cpu.md) replaces three spawned peer tasks with
+one owned coordinator that polls the three replica futures. The first two successful
+responses determine the result using the same version/canonical-body conflict rules.
+The result receiver is replied immediately; remaining responses cannot rewrite it.
+The coordinator continues already accepted work after caller cancellation. Tail drain
+ends at min(decision+3s,start+8s), preserving regular peer transport deadlines. Each
+store execution still checks generation, repair freeze, minimum epoch and physical
+revision, so a delayed operation cannot roll back newer replicated state.
+
+The immutable internal Envelope uses Bytes while retaining identical protobuf and
+JSON wire bytes and size checks. One borrowed ReplicaMessage encoding is shared by
+the two remote requests; the original Request moves into the local store future.
+Per-peer futures are polled together without per-peer spawned tasks, including panic
+isolation on unwind builds. Constant cluster/Bearer request metadata is validated
+once at ClientRpc initialization and cloned; token comparison and cluster binding
+remain per-request. Channel caching and external access-control policy are unchanged.

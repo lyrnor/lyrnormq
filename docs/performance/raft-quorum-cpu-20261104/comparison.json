@@ -1,0 +1,8543 @@
+{
+  "before": {
+    "passed": true,
+    "success": 10000,
+    "attempted": 10000,
+    "skipped": 0,
+    "ping_alive": 10000,
+    "entry_rejected": 0,
+    "latency_ms": {
+      "mean": 365.66175880000003,
+      "p99": 527.243,
+      "max": 582.658
+    },
+    "ramp_seconds": 5.249560905,
+    "broker_cpu_cores": 6.950568714368612,
+    "broker_rss_peak_mib": 1256.9140625,
+    "client_cpu_cores": 0.34522328417741827,
+    "leader_node": "node1",
+    "logical_readindex_calls": 50006,
+    "actual_readindex_rounds": 414,
+    "append_rpc_count": 1755,
+    "mean_control_write_ms": 78.24697663062435,
+    "mean_capacity_wait_ms": 6.851362798345708e-05,
+    "mean_queue_residence_ms": 22.474808161841647,
+    "mean_read_group_size": 120.78743961352657,
+    "correlated_batches": 411,
+    "unmatched_batches": 0,
+    "full64_batches": 252,
+    "batch_total_ms": {
+      "mean": 50.332649635036496,
+      "p99": 80.658
+    },
+    "batch_stages_ms": {
+      "total_us": 50.332649635036496,
+      "before_append_us": 4.9547980535279805,
+      "append_us": 5.030313868613138,
+      "post_append_to_apply_us": 32.622613138686134,
+      "apply_us": 5.947822384428224,
+      "after_apply_us": 1.777102189781022,
+      "before_watermark_us": 24.71940611353712,
+      "watermark_us": 3.9884934497816595,
+      "after_watermark_us": 2.3112576419213973
+    },
+    "histogram_window_ns": [
+      1793751073960201984,
+      1793751080960422912
+    ],
+    "mean_submit_us": 2.093240093240093,
+    "window_observations": {
+      "metric": "BatchWindow",
+      "count": 429,
+      "mean": 3.247086247086247,
+      "p99_upper_bound": 4,
+      "snapshot_consistent": true,
+      "process_max_through_end": 4,
+      "buckets": [
+        17,
+        83,
+        329,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "wal_flush_wait_operations": 676,
+    "stage_sample_counts": {
+      "total_us": 411,
+      "before_append_us": 411,
+      "append_us": 411,
+      "post_append_to_apply_us": 411,
+      "apply_us": 411,
+      "after_apply_us": 411,
+      "before_watermark_us": 229,
+      "watermark_us": 229,
+      "after_watermark_us": 229
+    },
+    "watermark_stage_note": "Exact-index SaveCommitted stages cover a subset; do not combine subset means with the full-population five-stage breakdown."
+  },
+  "after": {
+    "passed": true,
+    "success": 10000,
+    "attempted": 10000,
+    "skipped": 0,
+    "ping_alive": 10000,
+    "entry_rejected": 0,
+    "latency_ms": {
+      "mean": 364.0278062,
+      "p99": 550.442,
+      "max": 599.497
+    },
+    "ramp_seconds": 5.197106396,
+    "broker_cpu_cores": 6.98804348979085,
+    "broker_rss_peak_mib": 1261.7734375,
+    "client_cpu_cores": 0.36100506952298755,
+    "leader_node": "node1",
+    "logical_readindex_calls": 50006,
+    "actual_readindex_rounds": 421,
+    "append_rpc_count": 1786,
+    "mean_control_write_ms": 76.91951651801286,
+    "mean_capacity_wait_ms": 3.64741641337386e-05,
+    "mean_queue_residence_ms": 22.539659773780457,
+    "mean_read_group_size": 118.7790973871734,
+    "correlated_batches": 422,
+    "unmatched_batches": 0,
+    "full64_batches": 256,
+    "batch_total_ms": {
+      "mean": 48.48782464454976,
+      "p99": 82.343
+    },
+    "batch_stages_ms": {
+      "total_us": 48.48782464454976,
+      "before_append_us": 4.70263981042654,
+      "append_us": 5.008334123222749,
+      "post_append_to_apply_us": 30.835168246445498,
+      "apply_us": 5.900696682464455,
+      "after_apply_us": 2.0409857819905213,
+      "before_watermark_us": 23.553175965665236,
+      "watermark_us": 3.956695278969957,
+      "after_watermark_us": 1.9140901287553647
+    },
+    "histogram_window_ns": [
+      1793758123012427008,
+      1793758130012407040
+    ],
+    "mean_submit_us": 2.248868778280543,
+    "window_observations": {
+      "metric": "BatchWindow",
+      "count": 442,
+      "mean": 3.266968325791855,
+      "p99_upper_bound": 4,
+      "snapshot_consistent": true,
+      "process_max_through_end": 4,
+      "buckets": [
+        16,
+        80,
+        346,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "wal_flush_wait_operations": 695,
+    "stage_sample_counts": {
+      "total_us": 422,
+      "before_append_us": 422,
+      "append_us": 422,
+      "post_append_to_apply_us": 422,
+      "apply_us": 422,
+      "after_apply_us": 422,
+      "before_watermark_us": 233,
+      "watermark_us": 233,
+      "after_watermark_us": 233
+    },
+    "watermark_stage_note": "Exact-index SaveCommitted stages cover a subset; do not combine subset means with the full-population five-stage breakdown."
+  },
+  "pipeline": {
+    "batches": 422,
+    "union_busy_us": 5181444,
+    "sum_batch_us": 20461862,
+    "observed_span_us": 5181651,
+    "peak_overlap": 4,
+    "union_fraction_of_observed_span": 0.9999600513427092,
+    "note": "Union/peak use same-process submit/completion timestamps. Sum is overlapping batch wall time, not utilization or CPU. Completion handling may include FIFO head-of-line wait.",
+    "time_weighted_active_batches": 3.9489077902004595,
+    "shared_append_batches": 0,
+    "shared_apply_batches": 305,
+    "range_matches": [
+      {
+        "log_index": 200,
+        "Append": [
+          {
+            "first": 200,
+            "last": 200,
+            "start_us": 18026345,
+            "end_us": 18029401
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 200,
+            "last": 200,
+            "start_us": 18040738,
+            "end_us": 18041053
+          }
+        ]
+      },
+      {
+        "log_index": 201,
+        "Append": [
+          {
+            "first": 201,
+            "last": 201,
+            "start_us": 18029504,
+            "end_us": 18031940
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 201,
+            "last": 203,
+            "start_us": 18048167,
+            "end_us": 18048767
+          }
+        ]
+      },
+      {
+        "log_index": 202,
+        "Append": [
+          {
+            "first": 202,
+            "last": 202,
+            "start_us": 18031983,
+            "end_us": 18034376
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 201,
+            "last": 203,
+            "start_us": 18048167,
+            "end_us": 18048767
+          }
+        ]
+      },
+      {
+        "log_index": 203,
+        "Append": [
+          {
+            "first": 203,
+            "last": 203,
+            "start_us": 18034402,
+            "end_us": 18037146
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 201,
+            "last": 203,
+            "start_us": 18048167,
+            "end_us": 18048767
+          }
+        ]
+      },
+      {
+        "log_index": 204,
+        "Append": [
+          {
+            "first": 204,
+            "last": 204,
+            "start_us": 18041215,
+            "end_us": 18045349
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 204,
+            "last": 204,
+            "start_us": 18061494,
+            "end_us": 18062106
+          }
+        ]
+      },
+      {
+        "log_index": 205,
+        "Append": [
+          {
+            "first": 205,
+            "last": 205,
+            "start_us": 18048856,
+            "end_us": 18052860
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 205,
+            "last": 207,
+            "start_us": 18069165,
+            "end_us": 18070450
+          }
+        ]
+      },
+      {
+        "log_index": 206,
+        "Append": [
+          {
+            "first": 206,
+            "last": 206,
+            "start_us": 18052899,
+            "end_us": 18055274
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 205,
+            "last": 207,
+            "start_us": 18069165,
+            "end_us": 18070450
+          }
+        ]
+      },
+      {
+        "log_index": 207,
+        "Append": [
+          {
+            "first": 207,
+            "last": 207,
+            "start_us": 18055358,
+            "end_us": 18057918
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 205,
+            "last": 207,
+            "start_us": 18069165,
+            "end_us": 18070450
+          }
+        ]
+      },
+      {
+        "log_index": 208,
+        "Append": [
+          {
+            "first": 208,
+            "last": 208,
+            "start_us": 18062194,
+            "end_us": 18065340
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 208,
+            "last": 208,
+            "start_us": 18082242,
+            "end_us": 18084944
+          }
+        ]
+      },
+      {
+        "log_index": 209,
+        "Append": [
+          {
+            "first": 209,
+            "last": 209,
+            "start_us": 18070562,
+            "end_us": 18074333
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 209,
+            "last": 211,
+            "start_us": 18094687,
+            "end_us": 18098729
+          }
+        ]
+      },
+      {
+        "log_index": 210,
+        "Append": [
+          {
+            "first": 210,
+            "last": 210,
+            "start_us": 18074387,
+            "end_us": 18077061
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 209,
+            "last": 211,
+            "start_us": 18094687,
+            "end_us": 18098729
+          }
+        ]
+      },
+      {
+        "log_index": 211,
+        "Append": [
+          {
+            "first": 211,
+            "last": 211,
+            "start_us": 18077083,
+            "end_us": 18079533
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 209,
+            "last": 211,
+            "start_us": 18094687,
+            "end_us": 18098729
+          }
+        ]
+      },
+      {
+        "log_index": 212,
+        "Append": [
+          {
+            "first": 212,
+            "last": 212,
+            "start_us": 18085013,
+            "end_us": 18090081
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 212,
+            "last": 212,
+            "start_us": 18111257,
+            "end_us": 18112150
+          }
+        ]
+      },
+      {
+        "log_index": 213,
+        "Append": [
+          {
+            "first": 213,
+            "last": 213,
+            "start_us": 18099076,
+            "end_us": 18103011
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 213,
+            "last": 215,
+            "start_us": 18119878,
+            "end_us": 18123265
+          }
+        ]
+      },
+      {
+        "log_index": 214,
+        "Append": [
+          {
+            "first": 214,
+            "last": 214,
+            "start_us": 18103044,
+            "end_us": 18105393
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 213,
+            "last": 215,
+            "start_us": 18119878,
+            "end_us": 18123265
+          }
+        ]
+      },
+      {
+        "log_index": 215,
+        "Append": [
+          {
+            "first": 215,
+            "last": 215,
+            "start_us": 18105440,
+            "end_us": 18108111
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 213,
+            "last": 215,
+            "start_us": 18119878,
+            "end_us": 18123265
+          }
+        ]
+      },
+      {
+        "log_index": 216,
+        "Append": [
+          {
+            "first": 216,
+            "last": 216,
+            "start_us": 18112553,
+            "end_us": 18115735
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 216,
+            "last": 216,
+            "start_us": 18135651,
+            "end_us": 18137036
+          }
+        ]
+      },
+      {
+        "log_index": 217,
+        "Append": [
+          {
+            "first": 217,
+            "last": 217,
+            "start_us": 18123896,
+            "end_us": 18127463
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 217,
+            "last": 219,
+            "start_us": 18143862,
+            "end_us": 18146387
+          }
+        ]
+      },
+      {
+        "log_index": 218,
+        "Append": [
+          {
+            "first": 218,
+            "last": 218,
+            "start_us": 18127487,
+            "end_us": 18130280
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 217,
+            "last": 219,
+            "start_us": 18143862,
+            "end_us": 18146387
+          }
+        ]
+      },
+      {
+        "log_index": 219,
+        "Append": [
+          {
+            "first": 219,
+            "last": 219,
+            "start_us": 18130311,
+            "end_us": 18132993
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 217,
+            "last": 219,
+            "start_us": 18143862,
+            "end_us": 18146387
+          }
+        ]
+      },
+      {
+        "log_index": 220,
+        "Append": [
+          {
+            "first": 220,
+            "last": 220,
+            "start_us": 18137155,
+            "end_us": 18140147
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 220,
+            "last": 220,
+            "start_us": 18160766,
+            "end_us": 18162095
+          }
+        ]
+      },
+      {
+        "log_index": 221,
+        "Append": [
+          {
+            "first": 221,
+            "last": 221,
+            "start_us": 18147658,
+            "end_us": 18151328
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 221,
+            "last": 223,
+            "start_us": 18173001,
+            "end_us": 18174876
+          }
+        ]
+      },
+      {
+        "log_index": 222,
+        "Append": [
+          {
+            "first": 222,
+            "last": 222,
+            "start_us": 18151356,
+            "end_us": 18154404
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 221,
+            "last": 223,
+            "start_us": 18173001,
+            "end_us": 18174876
+          }
+        ]
+      },
+      {
+        "log_index": 223,
+        "Append": [
+          {
+            "first": 223,
+            "last": 223,
+            "start_us": 18154438,
+            "end_us": 18157931
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 221,
+            "last": 223,
+            "start_us": 18173001,
+            "end_us": 18174876
+          }
+        ]
+      },
+      {
+        "log_index": 224,
+        "Append": [
+          {
+            "first": 224,
+            "last": 224,
+            "start_us": 18163089,
+            "end_us": 18169921
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 224,
+            "last": 224,
+            "start_us": 18191141,
+            "end_us": 18196727
+          }
+        ]
+      },
+      {
+        "log_index": 225,
+        "Append": [
+          {
+            "first": 225,
+            "last": 225,
+            "start_us": 18176222,
+            "end_us": 18179898
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 225,
+            "last": 227,
+            "start_us": 18207662,
+            "end_us": 18210599
+          }
+        ]
+      },
+      {
+        "log_index": 226,
+        "Append": [
+          {
+            "first": 226,
+            "last": 226,
+            "start_us": 18179920,
+            "end_us": 18182796
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 225,
+            "last": 227,
+            "start_us": 18207662,
+            "end_us": 18210599
+          }
+        ]
+      },
+      {
+        "log_index": 227,
+        "Append": [
+          {
+            "first": 227,
+            "last": 227,
+            "start_us": 18182835,
+            "end_us": 18187606
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 225,
+            "last": 227,
+            "start_us": 18207662,
+            "end_us": 18210599
+          }
+        ]
+      },
+      {
+        "log_index": 228,
+        "Append": [
+          {
+            "first": 228,
+            "last": 228,
+            "start_us": 18198416,
+            "end_us": 18202719
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 228,
+            "last": 228,
+            "start_us": 18225920,
+            "end_us": 18228289
+          }
+        ]
+      },
+      {
+        "log_index": 229,
+        "Append": [
+          {
+            "first": 229,
+            "last": 229,
+            "start_us": 18210776,
+            "end_us": 18216565
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 229,
+            "last": 231,
+            "start_us": 18240754,
+            "end_us": 18242968
+          }
+        ]
+      },
+      {
+        "log_index": 230,
+        "Append": [
+          {
+            "first": 230,
+            "last": 230,
+            "start_us": 18216592,
+            "end_us": 18219352
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 229,
+            "last": 231,
+            "start_us": 18240754,
+            "end_us": 18242968
+          }
+        ]
+      },
+      {
+        "log_index": 231,
+        "Append": [
+          {
+            "first": 231,
+            "last": 231,
+            "start_us": 18219377,
+            "end_us": 18222082
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 229,
+            "last": 231,
+            "start_us": 18240754,
+            "end_us": 18242968
+          }
+        ]
+      },
+      {
+        "log_index": 232,
+        "Append": [
+          {
+            "first": 232,
+            "last": 232,
+            "start_us": 18229169,
+            "end_us": 18236261
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 232,
+            "last": 232,
+            "start_us": 18261785,
+            "end_us": 18266338
+          }
+        ]
+      },
+      {
+        "log_index": 233,
+        "Append": [
+          {
+            "first": 233,
+            "last": 233,
+            "start_us": 18243614,
+            "end_us": 18247732
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 233,
+            "last": 235,
+            "start_us": 18269376,
+            "end_us": 18271721
+          }
+        ]
+      },
+      {
+        "log_index": 234,
+        "Append": [
+          {
+            "first": 234,
+            "last": 234,
+            "start_us": 18247769,
+            "end_us": 18251718
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 233,
+            "last": 235,
+            "start_us": 18269376,
+            "end_us": 18271721
+          }
+        ]
+      },
+      {
+        "log_index": 235,
+        "Append": [
+          {
+            "first": 235,
+            "last": 235,
+            "start_us": 18251771,
+            "end_us": 18255316
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 233,
+            "last": 235,
+            "start_us": 18269376,
+            "end_us": 18271721
+          }
+        ]
+      },
+      {
+        "log_index": 236,
+        "Append": [
+          {
+            "first": 236,
+            "last": 236,
+            "start_us": 18269620,
+            "end_us": 18274593
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 236,
+            "last": 236,
+            "start_us": 18293266,
+            "end_us": 18297066
+          }
+        ]
+      },
+      {
+        "log_index": 237,
+        "Append": [
+          {
+            "first": 237,
+            "last": 237,
+            "start_us": 18276757,
+            "end_us": 18279906
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 237,
+            "last": 239,
+            "start_us": 18306596,
+            "end_us": 18309258
+          }
+        ]
+      },
+      {
+        "log_index": 238,
+        "Append": [
+          {
+            "first": 238,
+            "last": 238,
+            "start_us": 18279930,
+            "end_us": 18282821
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 237,
+            "last": 239,
+            "start_us": 18306596,
+            "end_us": 18309258
+          }
+        ]
+      },
+      {
+        "log_index": 239,
+        "Append": [
+          {
+            "first": 239,
+            "last": 239,
+            "start_us": 18282852,
+            "end_us": 18287040
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 237,
+            "last": 239,
+            "start_us": 18306596,
+            "end_us": 18309258
+          }
+        ]
+      },
+      {
+        "log_index": 240,
+        "Append": [
+          {
+            "first": 240,
+            "last": 240,
+            "start_us": 18299245,
+            "end_us": 18302650
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 240,
+            "last": 240,
+            "start_us": 18326613,
+            "end_us": 18329091
+          }
+        ]
+      },
+      {
+        "log_index": 241,
+        "Append": [
+          {
+            "first": 241,
+            "last": 241,
+            "start_us": 18310724,
+            "end_us": 18315466
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 241,
+            "last": 243,
+            "start_us": 18344761,
+            "end_us": 18346960
+          }
+        ]
+      },
+      {
+        "log_index": 242,
+        "Append": [
+          {
+            "first": 242,
+            "last": 242,
+            "start_us": 18315500,
+            "end_us": 18319290
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 241,
+            "last": 243,
+            "start_us": 18344761,
+            "end_us": 18346960
+          }
+        ]
+      },
+      {
+        "log_index": 243,
+        "Append": [
+          {
+            "first": 243,
+            "last": 243,
+            "start_us": 18319352,
+            "end_us": 18322868
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 241,
+            "last": 243,
+            "start_us": 18344761,
+            "end_us": 18346960
+          }
+        ]
+      },
+      {
+        "log_index": 244,
+        "Append": [
+          {
+            "first": 244,
+            "last": 244,
+            "start_us": 18329767,
+            "end_us": 18333318
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 244,
+            "last": 244,
+            "start_us": 18363055,
+            "end_us": 18368461
+          }
+        ]
+      },
+      {
+        "log_index": 245,
+        "Append": [
+          {
+            "first": 245,
+            "last": 245,
+            "start_us": 18348269,
+            "end_us": 18352843
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 245,
+            "last": 247,
+            "start_us": 18382081,
+            "end_us": 18389215
+          }
+        ]
+      },
+      {
+        "log_index": 246,
+        "Append": [
+          {
+            "first": 246,
+            "last": 246,
+            "start_us": 18352889,
+            "end_us": 18357695
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 245,
+            "last": 247,
+            "start_us": 18382081,
+            "end_us": 18389215
+          }
+        ]
+      },
+      {
+        "log_index": 247,
+        "Append": [
+          {
+            "first": 247,
+            "last": 247,
+            "start_us": 18357724,
+            "end_us": 18360462
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 245,
+            "last": 247,
+            "start_us": 18382081,
+            "end_us": 18389215
+          }
+        ]
+      },
+      {
+        "log_index": 248,
+        "Append": [
+          {
+            "first": 248,
+            "last": 248,
+            "start_us": 18368681,
+            "end_us": 18374108
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 248,
+            "last": 248,
+            "start_us": 18408195,
+            "end_us": 18411000
+          }
+        ]
+      },
+      {
+        "log_index": 249,
+        "Append": [
+          {
+            "first": 249,
+            "last": 249,
+            "start_us": 18392229,
+            "end_us": 18396350
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 249,
+            "last": 251,
+            "start_us": 18423938,
+            "end_us": 18426624
+          }
+        ]
+      },
+      {
+        "log_index": 250,
+        "Append": [
+          {
+            "first": 250,
+            "last": 250,
+            "start_us": 18396396,
+            "end_us": 18399743
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 249,
+            "last": 251,
+            "start_us": 18423938,
+            "end_us": 18426624
+          }
+        ]
+      },
+      {
+        "log_index": 251,
+        "Append": [
+          {
+            "first": 251,
+            "last": 251,
+            "start_us": 18399770,
+            "end_us": 18402936
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 249,
+            "last": 251,
+            "start_us": 18423938,
+            "end_us": 18426624
+          }
+        ]
+      },
+      {
+        "log_index": 252,
+        "Append": [
+          {
+            "first": 252,
+            "last": 252,
+            "start_us": 18412660,
+            "end_us": 18416417
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 252,
+            "last": 252,
+            "start_us": 18445455,
+            "end_us": 18448611
+          }
+        ]
+      },
+      {
+        "log_index": 253,
+        "Append": [
+          {
+            "first": 253,
+            "last": 253,
+            "start_us": 18427389,
+            "end_us": 18432743
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 253,
+            "last": 255,
+            "start_us": 18461196,
+            "end_us": 18465030
+          }
+        ]
+      },
+      {
+        "log_index": 254,
+        "Append": [
+          {
+            "first": 254,
+            "last": 254,
+            "start_us": 18432771,
+            "end_us": 18438631
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 253,
+            "last": 255,
+            "start_us": 18461196,
+            "end_us": 18465030
+          }
+        ]
+      },
+      {
+        "log_index": 255,
+        "Append": [
+          {
+            "first": 255,
+            "last": 255,
+            "start_us": 18438658,
+            "end_us": 18441282
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 253,
+            "last": 255,
+            "start_us": 18461196,
+            "end_us": 18465030
+          }
+        ]
+      },
+      {
+        "log_index": 256,
+        "Append": [
+          {
+            "first": 256,
+            "last": 256,
+            "start_us": 18449341,
+            "end_us": 18453284
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 256,
+            "last": 256,
+            "start_us": 18500421,
+            "end_us": 18504568
+          }
+        ]
+      },
+      {
+        "log_index": 257,
+        "Append": [
+          {
+            "first": 257,
+            "last": 257,
+            "start_us": 18467664,
+            "end_us": 18474864
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 257,
+            "last": 259,
+            "start_us": 18517832,
+            "end_us": 18519909
+          }
+        ]
+      },
+      {
+        "log_index": 258,
+        "Append": [
+          {
+            "first": 258,
+            "last": 258,
+            "start_us": 18474897,
+            "end_us": 18479188
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 257,
+            "last": 259,
+            "start_us": 18517832,
+            "end_us": 18519909
+          }
+        ]
+      },
+      {
+        "log_index": 259,
+        "Append": [
+          {
+            "first": 259,
+            "last": 259,
+            "start_us": 18479213,
+            "end_us": 18484630
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 257,
+            "last": 259,
+            "start_us": 18517832,
+            "end_us": 18519909
+          }
+        ]
+      },
+      {
+        "log_index": 260,
+        "Append": [
+          {
+            "first": 260,
+            "last": 260,
+            "start_us": 18505098,
+            "end_us": 18510697
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 260,
+            "last": 260,
+            "start_us": 18542009,
+            "end_us": 18546755
+          }
+        ]
+      },
+      {
+        "log_index": 261,
+        "Append": [
+          {
+            "first": 261,
+            "last": 261,
+            "start_us": 18524067,
+            "end_us": 18528576
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 261,
+            "last": 263,
+            "start_us": 18556532,
+            "end_us": 18565133
+          }
+        ]
+      },
+      {
+        "log_index": 262,
+        "Append": [
+          {
+            "first": 262,
+            "last": 262,
+            "start_us": 18528600,
+            "end_us": 18532363
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 261,
+            "last": 263,
+            "start_us": 18556532,
+            "end_us": 18565133
+          }
+        ]
+      },
+      {
+        "log_index": 263,
+        "Append": [
+          {
+            "first": 263,
+            "last": 263,
+            "start_us": 18532405,
+            "end_us": 18535399
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 261,
+            "last": 263,
+            "start_us": 18556532,
+            "end_us": 18565133
+          }
+        ]
+      },
+      {
+        "log_index": 264,
+        "Append": [
+          {
+            "first": 264,
+            "last": 264,
+            "start_us": 18547296,
+            "end_us": 18551629
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 264,
+            "last": 264,
+            "start_us": 18579432,
+            "end_us": 18581644
+          }
+        ]
+      },
+      {
+        "log_index": 265,
+        "Append": [
+          {
+            "first": 265,
+            "last": 265,
+            "start_us": 18566122,
+            "end_us": 18569631
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 265,
+            "last": 267,
+            "start_us": 18595908,
+            "end_us": 18599956
+          }
+        ]
+      },
+      {
+        "log_index": 266,
+        "Append": [
+          {
+            "first": 266,
+            "last": 266,
+            "start_us": 18569659,
+            "end_us": 18572599
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 265,
+            "last": 267,
+            "start_us": 18595908,
+            "end_us": 18599956
+          }
+        ]
+      },
+      {
+        "log_index": 267,
+        "Append": [
+          {
+            "first": 267,
+            "last": 267,
+            "start_us": 18572619,
+            "end_us": 18575968
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 265,
+            "last": 267,
+            "start_us": 18595908,
+            "end_us": 18599956
+          }
+        ]
+      },
+      {
+        "log_index": 268,
+        "Append": [
+          {
+            "first": 268,
+            "last": 268,
+            "start_us": 18584866,
+            "end_us": 18592229
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 268,
+            "last": 268,
+            "start_us": 18623976,
+            "end_us": 18629022
+          }
+        ]
+      },
+      {
+        "log_index": 269,
+        "Append": [
+          {
+            "first": 269,
+            "last": 269,
+            "start_us": 18602227,
+            "end_us": 18606890
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 269,
+            "last": 271,
+            "start_us": 18640881,
+            "end_us": 18649696
+          }
+        ]
+      },
+      {
+        "log_index": 270,
+        "Append": [
+          {
+            "first": 270,
+            "last": 270,
+            "start_us": 18606920,
+            "end_us": 18612939
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 269,
+            "last": 271,
+            "start_us": 18640881,
+            "end_us": 18649696
+          }
+        ]
+      },
+      {
+        "log_index": 271,
+        "Append": [
+          {
+            "first": 271,
+            "last": 271,
+            "start_us": 18613002,
+            "end_us": 18616342
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 269,
+            "last": 271,
+            "start_us": 18640881,
+            "end_us": 18649696
+          }
+        ]
+      },
+      {
+        "log_index": 272,
+        "Append": [
+          {
+            "first": 272,
+            "last": 272,
+            "start_us": 18640847,
+            "end_us": 18644393
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 272,
+            "last": 272,
+            "start_us": 18659862,
+            "end_us": 18666369
+          }
+        ]
+      },
+      {
+        "log_index": 273,
+        "Append": [
+          {
+            "first": 273,
+            "last": 273,
+            "start_us": 18659603,
+            "end_us": 18663850
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 273,
+            "last": 273,
+            "start_us": 18675755,
+            "end_us": 18682528
+          }
+        ]
+      },
+      {
+        "log_index": 274,
+        "Append": [
+          {
+            "first": 274,
+            "last": 274,
+            "start_us": 18663899,
+            "end_us": 18667888
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 274,
+            "last": 275,
+            "start_us": 18690492,
+            "end_us": 18702002
+          }
+        ]
+      },
+      {
+        "log_index": 275,
+        "Append": [
+          {
+            "first": 275,
+            "last": 275,
+            "start_us": 18667925,
+            "end_us": 18670898
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 274,
+            "last": 275,
+            "start_us": 18690492,
+            "end_us": 18702002
+          }
+        ]
+      },
+      {
+        "log_index": 276,
+        "Append": [
+          {
+            "first": 276,
+            "last": 276,
+            "start_us": 18675732,
+            "end_us": 18681685
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 276,
+            "last": 276,
+            "start_us": 18705979,
+            "end_us": 18708125
+          }
+        ]
+      },
+      {
+        "log_index": 277,
+        "Append": [
+          {
+            "first": 277,
+            "last": 277,
+            "start_us": 18690375,
+            "end_us": 18693827
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 277,
+            "last": 277,
+            "start_us": 18722206,
+            "end_us": 18725372
+          }
+        ]
+      },
+      {
+        "log_index": 278,
+        "Append": [
+          {
+            "first": 278,
+            "last": 278,
+            "start_us": 18706210,
+            "end_us": 18710993
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 278,
+            "last": 279,
+            "start_us": 18742949,
+            "end_us": 18747270
+          }
+        ]
+      },
+      {
+        "log_index": 279,
+        "Append": [
+          {
+            "first": 279,
+            "last": 279,
+            "start_us": 18711020,
+            "end_us": 18715312
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 278,
+            "last": 279,
+            "start_us": 18742949,
+            "end_us": 18747270
+          }
+        ]
+      },
+      {
+        "log_index": 280,
+        "Append": [
+          {
+            "first": 280,
+            "last": 280,
+            "start_us": 18720994,
+            "end_us": 18724641
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 280,
+            "last": 281,
+            "start_us": 18765551,
+            "end_us": 18769023
+          }
+        ]
+      },
+      {
+        "log_index": 281,
+        "Append": [
+          {
+            "first": 281,
+            "last": 281,
+            "start_us": 18725871,
+            "end_us": 18731498
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 280,
+            "last": 281,
+            "start_us": 18765551,
+            "end_us": 18769023
+          }
+        ]
+      },
+      {
+        "log_index": 282,
+        "Append": [
+          {
+            "first": 282,
+            "last": 282,
+            "start_us": 18749096,
+            "end_us": 18753321
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 282,
+            "last": 283,
+            "start_us": 18783847,
+            "end_us": 18787095
+          }
+        ]
+      },
+      {
+        "log_index": 283,
+        "Append": [
+          {
+            "first": 283,
+            "last": 283,
+            "start_us": 18753362,
+            "end_us": 18761010
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 282,
+            "last": 283,
+            "start_us": 18783847,
+            "end_us": 18787095
+          }
+        ]
+      },
+      {
+        "log_index": 284,
+        "Append": [
+          {
+            "first": 284,
+            "last": 284,
+            "start_us": 18769231,
+            "end_us": 18772797
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 284,
+            "last": 285,
+            "start_us": 18800503,
+            "end_us": 18803742
+          }
+        ]
+      },
+      {
+        "log_index": 285,
+        "Append": [
+          {
+            "first": 285,
+            "last": 285,
+            "start_us": 18772825,
+            "end_us": 18777864
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 284,
+            "last": 285,
+            "start_us": 18800503,
+            "end_us": 18803742
+          }
+        ]
+      },
+      {
+        "log_index": 286,
+        "Append": [
+          {
+            "first": 286,
+            "last": 286,
+            "start_us": 18790016,
+            "end_us": 18793391
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 286,
+            "last": 287,
+            "start_us": 18821464,
+            "end_us": 18824954
+          }
+        ]
+      },
+      {
+        "log_index": 287,
+        "Append": [
+          {
+            "first": 287,
+            "last": 287,
+            "start_us": 18793429,
+            "end_us": 18796807
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 286,
+            "last": 287,
+            "start_us": 18821464,
+            "end_us": 18824954
+          }
+        ]
+      },
+      {
+        "log_index": 288,
+        "Append": [
+          {
+            "first": 288,
+            "last": 288,
+            "start_us": 18806171,
+            "end_us": 18811460
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 288,
+            "last": 289,
+            "start_us": 18838570,
+            "end_us": 18844595
+          }
+        ]
+      },
+      {
+        "log_index": 289,
+        "Append": [
+          {
+            "first": 289,
+            "last": 289,
+            "start_us": 18811483,
+            "end_us": 18817767
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 288,
+            "last": 289,
+            "start_us": 18838570,
+            "end_us": 18844595
+          }
+        ]
+      },
+      {
+        "log_index": 290,
+        "Append": [
+          {
+            "first": 290,
+            "last": 290,
+            "start_us": 18825196,
+            "end_us": 18831444
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 290,
+            "last": 291,
+            "start_us": 18859861,
+            "end_us": 18863984
+          }
+        ]
+      },
+      {
+        "log_index": 291,
+        "Append": [
+          {
+            "first": 291,
+            "last": 291,
+            "start_us": 18831478,
+            "end_us": 18834868
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 290,
+            "last": 291,
+            "start_us": 18859861,
+            "end_us": 18863984
+          }
+        ]
+      },
+      {
+        "log_index": 292,
+        "Append": [
+          {
+            "first": 292,
+            "last": 292,
+            "start_us": 18844905,
+            "end_us": 18850588
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 292,
+            "last": 293,
+            "start_us": 18874741,
+            "end_us": 18876841
+          }
+        ]
+      },
+      {
+        "log_index": 293,
+        "Append": [
+          {
+            "first": 293,
+            "last": 293,
+            "start_us": 18850632,
+            "end_us": 18853408
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 292,
+            "last": 293,
+            "start_us": 18874741,
+            "end_us": 18876841
+          }
+        ]
+      },
+      {
+        "log_index": 294,
+        "Append": [
+          {
+            "first": 294,
+            "last": 294,
+            "start_us": 18864845,
+            "end_us": 18868286
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 294,
+            "last": 295,
+            "start_us": 18890993,
+            "end_us": 18893172
+          }
+        ]
+      },
+      {
+        "log_index": 295,
+        "Append": [
+          {
+            "first": 295,
+            "last": 295,
+            "start_us": 18868481,
+            "end_us": 18871760
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 294,
+            "last": 295,
+            "start_us": 18890993,
+            "end_us": 18893172
+          }
+        ]
+      },
+      {
+        "log_index": 296,
+        "Append": [
+          {
+            "first": 296,
+            "last": 296,
+            "start_us": 18879809,
+            "end_us": 18882429
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 296,
+            "last": 297,
+            "start_us": 18906917,
+            "end_us": 18909487
+          }
+        ]
+      },
+      {
+        "log_index": 297,
+        "Append": [
+          {
+            "first": 297,
+            "last": 297,
+            "start_us": 18882465,
+            "end_us": 18885086
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 296,
+            "last": 297,
+            "start_us": 18906917,
+            "end_us": 18909487
+          }
+        ]
+      },
+      {
+        "log_index": 298,
+        "Append": [
+          {
+            "first": 298,
+            "last": 298,
+            "start_us": 18893960,
+            "end_us": 18898641
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 298,
+            "last": 299,
+            "start_us": 18920099,
+            "end_us": 18922496
+          }
+        ]
+      },
+      {
+        "log_index": 299,
+        "Append": [
+          {
+            "first": 299,
+            "last": 299,
+            "start_us": 18898698,
+            "end_us": 18901874
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 298,
+            "last": 299,
+            "start_us": 18920099,
+            "end_us": 18922496
+          }
+        ]
+      },
+      {
+        "log_index": 300,
+        "Append": [
+          {
+            "first": 300,
+            "last": 300,
+            "start_us": 18909720,
+            "end_us": 18912709
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 300,
+            "last": 301,
+            "start_us": 18944209,
+            "end_us": 18947438
+          }
+        ]
+      },
+      {
+        "log_index": 301,
+        "Append": [
+          {
+            "first": 301,
+            "last": 301,
+            "start_us": 18912739,
+            "end_us": 18915871
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 300,
+            "last": 301,
+            "start_us": 18944209,
+            "end_us": 18947438
+          }
+        ]
+      },
+      {
+        "log_index": 302,
+        "Append": [
+          {
+            "first": 302,
+            "last": 302,
+            "start_us": 18927970,
+            "end_us": 18933069
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 302,
+            "last": 303,
+            "start_us": 18952065,
+            "end_us": 18960362
+          }
+        ]
+      },
+      {
+        "log_index": 303,
+        "Append": [
+          {
+            "first": 303,
+            "last": 303,
+            "start_us": 18933104,
+            "end_us": 18938285
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 302,
+            "last": 303,
+            "start_us": 18952065,
+            "end_us": 18960362
+          }
+        ]
+      },
+      {
+        "log_index": 304,
+        "Append": [
+          {
+            "first": 304,
+            "last": 304,
+            "start_us": 18952048,
+            "end_us": 18955842
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 304,
+            "last": 304,
+            "start_us": 18978835,
+            "end_us": 18984377
+          }
+        ]
+      },
+      {
+        "log_index": 305,
+        "Append": [
+          {
+            "first": 305,
+            "last": 305,
+            "start_us": 18955872,
+            "end_us": 18960095
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 305,
+            "last": 305,
+            "start_us": 18985649,
+            "end_us": 18988092
+          }
+        ]
+      },
+      {
+        "log_index": 306,
+        "Append": [
+          {
+            "first": 306,
+            "last": 306,
+            "start_us": 18963148,
+            "end_us": 18967017
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 306,
+            "last": 307,
+            "start_us": 18998274,
+            "end_us": 19005478
+          }
+        ]
+      },
+      {
+        "log_index": 307,
+        "Append": [
+          {
+            "first": 307,
+            "last": 307,
+            "start_us": 18967040,
+            "end_us": 18972913
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 306,
+            "last": 307,
+            "start_us": 18998274,
+            "end_us": 19005478
+          }
+        ]
+      },
+      {
+        "log_index": 308,
+        "Append": [
+          {
+            "first": 308,
+            "last": 308,
+            "start_us": 18985880,
+            "end_us": 18993307
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 308,
+            "last": 308,
+            "start_us": 19024936,
+            "end_us": 19030825
+          }
+        ]
+      },
+      {
+        "log_index": 309,
+        "Append": [
+          {
+            "first": 309,
+            "last": 309,
+            "start_us": 18998251,
+            "end_us": 19003192
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 309,
+            "last": 309,
+            "start_us": 19030837,
+            "end_us": 19034775
+          }
+        ]
+      },
+      {
+        "log_index": 310,
+        "Append": [
+          {
+            "first": 310,
+            "last": 310,
+            "start_us": 19005593,
+            "end_us": 19009403
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 310,
+            "last": 311,
+            "start_us": 19046225,
+            "end_us": 19049116
+          }
+        ]
+      },
+      {
+        "log_index": 311,
+        "Append": [
+          {
+            "first": 311,
+            "last": 311,
+            "start_us": 19009440,
+            "end_us": 19014683
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 310,
+            "last": 311,
+            "start_us": 19046225,
+            "end_us": 19049116
+          }
+        ]
+      },
+      {
+        "log_index": 312,
+        "Append": [
+          {
+            "first": 312,
+            "last": 312,
+            "start_us": 19031136,
+            "end_us": 19034842
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 312,
+            "last": 313,
+            "start_us": 19065776,
+            "end_us": 19069757
+          }
+        ]
+      },
+      {
+        "log_index": 313,
+        "Append": [
+          {
+            "first": 313,
+            "last": 313,
+            "start_us": 19037742,
+            "end_us": 19040722
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 312,
+            "last": 313,
+            "start_us": 19065776,
+            "end_us": 19069757
+          }
+        ]
+      },
+      {
+        "log_index": 314,
+        "Append": [
+          {
+            "first": 314,
+            "last": 314,
+            "start_us": 19049344,
+            "end_us": 19055826
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 314,
+            "last": 315,
+            "start_us": 19087200,
+            "end_us": 19089170
+          }
+        ]
+      },
+      {
+        "log_index": 315,
+        "Append": [
+          {
+            "first": 315,
+            "last": 315,
+            "start_us": 19055866,
+            "end_us": 19058995
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 314,
+            "last": 315,
+            "start_us": 19087200,
+            "end_us": 19089170
+          }
+        ]
+      },
+      {
+        "log_index": 316,
+        "Append": [
+          {
+            "first": 316,
+            "last": 316,
+            "start_us": 19071308,
+            "end_us": 19076369
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 316,
+            "last": 317,
+            "start_us": 19111138,
+            "end_us": 19117878
+          }
+        ]
+      },
+      {
+        "log_index": 317,
+        "Append": [
+          {
+            "first": 317,
+            "last": 317,
+            "start_us": 19076390,
+            "end_us": 19082613
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 316,
+            "last": 317,
+            "start_us": 19111138,
+            "end_us": 19117878
+          }
+        ]
+      },
+      {
+        "log_index": 318,
+        "Append": [
+          {
+            "first": 318,
+            "last": 318,
+            "start_us": 19090902,
+            "end_us": 19099980
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 318,
+            "last": 319,
+            "start_us": 19136045,
+            "end_us": 19138170
+          }
+        ]
+      },
+      {
+        "log_index": 319,
+        "Append": [
+          {
+            "first": 319,
+            "last": 319,
+            "start_us": 19100014,
+            "end_us": 19105640
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 318,
+            "last": 319,
+            "start_us": 19136045,
+            "end_us": 19138170
+          }
+        ]
+      },
+      {
+        "log_index": 320,
+        "Append": [
+          {
+            "first": 320,
+            "last": 320,
+            "start_us": 19120019,
+            "end_us": 19124352
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 320,
+            "last": 321,
+            "start_us": 19152120,
+            "end_us": 19156497
+          }
+        ]
+      },
+      {
+        "log_index": 321,
+        "Append": [
+          {
+            "first": 321,
+            "last": 321,
+            "start_us": 19124382,
+            "end_us": 19128817
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 320,
+            "last": 321,
+            "start_us": 19152120,
+            "end_us": 19156497
+          }
+        ]
+      },
+      {
+        "log_index": 322,
+        "Append": [
+          {
+            "first": 322,
+            "last": 322,
+            "start_us": 19138382,
+            "end_us": 19143346
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 322,
+            "last": 323,
+            "start_us": 19173355,
+            "end_us": 19176619
+          }
+        ]
+      },
+      {
+        "log_index": 323,
+        "Append": [
+          {
+            "first": 323,
+            "last": 323,
+            "start_us": 19143389,
+            "end_us": 19147859
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 322,
+            "last": 323,
+            "start_us": 19173355,
+            "end_us": 19176619
+          }
+        ]
+      },
+      {
+        "log_index": 324,
+        "Append": [
+          {
+            "first": 324,
+            "last": 324,
+            "start_us": 19157049,
+            "end_us": 19161026
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 324,
+            "last": 325,
+            "start_us": 19195101,
+            "end_us": 19198553
+          }
+        ]
+      },
+      {
+        "log_index": 325,
+        "Append": [
+          {
+            "first": 325,
+            "last": 325,
+            "start_us": 19161066,
+            "end_us": 19167088
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 324,
+            "last": 325,
+            "start_us": 19195101,
+            "end_us": 19198553
+          }
+        ]
+      },
+      {
+        "log_index": 326,
+        "Append": [
+          {
+            "first": 326,
+            "last": 326,
+            "start_us": 19176770,
+            "end_us": 19182797
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 326,
+            "last": 327,
+            "start_us": 19212493,
+            "end_us": 19213724
+          }
+        ]
+      },
+      {
+        "log_index": 327,
+        "Append": [
+          {
+            "first": 327,
+            "last": 327,
+            "start_us": 19182839,
+            "end_us": 19187931
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 326,
+            "last": 327,
+            "start_us": 19212493,
+            "end_us": 19213724
+          }
+        ]
+      },
+      {
+        "log_index": 328,
+        "Append": [
+          {
+            "first": 328,
+            "last": 328,
+            "start_us": 19198904,
+            "end_us": 19202785
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 328,
+            "last": 329,
+            "start_us": 19233544,
+            "end_us": 19240216
+          }
+        ]
+      },
+      {
+        "log_index": 329,
+        "Append": [
+          {
+            "first": 329,
+            "last": 329,
+            "start_us": 19202852,
+            "end_us": 19205310
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 328,
+            "last": 329,
+            "start_us": 19233544,
+            "end_us": 19240216
+          }
+        ]
+      },
+      {
+        "log_index": 330,
+        "Append": [
+          {
+            "first": 330,
+            "last": 330,
+            "start_us": 19215535,
+            "end_us": 19221103
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 330,
+            "last": 331,
+            "start_us": 19244604,
+            "end_us": 19246189
+          }
+        ]
+      },
+      {
+        "log_index": 331,
+        "Append": [
+          {
+            "first": 331,
+            "last": 331,
+            "start_us": 19221145,
+            "end_us": 19225148
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 330,
+            "last": 331,
+            "start_us": 19244604,
+            "end_us": 19246189
+          }
+        ]
+      },
+      {
+        "log_index": 332,
+        "Append": [
+          {
+            "first": 332,
+            "last": 332,
+            "start_us": 19245082,
+            "end_us": 19249895
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 332,
+            "last": 332,
+            "start_us": 19268359,
+            "end_us": 19269903
+          }
+        ]
+      },
+      {
+        "log_index": 333,
+        "Append": [
+          {
+            "first": 333,
+            "last": 333,
+            "start_us": 19249932,
+            "end_us": 19255818
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 333,
+            "last": 336,
+            "start_us": 19292420,
+            "end_us": 19302102
+          }
+        ]
+      },
+      {
+        "log_index": 334,
+        "Append": [
+          {
+            "first": 334,
+            "last": 334,
+            "start_us": 19256206,
+            "end_us": 19259771
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 333,
+            "last": 336,
+            "start_us": 19292420,
+            "end_us": 19302102
+          }
+        ]
+      },
+      {
+        "log_index": 335,
+        "Append": [
+          {
+            "first": 335,
+            "last": 335,
+            "start_us": 19259834,
+            "end_us": 19263070
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 333,
+            "last": 336,
+            "start_us": 19292420,
+            "end_us": 19302102
+          }
+        ]
+      },
+      {
+        "log_index": 336,
+        "Append": [
+          {
+            "first": 336,
+            "last": 336,
+            "start_us": 19271199,
+            "end_us": 19275011
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 333,
+            "last": 336,
+            "start_us": 19292420,
+            "end_us": 19302102
+          }
+        ]
+      },
+      {
+        "log_index": 337,
+        "Append": [
+          {
+            "first": 337,
+            "last": 337,
+            "start_us": 19303690,
+            "end_us": 19307889
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 337,
+            "last": 337,
+            "start_us": 19330355,
+            "end_us": 19333625
+          }
+        ]
+      },
+      {
+        "log_index": 338,
+        "Append": [
+          {
+            "first": 338,
+            "last": 338,
+            "start_us": 19307942,
+            "end_us": 19315115
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 338,
+            "last": 340,
+            "start_us": 19346917,
+            "end_us": 19355091
+          }
+        ]
+      },
+      {
+        "log_index": 339,
+        "Append": [
+          {
+            "first": 339,
+            "last": 339,
+            "start_us": 19315146,
+            "end_us": 19322579
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 338,
+            "last": 340,
+            "start_us": 19346917,
+            "end_us": 19355091
+          }
+        ]
+      },
+      {
+        "log_index": 340,
+        "Append": [
+          {
+            "first": 340,
+            "last": 340,
+            "start_us": 19322606,
+            "end_us": 19325472
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 338,
+            "last": 340,
+            "start_us": 19346917,
+            "end_us": 19355091
+          }
+        ]
+      },
+      {
+        "log_index": 341,
+        "Append": [
+          {
+            "first": 341,
+            "last": 341,
+            "start_us": 19334970,
+            "end_us": 19340404
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 341,
+            "last": 341,
+            "start_us": 19364853,
+            "end_us": 19373176
+          }
+        ]
+      },
+      {
+        "log_index": 342,
+        "Append": [
+          {
+            "first": 342,
+            "last": 342,
+            "start_us": 19364438,
+            "end_us": 19369506
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 342,
+            "last": 342,
+            "start_us": 19381227,
+            "end_us": 19389218
+          }
+        ]
+      },
+      {
+        "log_index": 343,
+        "Append": [
+          {
+            "first": 343,
+            "last": 343,
+            "start_us": 19369552,
+            "end_us": 19374431
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 343,
+            "last": 344,
+            "start_us": 19391420,
+            "end_us": 19394549
+          }
+        ]
+      },
+      {
+        "log_index": 344,
+        "Append": [
+          {
+            "first": 344,
+            "last": 344,
+            "start_us": 19374452,
+            "end_us": 19377266
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 343,
+            "last": 344,
+            "start_us": 19391420,
+            "end_us": 19394549
+          }
+        ]
+      },
+      {
+        "log_index": 345,
+        "Append": [
+          {
+            "first": 345,
+            "last": 345,
+            "start_us": 19381205,
+            "end_us": 19386541
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 345,
+            "last": 345,
+            "start_us": 19423845,
+            "end_us": 19426375
+          }
+        ]
+      },
+      {
+        "log_index": 346,
+        "Append": [
+          {
+            "first": 346,
+            "last": 346,
+            "start_us": 19391556,
+            "end_us": 19396709
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 346,
+            "last": 346,
+            "start_us": 19426385,
+            "end_us": 19431147
+          }
+        ]
+      },
+      {
+        "log_index": 347,
+        "Append": [
+          {
+            "first": 347,
+            "last": 347,
+            "start_us": 19400119,
+            "end_us": 19404483
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 347,
+            "last": 348,
+            "start_us": 19437812,
+            "end_us": 19442345
+          }
+        ]
+      },
+      {
+        "log_index": 348,
+        "Append": [
+          {
+            "first": 348,
+            "last": 348,
+            "start_us": 19404541,
+            "end_us": 19411064
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 347,
+            "last": 348,
+            "start_us": 19437812,
+            "end_us": 19442345
+          }
+        ]
+      },
+      {
+        "log_index": 349,
+        "Append": [
+          {
+            "first": 349,
+            "last": 349,
+            "start_us": 19426949,
+            "end_us": 19431297
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 349,
+            "last": 349,
+            "start_us": 19466272,
+            "end_us": 19470433
+          }
+        ]
+      },
+      {
+        "log_index": 350,
+        "Append": [
+          {
+            "first": 350,
+            "last": 350,
+            "start_us": 19437798,
+            "end_us": 19441859
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 350,
+            "last": 350,
+            "start_us": 19486002,
+            "end_us": 19489352
+          }
+        ]
+      },
+      {
+        "log_index": 351,
+        "Append": [
+          {
+            "first": 351,
+            "last": 351,
+            "start_us": 19443135,
+            "end_us": 19446105
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 351,
+            "last": 352,
+            "start_us": 19489364,
+            "end_us": 19491300
+          }
+        ]
+      },
+      {
+        "log_index": 352,
+        "Append": [
+          {
+            "first": 352,
+            "last": 352,
+            "start_us": 19446141,
+            "end_us": 19451601
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 351,
+            "last": 352,
+            "start_us": 19489364,
+            "end_us": 19491300
+          }
+        ]
+      },
+      {
+        "log_index": 353,
+        "Append": [
+          {
+            "first": 353,
+            "last": 353,
+            "start_us": 19471049,
+            "end_us": 19475895
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 353,
+            "last": 353,
+            "start_us": 19513043,
+            "end_us": 19515553
+          }
+        ]
+      },
+      {
+        "log_index": 354,
+        "Append": [
+          {
+            "first": 354,
+            "last": 354,
+            "start_us": 19490010,
+            "end_us": 19496592
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 354,
+            "last": 356,
+            "start_us": 19536069,
+            "end_us": 19546617
+          }
+        ]
+      },
+      {
+        "log_index": 355,
+        "Append": [
+          {
+            "first": 355,
+            "last": 355,
+            "start_us": 19496938,
+            "end_us": 19502547
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 354,
+            "last": 356,
+            "start_us": 19536069,
+            "end_us": 19546617
+          }
+        ]
+      },
+      {
+        "log_index": 356,
+        "Append": [
+          {
+            "first": 356,
+            "last": 356,
+            "start_us": 19502569,
+            "end_us": 19506081
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 354,
+            "last": 356,
+            "start_us": 19536069,
+            "end_us": 19546617
+          }
+        ]
+      },
+      {
+        "log_index": 357,
+        "Append": [
+          {
+            "first": 357,
+            "last": 357,
+            "start_us": 19517155,
+            "end_us": 19524736
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 357,
+            "last": 357,
+            "start_us": 19550495,
+            "end_us": 19552849
+          }
+        ]
+      },
+      {
+        "log_index": 358,
+        "Append": [
+          {
+            "first": 358,
+            "last": 358,
+            "start_us": 19551336,
+            "end_us": 19554596
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 358,
+            "last": 358,
+            "start_us": 19576138,
+            "end_us": 19580877
+          }
+        ]
+      },
+      {
+        "log_index": 359,
+        "Append": [
+          {
+            "first": 359,
+            "last": 359,
+            "start_us": 19554625,
+            "end_us": 19561362
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 359,
+            "last": 361,
+            "start_us": 19593308,
+            "end_us": 19599464
+          }
+        ]
+      },
+      {
+        "log_index": 360,
+        "Append": [
+          {
+            "first": 360,
+            "last": 360,
+            "start_us": 19561396,
+            "end_us": 19565187
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 359,
+            "last": 361,
+            "start_us": 19593308,
+            "end_us": 19599464
+          }
+        ]
+      },
+      {
+        "log_index": 361,
+        "Append": [
+          {
+            "first": 361,
+            "last": 361,
+            "start_us": 19565588,
+            "end_us": 19568703
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 359,
+            "last": 361,
+            "start_us": 19593308,
+            "end_us": 19599464
+          }
+        ]
+      },
+      {
+        "log_index": 362,
+        "Append": [
+          {
+            "first": 362,
+            "last": 362,
+            "start_us": 19583653,
+            "end_us": 19586779
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 362,
+            "last": 362,
+            "start_us": 19622346,
+            "end_us": 19625194
+          }
+        ]
+      },
+      {
+        "log_index": 363,
+        "Append": [
+          {
+            "first": 363,
+            "last": 363,
+            "start_us": 19607254,
+            "end_us": 19612470
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 363,
+            "last": 365,
+            "start_us": 19641280,
+            "end_us": 19646807
+          }
+        ]
+      },
+      {
+        "log_index": 364,
+        "Append": [
+          {
+            "first": 364,
+            "last": 364,
+            "start_us": 19612511,
+            "end_us": 19615849
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 363,
+            "last": 365,
+            "start_us": 19641280,
+            "end_us": 19646807
+          }
+        ]
+      },
+      {
+        "log_index": 365,
+        "Append": [
+          {
+            "first": 365,
+            "last": 365,
+            "start_us": 19615888,
+            "end_us": 19619273
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 363,
+            "last": 365,
+            "start_us": 19641280,
+            "end_us": 19646807
+          }
+        ]
+      },
+      {
+        "log_index": 366,
+        "Append": [
+          {
+            "first": 366,
+            "last": 366,
+            "start_us": 19627588,
+            "end_us": 19630841
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 366,
+            "last": 366,
+            "start_us": 19672930,
+            "end_us": 19676294
+          }
+        ]
+      },
+      {
+        "log_index": 367,
+        "Append": [
+          {
+            "first": 367,
+            "last": 367,
+            "start_us": 19650773,
+            "end_us": 19657265
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 367,
+            "last": 369,
+            "start_us": 19691661,
+            "end_us": 19699129
+          }
+        ]
+      },
+      {
+        "log_index": 368,
+        "Append": [
+          {
+            "first": 368,
+            "last": 368,
+            "start_us": 19657313,
+            "end_us": 19665056
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 367,
+            "last": 369,
+            "start_us": 19691661,
+            "end_us": 19699129
+          }
+        ]
+      },
+      {
+        "log_index": 369,
+        "Append": [
+          {
+            "first": 369,
+            "last": 369,
+            "start_us": 19665196,
+            "end_us": 19668221
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 367,
+            "last": 369,
+            "start_us": 19691661,
+            "end_us": 19699129
+          }
+        ]
+      },
+      {
+        "log_index": 370,
+        "Append": [
+          {
+            "first": 370,
+            "last": 370,
+            "start_us": 19679080,
+            "end_us": 19683061
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 370,
+            "last": 370,
+            "start_us": 19722867,
+            "end_us": 19726218
+          }
+        ]
+      },
+      {
+        "log_index": 371,
+        "Append": [
+          {
+            "first": 371,
+            "last": 371,
+            "start_us": 19702872,
+            "end_us": 19707847
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 371,
+            "last": 373,
+            "start_us": 19749048,
+            "end_us": 19763785
+          }
+        ]
+      },
+      {
+        "log_index": 372,
+        "Append": [
+          {
+            "first": 372,
+            "last": 372,
+            "start_us": 19707886,
+            "end_us": 19713795
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 371,
+            "last": 373,
+            "start_us": 19749048,
+            "end_us": 19763785
+          }
+        ]
+      },
+      {
+        "log_index": 373,
+        "Append": [
+          {
+            "first": 373,
+            "last": 373,
+            "start_us": 19713830,
+            "end_us": 19717876
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 371,
+            "last": 373,
+            "start_us": 19749048,
+            "end_us": 19763785
+          }
+        ]
+      },
+      {
+        "log_index": 374,
+        "Append": [
+          {
+            "first": 374,
+            "last": 374,
+            "start_us": 19729499,
+            "end_us": 19736627
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 374,
+            "last": 374,
+            "start_us": 19769640,
+            "end_us": 19773185
+          }
+        ]
+      },
+      {
+        "log_index": 375,
+        "Append": [
+          {
+            "first": 375,
+            "last": 375,
+            "start_us": 19770056,
+            "end_us": 19777740
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 375,
+            "last": 375,
+            "start_us": 19806315,
+            "end_us": 19808794
+          }
+        ]
+      },
+      {
+        "log_index": 376,
+        "Append": [
+          {
+            "first": 376,
+            "last": 376,
+            "start_us": 19777815,
+            "end_us": 19784036
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 376,
+            "last": 378,
+            "start_us": 19828803,
+            "end_us": 19836370
+          }
+        ]
+      },
+      {
+        "log_index": 377,
+        "Append": [
+          {
+            "first": 377,
+            "last": 377,
+            "start_us": 19784076,
+            "end_us": 19788822
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 376,
+            "last": 378,
+            "start_us": 19828803,
+            "end_us": 19836370
+          }
+        ]
+      },
+      {
+        "log_index": 378,
+        "Append": [
+          {
+            "first": 378,
+            "last": 378,
+            "start_us": 19790195,
+            "end_us": 19795214
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 376,
+            "last": 378,
+            "start_us": 19828803,
+            "end_us": 19836370
+          }
+        ]
+      },
+      {
+        "log_index": 379,
+        "Append": [
+          {
+            "first": 379,
+            "last": 379,
+            "start_us": 19809351,
+            "end_us": 19813022
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 379,
+            "last": 379,
+            "start_us": 19855264,
+            "end_us": 19857289
+          }
+        ]
+      },
+      {
+        "log_index": 380,
+        "Append": [
+          {
+            "first": 380,
+            "last": 380,
+            "start_us": 19836960,
+            "end_us": 19840794
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 380,
+            "last": 382,
+            "start_us": 19877940,
+            "end_us": 19885585
+          }
+        ]
+      },
+      {
+        "log_index": 381,
+        "Append": [
+          {
+            "first": 381,
+            "last": 381,
+            "start_us": 19840830,
+            "end_us": 19845705
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 380,
+            "last": 382,
+            "start_us": 19877940,
+            "end_us": 19885585
+          }
+        ]
+      },
+      {
+        "log_index": 382,
+        "Append": [
+          {
+            "first": 382,
+            "last": 382,
+            "start_us": 19845750,
+            "end_us": 19851492
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 380,
+            "last": 382,
+            "start_us": 19877940,
+            "end_us": 19885585
+          }
+        ]
+      },
+      {
+        "log_index": 383,
+        "Append": [
+          {
+            "first": 383,
+            "last": 383,
+            "start_us": 19859749,
+            "end_us": 19862998
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 383,
+            "last": 383,
+            "start_us": 19896034,
+            "end_us": 19901876
+          }
+        ]
+      },
+      {
+        "log_index": 384,
+        "Append": [
+          {
+            "first": 384,
+            "last": 384,
+            "start_us": 19893890,
+            "end_us": 19898218
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 384,
+            "last": 384,
+            "start_us": 19930554,
+            "end_us": 19938948
+          }
+        ]
+      },
+      {
+        "log_index": 385,
+        "Append": [
+          {
+            "first": 385,
+            "last": 385,
+            "start_us": 19898270,
+            "end_us": 19907113
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 385,
+            "last": 386,
+            "start_us": 19938966,
+            "end_us": 19946244
+          }
+        ]
+      },
+      {
+        "log_index": 386,
+        "Append": [
+          {
+            "first": 386,
+            "last": 386,
+            "start_us": 19907152,
+            "end_us": 19913509
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 385,
+            "last": 386,
+            "start_us": 19938966,
+            "end_us": 19946244
+          }
+        ]
+      },
+      {
+        "log_index": 387,
+        "Append": [
+          {
+            "first": 387,
+            "last": 387,
+            "start_us": 19914367,
+            "end_us": 19922982
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 387,
+            "last": 387,
+            "start_us": 19976875,
+            "end_us": 19982719
+          }
+        ]
+      },
+      {
+        "log_index": 388,
+        "Append": [
+          {
+            "first": 388,
+            "last": 388,
+            "start_us": 19939391,
+            "end_us": 19948720
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 388,
+            "last": 390,
+            "start_us": 20000814,
+            "end_us": 20015098
+          }
+        ]
+      },
+      {
+        "log_index": 389,
+        "Append": [
+          {
+            "first": 389,
+            "last": 389,
+            "start_us": 19949104,
+            "end_us": 19955833
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 388,
+            "last": 390,
+            "start_us": 20000814,
+            "end_us": 20015098
+          }
+        ]
+      },
+      {
+        "log_index": 390,
+        "Append": [
+          {
+            "first": 390,
+            "last": 390,
+            "start_us": 19955890,
+            "end_us": 19960045
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 388,
+            "last": 390,
+            "start_us": 20000814,
+            "end_us": 20015098
+          }
+        ]
+      },
+      {
+        "log_index": 391,
+        "Append": [
+          {
+            "first": 391,
+            "last": 391,
+            "start_us": 20000048,
+            "end_us": 20012151
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 391,
+            "last": 391,
+            "start_us": 20054758,
+            "end_us": 20060232
+          }
+        ]
+      },
+      {
+        "log_index": 392,
+        "Append": [
+          {
+            "first": 392,
+            "last": 392,
+            "start_us": 20024909,
+            "end_us": 20030828
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 392,
+            "last": 394,
+            "start_us": 20083361,
+            "end_us": 20088617
+          }
+        ]
+      },
+      {
+        "log_index": 393,
+        "Append": [
+          {
+            "first": 393,
+            "last": 393,
+            "start_us": 20030867,
+            "end_us": 20038911
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 392,
+            "last": 394,
+            "start_us": 20083361,
+            "end_us": 20088617
+          }
+        ]
+      },
+      {
+        "log_index": 394,
+        "Append": [
+          {
+            "first": 394,
+            "last": 394,
+            "start_us": 20038951,
+            "end_us": 20043664
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 392,
+            "last": 394,
+            "start_us": 20083361,
+            "end_us": 20088617
+          }
+        ]
+      },
+      {
+        "log_index": 395,
+        "Append": [
+          {
+            "first": 395,
+            "last": 395,
+            "start_us": 20060963,
+            "end_us": 20065341
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 395,
+            "last": 395,
+            "start_us": 20113316,
+            "end_us": 20119296
+          }
+        ]
+      },
+      {
+        "log_index": 396,
+        "Append": [
+          {
+            "first": 396,
+            "last": 396,
+            "start_us": 20089633,
+            "end_us": 20094713
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 396,
+            "last": 398,
+            "start_us": 20141603,
+            "end_us": 20160369
+          }
+        ]
+      },
+      {
+        "log_index": 397,
+        "Append": [
+          {
+            "first": 397,
+            "last": 397,
+            "start_us": 20094750,
+            "end_us": 20102225
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 396,
+            "last": 398,
+            "start_us": 20141603,
+            "end_us": 20160369
+          }
+        ]
+      },
+      {
+        "log_index": 398,
+        "Append": [
+          {
+            "first": 398,
+            "last": 398,
+            "start_us": 20102265,
+            "end_us": 20107717
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 396,
+            "last": 398,
+            "start_us": 20141603,
+            "end_us": 20160369
+          }
+        ]
+      },
+      {
+        "log_index": 399,
+        "Append": [
+          {
+            "first": 399,
+            "last": 399,
+            "start_us": 20123614,
+            "end_us": 20127981
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 399,
+            "last": 399,
+            "start_us": 20173933,
+            "end_us": 20177577
+          }
+        ]
+      },
+      {
+        "log_index": 400,
+        "Append": [
+          {
+            "first": 400,
+            "last": 400,
+            "start_us": 20174388,
+            "end_us": 20183038
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 400,
+            "last": 400,
+            "start_us": 20206938,
+            "end_us": 20209840
+          }
+        ]
+      },
+      {
+        "log_index": 401,
+        "Append": [
+          {
+            "first": 401,
+            "last": 401,
+            "start_us": 20183088,
+            "end_us": 20187654
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 401,
+            "last": 403,
+            "start_us": 20228689,
+            "end_us": 20242198
+          }
+        ]
+      },
+      {
+        "log_index": 402,
+        "Append": [
+          {
+            "first": 402,
+            "last": 402,
+            "start_us": 20189204,
+            "end_us": 20192998
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 401,
+            "last": 403,
+            "start_us": 20228689,
+            "end_us": 20242198
+          }
+        ]
+      },
+      {
+        "log_index": 403,
+        "Append": [
+          {
+            "first": 403,
+            "last": 403,
+            "start_us": 20193250,
+            "end_us": 20196961
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 401,
+            "last": 403,
+            "start_us": 20228689,
+            "end_us": 20242198
+          }
+        ]
+      },
+      {
+        "log_index": 404,
+        "Append": [
+          {
+            "first": 404,
+            "last": 404,
+            "start_us": 20210847,
+            "end_us": 20219162
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 404,
+            "last": 404,
+            "start_us": 20246638,
+            "end_us": 20248932
+          }
+        ]
+      },
+      {
+        "log_index": 405,
+        "Append": [
+          {
+            "first": 405,
+            "last": 405,
+            "start_us": 20247950,
+            "end_us": 20257151
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 405,
+            "last": 405,
+            "start_us": 20296106,
+            "end_us": 20301938
+          }
+        ]
+      },
+      {
+        "log_index": 406,
+        "Append": [
+          {
+            "first": 406,
+            "last": 406,
+            "start_us": 20257214,
+            "end_us": 20262823
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 406,
+            "last": 407,
+            "start_us": 20301948,
+            "end_us": 20317016
+          }
+        ]
+      },
+      {
+        "log_index": 407,
+        "Append": [
+          {
+            "first": 407,
+            "last": 407,
+            "start_us": 20262861,
+            "end_us": 20267950
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 406,
+            "last": 407,
+            "start_us": 20301948,
+            "end_us": 20317016
+          }
+        ]
+      },
+      {
+        "log_index": 408,
+        "Append": [
+          {
+            "first": 408,
+            "last": 408,
+            "start_us": 20269900,
+            "end_us": 20276713
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 408,
+            "last": 408,
+            "start_us": 20324985,
+            "end_us": 20334567
+          }
+        ]
+      },
+      {
+        "log_index": 409,
+        "Append": [
+          {
+            "first": 409,
+            "last": 409,
+            "start_us": 20305982,
+            "end_us": 20319693
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 409,
+            "last": 409,
+            "start_us": 20352292,
+            "end_us": 20357500
+          }
+        ]
+      },
+      {
+        "log_index": 410,
+        "Append": [
+          {
+            "first": 410,
+            "last": 410,
+            "start_us": 20323952,
+            "end_us": 20328751
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 410,
+            "last": 411,
+            "start_us": 20362891,
+            "end_us": 20377423
+          }
+        ]
+      },
+      {
+        "log_index": 411,
+        "Append": [
+          {
+            "first": 411,
+            "last": 411,
+            "start_us": 20328791,
+            "end_us": 20335981
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 410,
+            "last": 411,
+            "start_us": 20362891,
+            "end_us": 20377423
+          }
+        ]
+      },
+      {
+        "log_index": 412,
+        "Append": [
+          {
+            "first": 412,
+            "last": 412,
+            "start_us": 20336744,
+            "end_us": 20344074
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 412,
+            "last": 412,
+            "start_us": 20401931,
+            "end_us": 20404985
+          }
+        ]
+      },
+      {
+        "log_index": 413,
+        "Append": [
+          {
+            "first": 413,
+            "last": 413,
+            "start_us": 20362874,
+            "end_us": 20369887
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 413,
+            "last": 415,
+            "start_us": 20429858,
+            "end_us": 20437026
+          }
+        ]
+      },
+      {
+        "log_index": 414,
+        "Append": [
+          {
+            "first": 414,
+            "last": 414,
+            "start_us": 20380541,
+            "end_us": 20387435
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 413,
+            "last": 415,
+            "start_us": 20429858,
+            "end_us": 20437026
+          }
+        ]
+      },
+      {
+        "log_index": 415,
+        "Append": [
+          {
+            "first": 415,
+            "last": 415,
+            "start_us": 20387492,
+            "end_us": 20393803
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 413,
+            "last": 415,
+            "start_us": 20429858,
+            "end_us": 20437026
+          }
+        ]
+      },
+      {
+        "log_index": 416,
+        "Append": [
+          {
+            "first": 416,
+            "last": 416,
+            "start_us": 20411590,
+            "end_us": 20417026
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 416,
+            "last": 416,
+            "start_us": 20456400,
+            "end_us": 20459548
+          }
+        ]
+      },
+      {
+        "log_index": 417,
+        "Append": [
+          {
+            "first": 417,
+            "last": 417,
+            "start_us": 20440484,
+            "end_us": 20443548
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 417,
+            "last": 419,
+            "start_us": 20491689,
+            "end_us": 20499322
+          }
+        ]
+      },
+      {
+        "log_index": 418,
+        "Append": [
+          {
+            "first": 418,
+            "last": 418,
+            "start_us": 20443575,
+            "end_us": 20448237
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 417,
+            "last": 419,
+            "start_us": 20491689,
+            "end_us": 20499322
+          }
+        ]
+      },
+      {
+        "log_index": 419,
+        "Append": [
+          {
+            "first": 419,
+            "last": 419,
+            "start_us": 20448266,
+            "end_us": 20452891
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 417,
+            "last": 419,
+            "start_us": 20491689,
+            "end_us": 20499322
+          }
+        ]
+      },
+      {
+        "log_index": 420,
+        "Append": [
+          {
+            "first": 420,
+            "last": 420,
+            "start_us": 20462037,
+            "end_us": 20466681
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 420,
+            "last": 420,
+            "start_us": 20501887,
+            "end_us": 20509940
+          }
+        ]
+      },
+      {
+        "log_index": 421,
+        "Append": [
+          {
+            "first": 421,
+            "last": 421,
+            "start_us": 20502258,
+            "end_us": 20513245
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 421,
+            "last": 421,
+            "start_us": 20535254,
+            "end_us": 20541876
+          }
+        ]
+      },
+      {
+        "log_index": 422,
+        "Append": [
+          {
+            "first": 422,
+            "last": 422,
+            "start_us": 20513282,
+            "end_us": 20518598
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 422,
+            "last": 423,
+            "start_us": 20542163,
+            "end_us": 20552244
+          }
+        ]
+      },
+      {
+        "log_index": 423,
+        "Append": [
+          {
+            "first": 423,
+            "last": 423,
+            "start_us": 20518635,
+            "end_us": 20523621
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 422,
+            "last": 423,
+            "start_us": 20542163,
+            "end_us": 20552244
+          }
+        ]
+      },
+      {
+        "log_index": 424,
+        "Append": [
+          {
+            "first": 424,
+            "last": 424,
+            "start_us": 20524116,
+            "end_us": 20529556
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 424,
+            "last": 424,
+            "start_us": 20572376,
+            "end_us": 20582256
+          }
+        ]
+      },
+      {
+        "log_index": 425,
+        "Append": [
+          {
+            "first": 425,
+            "last": 425,
+            "start_us": 20542375,
+            "end_us": 20550505
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 425,
+            "last": 427,
+            "start_us": 20599001,
+            "end_us": 20606779
+          }
+        ]
+      },
+      {
+        "log_index": 426,
+        "Append": [
+          {
+            "first": 426,
+            "last": 426,
+            "start_us": 20557970,
+            "end_us": 20564419
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 425,
+            "last": 427,
+            "start_us": 20599001,
+            "end_us": 20606779
+          }
+        ]
+      },
+      {
+        "log_index": 427,
+        "Append": [
+          {
+            "first": 427,
+            "last": 427,
+            "start_us": 20564453,
+            "end_us": 20567863
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 425,
+            "last": 427,
+            "start_us": 20599001,
+            "end_us": 20606779
+          }
+        ]
+      },
+      {
+        "log_index": 428,
+        "Append": [
+          {
+            "first": 428,
+            "last": 428,
+            "start_us": 20585046,
+            "end_us": 20591216
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 428,
+            "last": 428,
+            "start_us": 20634986,
+            "end_us": 20637536
+          }
+        ]
+      },
+      {
+        "log_index": 429,
+        "Append": [
+          {
+            "first": 429,
+            "last": 429,
+            "start_us": 20609925,
+            "end_us": 20613789
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 429,
+            "last": 431,
+            "start_us": 20675874,
+            "end_us": 20682296
+          }
+        ]
+      },
+      {
+        "log_index": 430,
+        "Append": [
+          {
+            "first": 430,
+            "last": 430,
+            "start_us": 20613816,
+            "end_us": 20618871
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 429,
+            "last": 431,
+            "start_us": 20675874,
+            "end_us": 20682296
+          }
+        ]
+      },
+      {
+        "log_index": 431,
+        "Append": [
+          {
+            "first": 431,
+            "last": 431,
+            "start_us": 20618902,
+            "end_us": 20622749
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 429,
+            "last": 431,
+            "start_us": 20675874,
+            "end_us": 20682296
+          }
+        ]
+      },
+      {
+        "log_index": 432,
+        "Append": [
+          {
+            "first": 432,
+            "last": 432,
+            "start_us": 20638306,
+            "end_us": 20648376
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 432,
+            "last": 432,
+            "start_us": 20729623,
+            "end_us": 20732053
+          }
+        ]
+      },
+      {
+        "log_index": 433,
+        "Append": [
+          {
+            "first": 433,
+            "last": 433,
+            "start_us": 20690002,
+            "end_us": 20693550
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 433,
+            "last": 435,
+            "start_us": 20749367,
+            "end_us": 20762653
+          }
+        ]
+      },
+      {
+        "log_index": 434,
+        "Append": [
+          {
+            "first": 434,
+            "last": 434,
+            "start_us": 20693581,
+            "end_us": 20720313
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 433,
+            "last": 435,
+            "start_us": 20749367,
+            "end_us": 20762653
+          }
+        ]
+      },
+      {
+        "log_index": 435,
+        "Append": [
+          {
+            "first": 435,
+            "last": 435,
+            "start_us": 20720360,
+            "end_us": 20725918
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 433,
+            "last": 435,
+            "start_us": 20749367,
+            "end_us": 20762653
+          }
+        ]
+      },
+      {
+        "log_index": 436,
+        "Append": [
+          {
+            "first": 436,
+            "last": 436,
+            "start_us": 20732194,
+            "end_us": 20738782
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 436,
+            "last": 436,
+            "start_us": 20764081,
+            "end_us": 20769587
+          }
+        ]
+      },
+      {
+        "log_index": 437,
+        "Append": [
+          {
+            "first": 437,
+            "last": 437,
+            "start_us": 20766989,
+            "end_us": 20769985
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 437,
+            "last": 437,
+            "start_us": 20794933,
+            "end_us": 20797586
+          }
+        ]
+      },
+      {
+        "log_index": 438,
+        "Append": [
+          {
+            "first": 438,
+            "last": 438,
+            "start_us": 20770032,
+            "end_us": 20775213
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 438,
+            "last": 440,
+            "start_us": 20821420,
+            "end_us": 20828784
+          }
+        ]
+      },
+      {
+        "log_index": 439,
+        "Append": [
+          {
+            "first": 439,
+            "last": 439,
+            "start_us": 20775256,
+            "end_us": 20778888
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 438,
+            "last": 440,
+            "start_us": 20821420,
+            "end_us": 20828784
+          }
+        ]
+      },
+      {
+        "log_index": 440,
+        "Append": [
+          {
+            "first": 440,
+            "last": 440,
+            "start_us": 20781643,
+            "end_us": 20787165
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 438,
+            "last": 440,
+            "start_us": 20821420,
+            "end_us": 20828784
+          }
+        ]
+      },
+      {
+        "log_index": 441,
+        "Append": [
+          {
+            "first": 441,
+            "last": 441,
+            "start_us": 20799602,
+            "end_us": 20803154
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 441,
+            "last": 441,
+            "start_us": 20848431,
+            "end_us": 20850811
+          }
+        ]
+      },
+      {
+        "log_index": 442,
+        "Append": [
+          {
+            "first": 442,
+            "last": 442,
+            "start_us": 20830786,
+            "end_us": 20834863
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 442,
+            "last": 444,
+            "start_us": 20870461,
+            "end_us": 20878242
+          }
+        ]
+      },
+      {
+        "log_index": 443,
+        "Append": [
+          {
+            "first": 443,
+            "last": 443,
+            "start_us": 20834898,
+            "end_us": 20839359
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 442,
+            "last": 444,
+            "start_us": 20870461,
+            "end_us": 20878242
+          }
+        ]
+      },
+      {
+        "log_index": 444,
+        "Append": [
+          {
+            "first": 444,
+            "last": 444,
+            "start_us": 20839408,
+            "end_us": 20842361
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 442,
+            "last": 444,
+            "start_us": 20870461,
+            "end_us": 20878242
+          }
+        ]
+      },
+      {
+        "log_index": 445,
+        "Append": [
+          {
+            "first": 445,
+            "last": 445,
+            "start_us": 20851537,
+            "end_us": 20856970
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 445,
+            "last": 445,
+            "start_us": 20896767,
+            "end_us": 20899986
+          }
+        ]
+      },
+      {
+        "log_index": 446,
+        "Append": [
+          {
+            "first": 446,
+            "last": 446,
+            "start_us": 20882423,
+            "end_us": 20885287
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 446,
+            "last": 448,
+            "start_us": 20912740,
+            "end_us": 20922048
+          }
+        ]
+      },
+      {
+        "log_index": 447,
+        "Append": [
+          {
+            "first": 447,
+            "last": 447,
+            "start_us": 20885314,
+            "end_us": 20890742
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 446,
+            "last": 448,
+            "start_us": 20912740,
+            "end_us": 20922048
+          }
+        ]
+      },
+      {
+        "log_index": 448,
+        "Append": [
+          {
+            "first": 448,
+            "last": 448,
+            "start_us": 20890788,
+            "end_us": 20893456
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 446,
+            "last": 448,
+            "start_us": 20912740,
+            "end_us": 20922048
+          }
+        ]
+      },
+      {
+        "log_index": 449,
+        "Append": [
+          {
+            "first": 449,
+            "last": 449,
+            "start_us": 20903423,
+            "end_us": 20906655
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 449,
+            "last": 449,
+            "start_us": 20962977,
+            "end_us": 20966309
+          }
+        ]
+      },
+      {
+        "log_index": 450,
+        "Append": [
+          {
+            "first": 450,
+            "last": 450,
+            "start_us": 20934267,
+            "end_us": 20938173
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 450,
+            "last": 452,
+            "start_us": 20983841,
+            "end_us": 20992327
+          }
+        ]
+      },
+      {
+        "log_index": 451,
+        "Append": [
+          {
+            "first": 451,
+            "last": 451,
+            "start_us": 20938208,
+            "end_us": 20949203
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 450,
+            "last": 452,
+            "start_us": 20983841,
+            "end_us": 20992327
+          }
+        ]
+      },
+      {
+        "log_index": 452,
+        "Append": [
+          {
+            "first": 452,
+            "last": 452,
+            "start_us": 20949263,
+            "end_us": 20954341
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 450,
+            "last": 452,
+            "start_us": 20983841,
+            "end_us": 20992327
+          }
+        ]
+      },
+      {
+        "log_index": 453,
+        "Append": [
+          {
+            "first": 453,
+            "last": 453,
+            "start_us": 20966929,
+            "end_us": 20974432
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 453,
+            "last": 453,
+            "start_us": 21005081,
+            "end_us": 21013473
+          }
+        ]
+      },
+      {
+        "log_index": 454,
+        "Append": [
+          {
+            "first": 454,
+            "last": 454,
+            "start_us": 21005068,
+            "end_us": 21008966
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 454,
+            "last": 454,
+            "start_us": 21041125,
+            "end_us": 21044962
+          }
+        ]
+      },
+      {
+        "log_index": 455,
+        "Append": [
+          {
+            "first": 455,
+            "last": 455,
+            "start_us": 21008998,
+            "end_us": 21013695
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 455,
+            "last": 456,
+            "start_us": 21050649,
+            "end_us": 21066301
+          }
+        ]
+      },
+      {
+        "log_index": 456,
+        "Append": [
+          {
+            "first": 456,
+            "last": 456,
+            "start_us": 21013760,
+            "end_us": 21017502
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 455,
+            "last": 456,
+            "start_us": 21050649,
+            "end_us": 21066301
+          }
+        ]
+      },
+      {
+        "log_index": 457,
+        "Append": [
+          {
+            "first": 457,
+            "last": 457,
+            "start_us": 21019335,
+            "end_us": 21025925
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 457,
+            "last": 457,
+            "start_us": 21069498,
+            "end_us": 21073422
+          }
+        ]
+      },
+      {
+        "log_index": 458,
+        "Append": [
+          {
+            "first": 458,
+            "last": 458,
+            "start_us": 21051561,
+            "end_us": 21060940
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 458,
+            "last": 458,
+            "start_us": 21113044,
+            "end_us": 21123198
+          }
+        ]
+      },
+      {
+        "log_index": 459,
+        "Append": [
+          {
+            "first": 459,
+            "last": 459,
+            "start_us": 21070002,
+            "end_us": 21076795
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 459,
+            "last": 460,
+            "start_us": 21123205,
+            "end_us": 21127754
+          }
+        ]
+      },
+      {
+        "log_index": 460,
+        "Append": [
+          {
+            "first": 460,
+            "last": 460,
+            "start_us": 21076917,
+            "end_us": 21083800
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 459,
+            "last": 460,
+            "start_us": 21123205,
+            "end_us": 21127754
+          }
+        ]
+      },
+      {
+        "log_index": 461,
+        "Append": [
+          {
+            "first": 461,
+            "last": 461,
+            "start_us": 21087097,
+            "end_us": 21090425
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 461,
+            "last": 461,
+            "start_us": 21137540,
+            "end_us": 21144781
+          }
+        ]
+      },
+      {
+        "log_index": 462,
+        "Append": [
+          {
+            "first": 462,
+            "last": 462,
+            "start_us": 21125006,
+            "end_us": 21131633
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 462,
+            "last": 464,
+            "start_us": 21171904,
+            "end_us": 21179233
+          }
+        ]
+      },
+      {
+        "log_index": 463,
+        "Append": [
+          {
+            "first": 463,
+            "last": 463,
+            "start_us": 21137507,
+            "end_us": 21143198
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 462,
+            "last": 464,
+            "start_us": 21171904,
+            "end_us": 21179233
+          }
+        ]
+      },
+      {
+        "log_index": 464,
+        "Append": [
+          {
+            "first": 464,
+            "last": 464,
+            "start_us": 21143243,
+            "end_us": 21146954
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 462,
+            "last": 464,
+            "start_us": 21171904,
+            "end_us": 21179233
+          }
+        ]
+      },
+      {
+        "log_index": 465,
+        "Append": [
+          {
+            "first": 465,
+            "last": 465,
+            "start_us": 21150799,
+            "end_us": 21155552
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 465,
+            "last": 465,
+            "start_us": 21206939,
+            "end_us": 21212772
+          }
+        ]
+      },
+      {
+        "log_index": 466,
+        "Append": [
+          {
+            "first": 466,
+            "last": 466,
+            "start_us": 21186066,
+            "end_us": 21189256
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 466,
+            "last": 468,
+            "start_us": 21232294,
+            "end_us": 21239817
+          }
+        ]
+      },
+      {
+        "log_index": 467,
+        "Append": [
+          {
+            "first": 467,
+            "last": 467,
+            "start_us": 21189302,
+            "end_us": 21194899
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 466,
+            "last": 468,
+            "start_us": 21232294,
+            "end_us": 21239817
+          }
+        ]
+      },
+      {
+        "log_index": 468,
+        "Append": [
+          {
+            "first": 468,
+            "last": 468,
+            "start_us": 21194938,
+            "end_us": 21199436
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 466,
+            "last": 468,
+            "start_us": 21232294,
+            "end_us": 21239817
+          }
+        ]
+      },
+      {
+        "log_index": 469,
+        "Append": [
+          {
+            "first": 469,
+            "last": 469,
+            "start_us": 21212952,
+            "end_us": 21217069
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 469,
+            "last": 469,
+            "start_us": 21265218,
+            "end_us": 21274142
+          }
+        ]
+      },
+      {
+        "log_index": 470,
+        "Append": [
+          {
+            "first": 470,
+            "last": 470,
+            "start_us": 21241559,
+            "end_us": 21248055
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 470,
+            "last": 472,
+            "start_us": 21293812,
+            "end_us": 21301189
+          }
+        ]
+      },
+      {
+        "log_index": 471,
+        "Append": [
+          {
+            "first": 471,
+            "last": 471,
+            "start_us": 21248088,
+            "end_us": 21254413
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 470,
+            "last": 472,
+            "start_us": 21293812,
+            "end_us": 21301189
+          }
+        ]
+      },
+      {
+        "log_index": 472,
+        "Append": [
+          {
+            "first": 472,
+            "last": 472,
+            "start_us": 21254442,
+            "end_us": 21261078
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 470,
+            "last": 472,
+            "start_us": 21293812,
+            "end_us": 21301189
+          }
+        ]
+      },
+      {
+        "log_index": 473,
+        "Append": [
+          {
+            "first": 473,
+            "last": 473,
+            "start_us": 21281044,
+            "end_us": 21286624
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 473,
+            "last": 473,
+            "start_us": 21327827,
+            "end_us": 21333602
+          }
+        ]
+      },
+      {
+        "log_index": 474,
+        "Append": [
+          {
+            "first": 474,
+            "last": 474,
+            "start_us": 21307728,
+            "end_us": 21311070
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 474,
+            "last": 476,
+            "start_us": 21351806,
+            "end_us": 21361388
+          }
+        ]
+      },
+      {
+        "log_index": 475,
+        "Append": [
+          {
+            "first": 475,
+            "last": 475,
+            "start_us": 21311098,
+            "end_us": 21317425
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 474,
+            "last": 476,
+            "start_us": 21351806,
+            "end_us": 21361388
+          }
+        ]
+      },
+      {
+        "log_index": 476,
+        "Append": [
+          {
+            "first": 476,
+            "last": 476,
+            "start_us": 21317481,
+            "end_us": 21322346
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 474,
+            "last": 476,
+            "start_us": 21351806,
+            "end_us": 21361388
+          }
+        ]
+      },
+      {
+        "log_index": 477,
+        "Append": [
+          {
+            "first": 477,
+            "last": 477,
+            "start_us": 21334777,
+            "end_us": 21339589
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 477,
+            "last": 477,
+            "start_us": 21384317,
+            "end_us": 21394739
+          }
+        ]
+      },
+      {
+        "log_index": 478,
+        "Append": [
+          {
+            "first": 478,
+            "last": 478,
+            "start_us": 21364574,
+            "end_us": 21369143
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 478,
+            "last": 480,
+            "start_us": 21422720,
+            "end_us": 21429027
+          }
+        ]
+      },
+      {
+        "log_index": 479,
+        "Append": [
+          {
+            "first": 479,
+            "last": 479,
+            "start_us": 21369178,
+            "end_us": 21374366
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 478,
+            "last": 480,
+            "start_us": 21422720,
+            "end_us": 21429027
+          }
+        ]
+      },
+      {
+        "log_index": 480,
+        "Append": [
+          {
+            "first": 480,
+            "last": 480,
+            "start_us": 21374391,
+            "end_us": 21377244
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 478,
+            "last": 480,
+            "start_us": 21422720,
+            "end_us": 21429027
+          }
+        ]
+      },
+      {
+        "log_index": 481,
+        "Append": [
+          {
+            "first": 481,
+            "last": 481,
+            "start_us": 21400349,
+            "end_us": 21406279
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 481,
+            "last": 481,
+            "start_us": 21460621,
+            "end_us": 21464426
+          }
+        ]
+      },
+      {
+        "log_index": 482,
+        "Append": [
+          {
+            "first": 482,
+            "last": 482,
+            "start_us": 21441337,
+            "end_us": 21447964
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 482,
+            "last": 484,
+            "start_us": 21483958,
+            "end_us": 21493837
+          }
+        ]
+      },
+      {
+        "log_index": 483,
+        "Append": [
+          {
+            "first": 483,
+            "last": 483,
+            "start_us": 21448023,
+            "end_us": 21453021
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 482,
+            "last": 484,
+            "start_us": 21483958,
+            "end_us": 21493837
+          }
+        ]
+      },
+      {
+        "log_index": 484,
+        "Append": [
+          {
+            "first": 484,
+            "last": 484,
+            "start_us": 21453074,
+            "end_us": 21456719
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 482,
+            "last": 484,
+            "start_us": 21483958,
+            "end_us": 21493837
+          }
+        ]
+      },
+      {
+        "log_index": 485,
+        "Append": [
+          {
+            "first": 485,
+            "last": 485,
+            "start_us": 21465287,
+            "end_us": 21473980
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 485,
+            "last": 485,
+            "start_us": 21520974,
+            "end_us": 21524333
+          }
+        ]
+      },
+      {
+        "log_index": 486,
+        "Append": [
+          {
+            "first": 486,
+            "last": 486,
+            "start_us": 21497407,
+            "end_us": 21503785
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 486,
+            "last": 488,
+            "start_us": 21538857,
+            "end_us": 21548328
+          }
+        ]
+      },
+      {
+        "log_index": 487,
+        "Append": [
+          {
+            "first": 487,
+            "last": 487,
+            "start_us": 21503866,
+            "end_us": 21508640
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 486,
+            "last": 488,
+            "start_us": 21538857,
+            "end_us": 21548328
+          }
+        ]
+      },
+      {
+        "log_index": 488,
+        "Append": [
+          {
+            "first": 488,
+            "last": 488,
+            "start_us": 21508709,
+            "end_us": 21512052
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 486,
+            "last": 488,
+            "start_us": 21538857,
+            "end_us": 21548328
+          }
+        ]
+      },
+      {
+        "log_index": 489,
+        "Append": [
+          {
+            "first": 489,
+            "last": 489,
+            "start_us": 21524899,
+            "end_us": 21528401
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 489,
+            "last": 489,
+            "start_us": 21563609,
+            "end_us": 21572648
+          }
+        ]
+      },
+      {
+        "log_index": 490,
+        "Append": [
+          {
+            "first": 490,
+            "last": 490,
+            "start_us": 21563590,
+            "end_us": 21569502
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 490,
+            "last": 490,
+            "start_us": 21590766,
+            "end_us": 21593748
+          }
+        ]
+      },
+      {
+        "log_index": 491,
+        "Append": [
+          {
+            "first": 491,
+            "last": 491,
+            "start_us": 21569554,
+            "end_us": 21575082
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 491,
+            "last": 493,
+            "start_us": 21604220,
+            "end_us": 21610999
+          }
+        ]
+      },
+      {
+        "log_index": 492,
+        "Append": [
+          {
+            "first": 492,
+            "last": 492,
+            "start_us": 21575121,
+            "end_us": 21580568
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 491,
+            "last": 493,
+            "start_us": 21604220,
+            "end_us": 21610999
+          }
+        ]
+      },
+      {
+        "log_index": 493,
+        "Append": [
+          {
+            "first": 493,
+            "last": 493,
+            "start_us": 21580852,
+            "end_us": 21586231
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 491,
+            "last": 493,
+            "start_us": 21604220,
+            "end_us": 21610999
+          }
+        ]
+      },
+      {
+        "log_index": 494,
+        "Append": [
+          {
+            "first": 494,
+            "last": 494,
+            "start_us": 21595633,
+            "end_us": 21600000
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 494,
+            "last": 494,
+            "start_us": 21637684,
+            "end_us": 21641429
+          }
+        ]
+      },
+      {
+        "log_index": 495,
+        "Append": [
+          {
+            "first": 495,
+            "last": 495,
+            "start_us": 21611502,
+            "end_us": 21616352
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 495,
+            "last": 497,
+            "start_us": 21661888,
+            "end_us": 21667895
+          }
+        ]
+      },
+      {
+        "log_index": 496,
+        "Append": [
+          {
+            "first": 496,
+            "last": 496,
+            "start_us": 21616394,
+            "end_us": 21621608
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 495,
+            "last": 497,
+            "start_us": 21661888,
+            "end_us": 21667895
+          }
+        ]
+      },
+      {
+        "log_index": 497,
+        "Append": [
+          {
+            "first": 497,
+            "last": 497,
+            "start_us": 21621644,
+            "end_us": 21629226
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 495,
+            "last": 497,
+            "start_us": 21661888,
+            "end_us": 21667895
+          }
+        ]
+      },
+      {
+        "log_index": 498,
+        "Append": [
+          {
+            "first": 498,
+            "last": 498,
+            "start_us": 21642246,
+            "end_us": 21649620
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 498,
+            "last": 498,
+            "start_us": 21675419,
+            "end_us": 21683731
+          }
+        ]
+      },
+      {
+        "log_index": 499,
+        "Append": [
+          {
+            "first": 499,
+            "last": 499,
+            "start_us": 21675402,
+            "end_us": 21680337
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 499,
+            "last": 499,
+            "start_us": 21700178,
+            "end_us": 21709358
+          }
+        ]
+      },
+      {
+        "log_index": 500,
+        "Append": [
+          {
+            "first": 500,
+            "last": 500,
+            "start_us": 21680381,
+            "end_us": 21687123
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 500,
+            "last": 501,
+            "start_us": 21717287,
+            "end_us": 21722236
+          }
+        ]
+      },
+      {
+        "log_index": 501,
+        "Append": [
+          {
+            "first": 501,
+            "last": 501,
+            "start_us": 21687162,
+            "end_us": 21694709
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 500,
+            "last": 501,
+            "start_us": 21717287,
+            "end_us": 21722236
+          }
+        ]
+      },
+      {
+        "log_index": 502,
+        "Append": [
+          {
+            "first": 502,
+            "last": 502,
+            "start_us": 21698808,
+            "end_us": 21702006
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 502,
+            "last": 502,
+            "start_us": 21753661,
+            "end_us": 21758456
+          }
+        ]
+      },
+      {
+        "log_index": 503,
+        "Append": [
+          {
+            "first": 503,
+            "last": 503,
+            "start_us": 21717309,
+            "end_us": 21722603
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 503,
+            "last": 503,
+            "start_us": 21758466,
+            "end_us": 21763740
+          }
+        ]
+      },
+      {
+        "log_index": 504,
+        "Append": [
+          {
+            "first": 504,
+            "last": 504,
+            "start_us": 21726561,
+            "end_us": 21732549
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 504,
+            "last": 505,
+            "start_us": 21779744,
+            "end_us": 21784569
+          }
+        ]
+      },
+      {
+        "log_index": 505,
+        "Append": [
+          {
+            "first": 505,
+            "last": 505,
+            "start_us": 21732585,
+            "end_us": 21741966
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 504,
+            "last": 505,
+            "start_us": 21779744,
+            "end_us": 21784569
+          }
+        ]
+      },
+      {
+        "log_index": 506,
+        "Append": [
+          {
+            "first": 506,
+            "last": 506,
+            "start_us": 21762356,
+            "end_us": 21765809
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 506,
+            "last": 507,
+            "start_us": 21797971,
+            "end_us": 21806931
+          }
+        ]
+      },
+      {
+        "log_index": 507,
+        "Append": [
+          {
+            "first": 507,
+            "last": 507,
+            "start_us": 21769628,
+            "end_us": 21773892
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 506,
+            "last": 507,
+            "start_us": 21797971,
+            "end_us": 21806931
+          }
+        ]
+      },
+      {
+        "log_index": 508,
+        "Append": [
+          {
+            "first": 508,
+            "last": 508,
+            "start_us": 21784892,
+            "end_us": 21787975
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 508,
+            "last": 509,
+            "start_us": 21826003,
+            "end_us": 21831770
+          }
+        ]
+      },
+      {
+        "log_index": 509,
+        "Append": [
+          {
+            "first": 509,
+            "last": 509,
+            "start_us": 21788012,
+            "end_us": 21793782
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 508,
+            "last": 509,
+            "start_us": 21826003,
+            "end_us": 21831770
+          }
+        ]
+      },
+      {
+        "log_index": 510,
+        "Append": [
+          {
+            "first": 510,
+            "last": 510,
+            "start_us": 21809490,
+            "end_us": 21814098
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 510,
+            "last": 511,
+            "start_us": 21848118,
+            "end_us": 21852119
+          }
+        ]
+      },
+      {
+        "log_index": 511,
+        "Append": [
+          {
+            "first": 511,
+            "last": 511,
+            "start_us": 21814125,
+            "end_us": 21817723
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 510,
+            "last": 511,
+            "start_us": 21848118,
+            "end_us": 21852119
+          }
+        ]
+      },
+      {
+        "log_index": 512,
+        "Append": [
+          {
+            "first": 512,
+            "last": 512,
+            "start_us": 21834061,
+            "end_us": 21840407
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 512,
+            "last": 515,
+            "start_us": 21880568,
+            "end_us": 21888076
+          }
+        ]
+      },
+      {
+        "log_index": 513,
+        "Append": [
+          {
+            "first": 513,
+            "last": 513,
+            "start_us": 21840440,
+            "end_us": 21843856
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 512,
+            "last": 515,
+            "start_us": 21880568,
+            "end_us": 21888076
+          }
+        ]
+      },
+      {
+        "log_index": 514,
+        "Append": [
+          {
+            "first": 514,
+            "last": 514,
+            "start_us": 21852586,
+            "end_us": 21856768
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 512,
+            "last": 515,
+            "start_us": 21880568,
+            "end_us": 21888076
+          }
+        ]
+      },
+      {
+        "log_index": 515,
+        "Append": [
+          {
+            "first": 515,
+            "last": 515,
+            "start_us": 21856807,
+            "end_us": 21865625
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 512,
+            "last": 515,
+            "start_us": 21880568,
+            "end_us": 21888076
+          }
+        ]
+      },
+      {
+        "log_index": 516,
+        "Append": [
+          {
+            "first": 516,
+            "last": 516,
+            "start_us": 21890338,
+            "end_us": 21895590
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 516,
+            "last": 516,
+            "start_us": 21920041,
+            "end_us": 21923568
+          }
+        ]
+      },
+      {
+        "log_index": 517,
+        "Append": [
+          {
+            "first": 517,
+            "last": 517,
+            "start_us": 21895634,
+            "end_us": 21900454
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 517,
+            "last": 519,
+            "start_us": 21926771,
+            "end_us": 21936351
+          }
+        ]
+      },
+      {
+        "log_index": 518,
+        "Append": [
+          {
+            "first": 518,
+            "last": 518,
+            "start_us": 21900504,
+            "end_us": 21904861
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 517,
+            "last": 519,
+            "start_us": 21926771,
+            "end_us": 21936351
+          }
+        ]
+      },
+      {
+        "log_index": 519,
+        "Append": [
+          {
+            "first": 519,
+            "last": 519,
+            "start_us": 21904893,
+            "end_us": 21909249
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 517,
+            "last": 519,
+            "start_us": 21926771,
+            "end_us": 21936351
+          }
+        ]
+      },
+      {
+        "log_index": 520,
+        "Append": [
+          {
+            "first": 520,
+            "last": 520,
+            "start_us": 21927136,
+            "end_us": 21935135
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 520,
+            "last": 520,
+            "start_us": 21962013,
+            "end_us": 21964995
+          }
+        ]
+      },
+      {
+        "log_index": 521,
+        "Append": [
+          {
+            "first": 521,
+            "last": 521,
+            "start_us": 21939619,
+            "end_us": 21946996
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 521,
+            "last": 523,
+            "start_us": 21979853,
+            "end_us": 21985933
+          }
+        ]
+      },
+      {
+        "log_index": 522,
+        "Append": [
+          {
+            "first": 522,
+            "last": 522,
+            "start_us": 21947032,
+            "end_us": 21952455
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 521,
+            "last": 523,
+            "start_us": 21979853,
+            "end_us": 21985933
+          }
+        ]
+      },
+      {
+        "log_index": 523,
+        "Append": [
+          {
+            "first": 523,
+            "last": 523,
+            "start_us": 21952493,
+            "end_us": 21955907
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 521,
+            "last": 523,
+            "start_us": 21979853,
+            "end_us": 21985933
+          }
+        ]
+      },
+      {
+        "log_index": 524,
+        "Append": [
+          {
+            "first": 524,
+            "last": 524,
+            "start_us": 21965185,
+            "end_us": 21969497
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 524,
+            "last": 524,
+            "start_us": 22012691,
+            "end_us": 22017346
+          }
+        ]
+      },
+      {
+        "log_index": 525,
+        "Append": [
+          {
+            "first": 525,
+            "last": 525,
+            "start_us": 21991497,
+            "end_us": 21996409
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 525,
+            "last": 527,
+            "start_us": 22040457,
+            "end_us": 22042563
+          }
+        ]
+      },
+      {
+        "log_index": 526,
+        "Append": [
+          {
+            "first": 526,
+            "last": 526,
+            "start_us": 21996439,
+            "end_us": 22006228
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 525,
+            "last": 527,
+            "start_us": 22040457,
+            "end_us": 22042563
+          }
+        ]
+      },
+      {
+        "log_index": 527,
+        "Append": [
+          {
+            "first": 527,
+            "last": 527,
+            "start_us": 22006268,
+            "end_us": 22009036
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 525,
+            "last": 527,
+            "start_us": 22040457,
+            "end_us": 22042563
+          }
+        ]
+      },
+      {
+        "log_index": 528,
+        "Append": [
+          {
+            "first": 528,
+            "last": 528,
+            "start_us": 22017805,
+            "end_us": 22024744
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 528,
+            "last": 528,
+            "start_us": 22065693,
+            "end_us": 22073911
+          }
+        ]
+      },
+      {
+        "log_index": 529,
+        "Append": [
+          {
+            "first": 529,
+            "last": 529,
+            "start_us": 22043433,
+            "end_us": 22047727
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 529,
+            "last": 531,
+            "start_us": 22083551,
+            "end_us": 22092181
+          }
+        ]
+      },
+      {
+        "log_index": 530,
+        "Append": [
+          {
+            "first": 530,
+            "last": 530,
+            "start_us": 22047763,
+            "end_us": 22053379
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 529,
+            "last": 531,
+            "start_us": 22083551,
+            "end_us": 22092181
+          }
+        ]
+      },
+      {
+        "log_index": 531,
+        "Append": [
+          {
+            "first": 531,
+            "last": 531,
+            "start_us": 22053417,
+            "end_us": 22058522
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 529,
+            "last": 531,
+            "start_us": 22083551,
+            "end_us": 22092181
+          }
+        ]
+      },
+      {
+        "log_index": 532,
+        "Append": [
+          {
+            "first": 532,
+            "last": 532,
+            "start_us": 22083532,
+            "end_us": 22086849
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 532,
+            "last": 532,
+            "start_us": 22103241,
+            "end_us": 22110439
+          }
+        ]
+      },
+      {
+        "log_index": 533,
+        "Append": [
+          {
+            "first": 533,
+            "last": 533,
+            "start_us": 22102945,
+            "end_us": 22111550
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 533,
+            "last": 533,
+            "start_us": 22135237,
+            "end_us": 22145265
+          }
+        ]
+      },
+      {
+        "log_index": 534,
+        "Append": [
+          {
+            "first": 534,
+            "last": 534,
+            "start_us": 22111575,
+            "end_us": 22114588
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 534,
+            "last": 535,
+            "start_us": 22145276,
+            "end_us": 22151605
+          }
+        ]
+      },
+      {
+        "log_index": 535,
+        "Append": [
+          {
+            "first": 535,
+            "last": 535,
+            "start_us": 22114626,
+            "end_us": 22120832
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 534,
+            "last": 535,
+            "start_us": 22145276,
+            "end_us": 22151605
+          }
+        ]
+      },
+      {
+        "log_index": 536,
+        "Append": [
+          {
+            "first": 536,
+            "last": 536,
+            "start_us": 22121852,
+            "end_us": 22128774
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 536,
+            "last": 536,
+            "start_us": 22155574,
+            "end_us": 22163755
+          }
+        ]
+      },
+      {
+        "log_index": 537,
+        "Append": [
+          {
+            "first": 537,
+            "last": 537,
+            "start_us": 22145715,
+            "end_us": 22151692
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 537,
+            "last": 537,
+            "start_us": 22172964,
+            "end_us": 22175503
+          }
+        ]
+      },
+      {
+        "log_index": 538,
+        "Append": [
+          {
+            "first": 538,
+            "last": 538,
+            "start_us": 22156058,
+            "end_us": 22159707
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 538,
+            "last": 540,
+            "start_us": 22199915,
+            "end_us": 22203866
+          }
+        ]
+      },
+      {
+        "log_index": 539,
+        "Append": [
+          {
+            "first": 539,
+            "last": 539,
+            "start_us": 22159749,
+            "end_us": 22163226
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 538,
+            "last": 540,
+            "start_us": 22199915,
+            "end_us": 22203866
+          }
+        ]
+      },
+      {
+        "log_index": 540,
+        "Append": [
+          {
+            "first": 540,
+            "last": 540,
+            "start_us": 22165357,
+            "end_us": 22168866
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 538,
+            "last": 540,
+            "start_us": 22199915,
+            "end_us": 22203866
+          }
+        ]
+      },
+      {
+        "log_index": 541,
+        "Append": [
+          {
+            "first": 541,
+            "last": 541,
+            "start_us": 22175767,
+            "end_us": 22182060
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 541,
+            "last": 541,
+            "start_us": 22231994,
+            "end_us": 22233488
+          }
+        ]
+      },
+      {
+        "log_index": 542,
+        "Append": [
+          {
+            "first": 542,
+            "last": 542,
+            "start_us": 22208348,
+            "end_us": 22212014
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 542,
+            "last": 544,
+            "start_us": 22253847,
+            "end_us": 22256548
+          }
+        ]
+      },
+      {
+        "log_index": 543,
+        "Append": [
+          {
+            "first": 543,
+            "last": 543,
+            "start_us": 22212042,
+            "end_us": 22219962
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 542,
+            "last": 544,
+            "start_us": 22253847,
+            "end_us": 22256548
+          }
+        ]
+      },
+      {
+        "log_index": 544,
+        "Append": [
+          {
+            "first": 544,
+            "last": 544,
+            "start_us": 22220006,
+            "end_us": 22225591
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 542,
+            "last": 544,
+            "start_us": 22253847,
+            "end_us": 22256548
+          }
+        ]
+      },
+      {
+        "log_index": 545,
+        "Append": [
+          {
+            "first": 545,
+            "last": 545,
+            "start_us": 22240645,
+            "end_us": 22246472
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 545,
+            "last": 545,
+            "start_us": 22281406,
+            "end_us": 22284713
+          }
+        ]
+      },
+      {
+        "log_index": 546,
+        "Append": [
+          {
+            "first": 546,
+            "last": 546,
+            "start_us": 22262652,
+            "end_us": 22266908
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 546,
+            "last": 548,
+            "start_us": 22301487,
+            "end_us": 22319042
+          }
+        ]
+      },
+      {
+        "log_index": 547,
+        "Append": [
+          {
+            "first": 547,
+            "last": 547,
+            "start_us": 22266931,
+            "end_us": 22272037
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 546,
+            "last": 548,
+            "start_us": 22301487,
+            "end_us": 22319042
+          }
+        ]
+      },
+      {
+        "log_index": 548,
+        "Append": [
+          {
+            "first": 548,
+            "last": 548,
+            "start_us": 22272105,
+            "end_us": 22274981
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 546,
+            "last": 548,
+            "start_us": 22301487,
+            "end_us": 22319042
+          }
+        ]
+      },
+      {
+        "log_index": 549,
+        "Append": [
+          {
+            "first": 549,
+            "last": 549,
+            "start_us": 22285432,
+            "end_us": 22293595
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 549,
+            "last": 549,
+            "start_us": 22323685,
+            "end_us": 22329295
+          }
+        ]
+      },
+      {
+        "log_index": 550,
+        "Append": [
+          {
+            "first": 550,
+            "last": 550,
+            "start_us": 22324454,
+            "end_us": 22329775
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 550,
+            "last": 550,
+            "start_us": 22356792,
+            "end_us": 22359784
+          }
+        ]
+      },
+      {
+        "log_index": 551,
+        "Append": [
+          {
+            "first": 551,
+            "last": 551,
+            "start_us": 22329805,
+            "end_us": 22333246
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 551,
+            "last": 553,
+            "start_us": 22372422,
+            "end_us": 22383765
+          }
+        ]
+      },
+      {
+        "log_index": 552,
+        "Append": [
+          {
+            "first": 552,
+            "last": 552,
+            "start_us": 22333275,
+            "end_us": 22340579
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 551,
+            "last": 553,
+            "start_us": 22372422,
+            "end_us": 22383765
+          }
+        ]
+      },
+      {
+        "log_index": 553,
+        "Append": [
+          {
+            "first": 553,
+            "last": 553,
+            "start_us": 22341295,
+            "end_us": 22345045
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 551,
+            "last": 553,
+            "start_us": 22372422,
+            "end_us": 22383765
+          }
+        ]
+      },
+      {
+        "log_index": 554,
+        "Append": [
+          {
+            "first": 554,
+            "last": 554,
+            "start_us": 22359993,
+            "end_us": 22368242
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 554,
+            "last": 554,
+            "start_us": 22408502,
+            "end_us": 22410803
+          }
+        ]
+      },
+      {
+        "log_index": 555,
+        "Append": [
+          {
+            "first": 555,
+            "last": 555,
+            "start_us": 22390650,
+            "end_us": 22397656
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 555,
+            "last": 557,
+            "start_us": 22433686,
+            "end_us": 22438582
+          }
+        ]
+      },
+      {
+        "log_index": 556,
+        "Append": [
+          {
+            "first": 556,
+            "last": 556,
+            "start_us": 22397700,
+            "end_us": 22401999
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 555,
+            "last": 557,
+            "start_us": 22433686,
+            "end_us": 22438582
+          }
+        ]
+      },
+      {
+        "log_index": 557,
+        "Append": [
+          {
+            "first": 557,
+            "last": 557,
+            "start_us": 22402031,
+            "end_us": 22405092
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 555,
+            "last": 557,
+            "start_us": 22433686,
+            "end_us": 22438582
+          }
+        ]
+      },
+      {
+        "log_index": 558,
+        "Append": [
+          {
+            "first": 558,
+            "last": 558,
+            "start_us": 22413447,
+            "end_us": 22419186
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 558,
+            "last": 558,
+            "start_us": 22471973,
+            "end_us": 22480127
+          }
+        ]
+      },
+      {
+        "log_index": 559,
+        "Append": [
+          {
+            "first": 559,
+            "last": 559,
+            "start_us": 22441284,
+            "end_us": 22445843
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 559,
+            "last": 561,
+            "start_us": 22484631,
+            "end_us": 22495355
+          }
+        ]
+      },
+      {
+        "log_index": 560,
+        "Append": [
+          {
+            "first": 560,
+            "last": 560,
+            "start_us": 22445882,
+            "end_us": 22457984
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 559,
+            "last": 561,
+            "start_us": 22484631,
+            "end_us": 22495355
+          }
+        ]
+      },
+      {
+        "log_index": 561,
+        "Append": [
+          {
+            "first": 561,
+            "last": 561,
+            "start_us": 22458025,
+            "end_us": 22463318
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 559,
+            "last": 561,
+            "start_us": 22484631,
+            "end_us": 22495355
+          }
+        ]
+      },
+      {
+        "log_index": 562,
+        "Append": [
+          {
+            "first": 562,
+            "last": 562,
+            "start_us": 22484614,
+            "end_us": 22489574
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 562,
+            "last": 562,
+            "start_us": 22518621,
+            "end_us": 22521157
+          }
+        ]
+      },
+      {
+        "log_index": 563,
+        "Append": [
+          {
+            "first": 563,
+            "last": 563,
+            "start_us": 22498736,
+            "end_us": 22505825
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 563,
+            "last": 565,
+            "start_us": 22538117,
+            "end_us": 22541737
+          }
+        ]
+      },
+      {
+        "log_index": 564,
+        "Append": [
+          {
+            "first": 564,
+            "last": 564,
+            "start_us": 22505851,
+            "end_us": 22510451
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 563,
+            "last": 565,
+            "start_us": 22538117,
+            "end_us": 22541737
+          }
+        ]
+      },
+      {
+        "log_index": 565,
+        "Append": [
+          {
+            "first": 565,
+            "last": 565,
+            "start_us": 22510476,
+            "end_us": 22513705
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 563,
+            "last": 565,
+            "start_us": 22538117,
+            "end_us": 22541737
+          }
+        ]
+      },
+      {
+        "log_index": 566,
+        "Append": [
+          {
+            "first": 566,
+            "last": 566,
+            "start_us": 22524865,
+            "end_us": 22530411
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 566,
+            "last": 566,
+            "start_us": 22569959,
+            "end_us": 22580776
+          }
+        ]
+      },
+      {
+        "log_index": 567,
+        "Append": [
+          {
+            "first": 567,
+            "last": 567,
+            "start_us": 22545561,
+            "end_us": 22550972
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 567,
+            "last": 569,
+            "start_us": 22601699,
+            "end_us": 22606714
+          }
+        ]
+      },
+      {
+        "log_index": 568,
+        "Append": [
+          {
+            "first": 568,
+            "last": 568,
+            "start_us": 22551005,
+            "end_us": 22555601
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 567,
+            "last": 569,
+            "start_us": 22601699,
+            "end_us": 22606714
+          }
+        ]
+      },
+      {
+        "log_index": 569,
+        "Append": [
+          {
+            "first": 569,
+            "last": 569,
+            "start_us": 22555630,
+            "end_us": 22561502
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 567,
+            "last": 569,
+            "start_us": 22601699,
+            "end_us": 22606714
+          }
+        ]
+      },
+      {
+        "log_index": 570,
+        "Append": [
+          {
+            "first": 570,
+            "last": 570,
+            "start_us": 22581389,
+            "end_us": 22586451
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 570,
+            "last": 570,
+            "start_us": 22630768,
+            "end_us": 22636802
+          }
+        ]
+      },
+      {
+        "log_index": 571,
+        "Append": [
+          {
+            "first": 571,
+            "last": 571,
+            "start_us": 22611475,
+            "end_us": 22616824
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 571,
+            "last": 573,
+            "start_us": 22668034,
+            "end_us": 22675443
+          }
+        ]
+      },
+      {
+        "log_index": 572,
+        "Append": [
+          {
+            "first": 572,
+            "last": 572,
+            "start_us": 22616863,
+            "end_us": 22622141
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 571,
+            "last": 573,
+            "start_us": 22668034,
+            "end_us": 22675443
+          }
+        ]
+      },
+      {
+        "log_index": 573,
+        "Append": [
+          {
+            "first": 573,
+            "last": 573,
+            "start_us": 22622178,
+            "end_us": 22625477
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 571,
+            "last": 573,
+            "start_us": 22668034,
+            "end_us": 22675443
+          }
+        ]
+      },
+      {
+        "log_index": 574,
+        "Append": [
+          {
+            "first": 574,
+            "last": 574,
+            "start_us": 22638536,
+            "end_us": 22643264
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 574,
+            "last": 574,
+            "start_us": 22683073,
+            "end_us": 22693139
+          }
+        ]
+      },
+      {
+        "log_index": 575,
+        "Append": [
+          {
+            "first": 575,
+            "last": 575,
+            "start_us": 22683045,
+            "end_us": 22686656
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 575,
+            "last": 575,
+            "start_us": 22716799,
+            "end_us": 22722973
+          }
+        ]
+      },
+      {
+        "log_index": 576,
+        "Append": [
+          {
+            "first": 576,
+            "last": 576,
+            "start_us": 22686720,
+            "end_us": 22691494
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 576,
+            "last": 577,
+            "start_us": 22725754,
+            "end_us": 22731969
+          }
+        ]
+      },
+      {
+        "log_index": 577,
+        "Append": [
+          {
+            "first": 577,
+            "last": 577,
+            "start_us": 22691563,
+            "end_us": 22697715
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 576,
+            "last": 577,
+            "start_us": 22725754,
+            "end_us": 22731969
+          }
+        ]
+      },
+      {
+        "log_index": 578,
+        "Append": [
+          {
+            "first": 578,
+            "last": 578,
+            "start_us": 22699574,
+            "end_us": 22708357
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 578,
+            "last": 578,
+            "start_us": 22738020,
+            "end_us": 22742878
+          }
+        ]
+      },
+      {
+        "log_index": 579,
+        "Append": [
+          {
+            "first": 579,
+            "last": 579,
+            "start_us": 22725922,
+            "end_us": 22732321
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 579,
+            "last": 579,
+            "start_us": 22757912,
+            "end_us": 22762864
+          }
+        ]
+      },
+      {
+        "log_index": 580,
+        "Append": [
+          {
+            "first": 580,
+            "last": 580,
+            "start_us": 22740342,
+            "end_us": 22747698
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 580,
+            "last": 582,
+            "start_us": 22785917,
+            "end_us": 22793006
+          }
+        ]
+      },
+      {
+        "log_index": 581,
+        "Append": [
+          {
+            "first": 581,
+            "last": 581,
+            "start_us": 22747736,
+            "end_us": 22751761
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 580,
+            "last": 582,
+            "start_us": 22785917,
+            "end_us": 22793006
+          }
+        ]
+      },
+      {
+        "log_index": 582,
+        "Append": [
+          {
+            "first": 582,
+            "last": 582,
+            "start_us": 22757560,
+            "end_us": 22760800
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 580,
+            "last": 582,
+            "start_us": 22785917,
+            "end_us": 22793006
+          }
+        ]
+      },
+      {
+        "log_index": 583,
+        "Append": [
+          {
+            "first": 583,
+            "last": 583,
+            "start_us": 22764186,
+            "end_us": 22767753
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 583,
+            "last": 583,
+            "start_us": 22811926,
+            "end_us": 22815011
+          }
+        ]
+      },
+      {
+        "log_index": 584,
+        "Append": [
+          {
+            "first": 584,
+            "last": 584,
+            "start_us": 22795000,
+            "end_us": 22798742
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 584,
+            "last": 586,
+            "start_us": 22828141,
+            "end_us": 22832617
+          }
+        ]
+      },
+      {
+        "log_index": 585,
+        "Append": [
+          {
+            "first": 585,
+            "last": 585,
+            "start_us": 22798833,
+            "end_us": 22802857
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 584,
+            "last": 586,
+            "start_us": 22828141,
+            "end_us": 22832617
+          }
+        ]
+      },
+      {
+        "log_index": 586,
+        "Append": [
+          {
+            "first": 586,
+            "last": 586,
+            "start_us": 22803660,
+            "end_us": 22806574
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 584,
+            "last": 586,
+            "start_us": 22828141,
+            "end_us": 22832617
+          }
+        ]
+      },
+      {
+        "log_index": 587,
+        "Append": [
+          {
+            "first": 587,
+            "last": 587,
+            "start_us": 22818343,
+            "end_us": 22824038
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 587,
+            "last": 587,
+            "start_us": 22853857,
+            "end_us": 22856050
+          }
+        ]
+      },
+      {
+        "log_index": 588,
+        "Append": [
+          {
+            "first": 588,
+            "last": 588,
+            "start_us": 22834605,
+            "end_us": 22839771
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 588,
+            "last": 590,
+            "start_us": 22871512,
+            "end_us": 22877738
+          }
+        ]
+      },
+      {
+        "log_index": 589,
+        "Append": [
+          {
+            "first": 589,
+            "last": 589,
+            "start_us": 22839801,
+            "end_us": 22843099
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 588,
+            "last": 590,
+            "start_us": 22871512,
+            "end_us": 22877738
+          }
+        ]
+      },
+      {
+        "log_index": 590,
+        "Append": [
+          {
+            "first": 590,
+            "last": 590,
+            "start_us": 22843134,
+            "end_us": 22847250
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 588,
+            "last": 590,
+            "start_us": 22871512,
+            "end_us": 22877738
+          }
+        ]
+      },
+      {
+        "log_index": 591,
+        "Append": [
+          {
+            "first": 591,
+            "last": 591,
+            "start_us": 22861278,
+            "end_us": 22865918
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 591,
+            "last": 591,
+            "start_us": 22897840,
+            "end_us": 22899476
+          }
+        ]
+      },
+      {
+        "log_index": 592,
+        "Append": [
+          {
+            "first": 592,
+            "last": 592,
+            "start_us": 22881574,
+            "end_us": 22884599
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 592,
+            "last": 594,
+            "start_us": 22919186,
+            "end_us": 22933950
+          }
+        ]
+      },
+      {
+        "log_index": 593,
+        "Append": [
+          {
+            "first": 593,
+            "last": 593,
+            "start_us": 22884638,
+            "end_us": 22890082
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 592,
+            "last": 594,
+            "start_us": 22919186,
+            "end_us": 22933950
+          }
+        ]
+      },
+      {
+        "log_index": 594,
+        "Append": [
+          {
+            "first": 594,
+            "last": 594,
+            "start_us": 22890111,
+            "end_us": 22894252
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 592,
+            "last": 594,
+            "start_us": 22919186,
+            "end_us": 22933950
+          }
+        ]
+      },
+      {
+        "log_index": 595,
+        "Append": [
+          {
+            "first": 595,
+            "last": 595,
+            "start_us": 22901747,
+            "end_us": 22906140
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 595,
+            "last": 595,
+            "start_us": 22935723,
+            "end_us": 22938888
+          }
+        ]
+      },
+      {
+        "log_index": 596,
+        "Append": [
+          {
+            "first": 596,
+            "last": 596,
+            "start_us": 22936140,
+            "end_us": 22940429
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 596,
+            "last": 596,
+            "start_us": 22962547,
+            "end_us": 22964399
+          }
+        ]
+      },
+      {
+        "log_index": 597,
+        "Append": [
+          {
+            "first": 597,
+            "last": 597,
+            "start_us": 22940469,
+            "end_us": 22945801
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 597,
+            "last": 598,
+            "start_us": 22976285,
+            "end_us": 22982780
+          }
+        ]
+      },
+      {
+        "log_index": 598,
+        "Append": [
+          {
+            "first": 598,
+            "last": 598,
+            "start_us": 22945837,
+            "end_us": 22950943
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 597,
+            "last": 598,
+            "start_us": 22976285,
+            "end_us": 22982780
+          }
+        ]
+      },
+      {
+        "log_index": 599,
+        "Append": [
+          {
+            "first": 599,
+            "last": 599,
+            "start_us": 22954764,
+            "end_us": 22957898
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 599,
+            "last": 599,
+            "start_us": 22996620,
+            "end_us": 22999232
+          }
+        ]
+      },
+      {
+        "log_index": 600,
+        "Append": [
+          {
+            "first": 600,
+            "last": 600,
+            "start_us": 22964959,
+            "end_us": 22970560
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 600,
+            "last": 600,
+            "start_us": 23001337,
+            "end_us": 23003163
+          }
+        ]
+      },
+      {
+        "log_index": 601,
+        "Append": [
+          {
+            "first": 601,
+            "last": 601,
+            "start_us": 22983207,
+            "end_us": 22988929
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 601,
+            "last": 602,
+            "start_us": 23019154,
+            "end_us": 23024533
+          }
+        ]
+      },
+      {
+        "log_index": 602,
+        "Append": [
+          {
+            "first": 602,
+            "last": 602,
+            "start_us": 22988964,
+            "end_us": 22992589
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 601,
+            "last": 602,
+            "start_us": 23019154,
+            "end_us": 23024533
+          }
+        ]
+      },
+      {
+        "log_index": 603,
+        "Append": [
+          {
+            "first": 603,
+            "last": 603,
+            "start_us": 23001836,
+            "end_us": 23007292
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 603,
+            "last": 605,
+            "start_us": 23048546,
+            "end_us": 23056216
+          }
+        ]
+      },
+      {
+        "log_index": 604,
+        "Append": [
+          {
+            "first": 604,
+            "last": 604,
+            "start_us": 23010170,
+            "end_us": 23015237
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 603,
+            "last": 605,
+            "start_us": 23048546,
+            "end_us": 23056216
+          }
+        ]
+      },
+      {
+        "log_index": 605,
+        "Append": [
+          {
+            "first": 605,
+            "last": 605,
+            "start_us": 23025913,
+            "end_us": 23030505
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 603,
+            "last": 605,
+            "start_us": 23048546,
+            "end_us": 23056216
+          }
+        ]
+      },
+      {
+        "log_index": 606,
+        "Append": [
+          {
+            "first": 606,
+            "last": 606,
+            "start_us": 23034397,
+            "end_us": 23036925
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 606,
+            "last": 606,
+            "start_us": 23080418,
+            "end_us": 23081683
+          }
+        ]
+      },
+      {
+        "log_index": 607,
+        "Append": [
+          {
+            "first": 607,
+            "last": 607,
+            "start_us": 23059708,
+            "end_us": 23067589
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 607,
+            "last": 609,
+            "start_us": 23093549,
+            "end_us": 23098054
+          }
+        ]
+      },
+      {
+        "log_index": 608,
+        "Append": [
+          {
+            "first": 608,
+            "last": 608,
+            "start_us": 23067623,
+            "end_us": 23070880
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 607,
+            "last": 609,
+            "start_us": 23093549,
+            "end_us": 23098054
+          }
+        ]
+      },
+      {
+        "log_index": 609,
+        "Append": [
+          {
+            "first": 609,
+            "last": 609,
+            "start_us": 23070930,
+            "end_us": 23076122
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 607,
+            "last": 609,
+            "start_us": 23093549,
+            "end_us": 23098054
+          }
+        ]
+      },
+      {
+        "log_index": 610,
+        "Append": [
+          {
+            "first": 610,
+            "last": 610,
+            "start_us": 23081929,
+            "end_us": 23089430
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 610,
+            "last": 610,
+            "start_us": 23119298,
+            "end_us": 23123166
+          }
+        ]
+      },
+      {
+        "log_index": 611,
+        "Append": [
+          {
+            "first": 611,
+            "last": 611,
+            "start_us": 23098893,
+            "end_us": 23107421
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 611,
+            "last": 613,
+            "start_us": 23132033,
+            "end_us": 23137397
+          }
+        ]
+      },
+      {
+        "log_index": 612,
+        "Append": [
+          {
+            "first": 612,
+            "last": 612,
+            "start_us": 23107459,
+            "end_us": 23113187
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 611,
+            "last": 613,
+            "start_us": 23132033,
+            "end_us": 23137397
+          }
+        ]
+      },
+      {
+        "log_index": 613,
+        "Append": [
+          {
+            "first": 613,
+            "last": 613,
+            "start_us": 23113218,
+            "end_us": 23115986
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 611,
+            "last": 613,
+            "start_us": 23132033,
+            "end_us": 23137397
+          }
+        ]
+      },
+      {
+        "log_index": 614,
+        "Append": [
+          {
+            "first": 614,
+            "last": 614,
+            "start_us": 23123398,
+            "end_us": 23128146
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 614,
+            "last": 614,
+            "start_us": 23142051,
+            "end_us": 23145961
+          }
+        ]
+      },
+      {
+        "log_index": 615,
+        "Append": [
+          {
+            "first": 615,
+            "last": 615,
+            "start_us": 23142243,
+            "end_us": 23147176
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 615,
+            "last": 615,
+            "start_us": 23172172,
+            "end_us": 23173185
+          }
+        ]
+      },
+      {
+        "log_index": 616,
+        "Append": [
+          {
+            "first": 616,
+            "last": 616,
+            "start_us": 23151859,
+            "end_us": 23161343
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 616,
+            "last": 618,
+            "start_us": 23182261,
+            "end_us": 23182859
+          }
+        ]
+      },
+      {
+        "log_index": 617,
+        "Append": [
+          {
+            "first": 617,
+            "last": 617,
+            "start_us": 23161422,
+            "end_us": 23165142
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 616,
+            "last": 618,
+            "start_us": 23182261,
+            "end_us": 23182859
+          }
+        ]
+      },
+      {
+        "log_index": 618,
+        "Append": [
+          {
+            "first": 618,
+            "last": 618,
+            "start_us": 23165187,
+            "end_us": 23167575
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 616,
+            "last": 618,
+            "start_us": 23182261,
+            "end_us": 23182859
+          }
+        ]
+      },
+      {
+        "log_index": 619,
+        "Append": [
+          {
+            "first": 619,
+            "last": 619,
+            "start_us": 23173774,
+            "end_us": 23179463
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 619,
+            "last": 619,
+            "start_us": 23196369,
+            "end_us": 23200282
+          }
+        ]
+      },
+      {
+        "log_index": 620,
+        "Append": [
+          {
+            "first": 620,
+            "last": 620,
+            "start_us": 23183293,
+            "end_us": 23187213
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 620,
+            "last": 621,
+            "start_us": 23206093,
+            "end_us": 23207929
+          }
+        ]
+      },
+      {
+        "log_index": 621,
+        "Append": [
+          {
+            "first": 621,
+            "last": 621,
+            "start_us": 23187240,
+            "end_us": 23191994
+          }
+        ],
+        "ApplyQueued": [
+          {
+            "first": 620,
+            "last": 621,
+            "start_us": 23206093,
+            "end_us": 23207929
+          }
+        ]
+      }
+    ]
+  },
+  "note": "One same-load cohort. Compare actual raw CPU ticks and padding as well as average cores; accepted-tail execution may increase replica work. Latencies are successful connection latencies, not message latency or capacity.",
+  "cpu_work": {
+    "before": {
+      "tail_allowance_seconds": 0,
+      "ticks": 3682,
+      "hz": 100,
+      "cpu_seconds": 36.82,
+      "cpu_ms_per_success": 3.682,
+      "bracket_seconds": 6.794715078,
+      "before_padding_ms": 616.305166,
+      "after_padding_ms": 928.84888,
+      "first_wall_ns": 1793751074093694834,
+      "last_wall_ns": 1793751080888409785,
+      "note": "Complete ramp bracket plus disclosed quiet padding; raw same-PID ticks, not exact pure-ramp CPU or an extrapolated mean."
+    },
+    "after": {
+      "tail_allowance_seconds": 0,
+      "ticks": 3648,
+      "hz": 100,
+      "cpu_seconds": 36.48,
+      "cpu_ms_per_success": 3.648,
+      "bracket_seconds": 6.476237773,
+      "before_padding_ms": 970.129833,
+      "after_padding_ms": 309.001198,
+      "first_wall_ns": 1793758122062870167,
+      "last_wall_ns": 1793758128539107594,
+      "note": "Complete ramp bracket plus disclosed quiet padding; raw same-PID ticks, not exact pure-ramp CPU or an extrapolated mean."
+    }
+  },
+  "cpu_work_including_tail": {
+    "before": {
+      "tail_allowance_seconds": 3,
+      "ticks": 3715,
+      "hz": 100,
+      "cpu_seconds": 37.15,
+      "cpu_ms_per_success": 3.715,
+      "bracket_seconds": 8.929857823,
+      "before_padding_ms": 616.305166,
+      "after_padding_ms": 63.991379,
+      "first_wall_ns": 1793751074093694834,
+      "last_wall_ns": 1793751083023552284,
+      "note": "Complete ramp bracket plus disclosed quiet padding; raw same-PID ticks, not exact pure-ramp CPU or an extrapolated mean."
+    },
+    "after": {
+      "tail_allowance_seconds": 3,
+      "ticks": 3699,
+      "hz": 100,
+      "cpu_seconds": 36.99,
+      "cpu_ms_per_success": 3.699,
+      "bracket_seconds": 9.709901096,
+      "before_padding_ms": 970.129833,
+      "after_padding_ms": 542.664802,
+      "first_wall_ns": 1793758122062870167,
+      "last_wall_ns": 1793758131772771198,
+      "note": "Complete ramp bracket plus disclosed quiet padding; raw same-PID ticks, not exact pure-ramp CPU or an extrapolated mean."
+    }
+  },
+  "h2_reset_warnings": {
+    "before": {
+      "node1": {
+        "startup": {
+          "remote": 0,
+          "local": 0
+        },
+        "ramp": {
+          "remote": 32,
+          "local": 2
+        },
+        "hold": {
+          "remote": 0,
+          "local": 0
+        },
+        "cleanup": {
+          "remote": 3,
+          "local": 0
+        }
+      },
+      "node2": {
+        "startup": {
+          "remote": 0,
+          "local": 0
+        },
+        "ramp": {
+          "remote": 3,
+          "local": 1
+        },
+        "hold": {
+          "remote": 0,
+          "local": 0
+        },
+        "cleanup": {
+          "remote": 0,
+          "local": 0
+        }
+      },
+      "node3": {
+        "startup": {
+          "remote": 0,
+          "local": 0
+        },
+        "ramp": {
+          "remote": 5,
+          "local": 0
+        },
+        "hold": {
+          "remote": 0,
+          "local": 0
+        },
+        "cleanup": {
+          "remote": 1,
+          "local": 0
+        }
+      }
+    },
+    "after": {
+      "node1": {
+        "startup": {
+          "remote": 0,
+          "local": 0
+        },
+        "ramp": {
+          "remote": 0,
+          "local": 0
+        },
+        "hold": {
+          "remote": 0,
+          "local": 0
+        },
+        "cleanup": {
+          "remote": 0,
+          "local": 0
+        }
+      },
+      "node2": {
+        "startup": {
+          "remote": 0,
+          "local": 0
+        },
+        "ramp": {
+          "remote": 0,
+          "local": 0
+        },
+        "hold": {
+          "remote": 0,
+          "local": 0
+        },
+        "cleanup": {
+          "remote": 0,
+          "local": 0
+        }
+      },
+      "node3": {
+        "startup": {
+          "remote": 0,
+          "local": 0
+        },
+        "ramp": {
+          "remote": 0,
+          "local": 0
+        },
+        "hold": {
+          "remote": 0,
+          "local": 0
+        },
+        "cleanup": {
+          "remote": 0,
+          "local": 0
+        }
+      }
+    }
+  },
+  "quorum_metrics": {
+    "node1": {
+      "QuorumDriver": {
+        "count": 14391,
+        "mean": 1.0,
+        "snapshot_consistent": true
+      },
+      "QuorumRemoteEncode": {
+        "count": 14391,
+        "mean": 1.5240775484677924,
+        "snapshot_consistent": true
+      },
+      "QuorumRemoteBytes": {
+        "count": 14391,
+        "mean": 146.72031130567717,
+        "snapshot_consistent": true
+      },
+      "QuorumTail": {
+        "count": 14391,
+        "mean": 3974.8584531999168,
+        "snapshot_consistent": true
+      }
+    },
+    "node2": {
+      "QuorumDriver": {
+        "count": 15329,
+        "mean": 1.0,
+        "snapshot_consistent": true
+      },
+      "QuorumRemoteEncode": {
+        "count": 15329,
+        "mean": 2.0053493378563507,
+        "snapshot_consistent": true
+      },
+      "QuorumRemoteBytes": {
+        "count": 15329,
+        "mean": 151.8388022702068,
+        "snapshot_consistent": true
+      },
+      "QuorumTail": {
+        "count": 15329,
+        "mean": 4355.570422075804,
+        "snapshot_consistent": true
+      }
+    },
+    "node3": {
+      "QuorumDriver": {
+        "count": 15360,
+        "mean": 1.0,
+        "snapshot_consistent": true
+      },
+      "QuorumRemoteEncode": {
+        "count": 15360,
+        "mean": 1.9705729166666666,
+        "snapshot_consistent": true
+      },
+      "QuorumRemoteBytes": {
+        "count": 15360,
+        "mean": 151.99635416666666,
+        "snapshot_consistent": true
+      },
+      "QuorumTail": {
+        "count": 15360,
+        "mean": 3992.667513020833,
+        "snapshot_consistent": true
+      }
+    }
+  }
+}

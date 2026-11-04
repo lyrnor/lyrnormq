@@ -814,3 +814,18 @@ Evidence:docs/performance/raft-optimization-20261104/README.md. Mean/p99 improve
 
 Contract:docs/contracts/phase7t-control-write-pipeline.md.
 Evidence:docs/performance/raft-pipeline-20261104/README.md.
+
+## Phase7u — quorum lifecycle and shared-buffer CPU work
+
+- [x] Freeze W2 result, owned tail/absolute deadlines, immutable wire and CPU-work contract.
+- [x] Three isolated worktrees; controlled regression-first implementations and review.
+- [x] Prove successful quorum cancels third HTTP2 stream on old release with finite proxy.
+- [x] One owned three-future driver, once-per-operation borrowed encoding/shared Bytes;
+  preserve selected quorum, conflicts, peer panic isolation and late-write fencing.
+- [x] Precompute constant authentication metadata; retain per-request binding/comparison.
+- [x] Integrated423tests, strictworkspaceClippy/fmt and8profile-enabled real-process tests.
+- [x] Local optimized static amd64musl build, no server compilation/system-disk targets.
+- [ ] One unchanged2000/s10k CPU cohort, audit original ticks/bracket padding and tail
+  allowance, h2 resets, RTT/queues, success/PING, CPU/RSS and allprocesscleanup.
+- [ ] Keep CPU leaf attribution limits: perf libdw reports overlapping modules despite
+  recorded user stacks/ELF CFI. Do not pretend generic memory leaves identify callers.

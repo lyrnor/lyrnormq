@@ -1,0 +1,15 @@
+{
+  "source_commit": "694bfbb",
+  "cluster_tests": 220,
+  "transport_tests": 203,
+  "real_process_tests": 8,
+  "real_process_seconds": 34.781,
+  "strict_workspace_clippy": true,
+  "fmt": true,
+  "new_driver_regression_tests": 13,
+  "new_rpc_tests": 6,
+  "old_driver_regression_failed_as_expected": true,
+  "old_real_http2_reset_regression_failed_as_expected": true,
+  "lib_rs_unchanged": true,
+  "no_dependency_or_schema_change": true
+}
