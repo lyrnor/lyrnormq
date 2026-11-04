@@ -51,8 +51,13 @@ pub(crate) enum Metric {
     CheckpointPersist,
     BatchSize,
     BatchBytes,
+    QuorumDriver,
+    QuorumRemoteEncode,
+    QuorumRemoteBytes,
+    QuorumTail,
+    QuorumTailTimeout,
 }
-const METRICS: [Metric; 39] = [
+const METRICS: [Metric; 44] = [
     Metric::ControlWrite,
     Metric::Validate,
     Metric::Encode,
@@ -92,6 +97,11 @@ const METRICS: [Metric; 39] = [
     Metric::CheckpointPersist,
     Metric::BatchSize,
     Metric::BatchBytes,
+    Metric::QuorumDriver,
+    Metric::QuorumRemoteEncode,
+    Metric::QuorumRemoteBytes,
+    Metric::QuorumTail,
+    Metric::QuorumTailTimeout,
 ];
 struct Stats {
     count: AtomicU64,

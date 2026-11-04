@@ -59,3 +59,9 @@ partial-window average cores by full-ramp time. Compare h2 reset/GOAWAY, complet
 counts, latency/RSS, RPC/queue/stages; shared tail execution may increase replica work.
 Capture only fixed numeric diagnostic fields, never bodies/credentials/client IDs.
 Archive exact raw evidence, stop processes; no higher or business-message benchmark.
+
+Fixed opt-in profiling: QuorumDriver observes1 per spawned owned coordinator;
+QuorumRemoteEncode timer counts/time for once-per-operation remote body encode;
+QuorumRemoteBytes observes that single encoded length; QuorumTail timer measures
+drain after a selected result (not caller wait); QuorumTailTimeout observes1 only
+when absolute tail/overall budget ends unfinished work. No identities in metrics.
