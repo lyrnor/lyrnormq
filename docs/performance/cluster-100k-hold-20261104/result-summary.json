@@ -1,0 +1,1189 @@
+{
+  "passed": false,
+  "requested": {
+    "rate": 2000,
+    "total": 100000,
+    "hold_seconds": 300
+  },
+  "client_metrics": null,
+  "client_metrics_note": "Coordinator aborted after observed mass disconnection; all four final report/raw files are empty. ACK successes/mean/p99/300s hold are unverified, not zero.",
+  "tcp_sample_peak": {
+    "total": 59296,
+    "by_node": {
+      "18831": 19503,
+      "18832": 19805,
+      "18833": 19988
+    },
+    "scan_begin_wall_ns": 1793759757581681519,
+    "scan_end_wall_ns": 1793759758581951129,
+    "row_wall_ns": 1793759758582192670
+  },
+  "first_zero_scan_after_peak": {
+    "begin_wall_ns": 1793759763192664143,
+    "end_wall_ns": 1793759763214576360
+  },
+  "admission": {
+    "node1": {
+      "acquired": 28417,
+      "rejected": 4917,
+      "active": 0,
+      "observed_peak": 1024,
+      "limit": 1024
+    },
+    "node2": {
+      "acquired": 28936,
+      "rejected": 4397,
+      "active": 0,
+      "observed_peak": 1024,
+      "limit": 1024
+    },
+    "node3": {
+      "acquired": 29101,
+      "rejected": 4232,
+      "active": 0,
+      "observed_peak": 1024,
+      "limit": 1024
+    }
+  },
+  "admission_totals": {
+    "acquired": 86454,
+    "rejected": 13546
+  },
+  "resources": {
+    "simultaneous_rss_peak_mib": 7652.625,
+    "simultaneous_fd_peak": 59420,
+    "cpu_interval_peak_cores": 7.47682007026977,
+    "before_peak_cpu_cores": 6.605760380885944,
+    "before_peak_sampled_seconds": 33.104440275,
+    "mem_available_min_mib": 6975.6875
+  },
+  "raft_gates": {
+    "startup": true,
+    "full": null,
+    "hold-end": null,
+    "final": true
+  },
+  "raft_final": {
+    "label": "final",
+    "wall_ns": 1793759900294975529,
+    "target_revision": 4187,
+    "passed": true,
+    "rounds": [
+      [
+        {
+          "controller": 1,
+          "status": {
+            "data_storage": "memory",
+            "leader": 2,
+            "term": 5,
+            "last_applied": 4187,
+            "nodes": 3,
+            "clients": 73099,
+            "routes": 0,
+            "data_generation": 0,
+            "excluded": [],
+            "repair": null,
+            "last_repair": null
+          },
+          "read_start_wall_ns": 1793759900253288725,
+          "read_end_wall_ns": 1793759900267169009
+        },
+        {
+          "controller": 2,
+          "status": {
+            "data_storage": "memory",
+            "leader": 2,
+            "term": 5,
+            "last_applied": 4187,
+            "nodes": 3,
+            "clients": 73099,
+            "routes": 0,
+            "data_generation": 0,
+            "excluded": [],
+            "repair": null,
+            "last_repair": null
+          },
+          "read_start_wall_ns": 1793759900267172995,
+          "read_end_wall_ns": 1793759900280188737
+        },
+        {
+          "controller": 3,
+          "status": {
+            "data_storage": "memory",
+            "leader": 2,
+            "term": 5,
+            "last_applied": 4187,
+            "nodes": 3,
+            "clients": 73099,
+            "routes": 0,
+            "data_generation": 0,
+            "excluded": [],
+            "repair": null,
+            "last_repair": null
+          },
+          "read_start_wall_ns": 1793759900280191796,
+          "read_end_wall_ns": 1793759900294911758
+        }
+      ]
+    ]
+  },
+  "membership": [
+    {
+      "controller": 1,
+      "records": [
+        {
+          "file": "r-00_000_000_000_000_000_000.wal",
+          "entry": {
+            "log_id": {
+              "leader_id": {
+                "term": 0,
+                "node_id": 0
+              },
+              "index": 0
+            },
+            "payload": {
+              "Membership": {
+                "configs": [
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ],
+                "nodes": {
+                  "1": {
+                    "addr": "http://127.0.0.1:17001"
+                  },
+                  "2": {
+                    "addr": "http://127.0.0.1:17002"
+                  },
+                  "3": {
+                    "addr": "http://127.0.0.1:17003"
+                  }
+                }
+              }
+            }
+          },
+          "checksum_valid": true
+        }
+      ]
+    },
+    {
+      "controller": 2,
+      "records": [
+        {
+          "file": "r-00_000_000_000_000_000_000.wal",
+          "entry": {
+            "log_id": {
+              "leader_id": {
+                "term": 0,
+                "node_id": 0
+              },
+              "index": 0
+            },
+            "payload": {
+              "Membership": {
+                "configs": [
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ],
+                "nodes": {
+                  "1": {
+                    "addr": "http://127.0.0.1:17001"
+                  },
+                  "2": {
+                    "addr": "http://127.0.0.1:17002"
+                  },
+                  "3": {
+                    "addr": "http://127.0.0.1:17003"
+                  }
+                }
+              }
+            }
+          },
+          "checksum_valid": true
+        }
+      ]
+    },
+    {
+      "controller": 3,
+      "records": [
+        {
+          "file": "r-00_000_000_000_000_000_000.wal",
+          "entry": {
+            "log_id": {
+              "leader_id": {
+                "term": 0,
+                "node_id": 0
+              },
+              "index": 0
+            },
+            "payload": {
+              "Membership": {
+                "configs": [
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ],
+                "nodes": {
+                  "1": {
+                    "addr": "http://127.0.0.1:17001"
+                  },
+                  "2": {
+                    "addr": "http://127.0.0.1:17002"
+                  },
+                  "3": {
+                    "addr": "http://127.0.0.1:17003"
+                  }
+                }
+              }
+            }
+          },
+          "checksum_valid": true
+        }
+      ]
+    }
+  ],
+  "checkpoints": {
+    "node1": [
+      {
+        "observed_utc": "2026-11-04T02:35:39.166832Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 38896,
+        "individual_us": 38896,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.167336Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 28,
+        "individual_us": 28,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.167336Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 873722,
+        "individual_us": 873722,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.167336Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 114816,
+        "individual_us": 114816,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.167336Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 750114,
+        "individual_us": 750114,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.167928Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 47,
+        "individual_us": 47,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.167928Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 68845,
+        "individual_us": 68845,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.167928Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 145059,
+        "individual_us": 145059,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:01.166993Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 2473161,
+        "individual_us": 2473161,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.167949Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 33,
+        "individual_us": 33,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.167949Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 3267797,
+        "individual_us": 3267797,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:04.167073Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 917,
+        "individual_us": 917,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:04.167073Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 1757710,
+        "individual_us": 1757710,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:06.167226Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 1830124,
+        "individual_us": 1830124,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:20.167800Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 53506,
+        "individual_us": 53506,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:21.166932Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 5,
+        "delta_count": 1,
+        "delta_sum_us": 149,
+        "individual_us": 149,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:21.166932Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 191894,
+        "individual_us": 191894,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.167384Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 6,
+        "delta_count": 1,
+        "delta_sum_us": 63,
+        "individual_us": 63,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.167384Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 3843620,
+        "individual_us": 3843620,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.167384Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 5,
+        "delta_count": 1,
+        "delta_sum_us": 3630431,
+        "individual_us": 3630431,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:26.167286Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 7,
+        "delta_count": 1,
+        "delta_sum_us": 123,
+        "individual_us": 123,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:26.167286Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 6,
+        "delta_count": 1,
+        "delta_sum_us": 1999915,
+        "individual_us": 1999915,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:28.167471Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 7,
+        "delta_count": 1,
+        "delta_sum_us": 2090854,
+        "individual_us": 2090854,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.167218Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 8,
+        "delta_count": 1,
+        "delta_sum_us": 100,
+        "individual_us": 100,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.167218Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 47098,
+        "individual_us": 47098,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.167218Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 211491,
+        "individual_us": 211491,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.167113Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 9,
+        "delta_count": 1,
+        "delta_sum_us": 1821,
+        "individual_us": 1821,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.167113Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 3435115,
+        "individual_us": 3435115,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.167113Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 8,
+        "delta_count": 1,
+        "delta_sum_us": 3209062,
+        "individual_us": 3209062,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:02.167438Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 10,
+        "delta_count": 1,
+        "delta_sum_us": 70,
+        "individual_us": 70,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:02.167438Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 9,
+        "delta_count": 1,
+        "delta_sum_us": 2147975,
+        "individual_us": 2147975,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:04.167657Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 10,
+        "delta_count": 1,
+        "delta_sum_us": 1800601,
+        "individual_us": 1800601,
+        "consistent": true
+      }
+    ],
+    "node2": [
+      {
+        "observed_utc": "2026-11-04T02:35:39.167672Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 35911,
+        "individual_us": 35911,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.168867Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 391,
+        "individual_us": 391,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.168867Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 779469,
+        "individual_us": 779469,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.168867Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 70453,
+        "individual_us": 70453,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.168867Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 698238,
+        "individual_us": 698238,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.167893Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 37,
+        "individual_us": 37,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.167893Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 84920,
+        "individual_us": 84920,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.167893Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 153234,
+        "individual_us": 153234,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.168359Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 41,
+        "individual_us": 41,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.168359Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 3362189,
+        "individual_us": 3362189,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.168359Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 2806301,
+        "individual_us": 2806301,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:04.168442Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 787,
+        "individual_us": 787,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:04.168442Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 1793652,
+        "individual_us": 1793652,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:06.169427Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 1838907,
+        "individual_us": 1838907,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:20.168057Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 52699,
+        "individual_us": 52699,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:21.168244Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 5,
+        "delta_count": 1,
+        "delta_sum_us": 156,
+        "individual_us": 156,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:21.168244Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 197558,
+        "individual_us": 197558,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.168126Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 6,
+        "delta_count": 1,
+        "delta_sum_us": 31,
+        "individual_us": 31,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.168126Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 3649534,
+        "individual_us": 3649534,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.168126Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 5,
+        "delta_count": 1,
+        "delta_sum_us": 3427294,
+        "individual_us": 3427294,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:26.168706Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 7,
+        "delta_count": 1,
+        "delta_sum_us": 40,
+        "individual_us": 40,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:26.168706Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 6,
+        "delta_count": 1,
+        "delta_sum_us": 1957750,
+        "individual_us": 1957750,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:28.168076Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 7,
+        "delta_count": 1,
+        "delta_sum_us": 2084652,
+        "individual_us": 2084652,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.168020Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 8,
+        "delta_count": 1,
+        "delta_sum_us": 95,
+        "individual_us": 95,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.168020Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 49035,
+        "individual_us": 49035,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.168020Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 188216,
+        "individual_us": 188216,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.168385Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 9,
+        "delta_count": 1,
+        "delta_sum_us": 36,
+        "individual_us": 36,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.168385Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 3399786,
+        "individual_us": 3399786,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.168385Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 8,
+        "delta_count": 1,
+        "delta_sum_us": 3197556,
+        "individual_us": 3197556,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:02.168097Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 10,
+        "delta_count": 1,
+        "delta_sum_us": 84,
+        "individual_us": 84,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:02.168097Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 9,
+        "delta_count": 1,
+        "delta_sum_us": 1966094,
+        "individual_us": 1966094,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:04.167910Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 10,
+        "delta_count": 1,
+        "delta_sum_us": 1867978,
+        "individual_us": 1867978,
+        "consistent": true
+      }
+    ],
+    "node3": [
+      {
+        "observed_utc": "2026-11-04T02:35:39.174272Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 53611,
+        "individual_us": 53611,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.173651Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 50,
+        "individual_us": 50,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.173651Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 771366,
+        "individual_us": 771366,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.173651Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 79007,
+        "individual_us": 79007,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:40.173651Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 1,
+        "delta_count": 1,
+        "delta_sum_us": 683793,
+        "individual_us": 683793,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.171990Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 43,
+        "individual_us": 43,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.171990Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 70448,
+        "individual_us": 70448,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:35:59.171990Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 115813,
+        "individual_us": 115813,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.172153Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 153,
+        "individual_us": 153,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.172153Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 3469124,
+        "individual_us": 3469124,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:02.172153Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 2,
+        "delta_count": 1,
+        "delta_sum_us": 2855315,
+        "individual_us": 2855315,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:04.171281Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 438,
+        "individual_us": 438,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:04.171281Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 1577917,
+        "individual_us": 1577917,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:06.171636Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 1961993,
+        "individual_us": 1961993,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:20.171587Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 55806,
+        "individual_us": 55806,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:21.171896Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 5,
+        "delta_count": 1,
+        "delta_sum_us": 110,
+        "individual_us": 110,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:21.171896Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 200669,
+        "individual_us": 200669,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.171425Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 6,
+        "delta_count": 1,
+        "delta_sum_us": 52,
+        "individual_us": 52,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.171425Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 3,
+        "delta_count": 1,
+        "delta_sum_us": 3819604,
+        "individual_us": 3819604,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:24.171425Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 5,
+        "delta_count": 1,
+        "delta_sum_us": 3596350,
+        "individual_us": 3596350,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:26.172246Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 7,
+        "delta_count": 1,
+        "delta_sum_us": 68,
+        "individual_us": 68,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:26.172246Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 6,
+        "delta_count": 1,
+        "delta_sum_us": 1936555,
+        "individual_us": 1936555,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:36:28.171520Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 7,
+        "delta_count": 1,
+        "delta_sum_us": 1985344,
+        "individual_us": 1985344,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.171882Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 8,
+        "delta_count": 1,
+        "delta_sum_us": 69,
+        "individual_us": 69,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.171882Z",
+        "metric": "CheckpointClone",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 52660,
+        "individual_us": 52660,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:37:57.171882Z",
+        "metric": "CheckpointEncode",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 219258,
+        "individual_us": 219258,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.172015Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 9,
+        "delta_count": 1,
+        "delta_sum_us": 64,
+        "individual_us": 64,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.172015Z",
+        "metric": "CheckpointTotal",
+        "through_ordinal": 4,
+        "delta_count": 1,
+        "delta_sum_us": 3673698,
+        "individual_us": 3673698,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:00.172015Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 8,
+        "delta_count": 1,
+        "delta_sum_us": 3438920,
+        "individual_us": 3438920,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:02.172145Z",
+        "metric": "CheckpointWait",
+        "through_ordinal": 10,
+        "delta_count": 1,
+        "delta_sum_us": 84,
+        "individual_us": 84,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:02.172145Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 9,
+        "delta_count": 1,
+        "delta_sum_us": 1973123,
+        "individual_us": 1973123,
+        "consistent": true
+      },
+      {
+        "observed_utc": "2026-11-04T02:38:04.171600Z",
+        "metric": "CheckpointPersist",
+        "through_ordinal": 10,
+        "delta_count": 1,
+        "delta_sum_us": 1940405,
+        "individual_us": 1940405,
+        "consistent": true
+      }
+    ]
+  },
+  "first_failures": {
+    "node1": [
+      "2026-11-04T02:35:59.364199Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=1 elapsed_us=1000584",
+      "2026-11-04T02:35:59.364222Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Owner outcome=Failure count=1 elapsed_us=1000614",
+      "2026-11-04T02:35:59.364369Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=2 elapsed_us=1000780",
+      "2026-11-04T02:35:59.364384Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=1 elapsed_us=1029310",
+      "2026-11-04T02:35:59.364451Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=2 elapsed_us=1028345",
+      "2026-11-04T02:35:59.364502Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=4 elapsed_us=1000903",
+      "2026-11-04T02:35:59.364524Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=4 elapsed_us=1028422",
+      "2026-11-04T02:35:59.364609Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=8 elapsed_us=1001035",
+      "2026-11-04T02:35:59.364620Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=8 elapsed_us=1028530",
+      "2026-11-04T02:35:59.366080Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Owner outcome=Failure count=2 elapsed_us=1000433",
+      "2026-11-04T02:35:59.366265Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=16 elapsed_us=1002011",
+      "2026-11-04T02:35:59.366305Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=16 elapsed_us=1029111"
+    ],
+    "node2": [
+      "2026-11-04T02:35:59.365735Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=1 elapsed_us=158",
+      "2026-11-04T02:35:59.365765Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Owner outcome=Failure count=1 elapsed_us=191",
+      "2026-11-04T02:35:59.366064Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=2 elapsed_us=28",
+      "2026-11-04T02:35:59.366072Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=1 elapsed_us=39",
+      "2026-11-04T02:35:59.366421Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=2 elapsed_us=22",
+      "2026-11-04T02:35:59.366442Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=4 elapsed_us=155",
+      "2026-11-04T02:35:59.366474Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=4 elapsed_us=174",
+      "2026-11-04T02:35:59.366802Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=8 elapsed_us=100",
+      "2026-11-04T02:35:59.366869Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=8 elapsed_us=40",
+      "2026-11-04T02:35:59.370993Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=16 elapsed_us=921",
+      "2026-11-04T02:35:59.371045Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=16 elapsed_us=775",
+      "2026-11-04T02:35:59.375725Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=32 elapsed_us=3511"
+    ],
+    "node3": [
+      "2026-11-04T02:35:59.370593Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=1 elapsed_us=179",
+      "2026-11-04T02:35:59.370617Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Owner outcome=Failure count=1 elapsed_us=205",
+      "2026-11-04T02:35:59.370827Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Owner outcome=Failure count=1 elapsed_us=1009509",
+      "2026-11-04T02:35:59.371698Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=2 elapsed_us=20",
+      "2026-11-04T02:35:59.371709Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=1 elapsed_us=34",
+      "2026-11-04T02:35:59.371900Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=2 elapsed_us=19",
+      "2026-11-04T02:35:59.372700Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=4 elapsed_us=418",
+      "2026-11-04T02:35:59.372747Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=4 elapsed_us=745",
+      "2026-11-04T02:35:59.373073Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=ReadIndex kind=Authority outcome=Failure count=8 elapsed_us=27",
+      "2026-11-04T02:35:59.373156Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=Read kind=Applied outcome=Failure count=8 elapsed_us=33",
+      "2026-11-04T02:35:59.373282Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Applied outcome=Failure count=1 elapsed_us=1044546",
+      "2026-11-04T02:35:59.373432Z  WARN mqtt_cluster::controller::diagnostics: cluster control stage timing event=\"cluster_control_timing\" stage=RpcRead kind=Applied outcome=Failure count=2 elapsed_us=1044230"
+    ]
+  },
+  "source_ports": {
+    "original": "32768\t60999",
+    "during": "10000\t65535",
+    "restored": "32768\t60999"
+  },
+  "post_stop": {
+    "47.84.224.186": {
+      "active_test_processes": [],
+      "source_ports": "32768\t60999"
+    },
+    "47.84.241.200": {
+      "active_test_processes": [],
+      "source_ports": "32768\t60999"
+    }
+  },
+  "notes": [
+    "TCP fields can be reused for5s; use scan timestamps, not every row as a fresh TCP count.",
+    "Admission acquired is permission, not CONNACK; owner count is metadata, not online or ACK success.",
+    "Resource peaks span a failed case and cleanup, not a stable100k plateau.",
+    "CheckpointPersist measures work while WAL+checkpoint mutexes are held, not isolated fsync or bbolt-library CPU."
+  ]
+}

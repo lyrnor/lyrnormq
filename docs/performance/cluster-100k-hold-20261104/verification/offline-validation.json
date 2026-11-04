@@ -1,0 +1,7 @@
+{
+  "raw_hashes_verified": true,
+  "result_summary_identical_from_archives": true,
+  "no_network_or_new_load": true,
+  "all_python_syntax_passed": true,
+  "synthetic_complete_100k_300s_passed_and_short_hold_rejected": true
+}

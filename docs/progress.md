@@ -3104,3 +3104,45 @@ Threeindependentrawaudits agree; archives/hashes/offline reproduction saved and 
 hosts verifiedstopped. No higher/message/capacityloads. Next:HTTP2streamlifecycle,
 usercallchaincapture andpostAppend→Applymixedwait before restoring broader matrix.
 [Evidence and limits](performance/raft-pipeline-20261104/README.md).
+
+## 2026-11-04 — Phase7u CPU goal not met; user pauses optimization
+
+Three isolated agents implemented/tested ownedW2tail completion, onceencoded shared
+Bytes andconstantauthmetadata.423integratedtests, strictworkspaceClippy/fmt and8
+process tests pass. Same2000/s10k gate10000success/PING;CPU6.951→6.988cores and
+ramp+tailrawtick37.15→36.99CPU seconds is not significant CPUimprovement. h2reset
+warnings43→0; mean/p99connection364.028/550.442ms. Evidence saved separately.
+User pauses furtherCPUwork; no proposedBrokerbarriergrouping implemented.
+[Full data](performance/raft-quorum-cpu-20261104/README.md).
+
+## 2026-11-04 — Phase7v requested100k/300s test fails under checkpoint pauses
+
+New frozenmeasurementcontract; reuse7uBrokerEB6Fmusl on47.84.224.186,three dualrole
+processes, load47.84.241.200. Initialoldprobe rejected+370ssharedPING before anyTCP;
+preserve setupfailure. Regression-first smallprobe boundextension to10min,60tests,
+strictworkspaceClippy/fmt andlocalmuslprobeDAC46888; noBrokerrebuild. Four500/s25000
+probes withuniqueIDs, KeepAlive0, finalPING, port range10000..65535temporarily widened.
+
+ActualcaseFAIL: sampledTCPpeak59296(node19503/19805/19988)at~34s, freshscan~39sis0.
+Entrypermission86454/rejection13546 totals100000, allhandshakepeaks1024. Manualstop
+aftermassdisconnect; didnotwaitonpartialtarget or escalate. All4clientreport/rawfiles
+empty, soCONNACKsuccess/mean/p99/300shold unknown, notzero. No100kplateaupass.
+BeforepeakCPU6.606cores over33.104complete sampledseconds; wholecaseintervalpeak7.477,
+RSSpeak7652.625MiBoccursafterdrop, minimumMemAvailable6975.688MiB, noOOMevidence.
+
+Actualmembership{1,2,3} recordschecksumvalid inall3WALs; initiallyterm1/leader1/
+applied27each. UnderloadReadIndex1s, Heartbeat/RPC2s andAppend150ms/Vote500mstimeouts,
+termadvancesto3then5. Finalfreshgateallterm5/leader2/applied4187/ownerrecords73099;
+progressconverges but notstable100khold. full/hold-end gatesmissing.
+
+SecondcheckpointTotal3.268/3.362/3.469s andPersist2.473/2.806/2.855s overlapfirstfailure.
+Sourceholdsapply_gate acrosscheckpoint, WAL+bboltmutexes throughoutread/write;
+ApplyQueuedindex2000..2001 takes5.128/5.176/5.142s, precedingserialwait3.367/3.390/3.588s.
+Strongmechanism/timing evidence forcheckpoint-inducedcontrolpauses; leaseexpiry/fence
+pathfits but noactualfence/deadlinelog proves everyconnectioncause. No capacityerror,
+noisolatedfsync/bbolt attribution. Didnotimplementfix whiletestrequestactive.
+
+Twoindependentagentsrecompute metrics/rootcause; rawarchives/checksums/offlineoutputs
+verified. Alltestprocesses inclobserverstopped andloadsourceportsrestored32768..60999.
+Next:dedicatedcheckpointnonblockingcorrectnesscontract/regressions, thenrepeatrequested
+case. CPUoptimizationremainspaused. [Evidence](performance/cluster-100k-hold-20261104/README.md).

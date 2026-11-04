@@ -1,0 +1,61 @@
+{
+  "passed": false,
+  "issues": [
+    "process failure or timeout",
+    "worker0 missing/invalid report/raw: JSONDecodeError",
+    "worker1 missing/invalid report/raw: JSONDecodeError",
+    "worker2 missing/invalid report/raw: JSONDecodeError",
+    "worker3 missing/invalid report/raw: JSONDecodeError",
+    "global simultaneous hold shorter than300s or unverified",
+    "Raft gate failed or missing: full",
+    "Raft gate failed or missing: hold-end"
+  ],
+  "settings": {
+    "instances": 4,
+    "aggregate_rate": 2000,
+    "aggregate_target": 100000,
+    "per_instance_rate": 500,
+    "per_instance_target": 25000,
+    "start_unix_ms": 1793759724570,
+    "ping_unix_ms": 1793760094570,
+    "endpoints": [
+      "172.16.240.180:18831",
+      "172.16.240.180:18832",
+      "172.16.240.180:18833"
+    ],
+    "tokio_workers_each": 2,
+    "max_inflight_each": 2048,
+    "requested_hold_seconds": 300,
+    "nofile": [
+      250000,
+      250000
+    ],
+    "binary_sha256": "dac46888dfb38b0ee1fc4ec38e67074b00eddb37728271bc392767256bc1b528"
+  },
+  "totals": {
+    "new_scheduled": 0,
+    "new_attempted": 0,
+    "new_connack_success": 0,
+    "not_started": 0,
+    "live_after_hold_ping": 0
+  },
+  "successful_connect_latency": null,
+  "actual_task_start_schedule_lag": null,
+  "global_ramp_and_drain_seconds": 0,
+  "completed_per_second": null,
+  "global_simultaneous_hold_ms": null,
+  "workers": [],
+  "metric_notes": [
+    "success latency excludes failed/unstarted connections",
+    "p99 computed from merged original observations, not shard percentiles",
+    "global window=max monotonic ramp elapsed anchored at the common start",
+    "four synchronous streams create approximate four-arrival bursts every2ms at2000/s"
+  ],
+  "totals_are_partial": true,
+  "raft_gates": {
+    "startup": true,
+    "full": false,
+    "hold-end": false,
+    "final": true
+  }
+}

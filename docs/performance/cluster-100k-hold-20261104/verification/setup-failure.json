@@ -1,0 +1,11 @@
+{
+  "setup_failed_before_any_mqtt_connection": true,
+  "max_observed_tcp_connections": 0,
+  "old_probe_error": "shared start/PING require1plateau and10000..60000ms separation",
+  "source_ports": {
+    "original": "32768\t60999",
+    "during": "10000\t65535",
+    "restored": "32768\t60999"
+  },
+  "is_100k_measurement": false
+}

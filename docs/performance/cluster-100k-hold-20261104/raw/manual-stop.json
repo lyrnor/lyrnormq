@@ -1,0 +1,5 @@
+{
+  "wall_ns": 1793759889312129000,
+  "reason": "observed mass disconnect during ramp and Raft term/leader change; stop failed case without holding partial target or escalating",
+  "client_totals_not_final": true
+}

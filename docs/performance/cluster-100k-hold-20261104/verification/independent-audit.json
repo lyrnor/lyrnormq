@@ -1,0 +1,25 @@
+{
+  "read_only_independent_agents": [
+    "cpu_quality",
+    "cpu_runtime"
+  ],
+  "tcp_sample_peak": 59296,
+  "admission_acquired": 86454,
+  "admission_rejected": 13546,
+  "client_success_or_latency_not_available": true,
+  "not_a_100k_hold_pass": true,
+  "raft_membership_all_checksums_valid": true,
+  "startup_raft_gate": true,
+  "full_and_hold_end_gates_missing": true,
+  "final_raft_gate": true,
+  "final_term": 5,
+  "final_leader": 2,
+  "final_applied_each": 4187,
+  "final_owner_records_each": 73099,
+  "cpu_peak_cores": 7.47682007026977,
+  "rss_peak_mib": 7652.625,
+  "source_ports_restored": true,
+  "all_test_processes_stopped": true,
+  "rootcause": "Checkpoint holds apply_gate and WAL/checkpoint mutexes, with measured multi-second stalls overlapping first read/heartbeat/Append timeouts.",
+  "rootcause_limit": "No direct fence/deadline logs; no proof that every disconnect has one cause; persistence is not isolated fsync/bbolt time."
+}

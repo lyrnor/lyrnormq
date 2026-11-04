@@ -825,7 +825,27 @@ Evidence:docs/performance/raft-pipeline-20261104/README.md.
 - [x] Precompute constant authentication metadata; retain per-request binding/comparison.
 - [x] Integrated423tests, strictworkspaceClippy/fmt and8profile-enabled real-process tests.
 - [x] Local optimized static amd64musl build, no server compilation/system-disk targets.
-- [ ] One unchanged2000/s10k CPU cohort, audit original ticks/bracket padding and tail
-  allowance, h2 resets, RTT/queues, success/PING, CPU/RSS and allprocesscleanup.
+- [x] One unchanged2000/s10k CPU cohort and originaltick/tailbracket evidence saved;
+  CPU improvement not significant (37.15→36.99CPU seconds), h2reset warnings0.
+  Further CPU optimization paused by user; no barrier grouping implemented.
 - [ ] Keep CPU leaf attribution limits: perf libdw reports overlapping modules despite
   recorded user stacks/ELF CFI. Do not pretend generic memory leaves identify callers.
+
+## Phase7v — requested100k connection/300s hold gate failed
+
+- [x] Freeze2000/s100k>=300s, three dual-role processes and actual Raft membership gates.
+- [x] Preserve old-probe setup-only rejection (>60s PING), zeroMQTTtraffic and restoredports.
+- [x] Regression-first bounded10min probe fix;60loadgen tests, strictworkspaceClippy/fmt,
+  localmuslprobe only; deployed argument preflight proves parser accepts plannedcase.
+- [x] One actualcohort, sourceports broadened/restored, freshconfig and pinnedbinaries.
+- [x] Startup checksummedMembership{1,2,3} applied byall3; startup andfinal gates pass.
+- [x] Stop failedload: sampleTCPpeak59296, thenallzero; admission86454/13546,
+  no100kplateau or300shold. Empty clientreports meanACK/latency unknown, notzero.
+- [x] Independent rawresource/Raft/rootcause audit, archive/hashes/offline reproduction,
+  allBroker/probe/observerstopped and loadhostsourceports restored.
+- [ ] Fix checkpoint holding apply_gate andWAL/checkpointmutex acrosslong persistence;
+  preserve immutable snapshot/monotonic watermark/committed replay/purgeordering.
+  Freeze a dedicated correctness contract and add regression/recovery tests first.
+- [ ] Then repeat100k/300s acceptance; no capacity orQoS message benchmark passed here.
+
+Evidence:docs/performance/cluster-100k-hold-20261104/README.md.

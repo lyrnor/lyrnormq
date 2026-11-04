@@ -1,0 +1,188 @@
+{
+  "membership": [
+    {
+      "controller": 1,
+      "records": [
+        {
+          "file": "r-00_000_000_000_000_000_000.wal",
+          "entry": {
+            "log_id": {
+              "leader_id": {
+                "term": 0,
+                "node_id": 0
+              },
+              "index": 0
+            },
+            "payload": {
+              "Membership": {
+                "configs": [
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ],
+                "nodes": {
+                  "1": {
+                    "addr": "http://127.0.0.1:17001"
+                  },
+                  "2": {
+                    "addr": "http://127.0.0.1:17002"
+                  },
+                  "3": {
+                    "addr": "http://127.0.0.1:17003"
+                  }
+                }
+              }
+            }
+          },
+          "checksum_valid": true
+        }
+      ]
+    },
+    {
+      "controller": 2,
+      "records": [
+        {
+          "file": "r-00_000_000_000_000_000_000.wal",
+          "entry": {
+            "log_id": {
+              "leader_id": {
+                "term": 0,
+                "node_id": 0
+              },
+              "index": 0
+            },
+            "payload": {
+              "Membership": {
+                "configs": [
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ],
+                "nodes": {
+                  "1": {
+                    "addr": "http://127.0.0.1:17001"
+                  },
+                  "2": {
+                    "addr": "http://127.0.0.1:17002"
+                  },
+                  "3": {
+                    "addr": "http://127.0.0.1:17003"
+                  }
+                }
+              }
+            }
+          },
+          "checksum_valid": true
+        }
+      ]
+    },
+    {
+      "controller": 3,
+      "records": [
+        {
+          "file": "r-00_000_000_000_000_000_000.wal",
+          "entry": {
+            "log_id": {
+              "leader_id": {
+                "term": 0,
+                "node_id": 0
+              },
+              "index": 0
+            },
+            "payload": {
+              "Membership": {
+                "configs": [
+                  [
+                    1,
+                    2,
+                    3
+                  ]
+                ],
+                "nodes": {
+                  "1": {
+                    "addr": "http://127.0.0.1:17001"
+                  },
+                  "2": {
+                    "addr": "http://127.0.0.1:17002"
+                  },
+                  "3": {
+                    "addr": "http://127.0.0.1:17003"
+                  }
+                }
+              }
+            }
+          },
+          "checksum_valid": true
+        }
+      ]
+    }
+  ],
+  "gate": {
+    "label": "startup",
+    "wall_ns": 1793759712367867939,
+    "target_revision": 27,
+    "passed": true,
+    "rounds": [
+      [
+        {
+          "controller": 1,
+          "status": {
+            "data_storage": "memory",
+            "leader": 1,
+            "term": 1,
+            "last_applied": 27,
+            "nodes": 3,
+            "clients": 0,
+            "routes": 0,
+            "data_generation": 0,
+            "excluded": [],
+            "repair": null,
+            "last_repair": null
+          },
+          "read_start_wall_ns": 1793759712350075606,
+          "read_end_wall_ns": 1793759712356319441
+        },
+        {
+          "controller": 2,
+          "status": {
+            "data_storage": "memory",
+            "leader": 1,
+            "term": 1,
+            "last_applied": 27,
+            "nodes": 3,
+            "clients": 0,
+            "routes": 0,
+            "data_generation": 0,
+            "excluded": [],
+            "repair": null,
+            "last_repair": null
+          },
+          "read_start_wall_ns": 1793759712356323661,
+          "read_end_wall_ns": 1793759712361727489
+        },
+        {
+          "controller": 3,
+          "status": {
+            "data_storage": "memory",
+            "leader": 1,
+            "term": 1,
+            "last_applied": 27,
+            "nodes": 3,
+            "clients": 0,
+            "routes": 0,
+            "data_generation": 0,
+            "excluded": [],
+            "repair": null,
+            "last_repair": null
+          },
+          "read_start_wall_ns": 1793759712361732275,
+          "read_end_wall_ns": 1793759712367810129
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "path": "target/x86_64-unknown-linux-musl/release/connections",
+  "target": "x86_64-unknown-linux-musl",
+  "bytes": 1091552,
+  "sha256": "dac46888dfb38b0ee1fc4ec38e67074b00eddb37728271bc392767256bc1b528",
+  "interpreter": false,
+  "needed_shared_libraries": [],
+  "note": "ELF inspection only, not execution on Linux"
+}
