@@ -7,6 +7,7 @@ use std::{
     time::Instant,
 };
 use tokio::sync::{mpsc, oneshot};
+mod pipeline;
 static BATCHES: AtomicU64 = AtomicU64::new(0);
 const TRACE_LIMIT: u64 = 4096;
 struct Completed {
@@ -161,7 +162,39 @@ fn ready(
         carry,
     }
 }
-fn prepare(command: &mut Command, store: &Store, lease_ms: u64, grants: &mut BTreeMap<u64, u64>) {
+fn prepare(
+    command: &mut Command,
+    store: &Store,
+    lease_ms: u64,
+    pending: &BTreeMap<u64, u64>,
+    grants: &mut BTreeMap<u64, u64>,
+) {
+    prepare_at(
+        command,
+        now(),
+        lease_ms,
+        |node| {
+            store
+                .state
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .metadata
+                .nodes
+                .get(&node)
+                .map_or(0, |node| node.expires_at)
+        },
+        pending,
+        grants,
+    );
+}
+fn prepare_at(
+    command: &mut Command,
+    current_time: u64,
+    lease_ms: u64,
+    committed: impl FnOnce(u64) -> u64,
+    pending: &BTreeMap<u64, u64>,
+    grants: &mut BTreeMap<u64, u64>,
+) {
     if let Command::Register {
         node,
         expires_at,
@@ -176,17 +209,10 @@ fn prepare(command: &mut Command, store: &Store, lease_ms: u64, grants: &mut BTr
     } = command
     {
         *lease = lease_ms;
-        let previous = grants.get(node).copied().unwrap_or_else(|| {
-            store
-                .state
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .metadata
-                .nodes
-                .get(node)
-                .map_or(0, |node| node.expires_at)
-        });
-        *expires_at = now()
+        let previous = committed(*node)
+            .max(pending.get(node).copied().unwrap_or_default())
+            .max(grants.get(node).copied().unwrap_or_default());
+        *expires_at = current_time
             .saturating_add(lease_ms)
             .max(previous.saturating_add(1));
         grants.insert(*node, *expires_at);
@@ -198,88 +224,7 @@ fn fail(replies: Vec<Reply>, status: Status) {
     }
 }
 pub(super) fn start(raft: Raft, store: Store, node: u64, lease_ms: u64) -> Writer {
-    let (sender, mut receiver) = mpsc::channel(MAILBOX);
-    // Exactly one owned worker, not a spawned waiter for every incoming RPC.
-    drop(super::admission::submit(async move {
-        let mut carry = None;
-        loop {
-            let first = match carry.take() {
-                Some(first) => first,
-                None => match receiver.recv().await {
-                    Some(first) => first,
-                    None => return,
-                },
-            };
-            let mut grants = BTreeMap::new();
-            let Ready {
-                mut commands,
-                replies,
-                bytes,
-                queue_sum_us,
-                queue_max_us,
-                carry: next,
-            } = ready(first, &mut receiver, |command| {
-                prepare(command, &store, lease_ms, &mut grants)
-            });
-            carry = next;
-            if commands.is_empty() {
-                continue;
-            }
-            if raft.metrics().borrow().current_leader != Some(node) {
-                fail(
-                    replies,
-                    Status::failed_precondition("metadata not submitted: not current leader"),
-                );
-                continue;
-            }
-            let count = commands.len();
-            profile::observe(Metric::BatchSize, count as u64);
-            profile::observe(Metric::BatchBytes, bytes as u64);
-            let command = if count == 1 {
-                commands.remove(0)
-            } else {
-                Command::Batch { commands }
-            };
-            let kind = Kind::command(&command);
-            // Do not submit the next batch until this durable quorum/apply completes.
-            let batch_id = profile::enabled()
-                .then(|| BATCHES.fetch_add(1, Ordering::Relaxed).saturating_add(1));
-            let submitted_us = batch_id.map(|_| profile::stamp_us());
-            let result = {
-                let _timer = Timer::start(Metric::BatchRaft);
-                measure(Stage::RaftResult, kind, raft.client_write(command)).await
-            };
-            if let Some(batch_id) = batch_id.filter(|id| *id <= TRACE_LIMIT) {
-                let finished_us = profile::stamp_us();
-                let log_index = result.as_ref().ok().map(|r| r.log_id.index);
-                tracing::warn!(event="raft_batch_profile", node, batch_id, count, bytes,
-                    submitted_us=?submitted_us, finished_us, log_index=?log_index,
-                    queue_sum_us, queue_max_us, success=result.is_ok(), "Raft batch timing");
-            }
-            match result {
-                Ok(response) => {
-                    let mut answers = if count == 1 {
-                        vec![response.data]
-                    } else if response.data.error.is_none() && response.data.results.len() == count
-                    {
-                        response.data.results
-                    } else {
-                        fail(replies, Status::internal("metadata batch outcome unknown"));
-                        continue;
-                    };
-                    for (sender, mut answer) in replies.into_iter().zip(answers.drain(..)) {
-                        answer.lease_ms = lease_ms;
-                        reply(sender, Ok(answer));
-                    }
-                }
-                Err(_) => fail(
-                    replies,
-                    Status::unavailable("metadata commit outcome unknown"),
-                ),
-            }
-        }
-    }));
-    Writer { sender }
+    pipeline::start(raft, store, node, lease_ms)
 }
 
 #[cfg(test)]

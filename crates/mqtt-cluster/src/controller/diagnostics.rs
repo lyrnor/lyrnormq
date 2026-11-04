@@ -68,13 +68,29 @@ fn sampled(count: u64) -> bool {
 fn index(stage: Stage, kind: Kind, outcome: Outcome) -> usize {
     (stage as usize * KINDS + kind as usize) * OUTCOMES + outcome as usize
 }
-struct Timer {
+pub(super) struct Timer {
     stage: Stage,
     kind: Kind,
     started: Instant,
     finished: bool,
 }
 impl Timer {
+    pub(super) fn start(stage: Stage, kind: Kind) -> Self {
+        Self {
+            stage,
+            kind,
+            started: Instant::now(),
+            finished: false,
+        }
+    }
+    pub(super) fn finish(&mut self, success: bool) {
+        self.emit(if success {
+            Outcome::Success
+        } else {
+            Outcome::Failure
+        });
+        self.finished = true;
+    }
     fn emit(&self, outcome: Outcome) {
         let count = COUNTERS[index(self.stage, self.kind, outcome)]
             .fetch_add(1, Ordering::Relaxed)
@@ -96,19 +112,9 @@ pub(crate) async fn measure<T, E, F>(stage: Stage, kind: Kind, work: F) -> Resul
 where
     F: Future<Output = Result<T, E>>,
 {
-    let mut timer = Timer {
-        stage,
-        kind,
-        started: Instant::now(),
-        finished: false,
-    };
+    let mut timer = Timer::start(stage, kind);
     let result = work.await;
-    timer.emit(if result.is_ok() {
-        Outcome::Success
-    } else {
-        Outcome::Failure
-    });
-    timer.finished = true;
+    timer.finish(result.is_ok());
     result
 }
 #[cfg(test)]
