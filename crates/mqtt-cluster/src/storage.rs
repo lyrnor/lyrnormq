@@ -769,3 +769,6 @@ mod wal_integration_tests;
 
 #[cfg(test)]
 mod checkpoint_integration_tests;
+
+#[cfg(test)]
+mod pipeline_tests;
