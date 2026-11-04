@@ -1,11 +1,11 @@
 //! Independent durable Raft WAL with transactional bbolt business checkpoints.
 use crate::model::*;
 use crate::profile::{Metric, Timer as ProfileTimer};
-use openraft::storage::{LogFlushed, LogState, RaftLogStorage, RaftStateMachine};
-use openraft::{
-    BasicNode, Entry, LogId, RaftLogReader, RaftSnapshotBuilder, Snapshot, SnapshotMeta,
-    StorageError, StorageIOError, StoredMembership, Vote,
-};
+use futures_util::Stream;
+use openraft::storage::{EntryResponder, IOFlushed, LogState, RaftLogStorage, RaftStateMachine};
+use openraft::type_config::TypeConfigExt;
+use openraft::{RaftLogReader, RaftSnapshotBuilder, StorageError};
+use openraft_legacy::network_v1::SnapshotReceiverFactory;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
     io::{self, Cursor},
@@ -14,8 +14,10 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 use tokio::sync::{Semaphore, watch};
+use tokio_stream::StreamExt;
 mod checkpoint;
 mod diagnostics;
+mod flush;
 mod history;
 mod log;
 mod recovery;
@@ -23,6 +25,9 @@ mod wal;
 #[derive(Clone)]
 pub struct Store {
     node: u64,
+    /// Declared before `inner` so dropping the last store joins the flush thread
+    /// before the checkpoint file is closed.
+    owner: Arc<flush::Owner>,
     inner: Arc<Inner>,
     pub state: Arc<Mutex<State>>,
     pub changed: watch::Sender<u64>,
@@ -64,8 +69,9 @@ impl Drop for Inner {
     }
 }
 
-fn err(error: impl std::fmt::Display) -> StorageError<u64> {
-    StorageIOError::write_state_machine(&io::Error::other(error.to_string())).into()
+fn err(error: impl std::fmt::Display) -> StorageError<Types> {
+    let io_error = io::Error::other(error.to_string());
+    StorageError::write_state_machine(Types::err_from_error(&io_error))
 }
 fn db_err(error: impl std::fmt::Display) -> io::Error {
     io::Error::other(error.to_string())
@@ -116,15 +122,19 @@ impl Store {
         .await
         .map_err(db_err)??;
         let (changed, _) = watch::channel(state.metadata.revision);
+        let state = Arc::new(Mutex::new(state));
+        let inner = Arc::new(Inner {
+            db: Mutex::new(Some(db)),
+            wal: Mutex::new(Some(wal)),
+            _lock: Some(lock),
+            slots: Arc::new(Semaphore::new(32)),
+        });
+        let owner = flush::start(Arc::downgrade(&inner), Arc::clone(&state))?;
         Ok(Self {
             node,
-            inner: Arc::new(Inner {
-                db: Mutex::new(Some(db)),
-                wal: Mutex::new(Some(wal)),
-                _lock: Some(lock),
-                slots: Arc::new(Semaphore::new(32)),
-            }),
-            state: Arc::new(Mutex::new(state)),
+            owner,
+            inner,
+            state,
             changed,
             history: Arc::new(Mutex::new(history::History::default())),
             apply_gate: Arc::new(Semaphore::new(1)),
@@ -134,7 +144,7 @@ impl Store {
     async fn run<T: Send + 'static>(
         &self,
         call: impl FnOnce(&mut checkpoint::Checkpoint) -> io::Result<T> + Send + 'static,
-    ) -> Result<T, StorageError<u64>> {
+    ) -> Result<T, StorageError<Types>> {
         let permit = self
             .inner
             .slots
@@ -160,7 +170,7 @@ impl Store {
     async fn run_wal<T: Send + 'static>(
         &self,
         call: impl FnOnce(&mut wal::Wal) -> io::Result<T> + Send + 'static,
-    ) -> Result<T, StorageError<u64>> {
+    ) -> Result<T, StorageError<Types>> {
         let slot_wait = ProfileTimer::start(Metric::WalSlotWait);
         let permit = self
             .inner
@@ -190,7 +200,7 @@ impl Store {
     async fn run_checkpoint<T: Send + 'static>(
         &self,
         call: impl FnOnce(&mut wal::Wal, &mut checkpoint::Checkpoint) -> io::Result<T> + Send + 'static,
-    ) -> Result<T, StorageError<u64>> {
+    ) -> Result<T, StorageError<Types>> {
         let checkpoint_wait = ProfileTimer::start(Metric::CheckpointWait);
         let permit = self
             .inner
@@ -217,11 +227,11 @@ impl Store {
         .map_err(err)
     }
     #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
-    async fn serialized<T, F, Fut>(&self, operation: F) -> Result<T, StorageError<u64>>
+    async fn serialized<T, F, Fut>(&self, operation: F) -> Result<T, StorageError<Types>>
     where
         T: Send + 'static,
         F: FnOnce(Self) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = Result<T, StorageError<u64>>> + Send + 'static,
+        Fut: std::future::Future<Output = Result<T, StorageError<Types>>> + Send + 'static,
     {
         // At most one owned continuation exists. Dropping the caller cannot
         // release serialization between durable IO and RAM publication.
@@ -262,7 +272,7 @@ impl Store {
     async fn cpu<T: Send + 'static>(
         &self,
         call: impl FnOnce() -> io::Result<T> + Send + 'static,
-    ) -> Result<T, StorageError<u64>> {
+    ) -> Result<T, StorageError<Types>> {
         let slot_wait = ProfileTimer::start(Metric::ApplySlotWait);
         let permit = self
             .inner
@@ -286,48 +296,54 @@ impl Store {
     async fn persist_checkpoint(
         &self,
         state: State,
-    ) -> Result<(Snapshot<Types>, State), StorageError<u64>> {
-        let _total = ProfileTimer::start(Metric::CheckpointTotal);
-        let (state, saved) = self
-            .cpu(move || {
-                let saved = make_snapshot(&state)?;
-                Ok((state, saved))
+    ) -> Result<(Snapshot, State), StorageError<Types>> {
+        self.owner.state().begin_full();
+        let result = async {
+            let _total = ProfileTimer::start(Metric::CheckpointTotal);
+            let (state, saved) = self
+                .cpu(move || {
+                    let saved = make_snapshot(&state)?;
+                    Ok((state, saved))
+                })
+                .await?;
+            let meta = saved.meta.clone();
+            let data = saved.data.clone();
+            self.run_checkpoint(move |wal, db| {
+                recovery::verify_wal_tail(wal, saved.meta.last_log_id)?;
+                let previous = db.read_meta()?;
+                if previous.as_ref().is_some_and(|old| {
+                    old.last_log_id.map(|id| id.index) > saved.meta.last_log_id.map(|id| id.index)
+                        || (old.last_log_id.map(|id| id.index)
+                            == saved.meta.last_log_id.map(|id| id.index)
+                            && old.last_log_id != saved.meta.last_log_id)
+                }) {
+                    return Err(db_err("checkpoint cannot regress durable applied state"));
+                }
+                if previous.as_ref().is_none_or(|old| {
+                    old.last_log_id.map(|id| id.index) <= saved.meta.last_log_id.map(|id| id.index)
+                }) {
+                    db.write_snapshot(&saved)?;
+                }
+                Ok(())
             })
             .await?;
-        let meta = saved.meta.clone();
-        let data = saved.data.clone();
-        self.run_checkpoint(move |wal, db| {
-            recovery::verify_wal_tail(wal, saved.meta.last_log_id)?;
-            let previous = db.read_snapshot()?;
-            if previous.as_ref().is_some_and(|old| {
-                old.meta.last_log_id.map(|id| id.index) > saved.meta.last_log_id.map(|id| id.index)
-                    || (old.meta.last_log_id.map(|id| id.index)
-                        == saved.meta.last_log_id.map(|id| id.index)
-                        && old.meta.last_log_id != saved.meta.last_log_id)
-            }) {
-                return Err(db_err("checkpoint cannot regress durable applied state"));
-            }
-            if previous.as_ref().is_none_or(|old| {
-                old.meta.last_log_id.map(|id| id.index) <= saved.meta.last_log_id.map(|id| id.index)
-            }) {
-                db.write_snapshot(&saved)?;
-            }
-            Ok(())
-        })
-        .await?;
-        Ok((
-            Snapshot {
-                meta,
-                snapshot: Box::new(Cursor::new(data)),
-            },
-            state,
-        ))
+            Ok((
+                Snapshot {
+                    meta,
+                    snapshot: Cursor::new(data),
+                },
+                state,
+            ))
+        }
+        .await;
+        match &result {
+            Ok((_, state)) => self.owner.state().finish(state.last_applied),
+            Err(_) => self.owner.state().need_full(),
+        }
+        result
     }
     #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
-    async fn apply_entries(
-        &self,
-        entries: Vec<Entry<Types>>,
-    ) -> Result<Vec<Answer>, StorageError<u64>> {
+    async fn apply_entries(&self, entries: Vec<Entry>) -> Result<Vec<Answer>, StorageError<Types>> {
         {
             let mut previous = {
                 let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
@@ -419,6 +435,7 @@ impl Store {
             let state = self.state.clone();
             let history = self.history.clone();
             let changed = self.changed.clone();
+            let flush = Arc::clone(self.owner.state());
             self.cpu(move || {
                 let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
                 let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
@@ -426,10 +443,18 @@ impl Store {
                 drop(lock_wait);
                 let mut answers = Vec::with_capacity(entries.len());
                 for entry in entries {
+                    let previous = state.last_applied;
+                    let beats = flush::heartbeat_nodes(&entry);
                     let (answer, delta) = {
                         let _mutate = ProfileTimer::start(Metric::ApplyMutate);
                         state.apply_tracked(entry)
                     };
+                    let heartbeats = if answer.error.is_none() {
+                        beats.as_slice()
+                    } else {
+                        &[]
+                    };
+                    flush.observe(&state, previous, heartbeats, delta.as_ref());
                     answers.push(answer);
                     if let Some(delta) = delta {
                         let _history = ProfileTimer::start(Metric::ApplyHistory);
@@ -445,52 +470,62 @@ impl Store {
     #[allow(clippy::result_large_err)] // Preserve OpenRaft's fixed typed storage error.
     async fn install_checkpoint(
         &self,
-        meta: SnapshotMeta<u64, BasicNode>,
+        meta: SnapshotMeta,
         data: Vec<u8>,
-    ) -> Result<(), StorageError<u64>> {
-        let (next, saved) = self
-            .cpu(move || {
-                let digest = recovery::snapshot_digest(&meta, &data)?;
-                let saved = SavedSnapshot {
-                    meta,
-                    data,
-                    format: 1,
-                    digest: Some(digest),
-                };
-                let next = recovery::snapshot_state(&saved)?;
-                Ok((next, saved))
+    ) -> Result<(), StorageError<Types>> {
+        let applied = meta.last_log_id;
+        self.owner.state().begin_full();
+        let result = async {
+            let (next, saved) = self
+                .cpu(move || {
+                    let digest = recovery::snapshot_digest(&meta, &data)?;
+                    let saved = SavedSnapshot {
+                        meta,
+                        data,
+                        format: 1,
+                        digest: Some(digest),
+                    };
+                    let next = recovery::snapshot_state(&saved)?;
+                    Ok((next, saved))
+                })
+                .await?;
+            let checkpoint = next.last_applied;
+            self.run_checkpoint(move |wal, db| {
+                recovery::verify_wal_tail(wal, checkpoint)?;
+                if old_checkpoint_conflicts(db, wal, saved.meta.last_log_id)? {
+                    return Err(db_err(
+                        "snapshot regresses or conflicts with durable authority",
+                    ));
+                }
+                db.write_snapshot(&saved)?;
+                let old = wal.committed()?;
+                if checkpoint.map(|id| id.index) > old.map(|id| id.index) {
+                    wal.save_committed(checkpoint)?;
+                }
+                Ok(())
             })
             .await?;
-        let checkpoint = next.last_applied;
-        self.run_checkpoint(move |wal, db| {
-            recovery::verify_wal_tail(wal, checkpoint)?;
-            if old_checkpoint_conflicts(db, wal, saved.meta.last_log_id)? {
-                return Err(db_err(
-                    "snapshot regresses or conflicts with durable authority",
-                ));
-            }
-            db.write_snapshot(&saved)?;
-            let old = wal.committed()?;
-            if checkpoint.map(|id| id.index) > old.map(|id| id.index) {
-                wal.save_committed(checkpoint)?;
-            }
-            Ok(())
-        })
-        .await?;
-        let state = self.state.clone();
-        let history = self.history.clone();
-        let changed = self.changed.clone();
-        self.cpu(move || {
-            let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
-            *state = next;
-            history
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .clear();
-            changed.send_replace(state.metadata.revision);
-            Ok(())
-        })
-        .await
+            let state = self.state.clone();
+            let history = self.history.clone();
+            let changed = self.changed.clone();
+            self.cpu(move || {
+                let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
+                *state = next;
+                history
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .clear();
+                changed.send_replace(state.metadata.revision);
+                Ok(())
+            })
+            .await
+        }
+        .await;
+        match &result {
+            Ok(()) => self.owner.state().finish(applied),
+            Err(_) => self.owner.state().need_full(),
+        }
+        result
     }
     pub fn metadata(&self) -> Metadata {
         self.state
@@ -501,10 +536,10 @@ impl Store {
     }
 }
 impl RaftLogReader<Types> for Store {
-    async fn try_get_log_entries<R: RangeBounds<u64> + Clone + Send>(
+    async fn try_get_log_entries<R: RangeBounds<u64> + Clone + std::fmt::Debug + Send>(
         &mut self,
         range: R,
-    ) -> Result<Vec<Entry<Types>>, StorageError<u64>> {
+    ) -> Result<Vec<Entry>, io::Error> {
         if matches!(range.end_bound(), Bound::Excluded(0))
             || matches!(range.start_bound(), Bound::Excluded(n) if *n == u64::MAX)
         {
@@ -520,25 +555,33 @@ impl RaftLogReader<Types> for Store {
             Bound::Excluded(n) => n.saturating_sub(1),
             Bound::Unbounded => i64::MAX as u64,
         };
-        self.run_wal(move |wal| wal.entries(from, to)).await
+        self.run_wal(move |wal| wal.entries(from, to))
+            .await
+            .map_err(io::Error::from)
+    }
+    async fn read_vote(&mut self) -> Result<Option<Vote>, io::Error> {
+        self.run_wal(|wal| wal.vote())
+            .await
+            .map_err(io::Error::from)
     }
 }
 impl RaftLogStorage<Types> for Store {
     type LogReader = Self;
-    async fn get_log_state(&mut self) -> Result<LogState<Types>, StorageError<u64>> {
-        self.run_wal(|wal| wal.state()).await
+    async fn get_log_state(&mut self) -> Result<LogState<Types>, io::Error> {
+        self.run_wal(|wal| wal.state())
+            .await
+            .map_err(io::Error::from)
     }
     async fn get_log_reader(&mut self) -> Self {
         self.clone()
     }
-    async fn save_vote(&mut self, vote: &Vote<u64>) -> Result<(), StorageError<u64>> {
+    async fn save_vote(&mut self, vote: &Vote) -> Result<(), io::Error> {
         let vote = *vote;
-        self.run_wal(move |wal| wal.save_vote(vote)).await
+        self.run_wal(move |wal| wal.save_vote(vote))
+            .await
+            .map_err(io::Error::from)
     }
-    async fn read_vote(&mut self) -> Result<Option<Vote<u64>>, StorageError<u64>> {
-        self.run_wal(|wal| wal.vote()).await
-    }
-    async fn save_committed(&mut self, id: Option<LogId<u64>>) -> Result<(), StorageError<u64>> {
+    async fn save_committed(&mut self, id: Option<LogId>) -> Result<(), io::Error> {
         let context = diagnostics::Context {
             node: self.node,
             entries: 0,
@@ -555,17 +598,16 @@ impl RaftLogStorage<Types> for Store {
             }),
         )
         .await
+        .map_err(io::Error::from)
     }
-    async fn read_committed(&mut self) -> Result<Option<LogId<u64>>, StorageError<u64>> {
-        self.run_wal(|wal| wal.committed()).await
+    async fn read_committed(&mut self) -> Result<Option<LogId>, io::Error> {
+        self.run_wal(|wal| wal.committed())
+            .await
+            .map_err(io::Error::from)
     }
-    async fn append<I>(
-        &mut self,
-        entries: I,
-        callback: LogFlushed<Types>,
-    ) -> Result<(), StorageError<u64>>
+    async fn append<I>(&mut self, entries: I, callback: IOFlushed<Types>) -> Result<(), io::Error>
     where
-        I: IntoIterator<Item = Entry<Types>> + Send,
+        I: IntoIterator<Item = Entry> + Send,
         I::IntoIter: Send,
     {
         let entries: Vec<_> = entries.into_iter().collect();
@@ -582,31 +624,37 @@ impl RaftLogStorage<Types> for Store {
             }),
         )
         .await?;
-        callback.log_io_completed(Ok(()));
+        callback.io_completed(Ok(()));
         diagnostics::flushed(context);
         Ok(())
     }
-    async fn truncate(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
+    async fn truncate_after(&mut self, id: Option<LogId>) -> Result<(), io::Error> {
         self.run_checkpoint(move |wal, db| {
             let committed = wal.committed()?;
-            let checkpoint = recovery::checkpoint(db)?.last_applied;
+            let checkpoint = db.read_meta()?.and_then(|meta| meta.last_log_id);
+            let Some(start) = (match id {
+                Some(id) => id.index.checked_add(1),
+                None => Some(0),
+            }) else {
+                return Ok(());
+            };
             if committed.is_some_and(|last| {
-                last.index >= id.index
-                    && checkpoint.is_none_or(|covered| covered.index < last.index)
+                last.index >= start && checkpoint.is_none_or(|covered| covered.index < last.index)
             }) {
                 return Err(db_err(
                     "truncate would remove unsnapshotted committed entries",
                 ));
             }
-            wal.truncate(id)
+            wal.truncate_from(start)
         })
         .await
+        .map_err(io::Error::from)
     }
-    async fn purge(&mut self, id: LogId<u64>) -> Result<(), StorageError<u64>> {
+    async fn purge(&mut self, id: LogId) -> Result<(), io::Error> {
         let needs_checkpoint = self
             .run_checkpoint(move |wal, db| {
                 let committed = wal.committed()?;
-                let checkpoint = recovery::checkpoint(db)?.last_applied;
+                let checkpoint = db.read_meta()?.and_then(|meta| meta.last_log_id);
                 Ok(committed
                     .map(|log| log.index.min(id.index))
                     .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed)))
@@ -617,7 +665,7 @@ impl RaftLogStorage<Types> for Store {
         }
         self.run_checkpoint(move |wal, db| {
             let committed = wal.committed()?;
-            let checkpoint = recovery::checkpoint(db)?.last_applied;
+            let checkpoint = db.read_meta()?.and_then(|meta| meta.last_log_id);
             if committed
                 .map(|log| log.index.min(id.index))
                 .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed))
@@ -627,15 +675,16 @@ impl RaftLogStorage<Types> for Store {
             wal.purge(id)
         })
         .await
+        .map_err(io::Error::from)
     }
 }
 
 fn old_checkpoint_conflicts(
     db: &checkpoint::Checkpoint,
     wal: &mut wal::Wal,
-    incoming: Option<LogId<u64>>,
+    incoming: Option<LogId>,
 ) -> io::Result<bool> {
-    let checkpoint = recovery::checkpoint(db)?.last_applied;
+    let checkpoint = db.read_meta()?.and_then(|meta| meta.last_log_id);
     let committed = wal.committed()?;
     Ok(checkpoint.map(|id| id.index) > incoming.map(|id| id.index)
         || checkpoint
@@ -649,7 +698,7 @@ struct SavedSnapshot {
     format: u64,
     #[serde(default)]
     digest: Option<String>,
-    meta: SnapshotMeta<u64, BasicNode>,
+    meta: SnapshotMeta,
     data: Vec<u8>,
 }
 fn make_snapshot(state: &State) -> io::Result<SavedSnapshot> {
@@ -661,11 +710,6 @@ fn make_snapshot(state: &State) -> io::Result<SavedSnapshot> {
     let meta = SnapshotMeta {
         last_log_id: state.last_applied,
         last_membership: state.membership.clone(),
-        snapshot_id: format!(
-            "{}-{}",
-            state.last_applied.map_or(0, |id| id.index),
-            state.metadata.revision
-        ),
     };
     let digest = recovery::snapshot_digest(&meta, &data)?;
     Ok(SavedSnapshot {
@@ -676,36 +720,51 @@ fn make_snapshot(state: &State) -> io::Result<SavedSnapshot> {
     })
 }
 impl RaftSnapshotBuilder<Types> for Store {
-    async fn build_snapshot(&mut self) -> Result<Snapshot<Types>, StorageError<u64>> {
-        self.serialized(|this| async move {
-            let state = this.state.clone();
-            let state = this
-                .cpu(move || {
-                    let lock_wait = ProfileTimer::start(Metric::ApplyMutexWait);
-                    let state = state.lock().unwrap_or_else(PoisonError::into_inner);
-                    drop(lock_wait);
-                    let _clone = ProfileTimer::start(Metric::CheckpointClone);
-                    Ok(state.clone())
-                })
-                .await?;
-            this.persist_checkpoint(state)
-                .await
-                .map(|(snapshot, _)| snapshot)
+    type SnapshotData = Cursor<Vec<u8>>;
+    async fn build_snapshot(&mut self) -> Result<Snapshot, io::Error> {
+        let target = self
+            .state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .last_applied;
+        let flush = Arc::clone(self.owner.state());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        loop {
+            let progress = flush.progress.notified();
+            if flush.covers(target) {
+                break;
+            }
+            if flush.dirty_reaches(target) {
+                flush.kick();
+            } else {
+                flush.need_full();
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(err(flush.error()).into());
+            }
+            let _ = tokio::time::timeout(std::time::Duration::from_millis(20), progress).await;
+        }
+        let saved = self
+            .run(|db| db.read_snapshot())
+            .await?
+            .ok_or_else(|| err("checkpoint missing after flush"))?;
+        Ok(Snapshot {
+            meta: saved.meta,
+            snapshot: Cursor::new(saved.data),
         })
-        .await
     }
 }
-impl RaftStateMachine<Types> for Store {
-    type SnapshotBuilder = Self;
-    async fn applied_state(
-        &mut self,
-    ) -> Result<(Option<LogId<u64>>, StoredMembership<u64, BasicNode>), StorageError<u64>> {
-        let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        Ok((state.last_applied, state.membership.clone()))
-    }
-    async fn apply<I>(&mut self, entries: I) -> Result<Vec<Answer>, StorageError<u64>>
+impl Store {
+    #[cfg(test)]
+    pub async fn apply_log<I>(&self, entries: I) -> Result<Vec<Answer>, StorageError<Types>>
     where
-        I: IntoIterator<Item = Entry<Types>> + Send,
+        I: IntoIterator<Item = Entry> + Send,
+    {
+        self.apply_ready(entries).await
+    }
+    async fn apply_ready<I>(&self, entries: I) -> Result<Vec<Answer>, StorageError<Types>>
+    where
+        I: IntoIterator<Item = Entry> + Send,
     {
         let entries: Vec<_> = entries.into_iter().collect();
         if entries.is_empty() {
@@ -726,25 +785,54 @@ impl RaftStateMachine<Types> for Store {
         )
         .await
     }
+}
+impl SnapshotReceiverFactory<Types> for Store {
+    type SnapshotReceiver = Cursor<Vec<u8>>;
+    async fn begin_receiving_snapshot(&mut self) -> Result<Cursor<Vec<u8>>, io::Error> {
+        Ok(Cursor::new(Vec::new()))
+    }
+}
+impl RaftStateMachine<Types> for Store {
+    type SnapshotData = Cursor<Vec<u8>>;
+    type SnapshotBuilder = Self;
+    async fn applied_state(&mut self) -> Result<(Option<LogId>, StoredMembership), io::Error> {
+        let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        Ok((state.last_applied, state.membership.clone()))
+    }
+    async fn apply<Strm>(&mut self, mut entries: Strm) -> Result<(), io::Error>
+    where
+        Strm: Stream<Item = Result<EntryResponder<Types>, io::Error>> + Unpin + Send,
+    {
+        let mut batch = Vec::new();
+        let mut responders = Vec::new();
+        while let Some(item) = entries.next().await {
+            let (entry, responder) = item?;
+            batch.push(entry);
+            responders.push(responder);
+        }
+        let answers = self.apply_ready(batch).await.map_err(io::Error::from)?;
+        for (answer, responder) in answers.into_iter().zip(responders) {
+            if let Some(responder) = responder {
+                responder.send(answer);
+            }
+        }
+        Ok(())
+    }
     async fn get_snapshot_builder(&mut self) -> Self {
         self.clone()
     }
-    async fn begin_receiving_snapshot(
-        &mut self,
-    ) -> Result<Box<Cursor<Vec<u8>>>, StorageError<u64>> {
-        Ok(Box::new(Cursor::new(Vec::new())))
-    }
     async fn install_snapshot(
         &mut self,
-        meta: &SnapshotMeta<u64, BasicNode>,
-        snapshot: Box<Cursor<Vec<u8>>>,
-    ) -> Result<(), StorageError<u64>> {
+        meta: &SnapshotMeta,
+        snapshot: Cursor<Vec<u8>>,
+    ) -> Result<(), io::Error> {
         let meta = meta.clone();
         let data = snapshot.into_inner();
         self.serialized(move |this| async move { this.install_checkpoint(meta, data).await })
             .await
+            .map_err(io::Error::from)
     }
-    async fn get_current_snapshot(&mut self) -> Result<Option<Snapshot<Types>>, StorageError<u64>> {
+    async fn get_current_snapshot(&mut self) -> Result<Option<Snapshot>, io::Error> {
         let saved = self.run(|db| db.read_snapshot()).await?;
         self.cpu(move || {
             saved
@@ -752,12 +840,13 @@ impl RaftStateMachine<Types> for Store {
                     recovery::snapshot_state(&saved)?;
                     Ok(Snapshot {
                         meta: saved.meta,
-                        snapshot: Box::new(Cursor::new(saved.data)),
+                        snapshot: Cursor::new(saved.data),
                     })
                 })
                 .transpose()
         })
         .await
+        .map_err(io::Error::from)
     }
 }
 

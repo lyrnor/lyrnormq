@@ -3,10 +3,7 @@ use super::*;
 use sha2::{Digest, Sha256};
 pub(super) const MAX_SNAPSHOT: usize = 16 * 1024 * 1024;
 
-pub(super) fn snapshot_digest(
-    meta: &SnapshotMeta<u64, BasicNode>,
-    data: &[u8],
-) -> io::Result<String> {
+pub(super) fn snapshot_digest(meta: &SnapshotMeta, data: &[u8]) -> io::Result<String> {
     let mut hasher = Sha256::new();
     hasher.update(encode(meta)?);
     hasher.update(data);
@@ -59,10 +56,7 @@ pub(super) fn recover_wal(db: &checkpoint::Checkpoint, wal: &mut wal::Wal) -> io
 }
 /// Proper Raft calls have flushed logs and committed; direct trait callers must
 /// checkpoint instead, never inject entries into the independent log-store API.
-pub(super) fn applied_input_durable(
-    wal: &mut wal::Wal,
-    entries: &[Entry<Types>],
-) -> io::Result<bool> {
+pub(super) fn applied_input_durable(wal: &mut wal::Wal, entries: &[Entry]) -> io::Result<bool> {
     let Some(last) = entries.last().map(|entry| entry.log_id) else {
         return Ok(true);
     };
@@ -83,13 +77,13 @@ pub(super) fn applied_input_durable(
     }
     Ok(true)
 }
-pub(super) fn verify_wal_tail(wal: &mut wal::Wal, floor: Option<LogId<u64>>) -> io::Result<()> {
+pub(super) fn verify_wal_tail(wal: &mut wal::Wal, floor: Option<LogId>) -> io::Result<()> {
     visit_tail(wal, floor, |_| Ok(()))
 }
 fn visit_tail(
     wal: &mut wal::Wal,
-    floor: Option<LogId<u64>>,
-    mut visit: impl FnMut(Entry<Types>) -> io::Result<()>,
+    floor: Option<LogId>,
+    mut visit: impl FnMut(Entry) -> io::Result<()>,
 ) -> io::Result<()> {
     let Some(committed) = wal.committed()? else {
         return Ok(());

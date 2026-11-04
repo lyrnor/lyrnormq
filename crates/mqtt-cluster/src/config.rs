@@ -1,6 +1,11 @@
 //! Strict startup-only cluster configuration.
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, io, net::SocketAddr, path::PathBuf};
+use std::{
+    collections::BTreeSet,
+    io,
+    net::{IpAddr, SocketAddr},
+    path::PathBuf,
+};
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
@@ -80,7 +85,7 @@ impl Config {
         if self.role == Role::Controller && !ids.contains(&self.node_id) {
             return Err(bad());
         }
-        if !self.listen.ip().is_loopback() && self.tls.is_none() {
+        if self.tls.is_none() && !plaintext_ip_allowed(self.listen.ip()) {
             return Err(bad());
         }
         if let Some(address) = &self.advertise
@@ -126,6 +131,15 @@ impl Config {
         })
     }
 }
+fn plaintext_ip_allowed(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
+        IpAddr::V6(ip) => ip.is_loopback(),
+    }
+}
+pub(crate) fn cluster_peer_address(address: &str) -> bool {
+    endpoint_valid(address, false) || endpoint_valid(address, true)
+}
 fn endpoint_valid(address: &str, tls: bool) -> bool {
     if address.len() > 2048 {
         return false;
@@ -134,7 +148,7 @@ fn endpoint_valid(address: &str, tls: bool) -> bool {
         return !tls
             && rest
                 .parse::<SocketAddr>()
-                .is_ok_and(|a| a.ip().is_loopback());
+                .is_ok_and(|socket| plaintext_ip_allowed(socket.ip()));
     }
     address
         .strip_prefix("https://")
@@ -172,4 +186,104 @@ pub(crate) async fn read_bounded(path: &std::path::Path, limit: usize) -> io::Re
         ));
     }
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Config, Controller, DurableConfig, Role};
+
+    fn controllers(addresses: [&str; 3]) -> Vec<Controller> {
+        addresses
+            .into_iter()
+            .enumerate()
+            .map(|(index, address)| Controller {
+                id: u64::try_from(index + 1).expect("peer id"),
+                address: address.to_owned(),
+            })
+            .collect()
+    }
+
+    fn controller(listen: &str, peers: [&str; 3]) -> Config {
+        Config {
+            role: Role::Controller,
+            cluster_id: "private-net".to_owned(),
+            node_id: 1,
+            listen: listen.parse().expect("listen"),
+            data_dir: "/tmp/rmqtt-cfg".into(),
+            token_file: "/tmp/rmqtt-cfg/token".into(),
+            controllers: controllers(peers),
+            bootstrap: false,
+            advertise: None,
+            lease_ms: 3000,
+            tls: None,
+            durable: None,
+        }
+    }
+
+    #[test]
+    fn private_network_plaintext_is_accepted() {
+        let mut config = controller(
+            "172.16.240.180:17001",
+            [
+                "http://172.16.240.180:17001",
+                "http://172.16.240.182:17001",
+                "http://172.16.240.183:17001",
+            ],
+        );
+        config.role = Role::Broker;
+        config.node_id = 101;
+        config.listen = "172.16.240.180:17101".parse().expect("broker listen");
+        config.durable = Some(DurableConfig {
+            replicas: vec![
+                Controller {
+                    id: 101,
+                    address: "http://172.16.240.180:17101".to_owned(),
+                },
+                Controller {
+                    id: 102,
+                    address: "http://172.16.240.182:17101".to_owned(),
+                },
+                Controller {
+                    id: 103,
+                    address: "http://172.16.240.183:17101".to_owned(),
+                },
+            ],
+        });
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn public_plaintext_is_rejected() {
+        let config = controller(
+            "47.84.224.186:17001",
+            [
+                "http://47.84.224.186:17001",
+                "http://172.16.240.182:17001",
+                "http://172.16.240.183:17001",
+            ],
+        );
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn private_register_address_is_a_cluster_peer() {
+        assert!(super::cluster_peer_address("http://172.16.240.180:17101"));
+        assert!(super::cluster_peer_address("http://127.0.0.1:17101"));
+        assert!(super::cluster_peer_address("https://47.84.224.186:17101"));
+        assert!(!super::cluster_peer_address("http://47.84.224.186:17101"));
+        assert!(!super::cluster_peer_address("http://172.16.240.180/mqtt"));
+    }
+
+    #[test]
+    fn loopback_plaintext_stays_accepted() {
+        let config = controller(
+            "127.0.0.1:17001",
+            [
+                "http://127.0.0.1:17001",
+                "http://127.0.0.1:17002",
+                "http://127.0.0.1:17003",
+            ],
+        );
+        assert!(config.validate().is_ok());
+    }
 }

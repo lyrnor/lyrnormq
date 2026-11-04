@@ -68,9 +68,11 @@ single-role commands remain valid. This is role cohosting, not additional physic
 failure domains or a new Raft/data storage schema. See the
 [comparison contract](../contracts/phase7d-cluster-benchmark.md).
 
-Non-loopback peer endpoints require HTTPS and mutual TLS: add tls with cert_file,
-key_file, ca_file and domain_name; use numeric HTTPS endpoint addresses with a
-certificate matching domain_name. Controller membership is fixed at three nodes.
+Public peer endpoints require HTTPS and mutual TLS. Loopback and RFC1918
+private addresses may use plaintext HTTP. When TLS is used, add tls with
+cert_file, key_file, ca_file and domain_name, and use numeric HTTPS endpoint
+addresses with a certificate matching domain_name. Controller membership is
+fixed at three nodes.
 Do not share node IDs or data directories. Nodes holding the peer credentials are
 trusted cluster members; this is not per-node permission isolation.
 
@@ -123,7 +125,8 @@ for this mode. The first Broker registration freezes the cluster's mode and full
 replica group. Existing legacy Controller data stays legacy; in-place migration is
 not implemented. Preserve old data. Do not delete a journal or change the replica
 list to bypass this protection. A different group or mixed legacy registration is
-rejected. Non-loopback addresses still require mutual TLS.
+rejected. Public addresses still require mutual TLS. RFC1918 private addresses
+may stay on plaintext HTTP.
 
 Current [Phase7f](../contracts/phase7f-memory-replicas.md) uses **typed RAM** for
 sessions, outbox, receipts and repair staging. `durable.replicas` is the historical

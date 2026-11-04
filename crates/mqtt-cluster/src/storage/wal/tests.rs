@@ -1,5 +1,5 @@
 use super::*;
-use openraft::{CommittedLeaderId, EntryPayload};
+use openraft::EntryPayload;
 use std::{path::PathBuf, sync::atomic::AtomicU64};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn path() -> PathBuf {
@@ -13,10 +13,10 @@ fn path() -> PathBuf {
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
 }
-fn id(index: u64) -> LogId<u64> {
-    LogId::new(CommittedLeaderId::new(1, 1), index)
+fn id(index: u64) -> LogId {
+    LogId::new(crate::model::committed_leader_id(1, 1), index)
 }
-fn entry(index: u64) -> Entry<Types> {
+fn entry(index: u64) -> Entry {
     Entry {
         log_id: id(index),
         payload: EntryPayload::Blank,

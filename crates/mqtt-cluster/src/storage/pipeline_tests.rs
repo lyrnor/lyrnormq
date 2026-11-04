@@ -25,7 +25,7 @@ fn filters(client: &str, epoch: u64, generation: u64, filter: &str) -> Command {
     }
 }
 
-fn entries() -> Vec<Entry<Types>> {
+fn entries() -> Vec<Entry> {
     let mut registration = entry(0, 1);
     if let EntryPayload::Normal(Command::Register {
         replicas,
@@ -67,7 +67,7 @@ fn entries() -> Vec<Entry<Types>> {
 }
 
 #[allow(clippy::result_large_err)]
-async fn append(store: &Store, entries: Vec<Entry<Types>>) -> Result<(), StorageError<u64>> {
+async fn append(store: &Store, entries: Vec<Entry>) -> Result<(), StorageError<Types>> {
     let inner = store.inner.clone();
     store
         .run_wal(move |wal| log::append_checked(wal, &inner.db, entries))
@@ -121,7 +121,7 @@ async fn four_batch_apply_range_preserves_fifo_child_results_and_sparse_watch()
     // An append/commit is not yet the applied result or a published state update.
     assert_eq!(store.metadata().revision, 0);
     assert_eq!(store.state.lock().unwrap().last_applied, None);
-    let answers = store.apply(entries.clone()).await?;
+    let answers = store.apply_log(entries.clone()).await?;
     assert_eq!(answers.len(), 5);
     assert_eq!(answers[0].revision, 1);
     assert_eq!(
@@ -223,12 +223,12 @@ async fn canceled_apply_caller_keeps_first_range_owned_and_blocks_later_results_
     let entries = entries();
     append(&store, entries.clone()).await?;
     store.save_committed(Some(entries[4].log_id)).await?;
-    store.apply(vec![entries[0].clone()]).await?;
+    store.apply_log(vec![entries[0].clone()]).await?;
     let slots = store.inner.slots.clone().acquire_many_owned(32).await?;
     let first = tokio::spawn({
-        let mut store = store.clone();
+        let store = store.clone();
         let first_entries = entries[1..=2].to_vec();
-        async move { store.apply(first_entries).await }
+        async move { store.apply_log(first_entries).await }
     });
     tokio::time::timeout(Duration::from_secs(2), async {
         while store.apply_gate.available_permits() != 0 {
@@ -239,9 +239,9 @@ async fn canceled_apply_caller_keeps_first_range_owned_and_blocks_later_results_
     first.abort();
     assert!(first.await.unwrap_err().is_cancelled());
     let mut second = tokio::spawn({
-        let mut store = store.clone();
+        let store = store.clone();
         let second_entries = entries[3..=4].to_vec();
-        async move { store.apply(second_entries).await }
+        async move { store.apply_log(second_entries).await }
     });
     assert!(
         tokio::time::timeout(Duration::from_millis(30), &mut second)

@@ -1,5 +1,5 @@
 use super::*;
-use openraft::{CommittedLeaderId, EntryPayload};
+use openraft::EntryPayload;
 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 pub(super) fn directory() -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
@@ -13,9 +13,9 @@ pub(super) fn directory() -> std::path::PathBuf {
     ))
 }
 
-pub(super) fn entry(index: u64, node: u64) -> Entry<Types> {
+pub(super) fn entry(index: u64, node: u64) -> Entry {
     Entry {
-        log_id: LogId::new(CommittedLeaderId::new(1, 1), index),
+        log_id: LogId::new(crate::model::committed_leader_id(1, 1), index),
         payload: EntryPayload::Normal(Command::Register {
             node,
             incarnation: format!("node-{node}"),
@@ -32,9 +32,9 @@ pub(super) fn entry(index: u64, node: u64) -> Entry<Types> {
 #[allow(clippy::result_large_err)]
 pub(super) async fn prime(
     store: &Store,
-    entries: Vec<Entry<Types>>,
-    committed: Option<LogId<u64>>,
-) -> Result<(), StorageError<u64>> {
+    entries: Vec<Entry>,
+    committed: Option<LogId>,
+) -> Result<(), StorageError<Types>> {
     store
         .run_wal(move |wal| {
             wal.append(entries)?;
@@ -50,9 +50,9 @@ pub(super) async fn prime(
 async fn history_returns_sparse_delta_and_heartbeat_wakes_waiters()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
+    let store = Store::open(&dir, "test", 1).await?;
     let mut changed = store.changed.subscribe();
-    store.apply([entry(0, 1)]).await?;
+    store.apply_log([entry(0, 1)]).await?;
     changed.borrow_and_update();
     assert!(
         matches!(
@@ -66,7 +66,7 @@ async fn history_returns_sparse_delta_and_heartbeat_wakes_waiters()
         "ordinary update must be sparse"
     );
     let heartbeat = Entry {
-        log_id: LogId::new(CommittedLeaderId::new(1, 1), 1),
+        log_id: LogId::new(crate::model::committed_leader_id(1, 1), 1),
         payload: EntryPayload::Normal(Command::Heartbeat {
             node: 1,
             incarnation: "node-1".into(),
@@ -75,7 +75,7 @@ async fn history_returns_sparse_delta_and_heartbeat_wakes_waiters()
             lease_ms: 3000,
         }),
     };
-    store.apply([heartbeat]).await?;
+    store.apply_log([heartbeat]).await?;
     assert!(changed.has_changed()?);
     assert_eq!(store.metadata().revision, 1);
     drop(changed);
@@ -88,10 +88,10 @@ async fn history_returns_sparse_delta_and_heartbeat_wakes_waiters()
 async fn committed_tail_replays_but_speculative_tail_does_not()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
+    let store = Store::open(&dir, "test", 1).await?;
     let first = entry(0, 1);
     prime(&store, vec![first.clone()], Some(first.log_id)).await?;
-    store.apply([first]).await?;
+    store.apply_log([first]).await?;
     prime(&store, vec![entry(1, 2)], None).await?;
     drop(store);
     let mut store = Store::open(&dir, "test", 1).await?;
@@ -112,12 +112,12 @@ async fn checkpoint_then_committed_tail_survives_purge_and_restart()
     let mut store = Store::open(&dir, "test", 1).await?;
     let entries = vec![entry(0, 1), entry(1, 2)];
     prime(&store, entries.clone(), Some(entries[1].log_id)).await?;
-    store.apply(entries).await?;
+    store.apply_log(entries).await?;
     let snapshot = store.build_snapshot().await?;
     assert_eq!(snapshot.meta.last_log_id, Some(entry(1, 2).log_id));
     let tail = entry(2, 3);
     prime(&store, vec![tail.clone()], Some(tail.log_id)).await?;
-    store.apply([tail]).await?;
+    store.apply_log([tail]).await?;
     store.purge(entry(1, 2).log_id).await?;
     drop(snapshot);
     drop(store);
@@ -147,7 +147,7 @@ async fn direct_sparse_apply_checkpoints_without_injecting_log_membership()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
     let mut store = Store::open(&dir, "test", 1).await?;
-    store.apply([entry(7, 1)]).await?;
+    store.apply_log([entry(7, 1)]).await?;
     assert!(store.try_get_log_entries(0..=7).await?.is_empty());
     drop(store);
     let store = Store::open(&dir, "test", 1).await?;
@@ -167,7 +167,7 @@ async fn snapshot_install_is_durable_before_publication_and_following_tail()
     let source = directory();
     let target = directory();
     let mut leader = Store::open(&source, "test", 1).await?;
-    leader.apply([entry(0, 1)]).await?;
+    leader.apply_log([entry(0, 1)]).await?;
     let snapshot = leader.build_snapshot().await?;
     let mut follower = Store::open(&target, "test", 2).await?;
     follower
@@ -175,7 +175,7 @@ async fn snapshot_install_is_durable_before_publication_and_following_tail()
         .await?;
     let tail = entry(1, 2);
     prime(&follower, vec![tail.clone()], Some(tail.log_id)).await?;
-    follower.apply([tail]).await?;
+    follower.apply_log([tail]).await?;
     drop(follower);
     drop(leader);
     let follower = Store::open(&target, "test", 2).await?;
@@ -190,10 +190,10 @@ async fn snapshot_install_is_durable_before_publication_and_following_tail()
 async fn history_is_bounded_and_batch_contiguous_with_snapshot_fallback()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
+    let store = Store::open(&dir, "test", 1).await?;
     let entries = (0..65).map(|i| entry(i, i + 1)).collect::<Vec<_>>();
     prime(&store, entries.clone(), Some(entries[64].log_id)).await?;
-    store.apply(entries).await?;
+    store.apply_log(entries).await?;
     assert_eq!(store.watch_updates(Some(0)).len(), 64);
     assert!(matches!(
         store.watch_updates(Some(64)).as_slice(),
@@ -205,7 +205,7 @@ async fn history_is_bounded_and_batch_contiguous_with_snapshot_fallback()
     ));
     let entries = (65..300).map(|i| entry(i, i + 1)).collect::<Vec<_>>();
     prime(&store, entries.clone(), Some(entries[234].log_id)).await?;
-    store.apply(entries).await?;
+    store.apply_log(entries).await?;
     assert!(matches!(
         store.watch_updates(Some(0)).as_slice(),
         [MetadataUpdate::Snapshot(_)]
@@ -234,8 +234,8 @@ async fn cancelled_apply_keeps_serialized_continuation_until_publication()
         release_rx.recv().unwrap();
     });
     entered_rx.await?;
-    let mut first = store.clone();
-    let task = tokio::spawn(async move { first.apply([entry(0, 1)]).await });
+    let first = store.clone();
+    let task = tokio::spawn(async move { first.apply_log([entry(0, 1)]).await });
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         while store.apply_gate.available_permits() != 0 {
             tokio::task::yield_now().await
@@ -251,8 +251,8 @@ async fn cancelled_apply_keeps_serialized_continuation_until_publication()
     );
     release_tx.send(())?;
     blocker.join().unwrap();
-    let mut second = store.clone();
-    second.apply([entry(1, 2)]).await?;
+    let second = store.clone();
+    second.apply_log([entry(1, 2)]).await?;
     assert_eq!(store.metadata().nodes.len(), 2);
     drop(second);
     drop(store);
@@ -270,7 +270,7 @@ async fn commit_watermark_cannot_regress_and_unsnapshotted_committed_tail_cannot
     let mut store = Store::open(&dir, "test", 1).await?;
     let entries = vec![entry(0, 1), entry(1, 2)];
     prime(&store, entries.clone(), Some(entries[1].log_id)).await?;
-    store.apply(entries).await?;
+    store.apply_log(entries).await?;
     assert!(store.save_committed(None).await.is_err());
     assert!(
         store
@@ -278,7 +278,13 @@ async fn commit_watermark_cannot_regress_and_unsnapshotted_committed_tail_cannot
             .await
             .is_err()
     );
-    assert!(store.truncate(entry(1, 2).log_id).await.is_err());
+    assert!(
+        store
+            .truncate_after(Some(entry(0, 1).log_id))
+            .await
+            .is_err()
+    );
+    store.truncate_after(Some(entry(1, 2).log_id)).await?;
     drop(store);
     let store = Store::open(&dir, "test", 1).await?;
     assert_eq!(store.metadata().nodes.len(), 2);
@@ -293,7 +299,7 @@ async fn direct_apply_cannot_ack_with_a_missing_higher_committed_tail()
     let dir = directory();
     let mut store = Store::open(&dir, "test", 1).await?;
     store.save_committed(Some(entry(3, 4).log_id)).await?;
-    assert!(store.apply([entry(0, 1)]).await.is_err());
+    assert!(store.apply_log([entry(0, 1)]).await.is_err());
     assert!(store.metadata().nodes.is_empty());
     drop(store);
     assert!(Store::open(&dir, "test", 1).await.is_err());
@@ -305,16 +311,16 @@ async fn direct_apply_cannot_ack_with_a_missing_higher_committed_tail()
 async fn older_or_out_of_order_apply_cannot_roll_ram_back_behind_durable_checkpoint()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
-    store.apply([entry(7, 1)]).await?;
+    let store = Store::open(&dir, "test", 1).await?;
+    store.apply_log([entry(7, 1)]).await?;
     let before = encode(&*store.state.lock().unwrap())?;
     assert!(
-        store.apply([entry(3, 2)]).await.is_err(),
+        store.apply_log([entry(3, 2)]).await.is_err(),
         "older direct apply must not replace RAM with an undurable candidate"
     );
     assert_eq!(encode(&*store.state.lock().unwrap())?, before);
     assert!(
-        store.apply([entry(9, 2), entry(8, 3)]).await.is_err(),
+        store.apply_log([entry(9, 2), entry(8, 3)]).await.is_err(),
         "batch must be strictly ordered"
     );
     assert_eq!(encode(&*store.state.lock().unwrap())?, before);
@@ -327,14 +333,17 @@ async fn older_or_out_of_order_apply_cannot_roll_ram_back_behind_durable_checkpo
 }
 
 #[tokio::test]
-async fn ordinary_apply_is_logged_without_rewriting_business_checkpoint()
+async fn ordinary_apply_keeps_its_log_entry_beside_an_incremental_checkpoint()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
     let mut store = Store::open(&dir, "test", 1).await?;
     let first = entry(0, 1);
     prime(&store, vec![first.clone()], Some(first.log_id)).await?;
-    store.apply([first]).await?;
-    assert!(store.run(|db| db.read_snapshot()).await?.is_none());
+    store.apply_log([first.clone()]).await?;
+    assert_eq!(store.try_get_log_entries(0..=0).await?.len(), 1);
+    if let Some(saved) = store.run(|db| db.read_snapshot()).await? {
+        assert_eq!(saved.meta.last_log_id, Some(first.log_id));
+    }
     assert!(!dir.join("metadata.sqlite").exists());
     drop(store);
     let store = Store::open(&dir, "test", 1).await?;
@@ -349,10 +358,10 @@ async fn checkpoint_commit_error_preserves_ram_and_previous_durable_checkpoint()
     let left = directory();
     let right = directory();
     let mut source = Store::open(&left, "test", 1).await?;
-    source.apply([entry(0, 1), entry(1, 2)]).await?;
+    source.apply_log([entry(0, 1), entry(1, 2)]).await?;
     let snapshot = source.build_snapshot().await?;
     let mut target = Store::open(&right, "test", 2).await?;
-    target.apply([entry(0, 1)]).await?;
+    target.apply_log([entry(0, 1)]).await?;
     target
         .run(|db| {
             db.fail_next_write();
@@ -410,3 +419,6 @@ fn entry_envelope_rejects_missing_hash_version_payload_change_and_wrong_index() 
     assert!(log::decode_entry(1, &bytes).is_err());
     assert!(log::decode_entry(-1, &bytes).is_err());
 }
+
+#[path = "pressure.rs"]
+mod pressure;

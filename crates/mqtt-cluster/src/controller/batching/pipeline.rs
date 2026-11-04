@@ -1,5 +1,6 @@
 //! Sequential Core submission with bounded, FIFO quorum/application completion.
 use super::*;
+use openraft::async_runtime::WatchReceiver;
 use std::{collections::VecDeque, future::Future, pin::Pin};
 
 const WINDOW: usize = 4;
@@ -26,22 +27,27 @@ fn unknown() -> Status {
 
 impl Backend for RaftBackend {
     fn leader(&self) -> bool {
-        self.raft.metrics().borrow().current_leader == Some(self.node)
+        self.raft.metrics().borrow_watched().current_leader == Some(self.node)
     }
     fn prepare(&self, command: &mut Command, pending: &Grants, current: &mut Grants) {
         super::prepare(command, &self.store, self.lease_ms, pending, current);
     }
     async fn submit(&self, command: Command) -> Result<Completion, Status> {
         // Await enqueue itself in worker order. Do not spawn client_write futures.
-        let result = self
-            .raft
-            .client_write_ff(command)
+        let (responder, receiver) = openraft::impls::ProgressResponder::<
+            Types,
+            openraft::raft::ClientWriteResult<Types>,
+        >::complete_only();
+        self.raft
+            .client_write_ff(command, Some(responder))
             .await
             .map_err(|_| unknown())?;
-        Ok(
-            Box::pin(async move { result.await.map_err(|_| unknown())?.map_err(|_| unknown()) })
-                as Completion,
-        )
+        Ok(Box::pin(async move {
+            receiver
+                .await
+                .map_err(|_| unknown())?
+                .map_err(|_| unknown())
+        }) as Completion)
     }
 }
 

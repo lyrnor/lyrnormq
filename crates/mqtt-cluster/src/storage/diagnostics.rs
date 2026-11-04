@@ -1,5 +1,5 @@
 //! Sampled WAL/state-machine boundaries; log indices are numeric consensus metadata only.
-use super::{Entry, Types};
+use super::Entry;
 use std::{
     future::Future,
     sync::atomic::{AtomicU64, Ordering},
@@ -23,7 +23,7 @@ pub(super) struct Context {
     pub last: Option<u64>,
 }
 impl Context {
-    pub(super) fn entries(node: u64, entries: &[Entry<Types>]) -> Self {
+    pub(super) fn entries(node: u64, entries: &[Entry]) -> Self {
         Self {
             node,
             entries: entries.len(),

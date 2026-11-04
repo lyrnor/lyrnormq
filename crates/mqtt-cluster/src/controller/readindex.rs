@@ -91,7 +91,7 @@ pub(super) fn start(raft: Raft) -> Reader {
     Reader::spawn(move || {
         let raft = raft.clone();
         async move {
-            raft.ensure_linearizable()
+            raft.ensure_linearizable(openraft::ReadPolicy::ReadIndex)
                 .await
                 .map(|_| ())
                 .map_err(|_| stopped())

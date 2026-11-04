@@ -17,9 +17,14 @@ use crate::{
     storage::Store,
 };
 use mqtt_cluster_core::ClusterBridge;
-use openraft::error::{InstallSnapshotError, NetworkError, RPCError, RaftError};
-use openraft::network::RPCOption;
-use openraft::{BasicNode, RaftNetwork, RaftNetworkFactory};
+use openraft::BasicNode;
+use openraft::async_runtime::WatchReceiver;
+use openraft::errors::{NetworkError, RPCError, RaftError};
+use openraft::network::{RPCOption, RaftNetworkFactory};
+use openraft_legacy::network_v1::{
+    ChunkedSnapshotReceiver, InstallSnapshotError, InstallSnapshotRequest, InstallSnapshotResponse,
+    RaftNetwork,
+};
 use serde::de::DeserializeOwned;
 use std::{
     collections::BTreeMap,
@@ -45,19 +50,35 @@ fn applied_ready(metadata: &Metadata, revision: u64) -> bool {
 struct Network {
     rpc: ClientRpc,
 }
+#[derive(Clone, Copy)]
+enum Lane {
+    Replication,
+    Heartbeat,
+}
 struct Peer {
     target: u64,
     rpc: ClientRpc,
     address: String,
+    lane: Lane,
 }
-impl RaftNetworkFactory<Types> for Network {
-    type Network = Peer;
-    async fn new_client(&mut self, target: u64, node: &BasicNode) -> Peer {
+impl Network {
+    fn peer(&self, target: u64, node: &BasicNode, lane: Lane) -> Peer {
         Peer {
             target,
             rpc: self.rpc.clone(),
             address: node.addr.clone(),
+            lane,
         }
+    }
+}
+impl RaftNetworkFactory<Types> for Network {
+    type Network = openraft_legacy::network_v1::Adapter<Types, Peer, std::io::Cursor<Vec<u8>>>;
+    async fn new_client(&mut self, target: u64, node: &BasicNode) -> Self::Network {
+        self.peer(target, node, Lane::Replication).into_v2()
+    }
+    async fn new_heartbeat_client(&mut self, target: u64, node: &BasicNode) -> Self::Network {
+        // Lease heartbeats must not wait behind a log-replication RPC on the same HTTP/2 connection.
+        self.peer(target, node, Lane::Heartbeat).into_v2()
     }
 }
 impl Peer {
@@ -65,11 +86,14 @@ impl Peer {
     async fn send<T: DeserializeOwned, E: std::error::Error>(
         &self,
         request: RaftRequest,
-    ) -> Result<T, RPCError<u64, BasicNode, RaftError<u64, E>>> {
+    ) -> Result<T, RPCError<Types, RaftError<Types, E>>> {
         let is_append = matches!(request, RaftRequest::Append(_));
         let mut trace = network_profile::Trace::new(self.rpc.config_node(), self.target, &request);
         let result = async {
-            let mut client = self.rpc.client(&self.address).await?;
+            let mut client = match self.lane {
+                Lane::Heartbeat => self.rpc.heartbeat_client(&self.address).await?,
+                Lane::Replication => self.rpc.client(&self.address).await?,
+            };
             let request = {
                 let _timer = is_append.then(|| Timer::start(Metric::AppendRpcEncode));
                 self.rpc.authorize(rpc::encode(&request)?)?
@@ -94,24 +118,24 @@ impl RaftNetwork<Types> for Peer {
         &mut self,
         rpc: openraft::raft::AppendEntriesRequest<Types>,
         _option: RPCOption,
-    ) -> Result<openraft::raft::AppendEntriesResponse<u64>, RPCError<u64, BasicNode, RaftError<u64>>>
+    ) -> Result<openraft::raft::AppendEntriesResponse<Types>, RPCError<Types, RaftError<Types>>>
     {
         self.send(RaftRequest::Append(rpc)).await
     }
     async fn vote(
         &mut self,
-        rpc: openraft::raft::VoteRequest<u64>,
+        rpc: openraft::raft::VoteRequest<Types>,
         _option: RPCOption,
-    ) -> Result<openraft::raft::VoteResponse<u64>, RPCError<u64, BasicNode, RaftError<u64>>> {
+    ) -> Result<openraft::raft::VoteResponse<Types>, RPCError<Types, RaftError<Types>>> {
         self.send(RaftRequest::Vote(rpc)).await
     }
     async fn install_snapshot(
         &mut self,
-        rpc: openraft::raft::InstallSnapshotRequest<Types>,
+        rpc: InstallSnapshotRequest<Types>,
         _option: RPCOption,
     ) -> Result<
-        openraft::raft::InstallSnapshotResponse<u64>,
-        RPCError<u64, BasicNode, RaftError<u64, InstallSnapshotError>>,
+        InstallSnapshotResponse<Types>,
+        RPCError<Types, RaftError<Types, InstallSnapshotError>>,
     > {
         self.send(RaftRequest::Snapshot(rpc)).await
     }
@@ -308,7 +332,7 @@ impl wire::cluster_server::Cluster for Service {
                     rpc::encode(&value)
                 }
                 ReadRequest::Status => {
-                    let m = control.raft.metrics().borrow().clone();
+                    let m = control.raft.metrics().borrow_watched().clone();
                     let state = control
                         .store
                         .state
@@ -365,7 +389,7 @@ impl wire::cluster_server::Cluster for Service {
             let mut progress = tokio::time::interval(Duration::from_millis(control.lease_ms / 4));
             progress.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
-                if leadership.borrow().current_leader != Some(control.rpc.config_node()) {
+                if leadership.borrow_watched().current_leader != Some(control.rpc.config_node()) {
                     let _ = tx
                         .send(Err(Status::unavailable("controller leader changed")))
                         .await;
@@ -408,7 +432,8 @@ impl wire::cluster_server::Cluster for Service {
                             }
                         }
                     }
-                    if leadership.borrow().current_leader != Some(control.rpc.config_node()) {
+                    if leadership.borrow_watched().current_leader != Some(control.rpc.config_node())
+                    {
                         let _ = tx
                             .send(Err(Status::unavailable("controller leader changed")))
                             .await;
@@ -578,7 +603,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
             tokio::select! {
                 _ = expiry_shutdown.changed() => break,
                 _ = tokio::time::sleep(Duration::from_millis(200)) => {
-                    let metrics = expiry_control.raft.metrics().borrow().clone();
+                    let metrics = expiry_control.raft.metrics().borrow_watched().clone();
                     if metrics.current_leader != Some(expiry_config.node_id) { leader_term = None; observed.clear(); continue; }
                     if leader_term != Some(metrics.current_term) { leader_term = Some(metrics.current_term); observed.clear(); }
                     let expired = {
@@ -691,7 +716,7 @@ mod control_tests {
             .await
             .map_err(io::Error::other)?;
         tokio::time::timeout(Duration::from_secs(3), async {
-            while raft.metrics().borrow().current_leader != Some(1) {
+            while raft.metrics().borrow_watched().current_leader != Some(1) {
                 tokio::task::yield_now().await;
             }
         })
@@ -783,7 +808,13 @@ mod control_tests {
             .map_err(io::Error::other)?
             .map_err(io::Error::other)?;
         // Cancel514 queued replies while the one worker retains all accepted work.
-        let before_submissions = control.raft.metrics().borrow().last_applied.unwrap().index;
+        let before_submissions = control
+            .raft
+            .metrics()
+            .borrow_watched()
+            .last_applied
+            .unwrap()
+            .index;
         let commands = (0..514).map(|i| {
             if i % 2 == 0 {
                 Command::Heartbeat {
@@ -919,7 +950,7 @@ mod control_tests {
         // Installation ACKs complete the next barrier before a persisted
         // Heartbeat advances Node.applied, with no Raft log append.
         control.store.state.lock().unwrap().metadata.revision = 8;
-        let before_ack = control.raft.metrics().borrow().last_applied;
+        let before_ack = control.raft.metrics().borrow_watched().last_applied;
         let waiter = tokio::spawn({
             let control = control.clone();
             async move { control.applied(8).await }
@@ -945,7 +976,10 @@ mod control_tests {
             control.store.state.lock().unwrap().metadata.nodes[&102].applied,
             7
         );
-        assert_eq!(control.raft.metrics().borrow().last_applied, before_ack);
+        assert_eq!(
+            control.raft.metrics().borrow_watched().last_applied,
+            before_ack
+        );
         {
             let mut state = control.store.state.lock().unwrap();
             state.metadata.revision = 9;
@@ -956,7 +990,7 @@ mod control_tests {
             async move { control.applied(9).await }
         });
         tokio::time::sleep(Duration::from_millis(20)).await;
-        let term = control.raft.metrics().borrow().current_term;
+        let term = control.raft.metrics().borrow_watched().current_term;
         let last = control.store.state.lock().unwrap().last_applied;
         control
             .raft
@@ -971,7 +1005,7 @@ mod control_tests {
         // append_entries completion may precede publication of the metrics watch.
         let mut metrics = control.raft.metrics();
         tokio::time::timeout(Duration::from_secs(1), async {
-            while metrics.borrow().current_term <= term {
+            while metrics.borrow_watched().current_term <= term {
                 metrics.changed().await.unwrap();
             }
         })
@@ -1004,7 +1038,7 @@ mod control_tests {
         }
         validate(&command).unwrap();
         assert_eq!(serde_json::to_vec(&command).unwrap().len(), command_limit);
-        let leader = openraft::CommittedLeaderId::new(u64::MAX, u64::MAX);
+        let leader = crate::model::committed_leader_id(u64::MAX, u64::MAX);
         let last = openraft::LogId::new(leader, u64::MAX);
         let entries = (0..MAX_REPLICATION_ENTRIES)
             .map(|i| openraft::Entry {

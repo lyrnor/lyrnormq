@@ -1,6 +1,6 @@
 use crate::{model::*, storage::Store};
 use openraft::{
-    Entry, EntryPayload, LogId, RaftSnapshotBuilder, Vote,
+    EntryPayload, RaftLogReader, RaftSnapshotBuilder,
     storage::{RaftLogStorage, RaftStateMachine},
 };
 use std::io;
@@ -78,13 +78,13 @@ async fn durable_vote_commit_state_snapshot_and_exclusive_directory()
     );
     let vote = Vote::new(7, 1);
     store.save_vote(&vote).await?;
-    let id = LogId::new(openraft::CommittedLeaderId::new(7, 1), 3);
+    let id = LogId::new(crate::model::committed_leader_id(7, 1), 3);
     store.save_committed(Some(id)).await?;
     let entry = Entry {
         log_id: id,
         payload: EntryPayload::Normal(register(1)),
     };
-    store.apply([entry]).await?;
+    store.apply_log([entry]).await?;
     let snapshot = store.build_snapshot().await?;
     assert_eq!(snapshot.meta.last_log_id, Some(id));
     drop(snapshot);
@@ -158,21 +158,24 @@ impl Drop for StoreGuard {
         let _ = std::fs::remove_dir_all(&self.0);
     }
 }
-impl openraft::testing::StoreBuilder<Types, Store, Store, StoreGuard> for StoreBuilder {
-    async fn build(&self) -> Result<(StoreGuard, Store, Store), openraft::StorageError<u64>> {
+impl openraft::testing::log::StoreBuilder<Types, Store, Store, StoreGuard> for StoreBuilder {
+    async fn build(&self) -> Result<(StoreGuard, Store, Store), openraft::StorageError<Types>> {
         let dir = path();
-        let store = Store::open(&dir, "conformance", 1)
-            .await
-            .map_err(|error| openraft::StorageIOError::write_state_machine(&error))?;
+        let store = Store::open(&dir, "conformance", 1).await.map_err(|error| {
+            openraft::StorageError::write_state_machine(
+                <Types as openraft::type_config::TypeConfigExt>::err_from_error(&error),
+            )
+        })?;
         Ok((StoreGuard(dir), store.clone(), store))
     }
 }
-#[test]
-fn openraft_storage_conformance() -> Result<(), Box<dyn std::error::Error>> {
-    openraft::testing::Suite::<Types, Store, Store, StoreBuilder, StoreGuard>::test_all(
+#[tokio::test]
+async fn openraft_storage_conformance() {
+    openraft::testing::log::Suite::<Types, Store, Store, StoreBuilder, StoreGuard>::test_all(
         StoreBuilder,
-    )?;
-    Ok(())
+    )
+    .await
+    .unwrap();
 }
 
 #[test]

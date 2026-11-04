@@ -645,9 +645,10 @@ fn maximal_metadata_keeps_state_and_snapshot_envelopes_below_sixteen_mib() {
             BasicNode::new(format!("http://127.0.0.1:3/{}", "z".repeat(200))),
         ),
     ]);
-    let membership = openraft::Membership::new(vec![BTreeSet::from([1u64, 2, 3])], nodes);
+    let membership =
+        openraft::Membership::new(vec![BTreeSet::from([1u64, 2, 3])], nodes).expect("membership");
     let log_id = LogId::new(
-        openraft::CommittedLeaderId::new(u64::MAX, u64::MAX),
+        crate::model::committed_leader_id(u64::MAX, u64::MAX),
         u64::MAX,
     );
     let state = State {

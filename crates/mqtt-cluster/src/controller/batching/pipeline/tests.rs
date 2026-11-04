@@ -64,7 +64,10 @@ fn response(command: &Command) -> Applied {
         }
     };
     Ok(openraft::raft::ClientWriteResponse {
-        log_id: openraft::LogId::new(openraft::CommittedLeaderId::new(1, 1), first_index(command)),
+        log_id: openraft::LogId::new(
+            crate::model::committed_leader_id(1, 1),
+            first_index(command),
+        ),
         data,
         membership: None,
     })

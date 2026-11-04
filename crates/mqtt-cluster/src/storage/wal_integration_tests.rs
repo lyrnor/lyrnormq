@@ -4,8 +4,8 @@ use super::*;
 #[allow(clippy::result_large_err)]
 async fn append_through_store(
     store: &mut Store,
-    entries: Vec<Entry<Types>>,
-) -> Result<(), StorageError<u64>> {
+    entries: Vec<Entry>,
+) -> Result<(), StorageError<Types>> {
     let inner = store.inner.clone();
     store
         .run_wal(move |wal| log::append_checked(wal, &inner.db, entries))
@@ -22,7 +22,7 @@ async fn repeated_prefix_is_idempotent_but_committed_conflict_requires_checkpoin
     store.save_committed(Some(first[1].log_id)).await?;
     append_through_store(&mut store, first.clone()).await?;
     let mut replacement = entry(1, 3);
-    replacement.log_id.leader_id = openraft::CommittedLeaderId::new(2, 1);
+    replacement.log_id.leader_id = crate::model::committed_leader_id(2, 1);
     assert!(
         append_through_store(&mut store, vec![replacement.clone()])
             .await
@@ -32,7 +32,7 @@ async fn repeated_prefix_is_idempotent_but_committed_conflict_requires_checkpoin
         encode(&store.try_get_log_entries(..).await?)?,
         encode(&first)?
     );
-    store.apply(first).await?;
+    store.apply_log(first).await?;
     store.build_snapshot().await?;
     append_through_store(&mut store, vec![replacement.clone()]).await?;
     assert_eq!(

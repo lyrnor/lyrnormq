@@ -21,9 +21,9 @@ const CHUNK_RECORDS: usize = 4096;
 const MAX_CHUNK_BYTES: u64 = (CHUNK_BYTES + MAX_ENTRY + 64 * 1024) as u64;
 const MAX_CHUNK_RECORDS: u64 = CHUNK_RECORDS as u64 + 4;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-struct LogKey(LogId<u64>);
+struct LogKey(LogId);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Serialize, Deserialize)]
-struct VoteKey(Vote<u64>);
+struct VoteKey(Vote);
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Payload(Vec<u8>);
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,7 +89,7 @@ fn identity(meta: &Metadata, cluster: &str, node: u64) -> io::Result<()> {
     }
     Ok(())
 }
-fn decode_payload(id: &LogKey, payload: &Payload) -> io::Result<Entry<Types>> {
+fn decode_payload(id: &LogKey, payload: &Payload) -> io::Result<Entry> {
     let index = i64::try_from(id.0.index).map_err(invalid)?;
     let entry = log::decode_entry(index, &payload.0)?;
     if entry.log_id != id.0 {
@@ -248,7 +248,7 @@ impl Wal {
         }
         result
     }
-    pub(super) fn entries(&self, from: u64, to: u64) -> io::Result<Vec<Entry<Types>>> {
+    pub(super) fn entries(&self, from: u64, to: u64) -> io::Result<Vec<Entry>> {
         let _read = Timer::start(Metric::WalRead);
         self.check()?;
         if from > to {
@@ -268,11 +268,11 @@ impl Wal {
                 .collect(),
         )
     }
-    pub(super) fn vote(&self) -> io::Result<Option<Vote<u64>>> {
+    pub(super) fn vote(&self) -> io::Result<Option<Vote>> {
         self.check()?;
         Ok(self.inner.log_state().vote().map(|vote| vote.0))
     }
-    pub(super) fn save_vote(&mut self, vote: Vote<u64>) -> io::Result<()> {
+    pub(super) fn save_vote(&mut self, vote: Vote) -> io::Result<()> {
         self.check()?;
         if self.vote()? == Some(vote) {
             return Ok(());
@@ -282,7 +282,7 @@ impl Wal {
             Ok(())
         })
     }
-    pub(super) fn committed(&self) -> io::Result<Option<LogId<u64>>> {
+    pub(super) fn committed(&self) -> io::Result<Option<LogId>> {
         self.check()?;
         Ok(self
             .inner
@@ -292,7 +292,7 @@ impl Wal {
             .and_then(|data| data.committed.as_ref())
             .map(|id| id.0))
     }
-    pub(super) fn save_committed(&mut self, id: Option<LogId<u64>>) -> io::Result<()> {
+    pub(super) fn save_committed(&mut self, id: Option<LogId>) -> io::Result<()> {
         self.check()?;
         let old = self.committed()?;
         if old.is_some_and(|old| {
@@ -326,7 +326,7 @@ impl Wal {
             last_log_id: state.last().map(|id| id.0),
         })
     }
-    pub(super) fn append(&mut self, entries: Vec<Entry<Types>>) -> io::Result<()> {
+    pub(super) fn append(&mut self, entries: Vec<Entry>) -> io::Result<()> {
         self.check()?;
         let mut prepared = Vec::with_capacity(entries.len());
         let mut previous = None;
@@ -343,13 +343,35 @@ impl Wal {
             Ok(())
         })
     }
-    pub(super) fn truncate(&mut self, id: LogId<u64>) -> io::Result<()> {
+    pub(super) fn truncate(&mut self, id: LogId) -> io::Result<()> {
+        self.truncate_from(id.index)
+    }
+    /// Delete every record at `index` and after it.
+    ///
+    /// An index past the last stored record is a no-op. raft-log otherwise
+    /// looks up the preceding id and fails when that predecessor was never
+    /// appended. An index at or before the purged prefix deletes the live
+    /// suffix, which is the whole remaining log.
+    pub(super) fn truncate_from(&mut self, index: u64) -> io::Result<()> {
         self.mutate(move |wal| {
-            wal.truncate(id.index)?;
+            let (last, first) = {
+                let state = wal.log_state();
+                (
+                    state.last().map(|id| id.0.index),
+                    state
+                        .purged()
+                        .map(|id| id.0.index.saturating_add(1))
+                        .unwrap_or(0),
+                )
+            };
+            if last.is_none_or(|last| index > last) {
+                return Ok(());
+            }
+            wal.truncate(index.max(first))?;
             Ok(())
         })
     }
-    pub(super) fn purge(&mut self, id: LogId<u64>) -> io::Result<()> {
+    pub(super) fn purge(&mut self, id: LogId) -> io::Result<()> {
         self.mutate(move |wal| {
             wal.purge(LogKey(id))?;
             Ok(())

@@ -1,7 +1,7 @@
 //! Deterministic bounded controller metadata state machine.
 use crate::repair_state::{RepairProof, RepairSeal, RepairState, RepairSummary, RepairTerminal};
 use mqtt_cluster_core::ClusterMessage;
-use openraft::{BasicNode, Entry, LogId, StoredMembership};
+use openraft::BasicNode;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
@@ -15,7 +15,19 @@ fn legacy_max_lease() -> u64 {
     30000
 }
 openraft::declare_raft_types!(pub Types: D=Command,R=Answer,NodeId=NodeId,Node=BasicNode);
-pub type Raft = openraft::Raft<Types>;
+pub type LogId = openraft::type_config::alias::LogIdOf<Types>;
+pub type Vote = openraft::type_config::alias::VoteOf<Types>;
+pub type Entry = openraft::type_config::alias::EntryOf<Types>;
+pub type StoredMembership = openraft::type_config::alias::StoredMembershipOf<Types>;
+pub type SnapshotMeta = openraft::type_config::alias::SnapshotMetaOf<Types>;
+#[cfg(test)]
+pub type CommittedLeaderId = openraft::type_config::alias::CommittedLeaderIdOf<Types>;
+#[cfg(test)]
+pub fn committed_leader_id(term: u64, node: u64) -> CommittedLeaderId {
+    <CommittedLeaderId as openraft::vote::RaftLeaderId>::new(term, node)
+}
+pub type Snapshot = openraft::type_config::alias::SnapshotOf<Types, Cursor<Vec<u8>>>;
+pub type Raft = openraft::Raft<Types, crate::storage::Store>;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     pub id: u64,
@@ -205,6 +217,11 @@ pub enum Command {
         expires_at: u64,
     },
 }
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Answer {
     pub revision: u64,
@@ -216,8 +233,8 @@ pub struct Answer {
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct State {
-    pub last_applied: Option<LogId<u64>>,
-    pub membership: StoredMembership<u64, BasicNode>,
+    pub last_applied: Option<LogId>,
+    pub membership: StoredMembership,
     pub metadata: Metadata,
 }
 impl Metadata {
@@ -564,7 +581,7 @@ impl Metadata {
     }
 }
 impl State {
-    pub fn apply_tracked(&mut self, entry: Entry<Types>) -> (Answer, Option<MetadataUpdate>) {
+    pub fn apply_tracked(&mut self, entry: Entry) -> (Answer, Option<MetadataUpdate>) {
         self.last_applied = Some(entry.log_id);
         match entry.payload {
             openraft::EntryPayload::Blank => (
@@ -591,15 +608,15 @@ impl State {
             openraft::EntryPayload::Normal(c) => self.metadata.apply_tracked(c),
         }
     }
-    pub fn apply(&mut self, entry: Entry<Types>) -> Answer {
+    pub fn apply(&mut self, entry: Entry) -> Answer {
         self.apply_tracked(entry).0
     }
 }
 #[derive(Serialize, Deserialize)]
 pub enum RaftRequest {
     Append(openraft::raft::AppendEntriesRequest<Types>),
-    Vote(openraft::raft::VoteRequest<u64>),
-    Snapshot(openraft::raft::InstallSnapshotRequest<Types>),
+    Vote(openraft::raft::VoteRequest<Types>),
+    Snapshot(openraft_legacy::network_v1::InstallSnapshotRequest<Types>),
 }
 
 #[derive(Clone, Serialize, Deserialize)]

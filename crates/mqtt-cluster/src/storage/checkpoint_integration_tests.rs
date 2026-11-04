@@ -8,7 +8,7 @@ async fn fresh_controller_uses_bbolt_without_creating_sqlite()
     let dir = directory();
     let mut store = Store::open(&dir, "test", 1).await?;
     prime(&store, vec![entry(0, 1)], Some(entry(0, 1).log_id)).await?;
-    store.apply([entry(0, 1)]).await?;
+    store.apply_log([entry(0, 1)]).await?;
     store.build_snapshot().await?;
     assert!(dir.join("controller.bbolt").is_file());
     assert!(dir.join("controller.bbolt.required").is_file());
@@ -47,9 +47,9 @@ fn exchange(
 fn seed_exchange(
     dir: &Path,
     value: &serde_json::Value,
-    entries: Vec<Entry<Types>>,
-    committed: Option<LogId<u64>>,
-    purged: Option<LogId<u64>>,
+    entries: Vec<Entry>,
+    committed: Option<LogId>,
+    purged: Option<LogId>,
 ) -> io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let mut wal = wal::Wal::open(&dir.join("raft-wal"), "test", 1)?;
@@ -93,15 +93,10 @@ async fn explicit_export_import_preserves_source_and_replays_only_committed_tail
     let mut store = Store::open(&dir, "test", 1).await?;
     assert_eq!(store.metadata().nodes.len(), 2);
     assert!(!store.metadata().nodes.contains_key(&3));
-    assert_eq!(
-        store
-            .get_current_snapshot()
-            .await?
-            .ok_or("snapshot")?
-            .meta
-            .last_log_id,
-        Some(entry(0, 1).log_id)
-    );
+    // Recovery applies only the committed tail. The flush then persists that
+    // recovered state; the speculative entry after the commit stays out.
+    let snapshot = store.build_snapshot().await?;
+    assert_eq!(snapshot.meta.last_log_id, Some(entry(1, 2).log_id));
     assert!(dir.join("controller.bbolt.required").is_file());
     assert!(!dir.join("controller-checkpoint.staging").exists());
     drop(store);
@@ -214,8 +209,8 @@ async fn published_bbolt_before_required_marker_is_recovered_without_reimport()
 async fn missing_required_bbolt_never_reimports_stale_exchange()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
-    store.apply([entry(7, 1)]).await?;
+    let store = Store::open(&dir, "test", 1).await?;
+    store.apply_log([entry(7, 1)]).await?;
     // This old identity-only exchange cannot describe the acknowledged sparse
     // checkpoint; direct trait apply deliberately need not add a Raft log entry.
     std::fs::write(
@@ -234,8 +229,8 @@ async fn missing_required_bbolt_never_reimports_stale_exchange()
 async fn existing_bbolt_ignores_stale_sqlite_and_invalid_exchange()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
-    let mut store = Store::open(&dir, "test", 1).await?;
-    store.apply([entry(0, 1)]).await?;
+    let store = Store::open(&dir, "test", 1).await?;
+    store.apply_log([entry(0, 1)]).await?;
     drop(store);
     std::fs::write(dir.join("metadata.sqlite"), b"invalid inert SQLite")?;
     std::fs::write(

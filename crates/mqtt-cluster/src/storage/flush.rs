@@ -1,0 +1,463 @@
+//! Incremental checkpoint flush. Business rows are written off the Raft WAL lock.
+use super::{Inner, State, db_err, encode};
+use crate::model::{
+    Client, Command, DurableOwner, Entry, LogId, Metadata, MetadataUpdate, Node, SnapshotMeta,
+    StoredMembership,
+};
+use crate::profile::{Metric, Timer as ProfileTimer};
+use openraft::EntryPayload;
+use std::{
+    sync::{
+        Arc, Mutex, OnceLock, PoisonError, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    thread::{self, JoinHandle, Thread},
+    time::Duration,
+};
+
+const NODE_BUCKET: &[u8] = b"nodes";
+const CLIENT_BUCKET: &[u8] = b"clients";
+const ROUTE_BUCKET: &[u8] = b"routes";
+const DURABLE_BUCKET: &[u8] = b"durable";
+
+struct Mark {
+    written: bool,
+    applied: Option<LogId>,
+}
+#[derive(Default)]
+struct Dirty {
+    since: Option<LogId>,
+    through: Option<LogId>,
+    membership: StoredMembership,
+    revision: u64,
+    metadata: Metadata,
+    nodes: std::collections::BTreeMap<u64, Option<Node>>,
+    clients: std::collections::BTreeMap<String, Option<Client>>,
+    durable: std::collections::BTreeMap<String, Option<DurableOwner>>,
+    routes: std::collections::BTreeMap<String, Option<std::collections::BTreeSet<u64>>>,
+    gap: bool,
+}
+impl Dirty {
+    fn has_work(&self) -> bool {
+        self.through.is_some() || self.gap
+    }
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+pub(super) struct FlushState {
+    ram: Arc<Mutex<State>>,
+    dirty: Mutex<Dirty>,
+    mark: Mutex<Mark>,
+    epoch: AtomicU64,
+    need_full: AtomicBool,
+    stop: AtomicBool,
+    wake: AtomicBool,
+    parker: OnceLock<Thread>,
+    pub(super) progress: tokio::sync::Notify,
+    last_error: Mutex<Option<String>>,
+}
+pub(super) struct Owner {
+    state: Arc<FlushState>,
+    join: Mutex<Option<JoinHandle<()>>>,
+}
+impl Drop for Owner {
+    fn drop(&mut self) {
+        self.state.stop.store(true, Ordering::Release);
+        self.state.kick();
+        if let Some(handle) = self
+            .join
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+        {
+            let _ = handle.join();
+        }
+    }
+}
+impl FlushState {
+    pub(super) fn kick(&self) {
+        self.wake.store(true, Ordering::Release);
+        if let Some(thread) = self.parker.get() {
+            thread.unpark();
+        }
+    }
+    pub(super) fn observe(
+        &self,
+        state: &State,
+        previous: Option<LogId>,
+        heartbeats: &[u64],
+        update: Option<&MetadataUpdate>,
+    ) {
+        {
+            let mut dirty = self.dirty.lock().unwrap_or_else(PoisonError::into_inner);
+            if dirty.through.is_none() {
+                dirty.since = previous;
+            }
+            dirty.through = state.last_applied;
+            dirty.membership = state.membership.clone();
+            dirty.revision = state.metadata.revision;
+            dirty.metadata.revision = state.metadata.revision;
+            dirty.metadata.data_mode = state.metadata.data_mode.clone();
+            dirty.metadata.disk_ids = state.metadata.disk_ids.clone();
+            dirty.metadata.data_generation = state.metadata.data_generation;
+            dirty.metadata.excluded = state.metadata.excluded.clone();
+            dirty.metadata.repair = state.metadata.repair.clone();
+            dirty.metadata.last_repair = state.metadata.last_repair.clone();
+            match update {
+                Some(MetadataUpdate::Delta {
+                    nodes,
+                    clients,
+                    durable,
+                    routes,
+                    ..
+                }) => {
+                    for (key, value) in nodes {
+                        dirty.nodes.insert(*key, value.clone());
+                    }
+                    for (key, value) in clients {
+                        dirty.clients.insert(key.clone(), value.clone());
+                    }
+                    for (key, value) in durable {
+                        dirty.durable.insert(key.clone(), value.clone());
+                    }
+                    for (key, value) in routes {
+                        dirty.routes.insert(key.clone(), value.clone());
+                    }
+                }
+                Some(MetadataUpdate::Snapshot(_)) => dirty.gap = true,
+                Some(MetadataUpdate::Progress { .. }) | None => {}
+            }
+            if dirty.gap {
+                self.need_full.store(true, Ordering::Release);
+            }
+            for node in heartbeats {
+                if let Some(value) = state.metadata.nodes.get(node) {
+                    dirty.nodes.insert(*node, Some(value.clone()));
+                }
+            }
+        }
+        self.kick();
+    }
+    pub(super) fn begin_full(&self) {
+        self.epoch.fetch_add(1, Ordering::AcqRel);
+        self.dirty
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
+    }
+    pub(super) fn finish(&self, applied: Option<LogId>) {
+        let mut mark = self.mark.lock().unwrap_or_else(PoisonError::into_inner);
+        let advance = !mark.written
+            || match (mark.applied, applied) {
+                (None, Some(_)) => true,
+                (Some(current), Some(next)) => next.index > current.index || next == current,
+                _ => false,
+            };
+        if advance {
+            mark.written = true;
+            mark.applied = applied;
+        }
+        drop(mark);
+        self.progress.notify_waiters();
+    }
+    pub(super) fn need_full(&self) {
+        self.need_full.store(true, Ordering::Release);
+        self.kick();
+    }
+    pub(super) fn covers(&self, target: Option<LogId>) -> bool {
+        let mark = self.mark.lock().unwrap_or_else(PoisonError::into_inner);
+        covers(&mark, target)
+    }
+    pub(super) fn dirty_reaches(&self, target: Option<LogId>) -> bool {
+        let dirty = self.dirty.lock().unwrap_or_else(PoisonError::into_inner);
+        match target {
+            None => false,
+            Some(target) => dirty
+                .through
+                .is_some_and(|have| have == target || have.index > target.index),
+        }
+    }
+    pub(super) fn error(&self) -> String {
+        self.last_error
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .unwrap_or_else(|| "checkpoint flush did not reach applied state".to_owned())
+    }
+}
+fn covers(mark: &Mark, target: Option<LogId>) -> bool {
+    match target {
+        None => mark.written,
+        Some(target) => mark
+            .applied
+            .is_some_and(|have| have == target || have.index > target.index),
+    }
+}
+pub(super) fn heartbeat_nodes(entry: &Entry) -> Vec<u64> {
+    match &entry.payload {
+        EntryPayload::Normal(Command::Heartbeat { node, .. }) => vec![*node],
+        EntryPayload::Normal(Command::Batch { commands }) => commands
+            .iter()
+            .filter_map(|command| match command {
+                Command::Heartbeat { node, .. } => Some(*node),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+pub(super) fn start(inner: Weak<Inner>, ram: Arc<Mutex<State>>) -> std::io::Result<Arc<Owner>> {
+    let state = Arc::new(FlushState {
+        ram,
+        dirty: Mutex::new(Dirty::default()),
+        mark: Mutex::new(Mark {
+            written: false,
+            applied: None,
+        }),
+        epoch: AtomicU64::new(0),
+        need_full: AtomicBool::new(false),
+        stop: AtomicBool::new(false),
+        wake: AtomicBool::new(false),
+        parker: OnceLock::new(),
+        progress: tokio::sync::Notify::new(),
+        last_error: Mutex::new(None),
+    });
+    let worker = Arc::clone(&state);
+    let handle = thread::Builder::new()
+        .name("checkpoint-flush".to_owned())
+        .spawn(move || run(inner, worker))?;
+    Ok(Arc::new(Owner {
+        state,
+        join: Mutex::new(Some(handle)),
+    }))
+}
+fn run(inner: Weak<Inner>, state: Arc<FlushState>) {
+    let _ = state.parker.set(thread::current());
+    if let Some(inner) = inner.upgrade() {
+        bootstrap(&inner, &state);
+    }
+    loop {
+        if state.stop.load(Ordering::Acquire)
+            && !pending(&state)
+            && !state.need_full.load(Ordering::Acquire)
+        {
+            break;
+        }
+        let Some(inner) = inner.upgrade() else {
+            break;
+        };
+        if state.need_full.swap(false, Ordering::AcqRel) {
+            if let Err(error) = write_full(&inner, &state) {
+                remember(&state, &error);
+                if closed(&error) || state.stop.load(Ordering::Acquire) {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(20));
+            }
+            continue;
+        }
+        match write_dirty(&inner, &state) {
+            Ok(true) => {}
+            Ok(false) => {
+                if state.stop.load(Ordering::Acquire) {
+                    break;
+                }
+                if !state.wake.swap(false, Ordering::AcqRel) {
+                    thread::park_timeout(Duration::from_millis(5));
+                }
+            }
+            Err(error) => {
+                remember(&state, &error);
+                if closed(&error) || state.stop.load(Ordering::Acquire) {
+                    break;
+                }
+                state.need_full.store(true, Ordering::Release);
+            }
+        }
+    }
+}
+fn pending(state: &FlushState) -> bool {
+    state
+        .dirty
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .has_work()
+}
+fn remember(state: &FlushState, error: &std::io::Error) {
+    *state
+        .last_error
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner) = Some(error.to_string());
+}
+fn closed(error: &std::io::Error) -> bool {
+    error.to_string().contains("checkpoint store is closed")
+        || error.to_string().contains("Raft WAL is closed")
+}
+fn bootstrap(inner: &Inner, state: &FlushState) {
+    let header = {
+        let db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+        db.as_ref().and_then(|db| db.read_meta().ok().flatten())
+    };
+    let ram = state
+        .ram
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .last_applied;
+    if let Some(meta) = header {
+        state.finish(meta.last_log_id);
+        let covered = meta
+            .last_log_id
+            .is_some_and(|have| ram.is_some_and(|ram| have == ram || have.index > ram.index))
+            || (meta.last_log_id.is_none() && ram.is_none());
+        if ram.is_some() && !covered {
+            state.need_full.store(true, Ordering::Release);
+        }
+    } else if ram.is_some() {
+        state.need_full.store(true, Ordering::Release);
+    }
+}
+fn write_dirty(inner: &Inner, state: &FlushState) -> std::io::Result<bool> {
+    let epoch = state.epoch.load(Ordering::Acquire);
+    let dirty = {
+        let mut dirty = state.dirty.lock().unwrap_or_else(PoisonError::into_inner);
+        if !dirty.has_work() {
+            return Ok(false);
+        }
+        std::mem::take(&mut *dirty)
+    };
+    if state.epoch.load(Ordering::Acquire) != epoch || dirty.gap {
+        state.need_full.store(true, Ordering::Release);
+        return Ok(true);
+    }
+    let patch = patch_from(&dirty)?;
+    let outcome = {
+        let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+        if state.epoch.load(Ordering::Acquire) != epoch {
+            state.need_full.store(true, Ordering::Release);
+            return Ok(true);
+        }
+        let db = db
+            .as_mut()
+            .ok_or_else(|| db_err("checkpoint store is closed"))?;
+        db.write_patch(&patch)?
+    };
+    match outcome {
+        super::checkpoint::PatchResult::Applied => state.finish(dirty.through),
+        super::checkpoint::PatchResult::Superseded => {}
+        super::checkpoint::PatchResult::Gap => state.need_full.store(true, Ordering::Release),
+    }
+    Ok(true)
+}
+fn patch_from(dirty: &Dirty) -> std::io::Result<super::checkpoint::Patch> {
+    let mut rows = Vec::new();
+    push_rows(&mut rows, NODE_BUCKET, &dirty.nodes, |node| {
+        node.to_string()
+    })?;
+    push_rows(&mut rows, CLIENT_BUCKET, &dirty.clients, |key| key.clone())?;
+    push_rows(&mut rows, DURABLE_BUCKET, &dirty.durable, |key| key.clone())?;
+    push_rows(&mut rows, ROUTE_BUCKET, &dirty.routes, |key| key.clone())?;
+    let mut shell = State {
+        last_applied: dirty.through,
+        membership: dirty.membership.clone(),
+        metadata: dirty.metadata.clone(),
+    };
+    shell.metadata.nodes.clear();
+    shell.metadata.clients.clear();
+    shell.metadata.routes.clear();
+    shell.metadata.durable.clear();
+    let mut scalars = serde_json::to_value(&shell).map_err(db_err)?;
+    if let Some(metadata) = scalars
+        .get_mut("metadata")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        metadata.remove("nodes");
+        metadata.remove("clients");
+        metadata.remove("routes");
+        metadata.remove("durable");
+    }
+    Ok(super::checkpoint::Patch {
+        since: dirty.since,
+        meta: SnapshotMeta {
+            last_log_id: dirty.through,
+            last_membership: dirty.membership.clone(),
+        },
+        scalars,
+        rows,
+    })
+}
+fn push_rows<K, V: serde::Serialize>(
+    rows: &mut Vec<super::checkpoint::PatchRow>,
+    bucket: &'static [u8],
+    changes: &std::collections::BTreeMap<K, Option<V>>,
+    key: impl Fn(&K) -> String,
+) -> std::io::Result<()> {
+    for (id, value) in changes {
+        rows.push(super::checkpoint::PatchRow {
+            bucket,
+            key: key(id),
+            value: value.as_ref().map(encode).transpose()?,
+        });
+    }
+    Ok(())
+}
+fn write_full(inner: &Inner, state: &FlushState) -> std::io::Result<()> {
+    // A newer full write or install bumps the epoch. This image must not replace it.
+    let epoch = state.epoch.fetch_add(1, Ordering::AcqRel) + 1;
+    let image = {
+        let ram = state.ram.lock().unwrap_or_else(PoisonError::into_inner);
+        let image = ram.clone();
+        state
+            .dirty
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
+        image
+    };
+    if state.epoch.load(Ordering::Acquire) != epoch {
+        state.need_full.store(true, Ordering::Release);
+        return Ok(());
+    }
+    let _total = ProfileTimer::start(Metric::CheckpointTotal);
+    let saved = super::make_snapshot(&image)?;
+    {
+        let mut wal = inner.wal.lock().unwrap_or_else(PoisonError::into_inner);
+        super::recovery::verify_wal_tail(
+            wal.as_mut().ok_or_else(|| db_err("Raft WAL is closed"))?,
+            saved.meta.last_log_id,
+        )?;
+    }
+    if state.epoch.load(Ordering::Acquire) != epoch {
+        state.need_full.store(true, Ordering::Release);
+        return Ok(());
+    }
+    {
+        let mut db = inner.db.lock().unwrap_or_else(PoisonError::into_inner);
+        if state.epoch.load(Ordering::Acquire) != epoch {
+            state.need_full.store(true, Ordering::Release);
+            return Ok(());
+        }
+        let db = db
+            .as_mut()
+            .ok_or_else(|| db_err("checkpoint store is closed"))?;
+        let current = db.read_meta()?.and_then(|meta| meta.last_log_id);
+        if let Some(current) = current {
+            let keep_existing = saved
+                .meta
+                .last_log_id
+                .is_none_or(|next| current.index >= next.index);
+            if keep_existing {
+                state.finish(Some(current));
+                return Ok(());
+            }
+        }
+        db.write_snapshot(&saved)?;
+    }
+    state.finish(saved.meta.last_log_id);
+    Ok(())
+}
+impl Owner {
+    pub(super) fn state(&self) -> &Arc<FlushState> {
+        &self.state
+    }
+}

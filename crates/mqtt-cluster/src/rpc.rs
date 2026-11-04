@@ -95,6 +95,15 @@ enum ClientDeadline {
     Regular,
     Repair,
     Applied,
+    Heartbeat,
+}
+fn channel_cache_key(address: &str, deadline: ClientDeadline) -> String {
+    match deadline {
+        ClientDeadline::Regular => address.to_owned(),
+        ClientDeadline::Repair => format!("repair:{address}"),
+        ClientDeadline::Applied => format!("applied:{address}"),
+        ClientDeadline::Heartbeat => format!("heartbeat:{address}"),
+    }
 }
 #[derive(Clone)]
 pub(crate) struct ClientRpc {
@@ -157,6 +166,13 @@ impl ClientRpc {
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
         self.client_timeout(address, ClientDeadline::Regular).await
     }
+    pub async fn heartbeat_client(
+        &self,
+        address: &str,
+    ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
+        self.client_timeout(address, ClientDeadline::Heartbeat)
+            .await
+    }
     pub async fn repair_client(
         &self,
         address: &str,
@@ -168,11 +184,12 @@ impl ClientRpc {
         address: &str,
         deadline: ClientDeadline,
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
-        let (cache_key, seconds) = match deadline {
-            ClientDeadline::Regular => (address.to_owned(), 2),
-            ClientDeadline::Repair => (format!("repair:{address}"), 60),
-            ClientDeadline::Applied => (format!("applied:{address}"), 5),
+        let seconds = match deadline {
+            ClientDeadline::Repair => 60,
+            ClientDeadline::Applied => 5,
+            ClientDeadline::Regular | ClientDeadline::Heartbeat => 2,
         };
+        let cache_key = channel_cache_key(address, deadline);
         let cached = self
             .channels
             .lock()
@@ -442,6 +459,18 @@ mod tests {
         assert!(!not_submitted(&mutation_status(Status::unavailable(
             "metadata commit deadline"
         ))));
+    }
+    #[test]
+    fn heartbeat_channel_does_not_share_the_replication_connection() {
+        let address = "http://172.16.240.182:17001";
+        assert_ne!(
+            channel_cache_key(address, ClientDeadline::Heartbeat),
+            channel_cache_key(address, ClientDeadline::Regular)
+        );
+        assert_ne!(
+            channel_cache_key(address, ClientDeadline::Heartbeat),
+            channel_cache_key(address, ClientDeadline::Repair)
+        );
     }
     #[test]
     fn status_details_survive_io_conversion() {

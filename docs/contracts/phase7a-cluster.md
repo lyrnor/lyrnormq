@@ -62,8 +62,8 @@ Same source connection ordered; stable internal ID for retries, bounded duplicat
 receipt cache; no exactlyonce/crashcomplete network promise without durable receipt
 and forwarding responsibility. Control and data/snapshot streams have separate
 bounded queues. RPC includes cluster id + private node token, finite body/time limits;
-non-loopback endpoints require configured TLS/mTLS, development plaintext only on
-explicit loopback addresses. No credentials/payload logs.
+public endpoints require configured TLS/mTLS. Plaintext HTTP is limited to
+loopback and RFC1918 private addresses. No credentials/payload logs.
 
 Root proposed config via --cluster-config PATH (strict startup JSON, role controller
 or broker). Controllers: cluster_id,node_id,listen,data_dir,token_file,controllers

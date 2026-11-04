@@ -57,14 +57,7 @@ pub(crate) fn valid_command(command: &Command) -> bool {
             incarnation,
             address,
             ..
-        } => {
-            *node > 0
-                && text(incarnation, 64)
-                && text(address, 2048)
-                && (address.starts_with("http://127.0.0.1:")
-                    || address.starts_with("http://[::1]:")
-                    || address.starts_with("https://"))
-        }
+        } => *node > 0 && text(incarnation, 64) && crate::config::cluster_peer_address(address),
         Command::Heartbeat {
             node, incarnation, ..
         }
@@ -99,5 +92,30 @@ pub(crate) fn valid_command(command: &Command) -> bool {
                     .iter()
                     .all(|f| mqtt_router::validate_topic_filter(f) && !f.starts_with("$share/"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::valid_command;
+    use crate::model::Command;
+
+    fn register(address: &str) -> Command {
+        Command::Register {
+            node: 101,
+            incarnation: "incarnation".into(),
+            address: address.into(),
+            replicas: Some(vec![(101, address.into())]),
+            memory: true,
+            disk_id: None,
+            expires_at: 100,
+            lease_ms: 3000,
+        }
+    }
+
+    #[test]
+    fn private_http_register_is_a_valid_command() {
+        assert!(valid_command(&register("http://172.16.240.180:17101")));
+        assert!(!valid_command(&register("http://47.84.224.186:17101")));
     }
 }

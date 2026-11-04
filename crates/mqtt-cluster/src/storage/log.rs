@@ -11,13 +11,13 @@ struct StoredEntry<T> {
     entry: T,
     digest: String,
 }
-fn digest(entry: &Entry<Types>) -> io::Result<String> {
+fn digest(entry: &Entry) -> io::Result<String> {
     let mut hash = Sha256::new();
     hash.update(b"rmqtt-controller-log-v2\0");
     hash.update(encode(entry)?);
     Ok(format!("{:x}", hash.finalize()))
 }
-pub(super) fn encode_entry(entry: &Entry<Types>) -> io::Result<Vec<u8>> {
+pub(super) fn encode_entry(entry: &Entry) -> io::Result<Vec<u8>> {
     let _encode = Timer::start(Metric::WalEncode);
     let data = encode(&StoredEntry {
         format: FORMAT,
@@ -29,11 +29,11 @@ pub(super) fn encode_entry(entry: &Entry<Types>) -> io::Result<Vec<u8>> {
     }
     Ok(data)
 }
-pub(super) fn decode_entry(index: i64, data: &[u8]) -> io::Result<Entry<Types>> {
+pub(super) fn decode_entry(index: i64, data: &[u8]) -> io::Result<Entry> {
     if index < 0 || data.len() > MAX_RECORD {
         return Err(db_err("Controller log record bounds"));
     }
-    let saved: StoredEntry<Entry<Types>> = decode(data)?;
+    let saved: StoredEntry<Entry> = decode(data)?;
     if saved.format != FORMAT || saved.digest != digest(&saved.entry)? {
         return Err(db_err("Controller log checksum/version mismatch"));
     }
@@ -48,7 +48,7 @@ pub(super) fn decode_entry(index: i64, data: &[u8]) -> io::Result<Entry<Types>> 
 pub(super) fn append_checked(
     wal: &mut wal::Wal,
     db: &Mutex<Option<checkpoint::Checkpoint>>,
-    mut entries: Vec<Entry<Types>>,
+    mut entries: Vec<Entry>,
 ) -> io::Result<()> {
     let state = wal.state()?;
     if let Some(purged) = state.last_purged_log_id {
@@ -71,7 +71,7 @@ pub(super) fn append_checked(
     {
         return wal.append(entries);
     }
-    let mut previous: Option<LogId<u64>> = None;
+    let mut previous: Option<LogId> = None;
     for entry in &entries {
         i64::try_from(entry.log_id.index).map_err(db_err)?;
         encode_entry(entry)?;
@@ -106,11 +106,10 @@ pub(super) fn append_checked(
         let committed = wal.committed()?;
         let checkpoint = {
             let db = db.lock().unwrap_or_else(PoisonError::into_inner);
-            recovery::checkpoint(
-                db.as_ref()
-                    .ok_or_else(|| db_err("checkpoint store is closed"))?,
-            )?
-            .last_applied
+            db.as_ref()
+                .ok_or_else(|| db_err("checkpoint store is closed"))?
+                .read_meta()?
+                .and_then(|meta| meta.last_log_id)
         };
         if committed.is_some_and(|last| {
             last.index >= first.index && checkpoint.is_none_or(|covered| covered.index < last.index)

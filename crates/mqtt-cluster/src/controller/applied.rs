@@ -1,5 +1,6 @@
 //! Volatile installation progress. ReadIndex, not this cache, establishes authority.
 use super::*;
+use openraft::async_runtime::WatchReceiver;
 use std::sync::Mutex;
 
 #[derive(Default)]
@@ -94,7 +95,7 @@ impl Control {
     ) -> Result<u64, Status> {
         let term = {
             let metrics = self.raft.metrics();
-            let metrics = metrics.borrow();
+            let metrics = metrics.borrow_watched();
             if metrics.current_leader != Some(self.rpc.config_node()) {
                 return Err(Status::unavailable("not current leader"));
             }
@@ -120,14 +121,14 @@ impl Control {
             let mut acknowledgements = self.progress.changed.subscribe();
             let mut leadership = self.raft.metrics();
             self.leader().await?;
-            let term = leadership.borrow().current_term;
+            let term = leadership.borrow_watched().current_term;
             loop {
-                let authority = { let metrics = leadership.borrow(); metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term };
+                let authority = { let metrics = leadership.borrow_watched(); metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term };
                 if !authority { return Err(Status::unavailable("applied leader changed")); }
                 let ready = { let state = self.store.state.lock().unwrap_or_else(PoisonError::into_inner); self.progress.ready(&state.metadata, term, revision) };
                 if ready {
                     self.leader().await?;
-                    let unchanged = { let metrics = leadership.borrow(); metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term };
+                    let unchanged = { let metrics = leadership.borrow_watched(); metrics.current_leader == Some(self.rpc.config_node()) && metrics.current_term == term };
                     if !unchanged { return Err(Status::unavailable("applied leader changed")); }
                     let ready = { let state = self.store.state.lock().unwrap_or_else(PoisonError::into_inner); self.progress.ready(&state.metadata, term, revision) };
                     if ready { return Ok(revision); }
