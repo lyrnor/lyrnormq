@@ -146,3 +146,8 @@ Quorum CPU and RPC buffer optimization follows
 reply and bounded tail completion; no per-peer spawn or repeated remote encoding.
 Immutable Envelope Bytes preserve protobuf wire and JSON schemas. CPU comparisons
 include raw bracketing ticks/padding and h2 resets, not latency alone.
+
+The requested100k/300s dual-role load acceptance follows
+`docs/contracts/phase7v-100k-hold.md`. CPU optimization is paused. Reuse the tested
+binary; verify actual three-member Raft and live300s hold, archive partial failures,
+restore loadhost ephemeral ports and stop only identity-checked test processes.
