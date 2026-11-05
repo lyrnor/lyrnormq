@@ -78,7 +78,7 @@ fn config(path: &Path) -> io::Result<Arc<Config>> {
     config.wal.chunk_max_records = Some(CHUNK_RECORDS);
     config.wal.chunk_max_size = Some(CHUNK_BYTES);
     config.wal.truncate_incomplete_record = Some(false);
-    config.wal.flush_batch_wait = Some(Duration::ZERO);
+    config.wal.flush_batch_wait = Some(Duration::from_millis(2));
     config.wal.flush_batch_max_items = Some(128);
     config.wal.flush_queue_max_bytes = Some(16 * 1024 * 1024);
     Ok(Arc::new(config))
