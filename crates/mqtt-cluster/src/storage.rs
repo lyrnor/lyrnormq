@@ -20,14 +20,16 @@ mod diagnostics;
 mod flush;
 mod history;
 mod log;
+mod purge;
 mod recovery;
 mod wal;
 #[derive(Clone)]
 pub struct Store {
     node: u64,
-    /// Declared before `inner` so dropping the last store joins the flush thread
-    /// before the checkpoint file is closed.
+    /// Declared before deferred purge and `inner` so the last store finishes the
+    /// checkpoint flush before log deletion and before the files are closed.
     owner: Arc<flush::Owner>,
+    purges: Arc<purge::LogPurge>,
     inner: Arc<Inner>,
     pub state: Arc<Mutex<State>>,
     pub changed: watch::Sender<u64>,
@@ -130,9 +132,11 @@ impl Store {
             slots: Arc::new(Semaphore::new(32)),
         });
         let owner = flush::start(Arc::downgrade(&inner), Arc::clone(&state))?;
+        let purges = purge::LogPurge::start(Arc::clone(&inner), Arc::clone(owner.state()))?;
         Ok(Self {
             node,
             owner,
+            purges,
             inner,
             state,
             changed,
@@ -651,32 +655,31 @@ impl RaftLogStorage<Types> for Store {
         .map_err(io::Error::from)
     }
     async fn purge(&mut self, id: LogId) -> Result<(), io::Error> {
-        let needs_checkpoint = self
-            .run_checkpoint(move |wal, db| {
-                let committed = wal.committed()?;
-                let checkpoint = db.read_meta()?.and_then(|meta| meta.last_log_id);
-                Ok(committed
-                    .map(|log| log.index.min(id.index))
-                    .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed)))
-            })
-            .await?;
-        if needs_checkpoint {
-            self.build_snapshot().await?;
-        }
-        self.run_checkpoint(move |wal, db| {
-            let committed = wal.committed()?;
-            let checkpoint = db.read_meta()?.and_then(|meta| meta.last_log_id);
-            if committed
-                .map(|log| log.index.min(id.index))
-                .is_some_and(|needed| checkpoint.is_none_or(|log| log.index < needed))
-            {
-                return Err(db_err("purge would remove unsnapshotted committed entries"));
+        // Already covered: delete before returning so Raft's log state matches disk.
+        // Not covered: return immediately. A background thread deletes only after
+        // the incremental checkpoint catches up, and never builds a full snapshot.
+        let needed = purge::protected_index(&self.inner, id)?;
+        let covered = match needed {
+            None => true,
+            Some(index) => self.owner.state().covers_index(index),
+        };
+        if covered {
+            match self.purge_covered(id).await {
+                Ok(()) => return Ok(()),
+                Err(error) if purge_refused(&error) => {}
+                Err(error) => return Err(error),
             }
-            wal.purge(id)
-        })
-        .await
-        .map_err(io::Error::from)
+        }
+        if needed.is_some_and(|index| self.owner.state().incremental_can_reach(index)) {
+            self.purges.schedule(id);
+        }
+        Ok(())
     }
+}
+fn purge_refused(error: &io::Error) -> bool {
+    error
+        .to_string()
+        .contains("purge would remove unsnapshotted committed entries")
 }
 
 fn old_checkpoint_conflicts(
@@ -755,6 +758,11 @@ impl RaftSnapshotBuilder<Types> for Store {
     }
 }
 impl Store {
+    async fn purge_covered(&self, id: LogId) -> io::Result<()> {
+        self.run_checkpoint(move |wal, db| purge::purge_if_covered(wal, db, id))
+            .await
+            .map_err(io::Error::from)
+    }
     #[cfg(test)]
     pub async fn apply_log<I>(&self, entries: I) -> Result<Vec<Answer>, StorageError<Types>>
     where

@@ -11,6 +11,14 @@ use diagnostics::{Stage, measure};
 
 const REPLY_TIMEOUT: Duration = Duration::from_secs(8);
 const WORK_TIMEOUT: Duration = Duration::from_secs(30);
+const FORWARD_WORKERS: usize = 64;
+/// Intents one forwarding worker may finish before it requeues the key.
+const FORWARD_QUANTUM: usize = 256;
+const HOST_BATCH: usize = 256;
+const HOST_MAILBOX: usize = 1024;
+const SESSION_MAILBOX: usize = 8;
+const MAX_INTENTS: usize = 256;
+const MAX_PAYLOAD: usize = 1024 * 1024;
 
 #[derive(Debug)]
 enum RecoveryRequired {
@@ -46,7 +54,7 @@ fn recovery_error(reason: RecoveryRequired) -> io::Error {
 }
 
 struct Work {
-    intent: Option<Intent>,
+    intents: Vec<Intent>,
     activation: Option<SessionLease>,
     activation_token: Arc<()>,
 }
@@ -81,16 +89,20 @@ enum Operation {
         reply: oneshot::Sender<io::Result<()>>,
     },
     Work {
+        limit: usize,
         reply: oneshot::Sender<io::Result<Work>>,
     },
     Complete {
-        id: DeliveryId,
-        recipient: String,
+        completed: Vec<(DeliveryId, String)>,
         reply: oneshot::Sender<io::Result<()>>,
     },
 }
 struct Job {
     operation: Operation,
+}
+struct HostJob {
+    message: ClusterMessage,
+    reply: oneshot::Sender<io::Result<()>>,
 }
 pub(super) struct Durable {
     runtime: Weak<BrokerRuntime>,
@@ -110,6 +122,8 @@ struct Cell {
     poisoned: bool,
     activate: bool,
     activation_token: Arc<()>,
+    forwarding: bool,
+    stashed: Vec<HostJob>,
 }
 impl Cell {
     fn acquisition_failed(&mut self, previously_poisoned: bool, cache_unchanged: bool) {
@@ -152,6 +166,167 @@ impl Cell {
 pub(crate) fn client_key(client: &str) -> String {
     format!("c:{client}")
 }
+fn mailbox_capacity(key: &str) -> usize {
+    if key.starts_with("h:") {
+        HOST_MAILBOX
+    } else {
+        SESSION_MAILBOX
+    }
+}
+/// Host jobs already waiting share one quorum write. A different operation stays
+/// next, including anything that arrived behind it.
+fn take_host_batch(
+    message: ClusterMessage,
+    reply: oneshot::Sender<io::Result<()>>,
+    rx: &mut mpsc::Receiver<Job>,
+) -> (Vec<HostJob>, Option<Job>) {
+    let mut batch = Vec::with_capacity(HOST_BATCH);
+    batch.push(HostJob { message, reply });
+    let mut deferred = None;
+    while batch.len() < HOST_BATCH {
+        match rx.try_recv() {
+            Ok(Job {
+                operation: Operation::Host { message, reply },
+            }) => batch.push(HostJob { message, reply }),
+            Ok(job) => {
+                deferred = Some(job);
+                break;
+            }
+            Err(_) => break,
+        }
+    }
+    (batch, deferred)
+}
+fn take_queued_hosts(rx: &mut mpsc::Receiver<Job>) -> (Vec<HostJob>, Option<Job>) {
+    let mut batch = Vec::new();
+    while batch.len() < HOST_BATCH {
+        match rx.try_recv() {
+            Ok(Job {
+                operation: Operation::Host { message, reply },
+            }) => batch.push(HostJob { message, reply }),
+            Ok(job) => return (batch, Some(job)),
+            Err(_) => break,
+        }
+    }
+    (batch, None)
+}
+fn deliverable(cell: &Cell) -> bool {
+    cell.record.as_ref().is_some_and(|record| {
+        record.intents.iter().any(|intent| {
+            intent
+                .recipients
+                .iter()
+                .any(|recipient| !intent.completed.contains(&recipient.client_id))
+        })
+    })
+}
+async fn flush_forward(
+    durable: &Durable,
+    runtime: &BrokerRuntime,
+    key: &str,
+    cell: &mut Cell,
+    rx: &mut mpsc::Receiver<Job>,
+    prepared: Option<Record>,
+) -> (io::Result<()>, Option<Job>) {
+    let mut hosts = std::mem::take(&mut cell.stashed);
+    let (queued, next) = take_queued_hosts(rx);
+    hosts.extend(queued);
+    let batch = if hosts.len() > HOST_BATCH {
+        cell.stashed = hosts.split_off(HOST_BATCH);
+        hosts
+    } else {
+        hosts
+    };
+    let stored = durable
+        .host_batch(runtime, key, batch, cell, prepared)
+        .await;
+    (stored, next)
+}
+async fn drive(
+    this: &Weak<Durable>,
+    key: &str,
+    cell: &mut Cell,
+    rx: &mut mpsc::Receiver<Job>,
+    mut job: Job,
+) -> bool {
+    loop {
+        let Some(durable) = this.upgrade() else {
+            return false;
+        };
+        let Some(runtime) = durable.runtime.upgrade() else {
+            return false;
+        };
+        if runtime.stopped.load(Ordering::Acquire) {
+            return false;
+        }
+        let generation = runtime
+            .metadata
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .data_generation;
+        cell.observe_generation(generation);
+        cell.forget_if_disowned(
+            &runtime
+                .metadata
+                .read()
+                .unwrap_or_else(PoisonError::into_inner),
+            key,
+            runtime.config.node_id,
+            &runtime.incarnation,
+        );
+        if cell.record.is_none() && !cell.stashed.is_empty() {
+            cell.forwarding = false;
+            Durable::reject_hosts(std::mem::take(&mut cell.stashed));
+        }
+        let deferred = match job.operation {
+            Operation::Host { message, reply } => {
+                if cell.forwarding {
+                    let mut deferred = None;
+                    cell.stashed.push(HostJob { message, reply });
+                    while cell.stashed.len() < HOST_MAILBOX {
+                        match rx.try_recv() {
+                            Ok(Job {
+                                operation: Operation::Host { message, reply },
+                            }) => cell.stashed.push(HostJob { message, reply }),
+                            Ok(job) => {
+                                deferred = Some(job);
+                                break;
+                            }
+                            Err(_) => break,
+                        }
+                    }
+                    deferred
+                } else {
+                    let (batch, next) = take_host_batch(message, reply, rx);
+                    let _ = durable.host_batch(&runtime, key, batch, cell, None).await;
+                    next
+                }
+            }
+            Operation::Complete { completed, reply } => match completion_record(&completed, cell) {
+                Err(error) => {
+                    let _ = reply.send(Err(error));
+                    None
+                }
+                Ok(prepared) => {
+                    let (stored, next) =
+                        flush_forward(durable.as_ref(), &runtime, key, cell, rx, prepared).await;
+                    let _ = reply.send(stored);
+                    next
+                }
+            },
+            operation => {
+                durable
+                    .apply_operation(&runtime, key, operation, cell)
+                    .await;
+                None
+            }
+        };
+        match deferred {
+            Some(next) => job = next,
+            None => return true,
+        }
+    }
+}
 fn lease(key: &str, record: &Record) -> SessionLease {
     SessionLease {
         client_id: key.strip_prefix("c:").unwrap_or(key).to_owned(),
@@ -169,6 +344,85 @@ fn acquired_record(mut record: Record, epoch: u64) -> io::Result<Record> {
         record.physical_revision = 0;
     }
     Ok(record)
+}
+
+fn completion_record(marks: &[(DeliveryId, String)], cell: &Cell) -> io::Result<Option<Record>> {
+    if marks.is_empty() {
+        return Ok(None);
+    }
+    let mut next = cell.record.clone().ok_or_else(unavailable)?;
+    let mut matched = false;
+    for (id, recipient) in marks {
+        let Some(intent) = next.intents.iter_mut().find(|intent| &intent.id == id) else {
+            continue;
+        };
+        intent.completed.insert(recipient.clone());
+        matched = true;
+    }
+    if !matched {
+        return Ok(None);
+    }
+    next.intents.retain(|intent| {
+        intent
+            .recipients
+            .iter()
+            .any(|recipient| !intent.completed.contains(&recipient.client_id))
+    });
+    Ok(Some(next))
+}
+enum Routed {
+    Expired,
+    Local(RecipientDelivery),
+    Remote(String, RecipientDelivery),
+}
+struct Pending {
+    mark_id: DeliveryId,
+    client_id: String,
+    routed: Routed,
+}
+fn route_recipient(
+    runtime: &BrokerRuntime,
+    recipient: &Recipient,
+    intent: &Intent,
+) -> io::Result<Routed> {
+    if intent
+        .message
+        .expires_at
+        .is_some_and(|at| at <= controller::now())
+    {
+        return Ok(Routed::Expired);
+    }
+    let mut delivery_id = intent.id.clone();
+    delivery_id.target_generation = recipient.generation;
+    let owner = runtime
+        .metadata
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .durable
+        .get(&client_key(&recipient.client_id))
+        .cloned()
+        .ok_or_else(unavailable)?;
+    let delivery = RecipientDelivery {
+        client_id: recipient.client_id.clone(),
+        id: delivery_id,
+        message: intent.message.clone(),
+    };
+    if owner.node == runtime.config.node_id && owner.incarnation == runtime.incarnation {
+        return Ok(Routed::Local(delivery));
+    }
+    let address = runtime
+        .config
+        .durable
+        .as_ref()
+        .and_then(|group| group.replicas.iter().find(|peer| peer.id == owner.node))
+        .map(|peer| peer.address.clone())
+        .ok_or_else(unavailable)?;
+    Ok(Routed::Remote(address, delivery))
+}
+fn note_failure(failure: &mut Option<io::Error>, error: io::Error) {
+    if failure.is_none() {
+        *failure = Some(error);
+    }
 }
 
 impl Durable {
@@ -190,10 +444,13 @@ impl Durable {
         if actors.len() >= 101_024 {
             return Err(unavailable());
         }
-        let (tx, mut rx) = mpsc::channel(8);
+        let (tx, rx) = mpsc::channel(mailbox_capacity(key));
         actors.insert(key.to_owned(), tx.clone());
+        self.spawn_actor(key.to_owned(), rx);
+        Ok(tx)
+    }
+    fn spawn_actor(self: &Arc<Self>, key: String, mut rx: mpsc::Receiver<Job>) {
         let this = Arc::downgrade(self);
-        let key = key.to_owned();
         tokio::spawn(async move {
             let mut cell = Cell {
                 pending: None,
@@ -202,116 +459,98 @@ impl Durable {
                 poisoned: false,
                 activate: false,
                 activation_token: Arc::new(()),
+                forwarding: false,
+                stashed: Vec::new(),
             };
             while let Some(job) = rx.recv().await {
-                let Some(this) = this.upgrade() else {
+                if !drive(&this, &key, &mut cell, &mut rx, job).await {
                     break;
-                };
-                let Some(runtime) = this.runtime.upgrade() else {
-                    break;
-                };
-                if runtime.stopped.load(Ordering::Acquire) {
-                    break;
-                }
-                let generation = runtime
-                    .metadata
-                    .read()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .data_generation;
-                cell.observe_generation(generation);
-                cell.forget_if_disowned(
-                    &runtime
-                        .metadata
-                        .read()
-                        .unwrap_or_else(PoisonError::into_inner),
-                    &key,
-                    runtime.config.node_id,
-                    &runtime.incarnation,
-                );
-                match job.operation {
-                    Operation::ForgetIfDisowned => cell.forget_if_disowned(
-                        &runtime
-                            .metadata
-                            .read()
-                            .unwrap_or_else(PoisonError::into_inner),
-                        &key,
-                        runtime.config.node_id,
-                        &runtime.incarnation,
-                    ),
-                    Operation::Received { id, reply } => {
-                        let result = cell
-                            .record
-                            .as_ref()
-                            .filter(|r| {
-                                !cell.poisoned && Self::authoritative(&runtime, &key, r.epoch)
-                            })
-                            .map(|r| r.received_or_obsolete(&id))
-                            .ok_or_else(unavailable);
-                        let _ = reply.send(result);
-                    }
-                    Operation::Release { generation } => {
-                        if runtime
-                            .metadata
-                            .read()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .durable
-                            .get(&key)
-                            .is_some_and(|o| {
-                                o.node == runtime.config.node_id
-                                    && o.incarnation == runtime.incarnation
-                                    && o.generation == generation
-                            })
-                        {
-                            cell.request_activation();
-                            this.changed(&key, &cell);
-                        }
-                    }
-                    Operation::Activated {
-                        epoch,
-                        revision,
-                        token,
-                    } => {
-                        cell.activated(epoch, revision, &token);
-                    }
-                    Operation::Acquire {
-                        generation,
-                        expected,
-                        reply,
-                    } => {
-                        let result = this
-                            .take(&runtime, &key, generation, expected, &mut cell)
-                            .await;
-                        this.respond_acquisition(&key, &mut cell, reply, result);
-                    }
-                    Operation::Recover { reply } => {
-                        let result = this.recover_cell(&runtime, &key, &mut cell).await;
-                        this.respond(&key, &cell, reply, result);
-                    }
-                    Operation::Commit { mutation, reply } => {
-                        let result = this.commit(&runtime, &key, mutation, &mut cell).await;
-                        this.respond(&key, &cell, reply, result);
-                    }
-                    Operation::Host { message, reply } => {
-                        let result = this.host(&runtime, &key, message, &mut cell).await;
-                        this.respond(&key, &cell, reply, result);
-                    }
-                    Operation::Work { reply } => {
-                        let _ = reply.send(this.work(&runtime, &key, &cell));
-                    }
-                    Operation::Complete {
-                        id,
-                        recipient,
-                        reply,
-                    } => {
-                        let _ = reply.send(
-                            this.complete(&runtime, &key, &id, recipient, &mut cell)
-                                .await,
-                        );
-                    }
                 }
             }
         });
-        Ok(tx)
+    }
+    async fn apply_operation(
+        self: &Arc<Self>,
+        runtime: &BrokerRuntime,
+        key: &str,
+        operation: Operation,
+        cell: &mut Cell,
+    ) {
+        match operation {
+            Operation::Host { reply, .. } => {
+                let _ = reply.send(Err(unavailable()));
+            }
+            Operation::ForgetIfDisowned => cell.forget_if_disowned(
+                &runtime
+                    .metadata
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner),
+                key,
+                runtime.config.node_id,
+                &runtime.incarnation,
+            ),
+            Operation::Received { id, reply } => {
+                let result = cell
+                    .record
+                    .as_ref()
+                    .filter(|r| !cell.poisoned && Self::authoritative(runtime, key, r.epoch))
+                    .map(|r| r.received_or_obsolete(&id))
+                    .ok_or_else(unavailable);
+                let _ = reply.send(result);
+            }
+            Operation::Release { generation } => {
+                if runtime
+                    .metadata
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .durable
+                    .get(key)
+                    .is_some_and(|o| {
+                        o.node == runtime.config.node_id
+                            && o.incarnation == runtime.incarnation
+                            && o.generation == generation
+                    })
+                {
+                    cell.request_activation();
+                    self.changed(key, cell);
+                }
+            }
+            Operation::Activated {
+                epoch,
+                revision,
+                token,
+            } => {
+                cell.activated(epoch, revision, &token);
+            }
+            Operation::Acquire {
+                generation,
+                expected,
+                reply,
+            } => {
+                let result = self.take(runtime, key, generation, expected, cell).await;
+                self.respond_acquisition(key, cell, reply, result);
+            }
+            Operation::Recover { reply } => {
+                let result = self.recover_cell(runtime, key, cell).await;
+                self.respond(key, cell, reply, result);
+            }
+            Operation::Commit { mutation, reply } => {
+                let result = self.commit(runtime, key, mutation, cell).await;
+                self.respond(key, cell, reply, result);
+            }
+            Operation::Work { limit, reply } => {
+                if !deliverable(cell) && !cell.stashed.is_empty() {
+                    let batch = std::mem::take(&mut cell.stashed);
+                    let _ = self.host_batch(runtime, key, batch, cell, None).await;
+                }
+                let result = self.work(runtime, key, cell, limit);
+                cell.forwarding = result.as_ref().is_ok_and(|state| !state.intents.is_empty());
+                let _ = reply.send(result);
+            }
+            Operation::Complete { completed, reply } => {
+                let _ = reply.send(self.complete(runtime, key, &completed, cell).await);
+            }
+        }
     }
     async fn send(self: &Arc<Self>, key: &str, operation: Operation) -> io::Result<()> {
         // The per-key mailbox is the only transaction admission boundary. Waiting
@@ -675,6 +914,12 @@ impl Durable {
     fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<Recipient> {
         runtime.durable_recipients(&message.topic)
     }
+    fn message_rejected(message: &ClusterMessage) -> bool {
+        message.retain
+            || message.qos > 2
+            || message.scope != ForwardScope::Ordinary
+            || message.payload.len() > MAX_PAYLOAD
+    }
     fn append(
         runtime: &BrokerRuntime,
         key: &str,
@@ -682,11 +927,7 @@ impl Durable {
         publications: Vec<ClusterMessage>,
     ) -> io::Result<()> {
         for (index, message) in publications.into_iter().enumerate() {
-            if message.retain
-                || message.qos > 2
-                || message.scope != ForwardScope::Ordinary
-                || message.payload.len() > 1024 * 1024
-            {
+            if Self::message_rejected(&message) {
                 return Err(unavailable());
             }
             let recipients = Self::recipients(runtime, &message);
@@ -705,7 +946,7 @@ impl Durable {
                 });
             }
         }
-        if record.intents.len() > 256 || record.receipts.len() > 8192 {
+        if record.intents.len() > MAX_INTENTS || record.receipts.len() > 8192 {
             return Err(unavailable());
         }
         Ok(())
@@ -818,28 +1059,169 @@ impl Durable {
             duplicate: false,
         })
     }
-    async fn host(
+    fn stage_record(
+        runtime: &BrokerRuntime,
+        key: &str,
+        current: &Record,
+        messages: &[ClusterMessage],
+    ) -> io::Result<Record> {
+        let mut next = current.clone();
+        next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
+        Self::append(runtime, key, &mut next, messages.to_vec())?;
+        Ok(next)
+    }
+    fn record_within_limit(record: &Record) -> bool {
+        serde_json::to_vec(record).is_ok_and(|bytes| bytes.len() <= crate::replica::MAX_RECORD)
+    }
+    fn stage_fits(
+        runtime: &BrokerRuntime,
+        key: &str,
+        current: &Record,
+        messages: &[ClusterMessage],
+    ) -> bool {
+        Self::stage_record(runtime, key, current, messages)
+            .is_ok_and(|record| Self::record_within_limit(&record))
+    }
+    /// Longest prefix whose canonical record stays inside the memory-replica limit.
+    fn fitting_prefix(
+        runtime: &BrokerRuntime,
+        key: &str,
+        current: &Record,
+        messages: &[ClusterMessage],
+    ) -> usize {
+        if messages.is_empty() || Self::stage_fits(runtime, key, current, messages) {
+            return messages.len();
+        }
+        let mut low = 0;
+        let mut high = messages.len() - 1;
+        while low < high {
+            let mid = low + (high - low).div_ceil(2);
+            if Self::stage_fits(runtime, key, current, &messages[..mid]) {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        low
+    }
+    fn finish_hosts(&self, key: &str, cell: &Cell, jobs: Vec<HostJob>, result: io::Result<()>) {
+        self.changed(key, cell);
+        match result {
+            Ok(()) => {
+                for job in jobs {
+                    let _ = job.reply.send(Ok(()));
+                }
+            }
+            Err(error) => {
+                let kind = error.kind();
+                let text = error.to_string();
+                for job in jobs {
+                    let _ = job.reply.send(Err(io::Error::new(kind, text.clone())));
+                }
+            }
+        }
+    }
+    fn reject_hosts(jobs: impl IntoIterator<Item = HostJob>) {
+        for job in jobs {
+            let _ = job.reply.send(Err(unavailable()));
+        }
+    }
+    /// Messages that would grow the outbox past its intent or byte cap fail
+    /// immediately. Accepted messages share one revision and one quorum write.
+    async fn host_batch(
         &self,
         runtime: &BrokerRuntime,
         key: &str,
-        message: ClusterMessage,
+        batch: Vec<HostJob>,
         cell: &mut Cell,
+        prepared: Option<Record>,
     ) -> io::Result<()> {
-        if cell.pending.is_some()
-            || cell.poisoned
-            || cell
-                .record
-                .as_ref()
-                .is_none_or(|record| !Self::authoritative(runtime, key, record.epoch))
-        {
-            self.recover_cell(runtime, key, cell).await?;
+        let completion = prepared.is_some();
+        if batch.is_empty() {
+            return if let Some(record) = prepared {
+                self.store(runtime, key, record, cell).await
+            } else {
+                Ok(())
+            };
         }
-        let mut next = cell.record.clone().ok_or_else(unavailable)?;
-        next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
-        Self::append(runtime, key, &mut next, vec![message])?;
-        self.store(runtime, key, next, cell).await
+        let current = if let Some(record) = prepared {
+            record
+        } else {
+            if (cell.pending.is_some()
+                || cell.poisoned
+                || cell
+                    .record
+                    .as_ref()
+                    .is_none_or(|record| !Self::authoritative(runtime, key, record.epoch)))
+                && let Err(error) = self.recover_cell(runtime, key, cell).await
+            {
+                self.finish_hosts(key, cell, batch, Err(error));
+                return Ok(());
+            }
+            let Some(current) = cell.record.clone() else {
+                self.finish_hosts(key, cell, batch, Err(unavailable()));
+                return Ok(());
+            };
+            current
+        };
+        let mut rejected = Vec::new();
+        let mut admissible = Vec::new();
+        let mut intents = current.intents.len();
+        for job in batch {
+            if Self::message_rejected(&job.message) {
+                rejected.push(job);
+                continue;
+            }
+            let adds_intent = !Self::recipients(runtime, &job.message).is_empty();
+            if adds_intent && intents >= MAX_INTENTS {
+                rejected.push(job);
+                continue;
+            }
+            if adds_intent {
+                intents += 1;
+            }
+            admissible.push(job);
+        }
+        let messages: Vec<ClusterMessage> =
+            admissible.iter().map(|job| job.message.clone()).collect();
+        let fit = Self::fitting_prefix(runtime, key, &current, &messages);
+        let overflow = admissible.split_off(fit);
+        rejected.extend(overflow);
+        Self::reject_hosts(rejected);
+        if admissible.is_empty() {
+            if completion {
+                return self.store(runtime, key, current, cell).await;
+            }
+            self.changed(key, cell);
+            return Ok(());
+        }
+        let accepted_messages: Vec<ClusterMessage> =
+            admissible.iter().map(|job| job.message.clone()).collect();
+        let next = match Self::stage_record(runtime, key, &current, &accepted_messages) {
+            Ok(record) if Self::record_within_limit(&record) => record,
+            _ => {
+                self.finish_hosts(key, cell, admissible, Err(unavailable()));
+                if completion {
+                    return self.store(runtime, key, current, cell).await;
+                }
+                return Ok(());
+            }
+        };
+        let stored = self.store(runtime, key, next, cell).await;
+        let reported = match &stored {
+            Ok(()) => Ok(()),
+            Err(error) => Err(io::Error::new(error.kind(), error.to_string())),
+        };
+        self.finish_hosts(key, cell, admissible, reported);
+        if completion { stored } else { Ok(()) }
     }
-    fn work(&self, runtime: &BrokerRuntime, key: &str, cell: &Cell) -> io::Result<Work> {
+    fn work(
+        &self,
+        runtime: &BrokerRuntime,
+        key: &str,
+        cell: &Cell,
+        limit: usize,
+    ) -> io::Result<Work> {
         if !runtime.ready() {
             return Err(unavailable());
         }
@@ -853,8 +1235,9 @@ impl Durable {
         if !Self::authoritative(runtime, key, current.epoch) {
             return Err(recovery_error(RecoveryRequired::StaleEpoch));
         }
+        let take = limit.min(FORWARD_QUANTUM);
         Ok(Work {
-            intent: current.intents.first().cloned(),
+            intents: current.intents.iter().take(take).cloned().collect(),
             activation: (cell.activate && key.starts_with("c:")).then(|| lease(key, current)),
             activation_token: cell.activation_token.clone(),
         })
@@ -863,26 +1246,18 @@ impl Durable {
         &self,
         runtime: &BrokerRuntime,
         key: &str,
-        id: &DeliveryId,
-        recipient: String,
+        marks: &[(DeliveryId, String)],
         cell: &mut Cell,
     ) -> io::Result<()> {
-        let mut next = cell.record.clone().ok_or_else(unavailable)?;
-        let Some(intent) = next.intents.iter_mut().find(|intent| &intent.id == id) else {
-            return Ok(());
-        };
-        intent.completed.insert(recipient);
-        next.intents.retain(|i| {
-            i.recipients
-                .iter()
-                .any(|r| !i.completed.contains(&r.client_id))
-        });
-        self.store(runtime, key, next, cell).await
+        match completion_record(marks, cell)? {
+            Some(next) => self.store(runtime, key, next, cell).await,
+            None => Ok(()),
+        }
     }
-    async fn one(self: &Arc<Self>, key: String) -> io::Result<bool> {
+    async fn one(self: &Arc<Self>, key: String, limit: usize) -> io::Result<usize> {
         let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
         let (reply, rx) = oneshot::channel();
-        self.send(&key, Operation::Work { reply }).await?;
+        self.send(&key, Operation::Work { limit, reply }).await?;
         let outcome = self.await_reply(rx).await;
         let state = match outcome {
             Ok(state) => state,
@@ -906,7 +1281,7 @@ impl Durable {
                 diagnosis::observe(Failure::BackgroundReacquire);
                 self.recover(&key).await?;
                 // The next Work carries offline activation and its acknowledgement.
-                return Ok(true);
+                return Ok(1);
             }
         };
         let activated = state.activation.is_some();
@@ -924,72 +1299,144 @@ impl Durable {
             )
             .await?;
         }
-        let Some(intent) = state.intent else {
-            return Ok(activated);
-        };
-        for recipient in &intent.recipients {
-            let target_generation = recipient.generation;
-            let recipient = &recipient.client_id;
-            let mut delivery_id = intent.id.clone();
-            delivery_id.target_generation = target_generation;
-            if intent.completed.contains(recipient) {
-                continue;
-            }
-            if intent
-                .message
-                .expires_at
-                .is_none_or(|at| at > controller::now())
-            {
-                let owner = runtime
-                    .metadata
-                    .read()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .durable
-                    .get(&client_key(recipient))
-                    .cloned()
-                    .ok_or_else(unavailable)?;
-                if owner.node == runtime.config.node_id && owner.incarnation == runtime.incarnation
+        if state.intents.is_empty() {
+            return Ok(usize::from(activated));
+        }
+        // Same-client deliveries stay ordered. Different clients in one wave share a
+        // destination batch. A failed client keeps its later intents queued.
+        let mut queues: BTreeMap<String, VecDeque<Pending>> = BTreeMap::new();
+        let mut failure = None;
+        let mut blocked = BTreeSet::new();
+        for intent in &state.intents {
+            for recipient in &intent.recipients {
+                if intent.completed.contains(&recipient.client_id)
+                    || blocked.contains(&recipient.client_id)
                 {
-                    runtime
-                        .deliver_recipient(RecipientDelivery {
-                            client_id: recipient.clone(),
-                            id: delivery_id.clone(),
-                            message: intent.message.clone(),
-                        })
-                        .await?;
-                } else {
-                    let address = runtime
-                        .config
-                        .durable
-                        .as_ref()
-                        .and_then(|d| d.replicas.iter().find(|p| p.id == owner.node))
-                        .map(|p| p.address.clone())
-                        .ok_or_else(unavailable)?;
-                    let rpc = runtime.rpc().await?;
-                    let mut client = rpc.client(&address).await?;
-                    client
-                        .deliver_to(rpc.authorize(rpc::encode(&RecipientDelivery {
-                            client_id: recipient.clone(),
-                            id: delivery_id.clone(),
-                            message: intent.message.clone(),
-                        })?)?)
-                        .await
-                        .map_err(rpc::io_error)?;
+                    continue;
+                }
+                match route_recipient(&runtime, recipient, intent) {
+                    Ok(routed) => queues
+                        .entry(recipient.client_id.clone())
+                        .or_default()
+                        .push_back(Pending {
+                            mark_id: intent.id.clone(),
+                            client_id: recipient.client_id.clone(),
+                            routed,
+                        }),
+                    Err(error) => {
+                        blocked.insert(recipient.client_id.clone());
+                        queues.remove(&recipient.client_id);
+                        note_failure(&mut failure, error);
+                    }
                 }
             }
+        }
+        let batcher = runtime.delivery_batcher().await.ok().cloned();
+        let mut marks = Vec::new();
+        while queues.values().any(|queue| !queue.is_empty()) {
+            let mut expired = Vec::new();
+            let mut local = Vec::new();
+            let mut remote: BTreeMap<String, Vec<(DeliveryId, String, RecipientDelivery)>> =
+                BTreeMap::new();
+            let clients: Vec<String> = queues.keys().cloned().collect();
+            for client in clients {
+                let Some(pending) = queues.get_mut(&client).and_then(VecDeque::pop_front) else {
+                    continue;
+                };
+                match pending.routed {
+                    Routed::Expired => expired.push((pending.mark_id, pending.client_id)),
+                    Routed::Local(delivery) => {
+                        local.push((pending.mark_id, pending.client_id, delivery));
+                    }
+                    Routed::Remote(address, delivery) => {
+                        remote.entry(address).or_default().push((
+                            pending.mark_id,
+                            pending.client_id,
+                            delivery,
+                        ));
+                    }
+                }
+            }
+            for (mark_id, client_id) in expired {
+                marks.push((mark_id, client_id));
+            }
+            enum Wave {
+                One(DeliveryId, String, io::Result<()>),
+                Many(Vec<(DeliveryId, String, io::Result<()>)>),
+            }
+            let mut joins = tokio::task::JoinSet::new();
+            for (mark_id, client_id, delivery) in local {
+                let runtime = Arc::clone(&runtime);
+                joins.spawn(async move {
+                    Wave::One(
+                        mark_id,
+                        client_id,
+                        runtime.deliver_recipient(delivery).await,
+                    )
+                });
+            }
+            for (address, items) in remote {
+                let Some(batcher) = batcher.clone() else {
+                    for (_, client_id, _) in items {
+                        queues.remove(&client_id);
+                        note_failure(&mut failure, unavailable());
+                    }
+                    continue;
+                };
+                joins.spawn(async move {
+                    let mut ids = Vec::with_capacity(items.len());
+                    let mut deliveries = Vec::with_capacity(items.len());
+                    for (mark_id, client_id, delivery) in items {
+                        ids.push((mark_id, client_id));
+                        deliveries.push(delivery);
+                    }
+                    let results = batcher.submit_many(&address, deliveries).await;
+                    Wave::Many(
+                        ids.into_iter()
+                            .zip(results)
+                            .map(|((mark_id, client_id), result)| (mark_id, client_id, result))
+                            .collect(),
+                    )
+                });
+            }
+            while let Some(joined) = joins.join_next().await {
+                let rows = match joined {
+                    Ok(Wave::One(mark_id, client_id, result)) => {
+                        vec![(mark_id, client_id, result)]
+                    }
+                    Ok(Wave::Many(rows)) => rows,
+                    Err(_) => {
+                        note_failure(&mut failure, unavailable());
+                        continue;
+                    }
+                };
+                for (mark_id, client_id, result) in rows {
+                    match result {
+                        Ok(()) => marks.push((mark_id, client_id)),
+                        Err(error) => {
+                            queues.remove(&client_id);
+                            note_failure(&mut failure, error);
+                        }
+                    }
+                }
+            }
+        }
+        if !marks.is_empty() || key.starts_with("h:") {
             let (reply, rx) = oneshot::channel();
             self.send(
                 &key,
                 Operation::Complete {
-                    id: intent.id.clone(),
-                    recipient: recipient.clone(),
+                    completed: marks,
                     reply,
                 },
             )
             .await?;
             self.await_reply(rx).await?;
         }
-        Ok(true)
+        if let Some(error) = failure {
+            return Err(error);
+        }
+        Ok(state.intents.len())
     }
     fn respond<T>(
         &self,
@@ -1119,7 +1566,8 @@ impl Durable {
         // A continuously backlogged key must give older waiting keys a turn.
         // Requeue without sleeping after a finite quantum; the scheduler keeps
         // the key running until finish(), so a second worker cannot overlap.
-        for _ in 0..32 {
+        let mut remaining = FORWARD_QUANTUM;
+        loop {
             let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
             if runtime.stopped.load(Ordering::Acquire) {
                 return Ok(());
@@ -1152,15 +1600,18 @@ impl Durable {
                 }
                 self.recover(&key).await?;
             }
-            if !tokio::time::timeout(WORK_TIMEOUT, self.one(key.clone()))
-                .await
-                .map_err(|_| unavailable())??
-            {
+            if remaining == 0 {
+                self.scheduler.schedule(&key);
                 return Ok(());
             }
+            let taken = tokio::time::timeout(WORK_TIMEOUT, self.one(key.clone(), remaining))
+                .await
+                .map_err(|_| unavailable())??;
+            if taken == 0 {
+                return Ok(());
+            }
+            remaining = remaining.saturating_sub(taken);
         }
-        self.scheduler.schedule(&key);
-        Ok(())
     }
     pub async fn run(self: Arc<Self>) {
         let mut jobs = tokio::task::JoinSet::new();
@@ -1171,7 +1622,7 @@ impl Durable {
             if runtime.stopped.load(Ordering::Acquire) {
                 return;
             }
-            while jobs.len() < 16 {
+            while jobs.len() < FORWARD_WORKERS {
                 let Some(key) = self.scheduler.take() else {
                     break;
                 };
@@ -1181,7 +1632,7 @@ impl Durable {
                     (key, success)
                 });
             }
-            let deadline = if jobs.len() < 16 {
+            let deadline = if jobs.len() < FORWARD_WORKERS {
                 self.scheduler.deadline()
             } else {
                 None
@@ -1253,7 +1704,7 @@ mod tests {
                 .insert(key.clone(), tx);
             receivers.push(rx);
             let (reply, _) = oneshot::channel();
-            data.send(&key, Operation::Work { reply }).await?;
+            data.send(&key, Operation::Work { limit: 1, reply }).await?;
         }
         assert_eq!(
             receivers.iter().map(mpsc::Receiver::len).sum::<usize>(),
@@ -1379,7 +1830,7 @@ mod tests {
         }
         let (reply, _) = oneshot::channel();
         let key = client_key("bounded");
-        let mut work = Box::pin(data.send(&key, Operation::Work { reply }));
+        let mut work = Box::pin(data.send(&key, Operation::Work { limit: 1, reply }));
         assert!(
             tokio::time::timeout(Duration::from_millis(20), &mut work)
                 .await
@@ -1529,6 +1980,8 @@ mod tests {
                 poisoned: true,
                 activate: false,
                 activation_token: Arc::new(()),
+                forwarding: false,
+                stashed: Vec::new(),
             };
             cell.acquisition_failed(previously_poisoned, not_submitted);
             assert_eq!(
@@ -1571,6 +2024,8 @@ mod tests {
             poisoned: false,
             activate: true,
             activation_token: Arc::new(()),
+            forwarding: false,
+            stashed: Vec::new(),
         };
         cell.observe_generation(1);
         assert!(cell.record.is_none() && cell.poisoned && !cell.activate);
@@ -1594,6 +2049,8 @@ mod tests {
             poisoned: false,
             activate: true,
             activation_token: Arc::new(()),
+            forwarding: false,
+            stashed: Vec::new(),
         };
         metadata.durable.insert(
             key.clone(),
@@ -1822,6 +2279,8 @@ mod tests {
             poisoned: false,
             activate: false,
             activation_token: Arc::new(()),
+            forwarding: false,
+            stashed: Vec::new(),
         };
         let result = runtime
             .data
@@ -1906,6 +2365,83 @@ mod tests {
         drop(runtime);
         std::fs::remove_dir_all(path)?;
         Ok(())
+    }
+
+    fn queued_host(payload: u8) -> Job {
+        let (reply, _) = oneshot::channel();
+        Job {
+            operation: Operation::Host {
+                message: ClusterMessage {
+                    topic: "events/batch".into(),
+                    payload: vec![payload],
+                    qos: 0,
+                    retain: false,
+                    properties: Default::default(),
+                    expires_at: None,
+                    publisher: None,
+                    observer_client: String::new(),
+                    scope: ForwardScope::Ordinary,
+                },
+                reply,
+            },
+        }
+    }
+
+    #[test]
+    fn host_mailbox_is_wider_than_a_session_mailbox() {
+        assert_eq!(super::mailbox_capacity("h:101:boot"), super::HOST_MAILBOX);
+        assert_eq!(super::mailbox_capacity("c:device"), super::SESSION_MAILBOX);
+        assert!(super::mailbox_capacity("h:101:boot") > super::mailbox_capacity("c:device"));
+    }
+
+    #[tokio::test]
+    async fn host_batch_keeps_a_later_operation_in_order() {
+        let (tx, mut rx) = mpsc::channel(8);
+        let first = queued_host(1);
+        tx.try_send(queued_host(2)).expect("queued");
+        let (reply, _) = oneshot::channel();
+        tx.try_send(Job {
+            operation: Operation::Work { limit: 1, reply },
+        })
+        .expect("queued");
+        tx.try_send(queued_host(3)).expect("queued");
+        let Job {
+            operation: Operation::Host { message, reply },
+        } = first
+        else {
+            panic!("host");
+        };
+        let (batch, deferred) = super::take_host_batch(message, reply, &mut rx);
+        assert_eq!(batch.len(), 2);
+        assert!(matches!(
+            deferred.expect("deferred").operation,
+            Operation::Work { .. }
+        ));
+        assert!(matches!(
+            rx.try_recv().expect("tail").operation,
+            Operation::Host { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn host_batch_stops_at_the_host_cap() {
+        let extra = 16usize;
+        let (tx, mut rx) = mpsc::channel(super::HOST_MAILBOX);
+        let first = queued_host(0);
+        for index in 1..super::HOST_BATCH + extra {
+            tx.try_send(queued_host((index % 256) as u8))
+                .expect("queued");
+        }
+        let Job {
+            operation: Operation::Host { message, reply },
+        } = first
+        else {
+            panic!("host");
+        };
+        let (batch, deferred) = super::take_host_batch(message, reply, &mut rx);
+        assert_eq!(batch.len(), super::HOST_BATCH);
+        assert!(deferred.is_none());
+        assert_eq!(rx.len(), extra);
     }
 }
 

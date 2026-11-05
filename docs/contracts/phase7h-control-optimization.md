@@ -51,7 +51,7 @@ if needed). No per-apply full State clone/serialize/blob write. CPU model work m
 not hold SQLite IO mutex; serialize apply/install with bounded work and no locks
 acrossawait. Publish RAM state + sparse history coherently, notify after install.
 
-Periodic snapshots follow existing LogsSinceLast1000 policy. Persist snapshot bytes,
+Periodic snapshots follow LogsSinceLast(10000). Persist snapshot bytes,
 last included log ID and membership atomically before publishing snapshot as current
 or purging covered entries. Snapshot install + recovery checkpoint + committed floor
 must be crash-consistent. Purge cannot remove needed unsnapshotted committed entries.
@@ -129,7 +129,7 @@ Snapshot or SQLite table schema change; use existing sha2 dependency.
 
 Bounded replication batching amendment: permit max_payload_entries24 instead of8.
 With512KiB command admission and small Entry/Append envelopes,24 full-sized entries
-must encode within existing16MiB RPC bound; add actual encoder regression before
+must encode within the 64MiB RPC bound; add actual encoder regression before
 changing the setting. Single-command/MQTT/snapshot bounds and WAL/FULL unchanged.
 This is finite replication batching, not an unbounded queue or weaker flush ACK.
 
@@ -152,8 +152,8 @@ valid-JSON corruption RED before fix and retain complete OpenRaft conformance.
 
 Explicit scale-budget amendment (coordinator authorization for requested100k test):
 The former8MiB metadata limit cannot hold100k ordinary JSON owner entries. Set the
-new exact metadata budget to16MiB minus64KiB (16,711,680bytes), retaining100k count
-bounds,16MiB RPC/raw snapshot bounds,512KiB command cap and all safety checks. The
+new exact metadata budget to64MiB minus64KiB (67,043,328bytes), retaining100k count
+bounds,64MiB RPC/raw snapshot bounds,512KiB command cap and all safety checks. The
 64KiB reserve covers State/membership/Snapshot/protobuf envelope overhead; add an
 actual maximal-metadata snapshot/wire-bound test. This documented resource increase
 supersedes8MiB references above; no hidden unlimited allocation or schema change.

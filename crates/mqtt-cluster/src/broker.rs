@@ -16,6 +16,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::{Notify, OnceCell, watch};
+pub(crate) mod delivery_batch;
 pub(crate) mod durable;
 mod progress;
 mod quorum;
@@ -57,6 +58,25 @@ pub(crate) struct ReplicaMessage {
     pub generation: u64,
     pub operation: crate::replica::Request,
 }
+pub(crate) const REPLICA_BATCH_LIMIT: usize = 64;
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ReplicaBatchMessage {
+    pub generation: u64,
+    pub operations: Vec<crate::replica::Request>,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ReplicaBatchReply {
+    pub results: Vec<Option<crate::replica::Reply>>,
+}
+pub(crate) const DELIVER_BATCH_LIMIT: usize = 64;
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct DeliverBatchMessage {
+    pub deliveries: Vec<durable::RecipientDelivery>,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct DeliverBatchReply {
+    pub results: Vec<bool>,
+}
 pub struct BrokerRuntime {
     config: Arc<Config>,
     incarnation: String,
@@ -77,6 +97,8 @@ pub struct BrokerRuntime {
     weak: Weak<Self>,
     pub(crate) journal: Option<crate::replica::Journal>,
     data: Option<Arc<durable::Durable>>,
+    replica_batches: OnceCell<quorum::batch::ReplicaBatcher>,
+    delivery_batches: OnceCell<delivery_batch::DeliveryBatcher>,
 }
 impl fmt::Debug for BrokerRuntime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -141,6 +163,8 @@ impl BrokerRuntime {
                 .as_ref()
                 .map(|j| Arc::new(durable::Durable::new(weak.clone(), j.clone()))),
             journal,
+            replica_batches: OnceCell::new(),
+            delivery_batches: OnceCell::new(),
         }))
     }
     pub(crate) fn control_ready(&self) -> bool {
@@ -169,6 +193,26 @@ impl BrokerRuntime {
     async fn rpc(&self) -> io::Result<&ClientRpc> {
         self.rpc
             .get_or_try_init(|| ClientRpc::new(self.config.clone()))
+            .await
+    }
+    async fn replica_batcher(&self) -> io::Result<&quorum::batch::ReplicaBatcher> {
+        self.replica_batches
+            .get_or_try_init(|| async {
+                Ok(quorum::batch::ReplicaBatcher::new(
+                    self.rpc().await?.clone(),
+                ))
+            })
+            .await
+    }
+    pub(in crate::broker) async fn delivery_batcher(
+        &self,
+    ) -> io::Result<&delivery_batch::DeliveryBatcher> {
+        self.delivery_batches
+            .get_or_try_init(|| async {
+                Ok(delivery_batch::DeliveryBatcher::new(
+                    self.rpc().await?.clone(),
+                ))
+            })
             .await
     }
     fn local(&self) -> io::Result<Arc<dyn LocalBroker>> {

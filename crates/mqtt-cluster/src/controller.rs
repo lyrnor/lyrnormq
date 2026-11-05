@@ -215,7 +215,7 @@ impl Control {
                 if r.data.len() > 1024 * 1024
                     || r.offset
                         .checked_add(r.data.len() as u64)
-                        .is_none_or(|end| end > 16 * 1024 * 1024)
+                        .is_none_or(|end| end > rpc::MAX_WIRE as u64)
                 {
                     return Err(Status::resource_exhausted("snapshot chunk limit"));
                 }
@@ -501,6 +501,39 @@ impl wire::cluster_server::Cluster for Service {
             Status::resource_exhausted("replica response capacity")
         })?))
     }
+    async fn replica_batch(
+        &self,
+        request: Request<wire::Envelope>,
+    ) -> Result<Response<wire::Envelope>, Status> {
+        self.rpc.check(&request)?;
+        let broker = self
+            .broker
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("not a data replica"))?;
+        if !broker.ready() {
+            return Err(Status::unavailable("unregistered replica disk"));
+        }
+        let journal = broker
+            .journal
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("not a data replica"))?;
+        let message: crate::broker::ReplicaBatchMessage = rpc::decode(request.into_inner())?;
+        if message.operations.is_empty()
+            || message.operations.len() > crate::broker::REPLICA_BATCH_LIMIT
+        {
+            return Err(Status::invalid_argument("replica batch size"));
+        }
+        let executed = journal
+            .execute_many(message.generation, message.operations)
+            .await
+            .map_err(|_| Status::unavailable("replica write unavailable"))?;
+        let reply = crate::broker::ReplicaBatchReply {
+            results: executed.into_iter().map(Result::ok).collect(),
+        };
+        Ok(Response::new(rpc::encode(&reply).map_err(|_| {
+            Status::resource_exhausted("replica response capacity")
+        })?))
+    }
     async fn deliver_to(
         &self,
         request: Request<wire::Envelope>,
@@ -515,6 +548,30 @@ impl wire::cluster_server::Cluster for Service {
             .await
             .map_err(|_| Status::unavailable("recipient unavailable"))?;
         Ok(Response::new(wire::Envelope::default()))
+    }
+    async fn deliver_batch(
+        &self,
+        request: Request<wire::Envelope>,
+    ) -> Result<Response<wire::Envelope>, Status> {
+        self.rpc.check(&request)?;
+        let broker = self
+            .broker
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("not a Broker"))?;
+        if !broker.ready() {
+            return Err(Status::unavailable("unregistered replica disk"));
+        }
+        let message: crate::broker::DeliverBatchMessage = rpc::decode(request.into_inner())?;
+        if !crate::broker::delivery_batch::batch_allowed(message.deliveries.len()) {
+            return Err(Status::invalid_argument("deliver batch size"));
+        }
+        let results =
+            crate::broker::delivery_batch::deliver_many(Arc::clone(broker), message.deliveries)
+                .await;
+        let reply = crate::broker::DeliverBatchReply { results };
+        Ok(Response::new(rpc::encode(&reply).map_err(|_| {
+            Status::resource_exhausted("deliver response capacity")
+        })?))
     }
     async fn deliver(
         &self,
@@ -550,7 +607,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
             max_payload_entries: MAX_REPLICATION_ENTRIES,
             election_timeout_min: 500,
             election_timeout_max: 900,
-            snapshot_policy: openraft::SnapshotPolicy::LogsSinceLast(1000),
+            snapshot_policy: openraft::SnapshotPolicy::LogsSinceLast(10_000),
             snapshot_max_chunk_size: 1024 * 1024,
             max_in_snapshot_log_to_keep: 1000,
             ..Default::default()

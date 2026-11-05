@@ -23,7 +23,7 @@ Checkpoint writes compare/upsert changed records and remove deleted keys in one
 transaction; unchanged records need not rewrite. Scanning an entire frozen State
 at periodic checkpoint is permitted, normal Raft apply remains sparse RAM+WAL.
 Do not store a duplicate full-state/snapshot JSON BLOB as the primary business DB.
-Keep existing16MiB raw Snapshot bound and16711680 metadata budget (KV backend does
+Keep the 64MiB raw Snapshot bound and67043328 metadata budget (KV backend does
 not remove wire limits). File max256MiB, finite transaction data, no long-lived
 read tx across await. no_sync=false/no_grow_sync=false, application owns allocator.
 On uncertain commit or committed-mapping failure poison instance, fail closed,

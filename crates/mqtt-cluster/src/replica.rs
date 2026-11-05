@@ -3,6 +3,7 @@ mod memory;
 mod model;
 mod store;
 
+pub(crate) use memory::MAX_RECORD;
 pub(crate) use model::{
     Intent, Recipient, Record, RepairEntry, RepairManifest, RepairPage, RepairStoreStatus,
     RepairToken, Reply, Request,

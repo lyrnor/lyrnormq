@@ -1,23 +1,28 @@
 //! Quorum register RPC; fences return values from the same successful quorum.
 use super::*;
 use crate::diagnosis::{self, Failure};
-use crate::profile::{self, Metric, Timer};
-use crate::replica::{Journal, Record, Reply, Request};
+use crate::replica::{Journal, Record, Request};
+pub(super) mod batch;
 mod driver;
 
+#[cfg(test)]
 #[derive(serde::Serialize)]
 struct BorrowedReplica<'a> {
     generation: u64,
     operation: &'a Request,
 }
 
+#[cfg(test)]
 fn encode_remote(generation: u64, operation: &Request) -> io::Result<wire::Envelope> {
-    let _timer = Timer::start(Metric::QuorumRemoteEncode);
+    let _timer = crate::profile::Timer::start(crate::profile::Metric::QuorumRemoteEncode);
     let envelope = rpc::encode(&BorrowedReplica {
         generation,
         operation,
     })?;
-    profile::observe(Metric::QuorumRemoteBytes, envelope.data.len() as u64);
+    crate::profile::observe(
+        crate::profile::Metric::QuorumRemoteBytes,
+        envelope.data.len() as u64,
+    );
     Ok(envelope)
 }
 
@@ -36,34 +41,22 @@ pub(super) async fn request(
         .as_ref()
         .ok_or_else(unavailable)?
         .replicas;
-    let rpc = runtime.rpc().await?.clone();
+    let batcher = runtime.replica_batcher().await?.clone();
     let generation = runtime
         .metadata
         .read()
         .unwrap_or_else(PoisonError::into_inner)
         .data_generation;
-    // Encode before moving the original request into the local store future.
-    // Bytes-backed Envelope clones share this immutable wire body across remotes.
-    let encoded = encode_remote(generation, &request)?;
-    let mut local_request = Some(request);
     let mut jobs = Vec::with_capacity(peers.len());
     for peer in peers {
+        let request = request.clone();
         let job: driver::PeerFuture = if peer.id == runtime.config.node_id {
-            let request = local_request.take().ok_or_else(unavailable)?;
             let journal = journal.clone();
             Box::pin(async move { journal.execute_at(generation, request).await })
         } else {
-            let rpc = rpc.clone();
+            let batcher = batcher.clone();
             let address = peer.address.clone();
-            let envelope = encoded.clone();
-            Box::pin(async move {
-                let mut client = rpc.client(&address).await?;
-                let reply = client
-                    .replica(rpc.authorize(envelope)?)
-                    .await
-                    .map_err(rpc::io_error)?;
-                rpc::decode::<Reply>(reply.into_inner()).map_err(rpc::io_error)
-            })
+            Box::pin(async move { batcher.submit(&address, generation, request).await })
         };
         jobs.push(job);
     }

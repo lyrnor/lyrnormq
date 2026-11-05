@@ -7,7 +7,7 @@ use mqtt_cluster_core::{
 use mqtt_session::durable::Publication;
 use std::sync::{PoisonError, Weak};
 
-const FORWARDS: usize = 32;
+pub(crate) const FORWARDS: usize = 1024;
 const BYTES: usize = 16 * 1024 * 1024;
 const DEADLINE: Duration = Duration::from_secs(5);
 

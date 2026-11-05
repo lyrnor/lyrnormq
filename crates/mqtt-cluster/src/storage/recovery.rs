@@ -1,7 +1,7 @@
 //! Checkpoint validation and committed-only log replay, executed on blocking IO workers.
 use super::*;
 use sha2::{Digest, Sha256};
-pub(super) const MAX_SNAPSHOT: usize = 16 * 1024 * 1024;
+pub(super) const MAX_SNAPSHOT: usize = 64 * 1024 * 1024;
 
 pub(super) fn snapshot_digest(meta: &SnapshotMeta, data: &[u8]) -> io::Result<String> {
     let mut hasher = Sha256::new();

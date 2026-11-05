@@ -10,6 +10,12 @@ pub(super) trait ReplicaStore: Send + Sync {
     fn disk_id(&self) -> &str;
     fn voting_ready(&self, generation: u64) -> bool;
     fn execute_at(&self, generation: u64, request: Request) -> StoreFuture<'_, Reply>;
+    /// Runs `requests` in order under one lock. One item's rejection does not roll back the others.
+    fn execute_many_at(
+        &self,
+        generation: u64,
+        requests: Vec<Request>,
+    ) -> StoreFuture<'_, Vec<io::Result<Reply>>>;
     fn status(&self) -> StoreFuture<'_, RepairStoreStatus>;
     fn freeze(&self, token: RepairToken) -> StoreFuture<'_, RepairStoreStatus>;
     fn export_page(
@@ -56,6 +62,13 @@ impl Journal {
     }
     pub async fn execute_at(&self, generation: u64, request: Request) -> io::Result<Reply> {
         self.0.execute_at(generation, request).await
+    }
+    pub async fn execute_many(
+        &self,
+        generation: u64,
+        requests: Vec<Request>,
+    ) -> io::Result<Vec<io::Result<Reply>>> {
+        self.0.execute_many_at(generation, requests).await
     }
     pub async fn status(&self) -> io::Result<RepairStoreStatus> {
         self.0.status().await

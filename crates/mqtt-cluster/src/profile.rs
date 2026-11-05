@@ -56,8 +56,12 @@ pub(crate) enum Metric {
     QuorumRemoteBytes,
     QuorumTail,
     QuorumTailTimeout,
+    ReplicaBatchSize,
+    ReplicaRpc,
+    DeliverBatchSize,
+    DeliverRpc,
 }
-const METRICS: [Metric; 44] = [
+const METRICS: [Metric; 48] = [
     Metric::ControlWrite,
     Metric::Validate,
     Metric::Encode,
@@ -102,7 +106,12 @@ const METRICS: [Metric; 44] = [
     Metric::QuorumRemoteBytes,
     Metric::QuorumTail,
     Metric::QuorumTailTimeout,
+    Metric::ReplicaBatchSize,
+    Metric::ReplicaRpc,
+    Metric::DeliverBatchSize,
+    Metric::DeliverRpc,
 ];
+const _: () = assert!(Metric::DeliverRpc as usize + 1 == METRICS.len());
 struct Stats {
     count: AtomicU64,
     sum: AtomicU64,

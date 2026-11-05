@@ -110,6 +110,8 @@ async fn empty_snapshot_commit_is_idle_but_unknown_commit_retains_recovery() -> 
         poisoned: false,
         activate: false,
         activation_token: Arc::new(()),
+        forwarding: false,
+        stashed: Vec::new(),
     };
     data.changed("c:idle", &cell);
     assert!(data.scheduler.take().is_none());
@@ -137,7 +139,7 @@ async fn event_wakes_immediately_and_drains_fifo_without_timer_gap() -> io::Resu
             .await
             .map_err(io::Error::other)?
             .ok_or_else(unavailable)?;
-        let Operation::Work { reply } = job.operation else {
+        let Operation::Work { reply, .. } = job.operation else {
             return Err(io::Error::other("expected Work"));
         };
         let intent = (index < 2).then(|| Intent {
@@ -163,7 +165,7 @@ async fn event_wakes_immediately_and_drains_fifo_without_timer_gap() -> io::Resu
             completed: BTreeSet::new(),
         });
         let _ = reply.send(Ok(Work {
-            intent,
+            intents: intent.into_iter().collect(),
             activation: None,
             activation_token: Arc::new(()),
         }));
@@ -192,6 +194,8 @@ async fn dropped_mutation_reply_does_not_cancel_committed_work_notification() ->
         poisoned: true,
         activate: false,
         activation_token: Arc::new(()),
+        forwarding: false,
+        stashed: Vec::new(),
     };
     let (reply, rx) = oneshot::channel::<io::Result<()>>();
     drop(rx);
@@ -205,6 +209,8 @@ async fn dropped_mutation_reply_does_not_cancel_committed_work_notification() ->
         poisoned: false,
         activate: true,
         activation_token: Arc::new(()),
+        forwarding: false,
+        stashed: Vec::new(),
     };
     let (reply, rx) = oneshot::channel::<io::Result<()>>();
     drop(rx);
@@ -237,6 +243,8 @@ fn stale_activation_ack_cannot_clear_new_release_at_same_record_version() {
         poisoned: false,
         activate: false,
         activation_token: Arc::new(()),
+        forwarding: false,
+        stashed: Vec::new(),
     };
     cell.request_activation();
     let stale = cell.activation_token.clone();
@@ -252,13 +260,14 @@ fn stale_activation_ack_cannot_clear_new_release_at_same_record_version() {
 }
 
 #[tokio::test]
-async fn sixteen_hot_keys_yield_to_seventeenth_waiting_key() -> io::Result<()> {
+async fn sixty_four_hot_keys_yield_to_waiting_key() -> io::Result<()> {
     let (runtime, path) = fixture("fairness")?;
     let data = runtime.data.as_ref().unwrap().clone();
-    let gate = Arc::new(tokio::sync::Barrier::new(17));
-    let (started, mut starts) = mpsc::channel(16);
+    let workers = super::FORWARD_WORKERS;
+    let gate = Arc::new(tokio::sync::Barrier::new(workers + 1));
+    let (started, mut starts) = mpsc::channel(workers);
     let mut actors = tokio::task::JoinSet::new();
-    for index in 0..16 {
+    for index in 0..workers {
         let key = format!("c:hot-{index}");
         let owner = runtime.metadata.read().unwrap().durable["c:idle"].clone();
         runtime
@@ -273,9 +282,9 @@ async fn sixteen_hot_keys_yield_to_seventeenth_waiting_key() -> io::Result<()> {
         let started = started.clone();
         data.scheduler.schedule(&key);
         actors.spawn(async move {
-            for count in 0..32 {
+            for count in 0..u32::try_from(super::FORWARD_QUANTUM).unwrap_or(32) {
                 let job = rx.recv().await.unwrap();
-                let Operation::Work { reply } = job.operation else {
+                let Operation::Work { reply, .. } = job.operation else {
                     panic!("expected Work");
                 };
                 if count == 0 {
@@ -305,12 +314,12 @@ async fn sixteen_hot_keys_yield_to_seventeenth_waiting_key() -> io::Result<()> {
                     completed: BTreeSet::new(),
                 };
                 let _ = reply.send(Ok(Work {
-                    intent: Some(intent),
+                    intents: vec![intent],
                     activation: None,
                     activation_token: Arc::new(()),
                 }));
             }
-            // Keep all 16 actors backlogged after their quantum. Old unbounded
+            // Keep every worker backlogged after its quantum. Old unbounded
             // drains occupy every worker here and never visit the waiting key.
             let _held = rx.recv().await;
             std::future::pending::<()>().await;
@@ -321,7 +330,7 @@ async fn sixteen_hot_keys_yield_to_seventeenth_waiting_key() -> io::Result<()> {
     let runner = tokio::spawn(data.clone().run());
     // Every hot worker reaches its first Work before the cold key is queued.
     // Waiting at the barrier also makes the test independent of scheduler speed.
-    for _ in 0..16 {
+    for _ in 0..workers {
         tokio::time::timeout(Duration::from_secs(2), starts.recv())
             .await
             .unwrap()
@@ -336,7 +345,7 @@ async fn sixteen_hot_keys_yield_to_seventeenth_waiting_key() -> io::Result<()> {
     while actors.join_next().await.is_some() {}
     assert!(
         progressed.is_ok(),
-        "16 continuously hot keys starved the 17th waiting key"
+        "every forwarding worker stayed on a hot key and starved the waiting key"
     );
     drop(data);
     drop(runtime);

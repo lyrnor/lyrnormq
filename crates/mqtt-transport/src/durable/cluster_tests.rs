@@ -340,7 +340,7 @@ async fn forwarding_capacity_is_held_until_real_work_finishes() {
         expired: false,
     });
     let mut accepted = Vec::new();
-    for _ in 0..32 {
+    for _ in 0..super::cluster::FORWARDS {
         accepted.push(
             worker
                 .broker
@@ -350,8 +350,8 @@ async fn forwarding_capacity_is_held_until_real_work_finishes() {
     }
     let rejected = worker.broker.forward_cluster(publication, None).unwrap();
     assert!(!rejected.await.unwrap());
-    tokio::time::timeout(Duration::from_secs(1), async {
-        while bridge.forwards.load(Ordering::Acquire) != 32 {
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while bridge.forwards.load(Ordering::Acquire) != super::cluster::FORWARDS {
             tokio::task::yield_now().await;
         }
     })

@@ -94,7 +94,7 @@ Current fixed implementation limits (acceptance bounds, not capacity measurement
 | --- | --- |
 | Metadata nodes / active watch streams per Controller | 1024 / 128 |
 | Clients / encoded metadata | 100,000 / 8 MiB |
-| One metadata command / RPC envelope | 512 KiB / 16 MiB |
+| One metadata command / RPC envelope | 512 KiB / 64 MiB |
 | Forwarded payload | 1 MiB |
 | Concurrent forwarding / payload budget | 32 / 16 MiB |
 | Volatile duplicate receipts | 8192 |

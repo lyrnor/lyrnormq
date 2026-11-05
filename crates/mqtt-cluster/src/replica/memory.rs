@@ -13,7 +13,7 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 
-const MAX_RECORD: usize = 8 * 1024 * 1024;
+pub(crate) const MAX_RECORD: usize = 8 * 1024 * 1024;
 const MAX_BYTES: usize = 256 * 1024 * 1024;
 const MAX_REPAIR_BYTES: u64 = 768 * 1024 * 1024;
 const MAX_PAGE_BYTES: usize = 12 * 1024 * 1024;
@@ -195,99 +195,25 @@ impl MemoryStore {
         }
     }
     fn execute(&self, generation: u64, request: Request) -> io::Result<Reply> {
-        enum Prepared {
-            Read(String),
-            Fence(String, u64),
-            Write(String, Value),
-        }
-        // Encoding/validation occurs before locking the map, never under the shared mutex.
-        let prepared = match request {
-            Request::Read { key } => Prepared::Read(key),
-            Request::Fence { key, epoch } => Prepared::Fence(key, epoch),
-            Request::Write { key, record } => Prepared::Write(key, Value::new(record)?),
-        };
-        let (key, epoch) = match &prepared {
-            Prepared::Read(k) => (k, 0),
-            Prepared::Fence(k, e) => (k, *e),
-            Prepared::Write(k, v) => (k, v.record.epoch),
-        };
-        if key.is_empty()
-            || key.len() > 65538
-            || epoch > i64::MAX as u64
-            || (!matches!(prepared, Prepared::Read(_)) && epoch == 0)
-        {
-            return Err(rejected());
-        }
+        let prepared = prepare(request)?;
         let value = {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-            if state.repair.frozen.is_some() {
-                return Err(diagnosis::reject(Failure::JournalFrozen));
-            }
-            if state.repair.generation != generation {
-                return Err(diagnosis::reject(Failure::JournalGeneration));
-            }
-            let old = state.records.get(key);
-            if !matches!(prepared, Prepared::Read(_)) && epoch < old.map_or(0, |e| e.min_epoch) {
-                return Err(diagnosis::reject(Failure::JournalEpoch));
-            }
-            match prepared {
-                Prepared::Read(key) => state.records.get(&key).and_then(|e| e.value.clone()),
-                Prepared::Fence(key, epoch) => {
-                    if let Some(entry) = state.records.get_mut(&key) {
-                        entry.min_epoch = epoch;
-                        entry.value.clone()
-                    } else {
-                        if state.records.len() >= MAX_ENTRIES
-                            || state.bytes.saturating_add(key.len()) > MAX_BYTES
-                        {
-                            return Err(rejected());
-                        }
-                        state.bytes += key.len();
-                        state.records.insert(
-                            key,
-                            Entry {
-                                min_epoch: epoch,
-                                value: None,
-                            },
-                        );
-                        None
-                    }
-                }
-                Prepared::Write(key, value) => {
-                    if let Some(old) = state.records.get(&key).and_then(|e| e.value.as_ref()) {
-                        if old.record.version() > value.record.version() {
-                            return Err(diagnosis::reject(Failure::JournalOlderVersion));
-                        }
-                        if old.record.version() == value.record.version()
-                            && old.canonical != value.canonical
-                        {
-                            return Err(diagnosis::reject(Failure::JournalConflictingValue));
-                        }
-                    }
-                    let old = state.records.get(&key).map_or(0, |e| e.charge(&key));
-                    let entry = Entry {
-                        min_epoch: value.record.epoch,
-                        value: Some(value),
-                    };
-                    let total = state
-                        .bytes
-                        .checked_sub(old)
-                        .and_then(|n| n.checked_add(entry.charge(&key)))
-                        .ok_or_else(rejected)?;
-                    if total > MAX_BYTES
-                        || (!state.records.contains_key(&key) && state.records.len() >= MAX_ENTRIES)
-                    {
-                        return Err(rejected());
-                    }
-                    state.records.insert(key, entry);
-                    state.bytes = total;
-                    None
-                }
-            }
+            apply(&mut state, generation, prepared)?
         };
-        Ok(Reply {
-            record: value.map(|v| v.record.as_ref().clone()),
-        })
+        Ok(reply_of(value))
+    }
+    fn execute_many(&self, generation: u64, requests: Vec<Request>) -> Vec<io::Result<Reply>> {
+        // Validate every request before taking the map lock. One lock then applies them in order,
+        // so a later item observes earlier writes in this batch and one rejection does not undo them.
+        let prepared: Vec<io::Result<Prepared>> = requests.into_iter().map(prepare).collect();
+        let results = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            prepared
+                .into_iter()
+                .map(|item| item.and_then(|prepared| apply(&mut state, generation, prepared)))
+                .collect::<Vec<_>>()
+        };
+        results.into_iter().map(|item| item.map(reply_of)).collect()
     }
     async fn freeze_now(&self, token: RepairToken) -> io::Result<RepairStoreStatus> {
         validate_token(&token)?;
@@ -623,6 +549,13 @@ impl ReplicaStore for MemoryStore {
     fn execute_at(&self, generation: u64, request: Request) -> StoreFuture<'_, Reply> {
         Box::pin(async move { self.execute(generation, request) })
     }
+    fn execute_many_at(
+        &self,
+        generation: u64,
+        requests: Vec<Request>,
+    ) -> StoreFuture<'_, Vec<io::Result<Reply>>> {
+        Box::pin(async move { Ok(self.execute_many(generation, requests)) })
+    }
     fn status(&self) -> StoreFuture<'_, RepairStoreStatus> {
         Box::pin(async move {
             Ok(self.status_of(
@@ -665,6 +598,120 @@ impl ReplicaStore for MemoryStore {
     }
     fn resume(&self, token: RepairToken, allow: bool) -> StoreFuture<'_, RepairStoreStatus> {
         Box::pin(async move { self.resume_now(token, allow) })
+    }
+}
+enum Prepared {
+    Read(String),
+    Fence(String, u64),
+    Write(String, Value),
+}
+fn prepare(request: Request) -> io::Result<Prepared> {
+    // Encoding/validation occurs before locking the map, never under the shared mutex.
+    let prepared = match request {
+        Request::Read { key } => Prepared::Read(key),
+        Request::Fence { key, epoch } => Prepared::Fence(key, epoch),
+        Request::Write { key, record } => Prepared::Write(key, Value::new(record)?),
+    };
+    let (key, epoch) = match &prepared {
+        Prepared::Read(key) => (key.as_str(), 0),
+        Prepared::Fence(key, epoch) => (key.as_str(), *epoch),
+        Prepared::Write(key, value) => (key.as_str(), value.record.epoch),
+    };
+    if key.is_empty()
+        || key.len() > 65538
+        || epoch > i64::MAX as u64
+        || (!matches!(prepared, Prepared::Read(_)) && epoch == 0)
+    {
+        return Err(rejected());
+    }
+    Ok(prepared)
+}
+fn apply(state: &mut State, generation: u64, prepared: Prepared) -> io::Result<Option<Value>> {
+    let key = match &prepared {
+        Prepared::Read(key) | Prepared::Fence(key, _) | Prepared::Write(key, _) => key.as_str(),
+    };
+    let epoch = match &prepared {
+        Prepared::Read(_) => 0,
+        Prepared::Fence(_, epoch) => *epoch,
+        Prepared::Write(_, value) => value.record.epoch,
+    };
+    if state.repair.frozen.is_some() {
+        return Err(diagnosis::reject(Failure::JournalFrozen));
+    }
+    if state.repair.generation != generation {
+        return Err(diagnosis::reject(Failure::JournalGeneration));
+    }
+    let min_epoch = state.records.get(key).map_or(0, |entry| entry.min_epoch);
+    if !matches!(prepared, Prepared::Read(_)) && epoch < min_epoch {
+        return Err(diagnosis::reject(Failure::JournalEpoch));
+    }
+    match prepared {
+        Prepared::Read(key) => Ok(state
+            .records
+            .get(&key)
+            .and_then(|entry| entry.value.clone())),
+        Prepared::Fence(key, epoch) => {
+            if let Some(entry) = state.records.get_mut(&key) {
+                entry.min_epoch = epoch;
+                return Ok(entry.value.clone());
+            }
+            if state.records.len() >= MAX_ENTRIES
+                || state.bytes.saturating_add(key.len()) > MAX_BYTES
+            {
+                return Err(rejected());
+            }
+            state.bytes += key.len();
+            state.records.insert(
+                key,
+                Entry {
+                    min_epoch: epoch,
+                    value: None,
+                },
+            );
+            Ok(None)
+        }
+        Prepared::Write(key, value) => {
+            if let Some(old) = state
+                .records
+                .get(&key)
+                .and_then(|entry| entry.value.as_ref())
+            {
+                if old.record.version() > value.record.version() {
+                    return Err(diagnosis::reject(Failure::JournalOlderVersion));
+                }
+                if old.record.version() == value.record.version()
+                    && old.canonical != value.canonical
+                {
+                    return Err(diagnosis::reject(Failure::JournalConflictingValue));
+                }
+            }
+            let old = state
+                .records
+                .get(&key)
+                .map_or(0, |entry| entry.charge(&key));
+            let entry = Entry {
+                min_epoch: value.record.epoch,
+                value: Some(value),
+            };
+            let total = state
+                .bytes
+                .checked_sub(old)
+                .and_then(|remaining| remaining.checked_add(entry.charge(&key)))
+                .ok_or_else(rejected)?;
+            if total > MAX_BYTES
+                || (!state.records.contains_key(&key) && state.records.len() >= MAX_ENTRIES)
+            {
+                return Err(rejected());
+            }
+            state.records.insert(key, entry);
+            state.bytes = total;
+            Ok(None)
+        }
+    }
+}
+fn reply_of(value: Option<Value>) -> Reply {
+    Reply {
+        record: value.map(|value| value.record.as_ref().clone()),
     }
 }
 fn validate_token(token: &RepairToken) -> io::Result<()> {

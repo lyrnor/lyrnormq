@@ -87,8 +87,14 @@ impl Cluster for ReadSpy {
     async fn replica(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("replica"))
     }
+    async fn replica_batch(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
+        Err(Status::unimplemented("replica_batch"))
+    }
     async fn deliver_to(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("deliver_to"))
+    }
+    async fn deliver_batch(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
+        Err(Status::unimplemented("deliver_batch"))
     }
     async fn deliver(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("deliver"))

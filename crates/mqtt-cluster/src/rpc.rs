@@ -19,7 +19,7 @@ use tonic::{
 pub(crate) mod wire {
     tonic::include_proto!("rmqtt.cluster.v1");
 }
-pub(crate) const MAX_WIRE: usize = 16 * 1024 * 1024;
+pub(crate) const MAX_WIRE: usize = 64 * 1024 * 1024;
 pub(crate) fn encode<T: Serialize>(value: &T) -> io::Result<wire::Envelope> {
     let data = serde_json::to_vec(value).map_err(io::Error::other)?;
     if data.len() > MAX_WIRE {

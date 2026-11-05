@@ -8,6 +8,8 @@ service Cluster {
   rpc Watch(Envelope) returns (stream Envelope);
   rpc Repair(Envelope) returns (Envelope);
   rpc Replica(Envelope) returns (Envelope);
+  rpc ReplicaBatch(Envelope) returns (Envelope);
   rpc DeliverTo(Envelope) returns (Envelope);
+  rpc DeliverBatch(Envelope) returns (Envelope);
   rpc Deliver(Envelope) returns (Envelope);
 }

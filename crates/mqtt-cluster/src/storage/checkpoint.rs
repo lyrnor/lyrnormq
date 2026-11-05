@@ -10,9 +10,10 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 const FILE_LIMIT: u64 = 256 * 1024 * 1024;
-const METADATA_LIMIT: usize = 16 * 1024 * 1024 - 64 * 1024;
+const METADATA_LIMIT: usize = 64 * 1024 * 1024 - 64 * 1024;
 const RECORD_LIMIT: usize = recovery::MAX_SNAPSHOT + 64 * 1024;
-const TRANSACTION_LIMIT: usize = 64 * 1024 * 1024;
+// A full metadata document plus per-record keys and checksums exceeds the JSON size.
+const TRANSACTION_LIMIT: usize = 128 * 1024 * 1024;
 const BUCKETS: [&[u8]; 5] = [b"metadata", b"nodes", b"clients", b"routes", b"durable"];
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -2,8 +2,8 @@
 use super::*;
 use serde::Serialize;
 
-/// Keep the existing16MiB message/snapshot bounds, reserving64KiB for wrappers.
-pub(super) const MAX_BYTES: usize = 16 * 1024 * 1024 - 64 * 1024;
+/// 64MiB message/snapshot bounds, reserving 64KiB for wrappers.
+pub(super) const MAX_BYTES: usize = 64 * 1024 * 1024 - 64 * 1024;
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Derived {
     valid: bool,

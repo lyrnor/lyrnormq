@@ -1070,7 +1070,7 @@ checkpoints. Independent raft-log WAL retains consensus entries/votes/watermarks
 controller.bbolt atomically stores keyed business maps plus checkpoint position/
 membership, with bounded contextual checksums. Hashed32B physical keys preserve
 MQTT65535-byte logical identifiers/filters. Normal apply is RAM+WAL; periodic
-checkpoint scans/upserts frozen State and wire snapshots remain bounded16MiB.
+checkpoint scans/upserts frozen State and wire snapshots remain bounded64MiB.
 Controller runtime has no SQLite dependency; an explicit offline Python exporter
 imports legacy Phase7j state through validated staging publication. The small
 controller.bbolt.required fence prevents lost state from stale-export fallback.

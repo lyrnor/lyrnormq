@@ -8,14 +8,15 @@ use crate::profile::{Metric, Timer as ProfileTimer};
 use openraft::EntryPayload;
 use std::{
     sync::{
-        Arc, Mutex, OnceLock, PoisonError, Weak,
+        Arc, Condvar, Mutex, OnceLock, PoisonError, Weak,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread::{self, JoinHandle, Thread},
     time::{Duration, Instant},
 };
-/// Fold later updates of the same key into one transaction. Purge and truncate
-/// wait until the checkpoint covers the log, so the WAL keeps this short tail.
+/// Fold later updates of the same key into one transaction. Deferred log purge
+/// waits until this incremental checkpoint covers the committed prefix, so the
+/// WAL keeps that short tail.
 const COMMIT_MIN: Duration = Duration::from_millis(200);
 const COMMIT_MAX: Duration = Duration::from_secs(1);
 
@@ -55,10 +56,14 @@ pub(super) struct FlushState {
     mark: Mutex<Mark>,
     epoch: AtomicU64,
     need_full: AtomicBool,
+    /// A dirty transaction has taken its patch and has not finished yet.
+    inflight: AtomicBool,
     stop: AtomicBool,
     wake: AtomicBool,
     parker: OnceLock<Thread>,
     pub(super) progress: tokio::sync::Notify,
+    progress_mu: Mutex<()>,
+    progress_cvar: Condvar,
     last_error: Mutex<Option<String>>,
 }
 pub(super) struct Owner {
@@ -68,6 +73,7 @@ pub(super) struct Owner {
 impl Drop for Owner {
     fn drop(&mut self) {
         self.state.stop.store(true, Ordering::Release);
+        self.state.notify_progress();
         self.state.kick();
         if let Some(handle) = self
             .join
@@ -163,7 +169,61 @@ impl FlushState {
             mark.applied = applied;
         }
         drop(mark);
+        self.notify_progress();
+    }
+    pub(super) fn covers_index(&self, index: u64) -> bool {
+        let mark = self.mark.lock().unwrap_or_else(PoisonError::into_inner);
+        mark.applied.is_some_and(|have| have.index >= index)
+    }
+    #[cfg(test)]
+    pub(super) fn inflight(&self) -> bool {
+        self.inflight.load(Ordering::Acquire)
+    }
+    /// Incremental flush can still record `index`. A full snapshot is not a
+    /// substitute: purge must not wait for or trigger one.
+    pub(super) fn incremental_can_reach(&self, index: u64) -> bool {
+        if self.need_full.load(Ordering::Acquire) {
+            return false;
+        }
+        if self.inflight.load(Ordering::Acquire) {
+            return true;
+        }
+        self.dirty_reaches_index(index)
+    }
+    /// Wait until the incremental checkpoint covers `index`. `false` means this
+    /// purge should leave the log in place.
+    pub(super) fn wait_for_incremental(&self, index: u64) -> bool {
+        loop {
+            if self.covers_index(index) {
+                return true;
+            }
+            if self.need_full.load(Ordering::Acquire) {
+                return false;
+            }
+            let busy = self.inflight.load(Ordering::Acquire) || pending(self);
+            if self.stop.load(Ordering::Acquire) && !busy {
+                return false;
+            }
+            if !busy && !self.dirty_reaches_index(index) {
+                return false;
+            }
+            self.wait_progress(Duration::from_millis(200));
+        }
+    }
+    fn dirty_reaches_index(&self, index: u64) -> bool {
+        let dirty = self.dirty.lock().unwrap_or_else(PoisonError::into_inner);
+        !dirty.gap && dirty.through.is_some_and(|have| have.index >= index)
+    }
+    fn wait_progress(&self, timeout: Duration) {
+        let guard = self
+            .progress_mu
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let _ = self.progress_cvar.wait_timeout(guard, timeout);
+    }
+    fn notify_progress(&self) {
         self.progress.notify_waiters();
+        self.progress_cvar.notify_all();
     }
     pub(super) fn need_full(&self) {
         self.need_full.store(true, Ordering::Release);
@@ -221,10 +281,13 @@ pub(super) fn start(inner: Weak<Inner>, ram: Arc<Mutex<State>>) -> std::io::Resu
         }),
         epoch: AtomicU64::new(0),
         need_full: AtomicBool::new(false),
+        inflight: AtomicBool::new(false),
         stop: AtomicBool::new(false),
         wake: AtomicBool::new(false),
         parker: OnceLock::new(),
         progress: tokio::sync::Notify::new(),
+        progress_mu: Mutex::new(()),
+        progress_cvar: Condvar::new(),
         last_error: Mutex::new(None),
     });
     let worker = Arc::clone(&state);
@@ -346,6 +409,13 @@ fn bootstrap(inner: &Inner, state: &FlushState) {
         state.need_full.store(true, Ordering::Release);
     }
 }
+struct InFlight<'a>(&'a FlushState);
+impl Drop for InFlight<'_> {
+    fn drop(&mut self) {
+        self.0.inflight.store(false, Ordering::Release);
+        self.0.notify_progress();
+    }
+}
 fn write_dirty(inner: &Inner, state: &FlushState) -> std::io::Result<bool> {
     let epoch = state.epoch.load(Ordering::Acquire);
     let dirty = {
@@ -353,8 +423,10 @@ fn write_dirty(inner: &Inner, state: &FlushState) -> std::io::Result<bool> {
         if !dirty.has_work() {
             return Ok(false);
         }
+        state.inflight.store(true, Ordering::Release);
         std::mem::take(&mut *dirty)
     };
+    let _flight = InFlight(state);
     if state.epoch.load(Ordering::Acquire) != epoch || dirty.gap {
         state.need_full.store(true, Ordering::Release);
         return Ok(true);

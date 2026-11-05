@@ -621,16 +621,16 @@ fn one_hundred_thousand_short_id_owners_fit_authorized_metadata_budget() {
     println!("100k ordinary23-byte IDs: metadata={bytes} snapshot_json={wire} state_json={state}");
 }
 #[test]
-fn maximal_metadata_keeps_state_and_snapshot_envelopes_below_sixteen_mib() {
+fn maximal_metadata_keeps_state_and_snapshot_envelopes_below_rpc_bound() {
     let m = at_byte_capacity();
     let bytes = serde_json::to_vec(&m).unwrap().len();
-    assert_eq!(incremental::MAX_BYTES, 16_711_680);
+    assert_eq!(incremental::MAX_BYTES, 67_043_328);
     assert_eq!(bytes, incremental::MAX_BYTES);
     let snapshot_bytes = serde_json::to_vec(&MetadataUpdate::Snapshot(m.clone()))
         .unwrap()
         .len();
     // Envelope.data protobuf tag/length plus gRPC message framing need fewer16B.
-    assert!(snapshot_bytes + 16 < 16 * 1024 * 1024);
+    assert!(snapshot_bytes + 16 < 64 * 1024 * 1024);
     let nodes = BTreeMap::from([
         (
             1,
@@ -657,7 +657,7 @@ fn maximal_metadata_keeps_state_and_snapshot_envelopes_below_sixteen_mib() {
         metadata: m,
     };
     let state_bytes = serde_json::to_vec(&state).unwrap().len();
-    assert!(state_bytes < 16 * 1024 * 1024);
+    assert!(state_bytes < 64 * 1024 * 1024);
     println!(
         "max metadata={bytes} snapshot_json={snapshot_bytes} state_json_with_membership={state_bytes}"
     );

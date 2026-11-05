@@ -123,7 +123,8 @@ async fn checkpoint_then_committed_tail_survives_purge_and_restart()
     drop(store);
     let mut store = Store::open(&dir, "test", 1).await?;
     assert_eq!(store.metadata().nodes.len(), 3);
-    // Purging a committed suffix without a pre-existing checkpoint first writes one.
+    // Purge must not build a snapshot on the caller. A committed index the
+    // incremental checkpoint cannot reach stays in the log.
     store.purge(entry(2, 3).log_id).await?;
     drop(store);
     let mut store = Store::open(&dir, "test", 1).await?;
@@ -137,6 +138,72 @@ async fn checkpoint_then_committed_tail_survives_purge_and_restart()
             .last_log_id,
         Some(entry(2, 3).log_id)
     );
+    drop(store);
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn purge_returns_while_incremental_checkpoint_is_blocked()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let mut store = Store::open(&dir, "test", 1).await?;
+    let (locked_tx, locked_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let inner = store.inner.clone();
+    let holder = std::thread::spawn(move || {
+        let db = inner
+            .db
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        locked_tx.send(()).expect("lock signal");
+        let _ = release_rx.recv();
+        drop(db);
+    });
+    locked_rx.recv().expect("checkpoint lock");
+    let record = entry(0, 1);
+    prime(&store, vec![record.clone()], Some(record.log_id)).await?;
+    store.apply_log([record.clone()]).await?;
+    let flush = store.owner.state().clone();
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while !flush.inflight() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("incremental checkpoint did not start");
+    let started = std::time::Instant::now();
+    let purged = tokio::time::timeout(
+        std::time::Duration::from_millis(200),
+        store.purge(record.log_id),
+    )
+    .await;
+    assert_eq!(store.try_get_log_entries(0..=0).await?.len(), 1);
+    let _ = release_tx.send(());
+    let _ = holder.join();
+    purged.expect("purge waited for the checkpoint")?;
+    assert!(started.elapsed() < std::time::Duration::from_millis(200));
+    drop(store);
+    let mut store = Store::open(&dir, "test", 1).await?;
+    assert!(store.try_get_log_entries(0..=0).await?.is_empty());
+    drop(store);
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn purge_leaves_committed_log_when_incremental_checkpoint_cannot_cover()
+-> Result<(), Box<dyn std::error::Error>> {
+    let dir = directory();
+    let mut store = Store::open(&dir, "test", 1).await?;
+    let record = entry(0, 1);
+    prime(&store, vec![record.clone()], Some(record.log_id)).await?;
+    store.purge(record.log_id).await?;
+    assert_eq!(store.try_get_log_entries(0..=0).await?.len(), 1);
+    assert!(store.get_current_snapshot().await?.is_none());
+    drop(store);
+    let mut store = Store::open(&dir, "test", 1).await?;
+    assert_eq!(store.try_get_log_entries(0..=0).await?.len(), 1);
     drop(store);
     std::fs::remove_dir_all(dir)?;
     Ok(())

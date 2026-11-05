@@ -512,3 +512,115 @@ fn physical_record_headroom_admits_internal_keys_beyond_100k_clients_but_stays_b
     drop(store);
     std::fs::remove_dir_all(p).unwrap();
 }
+
+#[tokio::test]
+async fn execute_many_judges_each_operation_independently() {
+    let p = path("batch-independent");
+    let journal = journal(&p);
+    write(&journal, "old", record(5, 4, b"seed")).await;
+    write(&journal, "epoch", record(5, 1, b"seed")).await;
+    write(&journal, "conflict", record(5, 2, b"seed")).await;
+    let results = journal
+        .execute_many(
+            0,
+            vec![
+                Request::Write {
+                    key: "ok".into(),
+                    record: record(5, 1, b"new"),
+                },
+                Request::Read { key: "ok".into() },
+                Request::Write {
+                    key: "seq".into(),
+                    record: record(5, 2, b"first"),
+                },
+                Request::Write {
+                    key: "seq".into(),
+                    record: record(5, 1, b"second"),
+                },
+                Request::Write {
+                    key: "old".into(),
+                    record: record(5, 3, b"older"),
+                },
+                Request::Write {
+                    key: "epoch".into(),
+                    record: record(4, 9, b"low"),
+                },
+                Request::Write {
+                    key: "conflict".into(),
+                    record: record(5, 2, b"other"),
+                },
+                Request::Write {
+                    key: String::new(),
+                    record: record(5, 1, b"bad"),
+                },
+                Request::Write {
+                    key: "after".into(),
+                    record: record(5, 1, b"kept"),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+    assert!(results[0].is_ok());
+    assert_eq!(
+        results[1]
+            .as_ref()
+            .unwrap()
+            .record
+            .as_ref()
+            .unwrap()
+            .snapshot
+            .as_deref(),
+        Some(b"new".as_slice())
+    );
+    assert!(results[2].is_ok());
+    assert!(matches!(
+        rejected(&results[3]),
+        Failure::JournalOlderVersion
+    ));
+    assert!(matches!(
+        rejected(&results[4]),
+        Failure::JournalOlderVersion
+    ));
+    assert!(matches!(rejected(&results[5]), Failure::JournalEpoch));
+    assert!(matches!(
+        rejected(&results[6]),
+        Failure::JournalConflictingValue
+    ));
+    assert!(results[7].is_err());
+    assert!(results[8].is_ok());
+    assert_eq!(
+        read(&journal, "old").await.unwrap().snapshot.as_deref(),
+        Some(b"seed".as_slice())
+    );
+    assert_eq!(
+        read(&journal, "conflict")
+            .await
+            .unwrap()
+            .snapshot
+            .as_deref(),
+        Some(b"seed".as_slice())
+    );
+    assert_eq!(read(&journal, "epoch").await.unwrap().epoch, 5);
+    assert_eq!(
+        read(&journal, "seq").await.unwrap().snapshot.as_deref(),
+        Some(b"first".as_slice())
+    );
+    assert_eq!(
+        read(&journal, "after").await.unwrap().snapshot.as_deref(),
+        Some(b"kept".as_slice())
+    );
+    drop(journal);
+    std::fs::remove_dir_all(p).unwrap();
+}
+
+fn rejected(result: &std::io::Result<Reply>) -> Failure {
+    let Err(error) = result else {
+        panic!("expected rejection");
+    };
+    error
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<Failure>())
+        .copied()
+        .unwrap()
+}

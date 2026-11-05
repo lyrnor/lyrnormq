@@ -15,7 +15,7 @@ Add internal Command::Batch { commands: Vec<Command> } and Answer.results: Vec<A
 (default empty, omit empty on serialization). Only the Controller's internal worker
 may construct a batch; reject incoming Mutate Batch and nested/empty/malformed
 batches before mutation. At most256 commands and512KiB encoded command batch; keep
-existing512KiB single-command/1MiB WAL/16MiB RPC limits. Size counting must include
+existing512KiB single-command/1MiB WAL/64MiB RPC limits. Size counting must include
 wrappers. Oversized individual valid commands run alone without artificial padding.
 
 One owned Controller worker receives bounded FIFO queued requests with cancellable

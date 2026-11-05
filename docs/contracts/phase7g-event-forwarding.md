@@ -3,13 +3,13 @@
 Supersedes Phase7f's background 100ms directory scan, not replication/ACK semantics.
 Successful actor-side Acquire/Commit/Host/Release and restored activation schedule
 that key AFTER authoritative quorum commit, even if caller drops its reply. One
-forwarding worker per key; different keys bounded16 concurrent. Coalesce dirty keys
+forwarding worker per key; different keys bounded64 concurrent. Coalesce dirty keys
 in a finite scheduler bounded by existing100k directory/actor limit; never silently
 lose a committed notification on a full transient channel. Use notification plus
 bounded keyed state, not unbounded task creation or timer entries.
 
 Worker drains consecutive intents without sleeping between success. Bound each
-worker turn to32 intents then requeue immediately behind already-ready keys, so16
+worker turn to32 intents then requeue immediately behind already-ready keys, so64
 hot keys cannot permanently starve other clients. This preserves single-key work
 and FIFO; no polling or intentional success delay. Worker respects FIFO
 and target generation, retains receipt idempotence and quorum completion markers.

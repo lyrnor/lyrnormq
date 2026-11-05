@@ -120,6 +120,12 @@ impl Cluster for Peer {
             .map_err(|_| Status::unavailable("replica"))?;
         Ok(Response::new(rpc::encode(&reply)?))
     }
+    async fn replica_batch(
+        &self,
+        _: tonic::Request<Envelope>,
+    ) -> Result<Response<Envelope>, Status> {
+        Err(Status::unimplemented("replica_batch"))
+    }
     async fn raft(&self, _: tonic::Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("raft"))
     }
@@ -134,6 +140,12 @@ impl Cluster for Peer {
     }
     async fn deliver_to(&self, _: tonic::Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("deliver_to"))
+    }
+    async fn deliver_batch(
+        &self,
+        _: tonic::Request<Envelope>,
+    ) -> Result<Response<Envelope>, Status> {
+        Err(Status::unimplemented("deliver_batch"))
     }
     async fn deliver(&self, _: tonic::Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("deliver"))
@@ -241,7 +253,11 @@ impl Fixture {
             service.journal = peers[index].clone();
             servers.push(tokio::spawn(
                 tonic::transport::Server::builder()
-                    .add_service(ClusterServer::new(service))
+                    .add_service(
+                        ClusterServer::new(service)
+                            .max_decoding_message_size(rpc::MAX_WIRE)
+                            .max_encoding_message_size(rpc::MAX_WIRE),
+                    )
                     .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener)),
             ));
         }
@@ -258,7 +274,15 @@ impl Fixture {
     }
     async fn work(&self, key: &str) -> io::Result<Work> {
         let (reply, rx) = oneshot::channel();
-        self.data().send(key, Operation::Work { reply }).await?;
+        self.data()
+            .send(
+                key,
+                Operation::Work {
+                    limit: super::FORWARD_QUANTUM,
+                    reply,
+                },
+            )
+            .await?;
         rx.await.map_err(io::Error::other)?
     }
     fn owner(&self, key: &str) -> DurableOwner {
@@ -273,7 +297,13 @@ async fn lost_committed_acquire_reply_recovers_the_same_identity_and_epoch() -> 
     fixture.peer.lost_replies.store(1, Ordering::SeqCst);
     assert!(fixture.data().acquire(key.clone(), 42, 0).await.is_err());
     let epoch = fixture.owner(&key).epoch;
-    assert!(fixture.data().one(key.clone()).await?);
+    assert!(
+        fixture
+            .data()
+            .one(key.clone(), super::FORWARD_QUANTUM)
+            .await?
+            > 0
+    );
     assert_eq!(
         *fixture.peer.calls.lock().unwrap(),
         vec![(42, 0), (42, 0)],
@@ -300,10 +330,22 @@ async fn repeated_barrier_failures_do_not_change_the_pending_predecessor() -> io
     let epoch = fixture.owner(&key).epoch;
     for _ in 0..2 {
         fixture.peer.barrier_errors.store(1, Ordering::SeqCst);
-        assert!(fixture.data().one(key.clone()).await.is_err());
+        assert!(
+            fixture
+                .data()
+                .one(key.clone(), super::FORWARD_QUANTUM)
+                .await
+                .is_err()
+        );
         assert_eq!(fixture.owner(&key).epoch, epoch);
     }
-    assert!(fixture.data().one(key.clone()).await?);
+    assert!(
+        fixture
+            .data()
+            .one(key.clone(), super::FORWARD_QUANTUM)
+            .await?
+            > 0
+    );
     assert_eq!(*fixture.peer.calls.lock().unwrap(), vec![(42, 0); 4]);
     assert!(fixture.work(&key).await?.activation.is_some());
     Ok(())
@@ -331,7 +373,13 @@ async fn partial_same_epoch_write_recovery_preserves_the_highest_physical_versio
             })
             .await?;
     }
-    assert!(fixture.data().one(key.clone()).await?);
+    assert!(
+        fixture
+            .data()
+            .one(key.clone(), super::FORWARD_QUANTUM)
+            .await?
+            > 0
+    );
     assert_eq!(fixture.owner(&key).epoch, epoch);
     let restored = fixture.peers[0]
         .execute(Request::Read { key: key.clone() })
@@ -475,10 +523,22 @@ async fn genuinely_uncertain_data_commit_creates_only_one_recovery_identity() ->
             .is_err()
     );
     fixture.peer.barrier_errors.store(1, Ordering::SeqCst);
-    assert!(fixture.data().one(key.clone()).await.is_err());
+    assert!(
+        fixture
+            .data()
+            .one(key.clone(), super::FORWARD_QUANTUM)
+            .await
+            .is_err()
+    );
     let recovered = fixture.owner(&key).epoch;
     assert!(recovered > lease.epoch);
-    assert!(fixture.data().one(key.clone()).await?);
+    assert!(
+        fixture
+            .data()
+            .one(key.clone(), super::FORWARD_QUANTUM)
+            .await?
+            > 0
+    );
     assert_eq!(fixture.owner(&key).epoch, recovered);
     assert_eq!(
         *fixture.peer.calls.lock().unwrap(),
@@ -641,5 +701,339 @@ async fn a_proven_pre_submit_rejection_does_not_discard_prior_pending() -> io::R
         vec![(42, 0), (43, first), (42, 0)]
     );
     assert_eq!(fixture.owner(&key).epoch, first);
+    Ok(())
+}
+
+fn host_key(fixture: &Fixture) -> String {
+    format!(
+        "h:{}:{}",
+        fixture.runtime.config.node_id, fixture.runtime.incarnation
+    )
+}
+
+fn host_message(payload: impl Into<Vec<u8>>) -> ClusterMessage {
+    ClusterMessage {
+        topic: "events/batch".into(),
+        payload: payload.into(),
+        qos: 0,
+        retain: false,
+        properties: Default::default(),
+        expires_at: None,
+        publisher: None,
+        observer_client: "host".into(),
+        scope: ForwardScope::Ordinary,
+    }
+}
+
+fn host_job(payload: impl Into<Vec<u8>>) -> (HostJob, oneshot::Receiver<io::Result<()>>) {
+    let (reply, wait) = oneshot::channel();
+    (
+        HostJob {
+            message: host_message(payload),
+            reply,
+        },
+        wait,
+    )
+}
+
+fn empty_cell() -> Cell {
+    Cell {
+        pending: None,
+        data_generation: 0,
+        record: None,
+        poisoned: false,
+        activate: false,
+        activation_token: Arc::new(()),
+        forwarding: false,
+        stashed: Vec::new(),
+    }
+}
+
+fn subscribe(fixture: &Fixture, client: &str) {
+    let mut metadata = fixture.runtime.metadata.write().unwrap();
+    metadata.durable.insert(
+        client_key(client),
+        DurableOwner {
+            node: fixture.runtime.config.node_id,
+            incarnation: fixture.runtime.incarnation.clone(),
+            generation: 1,
+            epoch: 1,
+            filters: vec!["events/#".into()],
+            logical_generation: 1,
+            acquired_from: None,
+        },
+    );
+    *fixture.runtime.recipients.write().unwrap() =
+        crate::broker::recipients::RecipientIndex::from_metadata(&metadata);
+}
+
+async fn recv_host(wait: oneshot::Receiver<io::Result<()>>) -> io::Result<()> {
+    tokio::time::timeout(Duration::from_secs(10), wait)
+        .await
+        .map_err(|_| unavailable())?
+        .map_err(io::Error::other)?
+}
+
+#[tokio::test]
+async fn one_queued_host_batch_stores_once_in_input_order() -> io::Result<()> {
+    let fixture = Fixture::new("host-batch-once").await?;
+    subscribe(&fixture, "subscriber");
+    let key = host_key(&fixture);
+    let (tx, rx) = mpsc::channel(super::HOST_MAILBOX);
+    let mut waits = Vec::new();
+    let count = 10u8;
+    for index in 0..count {
+        let (reply, wait) = oneshot::channel();
+        tx.try_send(Job {
+            operation: Operation::Host {
+                message: host_message(vec![index]),
+                reply,
+            },
+        })
+        .expect("queue");
+        waits.push(wait);
+    }
+    drop(tx);
+    fixture.data().spawn_actor(key.clone(), rx);
+    for wait in waits {
+        recv_host(wait).await?;
+    }
+    let record = fixture.peers[0]
+        .execute(Request::Read { key: key.clone() })
+        .await?
+        .record
+        .expect("stored record");
+    assert_eq!(record.revision, 1);
+    assert_eq!(record.physical_revision, 1);
+    assert_eq!(record.intents.len(), usize::from(count));
+    for (index, intent) in record.intents.iter().enumerate() {
+        assert_eq!(intent.id.source, key);
+        assert_eq!(intent.id.epoch, record.epoch);
+        assert_eq!(intent.id.revision, record.revision);
+        assert_eq!(intent.id.index, u32::try_from(index).expect("index"));
+        assert_eq!(
+            intent.message.payload,
+            vec![u8::try_from(index).expect("payload")]
+        );
+        if index > 0 {
+            assert!(record.intents[index - 1].id < intent.id);
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn batched_completion_is_idempotent_until_every_recipient_is_done() -> io::Result<()> {
+    let fixture = Fixture::new("complete-batch").await?;
+    subscribe(&fixture, "a");
+    subscribe(&fixture, "b");
+    let key = host_key(&fixture);
+    let data = fixture.data();
+    let mut cell = empty_cell();
+    let (job, wait) = host_job(b"one".to_vec());
+    let _ = data
+        .host_batch(&fixture.runtime, &key, vec![job], &mut cell, None)
+        .await;
+    recv_host(wait).await?;
+    let intent = cell
+        .record
+        .as_ref()
+        .expect("intent")
+        .intents
+        .first()
+        .expect("intent")
+        .clone();
+    assert_eq!(intent.recipients.len(), 2);
+    let id = intent.id.clone();
+    data.complete(
+        &fixture.runtime,
+        &key,
+        &[(id.clone(), "a".into())],
+        &mut cell,
+    )
+    .await?;
+    let record = cell.record.as_ref().expect("record");
+    assert_eq!(record.intents.len(), 1);
+    assert!(record.intents[0].completed.contains("a"));
+    assert!(!record.intents[0].completed.contains("b"));
+    data.complete(
+        &fixture.runtime,
+        &key,
+        &[(id.clone(), "a".into())],
+        &mut cell,
+    )
+    .await?;
+    let record = cell.record.as_ref().expect("record");
+    assert_eq!(record.intents.len(), 1);
+    assert_eq!(record.intents[0].completed.len(), 1);
+    let unchanged = record.physical_revision;
+    let unknown = DeliveryId {
+        index: id.index.saturating_add(1),
+        ..id.clone()
+    };
+    data.complete(&fixture.runtime, &key, &[(unknown, "a".into())], &mut cell)
+        .await?;
+    assert_eq!(
+        cell.record.as_ref().expect("record").physical_revision,
+        unchanged
+    );
+    data.complete(
+        &fixture.runtime,
+        &key,
+        &[(id.clone(), "a".into()), (id.clone(), "b".into())],
+        &mut cell,
+    )
+    .await?;
+    assert!(cell.record.as_ref().expect("record").intents.is_empty());
+    let cleared = cell.record.as_ref().expect("record").physical_revision;
+    data.complete(&fixture.runtime, &key, &[(id, "b".into())], &mut cell)
+        .await?;
+    assert_eq!(
+        cell.record.as_ref().expect("record").physical_revision,
+        cleared
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_full_outbox_rejects_new_hosts_without_touching_committed_intents() -> io::Result<()> {
+    let fixture = Fixture::new("host-full").await?;
+    subscribe(&fixture, "subscriber");
+    let key = host_key(&fixture);
+    {
+        let mut metadata = fixture.runtime.metadata.write().unwrap();
+        metadata.durable.insert(
+            key.clone(),
+            DurableOwner {
+                node: fixture.runtime.config.node_id,
+                incarnation: fixture.runtime.incarnation.clone(),
+                generation: 0,
+                epoch: 1,
+                filters: Vec::new(),
+                logical_generation: 0,
+                acquired_from: None,
+            },
+        );
+    }
+    let mut record = Record::empty(1);
+    record.revision = 4;
+    record.physical_revision = 7;
+    for index in 0..super::MAX_INTENTS {
+        record.intents.push(Intent {
+            id: DeliveryId {
+                source: key.clone(),
+                epoch: 1,
+                revision: 4,
+                index: u32::try_from(index).expect("index"),
+                target_generation: 0,
+            },
+            message: host_message(vec![1]),
+            recipients: vec![Recipient {
+                client_id: "subscriber".into(),
+                generation: 1,
+            }],
+            completed: BTreeSet::new(),
+        });
+    }
+    let committed = record.intents.clone();
+    let mut cell = empty_cell();
+    cell.record = Some(record);
+    let (job, wait) = host_job(b"overflow".to_vec());
+    let _ = fixture
+        .data()
+        .host_batch(&fixture.runtime, &key, vec![job], &mut cell, None)
+        .await;
+    assert!(recv_host(wait).await.is_err());
+    assert!(!cell.poisoned);
+    let record = cell.record.as_ref().expect("record");
+    assert_eq!(record.physical_revision, 7);
+    assert_eq!(record.revision, 4);
+    assert_eq!(record.intents.len(), committed.len());
+    assert_eq!(record.intents[0].id, committed[0].id);
+    assert_eq!(
+        record.intents.last().expect("last").id,
+        committed.last().expect("last").id
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_failed_host_quorum_fails_every_message_and_poisons() -> io::Result<()> {
+    let fixture = Fixture::new("host-poison").await?;
+    subscribe(&fixture, "subscriber");
+    let key = host_key(&fixture);
+    let data = fixture.data();
+    let mut cell = empty_cell();
+    let (warm, warm_wait) = host_job(b"warm".to_vec());
+    let _ = data
+        .host_batch(&fixture.runtime, &key, vec![warm], &mut cell, None)
+        .await;
+    recv_host(warm_wait).await?;
+    assert!(!cell.poisoned);
+    let revision = cell.record.as_ref().expect("record").revision;
+    let physical = cell.record.as_ref().expect("record").physical_revision;
+    let intents = cell.record.as_ref().expect("record").intents.len();
+    fixture.peer.write_errors.store(4, Ordering::SeqCst);
+    let mut jobs = Vec::new();
+    let mut waits = Vec::new();
+    for index in 0..4u8 {
+        let (job, wait) = host_job(vec![index]);
+        jobs.push(job);
+        waits.push(wait);
+    }
+    let _ = data
+        .host_batch(&fixture.runtime, &key, jobs, &mut cell, None)
+        .await;
+    for wait in waits {
+        assert!(recv_host(wait).await.is_err());
+    }
+    assert!(cell.poisoned);
+    let record = cell.record.as_ref().expect("record");
+    assert_eq!(record.revision, revision);
+    assert_eq!(record.physical_revision, physical);
+    assert_eq!(record.intents.len(), intents);
+    Ok(())
+}
+
+#[tokio::test]
+async fn host_batch_rejects_the_suffix_past_the_record_byte_budget() -> io::Result<()> {
+    let fixture = Fixture::new("host-bytes").await?;
+    subscribe(&fixture, "subscriber");
+    let key = host_key(&fixture);
+    let data = fixture.data();
+    let mut cell = empty_cell();
+    let (warm, warm_wait) = host_job(b"warm".to_vec());
+    let _ = data
+        .host_batch(&fixture.runtime, &key, vec![warm], &mut cell, None)
+        .await;
+    recv_host(warm_wait).await?;
+    let physical = cell.record.as_ref().expect("record").physical_revision;
+    let payload = vec![255u8; 1024 * 1024];
+    let mut jobs = Vec::new();
+    let mut waits = Vec::new();
+    for _ in 0..3 {
+        let (job, wait) = host_job(payload.clone());
+        jobs.push(job);
+        waits.push(wait);
+    }
+    let _ = data
+        .host_batch(&fixture.runtime, &key, jobs, &mut cell, None)
+        .await;
+    let mut stored = 0;
+    let mut rejected = 0;
+    for wait in waits {
+        match recv_host(wait).await {
+            Ok(()) => stored += 1,
+            Err(_) => rejected += 1,
+        }
+    }
+    assert!(
+        stored >= 1 && rejected >= 1,
+        "stored={stored} rejected={rejected}"
+    );
+    assert!(!cell.poisoned);
+    let record = cell.record.as_ref().expect("record");
+    assert_eq!(record.physical_revision, physical + 1);
+    assert_eq!(record.intents.len(), 1 + stored);
     Ok(())
 }
