@@ -43,7 +43,7 @@ impl Value {
                 .snapshot
                 .as_ref()
                 .is_some_and(|s| s.len() > 2 * 1024 * 1024)
-            || record.intents.len() > 256
+            || record.intents.len() > 512
             || record.receipts.len() > 8192
             || record.filters.len() > 256
         {

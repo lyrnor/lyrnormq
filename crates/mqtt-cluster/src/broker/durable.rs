@@ -17,7 +17,7 @@ const FORWARD_QUANTUM: usize = 256;
 const HOST_BATCH: usize = 512;
 const HOST_MAILBOX: usize = 2048;
 const SESSION_MAILBOX: usize = 8;
-const MAX_INTENTS: usize = 256;
+const MAX_INTENTS: usize = 512;
 const MAX_PAYLOAD: usize = 1024 * 1024;
 
 #[derive(Debug)]
@@ -1421,7 +1421,7 @@ impl Durable {
                 }
             }
         }
-        if !marks.is_empty() || key.starts_with("h:") {
+        if !marks.is_empty() {
             let (reply, rx) = oneshot::channel();
             self.send(
                 &key,
