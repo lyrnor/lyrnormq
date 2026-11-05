@@ -86,6 +86,10 @@ enum Operation {
     },
     Host {
         message: ClusterMessage,
+        /// Recipients resolved once at admission. The host actor owns every
+        /// publication on this node, so a fresh router scan per message would
+        /// repeat one lookup for each message in a batch.
+        recipients: Vec<Recipient>,
         reply: oneshot::Sender<io::Result<()>>,
     },
     Work {
@@ -102,6 +106,7 @@ struct Job {
 }
 struct HostJob {
     message: ClusterMessage,
+    recipients: Vec<Recipient>,
     reply: oneshot::Sender<io::Result<()>>,
 }
 pub(super) struct Durable {
@@ -177,17 +182,31 @@ fn mailbox_capacity(key: &str) -> usize {
 /// next, including anything that arrived behind it.
 fn take_host_batch(
     message: ClusterMessage,
+    recipients: Vec<Recipient>,
     reply: oneshot::Sender<io::Result<()>>,
     rx: &mut mpsc::Receiver<Job>,
 ) -> (Vec<HostJob>, Option<Job>) {
     let mut batch = Vec::with_capacity(HOST_BATCH);
-    batch.push(HostJob { message, reply });
+    batch.push(HostJob {
+        message,
+        recipients,
+        reply,
+    });
     let mut deferred = None;
     while batch.len() < HOST_BATCH {
         match rx.try_recv() {
             Ok(Job {
-                operation: Operation::Host { message, reply },
-            }) => batch.push(HostJob { message, reply }),
+                operation:
+                    Operation::Host {
+                        message,
+                        recipients,
+                        reply,
+                    },
+            }) => batch.push(HostJob {
+                message,
+                recipients,
+                reply,
+            }),
             Ok(job) => {
                 deferred = Some(job);
                 break;
@@ -202,8 +221,17 @@ fn take_queued_hosts(rx: &mut mpsc::Receiver<Job>) -> (Vec<HostJob>, Option<Job>
     while batch.len() < HOST_BATCH {
         match rx.try_recv() {
             Ok(Job {
-                operation: Operation::Host { message, reply },
-            }) => batch.push(HostJob { message, reply }),
+                operation:
+                    Operation::Host {
+                        message,
+                        recipients,
+                        reply,
+                    },
+            }) => batch.push(HostJob {
+                message,
+                recipients,
+                reply,
+            }),
             Ok(job) => return (batch, Some(job)),
             Err(_) => break,
         }
@@ -279,15 +307,32 @@ async fn drive(
             Durable::reject_hosts(std::mem::take(&mut cell.stashed));
         }
         let deferred = match job.operation {
-            Operation::Host { message, reply } => {
+            Operation::Host {
+                message,
+                recipients,
+                reply,
+            } => {
                 if cell.forwarding {
                     let mut deferred = None;
-                    cell.stashed.push(HostJob { message, reply });
+                    cell.stashed.push(HostJob {
+                        message,
+                        recipients,
+                        reply,
+                    });
                     while cell.stashed.len() < HOST_MAILBOX {
                         match rx.try_recv() {
                             Ok(Job {
-                                operation: Operation::Host { message, reply },
-                            }) => cell.stashed.push(HostJob { message, reply }),
+                                operation:
+                                    Operation::Host {
+                                        message,
+                                        recipients,
+                                        reply,
+                                    },
+                            }) => cell.stashed.push(HostJob {
+                                message,
+                                recipients,
+                                reply,
+                            }),
                             Ok(job) => {
                                 deferred = Some(job);
                                 break;
@@ -297,7 +342,7 @@ async fn drive(
                     }
                     deferred
                 } else {
-                    let (batch, next) = take_host_batch(message, reply, rx);
+                    let (batch, next) = take_host_batch(message, recipients, reply, rx);
                     let _ = durable.host_batch(&runtime, key, batch, cell, None).await;
                     next
                 }
@@ -613,8 +658,19 @@ impl Durable {
     pub async fn enqueue(self: &Arc<Self>, message: ClusterMessage) -> io::Result<()> {
         let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
         let key = format!("h:{}:{}", runtime.config.node_id, runtime.incarnation);
+        // Resolve recipients on the caller side: the host actor is one serial
+        // point for the whole node, so routing work belongs before admission.
+        let recipients = Self::recipients(&runtime, &message);
         let (reply, rx) = oneshot::channel();
-        self.send(&key, Operation::Host { message, reply }).await?;
+        self.send(
+            &key,
+            Operation::Host {
+                message,
+                recipients,
+                reply,
+            },
+        )
+        .await?;
         self.await_reply(rx).await
     }
     pub async fn received(self: &Arc<Self>, client: &str, id: DeliveryId) -> io::Result<bool> {
@@ -921,16 +977,14 @@ impl Durable {
             || message.payload.len() > MAX_PAYLOAD
     }
     fn append(
-        runtime: &BrokerRuntime,
         key: &str,
         record: &mut Record,
-        publications: Vec<ClusterMessage>,
+        publications: Vec<(ClusterMessage, Vec<Recipient>)>,
     ) -> io::Result<()> {
-        for (index, message) in publications.into_iter().enumerate() {
+        for (index, (message, recipients)) in publications.into_iter().enumerate() {
             if Self::message_rejected(&message) {
                 return Err(unavailable());
             }
-            let recipients = Self::recipients(runtime, &message);
             if !recipients.is_empty() {
                 record.intents.push(Intent {
                     id: DeliveryId {
@@ -1030,7 +1084,18 @@ impl Durable {
         if let Some(id) = mutation.receipt {
             next.receipts.insert(id);
         }
-        Self::append(runtime, key, &mut next, mutation.publications)?;
+        Self::append(
+            key,
+            &mut next,
+            mutation
+                .publications
+                .into_iter()
+                .map(|message| {
+                    let recipients = Self::recipients(runtime, &message);
+                    (message, recipients)
+                })
+                .collect(),
+        )?;
         let filters_changed = current.filters != next.filters
             || current.logical_generation != next.logical_generation;
         self.store(runtime, key, next, cell).await?;
@@ -1060,43 +1125,40 @@ impl Durable {
         })
     }
     fn stage_record(
-        runtime: &BrokerRuntime,
         key: &str,
         current: &Record,
-        messages: &[ClusterMessage],
+        messages: &[(ClusterMessage, Vec<Recipient>)],
     ) -> io::Result<Record> {
         let mut next = current.clone();
         next.revision = next.revision.checked_add(1).ok_or_else(unavailable)?;
-        Self::append(runtime, key, &mut next, messages.to_vec())?;
+        Self::append(key, &mut next, messages.to_vec())?;
         Ok(next)
     }
     fn record_within_limit(record: &Record) -> bool {
         serde_json::to_vec(record).is_ok_and(|bytes| bytes.len() <= crate::replica::MAX_RECORD)
     }
     fn stage_fits(
-        runtime: &BrokerRuntime,
         key: &str,
         current: &Record,
-        messages: &[ClusterMessage],
+        messages: &[(ClusterMessage, Vec<Recipient>)],
     ) -> bool {
-        Self::stage_record(runtime, key, current, messages)
+        Self::stage_record(key, current, messages)
             .is_ok_and(|record| Self::record_within_limit(&record))
     }
     /// Longest prefix whose canonical record stays inside the memory-replica limit.
     fn fitting_prefix(
-        runtime: &BrokerRuntime,
         key: &str,
         current: &Record,
-        messages: &[ClusterMessage],
+        messages: &[(ClusterMessage, Vec<Recipient>)],
     ) -> usize {
-        if messages.is_empty() || Self::stage_fits(runtime, key, current, messages) {
+        if messages.is_empty() || Self::stage_fits(key, current, messages) {
             return messages.len();
         }
         let mut low = 0;
         let mut high = messages.len() - 1;
         while low < high {
             let mid = low + (high - low).div_ceil(2);
-            if Self::stage_fits(runtime, key, current, &messages[..mid]) {
+            if Self::stage_fits(key, current, &messages[..mid]) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -1172,7 +1234,7 @@ impl Durable {
                 rejected.push(job);
                 continue;
             }
-            let adds_intent = !Self::recipients(runtime, &job.message).is_empty();
+            let adds_intent = !job.recipients.is_empty();
             if adds_intent && intents >= MAX_INTENTS {
                 rejected.push(job);
                 continue;
@@ -1182,9 +1244,11 @@ impl Durable {
             }
             admissible.push(job);
         }
-        let messages: Vec<ClusterMessage> =
-            admissible.iter().map(|job| job.message.clone()).collect();
-        let fit = Self::fitting_prefix(runtime, key, &current, &messages);
+        let messages: Vec<(ClusterMessage, Vec<Recipient>)> = admissible
+            .iter()
+            .map(|job| (job.message.clone(), job.recipients.clone()))
+            .collect();
+        let fit = Self::fitting_prefix(key, &current, &messages);
         let overflow = admissible.split_off(fit);
         rejected.extend(overflow);
         Self::reject_hosts(rejected);
@@ -1195,9 +1259,11 @@ impl Durable {
             self.changed(key, cell);
             return Ok(());
         }
-        let accepted_messages: Vec<ClusterMessage> =
-            admissible.iter().map(|job| job.message.clone()).collect();
-        let next = match Self::stage_record(runtime, key, &current, &accepted_messages) {
+        let accepted_messages: Vec<(ClusterMessage, Vec<Recipient>)> = admissible
+            .iter()
+            .map(|job| (job.message.clone(), job.recipients.clone()))
+            .collect();
+        let next = match Self::stage_record(key, &current, &accepted_messages) {
             Ok(record) if Self::record_within_limit(&record) => record,
             _ => {
                 self.finish_hosts(key, cell, admissible, Err(unavailable()));
@@ -2382,6 +2448,7 @@ mod tests {
                     observer_client: String::new(),
                     scope: ForwardScope::Ordinary,
                 },
+                recipients: Vec::new(),
                 reply,
             },
         }
@@ -2406,12 +2473,17 @@ mod tests {
         .expect("queued");
         tx.try_send(queued_host(3)).expect("queued");
         let Job {
-            operation: Operation::Host { message, reply },
+            operation:
+                Operation::Host {
+                    message,
+                    recipients,
+                    reply,
+                },
         } = first
         else {
             panic!("host");
         };
-        let (batch, deferred) = super::take_host_batch(message, reply, &mut rx);
+        let (batch, deferred) = super::take_host_batch(message, recipients, reply, &mut rx);
         assert_eq!(batch.len(), 2);
         assert!(matches!(
             deferred.expect("deferred").operation,
@@ -2433,12 +2505,17 @@ mod tests {
                 .expect("queued");
         }
         let Job {
-            operation: Operation::Host { message, reply },
+            operation:
+                Operation::Host {
+                    message,
+                    recipients,
+                    reply,
+                },
         } = first
         else {
             panic!("host");
         };
-        let (batch, deferred) = super::take_host_batch(message, reply, &mut rx);
+        let (batch, deferred) = super::take_host_batch(message, recipients, reply, &mut rx);
         assert_eq!(batch.len(), super::HOST_BATCH);
         assert!(deferred.is_none());
         assert_eq!(rx.len(), extra);

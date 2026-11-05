@@ -725,11 +725,18 @@ fn host_message(payload: impl Into<Vec<u8>>) -> ClusterMessage {
     }
 }
 
-fn host_job(payload: impl Into<Vec<u8>>) -> (HostJob, oneshot::Receiver<io::Result<()>>) {
+fn host_job(
+    fixture: &Fixture,
+    payload: impl Into<Vec<u8>>,
+) -> (HostJob, oneshot::Receiver<io::Result<()>>) {
+    let message = host_message(payload);
+    // Mirrors admission: the caller resolves recipients before queueing.
+    let recipients = fixture.runtime.durable_recipients(&message.topic);
     let (reply, wait) = oneshot::channel();
     (
         HostJob {
-            message: host_message(payload),
+            message,
+            recipients,
             reply,
         },
         wait,
@@ -787,6 +794,10 @@ async fn one_queued_host_batch_stores_once_in_input_order() -> io::Result<()> {
         tx.try_send(Job {
             operation: Operation::Host {
                 message: host_message(vec![index]),
+                recipients: vec![Recipient {
+                    client_id: "subscriber".into(),
+                    generation: 1,
+                }],
                 reply,
             },
         })
@@ -830,7 +841,7 @@ async fn batched_completion_is_idempotent_until_every_recipient_is_done() -> io:
     let key = host_key(&fixture);
     let data = fixture.data();
     let mut cell = empty_cell();
-    let (job, wait) = host_job(b"one".to_vec());
+    let (job, wait) = host_job(&fixture, b"one".to_vec());
     let _ = data
         .host_batch(&fixture.runtime, &key, vec![job], &mut cell, None)
         .await;
@@ -938,7 +949,7 @@ async fn a_full_outbox_rejects_new_hosts_without_touching_committed_intents() ->
     let committed = record.intents.clone();
     let mut cell = empty_cell();
     cell.record = Some(record);
-    let (job, wait) = host_job(b"overflow".to_vec());
+    let (job, wait) = host_job(&fixture, b"overflow".to_vec());
     let _ = fixture
         .data()
         .host_batch(&fixture.runtime, &key, vec![job], &mut cell, None)
@@ -964,7 +975,7 @@ async fn a_failed_host_quorum_fails_every_message_and_poisons() -> io::Result<()
     let key = host_key(&fixture);
     let data = fixture.data();
     let mut cell = empty_cell();
-    let (warm, warm_wait) = host_job(b"warm".to_vec());
+    let (warm, warm_wait) = host_job(&fixture, b"warm".to_vec());
     let _ = data
         .host_batch(&fixture.runtime, &key, vec![warm], &mut cell, None)
         .await;
@@ -977,7 +988,7 @@ async fn a_failed_host_quorum_fails_every_message_and_poisons() -> io::Result<()
     let mut jobs = Vec::new();
     let mut waits = Vec::new();
     for index in 0..4u8 {
-        let (job, wait) = host_job(vec![index]);
+        let (job, wait) = host_job(&fixture, vec![index]);
         jobs.push(job);
         waits.push(wait);
     }
@@ -1002,7 +1013,7 @@ async fn host_batch_rejects_the_suffix_past_the_record_byte_budget() -> io::Resu
     let key = host_key(&fixture);
     let data = fixture.data();
     let mut cell = empty_cell();
-    let (warm, warm_wait) = host_job(b"warm".to_vec());
+    let (warm, warm_wait) = host_job(&fixture, b"warm".to_vec());
     let _ = data
         .host_batch(&fixture.runtime, &key, vec![warm], &mut cell, None)
         .await;
@@ -1012,7 +1023,7 @@ async fn host_batch_rejects_the_suffix_past_the_record_byte_budget() -> io::Resu
     let mut jobs = Vec::new();
     let mut waits = Vec::new();
     for _ in 0..3 {
-        let (job, wait) = host_job(payload.clone());
+        let (job, wait) = host_job(&fixture, payload.clone());
         jobs.push(job);
         waits.push(wait);
     }
