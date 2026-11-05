@@ -14,8 +14,8 @@ const WORK_TIMEOUT: Duration = Duration::from_secs(30);
 const FORWARD_WORKERS: usize = 64;
 /// Intents one forwarding worker may finish before it requeues the key.
 const FORWARD_QUANTUM: usize = 256;
-const HOST_BATCH: usize = 256;
-const HOST_MAILBOX: usize = 1024;
+const HOST_BATCH: usize = 512;
+const HOST_MAILBOX: usize = 2048;
 const SESSION_MAILBOX: usize = 8;
 const MAX_INTENTS: usize = 256;
 const MAX_PAYLOAD: usize = 1024 * 1024;
