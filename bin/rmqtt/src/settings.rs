@@ -1,6 +1,6 @@
 //! Operator configuration: one TOML file per process, with `RMQTT_*` overrides.
 use crate::cli::{Invocation, Options};
-use mqtt_cluster::{Config, Controller, DurableConfig, Role};
+use mqtt_cluster::{Config, Controller, DurableConfig, Role, voting_members};
 use mqtt_transport::ProtocolMode;
 use serde::Deserialize;
 use std::{
@@ -531,10 +531,10 @@ fn cluster_pair(
     let members = cluster
         .members
         .ok_or_else(|| invalid("cluster.members is required"))?;
-    if members.len() != 3 {
-        return Err(invalid("cluster.members must contain exactly 3 members"));
+    if !voting_members(members.len()) {
+        return Err(invalid("cluster.members must be 3, 5, or 7"));
     }
-    let mut parsed = Vec::with_capacity(3);
+    let mut parsed = Vec::with_capacity(members.len());
     let mut ids = std::collections::BTreeSet::new();
     let mut hosts = std::collections::BTreeSet::new();
     for member in members {
@@ -580,7 +580,7 @@ fn cluster_pair(
         .iter()
         .map(|(id, _)| *id)
         .min()
-        .ok_or_else(|| invalid("cluster.members must contain exactly 3 members"))?;
+        .ok_or_else(|| invalid("cluster.members must be 3, 5, or 7"))?;
     let broker = Config {
         role: Role::Broker,
         cluster_id: id.clone(),
@@ -659,13 +659,11 @@ fn parse_members(value: &str) -> io::Result<Vec<MemberRaw>> {
         let item = item.trim();
         let (id, host) = item
             .split_once(':')
-            .ok_or_else(|| invalid("RMQTT_CLUSTER_MEMBERS must be id:host,id:host,id:host"))?;
+            .ok_or_else(|| invalid("RMQTT_CLUSTER_MEMBERS must be id:host pairs"))?;
         let id = parse_u64(id.trim(), "RMQTT_CLUSTER_MEMBERS")?;
         let host = host.trim();
         if host.is_empty() {
-            return Err(invalid(
-                "RMQTT_CLUSTER_MEMBERS must be id:host,id:host,id:host",
-            ));
+            return Err(invalid("RMQTT_CLUSTER_MEMBERS must be id:host pairs"));
         }
         members.push(MemberRaw {
             id,
@@ -938,6 +936,36 @@ mod tests {
         let mut ids: Vec<_> = controller.controllers.iter().map(|peer| peer.id).collect();
         ids.sort_unstable();
         assert_eq!(ids, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn five_members_are_accepted_and_even_or_oversized_lists_are_rejected() {
+        let dir = Temp::new();
+        let members = (1..=5)
+            .map(|id| format!("{{ id = {id}, host = \"127.0.0.{id}\" }}"))
+            .collect::<Vec<_>>()
+            .join(",\n");
+        let path = dir.file(&format!(
+            "[node]\nid = 1\nrole = \"controller\"\ndata_dir = \"{dir}\"\n[cluster]\nid = \"rmqtt\"\ntoken_file = \"peer\"\ncontroller_port = 1\nbroker_port = 2\nmembers = [\n{members}\n]\n",
+            dir = dir.0.display(),
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert_eq!(options.cluster_controller.unwrap().controllers.len(), 5);
+        for count in [2u64, 4, 6, 8] {
+            let members = (1..=count)
+                .map(|id| format!("{{ id = {id}, host = \"127.0.0.{id}\" }}"))
+                .collect::<Vec<_>>()
+                .join(",\n");
+            let path = dir.file(&format!(
+                "[node]\nid = 1\nrole = \"controller\"\ndata_dir = \"{dir}\"\n[cluster]\nid = \"rmqtt\"\ntoken_file = \"peer\"\ncontroller_port = 1\nbroker_port = 2\nmembers = [\n{members}\n]\n",
+                dir = dir.0.display(),
+            ));
+            let error = match load_with(&invocation(&path), &HashMap::new()) {
+                Err(error) => error,
+                Ok(_) => panic!("{count} members were accepted"),
+            };
+            assert!(error.to_string().contains("3, 5, or 7"), "{count}");
+        }
     }
 
     #[test]

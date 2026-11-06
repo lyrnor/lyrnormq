@@ -57,6 +57,12 @@ pub struct Config {
     #[serde(default)]
     pub durable: Option<DurableConfig>,
 }
+/// Raft voting size. etcd has no protocol cap and documents a practical maximum
+/// of seven members. Only the odd sizes add a failure domain: 3, 5, and 7.
+pub fn voting_members(count: usize) -> bool {
+    matches!(count, 3 | 5 | 7)
+}
+
 impl Config {
     pub fn validate(&self) -> io::Result<()> {
         let bad = || io::Error::new(io::ErrorKind::InvalidInput, "invalid cluster configuration");
@@ -64,7 +70,7 @@ impl Config {
             || self.cluster_id.len() > 128
             || !self.cluster_id.bytes().all(|b| (33..=126).contains(&b))
             || self.node_id == 0
-            || self.controllers.len() != 3
+            || !voting_members(self.controllers.len())
             || !(1000..=30000).contains(&self.lease_ms)
             || self.data_dir.as_os_str().is_empty()
             || self.token_file.as_os_str().is_empty()
@@ -99,7 +105,7 @@ impl Config {
         if let Some(durable) = &self.durable {
             let mut ids = BTreeSet::new();
             let mut addresses = BTreeSet::new();
-            if self.role != Role::Broker || durable.replicas.len() != 3 {
+            if self.role != Role::Broker || !voting_members(durable.replicas.len()) {
                 return Err(bad());
             }
             for peer in &durable.replicas {
@@ -250,6 +256,38 @@ mod tests {
             ],
         });
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn odd_voting_sizes_through_seven_are_accepted() {
+        let base = controller(
+            "10.0.0.1:17001",
+            [
+                "http://10.0.0.1:17001",
+                "http://10.0.0.2:17001",
+                "http://10.0.0.3:17001",
+            ],
+        );
+        for count in [5usize, 7] {
+            let mut config = base.clone();
+            config.controllers = (0..count)
+                .map(|index| Controller {
+                    id: u64::try_from(index + 1).expect("id"),
+                    address: format!("http://10.0.0.{}:17001", index + 1),
+                })
+                .collect();
+            assert!(config.validate().is_ok(), "{count}");
+        }
+        for count in [1usize, 2, 4, 6, 8, 9] {
+            let mut config = base.clone();
+            config.controllers = (0..count)
+                .map(|index| Controller {
+                    id: u64::try_from(index + 1).expect("id"),
+                    address: format!("http://10.0.0.{}:17001", index + 1),
+                })
+                .collect();
+            assert!(config.validate().is_err(), "{count}");
+        }
     }
 
     #[test]

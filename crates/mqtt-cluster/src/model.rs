@@ -395,7 +395,7 @@ impl Metadata {
                 let mode = match replicas {
                     Some(mut peers) => {
                         peers.sort();
-                        if peers.len() != 3
+                        if !crate::config::voting_members(peers.len())
                             || !peers.iter().any(|(id, a)| *id == node && a == &address)
                             || peers.windows(2).any(|p| p[0].0 == p[1].0)
                         {

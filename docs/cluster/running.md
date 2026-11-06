@@ -6,7 +6,7 @@ production MQTT cluster. See [contract](../contracts/phase7a-cluster.md).
 
 Each process reads one TOML file. The complete field list and the matching
 `RMQTT_*` environment variables are in `rmqtt.toml.example` at the repository
-root. Three machines share the member list and differ in `node.id`, `node.role`, and
+root. Three, five, or seven machines share the member list and differ in `node.id`, `node.role`, and
 `node.data_dir`. Omitting `[cluster]` starts a standalone broker. With
 `[cluster]`, `node.role` lists `controller`, `broker`, or `controller,broker`.
 A controller process uses member `id`. A broker process uses `100 + id`. One
@@ -19,14 +19,15 @@ process listing both roles starts them together.
 
 `--config` defaults to `rmqtt.toml` in the current directory. Environment
 variables override the same field. `RMQTT_CLUSTER_MEMBERS` replaces the whole
-member list and uses `id:host,id:host,id:host`. There is no setting flag for
+member list and uses comma-separated `id:host` pairs. There is no setting flag for
 listen addresses, limits, TLS, Dashboard, or rules paths.
 
 Member `id` is the stable identity and does not change. `host` is the current
 address. Controller peers listen on `host:controller_port`. Broker peers listen
 on `host:broker_port`. The smallest id creates the Raft group only when it is
-not already initialized. The lease is 3000 ms. All three members are the
-controller group and the memory replica group. Data for the two roles is
+not already initialized. The lease is 3000 ms. Every member is both a
+controller and a memory replica. The member count must be 3, 5, or 7, the odd
+sizes etcd documents up to its practical maximum of seven voting members. Data for the two roles is
 `data_dir/controller` and `data_dir/broker`. Rules, access control, and the
 outbound queue are `data_dir/rules.sqlite`, `data_dir/access.sqlite`, and
 `data_dir/egress`. Standalone sessions are `data_dir/sessions.sqlite`. Cluster
@@ -34,7 +35,7 @@ mode does not keep a session SQLite mirror.
 
 Create a private peer token file containing 32–256 visible ASCII characters.
 All members share this secret; use a separate secret from the Dashboard token.
-Start all three processes before testing readiness. Use clean sessions without
+Start every member before testing readiness. Use clean sessions without
 Wills; retained publications and shared subscriptions are refused in this gate.
 Existing Dashboard Bearer HTTP publishing routes to remote subscribers as well.
 

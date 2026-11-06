@@ -11,7 +11,7 @@ mod replica;
 mod rpc;
 mod storage;
 pub use broker::{BrokerRuntime, serve_broker};
-pub use config::{Config, Controller, DurableConfig, Role, TlsConfig};
+pub use config::{Config, Controller, DurableConfig, Role, TlsConfig, voting_members};
 pub use controller::{run_controller, status};
 pub use model::ClusterStatus;
 

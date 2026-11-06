@@ -99,6 +99,9 @@ impl Metadata {
             }
             _ => return Err("durable replica membership required".into()),
         };
+        if peers.len() != 3 {
+            return Err("repair requires 3 data replicas".into());
+        }
         let donors = peers
             .iter()
             .filter(|(id, _)| *id != target)
