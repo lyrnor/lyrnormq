@@ -913,7 +913,7 @@ async fn batched_completion_is_idempotent_until_every_recipient_is_done() -> io:
 }
 
 #[tokio::test]
-async fn a_full_outbox_rejects_new_hosts_without_touching_committed_intents() -> io::Result<()> {
+async fn a_full_outbox_parks_new_hosts_until_an_intent_slot_frees() -> io::Result<()> {
     let fixture = Fixture::new("host-full").await?;
     subscribe(&fixture, "subscriber");
     let key = host_key(&fixture);
@@ -955,12 +955,14 @@ async fn a_full_outbox_rejects_new_hosts_without_touching_committed_intents() ->
     let committed = record.intents.clone();
     let mut cell = empty_cell();
     cell.record = Some(record);
-    let (job, wait) = host_job(&fixture, b"overflow".to_vec());
+    let (job, mut wait) = host_job(&fixture, b"overflow".to_vec());
     let _ = fixture
         .data()
         .host_batch(&fixture.runtime, &key, vec![job], &mut cell, None)
         .await;
-    assert!(recv_host(wait).await.is_err());
+    assert!(wait.try_recv().is_err());
+    assert_eq!(cell.stashed.len(), 1);
+    assert!(cell.forwarding);
     assert!(!cell.poisoned);
     let record = cell.record.as_ref().expect("record");
     assert_eq!(record.physical_revision, 7);
@@ -971,6 +973,17 @@ async fn a_full_outbox_rejects_new_hosts_without_touching_committed_intents() ->
         record.intents.last().expect("last").id,
         committed.last().expect("last").id
     );
+    let parked = std::mem::take(&mut cell.stashed);
+    cell.forwarding = false;
+    cell.record.as_mut().expect("record").intents.clear();
+    let _ = fixture
+        .data()
+        .host_batch(&fixture.runtime, &key, parked, &mut cell, None)
+        .await;
+    recv_host(wait).await?;
+    let record = cell.record.as_ref().expect("record");
+    assert_eq!(record.intents.len(), 1);
+    assert_eq!(record.intents[0].message.payload, b"overflow");
     Ok(())
 }
 
@@ -1013,7 +1026,7 @@ async fn a_failed_host_quorum_fails_every_message_and_poisons() -> io::Result<()
 }
 
 #[tokio::test]
-async fn host_batch_rejects_the_suffix_past_the_record_byte_budget() -> io::Result<()> {
+async fn host_batch_parks_the_suffix_past_the_record_byte_budget() -> io::Result<()> {
     let fixture = Fixture::new("host-bytes").await?;
     subscribe(&fixture, "subscriber");
     let key = host_key(&fixture);
@@ -1037,17 +1050,19 @@ async fn host_batch_rejects_the_suffix_past_the_record_byte_budget() -> io::Resu
         .host_batch(&fixture.runtime, &key, jobs, &mut cell, None)
         .await;
     let mut stored = 0;
-    let mut rejected = 0;
-    for wait in waits {
-        match recv_host(wait).await {
-            Ok(()) => stored += 1,
-            Err(_) => rejected += 1,
+    let mut parked = 0;
+    for mut wait in waits {
+        match wait.try_recv() {
+            Ok(Ok(())) => stored += 1,
+            Ok(Err(error)) => return Err(error),
+            Err(_) => parked += 1,
         }
     }
     assert!(
-        stored >= 1 && rejected >= 1,
-        "stored={stored} rejected={rejected}"
+        stored >= 1 && parked >= 1,
+        "stored={stored} parked={parked}"
     );
+    assert_eq!(cell.stashed.len(), parked);
     assert!(!cell.poisoned);
     let record = cell.record.as_ref().expect("record");
     assert_eq!(record.physical_revision, physical + 1);

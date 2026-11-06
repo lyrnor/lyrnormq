@@ -16,6 +16,10 @@ const FORWARD_WORKERS: usize = 64;
 const FORWARD_QUANTUM: usize = 256;
 const HOST_BATCH: usize = 512;
 const HOST_MAILBOX: usize = 2048;
+/// Parallel host outboxes. One publisher stays on one shard, so its deliveries
+/// remain ordered. The count matches the quorum writer's in-flight limit;
+/// more shards than that only contend for the same writes.
+const HOST_SHARDS: u64 = 32;
 const SESSION_MAILBOX: usize = 8;
 const MAX_INTENTS: usize = 512;
 const MAX_PAYLOAD: usize = 1024 * 1024;
@@ -177,6 +181,20 @@ fn mailbox_capacity(key: &str) -> usize {
     } else {
         SESSION_MAILBOX
     }
+}
+fn host_shard(publisher: Option<&str>) -> u64 {
+    let Some(publisher) = publisher.filter(|publisher| !publisher.is_empty()) else {
+        return 0;
+    };
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in publisher.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash % HOST_SHARDS
+}
+fn host_record_key(node: u64, incarnation: &str, publisher: Option<&str>) -> String {
+    format!("h:{node}:{incarnation}:{}", host_shard(publisher))
 }
 /// Host jobs already waiting share one quorum write. A different operation stays
 /// next, including anything that arrived behind it.
@@ -657,9 +675,13 @@ impl Durable {
     }
     pub async fn enqueue(self: &Arc<Self>, message: ClusterMessage) -> io::Result<()> {
         let runtime = self.runtime.upgrade().ok_or_else(unavailable)?;
-        let key = format!("h:{}:{}", runtime.config.node_id, runtime.incarnation);
-        // Resolve recipients on the caller side: the host actor is one serial
-        // point for the whole node, so routing work belongs before admission.
+        let key = host_record_key(
+            runtime.config.node_id,
+            &runtime.incarnation,
+            message.publisher.as_deref(),
+        );
+        // Resolve recipients on the caller side. Each publisher shard is serial;
+        // routing work stays outside that actor.
         let recipients = Self::recipients(&runtime, &message);
         let (reply, rx) = oneshot::channel();
         self.send(
@@ -1230,6 +1252,10 @@ impl Durable {
             current
         };
         let mut rejected = Vec::new();
+        // A full outbox or a record at its byte budget is backpressure. The
+        // caller keeps waiting while delivery frees an intent slot. Only a
+        // message that can never fit, or a full mailbox, fails the publish.
+        let mut parked = Vec::new();
         let mut admissible = Vec::new();
         let mut intents = current.intents.len();
         for job in batch {
@@ -1239,7 +1265,7 @@ impl Durable {
             }
             let adds_intent = !job.recipients.is_empty();
             if adds_intent && intents >= MAX_INTENTS {
-                rejected.push(job);
+                parked.push(job);
                 continue;
             }
             if adds_intent {
@@ -1253,8 +1279,24 @@ impl Durable {
             .collect();
         let fit = Self::fitting_prefix(key, &current, &messages);
         let overflow = admissible.split_off(fit);
-        rejected.extend(overflow);
+        if fit == 0 && current.intents.is_empty() {
+            rejected.extend(overflow);
+        } else {
+            parked.extend(overflow);
+        }
         Self::reject_hosts(rejected);
+        if !parked.is_empty() {
+            let room = HOST_MAILBOX.saturating_sub(cell.stashed.len());
+            if parked.len() > room {
+                let rest = parked.split_off(room);
+                Self::reject_hosts(rest);
+            }
+            if !parked.is_empty() {
+                cell.stashed.extend(parked);
+                cell.forwarding = true;
+                self.changed(key, cell);
+            }
+        }
         if admissible.is_empty() {
             if completion {
                 return self.store(runtime, key, current, cell).await;
@@ -2457,6 +2499,22 @@ mod tests {
         }
     }
 
+    #[test]
+    fn one_publisher_keeps_a_stable_host_shard() {
+        let first = super::host_shard(Some("publisher-a"));
+        assert_eq!(first, super::host_shard(Some("publisher-a")));
+        assert!(first < super::HOST_SHARDS);
+        assert_eq!(super::host_shard(None), 0);
+        assert_eq!(super::host_shard(Some("")), 0);
+        let mut seen = std::collections::BTreeSet::new();
+        for index in 0..64 {
+            seen.insert(super::host_shard(Some(&format!("publisher-{index}"))));
+        }
+        assert!(seen.len() > 8, "shards={}", seen.len());
+        let key = super::host_record_key(7, "boot", Some("publisher-a"));
+        assert!(key.starts_with("h:7:boot:"));
+        assert_eq!(key, super::host_record_key(7, "boot", Some("publisher-a")));
+    }
     #[test]
     fn host_mailbox_is_wider_than_a_session_mailbox() {
         assert_eq!(super::mailbox_capacity("h:101:boot"), super::HOST_MAILBOX);

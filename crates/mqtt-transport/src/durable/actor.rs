@@ -9,7 +9,7 @@ use mqtt_auth::Principal;
 use mqtt_cluster_core::{DeliveryId, SessionLease, SessionMutation};
 use mqtt_session::durable::{DeliveryScope, Publication};
 use mqtt_storage::durable::RowChange;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub(super) enum ActorCommand {
@@ -142,6 +142,10 @@ struct Actor {
     pending: HashMap<u64, Pending>,
     fresh_until: Option<tokio::time::Instant>,
     retry_at: Option<tokio::time::Instant>,
+    /// Receipts accepted into a non-persistent session. They disappear with the
+    /// session, so a replica write would not make a retry idempotent.
+    volatile_receipts: VecDeque<String>,
+    volatile_receipt_index: HashSet<String>,
 }
 
 #[cfg(test)]
@@ -203,6 +207,8 @@ pub(super) fn spawn(
         pending: HashMap::new(),
         fresh_until,
         retry_at: None,
+        volatile_receipts: VecDeque::new(),
+        volatile_receipt_index: HashSet::new(),
     };
     tokio::spawn(actor.run(alive));
     ActorHandle { id, sender, online }
@@ -940,7 +946,13 @@ impl Actor {
                 if !durable_pubs.is_empty() {
                     effects.commit = true;
                     effects.notify = true;
-                } else if !ephemeral.is_empty() && effects.commit && !structural {
+                } else if effects.commit
+                    && !structural
+                    && (!ephemeral.is_empty() || !proposal.has_persistent_state())
+                {
+                    // A clean session has no snapshot. QoS 2 packet-id state and
+                    // QoS 0 fanout stay in this process; a quorum write would not
+                    // retain them and only stalls PUBREC.
                     effects.volatile = true;
                 }
                 effects.publications = durable_pubs;
@@ -1167,22 +1179,66 @@ impl Actor {
                 "session authority unavailable",
             ));
         }
+        if self.volatile_receipt_seen(&receipt) {
+            return Ok(());
+        }
         let mut proposal = self.engine.clone();
         let _ = proposal
             .deliver(publication, &DeliveryScope::Ordinary)
             .map_err(model_error)?;
         let publications = proposal.take_publications();
+        // A clean session has no snapshot. The receipt and the queued copy live
+        // in this process; committing either would not survive a restart and
+        // only adds a quorum write to every delivery.
+        let volatile = self.broker.durable_cluster()
+            && !proposal.has_persistent_state()
+            && publications.is_empty();
         self.install(
             proposal,
             Effects {
                 notify: true,
                 housekeeping: false,
-                receipt: Some(receipt),
+                volatile,
+                receipt: if volatile {
+                    None
+                } else {
+                    Some(receipt.clone())
+                },
                 publications,
                 ..Effects::default()
             },
         )
-        .await
+        .await?;
+        if volatile {
+            self.remember_volatile_receipt(&receipt);
+        }
+        Ok(())
+    }
+
+    fn receipt_token(id: &DeliveryId) -> String {
+        format!(
+            "{}:{}:{}:{}:{}",
+            id.source, id.epoch, id.revision, id.index, id.target_generation
+        )
+    }
+
+    fn volatile_receipt_seen(&self, id: &DeliveryId) -> bool {
+        self.volatile_receipt_index
+            .contains(&Self::receipt_token(id))
+    }
+
+    fn remember_volatile_receipt(&mut self, id: &DeliveryId) {
+        const LIMIT: usize = 8192;
+        let token = Self::receipt_token(id);
+        if !self.volatile_receipt_index.insert(token.clone()) {
+            return;
+        }
+        self.volatile_receipts.push_back(token);
+        while self.volatile_receipts.len() > LIMIT {
+            if let Some(old) = self.volatile_receipts.pop_front() {
+                self.volatile_receipt_index.remove(&old);
+            }
+        }
     }
 
     async fn commit_cluster(
