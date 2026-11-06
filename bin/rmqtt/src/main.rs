@@ -5,6 +5,7 @@ mod cli;
 mod cluster;
 mod egress_shutdown;
 mod logging;
+mod settings;
 mod tls_identity;
 
 use mqtt_transport::{export_state, serve, serve_tls, serve_ws, serve_wss};
@@ -25,30 +26,65 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn run() -> Result<(), Box<dyn Error>> {
-    let Some(options) = cli::parse(std::env::args().skip(1))? else {
+    let Some(invocation) = cli::parse(std::env::args().skip(1))? else {
         println!("{}", cli::USAGE);
         return Ok(());
     };
-    let cluster_config = cluster::load(options.cluster_config.as_deref()).await?;
-    cluster::validate_data_options(
-        cluster_config.as_ref(),
-        options.config.storage_path.as_deref(),
-    )?;
-    let controller = cluster::load(options.cluster_controller_config.as_deref()).await?;
-    if let Some(control) = &controller {
-        cluster::validate_combined(
-            cluster_config
-                .as_ref()
-                .ok_or("broker configuration required")?,
-            control,
-        )
-        .await?;
+    let mut options = tokio::task::spawn_blocking(move || settings::load(&invocation))
+        .await
+        .map_err(std::io::Error::other)??;
+    let broker = options.cluster_broker.take();
+    cluster::validate_data_options(broker.as_ref(), options.config.storage_path.as_deref())?;
+    let controller = options.cluster_controller.take();
+    if let (Some(broker), Some(control)) = (&broker, &controller) {
+        cluster::validate_combined(broker, control).await?;
     }
     let (broker_stop, broker_shutdown) = watch::channel(false);
-    let service = run_services(options, cluster_config, controller.clone(), broker_shutdown);
-    match controller {
-        Some(config) => cluster::combined(config, broker_stop, service).await,
-        None => service.await,
+    let command = options.cluster_repair.is_some() || options.cluster_status;
+    let service_cluster = if command {
+        cluster_command_config(
+            options.cluster_repair,
+            options.cluster_status,
+            &broker,
+            &controller,
+        )
+    } else {
+        broker.clone().or_else(|| controller.clone())
+    };
+    // A controller-only process is the service itself. Combined startup is the
+    // case where this process also has a Broker configuration.
+    let service_controller = if broker.is_some() {
+        controller.clone()
+    } else {
+        None
+    };
+    let service = run_services(
+        options,
+        service_cluster,
+        service_controller,
+        broker_shutdown,
+    );
+    match (broker.is_some(), controller) {
+        (true, Some(config)) => cluster::combined(config, broker_stop, service).await,
+        _ => service.await,
+    }
+}
+
+fn cluster_command_config(
+    repair: Option<cli::ClusterRepair>,
+    status: bool,
+    broker: &Option<mqtt_cluster::Config>,
+    controller: &Option<mqtt_cluster::Config>,
+) -> Option<mqtt_cluster::Config> {
+    let prefer_controller = match repair {
+        Some(cli::ClusterRepair::Learner) => false,
+        Some(_) => true,
+        None => status,
+    };
+    if prefer_controller {
+        controller.clone().or_else(|| broker.clone())
+    } else {
+        broker.clone().or_else(|| controller.clone())
     }
 }
 

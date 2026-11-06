@@ -101,14 +101,12 @@ class RulesWebhook(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-rules-quality-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.rules_path = self.root / 'private-rules.sqlite'
+        self.rules_path = self.root / 'rules.sqlite'
         self.broker = None
 
     def start(self, config=None, default=False, queue_options=()):
-        extra = [] if default else ['--rules-config', str(self.rules_path)]
-        if default:
-            self.rules_path = self.root / 'rmqtt-rules.sqlite'
-        self.broker = DashboardBroker(self.directory.name, extra=[*extra, *queue_options])
+        self.rules_path = self.root / 'rules.sqlite'
+        self.broker = DashboardBroker(self.directory.name, extra=[*queue_options])
         self.addCleanup(self.broker.stop)
         broker = self.broker.start()
         if config is not None:
@@ -502,14 +500,16 @@ class RulesWebhook(unittest.TestCase):
                     self.rules_path.unlink()
                 self.seed_legacy_sqlite(legacy)
                 before = self.rules_path.read_bytes()
-                process = subprocess.run([BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)],
+                from rmqttcfg import argv
+                process = subprocess.run(argv(BINARY, '127.0.0.1:0', self.root),
                                          cwd=self.root, capture_output=True, timeout=8)
                 self.assertNotEqual(process.returncode, 0)
                 self.assertEqual(self.rules_path.read_bytes(), before)
                 self.assertEqual(self.stored_config(), legacy)
 
     def test_json_foreign_and_corrupt_databases_are_rejected_without_overwrite(self):
-        args = [BINARY, '--listen', '127.0.0.1:0', '--rules-config', str(self.rules_path)]
+        from rmqttcfg import argv
+        args = argv(BINARY, '127.0.0.1:0', self.root)
         for content in [b'{"connectors":[],"actions":[],"rules":[]}', b'not a database']:
             self.rules_path.write_bytes(content)
             process = subprocess.run(args, cwd=self.root, capture_output=True, timeout=8)
@@ -534,7 +534,8 @@ class RulesWebhook(unittest.TestCase):
             process = subprocess.run(command, cwd=self.root, capture_output=True, timeout=5)
             self.assertNotEqual(process.returncode, 0)
         self.rules_path.write_text('{invalid')
-        process = subprocess.run(args + ['--rules-config', str(self.rules_path)], capture_output=True, timeout=5, cwd=self.root)
+        from rmqttcfg import argv
+        process = subprocess.run(argv(BINARY, '127.0.0.1:0', self.root), capture_output=True, timeout=5, cwd=self.root)
         self.assertNotEqual(process.returncode, 0)
         self.rules_path.unlink()
         self.start()
@@ -544,8 +545,11 @@ class RulesWebhook(unittest.TestCase):
         assets.mkdir()
         (assets / 'index.html').write_text('<div>test</div>')
         os.link(self.rules_path, assets / 'secret.js')
-        command = args + ['--rules-config', str(self.rules_path), '--admin-listen', f'127.0.0.1:{free_port()}',
-                          '--admin-token-file', str(token), '--dashboard-dir', str(assets)]
+        command = argv(BINARY, '127.0.0.1:0', self.root, [
+            '--admin-listen', f'127.0.0.1:{free_port()}',
+            '--admin-token-file', str(token),
+            '--dashboard-dir', str(assets),
+        ])
         process = subprocess.run(command, cwd=self.root, capture_output=True, timeout=5)
         self.assertNotEqual(process.returncode, 0)
         self.assertNotIn(SECRET.encode(), process.stdout + process.stderr)

@@ -63,20 +63,18 @@ class DashboardBroker:
             '<script src="/assets/app.js"></script></body></html>')
         (self.assets / 'assets').mkdir()
         (self.assets / 'assets/app.js').write_text('document.title="local fixture";')
-        self.db = self.root / 'private-state-path.sqlite'
+        self.db = self.root / 'sessions.sqlite'
         self.sqlite = sqlite
         self.extra = list(extra)
         self.process = None
         self.stderr = None
 
     def command(self):
-        command = [BINARY, '--listen', f'127.0.0.1:{self.port}',
-                   '--admin-listen', f'127.0.0.1:{self.admin}',
-                   '--admin-token-file', str(self.token_path),
-                   '--dashboard-dir', str(self.assets)]
-        if self.sqlite:
-            command += ['--storage-path', str(self.db)]
-        return command + self.extra
+        from rmqttcfg import argv
+        extra = ['--admin-listen', f'127.0.0.1:{self.admin}',
+                 '--admin-token-file', str(self.token_path),
+                 '--dashboard-dir', str(self.assets), *self.extra]
+        return argv(BINARY, f'127.0.0.1:{self.port}', self.root, extra)
 
     def start(self):
         self.stderr = tempfile.TemporaryFile()
@@ -498,16 +496,15 @@ class DashboardStartupValidation(unittest.TestCase):
         self.admin_address = f'127.0.0.1:{free_port()}'
 
     def rejected(self, args):
-        process = subprocess.Popen([BINARY, '--listen', '127.0.0.1:0'] + args,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.root)
+        from rmqttcfg import argv
         try:
-            stdout, stderr = process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.communicate()
-            self.fail(f'invalid configuration accepted: {args}')
+            command = argv(BINARY, '127.0.0.1:0', self.root / 'node', args)
+        except ValueError:
+            return
+        process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 cwd=self.root, timeout=5)
         self.assertNotEqual(process.returncode, 0, args)
-        self.assertNotIn(TOKEN.encode(), stdout + stderr)
+        self.assertNotIn(TOKEN.encode(), process.stdout + process.stderr)
 
     def admin(self):
         return ['--admin-listen', self.admin_address, '--admin-token-file', str(self.token)]

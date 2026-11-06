@@ -1,12 +1,25 @@
-use mqtt_transport::{BrokerConfig, ProtocolMode, WebSocketOptions};
-use std::{io, path::PathBuf, time::Duration};
+use mqtt_transport::{BrokerConfig, WebSocketOptions};
+use std::{io, path::PathBuf};
 
-pub const USAGE: &str = "usage: rmqtt [export-state|cluster-status|cluster-repair-learner|cluster-repair|cluster-repair-abort] [--listen ADDRESS] [--cluster-config PATH] [--cluster-controller-config PATH] [--target-node ID (cluster-repair only)] [--tls-cert PATH --tls-key PATH] [--tls-client-ca PATH] [--websocket] [--ws-path PATH] [--ws-max-message-size BYTES] [--protocol both|3.1.1|5] [--max-packet-size BYTES] [--max-connections N] [--max-handshakes N] [--max-auth-tasks N] [--auth-rate-per-second N] [--auth-burst N] [--outbound-capacity N] [--max-subscriptions N] [--max-inflight 1..65535] [--topic-alias-maximum 0..65535] [--handshake-timeout-ms N] [--write-timeout-ms N] [--storage-path PATH] [--max-sessions N] [--max-state-bytes N] [--max-retained N] [--auth-policy PATH] [--enhanced-auth-plain] [--admin-listen IP:PORT --admin-token-file PATH] [--dashboard-dir PATH] [--rules-config SQLITE_PATH] [--access-control-config SQLITE_PATH] [--egress-queue-dir PATH] [--egress-queue-segment-bytes N] [--egress-queue-max-bytes N] [--egress-queue-max-records N]";
+pub const USAGE: &str = "usage: rmqtt [export-state|cluster-status|cluster-repair-learner|cluster-repair|cluster-repair-abort] [--config PATH] [--target-node ID (cluster-repair only)]";
 
+#[derive(Debug)]
+pub struct Invocation {
+    pub export_state: bool,
+    pub cluster_status: bool,
+    pub cluster_repair: Option<ClusterRepair>,
+    pub config_path: PathBuf,
+    pub cluster_repair_target: Option<u64>,
+}
+
+#[derive(Debug)]
 pub struct Options {
     pub address: String,
+    /// Operator configuration file. Retained so dashboard assets cannot alias it.
     pub cluster_config: Option<PathBuf>,
     pub cluster_controller_config: Option<PathBuf>,
+    pub cluster_broker: Option<mqtt_cluster::Config>,
+    pub cluster_controller: Option<mqtt_cluster::Config>,
     pub cluster_status: bool,
     pub cluster_repair: Option<ClusterRepair>,
     pub cluster_repair_target: Option<u64>,
@@ -42,6 +55,40 @@ pub enum ClusterRepair {
 }
 
 impl Options {
+    pub(crate) fn blank() -> Self {
+        Self {
+            address: "127.0.0.1:1883".into(),
+            cluster_config: None,
+            cluster_controller_config: None,
+            cluster_broker: None,
+            cluster_controller: None,
+            cluster_status: false,
+            cluster_repair: None,
+            cluster_repair_target: None,
+            cluster_sensitive_paths: Vec::new(),
+            cluster_data_dir: None,
+            cluster_controller_data_dir: None,
+            admin_listen: None,
+            admin_token_file: None,
+            dashboard_dir: None,
+            rules_config: None,
+            access_control_config: None,
+            egress_queue_dir: None,
+            egress_queue_segment_bytes: 1024 * 1024,
+            egress_queue_max_bytes: 256 * 1024 * 1024,
+            egress_queue_max_records: 100_000,
+            tls_cert: None,
+            tls_key: None,
+            tls_client_ca: None,
+            websocket: false,
+            websocket_options: WebSocketOptions::default(),
+            auth_policy: None,
+            enhanced_auth_plain: false,
+            export_state: false,
+            config: BrokerConfig::default(),
+        }
+    }
+
     /// The queue directory is independent of the SQLite configuration contents.
     pub fn queue_directory(&self) -> Option<PathBuf> {
         self.egress_queue_dir.clone().or_else(|| {
@@ -58,456 +105,84 @@ fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message.into())
 }
 
-fn positive(value: &str, option: &str) -> io::Result<usize> {
-    let number = value
-        .parse::<usize>()
-        .map_err(|_| invalid(format!("{option} requires a positive integer")))?;
-    if number == 0 {
-        return Err(invalid(format!("{option} must be positive")));
+pub fn parse(args: impl IntoIterator<Item = impl AsRef<str>>) -> io::Result<Option<Invocation>> {
+    let args: Vec<String> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_owned())
+        .collect();
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        return Ok(None);
     }
-    Ok(number)
-}
-
-pub fn parse(args: impl IntoIterator<Item = String>) -> io::Result<Option<Options>> {
-    let mut args = args.into_iter();
-    let mut options = Options {
-        address: "127.0.0.1:1883".into(),
-        cluster_config: None,
-        cluster_controller_config: None,
+    let mut invocation = Invocation {
+        export_state: false,
         cluster_status: false,
         cluster_repair: None,
+        config_path: PathBuf::from("rmqtt.toml"),
         cluster_repair_target: None,
-        cluster_sensitive_paths: Vec::new(),
-        cluster_data_dir: None,
-        cluster_controller_data_dir: None,
-        admin_listen: None,
-        admin_token_file: None,
-        dashboard_dir: None,
-        rules_config: None,
-        access_control_config: None,
-        egress_queue_dir: None,
-        egress_queue_segment_bytes: 1024 * 1024,
-        egress_queue_max_bytes: 256 * 1024 * 1024,
-        egress_queue_max_records: 100_000,
-        tls_cert: None,
-        tls_key: None,
-        tls_client_ca: None,
-        websocket: false,
-        websocket_options: WebSocketOptions::default(),
-        auth_policy: None,
-        enhanced_auth_plain: false,
-        export_state: false,
-        config: BrokerConfig::default(),
     };
-    let mut first = true;
-    let mut ws_path_set = false;
-    let mut ws_limit_set = false;
-    let mut admission_seen = [false; 4];
-    let mut queue_seen = [false; 4];
-    while let Some(option) = args.next() {
-        if std::mem::take(&mut first) {
-            if option == "export-state" {
-                options.export_state = true;
-                continue;
+    let mut index = 0;
+    if let Some(first) = args.first() {
+        let command = match first.as_str() {
+            "export-state" => Some(Command::Export),
+            "cluster-status" => Some(Command::Status),
+            "cluster-repair-learner" => Some(Command::Repair(ClusterRepair::Learner)),
+            "cluster-repair" => Some(Command::Repair(ClusterRepair::Run)),
+            "cluster-repair-abort" => Some(Command::Repair(ClusterRepair::Abort)),
+            _ => None,
+        };
+        if let Some(command) = command {
+            match command {
+                Command::Export => invocation.export_state = true,
+                Command::Status => invocation.cluster_status = true,
+                Command::Repair(kind) => invocation.cluster_repair = Some(kind),
             }
-            if option == "cluster-status" {
-                options.cluster_status = true;
-                continue;
-            }
-            options.cluster_repair = match option.as_str() {
-                "cluster-repair-learner" => Some(ClusterRepair::Learner),
-                "cluster-repair" => Some(ClusterRepair::Run),
-                "cluster-repair-abort" => Some(ClusterRepair::Abort),
-                _ => None,
-            };
-            if options.cluster_repair.is_some() {
-                continue;
-            }
+            index = 1;
         }
-        if option == "--help" || option == "-h" {
-            return Ok(None);
+    }
+    let mut config_set = false;
+    while index < args.len() {
+        let option = &args[index];
+        if option == "--config" {
+            let value = args
+                .get(index + 1)
+                .ok_or_else(|| invalid("--config requires a path"))?;
+            if value.is_empty() || config_set {
+                return Err(invalid("--config requires one nonempty path"));
+            }
+            invocation.config_path = PathBuf::from(value);
+            config_set = true;
+            index += 2;
+            continue;
         }
         if option == "--target-node" {
             let value = args
-                .next()
+                .get(index + 1)
                 .ok_or_else(|| invalid("--target-node requires an ID"))?;
             let id = value
                 .parse::<u64>()
                 .ok()
                 .filter(|id| *id > 0)
                 .ok_or_else(|| invalid("--target-node requires a positive node ID"))?;
-            if options.cluster_repair_target.replace(id).is_some() {
+            if invocation.cluster_repair_target.replace(id).is_some() {
                 return Err(invalid("--target-node cannot be repeated"));
             }
+            index += 2;
             continue;
         }
-        if option == "--enhanced-auth-plain" {
-            options.enhanced_auth_plain = true;
-            continue;
-        }
-        if option == "--websocket" {
-            if options.websocket {
-                return Err(invalid("--websocket cannot be repeated"));
-            }
-            options.websocket = true;
-            continue;
-        }
-        if !matches!(
-            option.as_str(),
-            "--listen"
-                | "--cluster-config"
-                | "--cluster-controller-config"
-                | "--admin-listen"
-                | "--admin-token-file"
-                | "--dashboard-dir"
-                | "--rules-config"
-                | "--access-control-config"
-                | "--egress-queue-dir"
-                | "--egress-queue-segment-bytes"
-                | "--egress-queue-max-bytes"
-                | "--egress-queue-max-records"
-                | "--tls-cert"
-                | "--tls-key"
-                | "--tls-client-ca"
-                | "--max-handshakes"
-                | "--max-auth-tasks"
-                | "--auth-rate-per-second"
-                | "--auth-burst"
-                | "--ws-path"
-                | "--ws-max-message-size"
-                | "--protocol"
-                | "--auth-policy"
-                | "--storage-path"
-                | "--max-sessions"
-                | "--max-state-bytes"
-                | "--max-retained"
-                | "--max-packet-size"
-                | "--max-connections"
-                | "--outbound-capacity"
-                | "--max-subscriptions"
-                | "--max-inflight"
-                | "--topic-alias-maximum"
-                | "--handshake-timeout-ms"
-                | "--write-timeout-ms"
-        ) {
-            return Err(invalid(format!("unknown option {option}; {USAGE}")));
-        }
-        let value = args
-            .next()
-            .ok_or_else(|| invalid(format!("missing value for {option}")))?;
-        let queue_index = match option.as_str() {
-            "--egress-queue-dir" => Some(0),
-            "--egress-queue-segment-bytes" => Some(1),
-            "--egress-queue-max-bytes" => Some(2),
-            "--egress-queue-max-records" => Some(3),
-            _ => None,
-        };
-        if let Some(index) = queue_index {
-            if std::mem::replace(&mut queue_seen[index], true) {
-                return Err(invalid(format!("{option} cannot be repeated")));
-            }
-            if index == 0 {
-                if value.is_empty() {
-                    return Err(invalid("--egress-queue-dir requires a nonempty path"));
-                }
-                options.egress_queue_dir = Some(PathBuf::from(value));
-            } else {
-                let number = value
-                    .parse::<u64>()
-                    .map_err(|_| invalid(format!("{option} requires a positive integer")))?;
-                match index {
-                    1 => options.egress_queue_segment_bytes = number,
-                    2 => options.egress_queue_max_bytes = number,
-                    3 => {
-                        options.egress_queue_max_records =
-                            usize::try_from(number).map_err(|_| {
-                                invalid("--egress-queue-max-records exceeds platform limits")
-                            })?
-                    }
-                    _ => return Err(invalid("unrecognized queue option")),
-                }
-            }
-            continue;
-        }
-        match option.as_str() {
-            "--admin-listen" => {
-                let address: std::net::SocketAddr = value
-                    .parse()
-                    .map_err(|_| invalid("--admin-listen requires a numeric loopback IP:PORT"))?;
-                if !address.ip().is_loopback() || options.admin_listen.replace(address).is_some() {
-                    return Err(invalid("--admin-listen requires one loopback IP:PORT"));
-                }
-                continue;
-            }
-            "--admin-token-file"
-            | "--cluster-config"
-            | "--cluster-controller-config"
-            | "--dashboard-dir"
-            | "--rules-config"
-            | "--access-control-config" => {
-                let target = match option.as_str() {
-                    "--admin-token-file" => &mut options.admin_token_file,
-                    "--cluster-config" => &mut options.cluster_config,
-                    "--cluster-controller-config" => &mut options.cluster_controller_config,
-                    "--rules-config" => &mut options.rules_config,
-                    "--access-control-config" => &mut options.access_control_config,
-                    _ => &mut options.dashboard_dir,
-                };
-                if value.is_empty() || target.replace(PathBuf::from(value)).is_some() {
-                    return Err(invalid(
-                        "management paths must be nonempty and specified once",
-                    ));
-                }
-                continue;
-            }
-            _ => {}
-        }
-        let admission_index = match option.as_str() {
-            "--max-handshakes" => Some(0),
-            "--max-auth-tasks" => Some(1),
-            "--auth-rate-per-second" => Some(2),
-            "--auth-burst" => Some(3),
-            _ => None,
-        };
-        if let Some(index) = admission_index {
-            if std::mem::replace(&mut admission_seen[index], true) {
-                return Err(invalid(format!("{option} cannot be repeated")));
-            }
-            match index {
-                0 | 1 => {
-                    let limit = positive(&value, &option)?;
-                    if limit > tokio::sync::Semaphore::MAX_PERMITS {
-                        return Err(invalid(format!("{option} exceeds semaphore capacity")));
-                    }
-                    if index == 0 {
-                        options.config.max_handshakes = limit;
-                    } else {
-                        options.config.max_auth_tasks = limit;
-                    }
-                }
-                2 | 3 => {
-                    let limit = value
-                        .parse::<u32>()
-                        .map_err(|_| invalid(format!("{option} requires a u32 integer")))?;
-                    if index == 2 {
-                        options.config.auth_rate_per_second = limit;
-                    } else {
-                        if limit == 0 {
-                            return Err(invalid("--auth-burst must be positive"));
-                        }
-                        options.config.auth_burst = limit;
-                    }
-                }
-                _ => return Err(invalid("unrecognized admission option")),
-            }
-            continue;
-        }
-        if option == "--listen" {
-            options.address = value;
-            continue;
-        }
-        if option == "--ws-path" {
-            if ws_path_set
-                || !value.starts_with('/')
-                || value.len() > 1024
-                || value
-                    .chars()
-                    .any(|ch| ch.is_whitespace() || ch.is_control() || ch == '?' || ch == '#')
-            {
-                return Err(invalid(
-                    "--ws-path requires one absolute path of at most 1024 bytes without whitespace, query or fragment",
-                ));
-            }
-            ws_path_set = true;
-            options.websocket_options.path = value;
-            continue;
-        }
-        if option == "--ws-max-message-size" {
-            let size = positive(&value, &option)?;
-            if ws_limit_set || size > 16 * 1024 * 1024 {
-                return Err(invalid(
-                    "--ws-max-message-size requires one value in 1..=16777216",
-                ));
-            }
-            ws_limit_set = true;
-            options.websocket_options.max_message_size = size;
-            continue;
-        }
-        if matches!(
-            option.as_str(),
-            "--tls-cert" | "--tls-key" | "--tls-client-ca"
-        ) {
-            let slot = match option.as_str() {
-                "--tls-cert" => &mut options.tls_cert,
-                "--tls-key" => &mut options.tls_key,
-                _ => &mut options.tls_client_ca,
-            };
-            if value.is_empty() || slot.is_some() {
-                return Err(invalid(format!("{option} requires one nonempty path")));
-            }
-            *slot = Some(PathBuf::from(value));
-            continue;
-        }
-        if option == "--protocol" {
-            options.config.protocol_mode = match value.as_str() {
-                "both" => ProtocolMode::Both,
-                "3.1.1" => ProtocolMode::V311,
-                "5" => ProtocolMode::V5,
-                _ => return Err(invalid("--protocol must be both, 3.1.1 or 5")),
-            };
-            continue;
-        }
-        if option == "--auth-policy" {
-            if value.is_empty() {
-                return Err(invalid("--auth-policy cannot be empty"));
-            }
-            options.auth_policy = Some(PathBuf::from(value));
-            continue;
-        }
-        if option == "--storage-path" {
-            if value.is_empty() {
-                return Err(invalid("--storage-path cannot be empty"));
-            }
-            options.config.storage_path = Some(PathBuf::from(value));
-            continue;
-        }
-        if option == "--topic-alias-maximum" {
-            options.config.topic_alias_maximum = value
-                .parse::<u16>()
-                .map_err(|_| invalid("--topic-alias-maximum must be in 0..65535"))?;
-            continue;
-        }
-        let number = positive(&value, &option)?;
-        match option.as_str() {
-            "--max-packet-size" => {
-                if number < 2 {
-                    return Err(invalid("--max-packet-size must be at least 2"));
-                }
-                options.config.max_packet_size = number;
-            }
-            "--max-retained" => options.config.max_retained = number,
-            "--max-sessions" => options.config.max_sessions = number,
-            "--max-state-bytes" => options.config.max_state_bytes = number,
-            "--max-connections" => options.config.max_connections = number,
-            "--outbound-capacity" => options.config.outbound_capacity = number,
-            "--max-subscriptions" => options.config.max_subscriptions = number,
-            "--max-inflight" => {
-                if number > u16::MAX as usize {
-                    return Err(invalid("--max-inflight must be in 1..65535"));
-                }
-                options.config.max_inflight = number;
-            }
-            "--handshake-timeout-ms" | "--write-timeout-ms" => {
-                let millis = u64::try_from(number).map_err(|_| invalid("timeout exceeds u64"))?;
-                let duration = Duration::from_millis(millis);
-                if option == "--handshake-timeout-ms" {
-                    options.config.handshake_timeout = duration;
-                } else {
-                    options.config.write_timeout = duration;
-                }
-            }
-            _ => return Err(invalid("unrecognized numeric option")),
-        }
+        return Err(invalid(format!("unknown option {option}; {USAGE}")));
     }
-    if !(4096..=64 * 1024 * 1024).contains(&options.egress_queue_segment_bytes)
-        || options.egress_queue_max_bytes < options.egress_queue_segment_bytes.saturating_mul(4)
-        || options.egress_queue_max_bytes > 1024 * 1024 * 1024 * 1024
-        || !(1..=1_000_000).contains(&options.egress_queue_max_records)
-    {
-        return Err(invalid(
-            "invalid outbound queue limits: segment 4096..67108864, capacity at least four segments and at most 1 TiB, records 1..1000000",
-        ));
-    }
-    if options.export_state && queue_seen.into_iter().any(|set| set) {
-        return Err(invalid(
-            "outbound queue options cannot combine with export-state",
-        ));
-    }
-    if (ws_path_set || ws_limit_set) && !options.websocket {
-        return Err(invalid("WebSocket options require --websocket"));
-    }
-    if options.export_state && options.websocket {
-        return Err(invalid(
-            "WebSocket options cannot be used with export-state",
-        ));
-    }
-    if options.tls_cert.is_some() != options.tls_key.is_some() {
-        return Err(invalid(
-            "--tls-cert and --tls-key must be supplied together",
-        ));
-    }
-    if options.tls_client_ca.is_some() && options.tls_cert.is_none() {
-        return Err(invalid("--tls-client-ca requires --tls-cert and --tls-key"));
-    }
-    if options.export_state && options.tls_cert.is_some() {
-        return Err(invalid("TLS options cannot be used with export-state"));
-    }
-    if ((options.cluster_status || options.cluster_repair.is_some())
-        && options.cluster_config.is_none())
-        || (options.export_state && options.cluster_config.is_some())
-    {
-        return Err(invalid(
-            "cluster-status requires --cluster-config; cluster cannot combine with export-state",
-        ));
-    }
-    if options.cluster_controller_config.is_some()
-        && (options.cluster_config.is_none()
-            || options.cluster_status
-            || options.cluster_repair.is_some()
-            || options.export_state)
-    {
-        return Err(invalid(
-            "--cluster-controller-config requires normal Broker cluster startup",
-        ));
-    }
-    if (options.cluster_repair == Some(ClusterRepair::Run))
-        != options.cluster_repair_target.is_some()
+    if (invocation.cluster_repair == Some(ClusterRepair::Run))
+        != invocation.cluster_repair_target.is_some()
     {
         return Err(invalid("--target-node is required only for cluster-repair"));
     }
-    if options.cluster_repair.is_some()
-        && (options.admin_listen.is_some()
-            || options.rules_config.is_some()
-            || options.access_control_config.is_some()
-            || options.config.storage_path.is_some()
-            || options.websocket
-            || options.tls_cert.is_some())
-    {
-        return Err(invalid(
-            "cluster repair commands do not serve MQTT or management listeners",
-        ));
-    }
-    if options.export_state && options.config.storage_path.is_none() {
-        return Err(invalid("export-state requires --storage-path"));
-    }
-    if options.admin_listen.is_some() != options.admin_token_file.is_some()
-        || (options.dashboard_dir.is_some() && options.admin_listen.is_none())
-        || (options.export_state && options.admin_listen.is_some())
-    {
-        return Err(invalid(
-            "management requires --admin-listen and --admin-token-file, and cannot combine with export-state",
-        ));
-    }
-    if options.export_state && options.rules_config.is_some() {
-        return Err(invalid("rules cannot combine with export-state"));
-    }
-    if options.export_state && options.access_control_config.is_some() {
-        return Err(invalid("access control cannot combine with export-state"));
-    }
-    if !options.export_state && options.rules_config.is_none() {
-        options.rules_config = Some(PathBuf::from("rmqtt-rules.sqlite"));
-    }
-    if !options.export_state && options.access_control_config.is_none() {
-        let mut path = options
-            .rules_config
-            .as_ref()
-            .ok_or_else(|| invalid("rules configuration path required"))?
-            .as_os_str()
-            .to_os_string();
-        path.push(".access.sqlite");
-        options.access_control_config = Some(PathBuf::from(path));
-    }
-    Ok(Some(options))
+    Ok(Some(invocation))
+}
+
+enum Command {
+    Export,
+    Status,
+    Repair(ClusterRepair),
 }
 
 #[cfg(test)]
@@ -515,720 +190,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn combined_controller_option_requires_broker_serving_mode() {
-        let options = parse(args(&[
-            "--cluster-config",
-            "broker.json",
-            "--cluster-controller-config",
-            "controller.json",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert_eq!(
-            options.cluster_controller_config,
-            Some(PathBuf::from("controller.json"))
-        );
+    fn help_exits_before_reading_configuration() {
+        assert!(parse(["--help"]).unwrap().is_none());
+        assert!(parse(["-h"]).unwrap().is_none());
+        assert!(parse(["export-state", "--help"]).unwrap().is_none());
+    }
+
+    #[test]
+    fn config_path_defaults_and_commands_are_exclusive() {
+        let serve = parse(Vec::<String>::new()).unwrap().unwrap();
+        assert_eq!(serve.config_path, PathBuf::from("rmqtt.toml"));
+        assert!(!serve.export_state);
+        let exported = parse(["export-state", "--config", "node.toml"])
+            .unwrap()
+            .unwrap();
+        assert!(exported.export_state);
+        assert_eq!(exported.config_path, PathBuf::from("node.toml"));
+        let repair = parse(["cluster-repair", "--target-node", "2"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(repair.cluster_repair, Some(ClusterRepair::Run));
+        assert_eq!(repair.cluster_repair_target, Some(2));
+    }
+
+    #[test]
+    fn removed_flags_and_incomplete_repair_are_rejected() {
         for input in [
-            vec!["--cluster-controller-config", "controller.json"],
-            vec![
-                "cluster-status",
-                "--cluster-config",
-                "broker.json",
-                "--cluster-controller-config",
-                "controller.json",
-            ],
-            vec![
-                "cluster-repair-abort",
-                "--cluster-config",
-                "broker.json",
-                "--cluster-controller-config",
-                "controller.json",
-            ],
-            vec![
-                "--cluster-config",
-                "broker.json",
-                "--cluster-controller-config",
-                "a",
-                "--cluster-controller-config",
-                "b",
-            ],
-        ] {
-            assert!(parse(args(&input)).is_err());
-        }
-    }
-
-    #[test]
-    fn access_config_path_is_private_sibling_and_never_created_by_export() {
-        let defaults = parse(args(&[])).unwrap().unwrap();
-        assert_eq!(
-            defaults.access_control_config,
-            Some(PathBuf::from("rmqtt-rules.sqlite.access.sqlite"))
-        );
-        let options = parse(args(&["--rules-config", "isolated/rules.sqlite"]))
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            options.access_control_config,
-            Some(PathBuf::from("isolated/rules.sqlite.access.sqlite"))
-        );
-        for input in [
-            vec!["--access-control-config", ""],
-            vec!["--access-control-config"],
-            vec![
-                "--access-control-config",
-                "a",
-                "--access-control-config",
-                "b",
-            ],
-            vec![
-                "export-state",
-                "--storage-path",
-                "sessions.sqlite",
-                "--access-control-config",
-                "a",
-            ],
-        ] {
-            assert!(parse(args(&input)).is_err());
-        }
-        let options = parse(args(&["export-state", "--storage-path", "sessions.sqlite"]))
-            .unwrap()
-            .unwrap();
-        assert!(options.access_control_config.is_none());
-    }
-
-    #[test]
-    fn durable_outbound_queue_cli_accepts_explicit_limits() {
-        assert!(
-            parse(args(&[
-                "--egress-queue-dir",
-                "deliveries",
-                "--egress-queue-segment-bytes",
-                "4096",
-                "--egress-queue-max-bytes",
-                "1048576",
-                "--egress-queue-max-records",
-                "8",
-            ]))
-            .is_ok()
-        );
-    }
-
-    #[test]
-    fn durable_outbound_queue_limits_and_paths_are_bounded() {
-        let defaults = parse(args(&[])).unwrap().unwrap();
-        assert_eq!(
-            defaults.queue_directory(),
-            Some(PathBuf::from("rmqtt-rules.sqlite.outbound-queue"))
-        );
-        assert_eq!(defaults.egress_queue_max_bytes, 256 * 1024 * 1024);
-        let custom = parse(args(&[
-            "--rules-config",
-            "custom.sqlite",
-            "--egress-queue-dir",
-            "deliveries",
-            "--egress-queue-max-records",
-            "8",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert_eq!(custom.queue_directory(), Some(PathBuf::from("deliveries")));
-        assert_eq!(custom.egress_queue_max_records, 8);
-        for invalid in [
-            vec!["--egress-queue-dir", ""],
-            vec!["--egress-queue-dir", "a", "--egress-queue-dir", "b"],
-            vec!["--egress-queue-segment-bytes", "0"],
-            vec!["--egress-queue-segment-bytes", "4095"],
-            vec!["--egress-queue-max-bytes", "18446744073709551616"],
-            vec!["--egress-queue-max-bytes", "1024"],
-            vec!["--egress-queue-max-records", "0"],
-            vec!["--egress-queue-max-records", "1000001"],
-            vec![
-                "export-state",
-                "--storage-path",
-                "state.sqlite",
-                "--egress-queue-dir",
-                "deliveries",
-            ],
-        ] {
-            assert!(parse(args(&invalid)).is_err(), "{invalid:?}");
-        }
-    }
-
-    fn args(values: &[&str]) -> Vec<String> {
-        values.iter().map(|value| (*value).into()).collect()
-    }
-
-    #[test]
-    fn rules_config_defaults_for_serving_and_rejects_invalid_combinations() {
-        assert_eq!(
-            parse(args(&[])).unwrap().unwrap().rules_config,
-            Some(PathBuf::from("rmqtt-rules.sqlite"))
-        );
-        assert!(
-            parse(args(&["export-state", "--storage-path", "state.db"]))
-                .unwrap()
-                .unwrap()
-                .rules_config
-                .is_none()
-        );
-        assert_eq!(
-            parse(args(&["--rules-config", "custom-rules.sqlite"]))
-                .unwrap()
-                .unwrap()
-                .rules_config,
-            Some(PathBuf::from("custom-rules.sqlite"))
-        );
-        for v in [
-            vec!["--rules-import"],
-            vec!["--rules-import", ""],
-            vec!["--rules-import", "a", "--rules-import", "b"],
-            vec!["export-state", "--storage-path", "x", "--rules-import", "y"],
-            vec!["--rules-config"],
-            vec!["--rules-config", ""],
-            vec!["--rules-config", "a", "--rules-config", "b"],
-            vec!["export-state", "--storage-path", "x", "--rules-config", "y"],
-        ] {
-            assert!(parse(args(&v)).is_err());
-        }
-    }
-
-    #[test]
-    fn management_is_opt_in_loopback_and_requires_complete_options() {
-        assert!(parse(args(&[])).unwrap().unwrap().admin_listen.is_none());
-        let good = [
-            "--admin-listen",
-            "127.0.0.1:0",
-            "--admin-token-file",
-            "token",
-        ];
-        assert!(
-            parse(args(&good))
-                .unwrap()
-                .unwrap()
-                .admin_listen
-                .unwrap()
-                .ip()
-                .is_loopback()
-        );
-        for values in [
-            vec![
-                "--admin-listen",
-                "0.0.0.0:8080",
-                "--admin-token-file",
-                "token",
-            ],
-            vec![
-                "--admin-listen",
-                "localhost:8080",
-                "--admin-token-file",
-                "token",
-            ],
-            vec!["--admin-listen", "127.0.0.1:8080"],
-            vec!["--admin-token-file", "token"],
-            vec!["--dashboard-dir", "dist"],
-            vec!["--admin-listen", "127.0.0.1:0", "--admin-token-file", ""],
-            vec![
-                "--admin-listen",
-                "127.0.0.1:0",
-                "--admin-listen",
-                "127.0.0.1:1",
-                "--admin-token-file",
-                "token",
-            ],
-            vec![
-                "--admin-listen",
-                "127.0.0.1:0",
-                "--admin-token-file",
-                "a",
-                "--admin-token-file",
-                "b",
-            ],
-            vec![
-                "--admin-listen",
-                "127.0.0.1:0",
-                "--admin-token-file",
-                "a",
-                "--dashboard-dir",
-                "a",
-                "--dashboard-dir",
-                "b",
-            ],
-            vec![
-                "export-state",
-                "--storage-path",
-                "s",
-                "--admin-listen",
-                "127.0.0.1:0",
-                "--admin-token-file",
-                "token",
-            ],
-        ] {
-            assert!(parse(args(&values)).is_err(), "{values:?}");
-        }
-    }
-
-    #[test]
-    fn admission_limits_have_explicit_defaults_and_rate_can_be_disabled() {
-        let default = parse(args(&[])).unwrap().unwrap().config;
-        assert_eq!(default.max_handshakes, 128);
-        assert_eq!(default.max_auth_tasks, 4);
-        assert_eq!(default.auth_rate_per_second, 1000);
-        assert_eq!(default.auth_burst, 1000);
-        let config = parse(args(&[
-            "--max-handshakes",
-            "2",
-            "--max-auth-tasks",
-            "1",
-            "--auth-rate-per-second",
-            "0",
-            "--auth-burst",
-            "1",
-        ]))
-        .unwrap()
-        .unwrap()
-        .config;
-        assert_eq!(config.max_handshakes, 2);
-        assert_eq!(config.max_auth_tasks, 1);
-        assert_eq!(config.auth_rate_per_second, 0);
-        assert_eq!(config.auth_burst, 1);
-        for option in [
-            "--max-handshakes",
-            "--max-auth-tasks",
-            "--auth-rate-per-second",
-            "--auth-burst",
-        ] {
-            assert!(parse(args(&[option])).is_err());
-            assert!(parse(args(&[option, "1", option, "2"])).is_err());
-            assert!(parse(args(&[option, "-1"])).is_err());
-            assert!(parse(args(&[option, "184467440737095516160"])).is_err());
-        }
-        for option in ["--max-handshakes", "--max-auth-tasks", "--auth-burst"] {
-            assert!(parse(args(&[option, "0"])).is_err());
-        }
-        let overflow = (tokio::sync::Semaphore::MAX_PERMITS + 1).to_string();
-        assert!(parse(args(&["--max-handshakes", &overflow])).is_err());
-        assert!(parse(args(&["--auth-rate-per-second", "4294967296"])).is_err());
-    }
-
-    #[test]
-    fn client_ca_requires_server_identity_and_rejects_duplicate_or_empty_paths() {
-        let options = parse(args(&[
-            "--tls-client-ca",
-            "ca.pem",
-            "--tls-cert",
-            "cert.pem",
-            "--tls-key",
-            "key.pem",
-            "--websocket",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert_eq!(options.tls_client_ca, Some(PathBuf::from("ca.pem")));
-        assert!(options.websocket);
-        for values in [
-            vec!["--tls-client-ca", "ca.pem"],
-            vec!["--tls-client-ca"],
-            vec!["--tls-client-ca", "", "--tls-cert", "c", "--tls-key", "k"],
-            vec![
-                "--tls-client-ca",
-                "a",
-                "--tls-client-ca",
-                "b",
-                "--tls-cert",
-                "c",
-                "--tls-key",
-                "k",
-            ],
-            vec![
-                "export-state",
-                "--storage-path",
-                "state.db",
-                "--tls-cert",
-                "c",
-                "--tls-key",
-                "k",
-                "--tls-client-ca",
-                "a",
-            ],
-        ] {
-            assert!(parse(args(&values)).is_err(), "{values:?}");
-        }
-    }
-
-    #[test]
-    fn websocket_selection_supports_plain_and_tls_without_reading_identity() {
-        assert!(!parse(args(&[])).unwrap().unwrap().websocket);
-        let ws = parse(args(&["--websocket"])).unwrap().unwrap();
-        assert!(ws.websocket);
-        assert_eq!(ws.websocket_options.path, "/mqtt");
-        assert_eq!(ws.websocket_options.max_message_size, 1024 * 1024);
-        assert_eq!(ws.address, "127.0.0.1:1883");
-        let wss = parse(args(&[
-            "--ws-path",
-            "/custom",
-            "--websocket",
-            "--ws-max-message-size",
-            "16777216",
-            "--tls-cert",
-            "cert.pem",
-            "--tls-key",
-            "key.pem",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert_eq!(wss.websocket_options.path, "/custom");
-        assert_eq!(wss.websocket_options.max_message_size, 16 * 1024 * 1024);
-        assert!(wss.tls_cert.is_some());
-        assert_eq!(
-            parse(args(&["--websocket", "--ws-max-message-size", "1"]))
-                .unwrap()
-                .unwrap()
-                .websocket_options
-                .max_message_size,
-            1
-        );
-    }
-
-    #[test]
-    fn websocket_rejects_incomplete_duplicate_invalid_and_export_configuration() {
-        for values in [
-            vec!["--websocket", "--websocket"],
-            vec!["--ws-path", "/mqtt"],
-            vec!["--ws-max-message-size", "1"],
-            vec!["--websocket", "--ws-path"],
-            vec!["--websocket", "--ws-path", ""],
-            vec!["--websocket", "--ws-path", "mqtt"],
-            vec!["--websocket", "--ws-path", "/a?b"],
-            vec!["--websocket", "--ws-path", "/a#b"],
-            vec!["--websocket", "--ws-path", "/a b"],
-            vec!["--websocket", "--ws-path", "/a\r\n"],
-            vec!["--websocket", "--ws-path", "/a", "--ws-path", "/b"],
-            vec!["--websocket", "--ws-max-message-size", "0"],
-            vec!["--websocket", "--ws-max-message-size", "-1"],
-            vec!["--websocket", "--ws-max-message-size", "16777217"],
-            vec![
-                "--websocket",
-                "--ws-max-message-size",
-                "1",
-                "--ws-max-message-size",
-                "2",
-            ],
-            vec!["export-state", "--storage-path", "state.db", "--websocket"],
-        ] {
-            assert!(parse(args(&values)).is_err(), "{values:?}");
-        }
-        let oversized = format!("/{}", "x".repeat(1024));
-        assert!(parse(args(&["--websocket", "--ws-path", &oversized])).is_err());
-    }
-
-    #[test]
-    fn tls_identity_requires_one_complete_pair_without_reading_files() {
-        let plain = parse(args(&[])).unwrap().unwrap();
-        assert!(plain.tls_cert.is_none() && plain.tls_key.is_none());
-        let tls = parse(args(&["--tls-cert", "cert.pem", "--tls-key", "key.pem"]))
-            .unwrap()
-            .unwrap();
-        assert_eq!(tls.tls_cert, Some(PathBuf::from("cert.pem")));
-        assert_eq!(tls.tls_key, Some(PathBuf::from("key.pem")));
-        assert_eq!(tls.address, plain.address);
-        for values in [
-            vec!["--tls-cert", "cert.pem"],
-            vec!["--tls-key", "key.pem"],
-            vec!["--tls-cert"],
-            vec!["--tls-cert", "", "--tls-key", "key.pem"],
-            vec!["--tls-cert", "cert.pem", "--tls-key", ""],
-            vec!["--tls-cert", "a", "--tls-cert", "b", "--tls-key", "c"],
-            vec!["--tls-cert", "a", "--tls-key", "b", "--tls-key", "c"],
-            vec![
-                "export-state",
-                "--storage-path",
-                "state.db",
-                "--tls-cert",
-                "a",
-                "--tls-key",
-                "b",
-            ],
-        ] {
-            assert!(parse(args(&values)).is_err(), "{values:?}");
-        }
-    }
-
-    #[test]
-    fn rejects_invalid_resource_boundaries_and_missing_values() {
-        for values in [
-            vec!["--max-inflight", "0"],
-            vec!["--max-inflight", "65536"],
-            vec!["--max-packet-size", "1"],
-            vec!["--write-timeout-ms", "-1"],
-            vec!["--max-connections", "184467440737095516160"],
-            vec!["--outbound-capacity"],
-            vec!["--unknown", "1"],
-            vec!["--storage-path", ""],
-            vec!["--auth-policy", ""],
-            vec!["--auth-policy"],
-            vec!["--max-sessions", "0"],
-            vec!["--max-state-bytes", "0"],
-            vec!["--max-retained", "0"],
-            vec!["--topic-alias-maximum", "65536"],
-            vec!["--topic-alias-maximum", "-1"],
-            vec!["--topic-alias-maximum", "invalid"],
-            vec!["--topic-alias-maximum"],
-        ] {
-            assert!(parse(args(&values)).is_err(), "{values:?}");
-        }
-    }
-
-    #[test]
-    fn topic_alias_budget_defaults_but_can_be_disabled_or_use_full_range() {
-        assert_eq!(
-            parse(args(&[]))
-                .unwrap()
-                .unwrap()
-                .config
-                .topic_alias_maximum,
-            32
-        );
-        for maximum in [0u16, 1, 32, u16::MAX] {
-            let value = maximum.to_string();
-            let config = parse(args(&["--topic-alias-maximum", &value]))
-                .unwrap()
-                .unwrap()
-                .config;
-            assert_eq!(config.topic_alias_maximum, maximum);
-        }
-    }
-
-    #[test]
-    fn persistent_storage_is_opt_in_and_has_explicit_bounds() {
-        assert!(
-            parse(args(&[]))
-                .unwrap()
-                .unwrap()
-                .config
-                .storage_path
-                .is_none()
-        );
-        let config = parse(args(&[
-            "--storage-path",
-            "/tmp/test.sqlite",
-            "--max-sessions",
-            "12",
-            "--max-state-bytes",
-            "65536",
-            "--max-retained",
-            "128",
-        ]))
-        .unwrap()
-        .unwrap()
-        .config;
-        assert_eq!(config.storage_path, Some(PathBuf::from("/tmp/test.sqlite")));
-        assert_eq!(config.max_sessions, 12);
-        assert_eq!(config.max_state_bytes, 65536);
-        assert_eq!(config.max_retained, 128);
-    }
-
-    #[test]
-    fn policy_path_is_opt_in_and_parsed_without_reading_the_file() {
-        assert!(parse(args(&[])).unwrap().unwrap().auth_policy.is_none());
-        let options = parse(args(&["--auth-policy", "/does/not/exist.json"]))
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            options.auth_policy,
-            Some(PathBuf::from("/does/not/exist.json"))
-        );
-    }
-
-    #[test]
-    fn protocol_profile_defaults_to_both_and_requires_an_explicit_valid_value() {
-        assert_eq!(
-            parse(args(&[])).unwrap().unwrap().config.protocol_mode,
-            ProtocolMode::Both
-        );
-        for (value, expected) in [
-            ("both", ProtocolMode::Both),
-            ("3.1.1", ProtocolMode::V311),
-            ("5", ProtocolMode::V5),
-        ] {
-            assert_eq!(
-                parse(args(&["--protocol", value]))
-                    .unwrap()
-                    .unwrap()
-                    .config
-                    .protocol_mode,
-                expected
-            );
-        }
-        for values in [
-            vec!["--protocol"],
-            vec!["--protocol", ""],
-            vec!["--protocol", "6"],
-            vec!["--protocol", "mqtt5"],
-        ] {
-            assert!(parse(args(&values)).is_err());
-        }
-    }
-
-    #[test]
-    fn enhanced_plain_is_explicit_and_combines_with_existing_policy() {
-        assert!(!parse(args(&[])).unwrap().unwrap().enhanced_auth_plain);
-        let options = parse(args(&[
-            "--enhanced-auth-plain",
-            "--auth-policy",
-            "/does/not/exist.json",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert!(options.enhanced_auth_plain);
-        assert_eq!(
-            options.auth_policy,
-            Some(PathBuf::from("/does/not/exist.json"))
-        );
-        assert!(parse(args(&["--enhanced-auth-plain", "unexpected"])).is_err());
-    }
-
-    #[test]
-    fn supports_limits_without_changing_unset_defaults() {
-        let options = parse(args(&[
-            "--listen",
-            "127.0.0.1:0",
-            "--max-inflight",
-            "65535",
-            "--outbound-capacity",
-            "2",
-            "--handshake-timeout-ms",
-            "250",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert_eq!(options.address, "127.0.0.1:0");
-        assert_eq!(options.config.max_inflight, 65535);
-        assert_eq!(options.config.outbound_capacity, 2);
-        assert_eq!(options.config.handshake_timeout, Duration::from_millis(250));
-        assert_eq!(
-            options.config.max_packet_size,
-            BrokerConfig::default().max_packet_size
-        );
-        assert!(parse(args(&["--help"])).unwrap().is_none());
-    }
-    #[test]
-    fn cluster_configuration_and_status_are_explicit() {
-        let options = parse(args(&["--cluster-config", "cluster.json"]))
-            .unwrap()
-            .unwrap();
-        assert_eq!(options.cluster_config, Some(PathBuf::from("cluster.json")));
-        assert!(!options.cluster_status);
-        assert!(parse(args(&["cluster-status"])).is_err());
-        assert!(parse(args(&["--cluster-config", ""])).is_err());
-        assert!(parse(args(&["--cluster-config", "a", "--cluster-config", "b"])).is_err());
-        assert!(
-            parse(args(&[
-                "export-state",
-                "--storage-path",
-                "state",
-                "--cluster-config",
-                "a"
-            ]))
-            .is_err()
-        );
-        assert!(
-            parse(args(&["cluster-status", "--cluster-config", "a"]))
-                .unwrap()
-                .unwrap()
-                .cluster_status
-        );
-    }
-    #[test]
-    fn repair_commands_require_isolated_configuration_and_explicit_target() {
-        let run = parse(args(&[
-            "cluster-repair",
-            "--cluster-config",
-            "a",
-            "--target-node",
-            "103",
-        ]))
-        .unwrap()
-        .unwrap();
-        assert_eq!(run.cluster_repair, Some(ClusterRepair::Run));
-        assert_eq!(run.cluster_repair_target, Some(103));
-        for command in ["cluster-repair-learner", "cluster-repair-abort"] {
-            assert!(
-                parse(args(&[command, "--cluster-config", "a"]))
-                    .unwrap()
-                    .is_some()
-            );
-        }
-        for input in [
+            vec!["--listen", "127.0.0.1:1883"],
+            vec!["--cluster-config", "broker.json"],
+            vec!["--config"],
+            vec!["--config", ""],
+            vec!["--config", "a", "--config", "b"],
             vec!["cluster-repair"],
-            vec!["cluster-repair", "--cluster-config", "a"],
-            vec![
-                "cluster-repair",
-                "--cluster-config",
-                "a",
-                "--target-node",
-                "0",
-            ],
-            vec![
-                "cluster-repair",
-                "--cluster-config",
-                "a",
-                "--target-node",
-                "-1",
-            ],
-            vec![
-                "cluster-repair",
-                "--cluster-config",
-                "a",
-                "--target-node",
-                "103",
-                "--target-node",
-                "102",
-            ],
-            vec!["--target-node", "103"],
-            vec![
-                "cluster-repair-learner",
-                "--cluster-config",
-                "a",
-                "--target-node",
-                "103",
-            ],
-            vec![
-                "cluster-repair-abort",
-                "--cluster-config",
-                "a",
-                "--target-node",
-                "103",
-            ],
-            vec![
-                "cluster-repair-learner",
-                "--cluster-config",
-                "a",
-                "--storage-path",
-                "mirror.sqlite",
-            ],
-            vec![
-                "cluster-repair-abort",
-                "--cluster-config",
-                "a",
-                "--rules-config",
-                "rules.sqlite",
-            ],
+            vec!["cluster-status", "--target-node", "1"],
+            vec!["cluster-repair", "--target-node", "0"],
+            vec!["--target-node", "1", "--target-node", "2"],
         ] {
-            assert!(
-                parse(args(&input)).is_err(),
-                "unexpectedly accepted: {input:?}"
-            );
+            assert!(parse(input.clone()).is_err(), "{input:?}");
         }
-    }
-    #[test]
-    fn export_state_is_a_leading_subcommand_requiring_storage() {
-        assert!(!parse(args(&[])).unwrap().unwrap().export_state);
-        assert!(parse(args(&["export-state"])).is_err());
-        assert!(parse(args(&["--storage-path", "x", "export-state"])).is_err());
-        let options = parse(args(&["export-state", "--storage-path", "state.db"]))
-            .unwrap()
-            .unwrap();
-        assert!(options.export_state);
-        assert_eq!(options.config.storage_path, Some(PathBuf::from("state.db")));
     }
 }

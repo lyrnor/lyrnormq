@@ -22,7 +22,7 @@ pub fn export_state(config: &BrokerConfig) -> io::Result<Option<Vec<u8>>> {
     let path = config.storage_path.as_ref().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
-            "export-state requires --storage-path",
+            "export-state requires a session database",
         )
     })?;
     let limits = RowLimits {

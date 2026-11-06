@@ -62,11 +62,8 @@ class Broker:
             self.port = probe.getsockname()[1]
         executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
         self.rules_directory = tempfile.TemporaryDirectory(prefix='rmqtt-wire-rules-')
-        command = [executable, '--listen', f'127.0.0.1:{self.port}',
-                   '--rules-config', str(Path(self.rules_directory.name) / 'rules.sqlite')]
-        storage_path = os.environ.get('RMQTT_TEST_STORAGE_PATH')
-        if storage_path:
-            command.extend(['--storage-path', storage_path])
+        from rmqttcfg import argv
+        command = argv(executable, f'127.0.0.1:{self.port}', self.rules_directory.name)
         self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:

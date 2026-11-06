@@ -74,14 +74,15 @@ class GateBroker(WebSocketBroker):
         self.persistent=False
 
     def command(self):
-        args=[BINARY,'--listen',f'127.0.0.1:{self.port}']
-        if self.kind in ('ws','wss'):args+=['--websocket']
+        from rmqttcfg import argv
+        extra=[]
+        if self.kind in ('ws','wss'):extra+=['--websocket']
         if self.kind in ('tls','wss'):
-            args+=['--tls-cert',str(self.identities.path/'server.pem'),'--tls-key',str(self.identities.path/'server.key')]
-        if self.mtls:args+=['--tls-client-ca',str(self.identities.path/'ca.pem')]
-        if self.persistent:args+=['--storage-path',str(Path(self.directory)/'sessions.sqlite')]
-        if self.policy_path is not None:args+=['--auth-policy',str(self.policy_path)]
-        return args+["--rules-config",str(Path(self.rules_directory.name)/"rules.sqlite")]+self.extra
+            extra+=['--tls-cert',str(self.identities.path/'server.pem'),'--tls-key',str(self.identities.path/'server.key')]
+        if self.mtls:extra+=['--tls-client-ca',str(self.identities.path/'ca.pem')]
+        if self.policy_path is not None:extra+=['--auth-policy',str(self.policy_path)]
+        data=self.directory if self.directory is not None else self.rules_directory.name
+        return argv(BINARY,f'127.0.0.1:{self.port}',data,extra+list(self.extra))
 
     def start(self):
         self.port=free_port()

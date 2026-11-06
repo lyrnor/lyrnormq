@@ -1,41 +1,7 @@
-//! Embedded cluster role startup. Filesystem configuration loading is blocking-pool only.
-use std::{
-    io::{self, Read},
-    path::Path,
-    sync::Arc,
-};
+//! Embedded cluster role startup.
+use std::{io, path::Path, sync::Arc};
 use tokio::sync::watch;
 
-pub(crate) async fn load(path: Option<&Path>) -> io::Result<Option<mqtt_cluster::Config>> {
-    let Some(path) = path else {
-        return Ok(None);
-    };
-    let path = path.to_owned();
-    tokio::task::spawn_blocking(move || {
-        let meta = std::fs::symlink_metadata(&path)?;
-        if !meta.is_file() || meta.len() > 64 * 1024 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "cluster config must be a regular file <=64KiB",
-            ));
-        }
-        let mut bytes = Vec::new();
-        std::fs::File::open(path)?
-            .take(64 * 1024 + 1)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() > 64 * 1024 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "cluster config exceeds limit",
-            ));
-        }
-        serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid cluster config"))
-    })
-    .await
-    .map_err(io::Error::other)?
-}
 /// Replicated memory sessions must not silently fall back to a SQLite mirror.
 pub(crate) fn validate_data_options(
     config: Option<&mqtt_cluster::Config>,
@@ -44,7 +10,7 @@ pub(crate) fn validate_data_options(
     if config.is_some_and(|config| config.durable.is_some()) && storage_path.is_some() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "replicated memory mode cannot use --storage-path; session data is volatile",
+            "replicated memory mode cannot mirror sessions in SQLite",
         ));
     }
     Ok(())

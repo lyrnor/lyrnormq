@@ -69,12 +69,11 @@ class TLSBroker:
         self.port = None
 
     def command(self):
-        args = [BINARY, '--listen', f'127.0.0.1:{self.port}', '--tls-cert',
-                str(self.identities.path / 'server.pem'), '--tls-key',
-                str(self.identities.path / 'server.key')]
-        if self.directory is not None:
-            args += ['--storage-path', str(Path(self.directory) / 'sessions.sqlite')]
-        return args + ["--rules-config", str(Path(self.rules_directory.name) / "rules.sqlite")] + self.extra
+        from rmqttcfg import argv
+        data = self.directory if self.directory is not None else self.rules_directory.name
+        extra = ['--tls-cert', str(self.identities.path / 'server.pem'),
+                 '--tls-key', str(self.identities.path / 'server.key'), *self.extra]
+        return argv(BINARY, f'127.0.0.1:{self.port}', data, extra)
 
     def start(self):
         self.port = free_port()

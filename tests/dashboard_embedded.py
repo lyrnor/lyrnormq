@@ -51,13 +51,14 @@ class EmbeddedBroker(DashboardBroker):
         self.runtime_environment = dict(os.environ, PATH=str(self.root / 'no-node-runtime'))
 
     def command(self):
-        command = [str(self.executable), '--listen', f'127.0.0.1:{self.port}',
-                   '--admin-listen', f'127.0.0.1:{self.admin}',
-                   '--admin-token-file', str(self.token_path),
-                   '--rules-config', str(self.rules_path)]
+        from rmqttcfg import argv
+        data = self.root / 'data'
+        self.rules_path = data / 'rules.sqlite'
+        extra = ['--admin-listen', f'127.0.0.1:{self.admin}',
+                 '--admin-token-file', str(self.token_path)]
         if self.override is not None:
-            command += ['--dashboard-dir', str(self.override)]
-        return command
+            extra += ['--dashboard-dir', str(self.override)]
+        return argv(self.executable, f'127.0.0.1:{self.port}', data, extra)
 
     def start(self):
         self.stderr = tempfile.TemporaryFile()

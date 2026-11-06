@@ -81,22 +81,24 @@ fn sqlite_configuration_and_companion_aliases_cannot_be_static_assets() {
         let web = dir.0.join("web");
         std::fs::create_dir(&web).unwrap();
         std::fs::write(web.join("index.html"), b"<html></html>").unwrap();
-        let database = dir.0.join("config.sqlite");
-        let sensitive = dir.0.join(format!("config.sqlite{suffix}"));
+        let sensitive = dir.0.join(format!("rules.sqlite{suffix}"));
         std::fs::write(&sensitive, b"private configuration").unwrap();
         std::fs::hard_link(&sensitive, web.join("private.js")).unwrap();
-        let options = crate::cli::parse([
-            "--admin-listen".into(),
-            "127.0.0.1:0".into(),
-            "--admin-token-file".into(),
-            token.to_string_lossy().into_owned(),
-            "--dashboard-dir".into(),
-            web.to_string_lossy().into_owned(),
-            "--rules-config".into(),
-            database.to_string_lossy().into_owned(),
-        ])
-        .unwrap()
+        let config = dir.0.join("rmqtt.toml");
+        std::fs::write(
+            &config,
+            format!(
+                "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:0\"\n[dashboard]\nlisten = \"127.0.0.1:0\"\ntoken_file = \"{}\"\ndir = \"{}\"\n",
+                dir.0.display(),
+                token.display(),
+                web.display()
+            ),
+        )
         .unwrap();
+        let invocation = crate::cli::parse(["--config", &config.to_string_lossy()])
+            .unwrap()
+            .unwrap();
+        let options = crate::settings::load(&invocation).unwrap();
         assert!(
             super::settings::prepare(
                 &options,
@@ -117,22 +119,25 @@ fn outbound_queue_directory_cannot_be_loaded_as_public_assets() {
     let token = dir.0.join("token");
     std::fs::write(&token, b"test-only-0123456789abcdef0123456789abcdef").unwrap();
     let web = dir.0.join("web");
-    let queue = web.join("queue");
+    let queue = web.join("egress");
     std::fs::create_dir_all(&queue).unwrap();
     std::fs::write(web.join("index.html"), b"<html></html>").unwrap();
-    std::fs::write(queue.join("state.json"), b"private payload or credentials").unwrap();
-    let options = crate::cli::parse([
-        "--admin-listen".into(),
-        "127.0.0.1:0".into(),
-        "--admin-token-file".into(),
-        token.to_string_lossy().into_owned(),
-        "--dashboard-dir".into(),
-        web.to_string_lossy().into_owned(),
-        "--egress-queue-dir".into(),
-        queue.to_string_lossy().into_owned(),
-    ])
-    .unwrap()
+    std::fs::write(queue.join("private.js"), b"private payload or credentials").unwrap();
+    let config = dir.0.join("rmqtt.toml");
+    std::fs::write(
+        &config,
+        format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:0\"\n[dashboard]\nlisten = \"127.0.0.1:0\"\ntoken_file = \"{}\"\ndir = \"{}\"\n",
+            web.display(),
+            token.display(),
+            web.display()
+        ),
+    )
     .unwrap();
+    let invocation = crate::cli::parse(["--config", &config.to_string_lossy()])
+        .unwrap()
+        .unwrap();
+    let options = crate::settings::load(&invocation).unwrap();
     assert!(
         super::settings::prepare(
             &options,

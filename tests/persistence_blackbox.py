@@ -42,9 +42,8 @@ class PersistentBroker:
 
     def command(self):
         executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
-        return [executable, '--listen', f'127.0.0.1:{self.port}',
-                '--storage-path', str(self.db), '--rules-config',
-                str(Path(self.rules_directory.name) / 'rules.sqlite')] + self.extra_args
+        from rmqttcfg import argv
+        return argv(executable, f'127.0.0.1:{self.port}', self.db.parent, self.extra_args)
 
     def start(self):
         self.port = free_port()

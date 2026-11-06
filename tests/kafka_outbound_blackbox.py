@@ -70,7 +70,7 @@ class KafkaOutbound(unittest.TestCase):
     def tearDownClass(cls):cls.kafka.close()
     def setUp(self):
         self.directory=tempfile.TemporaryDirectory(prefix='rmqtt-kafka-quality-');self.addCleanup(self.directory.cleanup)
-        self.root=Path(self.directory.name);self.rules_path=self.root/'outbounds.sqlite';self.broker=None
+        self.root=Path(self.directory.name);self.rules_path=self.root/'rules.sqlite';self.broker=None
         self.topic='rmqtt-'+uuid.uuid4().hex
         self.helper('create',self.topic,count=3)
     def helper(self,operation,topic,count=1,timeout=5000,protocol='plaintext',mechanism=None,password='fixture-password'):
@@ -104,7 +104,7 @@ class KafkaOutbound(unittest.TestCase):
     def emit(self,client,sequences,topic='kafka/real/events',**fields):
         for seq in sequences:self.publish(client,topic,json.dumps(dict(seq=seq,marker=f'fixture-{seq}',unselected='not-journalled',**fields)).encode(),qos=0)
         self.barrier(client)
-    def queue(self):return Path(str(self.rules_path)+'.outbound-queue')
+    def queue(self):return self.rules_path.parent / 'egress'
     def records(self,count,timeout=5000):return self.helper('consume',self.topic,count,timeout)['records']
     def test_plaintext_fifo_multiple_clients_raw_data_and_stable_headers(self):
         public=self.start(self.config());self.assertEqual(public['outbounds'][0]['delivery']['concurrency'],128)

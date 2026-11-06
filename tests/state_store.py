@@ -25,7 +25,11 @@ def binary():
 
 def export_bytes(db, *args):
     """Merged envelope bytes of a stopped broker's database, or None."""
-    result = subprocess.run([binary(), 'export-state', '--storage-path', str(db), *args],
+    db = Path(db)
+    if db.name != 'sessions.sqlite':
+        raise AssertionError(f'session database must be named sessions.sqlite, got {db.name}')
+    from rmqttcfg import argv
+    result = subprocess.run(argv(binary(), '127.0.0.1:0', db.parent, command='export-state'),
                             capture_output=True, timeout=30, check=False)
     if result.returncode:
         raise AssertionError(f'export-state failed: {result.stderr.decode()}')

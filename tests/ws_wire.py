@@ -168,15 +168,13 @@ class WebSocketBroker(TLSBroker):
         self.client_chunk_size = client_chunk_size
 
     def command(self):
-        args = [BINARY, '--listen', f'127.0.0.1:{self.port}', '--websocket']
+        from rmqttcfg import argv
+        data = self.directory if self.directory is not None else self.rules_directory.name
+        extra = ['--websocket', *self.extra]
         if self.secure:
-            args += ['--tls-cert', str(self.identities.path / 'server.pem'),
-                     '--tls-key', str(self.identities.path / 'server.key')]
-        if self.directory is not None:
-            from pathlib import Path
-            args += ['--storage-path', str(Path(self.directory) / 'sessions.sqlite')]
-        from pathlib import Path
-        return args + ["--rules-config", str(Path(self.rules_directory.name) / "rules.sqlite")] + self.extra
+            extra[1:1] = ['--tls-cert', str(self.identities.path / 'server.pem'),
+                          '--tls-key', str(self.identities.path / 'server.key')]
+        return argv(BINARY, f'127.0.0.1:{self.port}', data, extra)
 
     def transport_socket(self, version=None, trusted=True, hostname='localhost'):
         return super().socket(version, trusted, hostname) if self.secure else self.raw()

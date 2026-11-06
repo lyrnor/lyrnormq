@@ -4,69 +4,42 @@ Build with `cargo build --release --locked`. Building the peer RPC adapter also
 requires `protoc` on PATH. This gate is for development acceptance, not a complete
 production MQTT cluster. See [contract](../contracts/phase7a-cluster.md).
 
-Run three Controllers with separate configuration files and data directories.
-Example Controller 1 configuration (change node_id, listen and data_dir for 2/3;
-only the first Controller sets bootstrap true):
-
-```json
-{
-  "role": "controller",
-  "cluster_id": "rmqtt-development",
-  "node_id": 1,
-  "listen": "127.0.0.1:7001",
-  "data_dir": "/tmp/rmqtt-cluster/controller-1",
-  "token_file": "/tmp/rmqtt-cluster/peer.token",
-  "controllers": [
-    {"id": 1, "address": "http://127.0.0.1:7001"},
-    {"id": 2, "address": "http://127.0.0.1:7002"},
-    {"id": 3, "address": "http://127.0.0.1:7003"}
-  ],
-  "bootstrap": true,
-  "lease_ms": 3000
-}
-```
-
-Create a private peer token file containing 32–256 visible ASCII characters. All
-members share this secret; use a separate secret from the Dashboard token. Start
-each Controller in its own terminal:
+Each process reads one TOML file. The complete field list and the matching
+`RMQTT_*` environment variables are in `rmqtt.toml.example` at the repository
+root. Three machines share the member list and differ in `node.id`, `node.role`, and
+`node.data_dir`. Omitting `[cluster]` starts a standalone broker. With
+`[cluster]`, `node.role` lists `controller`, `broker`, or `controller,broker`.
+A controller process uses member `id`. A broker process uses `100 + id`. One
+process listing both roles starts them together.
 
 ```sh
-./target/release/rmqtt --cluster-config /path/to/controller-1.json
+./target/release/rmqtt --config /opt/rmqtt/rmqtt.toml
+./target/release/rmqtt cluster-status --config /opt/rmqtt/rmqtt.toml
 ```
 
-For a Broker, use the same cluster_id, token_file and controllers; change role to
-`broker`, node_id to 101 (102 for another Broker), listen to `127.0.0.1:7101`,
-data_dir to its own directory, and set bootstrap false. Set advertise to
-`http://127.0.0.1:7101`. This listen address is the internal peer RPC endpoint;
-the existing command line `--listen` is the MQTT listener:
+`--config` defaults to `rmqtt.toml` in the current directory. Environment
+variables override the same field. `RMQTT_CLUSTER_MEMBERS` replaces the whole
+member list and uses `id:host,id:host,id:host`. There is no setting flag for
+listen addresses, limits, TLS, Dashboard, or rules paths.
 
-```sh
-./target/release/rmqtt --cluster-config /path/to/broker-101.json --listen 127.0.0.1:1884
-./target/release/rmqtt cluster-status --cluster-config /path/to/controller-1.json
-```
+Member `id` is the stable identity and does not change. `host` is the current
+address. Controller peers listen on `host:controller_port`. Broker peers listen
+on `host:broker_port`. The smallest id creates the Raft group only when it is
+not already initialized. The lease is 3000 ms. All three members are the
+controller group and the memory replica group. Data for the two roles is
+`data_dir/controller` and `data_dir/broker`. Rules, access control, and the
+outbound queue are `data_dir/rules.sqlite`, `data_dir/access.sqlite`, and
+`data_dir/egress`. Standalone sessions are `data_dir/sessions.sqlite`. Cluster
+mode does not keep a session SQLite mirror.
 
-The second Broker needs separate peer/MQTT ports and state/configuration files.
-Use clean sessions without Wills; retained publications and shared subscriptions
-are refused in this gate. Existing Dashboard Bearer HTTP publishing routes to
-remote subscribers as well. Standalone startup is unchanged.
+Create a private peer token file containing 32–256 visible ASCII characters.
+All members share this secret; use a separate secret from the Dashboard token.
+Start all three processes before testing readiness. Use clean sessions without
+Wills; retained publications and shared subscriptions are refused in this gate.
+Existing Dashboard Bearer HTTP publishing routes to remote subscribers as well.
 
-To host a Controller and Broker in **one process**, supply both existing role
-configurations. Each role keeps its own node ID, peer endpoint and data directory;
-the process shares one Tokio runtime and exits if either service fails:
-
-```sh
-./target/release/rmqtt --cluster-config /path/to/broker-101.json \
-  --cluster-controller-config /path/to/controller-1.json --listen 127.0.0.1:1884
-```
-
-Repeat for Broker102/Controller2 and Broker103/Controller3, starting all three
-processes before testing readiness. The two configurations must have identical
-cluster/membership, token path, TLS and lease settings, distinct IDs/listeners, and
-non-overlapping canonical data directories. The additional option is only for
-normal Broker startup, not status/export/repair commands. Existing standalone and
-single-role commands remain valid. This is role cohosting, not additional physical
-failure domains or a new Raft/data storage schema. See the
-[comparison contract](../contracts/phase7d-cluster-benchmark.md).
+A public MQTT address requires `[mqtt.tls]`. Loopback and RFC1918 addresses may
+stay plaintext. Cluster member hosts must be loopback or private addresses.
 
 Public peer endpoints require HTTPS and mutual TLS. Loopback and RFC1918
 private addresses may use plaintext HTTP. When TLS is used, add tls with
@@ -82,8 +55,8 @@ Reproduce the independent real-process checks with:
 RMQTT_BIN="$PWD/target/debug/rmqtt" python3 tests/cluster_blackbox.py -v
 ```
 
-The harness allocates its own temporary ports/files and starts three Controllers
-and two Brokers; it does not use an existing MQTT service. Process crashes exercise
+The harness allocates its own temporary ports and files and does not use an
+existing MQTT service. Process crashes exercise
 journal recovery, not physical power-loss certification. Durable forwarding receipts,
 session relocation, replicated retained/Will/shared state and performance acceptance
 remain later gates.
@@ -132,9 +105,9 @@ Current [Phase7f](../contracts/phase7f-memory-replicas.md) uses **typed RAM** fo
 sessions, outbox, receipts and repair staging. `durable.replicas` is the historical
 configuration name for replication, not a disk guarantee. Controller Raft remains
 SQLite. Rules/access configuration databases and generic outbound append logs are
-separate and unchanged. `--storage-path` is refused in this replicated mode.
+separate and unchanged. Replicated mode does not keep a session SQLite mirror.
 
-Start all six processes before admitting traffic. ACKs require two live replicas;
+Start all three processes before admitting traffic. ACKs require two live replicas;
 subscriber receipt is a separate condition. Surviving-majority failover restores
 sessions and packet identifiers. Every data-process restart creates a new identity,
 even with the same directory: it must complete explicit [repair](replica-repair.md)

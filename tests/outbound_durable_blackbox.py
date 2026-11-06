@@ -255,7 +255,7 @@ class DurableOutbounds(unittest.TestCase):
         self.emit(self.client('log-files'), [0], blob=marker)
         receiver.tracker.wait(lambda t: len(t.started) == 1)
         self.committed(1)
-        queue_dir = Path(str(self.rules_path) + '.outbound-queue')
+        queue_dir = self.rules_path.parent / 'egress'
         self.assertTrue(queue_dir.is_dir())
         files = [p for p in queue_dir.rglob('*') if p.is_file()]
         self.assertTrue(files)
@@ -328,7 +328,7 @@ class DurableOutbounds(unittest.TestCase):
         self.emit(source, [0])
         receiver.tracker.wait(lambda t: len(t.started) == 1)
         self.committed(1)
-        queue_dir = Path(str(self.rules_path) + '.outbound-queue')
+        queue_dir = self.rules_path.parent / 'egress'
         generations = list(queue_dir.glob('generation-*'))
         self.assertTrue(generations)
         for path in generations:

@@ -165,12 +165,15 @@ async def measure(arguments, binary, directory, result):
         probe.bind(('127.0.0.1', 0))
         port = probe.getsockname()[1]
     capacity = arguments.connections + 16
-    command = [str(binary), '--listen', f'127.0.0.1:{port}', '--protocol', '5',
-               '--max-connections', str(capacity), '--max-sessions', str(capacity),
-               '--max-state-bytes', str(max(67108864, capacity * 16384)),
-               '--handshake-timeout-ms', str(int(arguments.connect_timeout * 1000))]
-    if arguments.storage == 'sqlite':
-        command += ['--storage-path', str(Path(directory) / 'sessions.sqlite')]
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
+    from rmqttcfg import argv
+    command = argv(binary, f'127.0.0.1:{port}', directory, [
+        '--protocol', '5',
+        '--max-connections', str(capacity),
+        '--max-sessions', str(capacity),
+        '--max-state-bytes', str(max(67108864, capacity * 16384)),
+    ])
     evidence = Diagnostics()
     result.update(broker_command=command, phase='startup')
     process = await asyncio.create_subprocess_exec(*command, stdout=asyncio.subprocess.DEVNULL,

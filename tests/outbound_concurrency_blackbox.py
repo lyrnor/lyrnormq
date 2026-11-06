@@ -192,7 +192,7 @@ class OutboundConcurrency(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-outbound-concurrency-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.rules_path = self.root / 'outbounds.sqlite'
+        self.rules_path = self.root / 'rules.sqlite'
         self.broker = None
 
     def receiver(self, **kwargs):
@@ -473,7 +473,7 @@ class OutboundConcurrency(unittest.TestCase):
                     self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-outbound-batch-')
                     self.addCleanup(self.directory.cleanup)
                     self.root = Path(self.directory.name)
-                    self.rules_path = self.root / 'outbounds.sqlite'
+                    self.rules_path = self.root / 'rules.sqlite'
                 self.start(settings(receiver.url, concurrency=2, batch_size=3, batch_wait_ms=50))
                 count = 3 if large else 7
                 for n, values in enumerate(([0, 1], [2]) if large else (range(4), range(4, 7))):

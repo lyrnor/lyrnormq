@@ -44,12 +44,10 @@ class FeatureBroker(PersistentBroker):
         self.sqlite = sqlite
 
     def command(self):
-        command = [os.environ.get('RMQTT_BIN', str(Path(__file__).resolve().parents[1]
-                                                 / 'target/debug/rmqtt')),
-                   '--listen', f'127.0.0.1:{self.port}']
-        if self.sqlite:
-            command += ['--storage-path', str(self.db)]
-        return command + self.extra_args
+        executable = os.environ.get('RMQTT_BIN', str(Path(__file__).resolve().parents[1]
+                                                     / 'target/debug/rmqtt'))
+        from rmqttcfg import argv
+        return argv(executable, f'127.0.0.1:{self.port}', self.db.parent, self.extra_args)
 
 
 class RetainedWillBlackbox(unittest.TestCase):

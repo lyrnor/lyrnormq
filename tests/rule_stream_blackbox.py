@@ -78,7 +78,7 @@ class RuleStreams(unittest.TestCase):
                    and self.status()['inflight_requests'] == 0)
 
     def queue_root(self):
-        return Path(str(self.rules_path) + '.outbound-queue')
+        return self.rules_path.parent / 'egress'
 
     def bytes(self):
         return b''.join(path.read_bytes() for path in sorted(self.queue_root().glob('generation-*/segment-*.log')))

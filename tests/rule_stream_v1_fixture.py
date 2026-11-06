@@ -44,7 +44,7 @@ def install(path, config, entries):
         database.execute('PRAGMA user_version=1')
         database.execute('INSERT INTO rule_configuration VALUES(1, ?)', (encoded(config),))
     path.chmod(0o600)
-    root = Path(str(path) + '.outbound-queue')
+    root = path.parent / 'egress'
     root.mkdir(mode=0o700)
     owner = root / 'OWNERSHIP'
     owner.write_bytes(b'')
