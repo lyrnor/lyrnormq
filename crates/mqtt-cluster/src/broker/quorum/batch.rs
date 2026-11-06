@@ -17,13 +17,15 @@ use tokio::{
 };
 
 const QUEUE_CAPACITY: usize = 8192;
-const MAX_IN_FLIGHT: usize = 4;
+const MAX_IN_FLIGHT: usize = 32;
 const MAX_BATCH_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PEERS: usize = 64;
 
 struct Item {
     generation: u64,
     request: Request,
+    /// Canonical JSON of `request`, produced once by the quorum caller.
+    wire: Option<Arc<[u8]>>,
     reply: oneshot::Sender<io::Result<Reply>>,
 }
 struct Outbound {
@@ -71,17 +73,29 @@ impl ReplicaBatcher {
             }),
         }
     }
+    #[cfg(test)]
     pub(in crate::broker) async fn submit(
         &self,
         address: &str,
         generation: u64,
         request: Request,
     ) -> io::Result<Reply> {
+        self.submit_prepared(address, generation, request, Arc::from([]))
+            .await
+    }
+    pub(in crate::broker) async fn submit_prepared(
+        &self,
+        address: &str,
+        generation: u64,
+        request: Request,
+        wire: Arc<[u8]>,
+    ) -> io::Result<Reply> {
         let peer = self.peer(address)?;
+        let wire = (!wire.is_empty()).then_some(wire);
         if peer.legacy.load(Ordering::Acquire) {
-            return send_one(&self.inner.rpc, address, generation, request).await;
+            return send_one(&self.inner.rpc, address, generation, request, wire).await;
         }
-        let rx = queue(&peer, generation, request)?;
+        let rx = queue(&peer, generation, request, wire)?;
         rx.await.map_err(|_| peer_failed())?
     }
     #[cfg(test)]
@@ -92,7 +106,7 @@ impl ReplicaBatcher {
         request: Request,
     ) -> io::Result<oneshot::Receiver<io::Result<Reply>>> {
         let peer = self.peer(address)?;
-        queue(&peer, generation, request)
+        queue(&peer, generation, request, None)
     }
     fn peer(&self, address: &str) -> io::Result<Peer> {
         let mut peers = self
@@ -134,12 +148,14 @@ fn queue(
     peer: &Peer,
     generation: u64,
     request: Request,
+    wire: Option<Arc<[u8]>>,
 ) -> io::Result<oneshot::Receiver<io::Result<Reply>>> {
     let (tx, rx) = oneshot::channel();
     peer.tx
         .try_send(Item {
             generation,
             request,
+            wire,
             reply: tx,
         })
         .map_err(|_| peer_failed())?;
@@ -179,7 +195,8 @@ async fn run_peer(
             break;
         };
         if legacy.load(Ordering::Acquire) {
-            let result = send_one(&rpc, &address, first.generation, first.request).await;
+            let result =
+                send_one(&rpc, &address, first.generation, first.request, first.wire).await;
             let _ = first.reply.send(result);
             continue;
         }
@@ -267,7 +284,7 @@ fn encode_fitting(generation: u64, batch: &[Item]) -> io::Result<(Vec<u8>, usize
     body.truncate(body.len() - 2);
     let mut keep = 0usize;
     for item in batch {
-        let encoded = serde_json::to_vec(&item.request).map_err(io::Error::other)?;
+        let encoded = item_wire(item)?;
         let extra = encoded.len() + usize::from(keep > 0);
         if keep > 0 && body.len() + extra + 2 > MAX_BATCH_BYTES {
             break;
@@ -307,7 +324,8 @@ async fn deliver(rpc: ClientRpc, address: String, legacy: Arc<AtomicBool>, outbo
         Err(BatchError::Unimplemented) => {
             legacy.store(true, Ordering::Release);
             for item in outbound.items {
-                let result = send_one(&rpc, &address, item.generation, item.request).await;
+                let result =
+                    send_one(&rpc, &address, item.generation, item.request, item.wire).await;
                 let _ = item.reply.send(result);
             }
         }
@@ -321,7 +339,7 @@ async fn send_batch(
     expected: usize,
 ) -> Result<Vec<Option<Reply>>, BatchError> {
     let mut client = rpc
-        .client(address)
+        .replica_client(address)
         .await
         .map_err(|error| BatchError::Failed(error.to_string()))?;
     profile::observe(Metric::QuorumRemoteBytes, bytes.len() as u64);
@@ -347,17 +365,40 @@ async fn send_batch(
     }
     Ok(reply.results)
 }
+fn item_wire(item: &Item) -> io::Result<std::borrow::Cow<'_, [u8]>> {
+    if let Some(wire) = &item.wire {
+        return Ok(std::borrow::Cow::Borrowed(wire));
+    }
+    Ok(std::borrow::Cow::Owned(
+        serde_json::to_vec(&item.request).map_err(io::Error::other)?,
+    ))
+}
 async fn send_one(
     rpc: &ClientRpc,
     address: &str,
     generation: u64,
     request: Request,
+    wire: Option<Arc<[u8]>>,
 ) -> io::Result<Reply> {
-    let envelope = rpc::encode(&ReplicaMessage {
-        generation,
-        operation: request,
-    })?;
-    let mut client = rpc.client(address).await?;
+    let envelope = if let Some(wire) = wire {
+        let mut data = Vec::with_capacity(wire.len() + 32);
+        data.extend_from_slice(format!(r#"{{"generation":{generation},"operation":"#).as_bytes());
+        data.extend_from_slice(&wire);
+        data.push(b'}');
+        if data.len() > rpc::MAX_WIRE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cluster message exceeds limit",
+            ));
+        }
+        wire::Envelope { data: data.into() }
+    } else {
+        rpc::encode(&ReplicaMessage {
+            generation,
+            operation: request,
+        })?
+    };
+    let mut client = rpc.replica_client(address).await?;
     profile::observe(Metric::ReplicaRpc, 1);
     let response = client
         .replica(rpc.authorize(envelope)?)
@@ -383,6 +424,7 @@ mod tests {
         Item {
             generation: 1,
             request,
+            wire: None,
             reply: oneshot::channel().0,
         }
     }
@@ -448,18 +490,21 @@ mod tests {
         tx.try_send(Item {
             generation: 5,
             request: big.clone(),
+            wire: None,
             reply: oneshot::channel().0,
         })
         .unwrap();
         tx.try_send(Item {
             generation: 5,
             request: big,
+            wire: None,
             reply: oneshot::channel().0,
         })
         .unwrap();
         tx.try_send(Item {
             generation: 5,
             request: read("c:tail"),
+            wire: None,
             reply: oneshot::channel().0,
         })
         .unwrap();
@@ -823,7 +868,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn at_most_four_batch_rpcs_are_in_flight() {
+    async fn at_most_thirty_two_batch_rpcs_are_in_flight() {
         let path = temp("inflight");
         let rpc = client_rpc(&path).await;
         let mut script = Script::open();
@@ -831,7 +876,9 @@ mod tests {
         let (address, server) = serve(script.clone()).await;
         let batcher = ReplicaBatcher::new(rpc);
         let mut waits = Vec::new();
-        for index in 0..256 {
+        // One more full batch than the in-flight cap, so the semaphore is what stops at 32.
+        let total = 33 * 64;
+        for index in 0..total {
             waits.push(
                 batcher
                     .enqueue(&address, 1, read(&format!("c:{index}")))
@@ -839,13 +886,13 @@ mod tests {
             );
         }
         tokio::time::timeout(Duration::from_secs(5), async {
-            while script.max_inflight.load(Ordering::SeqCst) < 4 {
+            while script.max_inflight.load(Ordering::SeqCst) < 32 {
                 tokio::task::yield_now().await;
             }
         })
         .await
         .unwrap();
-        assert_eq!(script.max_inflight.load(Ordering::SeqCst), 4);
+        assert_eq!(script.max_inflight.load(Ordering::SeqCst), 32);
         script.release.store(true, Ordering::Release);
         script.wait.notify_waiters();
         for wait in waits {
@@ -857,8 +904,8 @@ mod tests {
         }
         let seen = script.seen.lock().unwrap().clone();
         assert!(seen.iter().all(|(_, len)| *len <= 64));
-        assert_eq!(seen.iter().map(|(_, len)| *len).sum::<usize>(), 256);
-        assert!(seen.len() >= 4);
+        assert_eq!(seen.iter().map(|(_, len)| *len).sum::<usize>(), 33 * 64);
+        assert!(seen.len() >= 32);
         drop(batcher);
         finish(server).await;
         let _ = std::fs::remove_dir_all(path);

@@ -86,7 +86,8 @@ fn exact_limit_accepts_and_plus_one_discards_all_qos() {
         publish(&mut e, 5, qos, false);
         publish(&mut e, 4, qos, false);
         let poll = e.poll_frame_with_changes("sub").unwrap();
-        assert!(poll.changed);
+        // QoS 0 leaves no retransmission record, so the pop is not a durable change.
+        assert_eq!(poll.changed, qos > 0);
         let f = poll.frame.unwrap();
         assert_eq!(encode_frame(&f).unwrap().len() as u32, wire_size(4, qos));
         assert!(matches!(f.packet,Packet::Publish {payload,..} if payload.len()==4));

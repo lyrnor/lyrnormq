@@ -96,5 +96,9 @@ pub trait ClusterBridge: Debug + Send + Sync {
     /// for all recipients; transport must suppress its separate local fanout.
     /// Shared selection remains deferred.
     fn forward(&self, message: ClusterMessage) -> ClusterFuture<'_, ()>;
+    /// Best-effort ordinary delivery. Replicated mode must not admit this into an outbox.
+    fn forward_ephemeral(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        self.forward(message)
+    }
     fn shutdown(&self) -> ClusterFuture<'_, ()>;
 }

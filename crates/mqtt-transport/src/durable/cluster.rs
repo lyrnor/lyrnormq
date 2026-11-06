@@ -381,4 +381,41 @@ impl Broker {
         });
         Some(rx)
     }
+
+    /// QoS 0 copies stay on the local subscription index and a best-effort remote RPC.
+    pub(super) fn fanout_ephemeral(self: &Arc<Self>, publication: Arc<Publication>) {
+        self.observe_cluster(&publication, None);
+        if let Some(fanout) = self.dispatch_received(Arc::clone(&publication), false) {
+            let broker = Arc::clone(self);
+            tokio::spawn(async move {
+                let _ = broker.complete(fanout).await;
+            });
+        }
+        let Some(bridge) = self.config.cluster.clone() else {
+            return;
+        };
+        let message = message(&publication, None);
+        tokio::spawn(async move {
+            let _ = tokio::time::timeout(DEADLINE, bridge.forward_ephemeral(message)).await;
+        });
+    }
+
+    /// Durably accept publications that do not touch the publisher's own record.
+    pub(super) async fn enqueue_host(&self, publications: &[Publication]) -> io::Result<()> {
+        let bridge = self
+            .config
+            .cluster
+            .as_ref()
+            .ok_or_else(|| failure(ReasonCode::SERVER_UNAVAILABLE, "cluster unavailable"))?;
+        for publication in publications {
+            let message = message(publication, None);
+            tokio::time::timeout(DEADLINE, bridge.forward(message))
+                .await
+                .map_err(|_| {
+                    failure(ReasonCode::SERVER_UNAVAILABLE, "cluster commit deadline")
+                })??;
+            self.observe_cluster(publication, None);
+        }
+        Ok(())
+    }
 }

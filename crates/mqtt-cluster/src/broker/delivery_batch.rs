@@ -18,7 +18,7 @@ use tokio::{
 };
 
 const QUEUE_CAPACITY: usize = 8192;
-const MAX_IN_FLIGHT: usize = 4;
+const MAX_IN_FLIGHT: usize = 32;
 const MAX_BATCH_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PEERS: usize = 64;
 
@@ -351,7 +351,7 @@ async fn send_batch(
     expected: usize,
 ) -> Result<Vec<bool>, BatchError> {
     let mut client = rpc
-        .client(address)
+        .delivery_client(address)
         .await
         .map_err(|error| BatchError::Failed(error.to_string()))?;
     profile::observe(Metric::DeliverBatchSize, expected as u64);
@@ -378,7 +378,7 @@ async fn send_batch(
 }
 async fn send_one(rpc: &ClientRpc, address: &str, delivery: RecipientDelivery) -> io::Result<()> {
     let envelope = rpc::encode(&delivery)?;
-    let mut client = rpc.client(address).await?;
+    let mut client = rpc.delivery_client(address).await?;
     profile::observe(Metric::DeliverRpc, 1);
     client
         .deliver_to(rpc.authorize(envelope)?)

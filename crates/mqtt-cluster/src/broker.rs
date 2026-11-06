@@ -476,15 +476,9 @@ impl BrokerRuntime {
         {
             return Err(unavailable());
         }
-        if self
-            .data
-            .as_ref()
-            .ok_or_else(unavailable)?
-            .received(&delivery.client_id, delivery.id.clone())
-            .await?
-        {
-            return Ok(());
-        }
+        // Durable::commit already treats an existing receipt as a duplicate and
+        // leaves the recipient engine untouched, so a prior Received round trip
+        // only adds a mailbox wait.
         self.local()?
             .deliver_to(delivery.client_id, delivery.id, delivery.message)
             .await
@@ -517,9 +511,9 @@ impl BrokerRuntime {
         }
         if let Some(publisher) = &forward.message.publisher {
             let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
-            if !metadata.clients.get(publisher).is_some_and(|owner| {
-                owner.node == forward.node && owner.incarnation == forward.incarnation
-            }) {
+            // Memory-replica sessions are durable owners, not Claim entries.
+            // QoS 0 forwarding still has to prove this node owns the publisher.
+            if !publisher_owned(&metadata, publisher, forward.node, &forward.incarnation) {
                 return Err(unavailable());
             }
         }
@@ -549,6 +543,95 @@ impl BrokerRuntime {
         drop(receipts);
         drop(guard);
         result
+    }
+    /// One best-effort RPC per remote node. Callers deliver local subscribers themselves.
+    async fn forward_remote(&self, message: ClusterMessage) -> io::Result<()> {
+        if !self.ready() {
+            return Err(unavailable());
+        }
+        let targets = {
+            let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+            let nodes: BTreeSet<_> = metadata
+                .routes
+                .iter()
+                .filter(|(filter, _)| mqtt_router::matches_topic_filter(filter, &message.topic))
+                .flat_map(|(_, nodes)| nodes)
+                .filter(|node| **node != self.config.node_id)
+                .copied()
+                .collect();
+            nodes
+                .into_iter()
+                .map(|node| metadata.nodes.get(&node).cloned().ok_or_else(unavailable))
+                .collect::<io::Result<Vec<_>>>()?
+        };
+        let addresses = targets.into_iter().map(|node| node.address).collect();
+        self.send_forward(addresses, message, false).await
+    }
+    /// Indexed durable subscribers. QoS 0 already delivered local matches.
+    fn remote_forward_addresses(&self, topic: &str) -> Vec<String> {
+        let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+        let matched = self
+            .recipients
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .matching(topic);
+        recipients::RecipientIndex::remote_addresses(
+            &metadata,
+            &matched,
+            self.config.node_id,
+            &self.incarnation,
+        )
+    }
+    async fn send_forward(
+        &self,
+        addresses: Vec<String>,
+        message: ClusterMessage,
+        delivery_channel: bool,
+    ) -> io::Result<()> {
+        if addresses.is_empty() {
+            return Ok(());
+        }
+        let sequence = self
+            .sequence
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
+            .map_err(|_| unavailable())?;
+        let forward = Forward {
+            node: self.config.node_id,
+            incarnation: self.incarnation.clone(),
+            sequence,
+            message,
+        };
+        let rpc = self.rpc().await?;
+        tokio::time::timeout(Duration::from_secs(5), async {
+            for address in addresses {
+                let mut okay = false;
+                for _ in 0..2 {
+                    if !self.ready() {
+                        return Err(unavailable());
+                    }
+                    let mut client = if delivery_channel {
+                        rpc.delivery_client(&address).await?
+                    } else {
+                        rpc.client(&address).await?
+                    };
+                    if client
+                        .deliver(rpc.authorize(rpc::encode(&forward)?)?)
+                        .await
+                        .is_ok()
+                    {
+                        okay = true;
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+                if !okay {
+                    return Err(unavailable());
+                }
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|_| unavailable())?
     }
 }
 impl ClusterBridge for BrokerRuntime {
@@ -710,61 +793,16 @@ impl ClusterBridge for BrokerRuntime {
             if let Some(data) = &self.data {
                 return data.enqueue(message).await;
             }
+            self.forward_remote(message).await
+        })
+    }
+    fn forward_ephemeral(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
             if !self.ready() {
                 return Err(unavailable());
             }
-            let targets = {
-                let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
-                let nodes: BTreeSet<_> = metadata
-                    .routes
-                    .iter()
-                    .filter(|(filter, _)| mqtt_router::matches_topic_filter(filter, &message.topic))
-                    .flat_map(|(_, nodes)| nodes)
-                    .filter(|node| **node != self.config.node_id)
-                    .copied()
-                    .collect();
-                nodes
-                    .into_iter()
-                    .map(|node| metadata.nodes.get(&node).cloned().ok_or_else(unavailable))
-                    .collect::<io::Result<Vec<_>>>()?
-            };
-            let sequence = self
-                .sequence
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
-                .map_err(|_| unavailable())?;
-            let forward = Forward {
-                node: self.config.node_id,
-                incarnation: self.incarnation.clone(),
-                sequence,
-                message,
-            };
-            let rpc = self.rpc().await?;
-            tokio::time::timeout(Duration::from_secs(5), async {
-                for target in targets {
-                    let mut okay = false;
-                    for _ in 0..2 {
-                        if !self.ready() {
-                            return Err(unavailable());
-                        }
-                        let mut client = rpc.client(&target.address).await?;
-                        if client
-                            .deliver(rpc.authorize(rpc::encode(&forward)?)?)
-                            .await
-                            .is_ok()
-                        {
-                            okay = true;
-                            break;
-                        }
-                        tokio::time::sleep(Duration::from_millis(20)).await;
-                    }
-                    if !okay {
-                        return Err(unavailable());
-                    }
-                }
-                Ok(())
-            })
-            .await
-            .map_err(|_| unavailable())?
+            let addresses = self.remote_forward_addresses(&message.topic);
+            self.send_forward(addresses, message, true).await
         })
     }
     fn shutdown(&self) -> ClusterFuture<'_, ()> {
@@ -786,6 +824,19 @@ impl ClusterBridge for BrokerRuntime {
         })
     }
 }
+/// A forwarded publish is accepted from the node that owns the publisher,
+/// whether that ownership is a connected Claim or a durable session record.
+fn publisher_owned(metadata: &Metadata, publisher: &str, node: u64, incarnation: &str) -> bool {
+    metadata
+        .clients
+        .get(publisher)
+        .is_some_and(|owner| owner.node == node && owner.incarnation == incarnation)
+        || metadata
+            .durable
+            .get(&durable::client_key(publisher))
+            .is_some_and(|owner| owner.node == node && owner.incarnation == incarnation)
+}
+
 pub async fn serve_broker(
     runtime: Arc<BrokerRuntime>,
     mut shutdown: watch::Receiver<bool>,
@@ -836,3 +887,49 @@ impl Drop for ReceiptGuard<'_> {
 
 #[cfg(test)]
 mod control_tests;
+
+#[cfg(test)]
+mod publisher_owned_tests {
+    use super::{durable, publisher_owned};
+    use crate::model::{Client, DurableOwner, Metadata};
+
+    fn durable_owner(node: u64) -> DurableOwner {
+        DurableOwner {
+            node,
+            incarnation: "inc".into(),
+            generation: 1,
+            epoch: 3,
+            filters: Vec::new(),
+            logical_generation: 0,
+            acquired_from: None,
+        }
+    }
+
+    #[test]
+    fn durable_session_owner_can_forward_without_a_claim() {
+        let mut metadata = Metadata::default();
+        metadata
+            .durable
+            .insert(durable::client_key("pub"), durable_owner(7));
+        assert!(publisher_owned(&metadata, "pub", 7, "inc"));
+        assert!(!publisher_owned(&metadata, "pub", 8, "inc"));
+        assert!(!publisher_owned(&metadata, "pub", 7, "other"));
+        assert!(!publisher_owned(&metadata, "other", 7, "inc"));
+    }
+
+    #[test]
+    fn claimed_client_can_forward_from_its_node() {
+        let mut metadata = Metadata::default();
+        metadata.clients.insert(
+            "pub".into(),
+            Client {
+                node: 7,
+                incarnation: "inc".into(),
+                generation: 1,
+                filters: Vec::new(),
+            },
+        );
+        assert!(publisher_owned(&metadata, "pub", 7, "inc"));
+        assert!(!publisher_owned(&metadata, "pub", 7, "other"));
+    }
+}

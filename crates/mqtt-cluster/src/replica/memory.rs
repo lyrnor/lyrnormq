@@ -36,7 +36,7 @@ struct Value {
     canonical: Arc<[u8]>,
 }
 impl Value {
-    fn new(record: Record) -> io::Result<Self> {
+    fn new(record: Record, canonical: Option<Arc<[u8]>>) -> io::Result<Self> {
         if record.epoch == 0
             || record.epoch > i64::MAX as u64
             || record
@@ -49,13 +49,16 @@ impl Value {
         {
             return Err(rejected());
         }
-        let canonical = serde_json::to_vec(&record).map_err(error)?;
+        let canonical = match canonical {
+            Some(bytes) => bytes,
+            None => serde_json::to_vec(&record).map_err(error)?.into(),
+        };
         if canonical.len() > MAX_RECORD {
             return Err(rejected());
         }
         Ok(Self {
             record: Arc::new(record),
-            canonical: canonical.into(),
+            canonical,
         })
     }
 }
@@ -195,7 +198,15 @@ impl MemoryStore {
         }
     }
     fn execute(&self, generation: u64, request: Request) -> io::Result<Reply> {
-        let prepared = prepare(request)?;
+        self.execute_with(generation, request, None)
+    }
+    fn execute_with(
+        &self,
+        generation: u64,
+        request: Request,
+        canonical: Option<Arc<[u8]>>,
+    ) -> io::Result<Reply> {
+        let prepared = prepare(request, canonical)?;
         let value = {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
             apply(&mut state, generation, prepared)?
@@ -205,7 +216,10 @@ impl MemoryStore {
     fn execute_many(&self, generation: u64, requests: Vec<Request>) -> Vec<io::Result<Reply>> {
         // Validate every request before taking the map lock. One lock then applies them in order,
         // so a later item observes earlier writes in this batch and one rejection does not undo them.
-        let prepared: Vec<io::Result<Prepared>> = requests.into_iter().map(prepare).collect();
+        let prepared: Vec<io::Result<Prepared>> = requests
+            .into_iter()
+            .map(|request| prepare(request, None))
+            .collect();
         let results = {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
             prepared
@@ -382,7 +396,11 @@ impl MemoryStore {
             {
                 return Err(rejected());
             }
-            let value = entry.record.clone().map(Value::new).transpose()?;
+            let value = entry
+                .record
+                .clone()
+                .map(|record| Value::new(record, None))
+                .transpose()?;
             if value
                 .as_ref()
                 .is_some_and(|v| v.record.epoch > entry.min_epoch)
@@ -549,6 +567,14 @@ impl ReplicaStore for MemoryStore {
     fn execute_at(&self, generation: u64, request: Request) -> StoreFuture<'_, Reply> {
         Box::pin(async move { self.execute(generation, request) })
     }
+    fn execute_prepared(
+        &self,
+        generation: u64,
+        request: Request,
+        canonical: Option<Arc<[u8]>>,
+    ) -> StoreFuture<'_, Reply> {
+        Box::pin(async move { self.execute_with(generation, request, canonical) })
+    }
     fn execute_many_at(
         &self,
         generation: u64,
@@ -605,12 +631,12 @@ enum Prepared {
     Fence(String, u64),
     Write(String, Value),
 }
-fn prepare(request: Request) -> io::Result<Prepared> {
+fn prepare(request: Request, canonical: Option<Arc<[u8]>>) -> io::Result<Prepared> {
     // Encoding/validation occurs before locking the map, never under the shared mutex.
     let prepared = match request {
         Request::Read { key } => Prepared::Read(key),
         Request::Fence { key, epoch } => Prepared::Fence(key, epoch),
-        Request::Write { key, record } => Prepared::Write(key, Value::new(record)?),
+        Request::Write { key, record } => Prepared::Write(key, Value::new(record, canonical)?),
     };
     let (key, epoch) = match &prepared {
         Prepared::Read(key) => (key.as_str(), 0),

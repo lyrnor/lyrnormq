@@ -293,3 +293,60 @@ async fn runtime_snapshot_and_sparse_delta_publish_coherent_index_and_reject_gap
     assert_eq!(runtime.durable_recipients("fresh/x").len(), 1);
     Ok(())
 }
+
+#[test]
+fn indexed_match_forwards_only_remote_owners() {
+    let mut metadata = Metadata::default();
+    metadata.durable.insert(
+        "c:local".into(),
+        DurableOwner {
+            node: 101,
+            incarnation: "self".into(),
+            generation: 1,
+            epoch: 1,
+            logical_generation: 1,
+            filters: vec!["sensors/room".into()],
+            acquired_from: None,
+        },
+    );
+    metadata.durable.insert(
+        "c:remote".into(),
+        DurableOwner {
+            node: 102,
+            incarnation: "other".into(),
+            generation: 1,
+            epoch: 1,
+            logical_generation: 1,
+            filters: vec!["sensors/room".into()],
+            acquired_from: None,
+        },
+    );
+    metadata.nodes.insert(
+        101,
+        crate::model::Node {
+            id: 101,
+            incarnation: "self".into(),
+            address: "http://127.0.0.1:1".into(),
+            expires_at: 1,
+            max_lease_ms: 3000,
+            applied: 1,
+        },
+    );
+    metadata.nodes.insert(
+        102,
+        crate::model::Node {
+            id: 102,
+            incarnation: "other".into(),
+            address: "http://127.0.0.1:2".into(),
+            expires_at: 1,
+            max_lease_ms: 3000,
+            applied: 1,
+        },
+    );
+    let index = RecipientIndex::from_metadata(&metadata);
+    let matched = index.matching("sensors/room");
+    assert_eq!(
+        RecipientIndex::remote_addresses(&metadata, &matched, 101, "self"),
+        vec!["http://127.0.0.1:2".to_owned()]
+    );
+}

@@ -4,7 +4,7 @@ use crate::{
     replica::Recipient,
 };
 use mqtt_router::Router;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::PoisonError;
 
 struct Entry {
@@ -78,6 +78,29 @@ impl RecipientIndex {
                 filters: owner.filters.clone(),
             },
         );
+    }
+
+    /// Remote node addresses for an indexed match. Local owners are omitted;
+    /// the caller already delivered those from its own subscription index.
+    pub(super) fn remote_addresses(
+        metadata: &Metadata,
+        matched: &[Recipient],
+        self_node: u64,
+        self_incarnation: &str,
+    ) -> Vec<String> {
+        let mut addresses = BTreeSet::new();
+        for recipient in matched {
+            let Some(owner) = metadata.durable.get(&format!("c:{}", recipient.client_id)) else {
+                continue;
+            };
+            if owner.node == self_node && owner.incarnation == self_incarnation {
+                continue;
+            }
+            if let Some(node) = metadata.nodes.get(&owner.node) {
+                addresses.insert(node.address.clone());
+            }
+        }
+        addresses.into_iter().collect()
     }
 
     pub(super) fn matching(&self, topic: &str) -> Vec<Recipient> {

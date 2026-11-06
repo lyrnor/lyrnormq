@@ -96,6 +96,9 @@ enum ClientDeadline {
     Repair,
     Applied,
     Heartbeat,
+    /// Recipient batches do not share a connection with replica writes.
+    Delivery,
+    Replica,
 }
 fn channel_cache_key(address: &str, deadline: ClientDeadline) -> String {
     match deadline {
@@ -103,6 +106,8 @@ fn channel_cache_key(address: &str, deadline: ClientDeadline) -> String {
         ClientDeadline::Repair => format!("repair:{address}"),
         ClientDeadline::Applied => format!("applied:{address}"),
         ClientDeadline::Heartbeat => format!("heartbeat:{address}"),
+        ClientDeadline::Delivery => format!("delivery:{address}"),
+        ClientDeadline::Replica => format!("replica:{address}"),
     }
 }
 #[derive(Clone)]
@@ -166,6 +171,18 @@ impl ClientRpc {
     ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
         self.client_timeout(address, ClientDeadline::Regular).await
     }
+    pub async fn delivery_client(
+        &self,
+        address: &str,
+    ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
+        self.client_timeout(address, ClientDeadline::Delivery).await
+    }
+    pub async fn replica_client(
+        &self,
+        address: &str,
+    ) -> io::Result<wire::cluster_client::ClusterClient<Channel>> {
+        self.client_timeout(address, ClientDeadline::Replica).await
+    }
     pub async fn heartbeat_client(
         &self,
         address: &str,
@@ -187,7 +204,10 @@ impl ClientRpc {
         let seconds = match deadline {
             ClientDeadline::Repair => 60,
             ClientDeadline::Applied => 5,
-            ClientDeadline::Regular | ClientDeadline::Heartbeat => 2,
+            ClientDeadline::Regular
+            | ClientDeadline::Heartbeat
+            | ClientDeadline::Delivery
+            | ClientDeadline::Replica => 2,
         };
         let cache_key = channel_cache_key(address, deadline);
         let cached = self

@@ -63,6 +63,8 @@ pub(super) struct ActorHandle {
 
 struct Effects {
     commit: bool,
+    /// Install the proposal in memory, but skip the replicated session write.
+    volatile: bool,
     notify: bool,
     housekeeping: bool,
     /// When false, install skips rebuilding the subscription index.
@@ -77,6 +79,7 @@ impl Default for Effects {
     fn default() -> Self {
         Self {
             commit: true,
+            volatile: false,
             notify: false,
             housekeeping: true,
             filters_changed: false,
@@ -373,8 +376,14 @@ fn apply(
             let outcome = proposal
                 .poll_frame_with_changes(&client)
                 .map_err(model_error)?;
-            effects.commit = outcome.changed;
-            effects.notify = outcome.changed;
+            let qos0 = outcome
+                .frame
+                .as_ref()
+                .is_some_and(|frame| matches!(frame.packet, Packet::Publish { qos: 0, .. }));
+            effects.commit = outcome.changed || outcome.frame.is_some();
+            effects.volatile =
+                broker.durable_cluster() && (qos0 || !proposal.has_persistent_state());
+            effects.notify = effects.commit;
             Ok(poll_reply(outcome.frame, legacy))
         }
         Request::PollDelivery { client, generation } => {
@@ -382,8 +391,15 @@ fn apply(
             let outcome = proposal
                 .poll_delivery_with_changes(&client)
                 .map_err(model_error)?;
-            effects.commit = outcome.changed;
-            effects.notify = outcome.changed;
+            let qos0 = outcome.delivery.as_ref().is_some_and(|delivery| {
+                matches!(delivery.frame.packet, Packet::Publish { qos: 0, .. })
+            });
+            // The popped message still has to leave the in-memory queue. QoS 0
+            // and sessions without a snapshot do not need a quorum write to do it.
+            effects.commit = outcome.changed || outcome.delivery.is_some();
+            effects.volatile =
+                broker.durable_cluster() && (qos0 || !proposal.has_persistent_state());
+            effects.notify = effects.commit;
             Ok(Reply::DeliveryPolled(outcome.delivery.map(Box::new)))
         }
         Request::BeginDelivery {
@@ -392,10 +408,13 @@ fn apply(
             delivery,
         } => {
             valid_generation(online, &client, generation)?;
+            let qos0 = matches!(delivery.frame.packet, Packet::Publish { qos: 0, .. });
             let outcome = proposal
                 .begin_delivery(&client, delivery)
                 .map_err(model_error)?;
             effects.commit = outcome.changed;
+            effects.volatile =
+                broker.durable_cluster() && (qos0 || !proposal.has_persistent_state());
             effects.notify = outcome.changed;
             Ok(Reply::FramePolled(outcome.frame.map(Box::new)))
         }
@@ -652,6 +671,7 @@ impl Actor {
         let effects = Effects {
             notify: true,
             housekeeping: false,
+            volatile: publication.qos == 0 && self.broker.durable_cluster(),
             ..Effects::default()
         };
         if self.install(proposal, effects).await.is_err() {
@@ -879,13 +899,59 @@ impl Actor {
         }
         let publications = proposal.take_publications();
         if self.broker.durable_cluster() {
-            if !publications.is_empty() {
+            let mut ephemeral = Vec::new();
+            let mut durable_pubs = Vec::new();
+            for publication in publications {
+                if publication.qos == 0 && !publication.retain {
+                    ephemeral.push(publication);
+                } else {
+                    durable_pubs.push(publication);
+                }
+            }
+            let structural = effects.filters_changed
+                || effects.reset_session
+                || effects.removal.is_some()
+                || effects.registration.is_some()
+                || effects.receipt.is_some();
+            let persistent_changed = if durable_pubs.is_empty() || !proposal.has_persistent_state()
+            {
+                false
+            } else {
+                match proposal.snapshot() {
+                    Ok(row) => self.row.as_ref() != Some(&row),
+                    Err(error) => {
+                        let _ = reply.send(Err(model_error(error)));
+                        return;
+                    }
+                }
+            };
+            // Unchanged publisher state shares the node outbox, so concurrent
+            // clients fill one HOST_BATCH quorum write instead of one record each.
+            if !durable_pubs.is_empty() && !structural && !persistent_changed {
+                if let Err(error) = self.broker.enqueue_host(&durable_pubs).await {
+                    let _ = reply.send(Err(error));
+                    return;
+                }
+                effects.publications.clear();
+                effects.volatile = true;
                 effects.commit = true;
                 effects.notify = true;
+            } else {
+                if !durable_pubs.is_empty() {
+                    effects.commit = true;
+                    effects.notify = true;
+                } else if !ephemeral.is_empty() && effects.commit && !structural {
+                    effects.volatile = true;
+                }
+                effects.publications = durable_pubs;
             }
-            effects.publications = publications;
-            let result = self.install(proposal, effects).await.map(|()| response);
-            let _ = reply.send(result);
+            let result = self.install(proposal, effects).await;
+            if result.is_ok() {
+                for publication in ephemeral {
+                    self.broker.fanout_ephemeral(Arc::new(publication));
+                }
+            }
+            let _ = reply.send(result.map(|()| response));
             return;
         }
         let wait = rerun.is_some()
@@ -1189,7 +1255,7 @@ impl Actor {
         if effects.commit {
             let bytes = proposal.live_state_bytes();
             self.broker.account(self.accounted, bytes)?;
-            if self.broker.durable_cluster() {
+            if self.broker.durable_cluster() && !effects.volatile {
                 let result = self.commit_cluster(&proposal, &mut effects).await;
                 match result {
                     Ok(true) => {

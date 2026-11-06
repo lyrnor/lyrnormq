@@ -10,6 +10,16 @@ pub(super) trait ReplicaStore: Send + Sync {
     fn disk_id(&self) -> &str;
     fn voting_ready(&self, generation: u64) -> bool;
     fn execute_at(&self, generation: u64, request: Request) -> StoreFuture<'_, Reply>;
+    /// `canonical` is the Record JSON already produced for this write, when the caller has one.
+    fn execute_prepared(
+        &self,
+        generation: u64,
+        request: Request,
+        canonical: Option<Arc<[u8]>>,
+    ) -> StoreFuture<'_, Reply> {
+        let _ = canonical;
+        self.execute_at(generation, request)
+    }
     /// Runs `requests` in order under one lock. One item's rejection does not roll back the others.
     fn execute_many_at(
         &self,
@@ -62,6 +72,16 @@ impl Journal {
     }
     pub async fn execute_at(&self, generation: u64, request: Request) -> io::Result<Reply> {
         self.0.execute_at(generation, request).await
+    }
+    pub async fn execute_prepared(
+        &self,
+        generation: u64,
+        request: Request,
+        canonical: Option<Arc<[u8]>>,
+    ) -> io::Result<Reply> {
+        self.0
+            .execute_prepared(generation, request, canonical)
+            .await
     }
     pub async fn execute_many(
         &self,

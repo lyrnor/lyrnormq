@@ -710,9 +710,11 @@ impl SessionEngine {
             }),
         };
         self.ensure_bounds()?;
+        // QoS 0 has no retransmission record. Expiry or authorization changes
+        // still report changed; the pop itself does not.
         Ok(DeliveryPollOutcome {
             delivery: Some(delivery),
-            changed: true,
+            changed: changed || message.qos != 0,
         })
     }
     /// Commit this result before the writer begins its frame; a committed start

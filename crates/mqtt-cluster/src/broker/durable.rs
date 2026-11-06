@@ -673,6 +673,9 @@ impl Durable {
         .await?;
         self.await_reply(rx).await
     }
+    /// Actor-local duplicate check. Delivery no longer pays this round trip;
+    /// `commit` already returns duplicate without installing a new proposal.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub async fn received(self: &Arc<Self>, client: &str, id: DeliveryId) -> io::Result<bool> {
         let (reply, rx) = oneshot::channel();
         self.send(&client_key(client), Operation::Received { id, reply })

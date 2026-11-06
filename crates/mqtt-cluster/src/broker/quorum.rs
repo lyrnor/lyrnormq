@@ -2,8 +2,53 @@
 use super::*;
 use crate::diagnosis::{self, Failure};
 use crate::replica::{Journal, Record, Request};
+use std::sync::Arc;
 pub(super) mod batch;
 mod driver;
+
+pub(super) struct PreparedRequest {
+    pub request: Request,
+    pub record_canonical: Option<Arc<[u8]>>,
+    /// Canonical JSON of `request`. Write records are encoded once and spliced.
+    pub wire: Arc<[u8]>,
+}
+
+pub(super) fn prepare_request(request: Request) -> io::Result<PreparedRequest> {
+    match &request {
+        Request::Write { key, record } => {
+            let record_canonical: Arc<[u8]> =
+                serde_json::to_vec(record).map_err(io::Error::other)?.into();
+            if record_canonical.len() > crate::replica::MAX_RECORD {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "replica record limit",
+                ));
+            }
+            let key_json = serde_json::to_vec(key).map_err(io::Error::other)?;
+            let mut wire = Vec::with_capacity(record_canonical.len() + key_json.len() + 32);
+            wire.extend_from_slice(br#"{"Write":{"key":"#);
+            wire.extend_from_slice(&key_json);
+            wire.extend_from_slice(br#","record":"#);
+            wire.extend_from_slice(&record_canonical);
+            wire.extend_from_slice(br#"}}"#);
+            Ok(PreparedRequest {
+                request,
+                record_canonical: Some(record_canonical),
+                wire: wire.into(),
+            })
+        }
+        _ => {
+            let wire: Arc<[u8]> = serde_json::to_vec(&request)
+                .map_err(io::Error::other)?
+                .into();
+            Ok(PreparedRequest {
+                request,
+                record_canonical: None,
+                wire,
+            })
+        }
+    }
+}
 
 #[cfg(test)]
 #[derive(serde::Serialize)]
@@ -47,16 +92,27 @@ pub(super) async fn request(
         .read()
         .unwrap_or_else(PoisonError::into_inner)
         .data_generation;
+    let prepared = prepare_request(request)?;
     let mut jobs = Vec::with_capacity(peers.len());
     for peer in peers {
-        let request = request.clone();
+        let request = prepared.request.clone();
         let job: driver::PeerFuture = if peer.id == runtime.config.node_id {
             let journal = journal.clone();
-            Box::pin(async move { journal.execute_at(generation, request).await })
+            let canonical = prepared.record_canonical.clone();
+            Box::pin(async move {
+                journal
+                    .execute_prepared(generation, request, canonical)
+                    .await
+            })
         } else {
             let batcher = batcher.clone();
             let address = peer.address.clone();
-            Box::pin(async move { batcher.submit(&address, generation, request).await })
+            let wire = Arc::clone(&prepared.wire);
+            Box::pin(async move {
+                batcher
+                    .submit_prepared(&address, generation, request, wire)
+                    .await
+            })
         };
         jobs.push(job);
     }
@@ -82,6 +138,11 @@ mod tests {
             operation: operation.clone(),
         })
         .unwrap();
+        let prepared = prepare_request(operation.clone()).unwrap();
+        assert_eq!(
+            prepared.wire.as_ref(),
+            serde_json::to_vec(&operation).unwrap()
+        );
         assert_eq!(actual.data, expected.data);
         let other = actual.clone();
         assert_eq!(actual.data.as_ptr(), other.data.as_ptr());
