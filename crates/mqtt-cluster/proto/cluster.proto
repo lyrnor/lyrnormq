@@ -12,4 +12,5 @@ service Cluster {
   rpc DeliverTo(Envelope) returns (Envelope);
   rpc DeliverBatch(Envelope) returns (Envelope);
   rpc Deliver(Envelope) returns (Envelope);
+  rpc ForwardBatch(Envelope) returns (Envelope);
 }

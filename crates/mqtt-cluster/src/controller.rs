@@ -573,6 +573,29 @@ impl wire::cluster_server::Cluster for Service {
             Status::resource_exhausted("deliver response capacity")
         })?))
     }
+    async fn forward_batch(
+        &self,
+        request: Request<wire::Envelope>,
+    ) -> Result<Response<wire::Envelope>, Status> {
+        self.rpc.check(&request)?;
+        let broker = self
+            .broker
+            .as_ref()
+            .ok_or_else(|| Status::failed_precondition("not a Broker"))?;
+        if !broker.ready() {
+            return Err(Status::unavailable("unregistered replica disk"));
+        }
+        let message: crate::broker::ForwardBatchMessage = rpc::decode(request.into_inner())?;
+        if !crate::broker::forward_batch::batch_allowed(message.forwards.len()) {
+            return Err(Status::invalid_argument("forward batch size"));
+        }
+        let results =
+            crate::broker::forward_batch::forward_many(Arc::clone(broker), message.forwards).await;
+        let reply = crate::broker::ForwardBatchReply { results };
+        Ok(Response::new(rpc::encode(&reply).map_err(|_| {
+            Status::resource_exhausted("forward response capacity")
+        })?))
+    }
     async fn deliver(
         &self,
         request: Request<wire::Envelope>,

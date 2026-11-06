@@ -18,6 +18,7 @@ use std::{
 use tokio::sync::{Notify, OnceCell, watch};
 pub(crate) mod delivery_batch;
 pub(crate) mod durable;
+pub(crate) mod forward_batch;
 mod progress;
 mod quorum;
 mod recipients;
@@ -77,6 +78,15 @@ pub(crate) struct DeliverBatchMessage {
 pub(crate) struct DeliverBatchReply {
     pub results: Vec<bool>,
 }
+pub(crate) const FORWARD_BATCH_LIMIT: usize = 128;
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ForwardBatchMessage {
+    pub forwards: Vec<Forward>,
+}
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ForwardBatchReply {
+    pub results: Vec<bool>,
+}
 pub struct BrokerRuntime {
     config: Arc<Config>,
     incarnation: String,
@@ -99,6 +109,7 @@ pub struct BrokerRuntime {
     data: Option<Arc<durable::Durable>>,
     replica_batches: OnceCell<quorum::batch::ReplicaBatcher>,
     delivery_batches: OnceCell<delivery_batch::DeliveryBatcher>,
+    forward_batches: OnceCell<forward_batch::ForwardBatcher>,
 }
 impl fmt::Debug for BrokerRuntime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -165,6 +176,7 @@ impl BrokerRuntime {
             journal,
             replica_batches: OnceCell::new(),
             delivery_batches: OnceCell::new(),
+            forward_batches: OnceCell::new(),
         }))
     }
     pub(crate) fn control_ready(&self) -> bool {
@@ -210,6 +222,15 @@ impl BrokerRuntime {
         self.delivery_batches
             .get_or_try_init(|| async {
                 Ok(delivery_batch::DeliveryBatcher::new(
+                    self.rpc().await?.clone(),
+                ))
+            })
+            .await
+    }
+    async fn forward_batcher(&self) -> io::Result<&forward_batch::ForwardBatcher> {
+        self.forward_batches
+            .get_or_try_init(|| async {
+                Ok(forward_batch::ForwardBatcher::new(
                     self.rpc().await?.clone(),
                 ))
             })
@@ -633,6 +654,38 @@ impl BrokerRuntime {
         .await
         .map_err(|_| unavailable())?
     }
+    async fn enqueue_forwards(
+        &self,
+        addresses: Vec<String>,
+        message: ClusterMessage,
+    ) -> io::Result<()> {
+        if addresses.is_empty() {
+            return Ok(());
+        }
+        let sequence = self
+            .sequence
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
+            .map_err(|_| unavailable())?;
+        let forward = Forward {
+            node: self.config.node_id,
+            incarnation: self.incarnation.clone(),
+            sequence,
+            message,
+        };
+        let batcher = self.forward_batcher().await?;
+        let mut waits = Vec::with_capacity(addresses.len());
+        for address in &addresses {
+            waits.push(batcher.enqueue(address, forward.clone())?);
+        }
+        tokio::time::timeout(Duration::from_secs(5), async {
+            for wait in waits {
+                wait.await.map_err(|_| unavailable())??;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|_| unavailable())?
+    }
 }
 impl ClusterBridge for BrokerRuntime {
     fn startup_timeout(&self) -> Duration {
@@ -802,7 +855,7 @@ impl ClusterBridge for BrokerRuntime {
                 return Err(unavailable());
             }
             let addresses = self.remote_forward_addresses(&message.topic);
-            self.send_forward(addresses, message, true).await
+            self.enqueue_forwards(addresses, message).await
         })
     }
     fn shutdown(&self) -> ClusterFuture<'_, ()> {

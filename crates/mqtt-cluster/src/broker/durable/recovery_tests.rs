@@ -150,6 +150,12 @@ impl Cluster for Peer {
     async fn deliver(&self, _: tonic::Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("deliver"))
     }
+    async fn forward_batch(
+        &self,
+        _: tonic::Request<Envelope>,
+    ) -> Result<Response<Envelope>, Status> {
+        Err(Status::unimplemented("forward_batch"))
+    }
 }
 struct Fixture {
     runtime: Arc<BrokerRuntime>,

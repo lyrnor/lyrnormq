@@ -661,6 +661,12 @@ mod tests {
         ) -> Result<Response<wire::Envelope>, Status> {
             Err(Status::unimplemented("deliver"))
         }
+        async fn forward_batch(
+            &self,
+            _: RpcRequest<wire::Envelope>,
+        ) -> Result<Response<wire::Envelope>, Status> {
+            Err(Status::unimplemented("forward_batch"))
+        }
     }
 
     fn temp(label: &str) -> PathBuf {

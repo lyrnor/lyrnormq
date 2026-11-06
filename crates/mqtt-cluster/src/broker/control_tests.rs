@@ -99,6 +99,9 @@ impl Cluster for ReadSpy {
     async fn deliver(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
         Err(Status::unimplemented("deliver"))
     }
+    async fn forward_batch(&self, _: Request<Envelope>) -> Result<Response<Envelope>, Status> {
+        Err(Status::unimplemented("forward_batch"))
+    }
 }
 type SpyServer = tokio::task::JoinHandle<Result<(), tonic::transport::Error>>;
 async fn spy_fixture(
