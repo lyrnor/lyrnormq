@@ -647,6 +647,7 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     )
     .await
     .map_err(io::Error::other)?;
+    let raft_log = raft.clone();
     let writes = batching::start(raft.clone(), store.clone(), config.node_id, config.lease_ms);
     let control = Arc::new(Control {
         reads: readindex::start(raft.clone()),
@@ -678,6 +679,38 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
     let expiry_control = control.clone();
     let expiry_config = config.clone();
     let mut expiry_shutdown = shutdown.clone();
+    let mut leader_shutdown = shutdown.clone();
+    let leader_node = config.node_id;
+    let leader_log = tokio::spawn(async move {
+        let mut reported: Option<Option<u64>> = None;
+        loop {
+            tokio::select! {
+                _ = leader_shutdown.changed() => break,
+                _ = tokio::time::sleep(Duration::from_millis(200)) => {
+                    let metrics = raft_log.metrics().borrow_watched().clone();
+                    let leader = metrics.current_leader;
+                    if reported == Some(leader) {
+                        continue;
+                    }
+                    match leader {
+                        Some(id) => tracing::info!(
+                            event = "raft_ready",
+                            node = leader_node,
+                            leader = id,
+                            term = metrics.current_term,
+                            "raft cluster has a leader"
+                        ),
+                        None => tracing::warn!(
+                            event = "raft_not_ready",
+                            node = leader_node,
+                            "raft cluster has no leader"
+                        ),
+                    }
+                    reported = Some(leader);
+                }
+            }
+        }
+    });
     let expiry = tokio::spawn(async move {
         let mut leader_term = None;
         let mut observed = BTreeMap::new();
@@ -725,7 +758,9 @@ pub async fn run_controller(config: Config, mut shutdown: watch::Receiver<bool>)
         .await
         .map_err(io::Error::other);
     expiry.abort();
+    leader_log.abort();
     let _ = expiry.await;
+    let _ = leader_log.await;
     control.raft.shutdown().await.map_err(io::Error::other)?;
     result
 }

@@ -111,8 +111,8 @@ impl PublishHandle {
         )
         .await;
     }
-    fn available(&self, broker: &Broker) -> bool {
-        self.inner.ready.load(Ordering::Acquire) && broker.fatal.borrow().is_none()
+    fn available(&self, _broker: &Broker) -> bool {
+        self.inner.ready.load(Ordering::Acquire)
     }
     /// Validate a privileged host publication, then reuse retained and
     /// ordinary/shared delivery paths. Success acknowledges broker acceptance only.

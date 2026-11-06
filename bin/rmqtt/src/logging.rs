@@ -3,7 +3,7 @@ use std::{env, error::Error, fmt};
 use tracing_appender::non_blocking::{NonBlockingBuilder, WorkerGuard};
 use tracing_subscriber::{filter::Targets, layer::SubscriberExt, util::SubscriberInitExt};
 
-const DEFAULT_FILTER: &str = "warn,rmqtt=info";
+const DEFAULT_FILTER: &str = "warn,rmqtt=info,mqtt_cluster=info";
 const BUFFERED_LINES: usize = 8192;
 
 pub enum InitError {
@@ -69,6 +69,8 @@ pub fn init() -> Result<WorkerGuard, InitError> {
     let layer = tracing_subscriber::fmt::layer()
         .with_ansi(false)
         .with_target(true)
+        .with_file(true)
+        .with_line_number(true)
         .with_writer(writer);
     let initialized = if json {
         subscriber.with(layer.json()).try_init()
@@ -88,6 +90,9 @@ mod tests {
         let (filter, json) = configuration(None, None).unwrap();
         assert!(!json);
         assert!(filter.would_enable("rmqtt", &tracing::Level::INFO));
+        assert!(filter.would_enable("mqtt_cluster", &tracing::Level::INFO));
+        assert!(filter.would_enable("mqtt_cluster::broker", &tracing::Level::INFO));
+        assert!(!filter.would_enable("mqtt_cluster", &tracing::Level::DEBUG));
         assert!(!filter.would_enable("dependency", &tracing::Level::INFO));
         let (filter, json) = configuration(Some("warn,rmqtt=debug"), Some("json")).unwrap();
         assert!(json);

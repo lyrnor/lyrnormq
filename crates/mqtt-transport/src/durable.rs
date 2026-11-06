@@ -701,6 +701,12 @@ pub(super) async fn serve_websocket(
     serve_with_tls(listener, config, tls, Some(options), shutdown).await
 }
 
+fn propagate_panic(error: tokio::task::JoinError) {
+    if error.is_panic() {
+        std::panic::resume_unwind(error.into_panic());
+    }
+}
+
 async fn serve_with_tls(
     listener: TcpListener,
     config: BrokerConfig,
@@ -732,7 +738,6 @@ async fn serve_with_tls(
         start(config.clone()).await?
     };
     let _profile_exit = broker.admission.profile_on_exit();
-    let mut fatal = broker.fatal.subscribe();
     let permits = Arc::new(Semaphore::new(config.max_connections));
     let (stop_tx, stop_rx) = watch::channel(false);
     let mut tasks = JoinSet::new();
@@ -746,19 +751,36 @@ async fn serve_with_tls(
         tokio::select! {
             biased;
             changed = shutdown.changed() => { if changed.is_err() || *shutdown.borrow() { break Ok(()); } }
-            _ = fatal.changed() => {
-                if let Some(message) = fatal.borrow().clone() { break Err(io::Error::other(message)); }
+            Some(joined) = tasks.join_next(), if !tasks.is_empty() => {
+                if let Err(error) = joined {
+                    propagate_panic(error);
+                }
             }
-            Some(joined) = tasks.join_next(), if !tasks.is_empty() => { if let Err(error) = joined { break Err(io::Error::other(error)); } }
             _ = ticks.tick() => {
                 broker.admission.emit_profile(false);
-                if let Err(error) = broker.prune_retained().await { break Err(error); }
+                if let Err(error) = broker.prune_retained().await {
+                    tracing::error!(error = %error, "retained expiry cleanup failed");
+                }
             }
             accepted = listener.accept() => {
-                let (stream, _) = match accepted { Ok(value) => value, Err(error) => break Err(error) };
+                let (stream, _) = match accepted {
+                    Ok(value) => value,
+                    Err(error) => {
+                        tracing::error!(error = %error, "mqtt accept failed");
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                        continue;
+                    }
+                };
                 let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else { drop(stream); continue; };
                 let Some(handshake)=broker.admission.handshake() else {drop(stream);continue;};
-                generation = match generation.checked_add(1) { Some(value) => value, None => break Err(io::Error::other("connection generation exhausted")) };
+                generation = match generation.checked_add(1) {
+                    Some(value) => value,
+                    None => {
+                        tracing::error!("connection generation exhausted");
+                        drop(stream);
+                        continue;
+                    }
+                };
                 let mut worker = Worker::new(Arc::clone(&broker));
                 worker.handshake=Some(Arc::new(Mutex::new(Some(handshake))));
                 let config = config.clone();
@@ -791,7 +813,7 @@ async fn serve_with_tls(
     let _ = stop_tx.send(true);
     while let Some(joined) = tasks.join_next().await {
         if let Err(error) = joined {
-            return Err(io::Error::other(error));
+            propagate_panic(error);
         }
     }
     let stopped = broker.shutdown().await;
@@ -921,14 +943,7 @@ mod tests {
     }
     pub(super) fn wrap(broker: Arc<Broker>) -> (Worker, JoinHandle<io::Result<()>>) {
         let worker = Worker::new(Arc::clone(&broker));
-        let mut fatal = broker.fatal.subscribe();
-        let handle = tokio::spawn(async move {
-            let _ = fatal.wait_for(Option::is_some).await;
-            match fatal.borrow().clone() {
-                Some(message) => Err(io::Error::other(message)),
-                None => Ok(()),
-            }
-        });
+        let handle = tokio::spawn(std::future::pending::<io::Result<()>>());
         (worker, handle)
     }
     /// The merged schema7 envelope of a stopped broker's database.
@@ -1032,7 +1047,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(broker.fatal.borrow().clone(), None);
         task.abort();
         let _ = task.await;
     }

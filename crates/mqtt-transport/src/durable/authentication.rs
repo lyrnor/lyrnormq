@@ -514,7 +514,7 @@ impl Worker {
                             .await
                         && reason(&error) != Some(ReasonCode::SESSION_TAKEN_OVER)
                     {
-                        broker.fail(format!("cancelled CONNECT cleanup failed: {error}"));
+                        tracing::error!(error = %error, "cancelled CONNECT cleanup failed");
                     }
                 });
                 if let Err(error) = dispatch {

@@ -322,7 +322,14 @@ pub async fn serve(
             _=shutdown.changed()=>break Ok(()),
             Some(_)=tasks.join_next(),if !tasks.is_empty()=>{},
             accepted=listener.accept()=>{
-                let (stream,_)=match accepted {Ok(value)=>value,Err(error)=>break Err(error)};
+                let (stream,_)=match accepted {
+                    Ok(value)=>value,
+                    Err(error)=>{
+                        tracing::error!(error=%error,"dashboard accept failed");
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                        continue;
+                    }
+                };
                 let Ok(permit)=Arc::clone(&permits).try_acquire_owned() else {continue;};
                 let service=TowerToHyperService::new(app.clone());
                 tasks.spawn(async move {

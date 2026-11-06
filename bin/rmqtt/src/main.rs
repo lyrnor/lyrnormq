@@ -19,8 +19,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .enable_all()
         .build()?;
     let result = runtime.block_on(run());
-    if result.is_err() {
-        tracing::error!(event = "broker_failed", "broker stopped with an error");
+    if let Err(error) = &result {
+        tracing::error!(event = "broker_failed", error = %error, "broker stopped with an error");
     }
     result
 }

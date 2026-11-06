@@ -297,7 +297,6 @@ impl Broker {
             .cluster
             .as_ref()
             .is_none_or(|cluster| cluster.ready())
-            && self.fatal.borrow().is_none()
     }
     pub(super) async fn open_cluster(self: &Arc<Self>) -> io::Result<()> {
         if let Some(cluster) = &self.config.cluster {

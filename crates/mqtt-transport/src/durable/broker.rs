@@ -100,7 +100,6 @@ pub(super) struct Broker {
     retained_order: Mutex<()>,
     storage: Option<Storage>,
     state_bytes: AtomicUsize,
-    pub(super) fatal: watch::Sender<Option<String>>,
     alive: Mutex<Option<mpsc::Sender<()>>>,
     finished: tokio::sync::Mutex<mpsc::Receiver<()>>,
     handoffs: Mutex<Option<tokio::task::JoinSet<()>>>,
@@ -340,7 +339,6 @@ impl Broker {
                 .map_err(io::Error::other)?;
         }
         let (alive, finished) = mpsc::channel(1);
-        let (fatal, _) = watch::channel(None);
         let admission = crate::admission::Admission::new(&config)?;
         let broker = Arc::new(Self {
             session_config: session_config(&config),
@@ -357,7 +355,6 @@ impl Broker {
             retained_order: Mutex::new(()),
             storage,
             state_bytes: AtomicUsize::new(0),
-            fatal,
             alive: Mutex::new(Some(alive)),
             finished: tokio::sync::Mutex::new(finished),
             handoffs: Mutex::new(Some(tokio::task::JoinSet::new())),
@@ -575,7 +572,7 @@ impl Broker {
         self.storage.is_some()
     }
 
-    /// Commit row changes; failure is fatal for the whole broker.
+    /// Commit row changes. A storage failure stays with this operation.
     pub(super) async fn commit(&self, changes: Vec<RowChange>) -> io::Result<()> {
         let Some(storage) = &self.storage else {
             return Ok(());
@@ -588,27 +585,9 @@ impl Broker {
     async fn await_commit(&self, outcome: oneshot::Receiver<CommitOutcome>) -> io::Result<()> {
         match outcome.await {
             Ok(Ok(())) => Ok(()),
-            Ok(Err(error)) => Err(self.fail(error.to_string())),
-            Err(_) => Err(self.fail("storage completion dropped".into())),
+            Ok(Err(error)) => Err(storage_error(error)),
+            Err(_) => Err(io::Error::other("storage completion dropped")),
         }
-    }
-
-    pub(super) fn fail(&self, message: String) -> io::Error {
-        if let Some(publisher) = &self.config.publisher {
-            publisher.stop();
-        }
-        if let Some(management) = &self.config.management {
-            management.stop();
-        }
-        self.fatal.send_if_modified(|current| {
-            if current.is_none() {
-                *current = Some(message.clone());
-                true
-            } else {
-                false
-            }
-        });
-        failure(ReasonCode::SERVER_UNAVAILABLE, message)
     }
 
     /// Entries for SUBSCRIBE replay of every non-shared filter in `filters`.
@@ -919,7 +898,9 @@ impl Broker {
             .as_mut()
             .ok_or_else(|| failure(ReasonCode::SERVER_UNAVAILABLE, "broker stopping"))?;
         while let Some(result) = tasks.try_join_next() {
-            result.map_err(|error| self.fail(format!("CONNECT handoff failed: {error}")))?;
+            if let Err(error) = result {
+                super::propagate_panic(error);
+            }
         }
         if tasks.len() >= self.config.max_handshakes {
             return Err(failure(ReasonCode::SERVER_BUSY, "CONNECT cleanup capacity"));
@@ -945,11 +926,10 @@ impl Broker {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .take();
-        let mut handoff_error = None;
         if let Some(mut tasks) = handoffs {
             while let Some(result) = tasks.join_next().await {
                 if let Err(error) = result {
-                    handoff_error = Some(io::Error::other(error));
+                    super::propagate_panic(error);
                 }
             }
         }
@@ -970,15 +950,15 @@ impl Broker {
                 .take()
         });
         if let Some(service) = service {
-            tokio::task::spawn_blocking(move || service.shutdown())
-                .await
-                .map_err(io::Error::other)?;
+            match tokio::task::spawn_blocking(move || service.shutdown()).await {
+                Ok(()) => {}
+                Err(error) => {
+                    super::propagate_panic(error);
+                    return Err(io::Error::other("storage shutdown task cancelled"));
+                }
+            }
         }
-        if let Some(error) = handoff_error {
-            Err(error)
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 
     #[cfg(test)]

@@ -202,6 +202,49 @@ impl BrokerRuntime {
                     .is_some_and(|id| id == journal.disk_id())
             })
     }
+    fn not_ready_reason(&self) -> Option<&'static str> {
+        if !self.control_ready() {
+            if self.stopped.load(Ordering::Acquire) {
+                return Some("stopped");
+            }
+            if !self.initialized.load(Ordering::Acquire) {
+                return Some("metadata not installed");
+            }
+            if tokio::time::Instant::now()
+                >= *self.deadline.lock().unwrap_or_else(PoisonError::into_inner)
+            {
+                return Some("heartbeat lease expired");
+            }
+            let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+            if !startup::storage_matches(&self.config, &metadata) {
+                return Some("storage membership mismatch");
+            }
+            if self.journal.as_ref().is_some_and(|journal| {
+                !metadata
+                    .disk_ids
+                    .get(&self.config.node_id)
+                    .is_some_and(|id| id == journal.disk_id())
+            }) {
+                return Some("disk identity mismatch");
+            }
+            return Some("node not registered");
+        }
+        let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+        if metadata.repair.is_some() {
+            return Some("repair in progress");
+        }
+        if metadata.excluded.contains(&self.config.node_id) {
+            return Some("node excluded");
+        }
+        if self
+            .journal
+            .as_ref()
+            .is_some_and(|journal| !journal.voting_ready(metadata.data_generation))
+        {
+            return Some("replica not voting");
+        }
+        None
+    }
     async fn rpc(&self) -> io::Result<&ClientRpc> {
         self.rpc
             .get_or_try_init(|| ClientRpc::new(self.config.clone()))
@@ -347,10 +390,23 @@ impl BrokerRuntime {
         Ok(())
     }
     async fn watch_loop(self: Arc<Self>) {
+        let mut failed = false;
         while !self.stopped.load(Ordering::Acquire) {
             let rpc = match self.rpc().await {
                 Ok(r) => r.clone(),
-                Err(_) => return,
+                Err(error) => {
+                    if !failed {
+                        tracing::error!(
+                            event = "cluster_watch_failed",
+                            node = self.config.node_id,
+                            error = %error,
+                            "cluster metadata watch failed"
+                        );
+                        failed = true;
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    continue;
+                }
             };
             let mut stream = None;
             for address in rpc.controller_addresses() {
@@ -367,6 +423,14 @@ impl BrokerRuntime {
                 }
             }
             if let Some(mut stream) = stream {
+                if failed {
+                    tracing::info!(
+                        event = "cluster_watch_restored",
+                        node = self.config.node_id,
+                        "cluster metadata watch restored"
+                    );
+                    failed = false;
+                }
                 while !self.stopped.load(Ordering::Acquire) {
                     let next = tokio::select! {
                         next = tokio::time::timeout(Duration::from_millis(self.config.lease_ms / 2), stream.message()) => next,
@@ -386,20 +450,71 @@ impl BrokerRuntime {
                                 }
                             }
                             Ok(update) => {
-                                if self.install_update(update).await.is_err() {
+                                if let Err(error) = self.install_update(update).await {
+                                    if !failed {
+                                        tracing::error!(
+                                            event = "cluster_metadata_install_failed",
+                                            node = self.config.node_id,
+                                            error = %error,
+                                            "cluster metadata install failed"
+                                        );
+                                        failed = true;
+                                    }
                                     break;
                                 }
                             }
-                            Err(_) => break,
+                            Err(error) => {
+                                if !failed {
+                                    tracing::error!(
+                                        event = "cluster_watch_decode_failed",
+                                        node = self.config.node_id,
+                                        error = %error,
+                                        "cluster metadata watch decode failed"
+                                    );
+                                    failed = true;
+                                }
+                                break;
+                            }
                         },
-                        _ => break,
+                        Ok(Err(error)) => {
+                            if !failed {
+                                tracing::error!(
+                                    event = "cluster_watch_failed",
+                                    node = self.config.node_id,
+                                    error = %error,
+                                    "cluster metadata watch disconnected"
+                                );
+                                failed = true;
+                            }
+                            break;
+                        }
+                        Ok(Ok(None)) => {
+                            if !failed {
+                                tracing::error!(
+                                    event = "cluster_watch_failed",
+                                    node = self.config.node_id,
+                                    "cluster metadata watch disconnected"
+                                );
+                                failed = true;
+                            }
+                            break;
+                        }
+                        Err(_) => break,
                     }
                 }
+            } else if !failed {
+                tracing::error!(
+                    event = "cluster_watch_failed",
+                    node = self.config.node_id,
+                    "cluster metadata watch could not reach a controller"
+                );
+                failed = true;
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     }
     async fn heartbeat_loop(self: Arc<Self>) {
+        let mut failed = false;
         while !self.stopped.load(Ordering::Acquire) {
             let start = tokio::time::Instant::now();
             let applied = *self.installed.borrow();
@@ -410,9 +525,17 @@ impl BrokerRuntime {
                 lease_ms: self.config.lease_ms,
                 expires_at: controller::now().saturating_add(self.config.lease_ms),
             };
-            if let Ok(rpc) = self.rpc().await {
-                match rpc.mutate(command).await {
+            match self.rpc().await {
+                Ok(rpc) => match rpc.mutate(command).await {
                     Ok(answer) => {
+                        if failed {
+                            tracing::info!(
+                                event = "cluster_heartbeat_restored",
+                                node = self.config.node_id,
+                                "cluster heartbeat restored"
+                            );
+                            failed = false;
+                        }
                         self.repush_applied();
                         let lease = self.config.lease_ms.min(answer.lease_ms);
                         if lease >= 1000 {
@@ -420,8 +543,29 @@ impl BrokerRuntime {
                                 start + Duration::from_millis(lease.saturating_sub(100));
                         }
                     }
-                    Err(_) => {
-                        let _ = self.recover_registration(rpc).await;
+                    Err(error) => {
+                        let recovery = self.recover_registration(rpc).await.err();
+                        if !failed {
+                            tracing::error!(
+                                event = "cluster_heartbeat_failed",
+                                node = self.config.node_id,
+                                error = %error,
+                                recovery = recovery.as_ref().map(ToString::to_string).unwrap_or_default(),
+                                "cluster heartbeat failed"
+                            );
+                            failed = true;
+                        }
+                    }
+                },
+                Err(error) => {
+                    if !failed {
+                        tracing::error!(
+                            event = "cluster_heartbeat_failed",
+                            node = self.config.node_id,
+                            error = %error,
+                            "cluster heartbeat failed"
+                        );
+                        failed = true;
                     }
                 }
             }
@@ -460,8 +604,33 @@ impl BrokerRuntime {
     }
     async fn lease_loop(self: Arc<Self>) {
         let mut was_ready = false;
+        let mut reported: Option<Option<&'static str>> = None;
         while !self.stopped.load(Ordering::Acquire) {
-            let ready = self.ready();
+            let reason = self.not_ready_reason();
+            let ready = reason.is_none();
+            if reported != Some(reason) {
+                let revision = self
+                    .metadata
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .revision;
+                match reason {
+                    None => tracing::info!(
+                        event = "cluster_ready",
+                        node = self.config.node_id,
+                        revision,
+                        "cluster ready"
+                    ),
+                    Some(reason) => tracing::warn!(
+                        event = "cluster_not_ready",
+                        node = self.config.node_id,
+                        revision,
+                        reason,
+                        "cluster not ready"
+                    ),
+                }
+                reported = Some(reason);
+            }
             if was_ready
                 && !ready
                 && let Ok(local) = self.local()
@@ -738,16 +907,7 @@ impl ClusterBridge for BrokerRuntime {
         self.journal.is_some()
     }
     fn ready(&self) -> bool {
-        if !self.control_ready() {
-            return false;
-        }
-        let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
-        metadata.repair.is_none()
-            && !metadata.excluded.contains(&self.config.node_id)
-            && self
-                .journal
-                .as_ref()
-                .is_none_or(|j| j.voting_ready(metadata.data_generation))
+        self.not_ready_reason().is_none()
     }
     fn open(&self, local: Arc<dyn LocalBroker>) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
@@ -781,7 +941,15 @@ impl ClusterBridge for BrokerRuntime {
                 }
             })
             .await
-            .map_err(|_| unavailable())?;
+            .map_err(|_| {
+                tracing::error!(
+                    event = "cluster_control_timeout",
+                    node = self.config.node_id,
+                    reason = self.not_ready_reason().unwrap_or("control not ready"),
+                    "cluster control did not become ready within 10s"
+                );
+                unavailable()
+            })?;
             for subscription in self.local()?.subscriptions().await? {
                 self.claim(subscription.client_id.clone(), 1).await?;
                 self.subscriptions(subscription.client_id, 1, subscription.filters)

@@ -465,7 +465,6 @@ fn housekeeping(proposal: &mut SessionEngine, effects: &mut Effects) -> io::Resu
 
 impl Actor {
     async fn run(mut self, _alive: mpsc::Sender<()>) {
-        let mut fatal = self.broker.fatal.subscribe();
         let mut due = true;
         loop {
             if due {
@@ -491,11 +490,6 @@ impl Actor {
                     None => break,
                 },
                 _ = crate::packet_io::deadline(deadline) => { due = true; }
-                changed = fatal.changed() => {
-                    if changed.is_ok() && fatal.borrow().is_some() {
-                        self.close_online(ReasonCode::SERVER_UNAVAILABLE);
-                    }
-                }
             }
         }
         for (_, pending) in self.pending.drain() {
@@ -1320,6 +1314,12 @@ impl Actor {
                     }
                     Ok(false) => {}
                     Err(error) => {
+                        tracing::error!(
+                            event = "cluster_commit_failed",
+                            client = %self.client,
+                            error = %error,
+                            "cluster session commit failed"
+                        );
                         let _ = self.broker.account(bytes, self.accounted);
                         self.cluster_invalid = true;
                         self.close_online(ReasonCode::SERVER_UNAVAILABLE);
@@ -1345,6 +1345,12 @@ impl Actor {
                         None => RowChange::DeleteSession(self.client.clone()),
                     };
                     if let Err(error) = self.broker.commit(vec![change]).await {
+                        tracing::error!(
+                            event = "session_commit_failed",
+                            client = %self.client,
+                            error = %error,
+                            "session commit failed"
+                        );
                         let _ = self.broker.account(bytes, self.accounted);
                         self.cluster_invalid |= self.broker.durable_cluster();
                         self.close_online(ReasonCode::SERVER_UNAVAILABLE);

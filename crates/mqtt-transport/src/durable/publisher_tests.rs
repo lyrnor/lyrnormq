@@ -305,7 +305,7 @@ async fn broker_origin_preserves_no_local_shared_delivery_and_observer_identity(
     tests::stop(worker, task).await;
 }
 #[tokio::test]
-async fn fatal_broker_and_packet_size_boundaries_are_fenced() {
+async fn packet_size_boundaries_are_rejected() {
     for (mode, payload_size) in [
         (crate::ProtocolMode::V311, 27),
         (crate::ProtocolMode::Both, 26),
@@ -332,16 +332,6 @@ async fn fatal_broker_and_packet_size_boundaries_are_fenced() {
             publisher.publish(overflow).await.unwrap_err().kind(),
             io::ErrorKind::InvalidData
         );
-        let _ = broker.fail("test fatal broker".into());
-        assert_eq!(
-            publisher
-                .publish(message("a", 1, true))
-                .await
-                .unwrap_err()
-                .kind(),
-            io::ErrorKind::WouldBlock
-        );
-        assert!(broker.retained_for(&[("#".into(), 2)]).is_empty());
         broker.shutdown().await.unwrap();
     }
 }
