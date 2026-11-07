@@ -148,6 +148,14 @@ async fn purge_returns_while_incremental_checkpoint_is_blocked()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
     let mut store = Store::open(&dir, "test", 1).await?;
+    let flush = store.owner.state().clone();
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while !flush.booted() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("checkpoint worker did not finish startup");
     let (locked_tx, locked_rx) = std::sync::mpsc::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
     let inner = store.inner.clone();
@@ -164,7 +172,6 @@ async fn purge_returns_while_incremental_checkpoint_is_blocked()
     let record = entry(0, 1);
     prime(&store, vec![record.clone()], Some(record.log_id)).await?;
     store.apply_log([record.clone()]).await?;
-    let flush = store.owner.state().clone();
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         while !flush.inflight() {
             tokio::task::yield_now().await;
