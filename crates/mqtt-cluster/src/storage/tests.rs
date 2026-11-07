@@ -22,6 +22,7 @@ pub(super) fn entry(index: u64, node: u64) -> Entry {
             address: format!("http://127.0.0.1:{}", 10000 + node),
             replicas: None,
             memory: false,
+            rocks: false,
             disk_id: None,
             expires_at: 1000,
             lease_ms: 3000,
@@ -355,14 +356,13 @@ async fn commit_watermark_cannot_regress_and_unsnapshotted_committed_tail_cannot
     // Incremental bbolt flush can cover the committed prefix between apply and
     // this call. Uncovered committed entries must stay; covered entries may leave
     // the WAL because the checkpoint is already the authority.
-    match store.truncate_after(Some(entry(0, 1).log_id)).await {
-        Err(error) => assert!(
+    if let Err(error) = store.truncate_after(Some(entry(0, 1).log_id)).await {
+        assert!(
             error
                 .to_string()
                 .contains("unsnapshotted committed entries"),
             "{error}"
-        ),
-        Ok(()) => {}
+        );
     }
     store.truncate_after(Some(entry(1, 2).log_id)).await?;
     drop(store);

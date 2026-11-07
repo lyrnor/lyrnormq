@@ -224,6 +224,7 @@ fn actual_chunk_rotation_remains_readable_with_finite_recovery_bounds() {
                 lease_ms: 1000,
                 replicas: None,
                 memory: true,
+                rocks: false,
                 disk_id: None,
             }),
         })

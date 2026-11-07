@@ -45,7 +45,10 @@ path = "/mqtt"
 # controller 使用 id，broker 使用 100 + id。
 # Controller 监听 host:controller_port，Broker 监听 host:broker_port。
 # Broker 对外地址是 http://host:broker_port。
-# 全部成员构成 Controller 组和内存副本组。成员数必须是 3、5 或 7，与 etcd 的实际上限一致。
+# 全部成员构成 Controller 组和数据副本组。成员数必须是 3、5 或 7，与 etcd 的实际上限一致。
+# backend = "memory" 时副本只在内存中，进程退出后丢失。
+# backend = "rocksdb" 时副本在确认前同步写入 data_dir/broker/rocks，重启后保留。
+# 同一集群必须使用同一个 backend。改成 rocksdb 前先升级全部 Controller。
 # 编号最小的成员在 Raft 尚未初始化时创建集群。租约 3000 毫秒。
 [cluster]
 # RMQTT_CLUSTER_ID
@@ -57,6 +60,8 @@ controller_port = 17001
 # RMQTT_CLUSTER_BROKER_PORT
 broker_port = 17101
 # RMQTT_CLUSTER_MEMBERS=1:172.16.240.180,2:172.16.240.182,3:172.16.240.183
+# RMQTT_CLUSTER_BACKEND=memory
+# backend = "rocksdb"
 members = [
     { id = 1, host = "172.16.240.180" },
     { id = 2, host = "172.16.240.182" },

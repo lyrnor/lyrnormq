@@ -83,14 +83,17 @@ fn seal(value: &RepairManifest) -> RepairSeal {
     }
 }
 fn address(metadata: &Metadata, node: u64) -> io::Result<String> {
-    match &metadata.data_mode {
-        Some(DataMode::Durable(peers) | DataMode::Memory(peers)) => peers
-            .iter()
-            .find(|(id, _)| *id == node)
-            .map(|(_, a)| a.clone())
-            .ok_or_else(unavailable),
-        _ => Err(unavailable()),
-    }
+    metadata
+        .data_mode
+        .as_ref()
+        .and_then(DataMode::peers)
+        .and_then(|peers| {
+            peers
+                .iter()
+                .find(|(id, _)| *id == node)
+                .map(|(_, address)| address.clone())
+        })
+        .ok_or_else(unavailable)
 }
 async fn call(rpc: &ClientRpc, address: &str, request: Request) -> io::Result<Reply> {
     let mut client = rpc.repair_client(address).await?;

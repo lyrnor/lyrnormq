@@ -4,11 +4,12 @@ use super::{
     store::{ReplicaStore, StoreFuture},
 };
 use crate::diagnosis::{self, Failure};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    fs::{File, OpenOptions},
-    io::{self, Read, Write},
+    fs::File,
+    io,
     path::Path,
     sync::{Arc, Mutex, PoisonError},
 };
@@ -31,12 +32,15 @@ fn error(e: impl std::fmt::Display) -> io::Error {
 }
 
 #[derive(Clone)]
-struct Value {
+pub(in crate::replica) struct Value {
     record: Arc<Record>,
     canonical: Arc<[u8]>,
 }
 impl Value {
-    fn new(record: Record, canonical: Option<Arc<[u8]>>) -> io::Result<Self> {
+    pub(in crate::replica) fn new(
+        record: Record,
+        canonical: Option<Arc<[u8]>>,
+    ) -> io::Result<Self> {
         if record.epoch == 0
             || record.epoch > i64::MAX as u64
             || record
@@ -63,9 +67,9 @@ impl Value {
     }
 }
 #[derive(Clone)]
-struct Entry {
-    min_epoch: u64,
-    value: Option<Value>,
+pub(in crate::replica) struct Entry {
+    pub(in crate::replica) min_epoch: u64,
+    pub(in crate::replica) value: Option<Value>,
 }
 impl Entry {
     fn charge(&self, key: &str) -> usize {
@@ -80,7 +84,7 @@ impl Entry {
     }
 }
 #[derive(Clone, Default)]
-struct RepairState {
+pub(in crate::replica) struct RepairState {
     generation: u64,
     frozen: Option<RepairToken>,
     last_token: Option<RepairToken>,
@@ -92,21 +96,38 @@ struct RepairState {
     importing: bool,
     installed: bool,
 }
-#[derive(Default)]
-struct State {
-    records: BTreeMap<String, Entry>,
-    bytes: usize,
-    staging: BTreeMap<String, Entry>,
-    staging_bytes: usize,
-    pages: BTreeMap<u64, String>,
-    repair: RepairState,
+#[derive(Clone, Default)]
+pub(in crate::replica) struct State {
+    pub(in crate::replica) records: BTreeMap<String, Entry>,
+    pub(in crate::replica) bytes: usize,
+    pub(in crate::replica) staging: BTreeMap<String, Entry>,
+    pub(in crate::replica) staging_bytes: usize,
+    pub(in crate::replica) pages: BTreeMap<u64, String>,
+    pub(in crate::replica) repair: RepairState,
 }
+impl State {
+    pub(in crate::replica) fn readiness(&self) -> (u64, bool) {
+        (self.repair.generation, self.repair.frozen.is_some())
+    }
+}
+
+pub(in crate::replica) enum PersistOp {
+    Record { key: String, value: Option<Vec<u8>> },
+    Repair(RepairDelta),
+}
+pub(in crate::replica) struct RepairDelta {
+    pub repair_json: Vec<u8>,
+    pub records: Vec<(String, Option<Vec<u8>>)>,
+    pub staging: Vec<(String, Option<Vec<u8>>)>,
+}
+type Persist = Arc<dyn Fn(&PersistOp) -> io::Result<()> + Send + Sync>;
 
 pub(super) struct MemoryStore {
     state: Mutex<State>,
     maintenance: Arc<tokio::sync::Semaphore>,
     _lock: File,
     disk_id: String,
+    persist: Option<Persist>,
 }
 impl MemoryStore {
     pub(super) fn open(
@@ -118,74 +139,89 @@ impl MemoryStore {
         let _process_start = crate::replica::TEST_PROCESS_START_LOCK
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        std::fs::create_dir_all(path)?;
-        match std::fs::symlink_metadata(path.join("data.sqlite")) {
-            Ok(_) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
+        let lock = super::store::claim_directory(
+            path,
+            identity,
+            members,
+            "memory.identity",
+            &[
+                (
+                    "data.sqlite",
                     "legacy data.sqlite cannot be opened as memory replicas; use a new cluster and separate directories",
-                ));
-            }
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e),
-        }
-        let lock = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(path.join("data.lock"))?;
-        lock.try_lock().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::WouldBlock,
-                "replica directory is already in use",
-            )
-        })?;
-        let mut members = members.to_vec();
-        members.sort();
-        let encoded = serde_json::to_vec(&(identity, members)).map_err(error)?;
-        if identity.0.is_empty()
-            || identity.0.len() > 128
-            || identity.1 == 0
-            || encoded.len() > 65536
-        {
-            return Err(rejected());
-        }
-        let manifest = path.join("memory.identity");
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&manifest)
-        {
-            Ok(mut f) => {
-                f.write_all(&encoded)?;
-                f.sync_data()?;
-            }
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
-                let metadata = std::fs::symlink_metadata(&manifest)?;
-                if !metadata.is_file() || metadata.len() > 65536 {
-                    return Err(rejected());
-                }
-                let mut bytes = Vec::new();
-                File::open(&manifest)?.take(65537).read_to_end(&mut bytes)?;
-                if bytes != encoded {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "replica identity or membership mismatch",
-                    ));
-                }
-            }
-            Err(e) => return Err(e),
-        }
+                ),
+                (
+                    "rocks.identity",
+                    "rocksdb replica directory cannot be opened as memory replicas; use a new directory",
+                ),
+            ],
+            "memory replica unavailable or quota exceeded",
+        )?;
         let mut random = [0u8; 16];
         getrandom::getrandom(&mut random).map_err(error)?;
         let disk_id = random.iter().map(|b| format!("{b:02x}")).collect();
-        Ok(Self {
-            state: Mutex::new(State::default()),
+        Ok(Self::from_loaded(lock, disk_id, State::default(), None))
+    }
+    pub(in crate::replica) fn from_loaded(
+        lock: File,
+        disk_id: String,
+        state: State,
+        persist: Option<Persist>,
+    ) -> Self {
+        Self {
+            state: Mutex::new(state),
             maintenance: Arc::new(tokio::sync::Semaphore::new(2)),
             _lock: lock,
             disk_id,
+            persist,
+        }
+    }
+    pub(in crate::replica) fn ready_bits(&self) -> (u64, bool) {
+        let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        (state.repair.generation, state.repair.frozen.is_some())
+    }
+    fn persist_record(&self, key: &str, entry: Option<&Entry>) -> io::Result<()> {
+        let Some(persist) = &self.persist else {
+            return Ok(());
+        };
+        let value = entry.map(encode_entry).transpose()?;
+        persist(&PersistOp::Record {
+            key: key.to_owned(),
+            value,
         })
+    }
+    fn persist_repair(&self, before: &State, after: &State) -> io::Result<()> {
+        let Some(persist) = &self.persist else {
+            return Ok(());
+        };
+        persist(&PersistOp::Repair(RepairDelta {
+            repair_json: encode_repair(after)?,
+            records: diff_entries(&before.records, &after.records)?,
+            staging: diff_entries(&before.staging, &after.staging)?,
+        }))
+    }
+    fn remember(&self, state: &State) -> Option<State> {
+        self.persist.is_some().then(|| state.clone())
+    }
+    fn publish_repair(&self, state: &mut State, before: Option<State>) -> io::Result<()> {
+        let Some(before) = before else {
+            return Ok(());
+        };
+        if let Err(error) = self.persist_repair(&before, state) {
+            *state = before;
+            return Err(error);
+        }
+        Ok(())
+    }
+    fn restore_key(state: &mut State, key: String, previous: Option<Entry>, previous_bytes: usize) {
+        match previous {
+            Some(entry) => {
+                state.records.insert(key, entry);
+            }
+            None => {
+                state.records.remove(&key);
+            }
+        }
+        state.bytes = previous_bytes;
     }
     fn status_of(&self, repair: &RepairState) -> RepairStoreStatus {
         RepairStoreStatus {
@@ -207,9 +243,18 @@ impl MemoryStore {
         canonical: Option<Arc<[u8]>>,
     ) -> io::Result<Reply> {
         let prepared = prepare(request, canonical)?;
+        let read = matches!(prepared, Prepared::Read(_));
+        let key = prepared_key(&prepared).to_owned();
         let value = {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-            apply(&mut state, generation, prepared)?
+            let previous = state.records.get(&key).cloned();
+            let previous_bytes = state.bytes;
+            let value = apply(&mut state, generation, prepared)?;
+            if !read && let Err(error) = self.persist_record(&key, state.records.get(&key)) {
+                Self::restore_key(&mut state, key, previous, previous_bytes);
+                return Err(error);
+            }
+            value
         };
         Ok(reply_of(value))
     }
@@ -220,14 +265,23 @@ impl MemoryStore {
             .into_iter()
             .map(|request| prepare(request, None))
             .collect();
-        let results = {
-            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-            prepared
-                .into_iter()
-                .map(|item| item.and_then(|prepared| apply(&mut state, generation, prepared)))
-                .collect::<Vec<_>>()
-        };
-        results.into_iter().map(|item| item.map(reply_of)).collect()
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        prepared
+            .into_iter()
+            .map(|item| {
+                let prepared = item?;
+                let read = matches!(prepared, Prepared::Read(_));
+                let key = prepared_key(&prepared).to_owned();
+                let previous = state.records.get(&key).cloned();
+                let previous_bytes = state.bytes;
+                let value = apply(&mut state, generation, prepared)?;
+                if !read && let Err(error) = self.persist_record(&key, state.records.get(&key)) {
+                    Self::restore_key(&mut state, key, previous, previous_bytes);
+                    return Err(error);
+                }
+                Ok(reply_of(value))
+            })
+            .collect()
     }
     async fn freeze_now(&self, token: RepairToken) -> io::Result<RepairStoreStatus> {
         validate_token(&token)?;
@@ -238,6 +292,7 @@ impl MemoryStore {
             .map_err(|_| rejected())?;
         let snapshot = {
             let mut s = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let before = self.remember(&s);
             match &s.repair.frozen {
                 Some(old) if old == &token => {}
                 Some(old) if old.generation >= token.generation => return Err(rejected()),
@@ -256,6 +311,7 @@ impl MemoryStore {
                     s.pages.clear();
                 }
             }
+            self.publish_repair(&mut s, before)?;
             if s.repair.importing || s.repair.installed || s.repair.manifest.is_some() {
                 return Ok(self.status_of(&s.repair));
             }
@@ -272,7 +328,56 @@ impl MemoryStore {
         if s.repair.frozen.as_ref() != Some(&token) || s.repair.importing || s.repair.installed {
             return Err(rejected());
         }
+        let before = self.remember(&s);
         s.repair.manifest = Some(manifest);
+        self.publish_repair(&mut s, before)?;
+        Ok(self.status_of(&s.repair))
+    }
+    pub(in crate::replica) fn freeze_sync(
+        &self,
+        token: RepairToken,
+    ) -> io::Result<RepairStoreStatus> {
+        validate_token(&token)?;
+        let _permit = self
+            .maintenance
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| rejected())?;
+        let snapshot = {
+            let mut s = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let before = self.remember(&s);
+            match &s.repair.frozen {
+                Some(old) if old == &token => {}
+                Some(old) if old.generation >= token.generation => return Err(rejected()),
+                _ => {
+                    if token.generation <= s.repair.generation {
+                        return Err(rejected());
+                    }
+                    s.repair.frozen = Some(token.clone());
+                    s.repair.manifest = None;
+                    s.repair.importing = false;
+                    s.repair.installed = false;
+                    s.repair.next_page = 0;
+                    s.repair.last_key = None;
+                    s.staging.clear();
+                    s.staging_bytes = 0;
+                    s.pages.clear();
+                }
+            }
+            self.publish_repair(&mut s, before)?;
+            if s.repair.importing || s.repair.installed || s.repair.manifest.is_some() {
+                return Ok(self.status_of(&s.repair));
+            }
+            s.records.clone()
+        };
+        let manifest = scan_manifest(&snapshot)?;
+        let mut s = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if s.repair.frozen.as_ref() != Some(&token) || s.repair.importing || s.repair.installed {
+            return Err(rejected());
+        }
+        let before = self.remember(&s);
+        s.repair.manifest = Some(manifest);
+        self.publish_repair(&mut s, before)?;
         Ok(self.status_of(&s.repair))
     }
     fn export_now(
@@ -356,6 +461,7 @@ impl MemoryStore {
         {
             return Err(rejected());
         }
+        let before = self.remember(&s);
         s.repair = RepairState {
             generation: s.repair.generation,
             last_token: s.repair.last_token.clone(),
@@ -367,6 +473,7 @@ impl MemoryStore {
         s.staging.clear();
         s.staging_bytes = 0;
         s.pages.clear();
+        self.publish_repair(&mut s, before)?;
         Ok(self.status_of(&s.repair))
     }
     fn append_now(
@@ -465,6 +572,7 @@ impl MemoryStore {
             return Err(rejected());
         }
         // Every validation precedes mutation: a malformed page cannot install a prefix.
+        let before = self.remember(&s);
         for (key, entry) in prepared {
             s.staging.insert(key, entry);
         }
@@ -474,6 +582,7 @@ impl MemoryStore {
         s.repair.records = records;
         s.repair.stream_bytes = bytes;
         s.repair.last_key = entries.last().map(|e| e.key.clone());
+        self.publish_repair(&mut s, before)?;
         Ok(self.status_of(&s.repair))
     }
     async fn finish_now(&self, token: RepairToken) -> io::Result<RepairStoreStatus> {
@@ -517,16 +626,73 @@ impl MemoryStore {
             {
                 return Err(rejected());
             }
+            let before = self.remember(&s);
             let staged = std::mem::take(&mut s.staging);
             let old = std::mem::replace(&mut s.records, staged);
             s.bytes = s.staging_bytes;
             s.staging_bytes = 0;
             s.repair.importing = false;
             s.repair.installed = true;
+            if let Err(error) = self.publish_repair(&mut s, before) {
+                drop(old);
+                return Err(error);
+            }
             (self.status_of(&s.repair), old)
         };
         drop(old);
         Ok(status)
+    }
+    pub(in crate::replica) fn finish_sync(
+        &self,
+        token: RepairToken,
+    ) -> io::Result<RepairStoreStatus> {
+        validate_token(&token)?;
+        let _permit = self
+            .maintenance
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| rejected())?;
+        let (snapshot, expected, page) = {
+            let s = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            if s.repair.frozen.as_ref() != Some(&token) {
+                return Err(rejected());
+            }
+            if s.repair.installed {
+                return Ok(self.status_of(&s.repair));
+            }
+            if !s.repair.importing {
+                return Err(rejected());
+            }
+            (
+                s.staging.clone(),
+                s.repair.manifest.clone(),
+                s.repair.next_page,
+            )
+        };
+        let actual = scan_manifest(&snapshot)?;
+        let mut s = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if s.repair.frozen.as_ref() != Some(&token)
+            || !s.repair.importing
+            || s.repair.installed
+            || s.repair.next_page != page
+            || s.repair.manifest != expected
+            || expected.as_ref() != Some(&actual)
+        {
+            return Err(rejected());
+        }
+        let before = self.remember(&s);
+        let staged = std::mem::take(&mut s.staging);
+        let old = std::mem::replace(&mut s.records, staged);
+        s.bytes = s.staging_bytes;
+        s.staging_bytes = 0;
+        s.repair.importing = false;
+        s.repair.installed = true;
+        if let Err(error) = self.publish_repair(&mut s, before) {
+            drop(old);
+            return Err(error);
+        }
+        drop(old);
+        Ok(self.status_of(&s.repair))
     }
     fn resume_now(&self, token: RepairToken, allow: bool) -> io::Result<RepairStoreStatus> {
         validate_token(&token)?;
@@ -546,6 +712,7 @@ impl MemoryStore {
             None if allow => {}
             _ => return Err(rejected()),
         }
+        let before = self.remember(&s);
         s.repair.generation = token.generation;
         s.repair.last_token = Some(token);
         s.repair.frozen = None;
@@ -553,7 +720,62 @@ impl MemoryStore {
         s.staging.clear();
         s.staging_bytes = 0;
         s.pages.clear();
+        self.publish_repair(&mut s, before)?;
         Ok(self.status_of(&s.repair))
+    }
+    pub(in crate::replica) fn status_now(&self) -> RepairStoreStatus {
+        self.status_of(
+            &self
+                .state
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .repair,
+        )
+    }
+    pub(in crate::replica) fn execute_now(
+        &self,
+        generation: u64,
+        request: Request,
+        canonical: Option<Arc<[u8]>>,
+    ) -> io::Result<Reply> {
+        self.execute_with(generation, request, canonical)
+    }
+    pub(in crate::replica) fn execute_many_now(
+        &self,
+        generation: u64,
+        requests: Vec<Request>,
+    ) -> Vec<io::Result<Reply>> {
+        self.execute_many(generation, requests)
+    }
+    pub(in crate::replica) fn export_sync(
+        &self,
+        token: RepairToken,
+        after: Option<String>,
+        limit: usize,
+    ) -> io::Result<RepairPage> {
+        self.export_now(token, after, limit)
+    }
+    pub(in crate::replica) fn begin_sync(
+        &self,
+        token: RepairToken,
+        manifest: RepairManifest,
+    ) -> io::Result<RepairStoreStatus> {
+        self.begin_now(token, manifest)
+    }
+    pub(in crate::replica) fn append_sync(
+        &self,
+        token: RepairToken,
+        sequence: u64,
+        entries: Vec<RepairEntry>,
+    ) -> io::Result<RepairStoreStatus> {
+        self.append_now(token, sequence, entries)
+    }
+    pub(in crate::replica) fn resume_sync(
+        &self,
+        token: RepairToken,
+        allow: bool,
+    ) -> io::Result<RepairStoreStatus> {
+        self.resume_now(token, allow)
     }
 }
 impl ReplicaStore for MemoryStore {
@@ -651,6 +873,11 @@ fn prepare(request: Request, canonical: Option<Arc<[u8]>>) -> io::Result<Prepare
         return Err(rejected());
     }
     Ok(prepared)
+}
+fn prepared_key(prepared: &Prepared) -> &str {
+    match prepared {
+        Prepared::Read(key) | Prepared::Fence(key, _) | Prepared::Write(key, _) => key,
+    }
 }
 fn apply(state: &mut State, generation: u64, prepared: Prepared) -> io::Result<Option<Value>> {
     let key = match &prepared {
@@ -790,6 +1017,148 @@ fn scan_manifest(records: &BTreeMap<String, Entry>) -> io::Result<RepairManifest
         bytes,
         digest: hash_string(hash),
     })
+}
+
+fn same_entry(left: &Entry, right: &Entry) -> bool {
+    left.min_epoch == right.min_epoch
+        && match (&left.value, &right.value) {
+            (None, None) => true,
+            (Some(left), Some(right)) => left.canonical == right.canonical,
+            _ => false,
+        }
+}
+fn diff_entries(
+    before: &BTreeMap<String, Entry>,
+    after: &BTreeMap<String, Entry>,
+) -> io::Result<Vec<(String, Option<Vec<u8>>)>> {
+    let mut changed = Vec::new();
+    for key in before.keys() {
+        if !after.contains_key(key) {
+            changed.push((key.clone(), None));
+        }
+    }
+    for (key, entry) in after {
+        let stale = before.get(key).is_none_or(|old| !same_entry(old, entry));
+        if stale {
+            changed.push((key.clone(), Some(encode_entry(entry)?)));
+        }
+    }
+    Ok(changed)
+}
+pub(in crate::replica) fn encode_entry(entry: &Entry) -> io::Result<Vec<u8>> {
+    let canonical = entry
+        .value
+        .as_ref()
+        .map(|value| value.canonical.as_ref())
+        .unwrap_or(b"");
+    let len = u32::try_from(canonical.len()).map_err(|_| rejected())?;
+    let mut bytes = Vec::with_capacity(13 + canonical.len());
+    bytes.push(1);
+    bytes.extend_from_slice(&entry.min_epoch.to_le_bytes());
+    bytes.extend_from_slice(&len.to_le_bytes());
+    bytes.extend_from_slice(canonical);
+    Ok(bytes)
+}
+pub(in crate::replica) fn decode_entry(bytes: &[u8]) -> io::Result<Entry> {
+    if bytes.len() < 13 || bytes[0] != 1 {
+        return Err(rejected());
+    }
+    let min_epoch = u64::from_le_bytes(bytes[1..9].try_into().map_err(|_| rejected())?);
+    let len = u32::from_le_bytes(bytes[9..13].try_into().map_err(|_| rejected())?) as usize;
+    if bytes.len() != 13 + len || (len == 0 && min_epoch == 0) {
+        return Err(rejected());
+    }
+    if len == 0 {
+        return Ok(Entry {
+            min_epoch,
+            value: None,
+        });
+    }
+    let canonical: Arc<[u8]> = bytes[13..].into();
+    let record: Record = serde_json::from_slice(&canonical).map_err(|_| rejected())?;
+    if record.epoch == 0 || record.epoch > min_epoch {
+        return Err(rejected());
+    }
+    Ok(Entry {
+        min_epoch,
+        value: Some(Value::new(record, Some(canonical))?),
+    })
+}
+#[derive(Serialize, Deserialize)]
+struct StoredRepair {
+    generation: u64,
+    frozen: Option<RepairToken>,
+    last_token: Option<RepairToken>,
+    manifest: Option<RepairManifest>,
+    next_page: u64,
+    last_key: Option<String>,
+    stream_bytes: u64,
+    records: u64,
+    importing: bool,
+    installed: bool,
+    pages: BTreeMap<u64, String>,
+}
+fn encode_repair(state: &State) -> io::Result<Vec<u8>> {
+    let bytes = serde_json::to_vec(&StoredRepair {
+        generation: state.repair.generation,
+        frozen: state.repair.frozen.clone(),
+        last_token: state.repair.last_token.clone(),
+        manifest: state.repair.manifest.clone(),
+        next_page: state.repair.next_page,
+        last_key: state.repair.last_key.clone(),
+        stream_bytes: state.repair.stream_bytes,
+        records: state.repair.records,
+        importing: state.repair.importing,
+        installed: state.repair.installed,
+        pages: state.pages.clone(),
+    })
+    .map_err(error)?;
+    if bytes.len() > 16 * 1024 * 1024 {
+        return Err(rejected());
+    }
+    Ok(bytes)
+}
+pub(in crate::replica) fn state_from_loaded(
+    records: BTreeMap<String, Entry>,
+    staging: BTreeMap<String, Entry>,
+    repair_json: Option<&[u8]>,
+) -> io::Result<State> {
+    let mut state = State::default();
+    if let Some(bytes) = repair_json {
+        if bytes.len() > 16 * 1024 * 1024 {
+            return Err(rejected());
+        }
+        let stored: StoredRepair = serde_json::from_slice(bytes).map_err(|_| rejected())?;
+        state.pages = stored.pages;
+        state.repair = RepairState {
+            generation: stored.generation,
+            frozen: stored.frozen,
+            last_token: stored.last_token,
+            manifest: stored.manifest,
+            next_page: stored.next_page,
+            last_key: stored.last_key,
+            stream_bytes: stored.stream_bytes,
+            records: stored.records,
+            importing: stored.importing,
+            installed: stored.installed,
+        };
+    }
+    state.bytes = records.iter().map(|(key, entry)| entry.charge(key)).sum();
+    state.staging_bytes = staging.iter().map(|(key, entry)| entry.charge(key)).sum();
+    state.records = records;
+    state.staging = staging;
+    if state.bytes > MAX_BYTES
+        || state.staging_bytes > MAX_BYTES
+        || state.records.len() > MAX_ENTRIES
+        || state.staging.len() > MAX_ENTRIES
+        || state.pages.len() as u64 != state.repair.next_page
+        || state.repair.stream_bytes > MAX_REPAIR_BYTES
+        || (state.repair.importing && state.staging.len() as u64 != state.repair.records)
+        || (!state.repair.importing && !state.staging.is_empty())
+    {
+        return Err(rejected());
+    }
+    Ok(state)
 }
 
 #[cfg(test)]

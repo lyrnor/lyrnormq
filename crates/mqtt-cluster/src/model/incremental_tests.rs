@@ -8,6 +8,7 @@ fn register() -> Command {
         lease_ms: 3000,
         replicas: None,
         memory: false,
+        rocks: false,
         disk_id: None,
     }
 }
@@ -241,6 +242,7 @@ fn shared_routes_survive_one_client_removal_and_expire_only_own_node() {
         lease_ms: 3000,
         replicas: None,
         memory: false,
+        rocks: false,
         disk_id: None,
     });
     for (client, node, inc) in [("a", 1, "one"), ("b", 1, "one"), ("c", 2, "two")] {
@@ -420,6 +422,7 @@ fn durable_owner_transfer_keeps_other_routes_and_fences_old_epoch() {
                 lease_ms: 3000,
                 replicas: Some(peers.clone()),
                 memory: true,
+                rocks: false,
                 disk_id: Some(format!("{node:032x}"))
             })
             .error
@@ -570,6 +573,7 @@ fn one_hundred_thousand_short_id_owners_fit_authorized_metadata_budget() {
                 lease_ms: 3000,
                 replicas: Some(peers.clone()),
                 memory: true,
+                rocks: false,
                 disk_id: Some(format!("{node:032x}"))
             })
             .error
@@ -680,6 +684,7 @@ fn physical_durable_directory_allows_headroom_but_remains_bounded() {
                 lease_ms: 3000,
                 replicas: Some(peers.clone()),
                 memory: true,
+                rocks: false,
                 disk_id: Some(format!("{node:032x}"))
             })
             .error
@@ -756,6 +761,7 @@ fn acquisition_once_duplicate_preserves_epoch_and_survives_serialized_state() {
         lease_ms: 3000,
         replicas: Some(peers),
         memory: true,
+        rocks: false,
         disk_id: Some(format!("{:032x}", 1)),
     });
     assert!(answer.error.is_none());
@@ -920,6 +926,7 @@ fn acquisition_once_batch_epochs_and_takeover_fence_stale_retries() {
         lease_ms: 3000,
         replicas: Some(peers),
         memory: true,
+        rocks: false,
         disk_id: Some(format!("{:032x}", 1)),
     });
     let once = |client: &str, generation, expected_epoch| Command::AcquireOnce {

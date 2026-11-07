@@ -1,6 +1,6 @@
 //! Operator configuration: one TOML file per process, with `RMQTT_*` overrides.
 use crate::cli::{Invocation, Options};
-use mqtt_cluster::{Config, Controller, DurableConfig, Role, voting_members};
+use mqtt_cluster::{Config, Controller, DataBackend, DurableConfig, Role, voting_members};
 use mqtt_transport::ProtocolMode;
 use serde::Deserialize;
 use std::{
@@ -380,6 +380,7 @@ fn overlay_cluster(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<(
         "RMQTT_CLUSTER_CONTROLLER_PORT",
         "RMQTT_CLUSTER_BROKER_PORT",
         "RMQTT_CLUSTER_MEMBERS",
+        "RMQTT_CLUSTER_BACKEND",
     ]
     .iter()
     .any(|name| env.contains_key(*name));
@@ -403,6 +404,9 @@ fn overlay_cluster(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<(
     }
     if let Some(value) = env.get("RMQTT_CLUSTER_MEMBERS") {
         cluster.members = Some(parse_members(value)?);
+    }
+    if let Some(value) = env.get("RMQTT_CLUSTER_BACKEND") {
+        cluster.backend = Some(value.clone());
     }
     Ok(())
 }
@@ -657,7 +661,10 @@ fn cluster_pair(
         advertise: Some(endpoint(me.1, broker_port)),
         lease_ms: 3000,
         tls: None,
-        durable: Some(DurableConfig { replicas }),
+        durable: Some(DurableConfig {
+            replicas,
+            backend: data_backend(cluster.backend)?,
+        }),
     };
     let controller = Config {
         role: Role::Controller,
@@ -922,6 +929,16 @@ struct ClusterRaw {
     controller_port: Option<u16>,
     broker_port: Option<u16>,
     members: Option<Vec<MemberRaw>>,
+    #[serde(default)]
+    backend: Option<String>,
+}
+
+fn data_backend(value: Option<String>) -> io::Result<DataBackend> {
+    match value.as_deref() {
+        None | Some("memory") => Ok(DataBackend::Memory),
+        Some("rocksdb") => Ok(DataBackend::Rocks),
+        Some(_) => Err(invalid("cluster.backend must be memory or rocksdb")),
+    }
 }
 
 #[derive(Deserialize)]
@@ -1143,11 +1160,41 @@ mod tests {
             relocated.advertise.as_deref(),
             Some("http://127.0.0.2:17101")
         );
-        assert!(broker.durable.is_some());
+        assert_eq!(
+            broker.durable.as_ref().map(|durable| durable.backend),
+            Some(DataBackend::Memory)
+        );
         assert!(options.config.storage_path.is_none());
         let mut ids: Vec<_> = controller.controllers.iter().map(|peer| peer.id).collect();
         ids.sort_unstable();
         assert_eq!(ids, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn cluster_backend_selects_rocksdb_and_rejects_unknown_values() {
+        let dir = Temp::new();
+        let path = dir.file(&format!(
+            "[node]\nid = 1\nrole = \"broker\"\ndata_dir = \"{dir}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[cluster]\nid = \"rmqtt\"\ntoken_file = \"peer\"\ncontroller_port = 1\nbroker_port = 2\nbackend = \"rocksdb\"\nmembers = [\n{{ id = 1, host = \"127.0.0.1\" }},\n{{ id = 2, host = \"127.0.0.2\" }},\n{{ id = 3, host = \"127.0.0.3\" }},\n]\n",
+            dir = dir.0.display()
+        ));
+        let broker = load_with(&invocation(&path), &HashMap::new())
+            .unwrap()
+            .cluster_broker
+            .unwrap();
+        assert_eq!(broker.durable.unwrap().backend, DataBackend::Rocks);
+        let overridden = load_with(
+            &invocation(&path),
+            &HashMap::from([("RMQTT_CLUSTER_BACKEND".into(), "memory".into())]),
+        )
+        .unwrap()
+        .cluster_broker
+        .unwrap();
+        assert_eq!(overridden.durable.unwrap().backend, DataBackend::Memory);
+        let invalid = dir.file(&format!(
+            "[node]\nid = 1\nrole = \"broker\"\ndata_dir = \"{dir}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[cluster]\nid = \"rmqtt\"\ntoken_file = \"peer\"\ncontroller_port = 1\nbroker_port = 2\nbackend = \"sqlite\"\nmembers = [\n{{ id = 1, host = \"127.0.0.1\" }},\n{{ id = 2, host = \"127.0.0.2\" }},\n{{ id = 3, host = \"127.0.0.3\" }},\n]\n",
+            dir = dir.0.display()
+        ));
+        assert!(load_with(&invocation(&invalid), &HashMap::new()).is_err());
     }
 
     #[test]

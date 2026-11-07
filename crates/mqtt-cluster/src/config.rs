@@ -26,12 +26,24 @@ pub struct TlsConfig {
     pub ca_file: PathBuf,
     pub domain_name: String,
 }
-/// Fixed replicated-memory group, independent of Controller Raft membership.
-/// The historical type/JSON name does not promise persistence across process loss.
+/// Fixed replicated data group, independent of Controller Raft membership.
+/// The historical type name does not by itself promise persistence across process loss.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DataBackend {
+    #[default]
+    Memory,
+    #[serde(rename = "rocksdb")]
+    Rocks,
+}
+/// Fixed replicated group, independent of Controller Raft membership.
+/// `memory` keeps Phase7f volatility. `rocksdb` replays the same records after restart.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DurableConfig {
     pub replicas: Vec<Controller>,
+    #[serde(default)]
+    pub backend: DataBackend,
 }
 fn lease() -> u64 {
     3000
@@ -196,7 +208,7 @@ pub(crate) async fn read_bounded(path: &std::path::Path, limit: usize) -> io::Re
 
 #[cfg(test)]
 mod tests {
-    use super::{Config, Controller, DurableConfig, Role};
+    use super::{Config, Controller, DataBackend, DurableConfig, Role};
 
     fn controllers(addresses: [&str; 3]) -> Vec<Controller> {
         addresses
@@ -254,6 +266,7 @@ mod tests {
                     address: "http://172.16.240.183:17101".to_owned(),
                 },
             ],
+            backend: DataBackend::Memory,
         });
         assert!(config.validate().is_ok());
     }

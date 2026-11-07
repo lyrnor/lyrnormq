@@ -21,6 +21,7 @@ fn register(node: u64) -> Command {
         address: format!("http://127.0.0.1:{}", 10000 + node),
         replicas: None,
         memory: false,
+        rocks: false,
         disk_id: None,
         expires_at: 100,
         lease_ms: 3000,

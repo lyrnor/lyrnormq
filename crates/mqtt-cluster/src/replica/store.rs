@@ -1,8 +1,81 @@
-//! Backend-independent transaction boundary; a future disk backend implements this trait.
-use super::{memory::MemoryStore, model::*};
+//! Backend-independent transaction boundary. Memory and RocksDB both implement it.
+use super::{memory::MemoryStore, model::*, rocks::RocksStore};
 use std::{future::Future, io, path::Path, pin::Pin, sync::Arc};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum StoreKind {
+    Memory,
+    Rocks,
+}
+
 pub(super) type StoreFuture<'a, T> = Pin<Box<dyn Future<Output = io::Result<T>> + Send + 'a>>;
+
+pub(super) fn claim_directory(
+    path: &Path,
+    identity: (&str, u64),
+    members: &[(u64, String)],
+    marker: &str,
+    blocked: &[(&str, &'static str)],
+    quota: &'static str,
+) -> io::Result<std::fs::File> {
+    use std::io::{Read, Write};
+    std::fs::create_dir_all(path)?;
+    for (name, message) in blocked {
+        match std::fs::symlink_metadata(path.join(name)) {
+            Ok(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, *message)),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+    }
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(path.join("data.lock"))?;
+    lock.try_lock().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::WouldBlock,
+            "replica directory is already in use",
+        )
+    })?;
+    let mut members = members.to_vec();
+    members.sort();
+    let encoded = serde_json::to_vec(&(identity, members))
+        .map_err(|error| io::Error::other(error.to_string()))?;
+    if identity.0.is_empty() || identity.0.len() > 128 || identity.1 == 0 || encoded.len() > 65536 {
+        return Err(io::Error::new(io::ErrorKind::WouldBlock, quota));
+    }
+    let manifest = path.join(marker);
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&manifest)
+    {
+        Ok(mut file) => {
+            file.write_all(&encoded)?;
+            file.sync_data()?;
+        }
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+            let metadata = std::fs::symlink_metadata(&manifest)?;
+            if !metadata.is_file() || metadata.len() > 65536 {
+                return Err(io::Error::new(io::ErrorKind::WouldBlock, quota));
+            }
+            let mut bytes = Vec::new();
+            std::fs::File::open(&manifest)?
+                .take(65537)
+                .read_to_end(&mut bytes)?;
+            if bytes != encoded {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "replica identity or membership mismatch",
+                ));
+            }
+        }
+        Err(error) => return Err(error),
+    }
+    Ok(lock)
+}
 
 /// Every operation is linearizable; Fence returns the value under the same fence.
 /// Acknowledgement means backend acceptance, whose durability is backend-specific.
@@ -58,7 +131,19 @@ pub(crate) struct Journal(Arc<dyn ReplicaStore>);
 impl Journal {
     /// Performs bounded identity-only filesystem IO; call on startup's blocking pool.
     pub fn open(path: &Path, identity: (&str, u64), members: &[(u64, String)]) -> io::Result<Self> {
-        Ok(Self(Arc::new(MemoryStore::open(path, identity, members)?)))
+        Self::open_with(path, identity, members, StoreKind::Memory)
+    }
+    pub(crate) fn open_with(
+        path: &Path,
+        identity: (&str, u64),
+        members: &[(u64, String)],
+        kind: StoreKind,
+    ) -> io::Result<Self> {
+        let store: Arc<dyn ReplicaStore> = match kind {
+            StoreKind::Memory => Arc::new(MemoryStore::open(path, identity, members)?),
+            StoreKind::Rocks => Arc::new(RocksStore::open(path, identity, members)?),
+        };
+        Ok(Self(store))
     }
     pub fn disk_id(&self) -> &str {
         self.0.disk_id()

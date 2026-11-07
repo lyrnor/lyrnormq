@@ -869,6 +869,7 @@ mod control_tests {
                 address: "http://127.0.0.1:64000".into(),
                 replicas: None,
                 memory: false,
+                rocks: false,
                 disk_id: None,
                 expires_at: 0,
                 lease_ms: 3000,

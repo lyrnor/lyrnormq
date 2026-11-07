@@ -21,5 +21,6 @@ raft-log = "=0.4.6"
 getrandom = { version = "0.2", features = ["std"] }
 sha2 = "0.10"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+rocksdb = { version = "=0.25.0", default-features = false, features = ["lz4", "bindgen-runtime"] }
 [build-dependencies]
 tonic-prost-build = "=0.14.2"

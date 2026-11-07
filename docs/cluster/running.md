@@ -133,4 +133,6 @@ Clean Start/expiry creates a new logical session generation; queued work cannot
 leak into a recreated session. MQTT 5 shared subscriptions on durable replicas
 are Phase7y. Durable non-retain Will is Phase7w; retained PUBLISH and
 Will-Retain are Phase7x. Automatic incremental repair, membership changes,
-tombstone cleanup, whole-group restart recovery and RocksDB remain future work.
+tombstone cleanup and automatic whole-group restart promotion remain future work.
+Opt-in RocksDB replicas are configured with `cluster.backend = "rocksdb"` and are
+not a migration of an existing memory directory.

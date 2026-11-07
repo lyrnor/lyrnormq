@@ -143,11 +143,19 @@ impl BrokerRuntime {
                     .iter()
                     .map(|p| (p.id, p.address.clone()))
                     .collect::<Vec<_>>();
-                crate::replica::Journal::open(
-                    &config.data_dir,
-                    (&config.cluster_id, config.node_id),
-                    &members,
-                )
+                match d.backend {
+                    crate::config::DataBackend::Memory => crate::replica::Journal::open(
+                        &config.data_dir,
+                        (&config.cluster_id, config.node_id),
+                        &members,
+                    ),
+                    crate::config::DataBackend::Rocks => crate::replica::Journal::open_with(
+                        &config.data_dir,
+                        (&config.cluster_id, config.node_id),
+                        &members,
+                        crate::replica::StoreKind::Rocks,
+                    ),
+                }
             })
             .transpose()?;
         let mut random = [0u8; 16];
@@ -588,6 +596,11 @@ impl BrokerRuntime {
             address: self.config.address(),
             disk_id: self.journal.as_ref().map(|j| j.disk_id().to_owned()),
             memory: self.config.durable.is_some(),
+            rocks: self
+                .config
+                .durable
+                .as_ref()
+                .is_some_and(|durable| durable.backend == crate::config::DataBackend::Rocks),
             replicas: self.config.durable.as_ref().map(|d| {
                 d.replicas
                     .iter()

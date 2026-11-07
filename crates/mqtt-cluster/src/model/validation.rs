@@ -107,6 +107,7 @@ mod tests {
             address: address.into(),
             replicas: Some(vec![(101, address.into())]),
             memory: true,
+            rocks: false,
             disk_id: None,
             expires_at: 100,
             lease_ms: 3000,

@@ -10,8 +10,12 @@ enum Admission {
 pub(super) fn storage_matches(config: &Config, metadata: &Metadata) -> bool {
     match (&config.durable, &metadata.data_mode) {
         (None, Some(DataMode::Legacy)) => true,
-        (Some(configured), Some(DataMode::Memory(peers))) => {
-            configured.replicas.len() == peers.len()
+        (Some(configured), Some(mode)) => {
+            let Some(peers) = mode.peers() else {
+                return false;
+            };
+            mode.backend() == Some(configured.backend)
+                && configured.replicas.len() == peers.len()
                 && configured.replicas.iter().all(|replica| {
                     peers
                         .iter()
@@ -54,10 +58,15 @@ impl BrokerRuntime {
         let mut capability_checked = self.config.durable.is_none();
         loop {
             if !capability_checked && let Ok(status) = rpc.status().await {
-                if !matches!(status.data_storage.as_str(), "none" | "memory") {
+                let allowed: &[&str] =
+                    match self.config.durable.as_ref().map(|durable| durable.backend) {
+                        Some(crate::config::DataBackend::Rocks) => &["none", "rocksdb"],
+                        _ => &["none", "memory"],
+                    };
+                if !allowed.contains(&status.data_storage.as_str()) {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
-                        "controller does not advertise memory replica support; use current controllers with separate metadata directories",
+                        "controller does not advertise this replica backend; upgrade every controller before enabling it, and use separate metadata directories",
                     ));
                 }
                 capability_checked = true;
@@ -83,6 +92,9 @@ impl BrokerRuntime {
                                 address: self.config.address(),
                                 disk_id: identity.map(str::to_owned),
                                 memory: self.config.durable.is_some(),
+                                rocks: self.config.durable.as_ref().is_some_and(|durable| {
+                                    durable.backend == crate::config::DataBackend::Rocks
+                                }),
                                 replicas: self.config.durable.as_ref().map(|d| {
                                     d.replicas
                                         .iter()
@@ -202,6 +214,24 @@ mod tests {
         assert!(admission(&c, &m, Some("new")).is_err());
         assert_eq!(
             admission(&c, &Metadata::default(), Some("new")).unwrap(),
+            Admission::Register
+        );
+    }
+    #[test]
+    fn rocks_backend_does_not_join_a_memory_group() {
+        let mut config = config();
+        config.durable.as_mut().expect("replicas").backend = crate::config::DataBackend::Rocks;
+        let memory = Metadata {
+            data_mode: Some(DataMode::Memory(members(&config))),
+            ..Default::default()
+        };
+        assert!(admission(&config, &memory, Some("disk")).is_err());
+        let rocks = Metadata {
+            data_mode: Some(DataMode::Rocks(members(&config))),
+            ..Default::default()
+        };
+        assert_eq!(
+            admission(&config, &rocks, Some("disk")).unwrap(),
             Admission::Register
         );
     }

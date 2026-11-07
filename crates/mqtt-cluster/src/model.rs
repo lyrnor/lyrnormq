@@ -64,6 +64,8 @@ pub enum DataMode {
     Durable(Vec<(u64, String)>),
     /// Two live RAM replicas acknowledge mutations; no disk persistence.
     Memory(Vec<(u64, String)>),
+    /// Same record map as memory, acknowledged only after RocksDB sync.
+    Rocks(Vec<(u64, String)>),
 }
 impl DataMode {
     pub(crate) fn storage_name(&self) -> &'static str {
@@ -71,6 +73,20 @@ impl DataMode {
             Self::Legacy => "none",
             Self::Durable(_) => "legacy_sqlite",
             Self::Memory(_) => "memory",
+            Self::Rocks(_) => "rocksdb",
+        }
+    }
+    pub(crate) fn peers(&self) -> Option<&Vec<(u64, String)>> {
+        match self {
+            Self::Legacy => None,
+            Self::Durable(peers) | Self::Memory(peers) | Self::Rocks(peers) => Some(peers),
+        }
+    }
+    pub(crate) fn backend(&self) -> Option<crate::config::DataBackend> {
+        match self {
+            Self::Memory(_) => Some(crate::config::DataBackend::Memory),
+            Self::Rocks(_) => Some(crate::config::DataBackend::Rocks),
+            Self::Legacy | Self::Durable(_) => None,
         }
     }
 }
@@ -181,6 +197,10 @@ pub enum Command {
         replicas: Option<Vec<(u64, String)>>,
         #[serde(default)]
         memory: bool,
+        /// Selects [`DataMode::Rocks`] when `memory` is also set. Older controllers
+        /// ignore this field, so every controller must be upgraded before it is written.
+        #[serde(default)]
+        rocks: bool,
         #[serde(default)]
         disk_id: Option<String>,
     },
@@ -267,8 +287,10 @@ impl Metadata {
         if self.excluded.contains(&node) {
             return Err("replica excluded pending repair".into());
         }
-        if !matches!(&self.data_mode,Some(DataMode::Durable(m) | DataMode::Memory(m)) if m.iter().any(|(id,_)|*id==node))
-        {
+        if !self.data_mode.as_ref().is_some_and(|mode| {
+            mode.peers()
+                .is_some_and(|peers| peers.iter().any(|(id, _)| *id == node))
+        }) {
             return Err("durable membership required".into());
         }
         Ok(())
@@ -385,6 +407,7 @@ impl Metadata {
                 lease_ms,
                 replicas,
                 memory,
+                rocks,
                 disk_id,
             } => {
                 if self.excluded.contains(&node)
@@ -401,13 +424,18 @@ impl Metadata {
                         {
                             return Err("invalid data membership".into());
                         }
-                        if memory {
+                        if rocks && !memory {
+                            return Err("rocksdb storage requires replicated membership".into());
+                        }
+                        if rocks {
+                            DataMode::Rocks(peers)
+                        } else if memory {
                             DataMode::Memory(peers)
                         } else {
                             DataMode::Durable(peers)
                         }
                     }
-                    None if !memory => DataMode::Legacy,
+                    None if !memory && !rocks => DataMode::Legacy,
                     None => return Err("memory storage requires replica membership".into()),
                 };
                 if let Some(frozen) = &self.data_mode {
@@ -418,9 +446,10 @@ impl Metadata {
                     self.data_mode = Some(mode);
                 }
                 match (&self.data_mode, disk_id) {
-                    (Some(DataMode::Durable(_) | DataMode::Memory(_)), Some(id))
-                        if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) =>
-                    {
+                    (
+                        Some(DataMode::Durable(_) | DataMode::Memory(_) | DataMode::Rocks(_)),
+                        Some(id),
+                    ) if id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()) => {
                         if self.disk_ids.get(&node).is_some_and(|old| old != &id) {
                             return Err("data disk replacement requires repair".into());
                         }

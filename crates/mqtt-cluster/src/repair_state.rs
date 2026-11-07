@@ -91,13 +91,14 @@ impl Metadata {
         {
             return Err("repair precondition changed or target still leased".into());
         }
-        let peers = match &self.data_mode {
-            Some(DataMode::Durable(peers) | DataMode::Memory(peers))
-                if peers.iter().any(|(id, _)| *id == target) =>
-            {
-                peers
-            }
-            _ => return Err("durable replica membership required".into()),
+        let peers = match self
+            .data_mode
+            .as_ref()
+            .and_then(DataMode::peers)
+            .filter(|peers| peers.iter().any(|(id, _)| *id == target))
+        {
+            Some(peers) => peers,
+            None => return Err("durable replica membership required".into()),
         };
         if peers.len() != 3 {
             return Err("repair requires 3 data replicas".into());

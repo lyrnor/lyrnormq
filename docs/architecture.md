@@ -1062,8 +1062,9 @@ QoS state; restarting every data process loses it. Each boot receives a fresh
 identity and cannot vote against an old Controller anchor until explicit repair.
 A normal replacement process serves private repair RPC while MQTT waits, and must
 be promoted in that same process. Old SQLite directories are refused unchanged;
-there is no automatic migration. The internal ReplicaStore boundary permits a
-future RocksDB backend, with its durability contract still to be designed.
+there is no automatic migration. Opt-in RocksDB persistence of the same record
+map is specified by [Phase7z](contracts/phase7z-rocksdb-replicas.md). The default
+remains this volatile memory backend.
 
 ## Phase7g: event-driven forwarding scheduling
 
