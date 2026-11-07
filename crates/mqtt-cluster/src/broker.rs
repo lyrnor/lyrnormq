@@ -5,7 +5,10 @@ use crate::{
     model::*,
     rpc::{self, ClientRpc, wire},
 };
-use mqtt_cluster_core::{ClusterBridge, ClusterFuture, ClusterMessage, ForwardScope, LocalBroker};
+use mqtt_cluster_core::{
+    ClusterBridge, ClusterFuture, ClusterMessage, ForwardScope, LocalBroker, SharedConfigKind,
+    SharedConfigSink,
+};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     fmt, io,
@@ -110,6 +113,7 @@ pub struct BrokerRuntime {
     replica_batches: OnceCell<quorum::batch::ReplicaBatcher>,
     delivery_batches: OnceCell<delivery_batch::DeliveryBatcher>,
     forward_batches: OnceCell<forward_batch::ForwardBatcher>,
+    config_sink: Mutex<Option<Arc<dyn SharedConfigSink>>>,
 }
 impl fmt::Debug for BrokerRuntime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -185,6 +189,7 @@ impl BrokerRuntime {
             replica_batches: OnceCell::new(),
             delivery_batches: OnceCell::new(),
             forward_batches: OnceCell::new(),
+            config_sink: Mutex::new(None),
         }))
     }
     pub(crate) fn control_ready(&self) -> bool {
@@ -318,6 +323,38 @@ impl BrokerRuntime {
         }
         Ok(())
     }
+    async fn publish_shared_configs(&self, old: &Metadata, next: &Metadata) -> io::Result<()> {
+        self.publish_shared_config_pair(
+            (old.rules_config.clone(), old.access_config.clone()),
+            (next.rules_config.clone(), next.access_config.clone()),
+        )
+        .await
+    }
+    async fn publish_shared_config_pair(
+        &self,
+        old: (Option<ClusterConfigDoc>, Option<ClusterConfigDoc>),
+        next: (Option<ClusterConfigDoc>, Option<ClusterConfigDoc>),
+    ) -> io::Result<()> {
+        let sink = self
+            .config_sink
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        let Some(sink) = sink else {
+            return Ok(());
+        };
+        if old.0 != next.0
+            && let Some(doc) = next.0
+        {
+            sink.apply_rules(doc.generation, doc.document).await?;
+        }
+        if old.1 != next.1
+            && let Some(doc) = next.1
+        {
+            sink.apply_access(doc.generation, doc.document).await?;
+        }
+        Ok(())
+    }
     async fn install(&self, next: Metadata, forwarding_event: bool) -> io::Result<()> {
         let old = self
             .metadata
@@ -371,6 +408,7 @@ impl BrokerRuntime {
             self.initialized.store(false, Ordering::Release);
         }
         let next_recipients = recipients::RecipientIndex::from_metadata(&next);
+        self.publish_shared_configs(&old, &next).await?;
         {
             let mut metadata = self
                 .metadata
@@ -1065,6 +1103,57 @@ impl ClusterBridge for BrokerRuntime {
             let addresses = self.remote_forward_addresses(&message.topic);
             self.enqueue_forwards(addresses, message).await
         })
+    }
+    fn put_shared_config(
+        &self,
+        kind: SharedConfigKind,
+        expected_generation: u64,
+        document: String,
+    ) -> ClusterFuture<'_, u64> {
+        Box::pin(async move {
+            if !self.ready() {
+                return Err(unavailable());
+            }
+            let answer = self
+                .rpc()
+                .await?
+                .mutate(Command::PutClusterConfig {
+                    kind: ClusterConfigKind::from(kind),
+                    expected_generation,
+                    document: document.clone(),
+                })
+                .await?;
+            if let Some(error) = answer.error {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, error));
+            }
+            self.barrier(answer.revision).await?;
+            let generation = expected_generation.checked_add(1).ok_or_else(unavailable)?;
+            let sink = self
+                .config_sink
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone();
+            if let Some(sink) = sink {
+                match kind {
+                    SharedConfigKind::Rules => sink.apply_rules(generation, document).await?,
+                    SharedConfigKind::Access => sink.apply_access(generation, document).await?,
+                }
+            }
+            Ok(generation)
+        })
+    }
+    fn shared_config_generation(&self, kind: SharedConfigKind) -> Option<u64> {
+        let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+        match kind {
+            SharedConfigKind::Rules => metadata.rules_config.as_ref().map(|doc| doc.generation),
+            SharedConfigKind::Access => metadata.access_config.as_ref().map(|doc| doc.generation),
+        }
+    }
+    fn set_shared_config_sink(&self, sink: Arc<dyn SharedConfigSink>) {
+        *self
+            .config_sink
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(sink);
     }
     fn shutdown(&self) -> ClusterFuture<'_, ()> {
         Box::pin(async move {

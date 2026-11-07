@@ -73,6 +73,7 @@ async fn publish_shares_the_management_bearer_gate_without_basic_or_mqtt_identit
         rules: None,
         access_control: None,
         publisher: None,
+        cluster: None,
         token: b"0123456789abcdef0123456789abcdef".to_vec(),
         assets: Default::default(),
         instance: json!({}),

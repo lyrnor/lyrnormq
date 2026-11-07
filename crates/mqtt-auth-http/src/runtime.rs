@@ -8,7 +8,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, OnceLock, PoisonError, RwLock,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
 };
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -55,6 +55,8 @@ pub struct Runtime {
     store: Arc<Owner>,
     update: Arc<Semaphore>,
     generations: Arc<Semaphore>,
+    /// Latest cluster-committed generation applied here; zero means none yet.
+    shared_generation: AtomicU64,
 }
 impl fmt::Debug for Runtime {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -118,6 +120,7 @@ impl Runtime {
             store: Arc::new(store),
             update: Arc::new(Semaphore::new(1)),
             generations,
+            shared_generation: AtomicU64::new(0),
         });
         if fresh {
             let config = runtime.snapshot().config.clone();
@@ -213,6 +216,83 @@ impl Runtime {
         }
         pending.armed = false;
         Ok(public)
+    }
+    pub fn shared_generation(&self) -> u64 {
+        self.shared_generation.load(Ordering::Acquire)
+    }
+    pub async fn prepare_shared(&self, mut config: Config) -> Result<String, Error> {
+        if self.shared.stopped.load(Ordering::Acquire) {
+            return Err(Error::Stopped);
+        }
+        let _update = self
+            .update
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Busy)?;
+        let old = self.snapshot();
+        config.authentication.restore(&old.config.authentication)?;
+        config
+            .authorization
+            .backend
+            .restore(&old.config.authorization.backend)?;
+        let local_accounts = self.shared.local_accounts;
+        let validated = tokio::task::spawn_blocking(move || {
+            config.validate(local_accounts)?;
+            Ok::<_, Error>(config)
+        })
+        .await
+        .map_err(|_| Error::InvalidConfig)??;
+        serde_json::to_string(&validated).map_err(|_| Error::InvalidConfig)
+    }
+    pub async fn apply_shared(&self, generation: u64, document: String) -> Result<(), Error> {
+        if generation == 0 || document.is_empty() || document.len() > crate::config::MAX_CONFIG {
+            return Err(Error::InvalidConfig);
+        }
+        if self.shared_generation.load(Ordering::Acquire) >= generation {
+            return Ok(());
+        }
+        if self.shared.stopped.load(Ordering::Acquire) {
+            return Err(Error::Stopped);
+        }
+        let _update = self
+            .update
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Busy)?;
+        if self.shared_generation.load(Ordering::Acquire) >= generation {
+            return Ok(());
+        }
+        let old = self.snapshot();
+        let local_accounts = self.shared.local_accounts;
+        let slot = self
+            .generations
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::Busy)?;
+        let id = old.id.checked_add(1).ok_or(Error::Stopped)?;
+        let next = tokio::task::spawn_blocking(move || {
+            let config: Config =
+                serde_json::from_str(&document).map_err(|_| Error::InvalidConfig)?;
+            config.validate(local_accounts)?;
+            Generation::build(id, config, slot)
+        })
+        .await
+        .map_err(|_| Error::InvalidConfig)??;
+        if self.shared.stopped.load(Ordering::Acquire) {
+            return Err(Error::Stopped);
+        }
+        {
+            let mut current = self
+                .shared
+                .current
+                .write()
+                .unwrap_or_else(PoisonError::into_inner);
+            self.shared.cache.clear();
+            *current = Arc::new(next);
+        }
+        self.shared_generation
+            .fetch_max(generation, Ordering::AcqRel);
+        Ok(())
     }
     pub async fn clear_cache(&self) -> CacheStatus {
         self.shared.cache.clear()

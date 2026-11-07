@@ -298,6 +298,8 @@ fn sparse_delta_merge_does_not_clone_metadata_and_gap_is_atomic() {
         clients: BTreeMap::new(),
         durable: BTreeMap::new(),
         routes: BTreeMap::new(),
+        rules_config: None,
+        access_config: None,
     };
     assert!(delta.merge_in_place(&mut observer).is_err());
     assert_eq!(serde_json::to_vec(&observer).unwrap(), before);

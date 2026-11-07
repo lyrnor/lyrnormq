@@ -5,6 +5,13 @@ use std::{fmt::Debug, future::Future, io, pin::Pin, sync::Arc};
 
 pub type ClusterFuture<'a, T> = Pin<Box<dyn Future<Output = io::Result<T>> + Send + 'a>>;
 
+/// Administrator configuration replicated through Controller Raft.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SharedConfigKind {
+    Rules,
+    Access,
+}
+
 /// Trusted authenticated cluster ingress; implementations never reflect deliveries.
 pub trait LocalBroker: Debug + Send + Sync {
     /// Install an authoritative offline partition without a synthetic CONNECT.
@@ -112,5 +119,31 @@ pub trait ClusterBridge: Debug + Send + Sync {
     fn matching_retained(&self, _filters: Vec<String>) -> ClusterFuture<'_, Vec<ClusterMessage>> {
         Box::pin(async { Ok(Vec::new()) })
     }
+    /// Commit one validated administrator config document. Returns the new generation.
+    fn put_shared_config(
+        &self,
+        _kind: SharedConfigKind,
+        _expected_generation: u64,
+        _document: String,
+    ) -> ClusterFuture<'_, u64> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster shared config unavailable",
+            ))
+        })
+    }
+    /// Latest committed generation known locally, if any document exists.
+    fn shared_config_generation(&self, _kind: SharedConfigKind) -> Option<u64> {
+        None
+    }
+    /// Install local apply hooks for committed rules/access documents.
+    fn set_shared_config_sink(&self, _sink: Arc<dyn SharedConfigSink>) {}
     fn shutdown(&self) -> ClusterFuture<'_, ()>;
+}
+
+/// Broker-side application of a committed shared configuration document.
+pub trait SharedConfigSink: Debug + Send + Sync {
+    fn apply_rules(&self, generation: u64, document: String) -> ClusterFuture<'_, ()>;
+    fn apply_access(&self, generation: u64, document: String) -> ClusterFuture<'_, ()>;
 }

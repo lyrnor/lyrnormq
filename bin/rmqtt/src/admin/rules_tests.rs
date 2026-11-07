@@ -7,6 +7,7 @@ fn state() -> State {
         handle: ManagementHandle::new(),
         rules: None,
         access_control: None,
+        cluster: None,
         token: vec![b'x'; 32],
         assets: super::super::assets::Assets::new(),
         instance: json!({}),

@@ -85,6 +85,8 @@ mirror in replicated mode. A fresh boot is a new replica identity; catch up in t
 same running process before voting. Whole-group RAM loss cannot recover from
 control metadata. Opt-in RocksDB data replicas follow
 `docs/contracts/phase7z-rocksdb-replicas.md`; memory remains the default.
+Cluster-shared rules and access configuration follow
+`docs/contracts/phase7aa-cluster-shared-config.md`; standalone keeps local SQLite.
 
 Event-driven replicated forwarding additionally follows
 `docs/contracts/phase7g-event-forwarding.md`. Actor commits notify bounded keyed

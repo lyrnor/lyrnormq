@@ -76,6 +76,7 @@ fn state(runtime: Arc<mqtt_auth_http::Runtime>) -> State {
         handle: ManagementHandle::new(),
         rules: None,
         access_control: Some(runtime),
+        cluster: None,
         token: vec![b'x'; 32],
         assets: super::super::assets::Assets::new(),
         instance: json!({}),

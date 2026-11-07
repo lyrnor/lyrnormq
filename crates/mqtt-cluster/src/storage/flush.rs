@@ -118,6 +118,8 @@ impl FlushState {
             dirty.metadata.excluded = state.metadata.excluded.clone();
             dirty.metadata.repair = state.metadata.repair.clone();
             dirty.metadata.last_repair = state.metadata.last_repair.clone();
+            dirty.metadata.rules_config = state.metadata.rules_config.clone();
+            dirty.metadata.access_config = state.metadata.access_config.clone();
             match update {
                 Some(MetadataUpdate::Delta {
                     nodes,

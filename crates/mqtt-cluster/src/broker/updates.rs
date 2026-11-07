@@ -118,7 +118,14 @@ impl BrokerRuntime {
             local.fence_all().await?;
             self.initialized.store(false, Ordering::Release);
         }
-        {
+        let previous_configs = {
+            let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+            (
+                metadata.rules_config.clone(),
+                metadata.access_config.clone(),
+            )
+        };
+        let next_configs = {
             let mut metadata = self
                 .metadata
                 .write()
@@ -133,7 +140,13 @@ impl BrokerRuntime {
             for key in &effects.owners {
                 recipients.replace(key, metadata.durable.get(key));
             }
-        }
+            (
+                metadata.rules_config.clone(),
+                metadata.access_config.clone(),
+            )
+        };
+        self.publish_shared_config_pair(previous_configs, next_configs)
+            .await?;
         self.reconcile_repair().await?;
         self.initialized.store(true, Ordering::Release);
         self.announce_applied();

@@ -193,6 +193,30 @@ pub(super) async fn dispatch(state: &State, request: Request) -> Response {
             Ok(config) => config,
             Err(_) => return malformed(),
         };
+        if let Some(cluster) = &state.cluster {
+            let document = match runtime.prepare_shared(config).await {
+                Ok(document) => document,
+                Err(cause) => return failure(cause),
+            };
+            let expected = runtime.shared_generation();
+            return match cluster
+                .put_shared_config(mqtt_cluster::SharedConfigKind::Access, expected, document)
+                .await
+            {
+                Ok(_) => Json(runtime.configuration().await).into_response(),
+                Err(cause)
+                    if cause.kind() == std::io::ErrorKind::InvalidInput
+                        || cause.to_string().contains("stale cluster configuration") =>
+                {
+                    error(
+                        StatusCode::CONFLICT,
+                        "access_busy",
+                        "Configuration generation conflict; reload and retry",
+                    )
+                }
+                Err(_) => failure(mqtt_auth_http::Error::Storage),
+            };
+        }
         return match runtime.replace(config).await {
             Ok(config) => Json(config).into_response(),
             Err(cause) => failure(cause),

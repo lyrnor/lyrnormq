@@ -106,6 +106,8 @@ impl Metadata {
                         (key, value)
                     })
                     .collect(),
+                rules_config: self.rules_config.clone(),
+                access_config: self.access_config.clone(),
             })
         } else {
             None

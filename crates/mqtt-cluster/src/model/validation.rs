@@ -92,6 +92,9 @@ pub(crate) fn valid_command(command: &Command) -> bool {
                     .iter()
                     .all(|f| mqtt_router::validate_subscription_filter(f))
         }
+        Command::PutClusterConfig { document, .. } => {
+            !document.is_empty() && document.len() <= 64 * 1024 && !document.contains('\0')
+        }
     }
 }
 

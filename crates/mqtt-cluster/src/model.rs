@@ -93,6 +93,26 @@ impl DataMode {
 fn legacy_mode() -> Option<DataMode> {
     Some(DataMode::Legacy)
 }
+/// Validated administrator JSON document replicated beside directory metadata.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClusterConfigDoc {
+    pub generation: u64,
+    pub document: String,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClusterConfigKind {
+    Rules,
+    Access,
+}
+impl From<mqtt_cluster_core::SharedConfigKind> for ClusterConfigKind {
+    fn from(value: mqtt_cluster_core::SharedConfigKind) -> Self {
+        match value {
+            mqtt_cluster_core::SharedConfigKind::Rules => Self::Rules,
+            mqtt_cluster_core::SharedConfigKind::Access => Self::Access,
+        }
+    }
+}
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Metadata {
     #[serde(skip)]
@@ -115,6 +135,10 @@ pub struct Metadata {
     pub routes: BTreeMap<String, BTreeSet<u64>>,
     #[serde(default)]
     pub durable: BTreeMap<String, DurableOwner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rules_config: Option<ClusterConfigDoc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_config: Option<ClusterConfigDoc>,
 }
 #[cfg(test)]
 thread_local! { static METADATA_CLONES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
@@ -135,6 +159,8 @@ impl Clone for Metadata {
             clients: self.clients.clone(),
             routes: self.routes.clone(),
             durable: self.durable.clone(),
+            rules_config: self.rules_config.clone(),
+            access_config: self.access_config.clone(),
         }
     }
 }
@@ -236,6 +262,13 @@ pub enum Command {
         incarnation: String,
         expires_at: u64,
     },
+    /// Replaces one administrator configuration document. Older controllers that
+    /// cannot decode this variant must be upgraded before any broker writes it.
+    PutClusterConfig {
+        kind: ClusterConfigKind,
+        expected_generation: u64,
+        document: String,
+    },
 }
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -309,6 +342,30 @@ impl Metadata {
         }
         match command {
             Command::Batch { .. } => return Err("nested metadata batch".into()),
+            Command::PutClusterConfig {
+                kind,
+                expected_generation,
+                document,
+            } => {
+                if document.is_empty() || document.len() > 64 * 1024 || document.contains('\0') {
+                    return Err("invalid cluster configuration document".into());
+                }
+                let slot = match kind {
+                    ClusterConfigKind::Rules => &mut self.rules_config,
+                    ClusterConfigKind::Access => &mut self.access_config,
+                };
+                let current = slot.as_ref().map_or(0, |doc| doc.generation);
+                if current != expected_generation {
+                    return Err("stale cluster configuration generation".into());
+                }
+                let generation = expected_generation
+                    .checked_add(1)
+                    .ok_or("cluster configuration generation exhausted")?;
+                *slot = Some(ClusterConfigDoc {
+                    generation,
+                    document,
+                });
+            }
             Command::RepairBegin {
                 target,
                 old_disk,
@@ -696,6 +753,10 @@ pub enum MetadataUpdate {
         clients: BTreeMap<String, Option<Client>>,
         durable: BTreeMap<String, Option<DurableOwner>>,
         routes: BTreeMap<String, Option<BTreeSet<u64>>>,
+        #[serde(default)]
+        rules_config: Option<ClusterConfigDoc>,
+        #[serde(default)]
+        access_config: Option<ClusterConfigDoc>,
     },
 }
 fn diff<K: Ord + Clone, V: Clone + PartialEq>(
@@ -745,6 +806,8 @@ impl MetadataUpdate {
                 clients,
                 durable,
                 routes,
+                rules_config,
+                access_config,
             } => {
                 if base != target.revision || revision <= base {
                     return Err("metadata revision gap");
@@ -759,6 +822,8 @@ impl MetadataUpdate {
                 patch(&mut target.clients, clients);
                 patch(&mut target.durable, durable);
                 patch(&mut target.routes, routes);
+                target.rules_config = rules_config;
+                target.access_config = access_config;
                 target.revision = revision;
                 target.derived = incremental::Derived::default();
             }
@@ -779,6 +844,8 @@ impl MetadataUpdate {
             clients: diff(&old.clients, &next.clients),
             durable: diff(&old.durable, &next.durable),
             routes: diff(&old.routes, &next.routes),
+            rules_config: next.rules_config.clone(),
+            access_config: next.access_config.clone(),
         }
     }
     #[allow(dead_code)] // Immutable compatibility API; normal watchers patch in place.

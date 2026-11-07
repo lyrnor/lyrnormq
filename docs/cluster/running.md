@@ -28,8 +28,11 @@ on `host:broker_port`. The smallest id creates the Raft group only when it is
 not already initialized. The lease is 3000 ms. Every member is both a
 controller and a memory replica. The member count must be 3, 5, or 7, the odd
 sizes etcd documents up to its practical maximum of seven voting members. Data for the two roles is
-`data_dir/controller` and `data_dir/broker`. Rules, access control, and the
-outbound queue are `data_dir/rules.sqlite`, `data_dir/access.sqlite`, and
+`data_dir/controller` and `data_dir/broker`. In cluster mode, rules and access
+configuration are one Controller Raft document each; Dashboard PUT on any broker
+replicates to every broker. Local `data_dir/rules.sqlite` and
+`data_dir/access.sqlite` remain for standalone brokers and are not the cluster
+source of truth. The outbound queue directory is still per-node under
 `data_dir/egress`. Standalone sessions are `data_dir/sessions.sqlite`. Cluster
 mode does not keep a session SQLite mirror.
 

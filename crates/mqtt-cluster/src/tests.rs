@@ -549,3 +549,36 @@ fn memory_repair_requires_two_original_boots_before_install_proofs_can_replace_a
     assert_eq!(memory.disk_ids[&3], new);
     assert!(!memory.excluded.contains(&3));
 }
+
+#[test]
+fn put_cluster_config_cas_and_persists_in_delta() {
+    use crate::model::{ClusterConfigKind, Command, Metadata, MetadataUpdate};
+    let mut metadata = Metadata::default();
+    let (_, delta) = metadata.apply_tracked(Command::PutClusterConfig {
+        kind: ClusterConfigKind::Rules,
+        expected_generation: 0,
+        document: r#"{"schema_version":2,"outbounds":[],"rules":[]}"#.into(),
+    });
+    assert_eq!(metadata.rules_config.as_ref().unwrap().generation, 1);
+    let update = delta.expect("delta");
+    let mut follower = Metadata::default();
+    update.merge_in_place(&mut follower).unwrap();
+    assert_eq!(follower.rules_config, metadata.rules_config);
+    let err = metadata
+        .apply_tracked(Command::PutClusterConfig {
+            kind: ClusterConfigKind::Rules,
+            expected_generation: 0,
+            document: r#"{"schema_version":2,"outbounds":[],"rules":[]}"#.into(),
+        })
+        .0
+        .error
+        .unwrap();
+    assert!(err.contains("stale"));
+    assert!(matches!(
+        MetadataUpdate::between(&Metadata::default(), &metadata),
+        MetadataUpdate::Delta {
+            rules_config: Some(_),
+            ..
+        }
+    ));
+}

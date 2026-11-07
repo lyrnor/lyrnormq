@@ -8,9 +8,37 @@ mod logging;
 mod settings;
 mod tls_identity;
 
+use mqtt_cluster::{ClusterBridge, ClusterFuture, SharedConfigSink};
 use mqtt_transport::{export_state, serve, serve_tls, serve_ws, serve_wss};
-use std::{error::Error, io::Write};
+use std::{error::Error, io::Write, sync::Arc};
 use tokio::{net::TcpListener, sync::watch};
+
+#[derive(Debug)]
+struct SharedConfigs {
+    rules: Option<Arc<mqtt_egress::Runtime>>,
+    access: Arc<mqtt_auth_http::Runtime>,
+}
+impl SharedConfigSink for SharedConfigs {
+    fn apply_rules(&self, generation: u64, document: String) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            let Some(rules) = &self.rules else {
+                return Ok(());
+            };
+            rules
+                .apply_shared(generation, document)
+                .await
+                .map_err(std::io::Error::other)
+        })
+    }
+    fn apply_access(&self, generation: u64, document: String) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            self.access
+                .apply_shared(generation, document)
+                .await
+                .map_err(std::io::Error::other)
+        })
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     // The writer guard outlives the runtime; flushing never blocks a Tokio worker.
@@ -281,6 +309,17 @@ async fn run_services(
     } else {
         None
     };
+    if let Some(cluster) = &cluster_runtime {
+        cluster.set_shared_config_sink(std::sync::Arc::new(SharedConfigs {
+            rules: rules.clone(),
+            access: access.clone(),
+        }));
+        if let Some((_, state)) = &mut admin {
+            let state = std::sync::Arc::get_mut(state)
+                .ok_or("management state unexpectedly shared during startup")?;
+            state.cluster = Some(cluster.clone());
+        }
+    }
     let transport = match (options.websocket, tls.is_some()) {
         (false, false) => "TCP",
         (false, true) => "TLS",

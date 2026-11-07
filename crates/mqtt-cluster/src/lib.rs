@@ -14,6 +14,9 @@ pub use broker::{BrokerRuntime, serve_broker};
 pub use config::{Config, Controller, DataBackend, DurableConfig, Role, TlsConfig, voting_members};
 pub use controller::{run_controller, status};
 pub use model::ClusterStatus;
+pub use mqtt_cluster_core::{
+    ClusterBridge, ClusterFuture, LocalBroker, SharedConfigKind, SharedConfigSink,
+};
 
 #[cfg(test)]
 mod tests;

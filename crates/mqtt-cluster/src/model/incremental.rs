@@ -25,6 +25,8 @@ struct Scalars<'a> {
     clients: BTreeMap<String, Client>,
     routes: BTreeMap<String, BTreeSet<u64>>,
     durable: BTreeMap<String, DurableOwner>,
+    rules_config: &'a Option<ClusterConfigDoc>,
+    access_config: &'a Option<ClusterConfigDoc>,
 }
 fn length(value: &impl Serialize) -> Result<usize, String> {
     serde_json::to_vec(value)
@@ -44,6 +46,8 @@ fn scalar_length(m: &Metadata) -> Result<usize, String> {
         clients: BTreeMap::new(),
         routes: BTreeMap::new(),
         durable: BTreeMap::new(),
+        rules_config: &m.rules_config,
+        access_config: &m.access_config,
     })
 }
 fn entry_length<K: Serialize + Ord, V: Serialize>(key: &K, value: &V) -> Result<usize, String> {
@@ -331,8 +335,9 @@ impl Metadata {
                 | Command::RepairSeal { .. }
                 | Command::RepairCommit { .. }
                 | Command::RepairAbort { .. }
+                | Command::PutClusterConfig { .. }
         ) {
-            // Maintenance changes global authority; retain bounded full validation there.
+            // Maintenance and rare admin config changes use a full clone boundary.
             return self.apply_maintenance(command);
         }
         let heartbeat_node = match &command {
@@ -416,6 +421,8 @@ impl Metadata {
             clients: changed(&undo.clients, &self.clients),
             durable: changed(&undo.durable, &self.durable),
             routes: changed(&undo.routes, &self.routes),
+            rules_config: self.rules_config.clone(),
+            access_config: self.access_config.clone(),
         });
         if delta.is_some() {
             self.derived.pending_nodes.clear();

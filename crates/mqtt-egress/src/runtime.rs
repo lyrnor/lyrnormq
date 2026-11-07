@@ -52,6 +52,8 @@ pub(crate) struct Inner {
     pub stopped: Arc<AtomicBool>,
     pub queue: Arc<Queue>,
     sequence: AtomicU64,
+    /// Latest cluster-committed generation applied here; zero means none yet.
+    shared_generation: AtomicU64,
     prefix: String,
     mutation: Arc<Semaphore>,
     tests: Arc<Semaphore>,
@@ -300,6 +302,7 @@ impl Runtime {
             stopped,
             queue,
             sequence: AtomicU64::new(1),
+            shared_generation: AtomicU64::new(0),
             prefix,
             mutation: Arc::new(Semaphore::new(1)),
             tests: Arc::new(Semaphore::new(3)),
@@ -385,6 +388,120 @@ impl Runtime {
     }
     pub async fn replace(&self, config: Config) -> Result<PublicConfig, RuntimeError> {
         self.replace_using(config, persistence::write).await
+    }
+    pub fn shared_generation(&self) -> u64 {
+        self.inner.shared_generation.load(Ordering::Acquire)
+    }
+    /// Restore secrets, validate, and return the opaque document for Raft commit.
+    pub async fn prepare_shared(&self, mut config: Config) -> Result<String, RuntimeError> {
+        if self.inner.stopped.load(Ordering::Acquire) {
+            return Err(RuntimeError::Stopped);
+        }
+        let _permit = Arc::clone(&self.inner.mutation)
+            .try_acquire_owned()
+            .map_err(|_| RuntimeError::Busy)?;
+        let previous = self
+            .inner
+            .snapshot
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .config
+            .clone();
+        config.restore_redacted(&previous)?;
+        let validated = tokio::task::spawn_blocking(move || config.validate())
+            .await
+            .map_err(|_| RuntimeError::Storage)??;
+        let bindings = durable::bindings(&validated.config)?;
+        match self.inner.queue.bind(bindings).await {
+            Ok(_) => {}
+            Err(mqtt_egress_log::QueueError::BindingConflict) => return Err(RuntimeError::Busy),
+            Err(_) => {
+                stop_after_storage_error(&self.inner).await;
+                return Err(RuntimeError::Storage);
+            }
+        }
+        serde_json::to_string(&validated.config).map_err(|_| RuntimeError::InvalidConfig)
+    }
+    /// Apply a committed cluster document. Older or equal generations are ignored.
+    pub async fn apply_shared(
+        &self,
+        generation: u64,
+        document: String,
+    ) -> Result<(), RuntimeError> {
+        if generation == 0 || document.is_empty() || document.len() > MAX_CONFIG {
+            return Err(RuntimeError::InvalidConfig);
+        }
+        if self.inner.shared_generation.load(Ordering::Acquire) >= generation {
+            return Ok(());
+        }
+        if self.inner.stopped.load(Ordering::Acquire) {
+            return Err(RuntimeError::Stopped);
+        }
+        let permit = Arc::clone(&self.inner.mutation)
+            .try_acquire_owned()
+            .map_err(|_| RuntimeError::Busy)?;
+        let inner = Arc::clone(&self.inner);
+        tokio::spawn(async move {
+            let _permit = permit;
+            if inner.shared_generation.load(Ordering::Acquire) >= generation {
+                return Ok(());
+            }
+            if inner.stopped.load(Ordering::Acquire) {
+                return Err(RuntimeError::Stopped);
+            }
+            let config: Config =
+                serde_json::from_str(&document).map_err(|_| RuntimeError::InvalidConfig)?;
+            let validated = tokio::task::spawn_blocking(move || config.validate())
+                .await
+                .map_err(|_| RuntimeError::Storage)??;
+            let bindings = durable::bindings(&validated.config)?;
+            let revisions = match inner.queue.bind(bindings).await {
+                Ok(revisions) => revisions,
+                Err(mqtt_egress_log::QueueError::BindingConflict) => {
+                    return Err(RuntimeError::Busy);
+                }
+                Err(_) => {
+                    stop_after_storage_error(&inner).await;
+                    return Err(RuntimeError::Storage);
+                }
+            };
+            if inner.stopped.load(Ordering::Acquire) {
+                return Err(RuntimeError::Stopped);
+            }
+            let previous = Arc::clone(
+                &inner
+                    .snapshot
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner),
+            );
+            if previous.generation.finish().await.is_err() {
+                inner.stopped.store(true, Ordering::Release);
+                return Err(RuntimeError::Stopped);
+            }
+            let context = Arc::new(durable_worker::Context {
+                codec: crate::result_wire::Codec::Rule,
+                queue: Arc::clone(&inner.queue),
+                global: Arc::clone(&inner.outbound),
+                counters: Arc::clone(&inner.counters),
+                stopped: Arc::clone(&inner.stopped),
+            });
+            let next = build_snapshot(
+                validated,
+                context,
+                Arc::clone(&inner.kafka_outbound),
+                &revisions,
+            );
+            *inner
+                .snapshot
+                .write()
+                .unwrap_or_else(PoisonError::into_inner) = next;
+            inner
+                .shared_generation
+                .fetch_max(generation, Ordering::AcqRel);
+            Ok(())
+        })
+        .await
+        .map_err(|_| RuntimeError::Storage)?
     }
     #[cfg(test)]
     pub(crate) async fn replace_test_write(
