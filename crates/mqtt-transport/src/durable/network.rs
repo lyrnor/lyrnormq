@@ -337,8 +337,10 @@ pub(super) fn connack(
             Property::SharedSubscriptionAvailable(u8::from(config.cluster.is_none())),
             Property::SubscriptionIdentifierAvailable(1),
         ];
-        if config.cluster.is_some() {
-            frame.properties.push(Property::RetainAvailable(0));
+        if let Some(cluster) = &config.cluster {
+            frame
+                .properties
+                .push(Property::RetainAvailable(u8::from(cluster.durable())));
         }
     }
     frame

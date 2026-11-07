@@ -35,6 +35,10 @@ pub trait LocalBroker: Debug + Send + Sync {
     fn fence(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()>;
     fn fence_all(&self) -> ClusterFuture<'_, ()>;
     fn subscriptions(&self) -> ClusterFuture<'_, Vec<ClientSubscriptions>>;
+    /// Apply or clear one retained topic on this Broker's local store.
+    fn apply_retained(&self, _message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        Box::pin(async { Ok(()) })
+    }
 }
 /// Runtime-neutral metadata and forwarding bridge. Every awaited operation must
 /// have a finite deadline; forwarding/mutation admission must be bounded.
@@ -99,6 +103,14 @@ pub trait ClusterBridge: Debug + Send + Sync {
     /// Best-effort ordinary delivery. Replicated mode must not admit this into an outbox.
     fn forward_ephemeral(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
         self.forward(message)
+    }
+    /// Quorum-write one retained topic (`r:{topic}`). Empty/expired payload clears it.
+    fn commit_retained(&self, _message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        Box::pin(async { Ok(()) })
+    }
+    /// Replica retained records matching ordinary (non-shared) filters.
+    fn matching_retained(&self, _filters: Vec<String>) -> ClusterFuture<'_, Vec<ClusterMessage>> {
+        Box::pin(async { Ok(Vec::new()) })
     }
     fn shutdown(&self) -> ClusterFuture<'_, ()>;
 }

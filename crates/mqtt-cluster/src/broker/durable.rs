@@ -6,6 +6,7 @@ use crate::replica::{Intent, Journal, Recipient, Record, Request};
 use mqtt_cluster_core::{DeliveryId, SessionCommit, SessionLease, SessionMutation};
 use tokio::sync::{mpsc, oneshot};
 mod diagnostics;
+mod retain;
 mod scheduler;
 use diagnostics::{Stage, measure};
 
@@ -102,6 +103,10 @@ enum Operation {
     },
     Complete {
         completed: Vec<(DeliveryId, String)>,
+        reply: oneshot::Sender<io::Result<()>>,
+    },
+    Retain {
+        message: ClusterMessage,
         reply: oneshot::Sender<io::Result<()>>,
     },
 }
@@ -613,6 +618,10 @@ impl Durable {
             Operation::Complete { completed, reply } => {
                 let _ = reply.send(self.complete(runtime, key, &completed, cell).await);
             }
+            Operation::Retain { message, reply } => {
+                let result = self.put_retain(runtime, key, message, cell).await;
+                self.respond(key, cell, reply, result);
+            }
         }
     }
     async fn send(self: &Arc<Self>, key: &str, operation: Operation) -> io::Result<()> {
@@ -994,8 +1003,7 @@ impl Durable {
         runtime.durable_recipients(&message.topic)
     }
     fn message_rejected(message: &ClusterMessage) -> bool {
-        message.retain
-            || message.qos > 2
+        message.qos > 2
             || message.scope != ForwardScope::Ordinary
             || message.payload.len() > MAX_PAYLOAD
     }
@@ -1586,6 +1594,9 @@ impl Durable {
         }
     }
     fn changed(&self, key: &str, cell: &Cell) {
+        if key.starts_with("r:") {
+            return;
+        }
         if cell.poisoned
             || cell.activate
             || cell.record.as_ref().is_some_and(|r| !r.intents.is_empty())
@@ -1628,6 +1639,9 @@ impl Durable {
                 || old.last_repair != next.last_repair
         });
         for (key, owner) in &next.durable {
+            if key.starts_with("r:") {
+                continue;
+            }
             let ours =
                 owner.node == runtime.config.node_id && owner.incarnation == runtime.incarnation;
             let live = next
@@ -1651,6 +1665,9 @@ impl Durable {
             .read()
             .unwrap_or_else(PoisonError::into_inner);
         for key in keys {
+            if key.starts_with("r:") {
+                continue;
+            }
             if let Some(owner) = metadata.durable.get(key) {
                 let ours = owner.node == runtime.config.node_id
                     && owner.incarnation == runtime.incarnation;

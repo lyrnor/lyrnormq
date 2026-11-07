@@ -32,7 +32,7 @@ pub(crate) fn valid_command(command: &Command) -> bool {
         } => {
             *node > 0
                 && text(key, 65538)
-                && (key.starts_with("c:") || key.starts_with("h:"))
+                && (key.starts_with("c:") || key.starts_with("h:") || key.starts_with("r:"))
                 && text(incarnation, 64)
         }
         Command::DurableFilters {

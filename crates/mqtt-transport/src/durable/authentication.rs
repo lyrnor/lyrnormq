@@ -536,8 +536,8 @@ impl Worker {
     }
 }
 
-/// Durable replicas admit non-retain Wills. Legacy cluster still refuses Will and
-/// persistent sessions. Will-Retain waits for the retained-message gate.
+/// Durable replicas admit Wills, including Will-Retain. Legacy cluster still
+/// refuses Will and persistent sessions.
 fn cluster_connect_refusal(broker: &super::Broker, request: &ConnectRequest) -> Option<ReasonCode> {
     broker.config.cluster.as_ref()?;
     let mqtt311 = request.options.version == ProtocolVersion::V311;
@@ -548,15 +548,15 @@ fn cluster_connect_refusal(broker: &super::Broker, request: &ConnectRequest) -> 
             ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR
         })
     };
+    if broker.durable_cluster() {
+        return None;
+    }
     if request.will.as_ref().is_some_and(|will| will.retain) {
         return if mqtt311 {
             Some(ReasonCode::SERVER_UNAVAILABLE)
         } else {
             Some(ReasonCode::RETAIN_NOT_SUPPORTED)
         };
-    }
-    if broker.durable_cluster() {
-        return None;
     }
     let persistent = (mqtt311 && !request.clean) || request.options.session_expiry_interval != 0;
     if request.will.is_some() || persistent {

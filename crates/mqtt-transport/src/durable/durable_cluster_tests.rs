@@ -36,6 +36,7 @@ pub(super) struct Bridge {
     acquire_errors: AtomicUsize,
     acquire_conflict: AtomicBool,
     host: AtomicUsize,
+    retained: Mutex<BTreeMap<String, ClusterMessage>>,
 }
 impl std::fmt::Debug for Bridge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -189,6 +190,31 @@ impl ClusterBridge for Bridge {
         Box::pin(async move {
             self.host.fetch_add(1, Ordering::AcqRel);
             Ok(())
+        })
+    }
+    fn commit_retained(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            let mut retained = self.retained.lock().unwrap();
+            if message.payload.is_empty() {
+                retained.remove(&message.topic);
+            } else {
+                retained.insert(message.topic.clone(), message);
+            }
+            Ok(())
+        })
+    }
+    fn matching_retained(&self, filters: Vec<String>) -> ClusterFuture<'_, Vec<ClusterMessage>> {
+        Box::pin(async move {
+            let retained = self.retained.lock().unwrap();
+            Ok(retained
+                .values()
+                .filter(|message| {
+                    filters
+                        .iter()
+                        .any(|filter| mqtt_router::matches(filter, &message.topic))
+                })
+                .cloned()
+                .collect())
         })
     }
     fn shutdown(&self) -> ClusterFuture<'_, ()> {
@@ -897,7 +923,7 @@ fn will_payloads(bridge: &Bridge) -> Vec<Vec<u8>> {
 }
 
 #[tokio::test]
-async fn durable_cluster_admits_will_and_refuses_will_retain() {
+async fn durable_cluster_admits_will_and_will_retain() {
     let bridge = Arc::new(Bridge::default());
     let (worker, task) = tests::worker(config(bridge)).await;
     assert!(matches!(
@@ -936,8 +962,64 @@ async fn durable_cluster_admits_will_and_refuses_will_retain() {
             })
             .await
             .unwrap(),
-        Reply::FrameRejected(ReasonCode::RETAIN_NOT_SUPPORTED)
+        Reply::Connected(false)
     ));
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn durable_cluster_connack_advertises_retain_not_shared() {
+    let frame = super::network::connack(
+        ProtocolVersion::V5,
+        false,
+        0,
+        &config(Arc::new(Bridge::default())),
+    );
+    assert!(frame.properties.contains(&Property::RetainAvailable(1)));
+    assert!(
+        frame
+            .properties
+            .contains(&Property::SharedSubscriptionAvailable(0))
+    );
+}
+
+#[tokio::test]
+async fn durable_cluster_retain_publish_commits_replica_and_replays_on_subscribe() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge.clone())).await;
+    tests::connect(&worker, "publisher", 1, true).await;
+    let mut retained = tests::publication(b"kept", 7);
+    if let Packet::Publish { retain, .. } = &mut retained {
+        *retain = true;
+    }
+    assert_eq!(
+        tests::handle(&worker, "publisher", 1, retained)
+            .await
+            .unwrap(),
+        vec![Packet::PubAck { packet_id: 7 }]
+    );
+    assert_eq!(
+        bridge.retained.lock().unwrap().get("a").unwrap().payload,
+        b"kept"
+    );
+    tests::connect(&worker, "subscriber", 2, true).await;
+    tests::subscribe(&worker, "subscriber", 2).await;
+    assert!(matches!(
+        tests::poll(&worker, "subscriber", 2).await,
+        Some(Packet::Publish { payload, retain: true, .. }) if payload == b"kept"
+    ));
+    let mut clear = tests::publication(b"", 8);
+    if let Packet::Publish { retain, .. } = &mut clear {
+        *retain = true;
+    }
+    assert_eq!(
+        tests::handle(&worker, "publisher", 1, clear).await.unwrap(),
+        vec![Packet::PubAck { packet_id: 8 }]
+    );
+    assert!(bridge.retained.lock().unwrap().get("a").is_none());
+    tests::connect(&worker, "later", 3, true).await;
+    tests::subscribe(&worker, "later", 3).await;
+    assert!(tests::poll(&worker, "later", 3).await.is_none());
     tests::stop(worker, task).await;
 }
 

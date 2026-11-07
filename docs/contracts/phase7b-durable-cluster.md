@@ -5,8 +5,9 @@
 
 Frozen 2026-11-03, supersedes phase7a refusal of persistent sessions only when
 explicit durable cluster mode is enabled. Standalone and phase7a default behavior
-remain unchanged. Shared subscriptions, retained PUBLISH and Will-Retain remain
-outside this gate. Durable non-retain Will is [Phase7w](phase7w-cluster-will.md).
+remain unchanged. Shared subscriptions remain outside this gate. Durable
+non-retain Will is [Phase7w](phase7w-cluster-will.md). Retained PUBLISH and
+Will-Retain are [Phase7x](phase7x-cluster-retained.md).
 No Controller stores message bodies, session snapshots, inboxes or outboxes.
 
 ## Placement, authority and safety

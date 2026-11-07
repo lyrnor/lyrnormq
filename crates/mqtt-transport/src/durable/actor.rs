@@ -313,7 +313,9 @@ fn apply(
         } => {
             valid_generation(online, &client, generation)?;
             if config.cluster.is_some() {
-                if matches!(&frame.packet, Packet::Publish { retain: true, .. }) {
+                if matches!(&frame.packet, Packet::Publish { retain: true, .. })
+                    && !broker.durable_cluster()
+                {
                     return Err(failure(
                         ReasonCode::RETAIN_NOT_SUPPORTED,
                         "retained publishing is not supported in initial cluster gate",
@@ -773,9 +775,16 @@ impl Actor {
             _ => None,
         };
         let staged = match &request {
-            Request::Handle { frame, .. } => {
-                subscribe_filters(frame).map(|filters| self.broker.retained_for(filters))
-            }
+            Request::Handle { frame, .. } => match subscribe_filters(frame) {
+                Some(filters) => match self.broker.retained_matching(filters).await {
+                    Ok(entries) => Some(entries),
+                    Err(error) => {
+                        let _ = reply.send(Err(error));
+                        return;
+                    }
+                },
+                None => None,
+            },
             _ => None,
         };
         let max_preparations = match &request {
@@ -1345,6 +1354,14 @@ impl Actor {
             let bytes = proposal.live_state_bytes();
             self.broker.account(self.accounted, bytes)?;
             if self.broker.durable_cluster() && !effects.volatile {
+                if let Err(error) = self
+                    .broker
+                    .commit_cluster_retained(&effects.publications)
+                    .await
+                {
+                    let _ = self.broker.account(bytes, self.accounted);
+                    return Err(error);
+                }
                 let result = self.commit_cluster(&proposal, &mut effects).await;
                 match result {
                     Ok(true) => {

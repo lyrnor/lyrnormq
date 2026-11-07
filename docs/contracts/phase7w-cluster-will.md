@@ -2,8 +2,9 @@
 
 Supersedes Phase7a/7b/7f refusal of **non-retain** Wills on durable (Phase7f RAM
 W2) replicas only. Legacy non-durable cluster still refuses Will and persistent
-sessions. Will-Retain, retained PUBLISH, and shared subscriptions remain refused
-until their own gates. Do not claim full cluster MQTT compatibility.
+sessions. Will-Retain and retained PUBLISH are [Phase7x](phase7x-cluster-retained.md).
+Shared subscriptions remain refused until their own gate. Do not claim full cluster
+MQTT compatibility.
 
 Standalone Will, delay, takeover and graceful-cancel semantics are unchanged.
 
@@ -11,15 +12,15 @@ Standalone Will, delay, takeover and graceful-cancel semantics are unchanged.
 
 Durable cluster admits CONNECT with a Will when `retain=false`. MQTT 5 CONNACK
 has no Will-available property; success is CONNACK 0x00. Will-Retain CONNECT is
-refused: MQTT 5 CONNACK `0x9A` Retain not supported, MQTT 3.1.1 CONNACK `3`.
-Legacy (non-durable) cluster CONNECT with any Will remains MQTT 5 `0x83` /
-MQTT 3.1.1 `3`.
+admitted by [Phase7x](phase7x-cluster-retained.md). Legacy (non-durable) cluster
+CONNECT with any Will remains MQTT 5 `0x83` / MQTT 3.1.1 `3`.
 
 A Will is one ordinary publication: persist the SessionEngine snapshot (active
 or pending record) in the existing durable session mutation, then fire at most
 once through the existing ordinary `ClusterMessage` path. No Controller body
-storage, no new replica record type, no Will-Retain, no shared-subscription
-delivery.
+storage and no new replica record type. Will-Retain additionally writes the
+Phase7x retain record after this fire-once publication. Shared-subscription
+delivery remains deferred.
 
 Delay, MQTT 5 DISCONNECT `0x00` cancel, DISCONNECT `0x04` fire, delay `0`
 immediate fire, session-expiry cap, same-session resume cancel, and clean-start
@@ -47,5 +48,5 @@ crashed replica is a new identity.
 Coordinator owns this contract and docs pointers. Transport owns CONNECT
 admission and replica-activation recovery in `mqtt-transport`. Session engine
 and durable frames stay in `mqtt-session`. Cluster runtime keeps rejecting
-`retain` and non-ordinary `ForwardScope`. Quality owns wire tests. Retained and
-shared remain follow-up gates.
+non-ordinary `ForwardScope`. Quality owns wire tests. Shared remains a follow-up
+gate. Retained and Will-Retain are Phase7x.

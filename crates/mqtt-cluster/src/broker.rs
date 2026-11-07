@@ -689,7 +689,6 @@ impl BrokerRuntime {
         }
         if forward.message.payload.len() > 1024 * 1024
             || forward.message.qos > 2
-            || forward.message.retain
             || forward.message.scope != ForwardScope::Ordinary
             || !mqtt_router::validate_topic_filter(&forward.message.topic)
             || forward.message.topic.contains(['+', '#'])
@@ -1025,6 +1024,24 @@ impl ClusterBridge for BrokerRuntime {
                 return data.enqueue(message).await;
             }
             self.forward_remote(message).await
+        })
+    }
+    fn commit_retained(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            self.data
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .commit_retained(message)
+                .await
+        })
+    }
+    fn matching_retained(&self, filters: Vec<String>) -> ClusterFuture<'_, Vec<ClusterMessage>> {
+        Box::pin(async move {
+            self.data
+                .as_ref()
+                .ok_or_else(unavailable)?
+                .matching_retained(filters)
+                .await
         })
     }
     fn forward_ephemeral(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {

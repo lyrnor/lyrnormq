@@ -153,6 +153,12 @@ binary; verify actual three-member Raft and live300s hold, archive partial failu
 restore loadhost ephemeral ports and stop only identity-checked test processes.
 
 Durable-cluster non-retain Will follows `docs/contracts/phase7w-cluster-will.md`.
-Reuse SessionEngine delay/cancel/takeover and ordinary cluster forwarding. Will-Retain,
-retained PUBLISH and shared subscriptions stay refused. Replica activation without
-CONNECT recovers crash Wills once; CONNECT takeover must not publish a cancelled delay.
+Reuse SessionEngine delay/cancel/takeover and ordinary cluster forwarding. Replica
+activation without CONNECT recovers crash Wills once; CONNECT takeover must not
+publish a cancelled delay.
+
+Durable-cluster Retained follows `docs/contracts/phase7x-cluster-retained.md`.
+Each topic is one `r:{topic}` replica record; SUBSCRIBE replays from those
+records. Will-Retain reuses Phase7w fire-once then the retain record. Shared
+subscriptions stay refused. Whole-group RAM loss cannot rebuild retain from
+control metadata.

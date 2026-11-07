@@ -1,10 +1,18 @@
 # Architecture
 
+## Phase7x durable-cluster Retained (2026-11-07)
+
+[Phase7x](contracts/phase7x-cluster-retained.md) admits retained PUBLISH and
+Will-Retain on durable Phase7f memory replicas. Each topic is one `r:{topic}`
+replica record; SUBSCRIBE replays from those records, not a local-only store.
+MQTT 5 CONNACK advertises `RetainAvailable(1)`. Shared subscriptions stay
+refused. Whole-group RAM loss cannot rebuild retain from control metadata.
+
 ## Phase7w durable-cluster Will (2026-11-07)
 
 [Phase7w](contracts/phase7w-cluster-will.md) admits non-retain Wills on durable
 Phase7f memory replicas. CONNECT success reuses the existing session snapshot and
-ordinary forward path. Will-Retain, retained PUBLISH and shared subscriptions stay
+ordinary forward path. Will-Retain follows Phase7x. Shared subscriptions stay
 refused. Replica activation without CONNECT recovers crash Wills once; CONNECT
 takeover still cancels a delay that has not ended. Whole-group RAM loss cannot
 rebuild pending Wills from control metadata.
@@ -78,10 +86,11 @@ RowStore rows cannot overrule replicated state. Controller-anchored disk identit
 prevent an empty replacement disk from voting a confirmed value out of existence.
 Mode/group are immutable for this gate, and legacy operation remains available.
 Disk replacement/repair is supplied by Phase7c above. Changing groups, broad cluster
-scaling and performance acceptance remain separate gates. Shared subscriptions,
-retained PUBLISH and Will-Retain remain unsupported; durable non-retain Will is
-[Phase7w](contracts/phase7w-cluster-will.md). The durable mode also supersedes
-phase7a's persistent-session refusal.
+scaling and performance acceptance remain separate gates. Shared subscriptions
+remain unsupported. Durable non-retain Will is
+[Phase7w](contracts/phase7w-cluster-will.md); retained PUBLISH and Will-Retain
+are [Phase7x](contracts/phase7x-cluster-retained.md). The durable mode also
+supersedes phase7a's persistent-session refusal.
 
 ## Phase7a cluster integration (2026-11-03)
 
