@@ -472,7 +472,13 @@ class ClusterWireCases(ClusterFixture):
         sock.sendall(self.packet('with-will', will=('cluster/will', b'will', 1, False)))
         header, data = receive(sock)
         self.assertEqual(header, 0x20)
-        self.assertEqual(data[1], 0x83 if self.version == 5 else 3)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        self.ping(sock)
+        retained = self.raw()
+        retained.sendall(self.packet('will-retain', will=('cluster/will-retain', b'kept', 1, True)))
+        header, data = receive(retained)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[1], 0x9a if self.version == 5 else 3)
         persistent = {'clean': False}
         if self.version == 5:
             persistent['properties'] = [(0x11, 60)]
@@ -502,6 +508,54 @@ class ClusterWireCases(ClusterFixture):
             self.assertEqual(data[0], 0x9a)
         else:
             self.assertEqual(publisher.recv(1), b'')
+
+    def test_will_fires_across_nodes_and_success_disconnect_cancels(self):
+        watcher = self.client('will-watcher', 1)
+        self.subscribe(watcher, 'cluster/will-fire')
+        owner = self.raw(0)
+        extra = {'will_properties': [(0x18, 0)]} if self.version == 5 else {}
+        owner.sendall(self.packet('will-owner', will=('cluster/will-fire', b'will-body', 1, False),
+                                  **extra))
+        header, data = receive(owner)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        owner.close()
+        self.delivery(watcher, 'cluster/will-fire', b'will-body', 1, self.version)
+        self.quiet(watcher)
+
+        cancelled = self.raw(0)
+        cancelled.sendall(self.packet('will-cancel', will=('cluster/will-cancel', b'nope', 1, False)))
+        header, data = receive(cancelled)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        if self.version == 5:
+            cancelled.sendall(frame(0xe0, bytes([0])))
+        else:
+            cancelled.sendall(frame(0xe0))
+        watcher.sendall(frame(0x82, (b'\x00\x02' + (props() if self.version == 5 else b'')
+                                     + string('cluster/will-cancel') + b'\x01')))
+        header, data = receive(watcher)
+        self.assertEqual(header, 0x90)
+        self.quiet(watcher, .4)
+
+    def test_mqtt5_will_delay_waits_then_fires(self):
+        if self.version != 5:
+            self.skipTest('Will Delay Interval is MQTT5')
+        watcher = self.client('will-delay-watcher', 1)
+        self.subscribe(watcher, 'cluster/will-delay')
+        owner = self.raw(0)
+        owner.sendall(self.packet(
+            'delayed-will',
+            will=('cluster/will-delay', b'delayed-body', 1, False),
+            properties=[(0x11, 60)],
+            will_properties=[(0x18, 1)],
+        ))
+        header, data = receive(owner)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        owner.close()
+        self.quiet(watcher, .4)
+        self.delivery(watcher, 'cluster/will-delay', b'delayed-body', 1, self.version)
 
 
 class Cluster311(ClusterWireCases, unittest.TestCase):

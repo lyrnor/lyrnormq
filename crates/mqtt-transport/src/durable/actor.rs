@@ -541,7 +541,7 @@ impl Actor {
     async fn command(&mut self, command: ActorCommand) {
         match command {
             ActorCommand::Activate { lease, reply } => {
-                let _ = reply.send(self.activate(lease));
+                let _ = reply.send(self.activate_recovered(lease).await);
             }
             ActorCommand::DurableDeliver {
                 publication,
@@ -1160,6 +1160,45 @@ impl Actor {
         self.version = self.version.wrapping_add(1);
         self.fresh_until = None;
         Ok(())
+    }
+
+    /// Replica ownership without CONNECT: anchor crash Wills once and commit due
+    /// publications. CONNECT activation must not take this path, or a resume would
+    /// publish a delay the session engine is required to cancel.
+    async fn activate_recovered(&mut self, lease: SessionLease) -> io::Result<()> {
+        self.activate(lease)?;
+        if !self.broker.durable_cluster() {
+            return Ok(());
+        }
+        let mut proposal = self.engine.clone();
+        proposal.recover_wills().map_err(model_error)?;
+        if proposal.is_online(&self.client) && self.online.is_empty() {
+            // Snapshot still marks the crashed connection online. A graceful
+            // close drops that ghost without cancelling an already-pending Will.
+            proposal
+                .disconnect_with_reason(&self.client, true)
+                .map_err(model_error)?;
+        }
+        let publications = proposal.take_publications();
+        let snapshot = if proposal.has_persistent_state() {
+            Some(proposal.snapshot().map_err(model_error)?)
+        } else {
+            None
+        };
+        if publications.is_empty() && snapshot == self.row {
+            self.engine = proposal;
+            return Ok(());
+        }
+        self.install(
+            proposal,
+            Effects {
+                notify: true,
+                housekeeping: false,
+                publications,
+                ..Effects::default()
+            },
+        )
+        .await
     }
 
     async fn deliver_durable(

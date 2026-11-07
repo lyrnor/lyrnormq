@@ -1,5 +1,14 @@
 # Architecture
 
+## Phase7w durable-cluster Will (2026-11-07)
+
+[Phase7w](contracts/phase7w-cluster-will.md) admits non-retain Wills on durable
+Phase7f memory replicas. CONNECT success reuses the existing session snapshot and
+ordinary forward path. Will-Retain, retained PUBLISH and shared subscriptions stay
+refused. Replica activation without CONNECT recovers crash Wills once; CONNECT
+takeover still cancels a delay that has not ended. Whole-group RAM loss cannot
+rebuild pending Wills from control metadata.
+
 ## Phase7d role cohosting and topology measurement (2026-11-03)
 
 The CLI can host an existing Controller configuration alongside a Broker with
@@ -69,8 +78,10 @@ RowStore rows cannot overrule replicated state. Controller-anchored disk identit
 prevent an empty replacement disk from voting a confirmed value out of existence.
 Mode/group are immutable for this gate, and legacy operation remains available.
 Disk replacement/repair is supplied by Phase7c above. Changing groups, broad cluster
-scaling and performance acceptance remain separate gates. Retained/Will/shared cluster semantics remain
-unsupported; the durable mode supersedes only phase7a's persistent-session refusal.
+scaling and performance acceptance remain separate gates. Shared subscriptions,
+retained PUBLISH and Will-Retain remain unsupported; durable non-retain Will is
+[Phase7w](contracts/phase7w-cluster-will.md). The durable mode also supersedes
+phase7a's persistent-session refusal.
 
 ## Phase7a cluster integration (2026-11-03)
 

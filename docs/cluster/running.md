@@ -59,8 +59,8 @@ RMQTT_BIN="$PWD/target/debug/rmqtt" python3 tests/cluster_blackbox.py -v
 The harness allocates its own temporary ports and files and does not use an
 existing MQTT service. Process crashes exercise
 journal recovery, not physical power-loss certification. Durable forwarding receipts,
-session relocation, replicated retained/Will/shared state and performance acceptance
-remain later gates.
+session relocation, replicated retained/shared state, Will-Retain and performance
+acceptance remain later gates. Durable non-retain Will is Phase7w.
 
 Current fixed implementation limits (acceptance bounds, not capacity measurements):
 

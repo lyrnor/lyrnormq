@@ -151,3 +151,8 @@ The requested100k/300s dual-role load acceptance follows
 `docs/contracts/phase7v-100k-hold.md`. CPU optimization is paused. Reuse the tested
 binary; verify actual three-member Raft and live300s hold, archive partial failures,
 restore loadhost ephemeral ports and stop only identity-checked test processes.
+
+Durable-cluster non-retain Will follows `docs/contracts/phase7w-cluster-will.md`.
+Reuse SessionEngine delay/cancel/takeover and ordinary cluster forwarding. Will-Retain,
+retained PUBLISH and shared subscriptions stay refused. Replica activation without
+CONNECT recovers crash Wills once; CONNECT takeover must not publish a cancelled delay.

@@ -882,3 +882,200 @@ async fn explicit_acquire_conflict_reinspects_and_retries_at_most_three_times() 
         tests::stop(worker, task).await;
     }
 }
+
+fn will_payloads(bridge: &Bridge) -> Vec<Vec<u8>> {
+    bridge
+        .data
+        .lock()
+        .unwrap()
+        .mutations
+        .iter()
+        .flat_map(|mutation| mutation.publications.iter())
+        .filter(|message| message.topic == "cluster/will")
+        .map(|message| message.payload.clone())
+        .collect()
+}
+
+#[tokio::test]
+async fn durable_cluster_admits_will_and_refuses_will_retain() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge)).await;
+    assert!(matches!(
+        worker
+            .request(Operation::Connect {
+                client: "owner".into(),
+                clean: true,
+                will: Some(tests::will("cluster/will", b"live", false)),
+                username: None,
+                password: None,
+                generation: 1,
+                wake: watch::channel(0).0,
+                cancel: watch::channel(false).0,
+            })
+            .await
+            .unwrap(),
+        Reply::Connected(false)
+    ));
+    let mut retained = Frame::v5(Packet::Connect {
+        client_id: "retained-will".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: Some(tests::will("cluster/will", b"kept", true)),
+        username: None,
+        password: None,
+    });
+    retained.version = ProtocolVersion::V5;
+    assert!(matches!(
+        worker
+            .request(Operation::ConnectFrame {
+                frame: retained,
+                generation: 2,
+                wake: watch::channel(0).0,
+                cancel: watch::channel(false).0,
+                close_reason: watch::channel(None).0,
+            })
+            .await
+            .unwrap(),
+        Reply::FrameRejected(ReasonCode::RETAIN_NOT_SUPPORTED)
+    ));
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn durable_cluster_unclean_disconnect_commits_will_once() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge.clone())).await;
+    tests::connect_with_will(
+        &worker,
+        "owner",
+        1,
+        Some(tests::will("cluster/will", b"crash", false)),
+    )
+    .await;
+    worker
+        .request(Operation::Disconnect {
+            client: "owner".into(),
+            generation: 1,
+            graceful: false,
+        })
+        .await
+        .unwrap();
+    assert_eq!(will_payloads(&bridge), vec![b"crash".to_vec()]);
+    worker
+        .request(Operation::Disconnect {
+            client: "owner".into(),
+            generation: 1,
+            graceful: false,
+        })
+        .await
+        .unwrap();
+    assert_eq!(will_payloads(&bridge), vec![b"crash".to_vec()]);
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn durable_cluster_graceful_disconnect_does_not_publish_will() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge.clone())).await;
+    tests::connect_with_will(
+        &worker,
+        "owner",
+        1,
+        Some(tests::will("cluster/will", b"quiet", false)),
+    )
+    .await;
+    worker
+        .request(Operation::Disconnect {
+            client: "owner".into(),
+            generation: 1,
+            graceful: true,
+        })
+        .await
+        .unwrap();
+    assert!(will_payloads(&bridge).is_empty());
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn durable_cluster_will_delay_waits_for_tick() {
+    let bridge = Arc::new(Bridge::default());
+    let clock = Arc::new(Clock::default());
+    clock.0.store(1000, Ordering::Release);
+    let broker = Broker::start(config(bridge.clone()), clock.clone(), None)
+        .await
+        .unwrap();
+    let (worker, task) = tests::wrap(broker);
+    let mut frame = Frame::v5(Packet::Connect {
+        client_id: "owner".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: Some(tests::will("cluster/will", b"delayed", false)),
+        username: None,
+        password: None,
+    });
+    frame.properties.push(Property::SessionExpiryInterval(60));
+    frame.will_properties.push(Property::WillDelayInterval(1));
+    assert!(matches!(
+        worker
+            .request(Operation::ConnectFrame {
+                frame,
+                generation: 1,
+                wake: watch::channel(0).0,
+                cancel: watch::channel(false).0,
+                close_reason: watch::channel(None).0,
+            })
+            .await
+            .unwrap(),
+        Reply::Connected(false)
+    ));
+    worker
+        .request(Operation::Disconnect {
+            client: "owner".into(),
+            generation: 1,
+            graceful: false,
+        })
+        .await
+        .unwrap();
+    worker.request(Operation::Tick).await.unwrap();
+    assert!(will_payloads(&bridge).is_empty());
+    clock.0.store(2000, Ordering::Release);
+    worker.request(Operation::Tick).await.unwrap();
+    assert_eq!(will_payloads(&bridge), vec![b"delayed".to_vec()]);
+    tests::stop(worker, task).await;
+}
+
+#[tokio::test]
+async fn durable_replica_activation_recovers_crash_will() {
+    let owner = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(owner.clone())).await;
+    tests::connect_with_will(
+        &worker,
+        "owner",
+        1,
+        Some(tests::will("cluster/will", b"failover", false)),
+    )
+    .await;
+    let inspected = owner.inspect_session("owner".into()).await.unwrap();
+    let snapshot = inspected
+        .snapshot
+        .as_ref()
+        .expect("will must be snapshotted");
+    assert!(
+        std::str::from_utf8(snapshot)
+            .unwrap_or("")
+            .contains("cluster/will"),
+        "{}",
+        String::from_utf8_lossy(snapshot)
+    );
+    assert!(will_payloads(&owner).is_empty());
+    let replacement = Bridge::with_data(owner.data.clone());
+    let (other, other_task) = tests::worker(config(replacement.clone())).await;
+    let lease = replacement
+        .acquire_session("owner".into(), 0, inspected.epoch)
+        .await
+        .unwrap();
+    replacement.local().activate_session(lease).await.unwrap();
+    assert_eq!(will_payloads(&replacement), vec![b"failover".to_vec()]);
+    tests::stop(other, other_task).await;
+    tests::stop(worker, task).await;
+}
