@@ -20,6 +20,7 @@ pub(super) enum ActorCommand {
     DurableDeliver {
         publication: Arc<Publication>,
         receipt: DeliveryId,
+        scope: DeliveryScope,
         reply: oneshot::Sender<io::Result<()>>,
     },
     Request {
@@ -312,10 +313,8 @@ fn apply(
             received_at_millis,
         } => {
             valid_generation(online, &client, generation)?;
-            if config.cluster.is_some() {
-                if matches!(&frame.packet, Packet::Publish { retain: true, .. })
-                    && !broker.durable_cluster()
-                {
+            if config.cluster.is_some() && !broker.durable_cluster() {
+                if matches!(&frame.packet, Packet::Publish { retain: true, .. }) {
                     return Err(failure(
                         ReasonCode::RETAIN_NOT_SUPPORTED,
                         "retained publishing is not supported in initial cluster gate",
@@ -548,9 +547,10 @@ impl Actor {
             ActorCommand::DurableDeliver {
                 publication,
                 receipt,
+                scope,
                 reply,
             } => {
-                let result = self.deliver_durable(&publication, receipt).await;
+                let result = self.deliver_durable(&publication, receipt, scope).await;
                 let _ = reply.send(result);
             }
             ActorCommand::Request {
@@ -664,8 +664,7 @@ impl Actor {
             // No Local, expiry and stale route matches are successful no-ops,
             // unlike capacity/model failures. Preserve shared eligibility's bool.
             Ok(false) => {
-                return self.broker.config.cluster.is_some()
-                    && matches!(scope, DeliveryScope::Ordinary);
+                return self.broker.config.cluster.is_some();
             }
             Err(_) => return false,
         }
@@ -1214,6 +1213,7 @@ impl Actor {
         &mut self,
         publication: &Publication,
         receipt: DeliveryId,
+        scope: DeliveryScope,
     ) -> io::Result<()> {
         if !self.broker.cluster_ready() || self.cluster_invalid || self.cluster_lease.is_none() {
             return Err(failure(
@@ -1225,9 +1225,7 @@ impl Actor {
             return Ok(());
         }
         let mut proposal = self.engine.clone();
-        let _ = proposal
-            .deliver(publication, &DeliveryScope::Ordinary)
-            .map_err(model_error)?;
+        let _ = proposal.deliver(publication, &scope).map_err(model_error)?;
         let publications = proposal.take_publications();
         // A clean session has no snapshot. The receipt and the queued copy live
         // in this process; committing either would not survive a restart and

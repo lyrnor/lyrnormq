@@ -35,9 +35,10 @@ mode does not keep a session SQLite mirror.
 
 Create a private peer token file containing 32–256 visible ASCII characters.
 All members share this secret; use a separate secret from the Dashboard token.
-Start every member before testing readiness. Shared subscriptions remain
-refused in this gate. Durable non-retain Will is Phase7w; retained PUBLISH
-and Will-Retain are Phase7x.
+Start every member before testing readiness. MQTT 5 shared subscriptions on
+durable replicas are Phase7y; MQTT 3.1.1 creation and legacy cluster remain
+refused. Durable non-retain Will is Phase7w; retained PUBLISH and Will-Retain
+are Phase7x.
 Existing Dashboard Bearer HTTP publishing routes to remote subscribers as well.
 
 A public MQTT address requires `[mqtt.tls]`. Loopback and RFC1918 addresses may
@@ -129,7 +130,7 @@ typed objects, cached canonical bytes and containers add memory overhead. Repair
 staging has an independent finite 768 MiB budget. Full capacity rejects admission.
 
 Clean Start/expiry creates a new logical session generation; queued work cannot
-leak into a recreated session. Shared subscriptions remain unsupported in
-cluster mode. Durable non-retain Will is Phase7w; retained PUBLISH and
+leak into a recreated session. MQTT 5 shared subscriptions on durable replicas
+are Phase7y. Durable non-retain Will is Phase7w; retained PUBLISH and
 Will-Retain are Phase7x. Automatic incremental repair, membership changes,
 tombstone cleanup, whole-group restart recovery and RocksDB remain future work.

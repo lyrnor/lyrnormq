@@ -19,10 +19,10 @@ fn scan(metadata: &Metadata, topic: &str) -> Vec<(String, u64)> {
         .iter()
         .filter(|(key, owner)| {
             key.starts_with("c:")
-                && owner
-                    .filters
-                    .iter()
-                    .any(|filter| mqtt_router::matches_topic_filter(filter, topic))
+                && owner.filters.iter().any(|filter| {
+                    mqtt_router::split_shared_filter(filter).is_none()
+                        && mqtt_router::matches_topic_filter(filter, topic)
+                })
         })
         .map(|(key, owner)| (key[2..].to_owned(), owner.logical_generation))
         .collect()
@@ -349,4 +349,48 @@ fn indexed_match_forwards_only_remote_owners() {
         RecipientIndex::remote_addresses(&metadata, &matched, 101, "self"),
         vec!["http://127.0.0.1:2".to_owned()]
     );
+}
+
+#[test]
+fn valid_shared_filters_are_not_ordinary_routes() {
+    let mut metadata = Metadata::default();
+    metadata
+        .durable
+        .insert("c:a".into(), owner(&["$share/g/work/#"], 1));
+    metadata
+        .durable
+        .insert("c:b".into(), owner(&["$share/g/work/#"], 2));
+    metadata
+        .durable
+        .insert("c:ordinary".into(), owner(&["work/#"], 3));
+    metadata
+        .durable
+        .insert("c:literal".into(), owner(&["$share/+/other"], 4));
+    let mut index = RecipientIndex::from_metadata(&metadata);
+    assert_eq!(
+        indexed(&index, "work/x"),
+        vec![("ordinary".into(), 3)],
+        "shared keys must not fan out as ordinary copies"
+    );
+    assert_eq!(
+        indexed(&index, "$share/g/work/x"),
+        Vec::<(String, u64)>::new()
+    );
+    assert_eq!(
+        indexed(&index, "$share/team/other"),
+        vec![("literal".into(), 4)]
+    );
+    let first = index.select_shared("work/x");
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].group, "g");
+    assert_eq!(first[0].filter, "work/#");
+    assert_eq!(first[0].recipient.client_id, "a");
+    let second = index.select_shared("work/x");
+    assert_eq!(second[0].recipient.client_id, "b");
+    let third = index.select_shared("work/x");
+    assert_eq!(third[0].recipient.client_id, "a");
+    index.replace("c:a", None);
+    let after = index.select_shared("work/x");
+    assert_eq!(after[0].recipient.client_id, "b");
+    assert!(index.select_shared("unmatched").is_empty());
 }

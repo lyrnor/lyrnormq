@@ -334,7 +334,12 @@ pub(super) fn connack(
             Property::ReceiveMaximum(config.max_inflight.min(u16::MAX as usize) as u16),
             Property::MaximumPacketSize(config.max_packet_size.min(u32::MAX as usize) as u32),
             Property::TopicAliasMaximum(config.topic_alias_maximum),
-            Property::SharedSubscriptionAvailable(u8::from(config.cluster.is_none())),
+            Property::SharedSubscriptionAvailable(u8::from(
+                config
+                    .cluster
+                    .as_ref()
+                    .is_none_or(|cluster| cluster.durable()),
+            )),
             Property::SubscriptionIdentifierAvailable(1),
         ];
         if let Some(cluster) = &config.cluster {

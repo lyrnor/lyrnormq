@@ -28,6 +28,15 @@ pub enum ForwardScope {
     Ordinary,
     Shared { group: String, filter: String },
 }
+impl ForwardScope {
+    /// Full `$share/{group}/{filter}` key. Callers still validate the pair.
+    pub fn shared_subscription_key(&self) -> Option<String> {
+        match self {
+            Self::Ordinary => None,
+            Self::Shared { group, filter } => Some(format!("$share/{group}/{filter}")),
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientSubscriptions {
     pub client_id: String,

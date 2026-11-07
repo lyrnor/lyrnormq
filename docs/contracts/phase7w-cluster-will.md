@@ -3,8 +3,9 @@
 Supersedes Phase7a/7b/7f refusal of **non-retain** Wills on durable (Phase7f RAM
 W2) replicas only. Legacy non-durable cluster still refuses Will and persistent
 sessions. Will-Retain and retained PUBLISH are [Phase7x](phase7x-cluster-retained.md).
-Shared subscriptions remain refused until their own gate. Do not claim full cluster
-MQTT compatibility.
+Shared subscriptions on those replicas are
+[Phase7y](phase7y-cluster-shared.md). Do not claim full cluster MQTT
+compatibility.
 
 Standalone Will, delay, takeover and graceful-cancel semantics are unchanged.
 
@@ -20,7 +21,7 @@ or pending record) in the existing durable session mutation, then fire at most
 once through the existing ordinary `ClusterMessage` path. No Controller body
 storage and no new replica record type. Will-Retain additionally writes the
 Phase7x retain record after this fire-once publication. Shared-subscription
-delivery remains deferred.
+delivery is [Phase7y](phase7y-cluster-shared.md).
 
 Delay, MQTT 5 DISCONNECT `0x00` cancel, DISCONNECT `0x04` fire, delay `0`
 immediate fire, session-expiry cap, same-session resume cancel, and clean-start

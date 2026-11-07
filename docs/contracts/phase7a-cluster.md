@@ -16,8 +16,9 @@ not silently emulated; do not claim completed full cluster MQTT compatibility.
 Durable non-retain Will on Phase7f replicas is supplied by
 [phase7w-cluster-will.md](phase7w-cluster-will.md). Retained PUBLISH and
 Will-Retain on those replicas are [phase7x-cluster-retained.md](phase7x-cluster-retained.md).
-This gate still refuses shared subscriptions and any Will/retain on legacy
-non-durable cluster.
+MQTT 5 shared subscriptions on those replicas are
+[phase7y-cluster-shared.md](phase7y-cluster-shared.md). This gate still refuses
+shared subscriptions and any Will/retain on legacy non-durable cluster.
 No cross-node session replication or controller message-body storage. Source local
 session durability is unchanged; this gate does not claim replicated/transactional
 cross-node forwarding outbox. Connection/metadata failure must not report success

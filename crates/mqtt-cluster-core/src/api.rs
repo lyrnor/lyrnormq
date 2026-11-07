@@ -97,8 +97,8 @@ pub trait ClusterBridge: Debug + Send + Sync {
     ) -> ClusterFuture<'_, ()>;
     /// Legacy mode routes remote ordinary recipients using local metadata.
     /// Replicated mode accepts host/system publications into the shared outbox
-    /// for all recipients; transport must suppress its separate local fanout.
-    /// Shared selection remains deferred.
+    /// for ordinary recipients and one selected shared member per matching group.
+    /// Transport must suppress its separate local fanout.
     fn forward(&self, message: ClusterMessage) -> ClusterFuture<'_, ()>;
     /// Best-effort ordinary delivery. Replicated mode must not admit this into an outbox.
     fn forward_ephemeral(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {

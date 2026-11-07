@@ -476,7 +476,7 @@ class ClusterWireCases(ClusterFixture):
         if self.version == 5:
             properties, _ = readprops(data, 2)
             self.assertIn((0x25, 1), properties)
-            self.assertIn((0x2a, 0), properties)
+            self.assertIn((0x2a, 1), properties)
         self.ping(sock)
         retained = self.raw()
         retained.sendall(self.packet('will-retain', will=('cluster/will-retain', b'kept', 1, True)))
@@ -502,9 +502,28 @@ class ClusterWireCases(ClusterFixture):
             self.assertEqual((header, data[:2]), (0x20, b'\x00\x00'))
             self.ping(transient)
         subscriber = self.client('subscriber', 1)
-        self.subscribe(subscriber, '$share/group/cluster/shared', expected=0x9e if self.version == 5 else 0x80)
+        self.subscribe(
+            subscriber,
+            '$share/group/cluster/shared',
+            expected=None if self.version == 5 else 0x80,
+        )
         publisher = self.client('retained-publisher', 0)
         self.publish(publisher, 'cluster/retained', b'kept', 1, 9, retain=True)
+
+    def test_shared_group_delivers_one_copy_across_nodes(self):
+        if self.version != 5:
+            return
+        first = self.client('share-a', 0)
+        second = self.client('share-b', 1)
+        self.subscribe(first, '$share/workers/cluster/shared', qos=1)
+        self.subscribe(second, '$share/workers/cluster/shared', qos=1)
+        publisher = self.client('share-pub', 0)
+        self.publish(publisher, 'cluster/shared', b'only-one', 1, 21)
+        ready, _, _ = select.select([first, second], [], [], 5)
+        self.assertEqual(len(ready), 1, 'one recipient per shared publication')
+        self.delivery(ready[0], 'cluster/shared', b'only-one', 1, self.version)
+        other = second if ready[0] is first else first
+        self.quiet(other)
 
     def test_retain_replays_across_nodes_and_empty_payload_clears(self):
         publisher = self.client('retain-writer', 0)

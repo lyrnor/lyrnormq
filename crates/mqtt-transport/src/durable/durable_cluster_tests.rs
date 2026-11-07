@@ -968,7 +968,7 @@ async fn durable_cluster_admits_will_and_will_retain() {
 }
 
 #[tokio::test]
-async fn durable_cluster_connack_advertises_retain_not_shared() {
+async fn durable_cluster_connack_advertises_retain_and_shared() {
     let frame = super::network::connack(
         ProtocolVersion::V5,
         false,
@@ -979,8 +979,80 @@ async fn durable_cluster_connack_advertises_retain_not_shared() {
     assert!(
         frame
             .properties
-            .contains(&Property::SharedSubscriptionAvailable(0))
+            .contains(&Property::SharedSubscriptionAvailable(1))
     );
+}
+
+#[tokio::test]
+async fn durable_cluster_shared_and_ordinary_subscribe_are_granted() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge)).await;
+    tests::connect(&worker, "v311", 1, true).await;
+    assert_eq!(
+        tests::handle(
+            &worker,
+            "v311",
+            1,
+            Packet::Subscribe {
+                packet_id: 4,
+                filters: vec![
+                    ("cluster/ordinary".into(), 1),
+                    ("$share/g/cluster/shared".into(), 1),
+                ],
+            },
+        )
+        .await
+        .unwrap(),
+        vec![Packet::SubAck {
+            packet_id: 4,
+            codes: vec![1, 0x80],
+        }]
+    );
+    let mut frame = Frame::v5(Packet::Connect {
+        client_id: "v5".into(),
+        clean_session: true,
+        keep_alive: 0,
+        will: None,
+        username: None,
+        password: None,
+    });
+    frame.version = ProtocolVersion::V5;
+    assert!(matches!(
+        worker
+            .request(Operation::ConnectFrame {
+                frame,
+                generation: 2,
+                wake: watch::channel(0).0,
+                cancel: watch::channel(false).0,
+                close_reason: watch::channel(None).0,
+            })
+            .await
+            .unwrap(),
+        Reply::Connected(false)
+    ));
+    let Reply::Frames(frames) = worker
+        .request(Operation::HandleFrameAt {
+            client: "v5".into(),
+            generation: 2,
+            received_at_millis: mqtt_session::durable::Clock::now_millis(&SystemClock),
+            frame: Frame::v5(Packet::Subscribe {
+                packet_id: 4,
+                filters: vec![
+                    ("cluster/ordinary".into(), 1),
+                    ("$share/g/cluster/shared".into(), 1),
+                ],
+            }),
+        })
+        .await
+        .unwrap()
+    else {
+        panic!("frames expected")
+    };
+    assert!(matches!(
+        &frames[0].packet,
+        Packet::SubAck { codes, .. } if codes == &[1, 1]
+    ));
+    tests::stop(worker, task).await;
 }
 
 #[tokio::test]

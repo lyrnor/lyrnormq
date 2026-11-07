@@ -10,6 +10,7 @@ RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_combined_blackbox.py -v
 import json
 import os
 from pathlib import Path
+import select
 import signal
 import socket
 import struct
@@ -20,7 +21,7 @@ import unittest
 
 from blackbox import connect_packet, frame, receive, string
 from dashboard_blackbox import free_port
-from mqtt5_blackbox import connect5
+from mqtt5_blackbox import connect5, parse5, props, readprops
 from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import publication
 import rmqttcfg
@@ -161,7 +162,7 @@ class CombinedCluster(unittest.TestCase):
         with self.assertRaises(socket.timeout):
             receive(isolated)
 
-    def test_will_fires_across_combined_nodes_and_shared_stays_refused(self):
+    def test_will_retain_and_mqtt5_shared_across_combined_nodes(self):
         watcher = mqtt_connect(self.nodes[0]['host'], self.nodes[0]['mqtt'], 'combined-watcher')
         self.addCleanup(watcher.close)
         watcher.settimeout(8)
@@ -195,6 +196,43 @@ class CombinedCluster(unittest.TestCase):
         header, body = receive(sub)
         self.assertEqual(header, 0x90)
         self.assertEqual(body, b'\x00\x01\x80')
+
+        share_a = socket.create_connection((self.nodes[0]['host'], self.nodes[0]['mqtt']), timeout=6)
+        self.addCleanup(share_a.close)
+        share_a.settimeout(8)
+        share_a.sendall(connect5('combined-share-a'))
+        header, body = receive(share_a)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(body[:2], b'\x00\x00', body)
+        self.assertIn((0x2a, 1), readprops(body, 2)[0])
+        share_a.sendall(frame(0x82, b'\x00\x03' + props() + string('$share/g/sensors/y') + b'\x01'))
+        header, body = receive(share_a)
+        self.assertEqual(header, 0x90)
+        self.assertEqual(body[readprops(body, 2)[1]:], b'\x01')
+        share_b = socket.create_connection((self.nodes[1]['host'], self.nodes[1]['mqtt']), timeout=6)
+        self.addCleanup(share_b.close)
+        share_b.settimeout(8)
+        share_b.sendall(connect5('combined-share-b'))
+        header, body = receive(share_b)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(body[:2], b'\x00\x00', body)
+        share_b.sendall(frame(0x82, b'\x00\x04' + props() + string('$share/g/sensors/y') + b'\x01'))
+        header, body = receive(share_b)
+        self.assertEqual(header, 0x90)
+        self.assertEqual(body[readprops(body, 2)[1]:], b'\x01')
+        share_pub = mqtt_connect(self.nodes[2]['host'], self.nodes[2]['mqtt'], 'combined-share-pub')
+        self.addCleanup(share_pub.close)
+        share_pub.sendall(publication('sensors/y', b'shared', 1, 8))
+        header, body = receive(share_pub)
+        self.assertEqual(header, 0x40)
+        self.assertEqual(body[:2], b'\x00\x08')
+        ready, _, _ = select.select([share_a, share_b], [], [], 5)
+        self.assertEqual(len(ready), 1, 'one recipient per shared publication')
+        topic, payload, qos, packet_id, _, _, _ = parse5(receive(ready[0]))
+        self.assertEqual((topic, payload, qos), ('sensors/y', b'shared', 1))
+        ready[0].sendall(ack(0x40, packet_id))
+        quiet = share_b if ready[0] is share_a else share_a
+        self.assertFalse(select.select([quiet], [], [], 0.2)[0], 'shared group must not duplicate')
 
         pub = mqtt_connect(self.nodes[2]['host'], self.nodes[2]['mqtt'], 'combined-retain')
         self.addCleanup(pub.close)

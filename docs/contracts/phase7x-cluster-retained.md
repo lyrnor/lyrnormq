@@ -2,8 +2,9 @@
 
 Supersedes Phase7a/7b/7f/7w refusal of retained PUBLISH and Will-Retain on
 durable (Phase7f RAM W2) replicas only. Legacy non-durable cluster still
-refuses retain. Shared subscriptions remain refused. Do not claim full cluster
-MQTT compatibility.
+refuses retain. Shared subscriptions on those replicas are
+[Phase7y](phase7y-cluster-shared.md). Do not claim full cluster MQTT
+compatibility.
 
 Standalone retained store, SUBSCRIBE replay, empty-payload clear, expiry and
 Retain As Published stay unchanged for non-cluster brokers.
@@ -39,5 +40,5 @@ Coordinator owns this contract. Cluster runtime owns `r:` records, AcquireOnce
 `r:` keys and matching reads (`mqtt-cluster`). Transport owns PUBLISH/CONNECT
 admission, CONNACK `RetainAvailable`, SUBSCRIBE staging and Will-Retain fire.
 `mqtt-cluster-core` owns the `commit_retained` / `matching_retained` /
-`apply_retained` hooks. Quality owns wire tests. Shared subscriptions remain a
-follow-up gate.
+`apply_retained` hooks. Quality owns wire tests. Shared subscriptions are
+[Phase7y](phase7y-cluster-shared.md).

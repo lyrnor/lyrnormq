@@ -4,7 +4,7 @@ use mqtt_cluster_core::{
     ClientSubscriptions, ClusterFuture, ClusterMessage, DeliveryId, ForwardScope, LocalBroker,
     SessionLease,
 };
-use mqtt_session::durable::{EngineError, Publication};
+use mqtt_session::durable::{DeliveryScope, EngineError, Publication};
 use std::sync::{PoisonError, Weak};
 
 pub(crate) const FORWARDS: usize = 1024;
@@ -140,12 +140,10 @@ impl LocalBroker for Local {
     ) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
             let broker = self.broker.upgrade().ok_or_else(unavailable)?;
-            if !broker.durable_cluster()
-                || !broker.cluster_ready()
-                || message.scope != ForwardScope::Ordinary
-            {
+            if !broker.durable_cluster() || !broker.cluster_ready() {
                 return Err(unavailable());
             }
+            let scope = delivery_scope(&message.scope).ok_or_else(unavailable)?;
             validate_message(&message, broker.config.max_packet_size)?;
             let handle = broker.handle(&client_id).ok_or_else(unavailable)?;
             let publication = Arc::new(Publication {
@@ -165,6 +163,7 @@ impl LocalBroker for Local {
                     .send(super::actor::ActorCommand::DurableDeliver {
                         publication,
                         receipt,
+                        scope,
                         reply,
                     })
                     .await
@@ -286,6 +285,17 @@ fn retained_entry(message: ClusterMessage) -> Option<mqtt_session::durable::Reta
         properties: message.properties,
         expires_at: message.expires_at,
     })
+}
+
+fn delivery_scope(scope: &ForwardScope) -> Option<DeliveryScope> {
+    match scope {
+        ForwardScope::Ordinary => Some(DeliveryScope::Ordinary),
+        ForwardScope::Shared { group, filter } => {
+            let key = scope.shared_subscription_key()?;
+            (mqtt_router::split_shared_filter(&key) == Some((group.as_str(), filter.as_str())))
+                .then_some(DeliveryScope::Shared(key))
+        }
+    }
 }
 
 pub(super) fn message(publication: &Publication, observer_client: Option<&str>) -> ClusterMessage {
