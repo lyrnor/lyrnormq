@@ -95,6 +95,9 @@ class MemoryFixture(DurableFixture):
         result = {}
         for node in self.fleet.brokers:
             directory = Path(node.config['data_dir'])
+            replica = directory / 'broker'
+            if replica.is_dir():
+                directory = replica
             self.assertFalse((directory / 'data.sqlite').exists(), directory)
             for path in directory.rglob('*'):
                 self.assertFalse(path.is_symlink(), 'replica identity files must not be aliases')
@@ -131,17 +134,23 @@ class MemoryFixture(DurableFixture):
         self.assertEqual(before, after, 'data replica files changed during message handling')
         self.assertTrue(all(marker not in body for body, _ in after.values()))
         # This is specifically data-plane RAM; persisted Raft metadata is allowed.
-        for controller in self.fleet.controllers:
-            directory = Path(controller.config['data_dir'])
-            self.assertTrue((directory / 'controller.bbolt').is_file())
+        directories = []
+        for node in self.fleet.brokers:
+            combined = Path(node.root) / 'controller'
+            if (combined / 'controller.bbolt').is_file():
+                directories.append(combined)
+        if not directories:
+            directories = [Path(node.config['data_dir']) for node in self.fleet.controllers]
+        for directory in directories:
+            self.assertTrue((directory / 'controller.bbolt').is_file(), directory)
             self.assertFalse((directory / 'metadata.sqlite').exists())
 
     def peer_listening(self, node):
-        port = int(node.config['listen'].rsplit(':', 1)[1])
+        host, port = node.config['listen'].rsplit(':', 1)
         def listening():
             node.alive()
             try:
-                with socket.create_connection(('127.0.0.1', port), timeout=.15):
+                with socket.create_connection((host, int(port)), timeout=.15):
                     return True
             except OSError:
                 return False
@@ -200,10 +209,12 @@ class MemoryFixture(DurableFixture):
         wait_until(lambda: (self.fleet.status() or {}).get('nodes') == 2, 20)
         proxy = None
         if proxy_mode is not None:
-            original = int(target.config['listen'].rsplit(':', 1)[1])
             backend = self.fleet.port()
-            target.config['listen'] = f'127.0.0.1:{backend}'
-            proxy = ImportProxy(original, backend, proxy_mode)
+            target.broker_listen_override = f'{target.host}:{backend}'
+            target.config['listen'] = target.broker_listen_override
+            proxy = ImportProxy(
+                self.fleet.broker_port, backend, proxy_mode,
+                host=target.host, backend_host=target.host)
             self.addCleanup(proxy.close)
         # Same data_dir, new process, new RAM incarnation. Never stop a loaded
         # learner and assume the following Broker process can reuse its memory.

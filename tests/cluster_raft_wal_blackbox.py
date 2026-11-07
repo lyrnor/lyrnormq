@@ -31,15 +31,22 @@ class RaftWalAcceptance(control.ControlTail):
         before = [self.checkpoint(node) for node in self.fleet.controllers]
         subscriber = self.persistent('wal-storage-target', 1, expiry=600)
         source = self.persistent('wal-storage-source', 0, expiry=600)
-        for index in range(12):
+        self.subscribe(subscriber, 'wal/storage/first', 2)
+        self.publish(source, 'wal/storage/first', b'wal-backed-control', 2)
+        self.complete_message(
+            subscriber, self.expect_message(subscriber, 'wal/storage/first', b'wal-backed-control', 2))
+        for node, previous in zip(self.fleet.controllers, before):
+            self.wal_files(node)
+            self.assertEqual(previous, self.checkpoint(node),
+                             'WAL-backed applies must not rewrite the business checkpoint')
+        for index in range(1, 12):
             topic = f'wal/storage/{index}'
             self.subscribe(subscriber, topic, 2)
             self.publish(source, topic, b'wal-backed-control', 2)
             self.complete_message(subscriber, self.expect_message(subscriber, topic, b'wal-backed-control', 2))
-        for node, previous in zip(self.fleet.controllers, before):
+        for node in self.fleet.controllers:
             self.wal_files(node)
-            self.assertEqual(previous, self.checkpoint(node),
-                             'normal Raft applies must not rewrite the business checkpoint')
+            self.assertFalse((Path(node.config['data_dir']) / 'metadata.sqlite').exists())
         self.data_files()
 
     def rejected_restart(self, node):

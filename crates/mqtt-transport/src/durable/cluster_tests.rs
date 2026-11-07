@@ -275,6 +275,39 @@ async fn cluster_features_are_explicit_and_standalone_capabilities_unchanged() {
         panic!("frames expected")
     };
     assert!(matches!(&frames[0].packet, Packet::SubAck { codes, .. } if codes == &[0x9e]));
+    let mut mixed = Frame::v5(Packet::Subscribe {
+        packet_id: 3,
+        filters: vec![("ordinary/a".into(), 1), ("$share/g/ordinary/a".into(), 1)],
+    });
+    mixed.subscription_options = vec![1, 1];
+    let Reply::Frames(frames) = worker
+        .request(Operation::HandleFrameAt {
+            client: "v5".into(),
+            generation: 2,
+            received_at_millis: SystemClock.now_millis(),
+            frame: mixed,
+        })
+        .await
+        .unwrap()
+    else {
+        panic!("frames expected")
+    };
+    assert!(matches!(&frames[0].packet, Packet::SubAck { codes, .. } if codes == &[1, 0x9e]));
+    let frames = worker
+        .request(Operation::HandleFrameAt {
+            client: "client".into(),
+            generation: 1,
+            received_at_millis: SystemClock.now_millis(),
+            frame: Frame::v311(Packet::Subscribe {
+                packet_id: 4,
+                filters: vec![("ordinary/a".into(), 1), ("$share/g/ordinary/a".into(), 1)],
+            }),
+        })
+        .await;
+    let Reply::Frames(frames) = frames.unwrap() else {
+        panic!("frames expected")
+    };
+    assert!(matches!(&frames[0].packet, Packet::SubAck { codes, .. } if codes == &[1, 0x80]));
     assert!(worker.broker.retained_for(&[("#".into(), 2)]).is_empty());
     let frame = network::connack(ProtocolVersion::V5, false, 0, &worker.broker.config);
     assert!(

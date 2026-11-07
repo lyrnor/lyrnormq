@@ -69,10 +69,19 @@ pub(crate) fn load_with(
     } else {
         Some(mqtt_client(&raw.mqtt)?)
     };
-    let cluster = match raw.cluster {
+    let mut cluster = match raw.cluster {
         Some(cluster) => Some(cluster_pair(node_id, &data_dir, cluster)?),
         None => None,
     };
+    if let Some((broker, _)) = cluster.as_mut()
+        && let Some(value) = env.get("RMQTT_CLUSTER_BROKER_LISTEN")
+    {
+        // Advertise stays the member host:broker_port so peers keep the
+        // frozen replica list. Tests bind a proxy on that address.
+        broker.listen = value
+            .parse()
+            .map_err(|_| invalid("RMQTT_CLUSTER_BROKER_LISTEN must be an IP:PORT"))?;
+    }
     if let (Some(client), Some((broker, controller))) = (&client, &cluster) {
         let cluster_ports = [broker.listen.port(), controller.listen.port()];
         if cluster_ports.contains(&client.address.port())
@@ -275,6 +284,7 @@ const ENV_NAMES: &[&str] = &[
     "RMQTT_CLUSTER_TOKEN_FILE",
     "RMQTT_CLUSTER_CONTROLLER_PORT",
     "RMQTT_CLUSTER_BROKER_PORT",
+    "RMQTT_CLUSTER_BROKER_LISTEN",
     "RMQTT_CLUSTER_MEMBERS",
     "RMQTT_DASHBOARD_LISTEN",
     "RMQTT_DASHBOARD_TOKEN_FILE",
@@ -1118,6 +1128,21 @@ mod tests {
         assert_eq!(controller.listen, "127.0.0.2:17001".parse().unwrap());
         assert_eq!(broker.listen, "127.0.0.2:17101".parse().unwrap());
         assert_eq!(broker.advertise.as_deref(), Some("http://127.0.0.2:17101"));
+        let relocated = load_with(
+            &invocation(&path),
+            &HashMap::from([(
+                "RMQTT_CLUSTER_BROKER_LISTEN".into(),
+                "127.0.0.12:19101".into(),
+            )]),
+        )
+        .unwrap()
+        .cluster_broker
+        .unwrap();
+        assert_eq!(relocated.listen, "127.0.0.12:19101".parse().unwrap());
+        assert_eq!(
+            relocated.advertise.as_deref(),
+            Some("http://127.0.0.2:17101")
+        );
         assert!(broker.durable.is_some());
         assert!(options.config.storage_path.is_none());
         let mut ids: Vec<_> = controller.controllers.iter().map(|peer| peer.id).collect();

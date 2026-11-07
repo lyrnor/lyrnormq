@@ -37,8 +37,9 @@ def exact(sock, count):
 
 class ImportProxy:
     """Bounded transparent h2 relay; headers and normal bytes remain unchanged."""
-    def __init__(self, port, backend, mode):
+    def __init__(self, port, backend, mode, host='127.0.0.1', backend_host='127.0.0.1'):
         self.port, self.backend, self.mode = port, backend, mode
+        self.host, self.backend_host = host, backend_host
         self.blocked = threading.Event()
         self.release = threading.Event()
         self.stopped = threading.Event()
@@ -49,7 +50,7 @@ class ImportProxy:
         self.lock = threading.Lock()
         self.listener = socket.socket()
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener.bind(('127.0.0.1', port))
+        self.listener.bind((host, port))
         self.listener.listen(16)
         self.listener.settimeout(.1)
         self.thread = threading.Thread(target=self.accept, daemon=True)
@@ -68,7 +69,7 @@ class ImportProxy:
     def connection(self, client):
         server = None
         try:
-            server = socket.create_connection(('127.0.0.1', self.backend), timeout=5)
+            server = socket.create_connection((self.backend_host, self.backend), timeout=5)
             server.settimeout(65)
             client.settimeout(65)
             with self.lock:
@@ -244,10 +245,12 @@ class RepairFixture(DurableFixture):
         self.target.config['data_dir'] = str(self.target.root / 'replacement-data')
         self.proxy = None
         if proxy_mode is not None:
-            original = self.target.config['listen'].rsplit(':', 1)[1]
             backend = self.fleet.port()
-            self.target.config['listen'] = f'127.0.0.1:{backend}'
-            self.proxy = ImportProxy(int(original), backend, proxy_mode)
+            self.target.broker_listen_override = f'{self.target.host}:{backend}'
+            self.target.config['listen'] = self.target.broker_listen_override
+            self.proxy = ImportProxy(
+                self.fleet.broker_port, backend, proxy_mode,
+                host=self.target.host, backend_host=self.target.host)
             self.addCleanup(self.proxy.close)
         if wrong_token:
             wrong = self.target.root / 'wrong-repair.token'
@@ -259,11 +262,11 @@ class RepairFixture(DurableFixture):
         self.wait_learner()
 
     def wait_learner(self):
-        port = int(self.target.config['listen'].rsplit(':', 1)[1])
+        host, port = self.target.config['listen'].rsplit(':', 1)
         def listening():
             self.target.alive()
             try:
-                with socket.create_connection(('127.0.0.1', port), timeout=.2):
+                with socket.create_connection((host, int(port)), timeout=.2):
                     return True
             except OSError:
                 return False
@@ -534,11 +537,13 @@ class RepairFaults(RepairFixture, unittest.TestCase):
         sink_node = self.fleet.brokers[2]
         sink_node.stop()
         wait_until(lambda: (self.fleet.status() or {}).get('nodes') == 2, 25)
-        port = int(sink_node.config['listen'].rsplit(':', 1)[1])
         backend = self.fleet.port()
-        proxy = ImportProxy(port, backend, 'outbox')
+        sink_node.broker_listen_override = f'{sink_node.host}:{backend}'
+        sink_node.config['listen'] = sink_node.broker_listen_override
+        proxy = ImportProxy(
+            self.fleet.broker_port, backend, 'outbox',
+            host=sink_node.host, backend_host=sink_node.host)
         self.addCleanup(proxy.close)
-        sink_node.config['listen'] = f'127.0.0.1:{backend}'
         sink_node.start()
         sink = self.persistent('repair-outbox-target', 2, expiry=3600)
         self.subscribe(sink, 'repair/outbox', 2)

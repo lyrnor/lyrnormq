@@ -308,11 +308,12 @@ fn apply(
         Request::Handle {
             client,
             generation,
-            frame,
+            mut frame,
             legacy,
             received_at_millis,
         } => {
             valid_generation(online, &client, generation)?;
+            let mut shared_overlay = None;
             if config.cluster.is_some() && !broker.durable_cluster() {
                 if matches!(&frame.packet, Packet::Publish { retain: true, .. }) {
                     return Err(failure(
@@ -320,35 +321,55 @@ fn apply(
                         "retained publishing is not supported in initial cluster gate",
                     ));
                 }
-                if let Packet::Subscribe { packet_id, filters } = &frame.packet
-                    && filters
+                if let Packet::Subscribe { packet_id, filters } = &frame.packet {
+                    let overlay: Vec<Option<u8>> = filters
                         .iter()
-                        .any(|(filter, _)| mqtt_router::split_shared_filter(filter).is_some())
-                {
-                    effects.commit = false;
-                    effects.housekeeping = false;
-                    return Ok(frames_reply(
-                        vec![Frame {
-                            packet: Packet::SubAck {
-                                packet_id: *packet_id,
-                                codes: filters
-                                    .iter()
-                                    .map(|(filter, _)| {
-                                        if frame.version == ProtocolVersion::V5
-                                            && mqtt_router::split_shared_filter(filter).is_some()
-                                        {
-                                            0x9e
-                                        } else {
-                                            0x80
-                                        }
-                                    })
-                                    .collect(),
-                            },
-                            version: frame.version,
-                            ..Frame::v5(Packet::PingReq)
-                        }],
-                        legacy,
-                    ));
+                        .map(|(filter, _)| {
+                            mqtt_router::split_shared_filter(filter)
+                                .is_some()
+                                .then_some(if frame.version == ProtocolVersion::V5 {
+                                    0x9e
+                                } else {
+                                    0x80
+                                })
+                        })
+                        .collect();
+                    if overlay.iter().any(Option::is_some) {
+                        if overlay.iter().all(Option::is_some) {
+                            effects.commit = false;
+                            effects.housekeeping = false;
+                            return Ok(frames_reply(
+                                vec![Frame {
+                                    packet: Packet::SubAck {
+                                        packet_id: *packet_id,
+                                        codes: overlay.into_iter().flatten().collect(),
+                                    },
+                                    version: frame.version,
+                                    ..Frame::v5(Packet::PingReq)
+                                }],
+                                legacy,
+                            ));
+                        }
+                        shared_overlay = Some((*packet_id, overlay));
+                    }
+                }
+                if shared_overlay.is_some() {
+                    let options = std::mem::take(&mut frame.subscription_options);
+                    let mut kept_options = Vec::new();
+                    if let Packet::Subscribe { filters, .. } = &mut frame.packet {
+                        let mut index = 0;
+                        filters.retain(|(filter, _)| {
+                            let keep = mqtt_router::split_shared_filter(filter).is_none();
+                            if !options.is_empty() {
+                                if keep {
+                                    kept_options.extend(options.get(index).copied());
+                                }
+                                index += 1;
+                            }
+                            keep
+                        });
+                    }
+                    frame.subscription_options = kept_options;
                 }
             }
             effects.filters_changed = matches!(
@@ -363,11 +384,14 @@ fn apply(
             let expiry_before = quiet_ping
                 .then(|| proposal.next_expiry_deadline())
                 .flatten();
-            let replies = match received_at_millis {
+            let mut replies = match received_at_millis {
                 Some(received_at) => proposal.handle_frame_at(&client, frame, received_at),
                 None => proposal.handle_frame(&client, frame),
             }
             .map_err(model_error)?;
+            if let Some((packet_id, overlay)) = shared_overlay {
+                expand_shared_suback(&mut replies, packet_id, &overlay);
+            }
             effects.commit = !quiet_ping
                 || expiry_before.is_some_and(|deadline| deadline <= proposal.effective_now());
             effects.notify = effects.commit;
@@ -1499,5 +1523,25 @@ impl Actor {
             notify(&self.engine, &self.online);
         }
         Ok(())
+    }
+}
+
+fn expand_shared_suback(replies: &mut [Frame], packet_id: u16, overlay: &[Option<u8>]) {
+    for frame in replies {
+        let Packet::SubAck {
+            packet_id: acknowledged,
+            codes,
+        } = &mut frame.packet
+        else {
+            continue;
+        };
+        if *acknowledged != packet_id {
+            continue;
+        }
+        let mut granted = codes.iter().copied();
+        *codes = overlay
+            .iter()
+            .map(|slot| slot.or_else(|| granted.next()).unwrap_or(0x80))
+            .collect();
     }
 }
