@@ -17,7 +17,7 @@ jobs:
       - name: Native build and disposable fixture prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends build-essential cmake pkg-config perl python3 openssl curl ca-certificates
+          sudo apt-get install --yes --no-install-recommends build-essential cmake pkg-config perl python3 openssl curl ca-certificates protobuf-compiler
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
