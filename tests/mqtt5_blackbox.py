@@ -191,7 +191,8 @@ class Mqtt5Blackbox(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-mqtt5-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        # Standalone TOML always uses data_dir/sessions.sqlite.
+        self.sqlite = True
         self.broker = FeatureBroker(self.directory.name, self.sqlite)
         self.addCleanup(self.broker.stop)
 

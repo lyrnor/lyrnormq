@@ -70,10 +70,15 @@ class AuthBroker(FeatureBroker):
         self.policy_path.write_text(json.dumps(value))
 
     def command(self):
-        command = super().command()
+        extra = list(self.extra_args)
         if self.use_policy:
-            command += ['--auth-policy', str(self.policy_path)]
-        return command
+            extra += ['--auth-policy', str(self.policy_path)]
+        saved = self.extra_args
+        self.extra_args = extra
+        try:
+            return super().command()
+        finally:
+            self.extra_args = saved
 
     def snapshot(self):
         return export_state(self.db)
