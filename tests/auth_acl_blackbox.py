@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Independent MQTT3.1.1 authentication/ACL TCP and process-recovery checks.
 
-Each test owns its policy and DB. RMQTT_TEST_STORAGE_PATH selects SQLite mode;
-its value is not shared between tests. Fixed low-cost hashes below are synthetic
+Each test owns its policy and DB. Standalone always opens sessions.sqlite.
+Fixed low-cost hashes below are synthetic
 fixtures, never recommended production parameters. ACKs/observed committed SQL
 state are barriers; bounded silence checks only observe unwanted deliveries.
 """
 import json
-import os
 from pathlib import Path
 import socket
 import struct
@@ -84,7 +83,8 @@ class AuthAclBlackbox(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-auth-acl-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        # Standalone TOML always uses data_dir/sessions.sqlite.
+        self.sqlite = True
         self.broker = AuthBroker(self.directory.name, self.sqlite)
         self.addCleanup(self.broker.stop)
 
@@ -299,14 +299,10 @@ class AuthAclBlackbox(unittest.TestCase):
         replay = self.client('precedence-replay', 'admin')
         self.subscribe(replay, [('other/#', 0), ('allowed/#', 0)])
         self.quiet(replay)
-        # An otherwise authorized persistent CONNECT retains existing mode policy.
-        if self.sqlite:
-            valid = self.client('precedence-authorized-persistent', clean=False)
-            self.disconnect(valid)
-        else:
-            unsupported = self.raw()
-            unsupported.sendall(connect_packet('precedence-authorized-persistent', clean=False))
-            self.closed(unsupported)
+        # Standalone rmqtt.toml always opens sessions.sqlite, so an authorized
+        # non-clean CONNECT is admitted. The refusals above still happen first.
+        valid = self.client('precedence-authorized-persistent', clean=False)
+        self.disconnect(valid)
         self.disconnect(owner)
         self.quiet(observer)
 
