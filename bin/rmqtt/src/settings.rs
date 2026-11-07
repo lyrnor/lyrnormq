@@ -61,6 +61,9 @@ pub(crate) fn load_with(
     if controller_only && raw.auth.is_some() {
         return Err(invalid("node.role controller does not use [auth]"));
     }
+    if controller_only && egress_configured(&raw.egress) {
+        return Err(invalid("node.role controller does not use [egress]"));
+    }
     let client = if controller_only {
         None
     } else {
@@ -123,6 +126,7 @@ pub(crate) fn load_with(
         options.access_control_config = Some(data_dir.join("access.sqlite"));
         options.egress_queue_dir = Some(data_dir.join("egress"));
     }
+    apply_egress(&mut options, raw.egress, runs_broker)?;
     if let Some((listen, token, dir)) = dashboard {
         options.admin_listen = Some(listen);
         options.admin_token_file = Some(token);
@@ -292,6 +296,10 @@ const ENV_NAMES: &[&str] = &[
     "RMQTT_LIMITS_AUTH_RATE_PER_SECOND",
     "RMQTT_LIMITS_AUTH_BURST",
     "RMQTT_LIMITS_ALIAS_MAXIMUM",
+    "RMQTT_EGRESS_DIR",
+    "RMQTT_EGRESS_SEGMENT_BYTES",
+    "RMQTT_EGRESS_MAX_BYTES",
+    "RMQTT_EGRESS_MAX_RECORDS",
 ];
 
 fn apply_env(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<()> {
@@ -330,6 +338,7 @@ fn apply_env(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<()> {
     overlay_dashboard(raw, env)?;
     overlay_auth(raw, env)?;
     overlay_limits(&mut raw.limits, env)?;
+    overlay_egress(&mut raw.egress, env)?;
     Ok(())
 }
 
@@ -453,6 +462,16 @@ fn overlay_limits(limits: &mut LimitsRaw, env: &HashMap<String, String>) -> io::
     )?;
     assign_u64(&mut limits.auth_burst, env, "RMQTT_LIMITS_AUTH_BURST")?;
     assign_u64(&mut limits.alias_maximum, env, "RMQTT_LIMITS_ALIAS_MAXIMUM")?;
+    Ok(())
+}
+
+fn overlay_egress(egress: &mut EgressRaw, env: &HashMap<String, String>) -> io::Result<()> {
+    if let Some(value) = env.get("RMQTT_EGRESS_DIR") {
+        egress.dir = Some(value.clone());
+    }
+    assign_u64(&mut egress.segment_bytes, env, "RMQTT_EGRESS_SEGMENT_BYTES")?;
+    assign_u64(&mut egress.max_bytes, env, "RMQTT_EGRESS_MAX_BYTES")?;
+    assign_u64(&mut egress.max_records, env, "RMQTT_EGRESS_MAX_RECORDS")?;
     Ok(())
 }
 
@@ -707,6 +726,49 @@ fn apply_limits(options: &mut Options, limits: LimitsRaw) -> io::Result<()> {
     Ok(())
 }
 
+fn egress_configured(egress: &EgressRaw) -> bool {
+    egress.dir.is_some()
+        || egress.segment_bytes.is_some()
+        || egress.max_bytes.is_some()
+        || egress.max_records.is_some()
+}
+
+fn apply_egress(options: &mut Options, egress: EgressRaw, runs_broker: bool) -> io::Result<()> {
+    if !runs_broker {
+        return Ok(());
+    }
+    if let Some(dir) = egress.dir {
+        if dir.is_empty() {
+            return Err(invalid("egress.dir must be a nonempty path"));
+        }
+        options.egress_queue_dir = Some(PathBuf::from(dir));
+    }
+    if let Some(value) = egress.segment_bytes {
+        if !(4_096..=64 * 1024 * 1024).contains(&value) {
+            return Err(invalid("egress.segment_bytes must be 4096..67108864"));
+        }
+        options.egress_queue_segment_bytes = value;
+    }
+    if let Some(value) = egress.max_bytes {
+        options.egress_queue_max_bytes = value;
+    }
+    if let Some(value) = egress.max_records {
+        if !(1..=1_000_000).contains(&value) {
+            return Err(invalid("egress.max_records must be 1..1000000"));
+        }
+        options.egress_queue_max_records =
+            usize::try_from(value).map_err(|_| invalid("egress.max_records must be 1..1000000"))?;
+    }
+    let segment = options.egress_queue_segment_bytes;
+    let max_bytes = options.egress_queue_max_bytes;
+    if max_bytes < segment.saturating_mul(4) || max_bytes > 1024 * 1024 * 1024 * 1024 {
+        return Err(invalid(
+            "egress.max_bytes must be at least 4 * segment_bytes and at most 1TiB",
+        ));
+    }
+    Ok(())
+}
+
 fn bounded_u32(value: u64, name: &str, allow_zero: bool) -> io::Result<u32> {
     let number = u32::try_from(value).map_err(|_| invalid(format!("{name} is too large")))?;
     if number == 0 && !allow_zero {
@@ -804,6 +866,8 @@ struct Raw {
     auth: Option<AuthRaw>,
     #[serde(default)]
     limits: LimitsRaw,
+    #[serde(default)]
+    egress: EgressRaw,
 }
 
 #[derive(Deserialize, Default)]
@@ -870,6 +934,15 @@ struct DashboardRaw {
 struct AuthRaw {
     policy: Option<String>,
     plain: Option<bool>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct EgressRaw {
+    dir: Option<String>,
+    segment_bytes: Option<u64>,
+    max_bytes: Option<u64>,
+    max_records: Option<u64>,
 }
 
 #[derive(Deserialize, Default)]
@@ -974,6 +1047,28 @@ mod tests {
         assert!(options.websocket);
         assert_eq!(options.websocket_options.path, "/mqtt");
         assert_eq!(options.websocket_options.max_message_size, 64);
+    }
+
+    #[test]
+    fn egress_table_overrides_queue_bounds() {
+        let dir = Temp::new();
+        let queue = dir.0.join("explicit");
+        let path = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[egress]\ndir = \"{}\"\nsegment_bytes = 4096\nmax_bytes = 65536\nmax_records = 16\n",
+            dir.0.display(),
+            queue.display()
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert_eq!(options.egress_queue_dir.as_deref(), Some(queue.as_path()));
+        assert_eq!(options.egress_queue_segment_bytes, 4096);
+        assert_eq!(options.egress_queue_max_bytes, 65536);
+        assert_eq!(options.egress_queue_max_records, 16);
+        let rejected = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[egress]\nmax_records = 0\n",
+            dir.0.display()
+        ));
+        let error = load_with(&invocation(&rejected), &HashMap::new()).unwrap_err();
+        assert!(error.to_string().contains("egress.max_records"));
     }
 
     #[test]

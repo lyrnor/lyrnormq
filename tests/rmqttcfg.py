@@ -13,7 +13,7 @@ def quote(value):
 
 
 def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
-          dashboard=None, auth=None, limits=None, cluster=None, role=None):
+          dashboard=None, auth=None, limits=None, egress=None, cluster=None, role=None):
     """Write directory/rmqtt.toml and return its path.
 
     tls is (cert, key, client_ca or None). websocket is a path, True, or
@@ -22,6 +22,7 @@ def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
     limits is a dict of connections/sessions/inflight/packet_bytes/subscriptions/
     retained/state_bytes/outbound/handshake_ms/write_ms/handshakes/auth_tasks/
     auth_rate/auth_burst/alias_maximum.
+    egress is dir/segment_bytes/max_bytes/max_records.
     cluster is a dict matching the [cluster] table.
     """
     directory = Path(directory)
@@ -76,6 +77,13 @@ def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
         lines += ['', '[limits]']
         for key, value in limits.items():
             lines.append(f'{key} = {int(value)}')
+    if egress:
+        lines += ['', '[egress]']
+        if 'dir' in egress:
+            lines.append(f'dir = {quote(egress["dir"])}')
+        for key in ('segment_bytes', 'max_bytes', 'max_records'):
+            if key in egress:
+                lines.append(f'{key} = {int(egress[key])}')
     if cluster:
         lines += [
             '',
@@ -111,14 +119,16 @@ _LIMITS = {
     '--auth-burst': 'auth_burst',
     '--topic-alias-maximum': 'alias_maximum',
 }
+_EGRESS = {
+    '--egress-queue-dir': 'dir',
+    '--egress-queue-segment-bytes': 'segment_bytes',
+    '--egress-queue-max-bytes': 'max_bytes',
+    '--egress-queue-max-records': 'max_records',
+}
 _IGNORE = {
     '--storage-path',
     '--rules-config',
     '--access-control-config',
-    '--egress-queue-dir',
-    '--egress-queue-segment-bytes',
-    '--egress-queue-max-bytes',
-    '--egress-queue-max-records',
     '--cluster-config',
     '--cluster-controller-config',
 }
@@ -129,10 +139,11 @@ def parse_extra(extra):
     extra = list(extra)
     found = {}
     limits = {}
+    egress = {}
     index = 0
     while index < len(extra):
         flag = extra[index]
-        if flag in _IGNORE or flag in _LIMITS or flag in {
+        if flag in _IGNORE or flag in _LIMITS or flag in _EGRESS or flag in {
             '--protocol', '--tls-cert', '--tls-key', '--tls-client-ca', '--ws-path',
             '--ws-max-message-size',
             '--auth-policy', '--admin-listen', '--admin-token-file', '--dashboard-dir',
@@ -145,6 +156,8 @@ def parse_extra(extra):
                 continue
             if flag in _LIMITS:
                 limits[_LIMITS[flag]] = value
+            elif flag in _EGRESS:
+                egress[_EGRESS[flag]] = value
             else:
                 found[flag] = value
             continue
@@ -179,6 +192,7 @@ def parse_extra(extra):
         dashboard=dashboard,
         auth=auth,
         limits=limits or None,
+        egress=egress or None,
     )
 
 
