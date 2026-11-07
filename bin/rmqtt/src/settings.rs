@@ -101,9 +101,10 @@ pub(crate) fn load_with(
             options.tls_key = Some(key);
             options.tls_client_ca = client_ca;
         }
-        if let Some(path) = client.websocket {
+        if let Some((path, max_message_size)) = client.websocket {
             options.websocket = true;
             options.websocket_options.path = path;
+            options.websocket_options.max_message_size = max_message_size;
         }
     }
     options.cluster_config = Some(invocation.config_path.clone());
@@ -158,7 +159,7 @@ struct MqttClient {
     address: SocketAddr,
     protocol: ProtocolMode,
     tls: Option<(PathBuf, PathBuf, Option<PathBuf>)>,
-    websocket: Option<String>,
+    websocket: Option<(String, usize)>,
 }
 
 fn parse_roles(value: &str) -> io::Result<Roles> {
@@ -306,6 +307,15 @@ fn apply_env(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<()> {
             .websocket
             .get_or_insert_with(WebSocketRaw::default)
             .path = Some(value.clone());
+    }
+    if let Some(value) = env.get("RMQTT_MQTT_WEBSOCKET_MAX_MESSAGE_SIZE") {
+        let size = value
+            .parse()
+            .map_err(|_| invalid("RMQTT_MQTT_WEBSOCKET_MAX_MESSAGE_SIZE must be an integer"))?;
+        raw.mqtt
+            .websocket
+            .get_or_insert_with(WebSocketRaw::default)
+            .max_message_size = Some(size);
     }
     overlay_cluster(raw, env)?;
     overlay_dashboard(raw, env)?;
@@ -457,7 +467,7 @@ fn tls_paths(tls: Option<TlsRaw>) -> io::Result<Option<(PathBuf, PathBuf, Option
     Ok(Some((PathBuf::from(cert), PathBuf::from(key), client_ca)))
 }
 
-fn websocket(websocket: Option<WebSocketRaw>) -> io::Result<Option<String>> {
+fn websocket(websocket: Option<WebSocketRaw>) -> io::Result<Option<(String, usize)>> {
     let Some(websocket) = websocket else {
         return Ok(None);
     };
@@ -470,7 +480,11 @@ fn websocket(websocket: Option<WebSocketRaw>) -> io::Result<Option<String>> {
     {
         return Err(invalid("mqtt.websocket.path is invalid"));
     }
-    Ok(Some(path))
+    let max_message_size = websocket.max_message_size.unwrap_or(1024 * 1024);
+    if !(1..=16 * 1024 * 1024).contains(&max_message_size) {
+        return Err(invalid("mqtt.websocket.max_message_size is invalid"));
+    }
+    Ok(Some((path, max_message_size)))
 }
 
 fn dashboard(
@@ -767,6 +781,7 @@ struct TlsRaw {
 #[serde(deny_unknown_fields)]
 struct WebSocketRaw {
     path: Option<String>,
+    max_message_size: Option<usize>,
 }
 
 #[derive(Deserialize, Default)]
@@ -882,6 +897,19 @@ mod tests {
         assert_eq!(options.config.max_inflight, 32);
         assert!(options.admin_listen.is_none());
         assert!(!options.websocket);
+    }
+
+    #[test]
+    fn websocket_table_applies_path_and_message_bound() {
+        let dir = Temp::new();
+        let path = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[mqtt.websocket]\npath = \"/mqtt\"\nmax_message_size = 64\n",
+            dir.0.display()
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert!(options.websocket);
+        assert_eq!(options.websocket_options.path, "/mqtt");
+        assert_eq!(options.websocket_options.max_message_size, 64);
     }
 
     #[test]

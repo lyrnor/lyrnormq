@@ -16,7 +16,8 @@ def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
           dashboard=None, auth=None, limits=None, cluster=None, role=None):
     """Write directory/rmqtt.toml and return its path.
 
-    tls is (cert, key, client_ca or None). websocket is a path or True.
+    tls is (cert, key, client_ca or None). websocket is a path, True, or
+    a dict with path and optional max_message_size.
     dashboard is (listen, token_file, dir or None). auth is (policy, plain).
     limits is a dict of connections/sessions/inflight/packet_bytes/subscriptions/
     retained/state_bytes. cluster is a dict matching the [cluster] table.
@@ -46,8 +47,16 @@ def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
             if client_ca:
                 lines.append(f'client_ca = {quote(client_ca)}')
         if websocket:
-            path = '/mqtt' if websocket is True else websocket
+            if websocket is True:
+                path, size = '/mqtt', None
+            elif isinstance(websocket, dict):
+                path = websocket.get('path') or '/mqtt'
+                size = websocket.get('max_message_size')
+            else:
+                path, size = websocket, None
             lines += ['', '[mqtt.websocket]', f'path = {quote(path)}']
+            if size is not None:
+                lines.append(f'max_message_size = {int(size)}')
     if dashboard:
         listen_admin, token, assets = dashboard
         lines += [
@@ -104,7 +113,6 @@ _IGNORE = {
     '--auth-rate-per-second',
     '--auth-burst',
     '--topic-alias-maximum',
-    '--ws-max-message-size',
     '--egress-queue-dir',
     '--egress-queue-segment-bytes',
     '--egress-queue-max-bytes',
@@ -124,6 +132,7 @@ def parse_extra(extra):
         flag = extra[index]
         if flag in _IGNORE or flag in _LIMITS or flag in {
             '--protocol', '--tls-cert', '--tls-key', '--tls-client-ca', '--ws-path',
+            '--ws-max-message-size',
             '--auth-policy', '--admin-listen', '--admin-token-file', '--dashboard-dir',
         }:
             if index + 1 >= len(extra):
@@ -156,6 +165,11 @@ def parse_extra(extra):
     if '--auth-policy' in found or '--enhanced-auth-plain' in found:
         auth = (found.get('--auth-policy'), bool(found.get('--enhanced-auth-plain')))
     websocket = found.get('--ws-path', True) if '--websocket' in found or '--ws-path' in found else None
+    if '--ws-max-message-size' in found:
+        if websocket is None:
+            raise ValueError('rmqtt no longer accepts --ws-max-message-size without --websocket')
+        path = '/mqtt' if websocket is True else websocket
+        websocket = {'path': path, 'max_message_size': int(found['--ws-max-message-size'])}
     return dict(
         protocol=found.get('--protocol'),
         tls=tls,
