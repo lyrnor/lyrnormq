@@ -23,6 +23,7 @@ import React, {
 import { api, ApiError, errorMessage } from "./api";
 import { RulesPage } from "./RulesPage";
 import { AccessControlPage } from "./AccessControlPage";
+import { TopologyPanel } from "./TopologyPanel";
 import {
   authReducer,
   boundedSearch,
@@ -109,10 +110,10 @@ function Login({
       <section className="w-full max-w-[440px] rounded-2xl border bg-card p-7 shadow-xl shadow-emerald-950/5 sm:p-9 [&_.brand]:px-0 [&_.brand]:pt-0 [&_.brand]:pb-9 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-semibold [&>p]:text-xs [&>p]:leading-relaxed [&>p]:text-muted-foreground [&_form]:mt-7 [&_label]:mb-3 [&_label]:block [&_label]:text-xs [&_label]:font-semibold [&_input]:mb-4 [&_form>button]:w-full">
         <Brand />
         <div className="mb-2 text-[9px] font-semibold tracking-[.18em] text-muted-foreground">
-          SINGLE NODE / LIVE CONSOLE
+          BROKER CONSOLE / LIVE
         </div>
         <h1>连接到 Broker</h1>
-        <p>使用独立管理令牌，查看当前实例的实时状态。</p>
+        <p>使用独立管理令牌，查看当前 Broker 的实时状态与拓扑。</p>
         <form onSubmit={(e) => void submit(e)}>
           <Label htmlFor="token">管理令牌</Label>
           <Input
@@ -291,7 +292,11 @@ function Console({
           </span>
           <span>
             <b>当前 Broker</b>
-            <small>单节点实例 · 实时数据</small>
+            <small>
+              {o?.topology && o.topology.nodes.length > 1
+                ? `${o.topology.nodes.length} 节点集群 · 实时数据`
+                : "实例 · 实时数据"}
+            </small>
           </span>
         </div>
         <nav aria-label="主导航">
@@ -387,7 +392,7 @@ function Console({
             }
             description={
               route === "overview"
-                ? "了解 Broker 的连接、消息流量与运行状态。"
+                ? "了解节点拓扑、连接与消息流量。"
                 : route === "rules"
                   ? "管理消息处理规则、出站目标。"
                   : route === "security"
@@ -427,6 +432,11 @@ function Console({
           )}
           {route === "overview" && o && (
             <>
+              {o.topology && (
+                <div className="mb-5">
+                  <TopologyPanel topology={o.topology} />
+                </div>
+              )}
               <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
                 {[
                   [
@@ -534,7 +544,11 @@ function Console({
                       </span>
                       <div>
                         <b>{o.instance.listen}</b>
-                        <small>单节点 / 只读管理</small>
+                        <small>
+                          {o.topology?.nodes.length && o.topology.nodes.length > 1
+                            ? `集群节点 #${o.topology.self_node_id} / 只读管理`
+                            : "只读管理"}
+                        </small>
                       </div>
                       <Badge active={!live.error}>{status}</Badge>
                     </div>
@@ -934,7 +948,12 @@ function Console({
           )}
         </main>
         <footer className="mx-auto flex max-w-[1640px] flex-col justify-between gap-2 px-4 py-5 text-[10px] text-muted-foreground sm:flex-row sm:px-8">
-          <span>rmqtt console / 单节点 MQTT Broker</span>
+          <span>
+            rmqtt console /{" "}
+            {o?.topology && o.topology.nodes.length > 1
+              ? `${o.topology.nodes.length} 节点集群`
+              : "MQTT Broker"}
+          </span>
           <span>
             {live.updated
               ? `最近成功采样 ${new Date(live.updated).toLocaleTimeString()}`

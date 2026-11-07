@@ -9,6 +9,47 @@ export interface Instance {
   auth_policy: boolean;
   enhanced_auth: boolean;
 }
+export interface TopologyNode {
+  id: number;
+  roles: string[];
+  controller_id?: number | null;
+  broker_id?: number | null;
+  address: string;
+  control_address?: string | null;
+  broker_address?: string | null;
+  applied: number;
+  expires_at: number;
+  max_lease_ms: number;
+  lease_remaining_ms: number;
+  clients: number;
+  disk_id?: string;
+  excluded: boolean;
+  self: boolean;
+  leader: boolean;
+  online: boolean;
+}
+export interface TopologyRepair {
+  id: string;
+  target: number;
+  generation: number;
+  sealed: boolean;
+  state: string;
+}
+export interface Topology {
+  revision: number;
+  leader: number | null;
+  term: number;
+  last_applied: number;
+  data_storage: string;
+  data_generation: number;
+  clients: number;
+  routes: number;
+  self_node_id: number;
+  nodes: TopologyNode[];
+  excluded: number[];
+  repair?: TopologyRepair | null;
+  last_repair?: TopologyRepair | null;
+}
 export interface Overview {
   ready: boolean;
   uptime_seconds: number;
@@ -29,6 +70,7 @@ export interface Overview {
     resource_metrics: boolean;
     mutations: boolean;
   };
+  topology: Topology;
 }
 export interface Session {
   client_id: string;

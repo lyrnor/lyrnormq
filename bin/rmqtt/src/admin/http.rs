@@ -240,6 +240,23 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
             {
                 capabilities.insert("rules".into(), Value::Bool(true));
             }
+            let topology = match &state.cluster {
+                Some(cluster) => match cluster.topology().await {
+                    Ok(view) => match serde_json::to_value(view) {
+                        Ok(value) => value,
+                        Err(_) => {
+                            return error(
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                "internal",
+                                "Management encoding failed",
+                            );
+                        }
+                    },
+                    Err(cause) => return model_error(cause),
+                },
+                None => standalone_topology(&value),
+            };
+            value.insert("topology".into(), topology);
             Json(Value::Object(value)).into_response()
         }
         "/api/v1/configuration" => {
@@ -280,6 +297,61 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
         ),
     }
 }
+fn standalone_topology(overview: &serde_json::Map<String, Value>) -> Value {
+    let listen = overview
+        .get("instance")
+        .and_then(|value| value.get("listen"))
+        .and_then(Value::as_str)
+        .unwrap_or("local")
+        .to_owned();
+    let storage = overview
+        .get("instance")
+        .and_then(|value| value.get("storage"))
+        .and_then(Value::as_str)
+        .unwrap_or("memory")
+        .to_owned();
+    let online = overview
+        .get("online_sessions")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let offline = overview
+        .get("offline_sessions")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let routes = overview
+        .get("subscriptions")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    json!({
+        "revision": 0,
+        "leader": null,
+        "term": 0,
+        "last_applied": 0,
+        "data_storage": storage,
+        "data_generation": 0,
+        "clients": online.saturating_add(offline),
+        "routes": routes,
+        "self_node_id": 0,
+        "nodes": [{
+            "id": 0,
+            "roles": ["broker"],
+            "broker_id": 0,
+            "address": listen,
+            "broker_address": listen,
+            "applied": 0,
+            "expires_at": 0,
+            "max_lease_ms": 0,
+            "lease_remaining_ms": 0,
+            "clients": online.saturating_add(offline),
+            "excluded": false,
+            "self": true,
+            "leader": true,
+            "online": true
+        }],
+        "excluded": []
+    })
+}
+
 fn static_asset(state: &State, path: &str) -> Response {
     if path.contains(['%', '\\']) || path.split('/').any(|part| matches!(part, "." | "..")) {
         return error(

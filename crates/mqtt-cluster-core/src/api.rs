@@ -1,5 +1,6 @@
 use crate::{
     ClientSubscriptions, ClusterMessage, DeliveryId, SessionCommit, SessionLease, SessionMutation,
+    TopologyView,
 };
 use std::{fmt::Debug, future::Future, io, pin::Pin, sync::Arc};
 
@@ -139,6 +140,15 @@ pub trait ClusterBridge: Debug + Send + Sync {
     }
     /// Install local apply hooks for committed rules/access documents.
     fn set_shared_config_sink(&self, _sink: Arc<dyn SharedConfigSink>) {}
+    /// Read-only topology for management; never blocks the MQTT hot path.
+    fn topology(&self) -> ClusterFuture<'_, TopologyView> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster topology unavailable",
+            ))
+        })
+    }
     fn shutdown(&self) -> ClusterFuture<'_, ()>;
 }
 

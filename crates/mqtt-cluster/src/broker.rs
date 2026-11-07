@@ -1155,6 +1155,244 @@ impl ClusterBridge for BrokerRuntime {
             .lock()
             .unwrap_or_else(PoisonError::into_inner) = Some(sink);
     }
+    fn topology(&self) -> ClusterFuture<'_, mqtt_cluster_core::TopologyView> {
+        Box::pin(async move {
+            let now = controller::now();
+            let (
+                revision,
+                data_storage,
+                data_generation,
+                clients,
+                routes,
+                excluded,
+                repair,
+                last_repair,
+                mut nodes,
+                broker_ids,
+            ) = {
+                let metadata = self.metadata.read().unwrap_or_else(PoisonError::into_inner);
+                let data_storage = metadata
+                    .data_mode
+                    .as_ref()
+                    .map_or("none", crate::model::DataMode::storage_name)
+                    .to_owned();
+                let clients = metadata.clients.len()
+                    + metadata
+                        .durable
+                        .keys()
+                        .filter(|key| key.starts_with("c:"))
+                        .count();
+                let repair = metadata
+                    .repair
+                    .as_ref()
+                    .map(|r| mqtt_cluster_core::TopologyRepair {
+                        id: r.id.clone(),
+                        target: r.target,
+                        generation: r.generation,
+                        sealed: r.manifest.is_some(),
+                        state: "active".to_owned(),
+                    });
+                let last_repair =
+                    metadata
+                        .last_repair
+                        .as_ref()
+                        .map(|r| mqtt_cluster_core::TopologyRepair {
+                            id: r.repair.id.clone(),
+                            target: r.repair.target,
+                            generation: r.repair.generation,
+                            sealed: r.repair.manifest.is_some(),
+                            state: match r.outcome {
+                                crate::repair_state::RepairOutcome::Committed => {
+                                    "committed".to_owned()
+                                }
+                                crate::repair_state::RepairOutcome::Aborted => "aborted".to_owned(),
+                            },
+                        });
+                let excluded: Vec<u64> = metadata.excluded.iter().copied().collect();
+                let mut client_counts: BTreeMap<u64, usize> = BTreeMap::new();
+                for client in metadata.clients.values() {
+                    *client_counts.entry(client.node).or_default() += 1;
+                }
+                for (key, owner) in &metadata.durable {
+                    if key.starts_with("c:") {
+                        *client_counts.entry(owner.node).or_default() += 1;
+                    }
+                }
+                let replica_peers = self
+                    .config
+                    .durable
+                    .as_ref()
+                    .map(|durable| {
+                        durable
+                            .replicas
+                            .iter()
+                            .map(|peer| (peer.id, peer.address.clone()))
+                            .collect::<BTreeMap<_, _>>()
+                    })
+                    .or_else(|| {
+                        metadata
+                            .data_mode
+                            .as_ref()
+                            .and_then(crate::model::DataMode::peers)
+                            .map(|peers| peers.iter().cloned().collect())
+                    })
+                    .unwrap_or_default();
+                // Controllers and brokers stay separate entries so split 3+3
+                // deployments and dual-role cohosts are both readable.
+                let mut nodes = Vec::new();
+                for controller in &self.config.controllers {
+                    nodes.push(mqtt_cluster_core::TopologyNode {
+                        id: controller.id,
+                        roles: vec!["controller"],
+                        controller_id: Some(controller.id),
+                        broker_id: None,
+                        address: controller.address.clone(),
+                        control_address: Some(controller.address.clone()),
+                        broker_address: None,
+                        applied: 0,
+                        expires_at: 0,
+                        max_lease_ms: 0,
+                        lease_remaining_ms: 0,
+                        clients: 0,
+                        disk_id: None,
+                        excluded: false,
+                        is_self: false,
+                        leader: false,
+                        // Controller liveness is confirmed after status refresh.
+                        online: false,
+                    });
+                }
+                let mut seen_brokers = BTreeSet::new();
+                for node in metadata.nodes.values() {
+                    seen_brokers.insert(node.id);
+                    let excluded_node = metadata.excluded.contains(&node.id);
+                    nodes.push(mqtt_cluster_core::TopologyNode {
+                        id: node.id,
+                        roles: vec!["broker"],
+                        controller_id: None,
+                        broker_id: Some(node.id),
+                        address: node.address.clone(),
+                        control_address: None,
+                        broker_address: Some(node.address.clone()),
+                        applied: node.applied,
+                        expires_at: node.expires_at,
+                        max_lease_ms: node.max_lease_ms,
+                        lease_remaining_ms: node.expires_at as i64 - now as i64,
+                        clients: client_counts.get(&node.id).copied().unwrap_or(0),
+                        disk_id: metadata.disk_ids.get(&node.id).cloned(),
+                        excluded: excluded_node,
+                        is_self: node.id == self.config.node_id,
+                        leader: false,
+                        online: !excluded_node && node.expires_at > now,
+                    });
+                }
+                for (id, address) in &replica_peers {
+                    if seen_brokers.contains(id) {
+                        continue;
+                    }
+                    let excluded_node = metadata.excluded.contains(id);
+                    nodes.push(mqtt_cluster_core::TopologyNode {
+                        id: *id,
+                        roles: vec!["broker"],
+                        controller_id: None,
+                        broker_id: Some(*id),
+                        address: address.clone(),
+                        control_address: None,
+                        broker_address: Some(address.clone()),
+                        applied: 0,
+                        expires_at: 0,
+                        max_lease_ms: 0,
+                        lease_remaining_ms: 0,
+                        clients: client_counts.get(id).copied().unwrap_or(0),
+                        disk_id: metadata.disk_ids.get(id).cloned(),
+                        excluded: excluded_node,
+                        is_self: *id == self.config.node_id,
+                        leader: false,
+                        online: false,
+                    });
+                }
+                let broker_ids: Vec<u64> = nodes.iter().filter_map(|node| node.broker_id).collect();
+                (
+                    metadata.revision,
+                    data_storage,
+                    metadata.data_generation,
+                    clients,
+                    metadata.routes.len(),
+                    excluded,
+                    repair,
+                    last_repair,
+                    nodes,
+                    broker_ids,
+                )
+            };
+            let rpc = self.rpc.get();
+            let (leader, term, last_applied) = match rpc {
+                Some(rpc) => {
+                    match tokio::time::timeout(Duration::from_millis(400), rpc.status()).await {
+                        Ok(Ok(status)) => (status.leader, status.term, status.last_applied),
+                        _ => (None, 0, 0),
+                    }
+                }
+                None => (None, 0, 0),
+            };
+            // Heartbeats update Controller metadata without watch deltas; refresh
+            // lease/applied from a bounded Controller read for the panel.
+            if let Some(rpc) = rpc {
+                for id in broker_ids {
+                    let fresh = match tokio::time::timeout(Duration::from_millis(200), rpc.node(id))
+                        .await
+                    {
+                        Ok(Ok(Some(node))) => node,
+                        _ => continue,
+                    };
+                    let now = controller::now();
+                    if let Some(node) = nodes.iter_mut().find(|node| node.broker_id == Some(id)) {
+                        node.applied = fresh.applied;
+                        node.expires_at = fresh.expires_at;
+                        node.max_lease_ms = fresh.max_lease_ms;
+                        node.broker_address = Some(fresh.address.clone());
+                        node.address = fresh.address.clone();
+                        node.lease_remaining_ms = fresh.expires_at as i64 - now as i64;
+                        node.online = !node.excluded && fresh.expires_at > now;
+                    }
+                }
+            }
+            for node in &mut nodes {
+                if node.roles.contains(&"controller") {
+                    node.leader = node.controller_id == leader;
+                    // Controllers do not publish broker leases; treat membership
+                    // as online once Raft status is reachable.
+                    node.online = leader.is_some() || term > 0 || last_applied > 0;
+                } else {
+                    node.leader = false;
+                }
+            }
+            nodes.sort_by(|left, right| {
+                let left_ctrl = left.roles.contains(&"controller");
+                let right_ctrl = right.roles.contains(&"controller");
+                match (left_ctrl, right_ctrl) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => left.id.cmp(&right.id),
+                }
+            });
+            Ok(mqtt_cluster_core::TopologyView {
+                revision,
+                leader,
+                term,
+                last_applied,
+                data_storage,
+                data_generation,
+                clients,
+                routes,
+                self_node_id: self.config.node_id,
+                nodes,
+                excluded,
+                repair,
+                last_repair,
+            })
+        })
+    }
     fn shutdown(&self) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
             self.stopped.store(true, Ordering::Release);
