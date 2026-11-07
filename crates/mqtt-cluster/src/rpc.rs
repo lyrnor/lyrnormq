@@ -305,13 +305,14 @@ impl ClientRpc {
     }
     async fn request_seeds<T: DeserializeOwned>(&self, kind: ReadRequest) -> io::Result<T> {
         measure(Stage::RpcRead, Kind::read(&kind), async {
-            // One deadline covers all controller attempts, including connection establishment.
-            let limit = if matches!(kind, ReadRequest::Applied { .. }) {
-                5
+            // A wedged first seed must not consume the whole budget: TCP accept
+            // without HTTP/2 (SIGSTOP, stuck reactor) still succeeds connect.
+            let (total, per_seed) = if matches!(kind, ReadRequest::Applied { .. }) {
+                (Duration::from_secs(5), Duration::from_secs(2))
             } else {
-                2
+                (Duration::from_secs(2), Duration::from_millis(400))
             };
-            tokio::time::timeout(Duration::from_secs(limit), async {
+            tokio::time::timeout(total, async {
                 let mut last = io_error("controller quorum unavailable");
                 for address in self.controller_addresses() {
                     let deadline = if matches!(kind, ReadRequest::Applied { .. }) {
@@ -319,31 +320,35 @@ impl ClientRpc {
                     } else {
                         ClientDeadline::Regular
                     };
-                    let mut client = match self.client_timeout(&address, deadline).await {
-                        Ok(client) => client,
-                        Err(error) => {
-                            // No RPC was sent: it is safe to try another controller.
-                            last = io::Error::new(
-                                io::ErrorKind::WouldBlock,
-                                RpcFailure {
-                                    code: tonic::Code::Unavailable,
-                                    outcome_unknown: false,
-                                    message: error.to_string(),
-                                },
-                            );
-                            continue;
+                    let attempt = async {
+                        let mut client = match self.client_timeout(&address, deadline).await {
+                            Ok(client) => client,
+                            Err(error) => {
+                                // No RPC was sent: it is safe to try another controller.
+                                return Err(io::Error::new(
+                                    io::ErrorKind::WouldBlock,
+                                    RpcFailure {
+                                        code: tonic::Code::Unavailable,
+                                        outcome_unknown: false,
+                                        message: error.to_string(),
+                                    },
+                                ));
+                            }
+                        };
+                        match client.read(self.authorize(encode(&kind)?)?).await {
+                            Ok(reply) => decode(reply.into_inner()).map_err(io_error),
+                            Err(status) => Err(mutation_status(status)),
                         }
                     };
-                    match client.read(self.authorize(encode(&kind)?)?).await {
-                        Ok(reply) => {
+                    match tokio::time::timeout(per_seed, attempt).await {
+                        Ok(Ok(value)) => {
                             if !matches!(kind, ReadRequest::Status) {
                                 self.remember_controller(address);
                             }
-                            return decode(reply.into_inner()).map_err(io_error);
+                            return Ok(value);
                         }
-                        Err(status) => {
-                            last = mutation_status(status);
-                        }
+                        Ok(Err(error)) => last = error,
+                        Err(_) => last = io_error("controller seed deadline"),
                     }
                 }
                 Err(last)

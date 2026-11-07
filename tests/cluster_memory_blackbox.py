@@ -5,7 +5,6 @@ RMQTT_BIN=/path/rmqtt python3 tests/cluster_memory_blackbox.py -v
 Controllers persist metadata; data replicas must keep session/message state only
 in RAM. Empty restarted replicas cannot vote until in-process repair completes.
 """
-import copy
 import json
 import os
 from pathlib import Path
@@ -25,35 +24,21 @@ from cluster_repair_blackbox import Driver, ImportProxy
 
 
 class MemoryNode(DurableNode):
-    def command(self):
-        command = super().command()
-        # A memory replica may not silently persist a local session mirror.
-        position = command.index('--storage-path')
-        del command[position:position + 2]
-        return command + ['--max-auth-tasks', '128', '--max-handshakes', '1024']
+    """Replicated mode already omits a session SQLite mirror."""
 
 
 class MemoryFleet(DurableFleet):
-    def new_broker(self, node_id, **changes):
-        root = self.root / f'broker-{node_id}'
-        port = self.port()
-        config = dict(role='broker', cluster_id='wire-test-cluster', node_id=node_id,
-                      listen=f'127.0.0.1:{port}', advertise=f'http://127.0.0.1:{port}',
-                      data_dir=str(root / 'cluster-data'), token_file=str(self.token),
-                      controllers=copy.deepcopy(self.controllers[0].config['controllers']),
-                      lease_ms=3000)
-        config.update(changes)
-        return MemoryNode(root, config, self.port(), self.port())
+    node_class = MemoryNode
 
 
 class CombinedMemoryNode(MemoryNode):
     def __init__(self, broker, controller):
         self.__dict__.update(broker.__dict__)
         self.controller = controller
-        controller.path.write_text(json.dumps(controller.config))
-
-    def command(self):
-        return super().command() + ['--cluster-controller-config', str(self.controller.path)]
+        self.role = 'controller,broker'
+        self.config = dict(self.config)
+        self.config['role'] = 'controller,broker'
+        self.write_config()
 
 
 class CombinedMemoryFleet(MemoryFleet):
@@ -182,7 +167,7 @@ class MemoryFixture(DurableFixture):
 
     def repair(self, target=101, abort=False, expected=None):
         command = [BINARY, 'cluster-repair-abort' if abort else 'cluster-repair',
-                   '--cluster-config', str(self.fleet.controllers[0].path)]
+                   '--config', str(self.fleet.controllers[0].path)]
         if not abort:
             command += ['--target-node', str(target)]
         completed = subprocess.run(command, cwd=self.fleet.root, capture_output=True,
@@ -321,7 +306,7 @@ class MemoryRecovery(MemoryFixture, unittest.TestCase):
             node.alive()
             self.assertFalse(node.ready())
             self.no_positive_connack(node)
-        failed = subprocess.run([BINARY, 'cluster-repair', '--cluster-config',
+        failed = subprocess.run([BINARY, 'cluster-repair', '--config',
                                  str(self.fleet.controllers[0].path), '--target-node', '101'],
                                 cwd=self.fleet.root, capture_output=True, timeout=30)
         self.assertNotEqual(failed.returncode, 0,
@@ -331,7 +316,7 @@ class MemoryRecovery(MemoryFixture, unittest.TestCase):
     def test_target_restart_loses_staging_and_requires_new_repair(self):
         self.witness()
         target, proxy = self.replacement('installed')
-        command = [BINARY, 'cluster-repair', '--cluster-config',
+        command = [BINARY, 'cluster-repair', '--config',
                    str(self.fleet.controllers[0].path), '--target-node', '101']
         driver = Driver(command, self.fleet.root)
         self.addCleanup(driver.close)
@@ -362,7 +347,7 @@ class MemoryStartup(unittest.TestCase):
         self.fleet = MemoryFleet(self.directory.name)
         self.addCleanup(self.fleet.stop)
         for node in [*self.fleet.controllers, *self.fleet.brokers]:
-            node.path.write_text(json.dumps(node.config))
+            node.write_config()
 
     def invoke(self, node, extra=(), command=None):
         args = node.command() + list(extra) if command is None else command
@@ -390,7 +375,7 @@ class MemoryStartup(unittest.TestCase):
     def test_pure_learner_command_cannot_promote_into_another_process(self):
         node = self.fleet.brokers[0]
         result = self.invoke(node, command=[BINARY, 'cluster-repair-learner',
-                                           '--cluster-config', str(node.path)])
+                                           '--config', str(node.path)])
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(b'memory', result.stderr.lower())
 

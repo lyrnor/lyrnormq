@@ -37,7 +37,7 @@ def controller_only_status(fleet, node):
 
         def query():
             try:
-                result = subprocess.run([BINARY, 'cluster-status', '--cluster-config', str(path)],
+                result = subprocess.run([BINARY, 'cluster-status', '--config', str(path)],
                                         cwd=fleet.root, capture_output=True, timeout=4)
             except subprocess.TimeoutExpired:
                 return None

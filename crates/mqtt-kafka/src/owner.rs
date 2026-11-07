@@ -30,7 +30,7 @@ struct Slot;
 impl Slot {
     fn reserve() -> Result<Self, BuildError> {
         OWNERS
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                 (n < 16).then_some(n + 1)
             })
             .map(|_| Self)

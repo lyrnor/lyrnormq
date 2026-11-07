@@ -280,3 +280,48 @@ fn explicit_plain_pattern_entry_keeps_shared_looking_inner_literal() {
     router.unsubscribe(1, "$share/h/#");
     assert!(router.matching_qos("$share/h/item").is_empty());
 }
+
+#[test]
+fn hash_fanout_enumerates_each_client_once_and_stays_bounded() {
+    let mut router = Router::default();
+    const CLIENTS: u64 = 32_768;
+    for client in 0..CLIENTS {
+        assert!(router.subscribe_qos(client, "#".into(), (client % 3) as u8));
+        assert!(router.subscribe_qos(client, format!("exact/{client}"), 1));
+    }
+    let started = std::time::Instant::now();
+    let hash = router.matching_qos("a/b");
+    let exact = router.matching_qos("exact/99");
+    let isolated = router.matching_qos("$SYS/load");
+    let elapsed = started.elapsed();
+    assert_eq!(hash.len(), CLIENTS as usize);
+    assert_eq!(hash[0], (0, 0));
+    assert_eq!(hash[1], (1, 1));
+    assert_eq!(hash[2], (2, 2));
+    assert_eq!(exact.len(), CLIENTS as usize);
+    assert_eq!(exact[99], (99, 1));
+    assert!(isolated.is_empty());
+    assert!(
+        elapsed.as_millis() < 1_000,
+        "32k # fanout match took {elapsed:?}"
+    );
+}
+
+#[test]
+fn unique_exact_topics_return_one_client() {
+    let mut router = Router::default();
+    const CLIENTS: u64 = 32_768;
+    for client in 0..CLIENTS {
+        assert!(router.subscribe_qos(client, format!("exact/{client}"), 2));
+    }
+    let started = std::time::Instant::now();
+    let found = router.matching_qos("exact/99");
+    let miss = router.matching_qos("exact/missing");
+    let elapsed = started.elapsed();
+    assert_eq!(found, vec![(99, 2)]);
+    assert!(miss.is_empty());
+    assert!(
+        elapsed.as_millis() < 20,
+        "unique exact match among 32k topics took {elapsed:?}"
+    );
+}

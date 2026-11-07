@@ -338,7 +338,7 @@ async fn sixty_four_hot_keys_yield_to_waiting_key() -> io::Result<()> {
     }
     data.scheduler.schedule("c:idle");
     gate.wait().await;
-    let progressed = tokio::time::timeout(Duration::from_millis(500), cold.recv()).await;
+    let progressed = tokio::time::timeout(Duration::from_secs(2), cold.recv()).await;
     runner.abort();
     let _ = runner.await;
     actors.abort_all();

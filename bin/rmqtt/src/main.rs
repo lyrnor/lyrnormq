@@ -64,8 +64,10 @@ async fn run() -> Result<(), Box<dyn Error>> {
         service_controller,
         broker_shutdown,
     );
-    match (broker.is_some(), controller) {
-        (true, Some(config)) => cluster::combined(config, broker_stop, service).await,
+    // Inspection commands must not open journals. Combined startup would lock the
+    // live controller directory after printing cluster-status JSON and then exit 1.
+    match (command, broker.is_some(), controller) {
+        (false, true, Some(config)) => cluster::combined(config, broker_stop, service).await,
         _ => service.await,
     }
 }

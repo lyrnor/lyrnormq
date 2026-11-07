@@ -93,6 +93,9 @@ jobs:
       - name: Embedded Raft cluster and live forwarding acceptance
         timeout-minutes: 15
         run: python3 tests/cluster_blackbox.py -v
+      - name: Combined-role three-member loopback cluster and loadgen
+        timeout-minutes: 10
+        run: python3 tests/cluster_combined_blackbox.py -v
       # Phase7f replaces data-plane SQLite with volatile memory. Historical disk
       # replay suites remain as evidence, not claimed as supported RAM behavior.
       - name: Memory replicas, live-majority failover and in-process catch-up

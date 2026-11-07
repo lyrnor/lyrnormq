@@ -413,7 +413,7 @@ impl Broker {
     ) -> io::Result<ActorHandle> {
         let reserved = self
             .actors
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
                 (count < self.config.max_sessions).then_some(count + 1)
             });
         if reserved.is_err() {
@@ -554,7 +554,7 @@ impl Broker {
         }
         let growth = next - previous;
         self.state_bytes
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |total| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |total| {
                 total
                     .checked_add(growth)
                     .filter(|sum| *sum <= self.config.max_state_bytes)

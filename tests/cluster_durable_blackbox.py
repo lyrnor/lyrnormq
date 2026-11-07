@@ -6,7 +6,6 @@ No failed Broker directory is mounted or copied into its replacement. Protocol
 ACKs are durability barriers; process crashes do not certify physical power loss.
 """
 import os
-import copy
 import concurrent.futures
 import json
 import signal
@@ -26,29 +25,15 @@ from retained_will_blackbox import connect_packet, publication
 
 
 class DurableNode(Node):
-    def command(self):
-        command = super().command()
-        policy = self.root / 'policy.json'
-        if policy.is_file():
-            command += ['--auth-policy', str(policy)]
-        return command
+    """Policy files are folded into the operator TOML by Node.write_config()."""
 
 
 class DurableFleet(Fleet):
-    def new_broker(self, node_id, **changes):
-        root = self.root / f'broker-{node_id}'
-        port = self.port()
-        config = dict(role='broker', cluster_id='wire-test-cluster', node_id=node_id,
-                      listen=f'127.0.0.1:{port}', advertise=f'http://127.0.0.1:{port}',
-                      data_dir=str(root / 'cluster-data'), token_file=str(self.token),
-                      controllers=copy.deepcopy(self.controllers[0].config['controllers']),
-                      lease_ms=3000)
-        config.update(changes)
-        return DurableNode(root, config, self.port(), self.port())
+    node_class = DurableNode
+    broker_ids = (101, 102, 103)
 
     def __init__(self, directory):
         super().__init__(directory)
-        self.brokers.append(self.new_broker(103))
         replicas = [{'id': node.config['node_id'], 'address': node.config['advertise']}
                     for node in self.brokers]
         for node in self.brokers:

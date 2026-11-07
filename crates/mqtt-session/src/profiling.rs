@@ -72,7 +72,7 @@ pub(crate) fn enabled() -> bool {
     *ENABLED.get_or_init(|| std::env::var_os("RMQTT_PROFILE").is_some_and(|value| value == "1"))
 }
 fn saturating_add(counter: &AtomicU64, value: u64) {
-    let _ = counter.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
+    let _ = counter.try_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
         Some(old.saturating_add(value))
     });
 }

@@ -7,7 +7,6 @@ Optional RMQTT_DIAG_QOS=0|1|2 selects the high-load QoS (default0).
 An unsuccessful warmup is failure, never zero loss. Evidence is preserved under
 RMQTT_DIAG_ARTIFACT_DIR (default an independent temporary artifact directory).
 """
-import copy
 import json
 import os
 from pathlib import Path
@@ -24,27 +23,11 @@ LOADGEN = os.environ.get('RMQTT_LOADGEN_BIN', str(
 
 
 class DataPathNode(DurableNode):
-    def command(self):
-        command = super().command()
-        # Match the remote comparison: authoritative replicated journal, no
-        # optional local session mirror; default empty rules/access configuration.
-        index = command.index('--storage-path')
-        del command[index:index + 2]
-        return command + ['--max-auth-tasks', '128', '--max-handshakes', '1024',
-                          '--max-connections', '20000']
+    extra_limits = {'connections': 20000, 'sessions': 20000}
 
 
 class DataPathFleet(DurableFleet):
-    def new_broker(self, node_id, **changes):
-        root = self.root / f'broker-{node_id}'
-        port = self.port()
-        config = dict(role='broker', cluster_id='wire-test-cluster', node_id=node_id,
-                      listen=f'127.0.0.1:{port}', advertise=f'http://127.0.0.1:{port}',
-                      data_dir=str(root / 'cluster-data'), token_file=str(self.token),
-                      controllers=copy.deepcopy(self.controllers[0].config['controllers']),
-                      lease_ms=3000)
-        config.update(changes)
-        return DataPathNode(root, config, self.port(), self.port())
+    node_class = DataPathNode
 
 
 class DataPathCases(unittest.TestCase):

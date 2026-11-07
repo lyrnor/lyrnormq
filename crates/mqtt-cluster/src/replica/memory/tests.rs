@@ -614,6 +614,46 @@ async fn execute_many_judges_each_operation_independently() {
     std::fs::remove_dir_all(p).unwrap();
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn concurrent_distinct_keys_are_not_lost_or_over_charged() {
+    let p = path("concurrent-keys");
+    let journal = std::sync::Arc::new(journal(&p));
+    let mut tasks = Vec::new();
+    for worker in 0..8u32 {
+        let journal = journal.clone();
+        tasks.push(tokio::spawn(async move {
+            for item in 0..400u32 {
+                let key = format!("k-{worker}-{item}");
+                journal
+                    .execute(Request::Write {
+                        key,
+                        record: record(1, u64::from(item) + 1, b"x"),
+                    })
+                    .await
+                    .unwrap();
+            }
+        }));
+    }
+    for task in tasks {
+        task.await.unwrap();
+    }
+    for worker in 0..8u32 {
+        for item in 0..400u32 {
+            let key = format!("k-{worker}-{item}");
+            let stored = journal
+                .execute(Request::Read { key })
+                .await
+                .unwrap()
+                .record
+                .expect("distinct concurrent write vanished");
+            assert_eq!(stored.snapshot.as_deref(), Some(b"x".as_slice()));
+            assert_eq!(stored.physical_revision, u64::from(item) + 1);
+        }
+    }
+    drop(journal);
+    std::fs::remove_dir_all(p).unwrap();
+}
+
 fn rejected(result: &std::io::Result<Reply>) -> Failure {
     let Err(error) = result else {
         panic!("expected rejection");

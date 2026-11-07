@@ -113,17 +113,16 @@ impl PublicationObserver for Observer {
             inner.counters.dropped.fetch_add(1, Ordering::Relaxed);
             return;
         };
-        let sequence =
-            match inner
-                .sequence
-                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
-            {
-                Ok(n) => n,
-                Err(_) => {
-                    inner.counters.dropped.fetch_add(1, Ordering::Relaxed);
-                    return;
-                }
-            };
+        let sequence = match inner
+            .sequence
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
+        {
+            Ok(n) => n,
+            Err(_) => {
+                inner.counters.dropped.fetch_add(1, Ordering::Relaxed);
+                return;
+            }
+        };
         let millis = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()

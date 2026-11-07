@@ -26,9 +26,11 @@ from mqtt5_blackbox import connect5, props, publication5, readprops
 from retained_will_blackbox import connect_packet as connect311, publication
 from rules_webhook_blackbox import CONFIG as RULES_CONFIG, Webhook, config_for
 import dashboard_blackbox as dashboard
+import rmqttcfg
 
 BINARY = os.environ.get('RMQTT_BIN', str(Path(__file__).resolve().parents[1] / 'target/debug/rmqtt'))
 CLUSTER_TOKEN = 'cluster-test-secret-709def7a902445eb'
+MEMBER_HOSTS = ('127.0.0.1', '127.0.0.2', '127.0.0.3')
 
 
 def wait_until(predicate, timeout=20):
@@ -46,34 +48,77 @@ def wait_until(predicate, timeout=20):
 
 
 class Node:
-    def __init__(self, root, config, mqtt=None, admin=None):
+    def __init__(self, root, config, mqtt=None, admin=None, cluster=None, host=None,
+                 role=None, member_id=None):
         self.root = Path(root)
-        self.root.mkdir()
+        self.root.mkdir(parents=True, exist_ok=True)
         self.config = config
-        self.path = self.root / 'cluster.json'
-        self.path.write_text(json.dumps(config))
+        self.cluster = cluster
+        self.host = host or '127.0.0.1'
+        self.role = role or config.get('role')
+        self.member_id = member_id if member_id is not None else self._member_id(config)
+        self.path = self.root / 'rmqtt.toml'
         self.mqtt, self.admin = mqtt, admin
         self.process = None
         self.output = None
         if admin is not None:
             (self.root / 'admin.token').write_text(TOKEN + '\n')
+        self.write_config()
+
+    @staticmethod
+    def _member_id(config):
+        node_id = int(config['node_id'])
+        if 101 <= node_id <= 199:
+            return node_id - 100
+        return node_id
+
+    def write_config(self):
+        if self.cluster is None:
+            raise AssertionError('TOML cluster spec is required')
+        cluster = dict(self.cluster)
+        if token := self.config.get('token_file'):
+            cluster['token_file'] = token
+        if cluster_id := self.config.get('cluster_id'):
+            cluster['id'] = cluster_id
+        listen = None if self.mqtt is None else f'127.0.0.1:{self.mqtt}'
+        dashboard = None
+        if self.admin is not None:
+            dashboard = (f'127.0.0.1:{self.admin}', str(self.root / 'admin.token'), None)
+        auth = None
+        policy = self.root / 'policy.json'
+        if policy.is_file():
+            auth = (str(policy), False)
+        limits = None
+        if self.mqtt is not None:
+            limits = {'connections': 4096, 'sessions': 4096}
+            extra = getattr(self, 'extra_limits', None)
+            if extra:
+                limits.update(extra)
+        rmqttcfg.write(
+            self.root,
+            listen,
+            node_id=self.member_id,
+            role=self.role,
+            cluster=cluster,
+            dashboard=dashboard,
+            auth=auth,
+            limits=limits,
+        )
+        if self.role == 'controller':
+            self.config['data_dir'] = str(self.root / 'controller')
+        elif self.role == 'broker':
+            self.config['data_dir'] = str(self.root / 'broker')
+        else:
+            self.config['data_dir'] = str(self.root)
 
     def command(self):
-        command = [BINARY, '--cluster-config', str(self.path)]
-        if self.mqtt is not None:
-            command += ['--listen', f'127.0.0.1:{self.mqtt}',
-                        '--admin-listen', f'127.0.0.1:{self.admin}',
-                        '--admin-token-file', str(self.root / 'admin.token'),
-                        '--storage-path', str(self.root / 'sessions.sqlite'),
-                        '--rules-config', str(self.root / 'rules.sqlite'),
-                        '--access-control-config', str(self.root / 'access.sqlite'),
-                        '--auth-rate-per-second', '0']
-        return command
+        self.write_config()
+        return [BINARY, '--config', str(self.path)]
 
     def spawn(self):
         if self.process is not None and self.process.poll() is None:
             raise AssertionError('attempted to double-start fixture node')
-        self.path.write_text(json.dumps(self.config))
+        self.write_config()
         if self.output is not None:
             self.output.close()
         self.output = tempfile.TemporaryFile()
@@ -140,23 +185,43 @@ class Node:
 
 
 class Fleet:
+    node_class = Node
+    broker_ids = (101, 102, 103)
+
     def __init__(self, directory):
         self.root = Path(directory)
         self.used_ports = set()
         self.token = self.root / 'cluster.token'
         self.token.write_text(CLUSTER_TOKEN + '\n')
-        ports = [self.port() for _ in range(3)]
+        self.controller_port = self.port()
+        self.broker_port = self.port()
+        while self.broker_port == self.controller_port:
+            self.broker_port = self.port()
+        self.members = [{'id': index + 1, 'host': host}
+                        for index, host in enumerate(MEMBER_HOSTS)]
+        self.cluster = {
+            'id': 'wire-test-cluster',
+            'token_file': str(self.token),
+            'controller_port': self.controller_port,
+            'broker_port': self.broker_port,
+            'members': self.members,
+        }
+        controllers = [{'id': member['id'],
+                        'address': f'http://{member["host"]}:{self.controller_port}'}
+                       for member in self.members]
         self.controllers = []
-        members = [{'id': index + 1, 'address': f'http://127.0.0.1:{port}'}
-                   for index, port in enumerate(ports)]
-        for index, port in enumerate(ports):
-            root = self.root / f'controller-{index + 1}'
+        for index, host in enumerate(MEMBER_HOSTS):
+            node_id = index + 1
+            root = self.root / f'controller-{node_id}'
             config = dict(role='controller', cluster_id='wire-test-cluster',
-                          node_id=index + 1, listen=f'127.0.0.1:{port}',
+                          node_id=node_id, listen=f'{host}:{self.controller_port}',
                           data_dir=str(root / 'metadata'), token_file=str(self.token),
-                          controllers=members, bootstrap=index == 0, lease_ms=3000)
-            self.controllers.append(Node(root, config))
-        self.brokers = [self.new_broker(index + 101) for index in range(2)]
+                          controllers=copy.deepcopy(controllers), bootstrap=index == 0,
+                          lease_ms=3000)
+            self.controllers.append(self.node_class(
+                root, config, cluster=self.cluster, host=host, role='controller',
+                member_id=node_id))
+        self.brokers = [self.new_broker(node_id) for node_id in self.broker_ids]
 
     def port(self):
         while True:
@@ -166,18 +231,23 @@ class Fleet:
                 return port
 
     def new_broker(self, node_id, **changes):
+        member_id = node_id - 100 if 101 <= node_id <= 199 else (
+            node_id if 1 <= node_id <= 3 else 3)
+        host = MEMBER_HOSTS[member_id - 1]
         root = self.root / f'broker-{node_id}'
-        port = self.port()
         config = dict(role='broker', cluster_id='wire-test-cluster', node_id=node_id,
-                      listen=f'127.0.0.1:{port}', advertise=f'http://127.0.0.1:{port}',
+                      listen=f'{host}:{self.broker_port}',
+                      advertise=f'http://{host}:{self.broker_port}',
                       data_dir=str(root / 'cluster-data'), token_file=str(self.token),
                       controllers=copy.deepcopy(self.controllers[0].config['controllers']),
                       lease_ms=3000)
         config.update(changes)
-        return Node(root, config, self.port(), self.port())
+        return self.node_class(
+            root, config, self.port(), self.port(), cluster=self.cluster, host=host,
+            role='broker', member_id=member_id)
 
     def status(self):
-        result = subprocess.run([BINARY, 'cluster-status', '--cluster-config',
+        result = subprocess.run([BINARY, 'cluster-status', '--config',
                                  str(self.controllers[0].path)], cwd=self.root,
                                 capture_output=True, timeout=12)
         if result.returncode != 0:
@@ -384,24 +454,34 @@ class ClusterWireCases(ClusterFixture):
     def test_broker_restart_rebuilds_route_snapshot(self):
         subscriber = self.client('subscriber', 1)
         self.subscribe(subscriber, 'cluster/after-restart')
+        publisher = self.client('publisher-after-restart', 2)
         self.fleet.brokers[0].stop(crash=True)
-        self.fleet.brokers[0].start()
-        publisher = self.client('publisher-after-restart', 0)
+        # A new process is a new memory-replica identity and cannot vote until repair.
+        self.fleet.brokers[0].spawn()
+        wait_until(lambda: 'memory_replica_waiting_for_repair' in self.fleet.brokers[0].logs(), 15)
+        self.assertFalse(self.fleet.brokers[0].ready())
+        # The 3s replica lease must expire before all-live barriers omit the crash.
+        time.sleep(4)
+        self.ping(publisher)
+        self.ping(subscriber)
         self.publish(publisher, 'cluster/after-restart', b'caught-up')
         self.delivery(subscriber, 'cluster/after-restart', b'caught-up', 1, self.version)
 
     def test_initial_cluster_feature_limits_are_explicit(self):
+        sock = self.raw()
+        sock.sendall(self.packet('with-will', will=('cluster/will', b'will', 1, False)))
+        header, data = receive(sock)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[1], 0x83 if self.version == 5 else 3)
         persistent = {'clean': False}
         if self.version == 5:
             persistent['properties'] = [(0x11, 60)]
-        for name, options in [('with-will', {'will': ('cluster/will', b'will', 1, False)}),
-                              ('persistent', persistent)]:
-            with self.subTest(feature=name):
-                sock = self.raw()
-                sock.sendall(self.packet(name, **options))
-                header, data = receive(sock)
-                self.assertEqual(header, 0x20)
-                self.assertEqual(data[1], 0x83 if self.version == 5 else 3)
+        owned = self.raw()
+        owned.sendall(self.packet('persistent', **persistent))
+        header, data = receive(owned)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        self.ping(owned)
         if self.version == 5:
             # CleanStart=false is independent of persistent expiry. With expiry0
             # this remains an ordinary transient session and must not be refused.
@@ -516,7 +596,7 @@ class ClusterFaults(ClusterFixture, unittest.TestCase):
         os.kill(node.process.pid, signal.SIGSTOP)
         try:
             wait_until(lambda: (state if (state := self.fleet.status()) and
-                                state.get('nodes') == 1 else None), 20)
+                                state.get('nodes') == len(self.fleet.brokers) - 1 else None), 20)
         finally:
             os.kill(node.process.pid, signal.SIGCONT)
         self.wait_broker_recovery()

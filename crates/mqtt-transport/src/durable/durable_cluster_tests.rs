@@ -90,7 +90,7 @@ impl ClusterBridge for Bridge {
             self.acquire_calls.fetch_add(1, Ordering::AcqRel);
             if self
                 .acquire_errors
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |remaining| {
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |remaining| {
                     remaining.checked_sub(1)
                 })
                 .is_ok()

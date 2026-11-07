@@ -13,7 +13,7 @@ def quote(value):
 
 
 def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
-          dashboard=None, auth=None, limits=None, cluster=None):
+          dashboard=None, auth=None, limits=None, cluster=None, role=None):
     """Write directory/rmqtt.toml and return its path.
 
     tls is (cert, key, client_ca or None). websocket is a path or True.
@@ -26,21 +26,28 @@ def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
     lines = [
         '[node]',
         f'id = {int(node_id)}',
-        f'data_dir = {quote(directory)}',
-        '',
-        '[mqtt]',
-        f'listen = {quote(listen)}',
     ]
-    if protocol:
-        lines.append(f'protocol = {quote(protocol)}')
-    if tls:
-        cert, key, client_ca = tls
-        lines += ['', '[mqtt.tls]', f'cert = {quote(cert)}', f'key = {quote(key)}']
-        if client_ca:
-            lines.append(f'client_ca = {quote(client_ca)}')
-    if websocket:
-        path = '/mqtt' if websocket is True else websocket
-        lines += ['', '[mqtt.websocket]', f'path = {quote(path)}']
+    if role:
+        lines.append(f'role = {quote(role)}')
+    lines += [
+        f'data_dir = {quote(directory)}',
+    ]
+    if listen:
+        lines += [
+            '',
+            '[mqtt]',
+            f'listen = {quote(listen)}',
+        ]
+        if protocol:
+            lines.append(f'protocol = {quote(protocol)}')
+        if tls:
+            cert, key, client_ca = tls
+            lines += ['', '[mqtt.tls]', f'cert = {quote(cert)}', f'key = {quote(key)}']
+            if client_ca:
+                lines.append(f'client_ca = {quote(client_ca)}')
+        if websocket:
+            path = '/mqtt' if websocket is True else websocket
+            lines += ['', '[mqtt.websocket]', f'path = {quote(path)}']
     if dashboard:
         listen_admin, token, assets = dashboard
         lines += [

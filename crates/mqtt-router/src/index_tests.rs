@@ -90,3 +90,86 @@ fn concurrent_replace_and_match_converge() {
     }
     assert_eq!(index.matches("load/x"), IndexMatches::default());
 }
+
+#[test]
+fn unique_topics_do_not_scan_every_subscription() {
+    let index = SubscriptionIndex::new();
+    const CLIENTS: usize = 20_000;
+    for i in 0..CLIENTS {
+        index.replace(&format!("c{i}"), &set(&[&format!("device/{i}")]));
+    }
+    index.replace("wild", &set(&["sensor/#"]));
+    index.replace("sys", &set(&["$SYS/#"]));
+    let started = std::time::Instant::now();
+    let exact = index.matches("device/1234");
+    let wildcard = index.matches("sensor/room/temp");
+    let isolated = index.matches("$SYS/broker/load");
+    let miss = index.matches("other/x");
+    let elapsed = started.elapsed();
+    assert_eq!(exact.ordinary, ["c1234"]);
+    assert_eq!(wildcard.ordinary, ["wild"]);
+    assert_eq!(isolated.ordinary, ["sys"]);
+    assert!(miss.ordinary.is_empty());
+    assert!(
+        elapsed.as_millis() < 200,
+        "indexed match of 20k unique topics took {elapsed:?}"
+    );
+}
+
+#[test]
+fn concurrent_match_replace_and_shared_select_keep_a_consistent_snapshot() {
+    let index = Arc::new(SubscriptionIndex::new());
+    for client in 0..64 {
+        index.replace(&format!("c{client}"), &set(&["load/#", "$share/g/load/+"]));
+    }
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let readers: Vec<_> = (0..8)
+        .map(|_| {
+            let index = index.clone();
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let mut hits = 0u64;
+                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                    let found = index.matches("load/x");
+                    assert_eq!(found.ordinary.len(), found.shared[0].members.len());
+                    for client in &found.ordinary {
+                        assert!(client.starts_with('c'));
+                    }
+                    hits += 1;
+                }
+                hits
+            })
+        })
+        .collect();
+    let writers: Vec<_> = (0..4)
+        .map(|worker| {
+            let index = index.clone();
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let mut round = 0u32;
+                while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                    let client = format!("c{}", 64 + worker * 8 + (round % 8));
+                    if round.is_multiple_of(2) {
+                        index.replace(&client, &set(&["load/#", "$share/g/load/+"]));
+                    } else {
+                        index.remove(&client);
+                    }
+                    if round.is_multiple_of(5) {
+                        index.select("$share/g/load/+", "c0");
+                    }
+                    round += 1;
+                }
+                round
+            })
+        })
+        .collect();
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    let reads: u64 = readers.into_iter().map(|t| t.join().unwrap()).sum();
+    let writes: u32 = writers.into_iter().map(|t| t.join().unwrap()).sum();
+    assert!(reads > 1_000, "match throughput too low: {reads}");
+    assert!(writes > 100, "replace throughput too low: {writes}");
+    let found = index.matches("load/x");
+    assert_eq!(found.ordinary.len(), found.shared[0].members.len());
+    assert_eq!(found.ordinary.len(), index.client_count());
+}

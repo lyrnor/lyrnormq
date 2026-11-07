@@ -21,7 +21,7 @@ struct Peer {
 }
 fn consume(counter: &AtomicUsize) -> bool {
     counter
-        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+        .try_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
             value.checked_sub(1)
         })
         .is_ok()
@@ -594,10 +594,7 @@ async fn host_acquisition_retry_reuses_the_original_identity() -> io::Result<()>
     };
     fixture.peer.lost_replies.store(1, Ordering::SeqCst);
     assert!(fixture.data().enqueue(message.clone()).await.is_err());
-    let key = format!(
-        "h:{}:{}",
-        fixture.runtime.config.node_id, fixture.runtime.incarnation
-    );
+    let key = host_key(&fixture);
     let epoch = fixture.owner(&key).epoch;
     fixture.data().enqueue(message).await?;
     assert_eq!(*fixture.peer.calls.lock().unwrap(), vec![(0, 0), (0, 0)]);
@@ -711,9 +708,10 @@ async fn a_proven_pre_submit_rejection_does_not_discard_prior_pending() -> io::R
 }
 
 fn host_key(fixture: &Fixture) -> String {
-    format!(
-        "h:{}:{}",
-        fixture.runtime.config.node_id, fixture.runtime.incarnation
+    super::host_record_key(
+        fixture.runtime.config.node_id,
+        &fixture.runtime.incarnation,
+        None,
     )
 }
 

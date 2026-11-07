@@ -16,14 +16,10 @@ class CombinedNode(DurableNode):
         # Reuse existing isolated fixture directories without creating them twice.
         self.__dict__.update(broker.__dict__)
         self.controller = controller
-        controller.path.write_text(json.dumps(controller.config))
-
-    def command(self):
-        return super().command() + ['--cluster-controller-config', str(self.controller.path)]
-
-    def spawn(self):
-        self.controller.path.write_text(json.dumps(self.controller.config))
-        super().spawn()
+        self.role = 'controller,broker'
+        self.config = dict(self.config)
+        self.config['role'] = 'controller,broker'
+        self.write_config()
 
 
 class CombinedFleet(DurableFleet):

@@ -666,9 +666,19 @@ impl BrokerRuntime {
         {
             return Err(unavailable());
         }
-        // Durable::commit already treats an existing receipt as a duplicate and
-        // leaves the recipient engine untouched, so a prior Received round trip
-        // only adds a mailbox wait.
+        // A committed receipt must not occupy MQTT queue capacity on retry.
+        // `commit` also treats the same identity as a duplicate, but only after
+        // the local actor has already tried to enqueue.
+        if self
+            .data
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .received(&delivery.client_id, delivery.id.clone())
+            .await
+            .unwrap_or(false)
+        {
+            return Ok(());
+        }
         self.local()?
             .deliver_to(delivery.client_id, delivery.id, delivery.message)
             .await
@@ -783,7 +793,7 @@ impl BrokerRuntime {
         }
         let sequence = self
             .sequence
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
             .map_err(|_| unavailable())?;
         let forward = Forward {
             node: self.config.node_id,
@@ -833,7 +843,7 @@ impl BrokerRuntime {
         }
         let sequence = self
             .sequence
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_add(1))
             .map_err(|_| unavailable())?;
         let forward = Forward {
             node: self.config.node_id,

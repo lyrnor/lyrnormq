@@ -695,9 +695,7 @@ impl Durable {
         .await?;
         self.await_reply(rx).await
     }
-    /// Actor-local duplicate check. Delivery no longer pays this round trip;
-    /// `commit` already returns duplicate without installing a new proposal.
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// Actor-local duplicate check used before local MQTT enqueue.
     pub async fn received(self: &Arc<Self>, client: &str, id: DeliveryId) -> io::Result<bool> {
         let (reply, rx) = oneshot::channel();
         self.send(&client_key(client), Operation::Received { id, reply })
@@ -2191,8 +2189,14 @@ mod tests {
     }
     #[tokio::test]
     async fn committed_receipt_bypasses_full_recipient_queue() -> io::Result<()> {
-        let path =
-            std::env::temp_dir().join(format!("rmqtt-receipt-preflight-{}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "rmqtt-receipt-preflight-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
         let config:crate::Config=serde_json::from_value(serde_json::json!({
             "role":"broker","cluster_id":"preflight","node_id":101,"listen":"127.0.0.1:7101",
             "data_dir":path,"token_file":path.join("token"),

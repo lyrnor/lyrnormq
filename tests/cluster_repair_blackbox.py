@@ -200,7 +200,7 @@ class RepairFixture(DurableFixture):
 
     def command(self, abort=False):
         command = [BINARY, 'cluster-repair-abort' if abort else 'cluster-repair',
-                   '--cluster-config', str(self.fleet.brokers[1].path)]
+                   '--config', str(self.fleet.brokers[1].path)]
         if not abort:
             command += ['--target-node', str(self.target.config['node_id'])]
         return command
@@ -253,7 +253,7 @@ class RepairFixture(DurableFixture):
             wrong = self.target.root / 'wrong-repair.token'
             wrong.write_text('incorrect-private-repair-test-token-abcdef\n')
             self.target.config['token_file'] = str(wrong)
-        self.target.command = lambda: [BINARY, 'cluster-repair-learner', '--cluster-config',
+        self.target.command = lambda: [BINARY, 'cluster-repair-learner', '--config',
                                        str(self.target.path)]
         self.target.spawn()
         self.wait_learner()
