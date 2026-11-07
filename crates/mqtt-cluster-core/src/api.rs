@@ -1,6 +1,7 @@
 use crate::{
-    ClientSubscriptions, ClusterMessage, DeliveryId, SessionCommit, SessionLease, SessionMutation,
-    TopologyView,
+    ClientSubscriptions, ClusterMessage, DeliveryId, ManagementCounts, ManagementPage,
+    ManagementQuery, ManagementRetained, ManagementSession, ManagementSubscription, SessionCommit,
+    SessionLease, SessionMutation, TopologyView,
 };
 use std::{fmt::Debug, future::Future, io, pin::Pin, sync::Arc};
 
@@ -43,6 +44,17 @@ pub trait LocalBroker: Debug + Send + Sync {
     fn fence(&self, client_id: String, generation: u64) -> ClusterFuture<'_, ()>;
     fn fence_all(&self) -> ClusterFuture<'_, ()>;
     fn subscriptions(&self) -> ClusterFuture<'_, Vec<ClientSubscriptions>>;
+    /// Client ids with a live local connection. Defaults to subscription owners.
+    fn online_client_ids(&self) -> ClusterFuture<'_, Vec<String>> {
+        Box::pin(async move {
+            Ok(self
+                .subscriptions()
+                .await?
+                .into_iter()
+                .map(|row| row.client_id)
+                .collect())
+        })
+    }
     /// Apply or clear one retained topic on this Broker's local store.
     fn apply_retained(&self, _message: ClusterMessage) -> ClusterFuture<'_, ()> {
         Box::pin(async { Ok(()) })
@@ -146,6 +158,63 @@ pub trait ClusterBridge: Debug + Send + Sync {
             Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "cluster topology unavailable",
+            ))
+        })
+    }
+    /// Cluster-directory session/subscription/retained totals for overview cards.
+    fn management_counts(&self) -> ClusterFuture<'_, ManagementCounts> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster management unavailable",
+            ))
+        })
+    }
+    /// Page sessions from Controller directory metadata (claims + durable `c:`).
+    fn management_sessions(
+        &self,
+        _query: ManagementQuery,
+    ) -> ClusterFuture<'_, ManagementPage<ManagementSession>> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster management unavailable",
+            ))
+        })
+    }
+    /// Expand directory filters into subscription rows (QoS options unavailable).
+    fn management_subscriptions(
+        &self,
+        _query: ManagementQuery,
+    ) -> ClusterFuture<'_, ManagementPage<ManagementSubscription>> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster management unavailable",
+            ))
+        })
+    }
+    /// Page retained topics from durable `r:` ownership; enrich bodies when possible.
+    fn management_retained(
+        &self,
+        _query: ManagementQuery,
+    ) -> ClusterFuture<'_, ManagementPage<ManagementRetained>> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster management unavailable",
+            ))
+        })
+    }
+    /// One directory session by client id, if present.
+    fn management_session(
+        &self,
+        _client_id: String,
+    ) -> ClusterFuture<'_, Option<ManagementSession>> {
+        Box::pin(async {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "cluster management unavailable",
             ))
         })
     }

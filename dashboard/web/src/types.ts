@@ -69,7 +69,11 @@ export interface Overview {
     events: boolean;
     resource_metrics: boolean;
     mutations: boolean;
+    cluster?: boolean;
+    rules?: boolean;
   };
+  /** Process-local traffic counters; cluster mode still reports local rates. */
+  traffic_scope?: "local";
   topology: Topology;
 }
 export interface Session {
@@ -83,6 +87,8 @@ export interface Session {
   inflight: number;
   receive_maximum: number | null;
   session_expiry_interval: number;
+  node_id?: number | null;
+  directory?: boolean;
 }
 export interface Subscription {
   client_id: string;
@@ -92,12 +98,16 @@ export interface Subscription {
   retain_as_published: boolean;
   retain_handling: number;
   identifier: number | null;
+  node_id?: number | null;
+  directory?: boolean;
 }
 export interface Retained {
   topic: string;
   qos: number;
   payload_bytes: number;
   expires_at_millis: number | null;
+  node_id?: number | null;
+  directory?: boolean;
 }
 export interface Page<T> {
   items: T[];
@@ -115,6 +125,8 @@ export interface Query {
   search: string;
   state: string;
   protocol: string;
+  /** Optional owning broker filter; empty string means all members. */
+  node: string;
 }
 export type Route =
   | "overview"

@@ -35,7 +35,7 @@ fn authorization_requires_one_exact_bearer_header() {
 #[test]
 fn query_validation_enforces_limits_and_rejects_duplicates_and_unknowns() {
     let q = query(None).unwrap();
-    assert_eq!((q.offset, q.limit), (0, 25));
+    assert_eq!((q.query.offset, q.query.limit, q.node), (0, 25, None));
     for q in [
         "limit=0",
         "limit=101",
@@ -45,14 +45,16 @@ fn query_validation_enforces_limits_and_rejects_duplicates_and_unknowns() {
         "state=bad",
         "unknown=x",
         "limit=1&limit=2",
+        "node=0",
     ] {
         assert!(query(Some(q)).is_err(), "{q}");
     }
     let q = query(Some(
-        "limit=100&offset=1000000&state=offline&protocol=5.0&search=%E4%B8%AD%E6%96%87",
+        "limit=100&offset=1000000&state=offline&protocol=5.0&search=%E4%B8%AD%E6%96%87&node=2",
     ))
     .unwrap();
-    assert_eq!(q.search, "中文");
+    assert_eq!(q.query.search, "中文");
+    assert_eq!(q.node, Some(2));
 }
 
 #[test]

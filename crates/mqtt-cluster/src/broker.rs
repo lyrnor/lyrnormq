@@ -6,8 +6,9 @@ use crate::{
     rpc::{self, ClientRpc, wire},
 };
 use mqtt_cluster_core::{
-    ClusterBridge, ClusterFuture, ClusterMessage, ForwardScope, LocalBroker, SharedConfigKind,
-    SharedConfigSink,
+    ClusterBridge, ClusterFuture, ClusterMessage, ForwardScope, LocalBroker, ManagementCounts,
+    ManagementPage, ManagementQuery, ManagementRetained, ManagementSession, ManagementSubscription,
+    SharedConfigKind, SharedConfigSink,
 };
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -22,6 +23,7 @@ use tokio::sync::{Notify, OnceCell, watch};
 pub(crate) mod delivery_batch;
 pub(crate) mod durable;
 pub(crate) mod forward_batch;
+mod management;
 mod progress;
 mod quorum;
 mod recipients;
@@ -1392,6 +1394,33 @@ impl ClusterBridge for BrokerRuntime {
                 last_repair,
             })
         })
+    }
+    fn management_counts(&self) -> ClusterFuture<'_, ManagementCounts> {
+        Box::pin(async move { Ok(management::management_counts(self).await) })
+    }
+    fn management_sessions(
+        &self,
+        query: ManagementQuery,
+    ) -> ClusterFuture<'_, ManagementPage<ManagementSession>> {
+        Box::pin(async move { management::management_sessions(self, query).await })
+    }
+    fn management_subscriptions(
+        &self,
+        query: ManagementQuery,
+    ) -> ClusterFuture<'_, ManagementPage<ManagementSubscription>> {
+        Box::pin(async move { management::management_subscriptions(self, query).await })
+    }
+    fn management_retained(
+        &self,
+        query: ManagementQuery,
+    ) -> ClusterFuture<'_, ManagementPage<ManagementRetained>> {
+        Box::pin(async move { management::management_retained(self, query).await })
+    }
+    fn management_session(
+        &self,
+        client_id: String,
+    ) -> ClusterFuture<'_, Option<ManagementSession>> {
+        Box::pin(async move { Ok(management::management_session(self, &client_id).await) })
     }
     fn shutdown(&self) -> ClusterFuture<'_, ()> {
         Box::pin(async move {

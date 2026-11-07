@@ -208,6 +208,9 @@ function Console({
     o = live.overview,
     c = live.configuration,
     last = live.history.at(-1);
+  const clustered = Boolean(o?.capabilities.cluster);
+  const brokerNodes =
+    o?.topology.nodes.filter((node) => node.roles.includes("broker")) ?? [];
   useEffect(() => {
     document.title = `${labels[route]} · rmqtt`;
   }, [route]);
@@ -272,11 +275,31 @@ function Console({
             { value: "", label: "全部协议版本" },
             { value: "5.0", label: "MQTT 5.0" },
             { value: "3.1.1", label: "MQTT 3.1.1" },
+            ...(clustered
+              ? [{ value: "unknown", label: "未协商 / 目录" }]
+              : []),
+          ]}
+        />
+      )}
+      {clustered && brokerNodes.length > 0 && (
+        <SingleSelect
+          aria-label="筛选所属节点"
+          className="w-full sm:w-44"
+          value={query.node}
+          onValueChange={(value) =>
+            setQuery((q) => changeQuery(q, { node: value }))
+          }
+          options={[
+            { value: "", label: "全部节点" },
+            ...brokerNodes.map((node) => ({
+              value: String(node.id),
+              label: `节点 #${node.id}${node.self ? " · 本机" : ""}`,
+            })),
           ]}
         />
       )}
       <span className="ml-auto hidden text-[10px] text-muted-foreground xl:inline">
-        真实 Broker 数据 · 每 5 秒更新
+        {clustered ? "集群目录 · 每 5 秒更新" : "真实 Broker 数据 · 每 5 秒更新"}
       </span>
     </div>
   );
@@ -440,39 +463,45 @@ function Console({
               <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
                 {[
                   [
-                    "在线会话",
+                    clustered ? "集群在线会话" : "在线会话",
                     o.online_sessions,
                     "",
                     `${o.offline_sessions.toLocaleString()} 个离线会话`,
                     "connections",
                   ],
                   [
-                    "消息入站",
+                    clustered ? "本节点入站" : "消息入站",
                     last
                       ? last.incoming.toLocaleString(undefined, {
                           maximumFractionDigits: 1,
                         })
                       : "—",
                     "条/s",
-                    last ? "按两次采样差值计算" : "等待下一个采样点",
+                    last
+                      ? clustered
+                        ? "当前管理节点本地吞吐"
+                        : "按两次采样差值计算"
+                      : "等待下一个采样点",
                     "down",
                   ],
                   [
-                    "消息出站",
+                    clustered ? "本节点出站" : "消息出站",
                     last
                       ? last.outgoing.toLocaleString(undefined, {
                           maximumFractionDigits: 1,
                         })
                       : "—",
                     "条/s",
-                    "包含重传的 PUBLISH 帧",
+                    clustered
+                      ? "当前管理节点本地吞吐"
+                      : "包含重传的 PUBLISH 帧",
                     "up",
                   ],
                   [
-                    "持久与临时会话",
+                    clustered ? "集群会话合计" : "持久与临时会话",
                     o.online_sessions + o.offline_sessions,
                     "",
-                    `${o.subscriptions.toLocaleString()} 条订阅`,
+                    `${o.subscriptions.toLocaleString()} 条订阅 · ${o.retained_messages.toLocaleString()} 条保留`,
                     "configuration",
                   ],
                 ].map(([name, value, unit, note, icon]) => (
@@ -499,7 +528,10 @@ function Console({
                 ))}
               </div>
               <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-                <Panel title="消息吞吐" extra={<Badge>实时采样</Badge>}>
+                <Panel
+                  title={clustered ? "本节点消息吞吐" : "消息吞吐"}
+                  extra={<Badge>实时采样</Badge>}
+                >
                   <div className="flex gap-8 px-5 pt-4 [&_small]:mb-1 [&_small]:block [&_small]:text-[10px] [&_small]:text-muted-foreground [&_b]:text-base [&_b]:font-semibold [&_b>span]:ml-1 [&_b>span]:text-[10px] [&_b>span]:font-normal [&_b>span]:text-muted-foreground">
                     <div>
                       <small>
@@ -626,7 +658,7 @@ function Console({
                   </div>
                 </Panel>
               </div>
-              <Panel title="进程累计流量">
+              <Panel title={clustered ? "本节点累计流量" : "进程累计流量"}>
                 <div className="p-5">
                   <KeyValues
                     items={[
@@ -637,12 +669,16 @@ function Console({
                       ],
                       ["入站 MQTT 字节", bytes(o.bytes_in_total)],
                       ["出站 MQTT 字节", bytes(o.bytes_out_total)],
-                      ["保留消息", o.retained_messages.toLocaleString()],
+                      [
+                        clustered ? "集群保留消息" : "保留消息",
+                        o.retained_messages.toLocaleString(),
+                      ],
                     ]}
                   />
                   <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                    字节计数不含 TCP / TLS / WebSocket
-                    封装。统计包含重传，不等同业务去重消息数。延迟指标尚未采集。
+                    {clustered
+                      ? "会话/订阅/保留来自集群目录；吞吐与字节计数仍是当前管理节点本地进程统计。"
+                      : "字节计数不含 TCP / TLS / WebSocket 封装。统计包含重传，不等同业务去重消息数。延迟指标尚未采集。"}
                   </div>
                 </div>
               </Panel>
@@ -656,7 +692,11 @@ function Console({
                 <span>
                   离线会话 <b>{o?.offline_sessions.toLocaleString() ?? "—"}</b>
                 </span>
-                <small>已提交的会话状态，非 TCP 连接数</small>
+                <small>
+                  {clustered
+                    ? "集群目录归属，非单节点 TCP 连接数"
+                    : "已提交的会话状态，非 TCP 连接数"}
+                </small>
               </div>
               <div className="rounded-xl border bg-card shadow-none overflow-hidden">
                 <div className="flex gap-5 border-b px-5 [&_button]:h-12 [&_button]:rounded-none [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-0 [&_button]:text-xs [&_button]:shadow-none">
@@ -688,6 +728,7 @@ function Console({
                     <TableHeader>
                       <TableRow>
                         <TableHead>Client ID</TableHead>
+                        {clustered && <TableHead>节点</TableHead>}
                         <TableHead>状态</TableHead>
                         <TableHead>协议</TableHead>
                         <TableHead>认证身份</TableHead>
@@ -702,6 +743,11 @@ function Console({
                           <TableCell className="font-mono text-[11px]">
                             {s.client_id}
                           </TableCell>
+                          {clustered && (
+                            <TableCell className="font-mono text-[11px]">
+                              {s.node_id != null ? `#${s.node_id}` : "—"}
+                            </TableCell>
+                          )}
                           <TableCell>
                             <Badge active={s.online}>
                               {s.online ? "在线" : "离线"}
@@ -712,7 +758,9 @@ function Console({
                             {s.principal || "—"}
                           </TableCell>
                           <TableCell>{s.subscriptions}</TableCell>
-                          <TableCell>{s.queued}</TableCell>
+                          <TableCell>
+                            {s.directory ? "—" : s.queued}
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="outline"
@@ -780,6 +828,7 @@ function Console({
                       <TableRow>
                         <TableHead>Topic Filter</TableHead>
                         <TableHead>Client ID</TableHead>
+                        {clustered && <TableHead>节点</TableHead>}
                         <TableHead>QoS</TableHead>
                         <TableHead>No Local</TableHead>
                         <TableHead>RAP</TableHead>
@@ -796,13 +845,30 @@ function Console({
                           <TableCell className="font-mono text-[11px]">
                             {s.client_id}
                           </TableCell>
-                          <TableCell>{s.qos}</TableCell>
-                          <TableCell>{s.no_local ? "是" : "否"}</TableCell>
+                          {clustered && (
+                            <TableCell className="font-mono text-[11px]">
+                              {s.node_id != null ? `#${s.node_id}` : "—"}
+                            </TableCell>
+                          )}
                           <TableCell>
-                            {s.retain_as_published ? "是" : "否"}
+                            {s.directory ? "—" : s.qos}
                           </TableCell>
-                          <TableCell>{s.retain_handling}</TableCell>
-                          <TableCell>{s.identifier ?? "—"}</TableCell>
+                          <TableCell>
+                            {s.directory ? "—" : s.no_local ? "是" : "否"}
+                          </TableCell>
+                          <TableCell>
+                            {s.directory
+                              ? "—"
+                              : s.retain_as_published
+                                ? "是"
+                                : "否"}
+                          </TableCell>
+                          <TableCell>
+                            {s.directory ? "—" : s.retain_handling}
+                          </TableCell>
+                          <TableCell>
+                            {s.directory ? "—" : (s.identifier ?? "—")}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -812,6 +878,7 @@ function Console({
                     <TableHeader>
                       <TableRow>
                         <TableHead>Topic</TableHead>
+                        {clustered && <TableHead>写入节点</TableHead>}
                         <TableHead>QoS</TableHead>
                         <TableHead>Payload 大小</TableHead>
                         <TableHead>过期时间</TableHead>
@@ -823,12 +890,25 @@ function Console({
                           <TableCell className="font-mono text-[11px]">
                             {r.topic}
                           </TableCell>
-                          <TableCell>{r.qos}</TableCell>
-                          <TableCell>{bytes(r.payload_bytes)}</TableCell>
+                          {clustered && (
+                            <TableCell className="font-mono text-[11px]">
+                              {r.node_id != null ? `#${r.node_id}` : "—"}
+                            </TableCell>
+                          )}
                           <TableCell>
-                            {r.expires_at_millis === null
-                              ? "无过期时间"
-                              : new Date(r.expires_at_millis).toLocaleString()}
+                            {r.directory ? "—" : r.qos}
+                          </TableCell>
+                          <TableCell>
+                            {r.directory ? "—" : bytes(r.payload_bytes)}
+                          </TableCell>
+                          <TableCell>
+                            {r.directory
+                              ? "—"
+                              : r.expires_at_millis === null
+                                ? "无过期时间"
+                                : new Date(
+                                    r.expires_at_millis,
+                                  ).toLocaleString()}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -852,8 +932,9 @@ function Console({
                 />
               )}
               <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground mx-4 mb-4">
-                只展示元数据，不读取业务消息 Payload。RAP = Retain As
-                Published；RH = Retain Handling。活跃 Topic 历史尚未采集。
+                {clustered
+                  ? "集群目录只保证 Topic/归属节点；订阅选项与保留正文在可读时补齐，否则显示为 —。不读取业务 Payload 内容。"
+                  : "只展示元数据，不读取业务消息 Payload。RAP = Retain As Published；RH = Retain Handling。活跃 Topic 历史尚未采集。"}
               </div>
             </div>
           )}
@@ -989,6 +1070,12 @@ function Console({
                 <KeyValues
                   items={[
                     ["Client ID", detail.client_id],
+                    ...(detail.node_id != null
+                      ? ([["所属节点", `#${detail.node_id}`]] as [
+                          string,
+                          string | number,
+                        ][])
+                      : []),
                     ["认证身份", detail.principal || "—"],
                     ["持久会话", detail.persistent ? "是" : "否"],
                     ["订阅数量", detail.subscriptions],
@@ -999,28 +1086,40 @@ function Console({
                 </h3>
                 <KeyValues
                   items={[
-                    ["排队消息", detail.queued],
-                    ["出站 Inflight", detail.inflight],
+                    [
+                      "排队消息",
+                      detail.directory ? "—" : detail.queued,
+                    ],
+                    [
+                      "出站 Inflight",
+                      detail.directory ? "—" : detail.inflight,
+                    ],
                     [
                       "Receive Maximum",
-                      detail.protocol === "3.1.1"
-                        ? "不适用（MQTT 3.1.1）"
-                        : (detail.receive_maximum ?? "未协商"),
+                      detail.directory
+                        ? "—"
+                        : detail.protocol === "3.1.1"
+                          ? "不适用（MQTT 3.1.1）"
+                          : (detail.receive_maximum ?? "未协商"),
                     ],
                     [
                       "会话有效期",
-                      detail.protocol === "3.1.1"
-                        ? detail.persistent
-                          ? "持久保留"
-                          : "当前连接"
-                        : detail.session_expiry_interval === 4294967295
-                          ? "不过期"
-                          : `${detail.session_expiry_interval} 秒`,
+                      detail.directory
+                        ? "—"
+                        : detail.protocol === "3.1.1"
+                          ? detail.persistent
+                            ? "持久保留"
+                            : "当前连接"
+                          : detail.session_expiry_interval === 4294967295
+                            ? "不过期"
+                            : `${detail.session_expiry_interval} 秒`,
                     ],
                   ]}
                 />
                 <div className="mt-4 rounded-lg border bg-muted/60 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                  详情为本次查询快照，不包含业务消息内容。当前版本不提供强制断开与删除操作。
+                  {detail.directory
+                    ? "该会话仅有集群目录元数据；协议选项与排队计数需在所属节点本地观察。"
+                    : "详情为本次查询快照，不包含业务消息内容。当前版本不提供强制断开与删除操作。"}
                 </div>
               </>
             )

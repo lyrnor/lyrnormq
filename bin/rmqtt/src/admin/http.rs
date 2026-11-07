@@ -91,28 +91,91 @@ struct Parameters {
     search: String,
     state: String,
     protocol: String,
+    node: Option<u64>,
 }
 #[derive(Debug)]
 struct InvalidQuery;
 
-fn query(raw: Option<&str>) -> Result<Query, InvalidQuery> {
+#[derive(Clone, Debug)]
+struct AdminQuery {
+    query: Query,
+    node: Option<u64>,
+}
+
+fn query(raw: Option<&str>) -> Result<AdminQuery, InvalidQuery> {
     let p: Parameters = serde_urlencoded::from_str(raw.unwrap_or("")).map_err(|_| InvalidQuery)?;
     let limit = p.limit.unwrap_or(25);
     if !(1..=100).contains(&limit)
         || p.offset > 1_000_000
         || p.search.len() > 256
         || !matches!(p.state.as_str(), "" | "online" | "offline")
-        || !matches!(p.protocol.as_str(), "" | "3.1.1" | "5.0")
+        || !matches!(p.protocol.as_str(), "" | "3.1.1" | "5.0" | "unknown")
+        || p.node == Some(0)
     {
         return Err(InvalidQuery);
     }
-    Ok(Query {
-        offset: p.offset,
-        limit,
-        search: p.search,
-        state: p.state,
-        protocol: p.protocol,
+    Ok(AdminQuery {
+        query: Query {
+            offset: p.offset,
+            limit,
+            search: p.search,
+            state: p.state,
+            protocol: p.protocol,
+        },
+        node: p.node,
     })
+}
+
+fn management_query(admin: &AdminQuery) -> mqtt_cluster::ManagementQuery {
+    mqtt_cluster::ManagementQuery {
+        offset: admin.query.offset,
+        limit: admin.query.limit,
+        search: admin.query.search.clone(),
+        state: admin.query.state.clone(),
+        protocol: admin.query.protocol.clone(),
+        node: admin.node,
+    }
+}
+
+/// Overlay local observer fields (protocol/principal/queues) onto directory rows.
+async fn enrich_sessions(
+    state: &State,
+    mut page: mqtt_cluster::ManagementPage<mqtt_cluster::ManagementSession>,
+) -> mqtt_cluster::ManagementPage<mqtt_cluster::ManagementSession> {
+    let Ok(local) = state
+        .handle
+        .sessions(Query {
+            offset: 0,
+            limit: 100,
+            search: String::new(),
+            state: String::new(),
+            protocol: String::new(),
+        })
+        .await
+    else {
+        return page;
+    };
+    let local: std::collections::BTreeMap<_, _> = local
+        .items
+        .into_iter()
+        .map(|session| (session.client_id.clone(), session))
+        .collect();
+    for item in &mut page.items {
+        let Some(local) = local.get(&item.client_id) else {
+            continue;
+        };
+        item.online = local.online;
+        item.protocol = local.protocol.clone();
+        item.principal = local.principal.clone();
+        item.persistent = local.persistent;
+        item.subscriptions = local.subscriptions;
+        item.queued = local.queued;
+        item.inflight = local.inflight;
+        item.receive_maximum = local.receive_maximum;
+        item.session_expiry_interval = local.session_expiry_interval;
+        item.directory = false;
+    }
+    page
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -233,7 +296,7 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
             );
             value.insert(
                 "capabilities".into(),
-                json!({"events":false,"resource_metrics":false,"mutations":false}),
+                json!({"events":false,"resource_metrics":false,"mutations":false,"cluster":false}),
             );
             if state.rules.is_some()
                 && let Some(Value::Object(capabilities)) = value.get_mut("capabilities")
@@ -256,6 +319,24 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
                 },
                 None => standalone_topology(&value),
             };
+            if let Some(cluster) = &state.cluster {
+                match cluster.management_counts().await {
+                    Ok(counts) => {
+                        value.insert("online_sessions".into(), json!(counts.online_sessions));
+                        value.insert("offline_sessions".into(), json!(counts.offline_sessions));
+                        value.insert("subscriptions".into(), json!(counts.subscriptions));
+                        value.insert("retained_messages".into(), json!(counts.retained_messages));
+                    }
+                    Err(cause) => return model_error(cause),
+                }
+                if let Some(Value::Object(capabilities)) = value.get_mut("capabilities") {
+                    capabilities.insert("cluster".into(), Value::Bool(true));
+                }
+                // Traffic counters stay process-local; UI labels them as this node.
+                value.insert("traffic_scope".into(), json!("local"));
+            } else {
+                value.insert("traffic_scope".into(), json!("local"));
+            }
             value.insert("topology".into(), topology);
             Json(Value::Object(value)).into_response()
         }
@@ -270,10 +351,30 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
                 Ok(q) => q,
                 Err(_) => return error_response_bad_query(),
             };
+            if let Some(cluster) = &state.cluster {
+                let mq = management_query(&q);
+                return match path {
+                    "/api/v1/sessions" => {
+                        let page = match cluster.management_sessions(mq).await {
+                            Ok(page) => page,
+                            Err(error) => return model_error(error),
+                        };
+                        json_response(Ok(enrich_sessions(state, page).await))
+                    }
+                    "/api/v1/subscriptions" => {
+                        json_response(cluster.management_subscriptions(mq).await)
+                    }
+                    _ => json_response(cluster.management_retained(mq).await),
+                };
+            }
+            // Standalone rejects node filters; there is only the local observer.
+            if q.node.is_some() {
+                return error_response_bad_query();
+            }
             match path {
-                "/api/v1/sessions" => json_response(state.handle.sessions(q).await),
-                "/api/v1/subscriptions" => json_response(state.handle.subscriptions(q).await),
-                _ => json_response(state.handle.retained(q).await),
+                "/api/v1/sessions" => json_response(state.handle.sessions(q.query).await),
+                "/api/v1/subscriptions" => json_response(state.handle.subscriptions(q.query).await),
+                _ => json_response(state.handle.retained(q.query).await),
             }
         }
         "/api/v1/session" => {
@@ -285,8 +386,33 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
                 return error_response_bad_query();
             }
             match state.handle.session(&client.client_id).await {
-                Ok(Some(value)) => Json(value).into_response(),
-                Ok(None) => error(StatusCode::NOT_FOUND, "not_found", "Session not found"),
+                Ok(Some(value)) => {
+                    let mut encoded = match serde_json::to_value(&value) {
+                        Ok(Value::Object(map)) => map,
+                        _ => return Json(value).into_response(),
+                    };
+                    if let Some(cluster) = &state.cluster
+                        && let Ok(Some(directory)) =
+                            cluster.management_session(client.client_id.clone()).await
+                    {
+                        encoded.insert("node_id".into(), json!(directory.node_id));
+                        encoded.insert("directory".into(), json!(false));
+                    }
+                    Json(Value::Object(encoded)).into_response()
+                }
+                Ok(None) => {
+                    if let Some(cluster) = &state.cluster {
+                        match cluster.management_session(client.client_id).await {
+                            Ok(Some(value)) => Json(value).into_response(),
+                            Ok(None) => {
+                                error(StatusCode::NOT_FOUND, "not_found", "Session not found")
+                            }
+                            Err(error) => model_error(error),
+                        }
+                    } else {
+                        error(StatusCode::NOT_FOUND, "not_found", "Session not found")
+                    }
+                }
                 Err(error) => model_error(error),
             }
         }

@@ -15,8 +15,9 @@ pub use config::{Config, Controller, DataBackend, DurableConfig, Role, TlsConfig
 pub use controller::{run_controller, status};
 pub use model::ClusterStatus;
 pub use mqtt_cluster_core::{
-    ClusterBridge, ClusterFuture, LocalBroker, SharedConfigKind, SharedConfigSink, TopologyNode,
-    TopologyRepair, TopologyView,
+    ClusterBridge, ClusterFuture, LocalBroker, ManagementCounts, ManagementPage, ManagementQuery,
+    ManagementRetained, ManagementSession, ManagementSubscription, SharedConfigKind,
+    SharedConfigSink, TopologyNode, TopologyRepair, TopologyView,
 };
 
 #[cfg(test)]

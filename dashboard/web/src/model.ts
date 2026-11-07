@@ -19,6 +19,7 @@ export const initialQuery: Query = {
   search: "",
   state: "",
   protocol: "",
+  node: "",
 };
 export function changeQuery(query: Query, patch: Partial<Query>): Query {
   return { ...query, ...patch, offset: patch.offset ?? 0 };

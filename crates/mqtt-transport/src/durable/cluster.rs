@@ -12,7 +12,7 @@ const BYTES: usize = 16 * 1024 * 1024;
 const DEADLINE: Duration = Duration::from_secs(5);
 
 pub(super) struct State {
-    connections: Mutex<HashMap<(String, u64), Online>>,
+    pub(super) connections: Mutex<HashMap<(String, u64), Online>>,
     filters: Mutex<HashMap<String, Vec<String>>>,
     slots: Arc<Semaphore>,
     bytes: Arc<Semaphore>,
@@ -239,6 +239,23 @@ impl LocalBroker for Local {
                     filters: filters.clone(),
                 })
                 .collect())
+        })
+    }
+    fn online_client_ids(&self) -> ClusterFuture<'_, Vec<String>> {
+        Box::pin(async move {
+            let broker = self.broker.upgrade().ok_or_else(unavailable)?;
+            let connections = broker
+                .cluster_state
+                .connections
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            let mut ids: Vec<String> = connections
+                .keys()
+                .map(|(client_id, _)| client_id.clone())
+                .collect();
+            ids.sort();
+            ids.dedup();
+            Ok(ids)
         })
     }
     fn apply_retained(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
