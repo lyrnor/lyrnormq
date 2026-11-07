@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Phase7b real three-Controller/three-disk Broker recovery acceptance.
+"""Phase7b session failover on live replicas; crash/restart follows Phase7f RAM.
 
 RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_durable_blackbox.py -v
-No failed Broker directory is mounted or copied into its replacement. Protocol
-ACKs are durability barriers; process crashes do not certify physical power loss.
+W2 is two live memory replicas, not fsync. A crashed replica is a new empty
+incarnation and waits for in-process repair. Whole-group RAM loss cannot recover
+session bodies from Controller metadata. Protocol ACKs are replica barriers;
+process crashes do not certify physical power loss.
 """
 import os
 import concurrent.futures
@@ -151,6 +153,29 @@ class DurableFixture(ClusterFixture):
         self.ping(probe)
         self.disconnect(probe)
 
+    def blank_replica(self, node):
+        """Restarted RAM is a new incarnation and must not vote until repair."""
+        node.spawn()
+        wait_until(lambda: 'memory_replica_waiting_for_repair' in node.logs(), 20)
+        self.assertFalse(node.ready(), node.logs())
+
+    def accept_publish(self, node, topic, payload, qos=1):
+        deadline = time.monotonic() + 35
+        last = None
+        body = {'topic': topic, 'payload': payload, 'qos': qos}
+        while time.monotonic() < deadline:
+            try:
+                status, value = self.fleet.brokers[node].request(
+                    '/api/v1/mqtt/publish', method='POST', body=body)
+            except OSError as error:
+                last = repr(error)
+            else:
+                if status == 202 and value == {'accepted': True}:
+                    return
+                last = (status, value)
+            time.sleep(.05)
+        self.fail(f'publication not accepted on Broker {node}: {last!r}')
+
 
 class DurableSessionCases(DurableFixture):
     def test_offline_subscriptions_and_qos_survive_permanent_owner_loss(self):
@@ -158,7 +183,7 @@ class DurableSessionCases(DurableFixture):
         self.subscribe(target, 'durable/offline', 2)
         self.disconnect(target)
         self.lose_owner()
-        source = self.client('offline-source', 2)
+        source = self.client('offline-source', 2, retry=True)
         for qos in (1, 2):
             self.publish(source, 'durable/offline', f'offline-{qos}'.encode(), qos, packet_id=qos)
         resumed = self.persistent('offline-device', 1, present=True, retry=True)
@@ -271,7 +296,7 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         stopped = self.fleet.brokers[0]
         os.kill(stopped.process.pid, signal.SIGSTOP)
         try:
-            source = self.persistent('reset-backlog-source', 2)
+            source = self.persistent('reset-backlog-source', 2, retry=True)
             self.publish(source, 'durable/reset-backlog', b'belongs to discarded session', 1)
             recreated = self.client('reset-backlog-target', 1, clean=True,
                                     present=False, retry=True)
@@ -311,7 +336,7 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         self.ping(target)
         self.quiet(target)
 
-    def test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives(self):
+    def test_same_node_empty_restart_cannot_vote_and_confirmed_state_survives(self):
         target = self.persistent('disk-device')
         self.subscribe(target, 'durable/disk', 1)
         source = self.client('disk-source', 2)
@@ -319,23 +344,16 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         original = self.expect_message(target, 'durable/disk', b'confirmed before disk loss', 1)
         node = self.fleet.brokers[0]
         self.lose_owner()
-        # Preserve the failed node's old disk without sharing it with B/C. A new
-        # empty path at the same configured identity cannot become a blank voter.
-        old_disk = node.root / 'cluster-data'
-        old_disk.rename(node.root / 'preserved-failed-disk')
-        node.config['data_dir'] = str(node.root / 'replacement-empty-disk')
-        node.spawn()
-        wait_until(lambda: node.process.poll() is not None, 30)
-        self.assertNotEqual(node.process.returncode, 0,
-                            'same node ID on an unseeded replacement disk must fail closed')
+        # Same node ID, new RAM incarnation: wait for repair, do not vote empty.
+        self.blank_replica(node)
         resumed = self.persistent('disk-device', 1, present=True, retry=True)
         replay = self.expect_message(resumed, 'durable/disk', b'confirmed before disk loss', 1)
         self.assertEqual(replay[:4], original[:4])
         self.assertTrue(replay[4])
         self.complete_message(resumed, replay)
-        replacement_source = self.client('remaining-disk-source', 2)
-        self.publish(replacement_source, 'durable/disk', b'remaining original disks work', 1)
-        message = self.expect_message(resumed, 'durable/disk', b'remaining original disks work', 1)
+        replacement_source = self.client('remaining-disk-source', 2, retry=True)
+        self.publish(replacement_source, 'durable/disk', b'remaining original replicas work', 1)
+        message = self.expect_message(resumed, 'durable/disk', b'remaining original replicas work', 1)
         self.complete_message(resumed, message)
 
     def test_fixed_group_refuses_legacy_and_different_replica_membership(self):
@@ -362,9 +380,9 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         stopped = self.fleet.brokers[0]
         os.kill(stopped.process.pid, signal.SIGSTOP)
         try:
-            source = self.persistent('backlog-source', 2)
+            source = self.persistent('backlog-source', 2, retry=True)
             # W2 acceptance while the destination is paused must not wait for its
-            # socket delivery. The remaining two independent disks own the intent.
+            # socket delivery. The remaining two live replicas own the intent.
             self.publish(source, 'durable/backlog', b'accepted durable responsibility', 2)
             self.lose_owner(2)
         finally:
@@ -374,28 +392,23 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         self.complete_message(resumed, message)
         self.quiet(resumed, .4)
 
-    def test_host_backlog_survives_source_death_and_restarted_host_accepts_new_work(self):
+    def test_host_backlog_survives_source_death_and_remaining_hosts_accept_new_work(self):
         target = self.persistent('host-backlog-target')
         self.subscribe(target, 'durable/host-backlog', 1)
         self.disconnect(target)
         stopped = self.fleet.brokers[0]
         os.kill(stopped.process.pid, signal.SIGSTOP)
         try:
-            status, value = self.fleet.brokers[2].request('/api/v1/mqtt/publish', method='POST',
-                body={'topic': 'durable/host-backlog', 'payload': 'accepted host backlog', 'qos': 1})
-            self.assertEqual((status, value), (202, {'accepted': True}))
+            self.accept_publish(2, 'durable/host-backlog', 'accepted host backlog')
             self.lose_owner(2)
         finally:
             os.kill(stopped.process.pid, signal.SIGCONT)
         resumed = self.persistent('host-backlog-target', 1, present=True, retry=True)
         message = self.expect_message(resumed, 'durable/host-backlog', b'accepted host backlog', 1)
         self.complete_message(resumed, message)
-        self.fleet.brokers[2].start()
-        self.healthy(2)
-        status, value = self.fleet.brokers[2].request('/api/v1/mqtt/publish', method='POST',
-            body={'topic': 'durable/host-backlog', 'payload': 'new host incarnation', 'qos': 1})
-        self.assertEqual((status, value), (202, {'accepted': True}))
-        message = self.expect_message(resumed, 'durable/host-backlog', b'new host incarnation', 1)
+        self.blank_replica(self.fleet.brokers[2])
+        self.accept_publish(1, 'durable/host-backlog', 'new work on remaining replica')
+        message = self.expect_message(resumed, 'durable/host-backlog', b'new work on remaining replica', 1)
         self.complete_message(resumed, message)
         self.quiet(resumed, .4)
 
@@ -455,36 +468,55 @@ class DurableFaults(DurableFixture, unittest.TestCase):
         self.lose_owner()
         moved = self.persistent('epoch-device', 1, present=True, retry=True)
         self.subscribe(moved, 'durable/new', 1)
-        self.fleet.brokers[0].start()
-        self.healthy(0)
-        source = self.client('epoch-publisher', 2)
+        stale = self.fleet.brokers[0]
+        self.blank_replica(stale)
+        source = self.client('epoch-publisher', 2, retry=True)
         self.publish(source, 'durable/new', b'new epoch subscription', 1)
         message = self.expect_message(moved, 'durable/new', b'new epoch subscription', 1)
         self.complete_message(moved, message)
-        self.disconnect(moved)
-        self.lose_owner(1)
-        again = self.persistent('epoch-device', 0, present=True, retry=True)
-        self.publish(source, 'durable/new', b'new epoch survived old owner', 1, packet_id=18)
-        message = self.expect_message(again, 'durable/new', b'new epoch survived old owner', 1)
-        self.complete_message(again, message)
+        try:
+            sock = socket.create_connection(('127.0.0.1', stale.mqtt), timeout=3)
+        except (ConnectionError, socket.timeout):
+            return
+        with sock:
+            sock.settimeout(3)
+            sock.sendall(self.packet('epoch-device', clean=False))
+            try:
+                header, data = receive(sock)
+            except (EOFError, OSError, socket.timeout):
+                return
+            self.assertEqual(header, 0x20, data)
+            self.assertNotEqual(data[1], 0, 'blank returning owner accepted the migrated session')
 
-    def test_whole_fleet_crash_recovers_replicated_offline_queue(self):
+    def test_whole_fleet_crash_cannot_recover_from_control_metadata(self):
         target = self.persistent('fleet-device')
         self.subscribe(target, 'durable/fleet', 2)
         self.disconnect(target)
         source = self.persistent('fleet-source', 2)
         self.publish(source, 'durable/fleet', b'quorum durable before crash', 2)
-        for node in [*self.fleet.brokers, *self.fleet.controllers]:
-            node.stop(crash=True)
-        for node in self.fleet.controllers:
-            node.start()
-        wait_until(lambda: (self.fleet.status() or {}).get('leader'), 30)
         for node in self.fleet.brokers:
-            node.start()
-        resumed = self.persistent('fleet-device', 1, present=True, retry=True)
-        message = self.expect_message(resumed, 'durable/fleet', b'quorum durable before crash', 2)
-        self.complete_message(resumed, message)
-        self.quiet(resumed, .4)
+            node.stop(crash=True)
+        wait_until(lambda: (self.fleet.status() or {}).get('nodes') == 0, 20)
+        for node in self.fleet.brokers:
+            node.spawn()
+        for node in self.fleet.brokers:
+            wait_until(lambda current=node: 'memory_replica_waiting_for_repair' in current.logs(), 20)
+            self.assertFalse(node.ready(), node.logs())
+            try:
+                sock = socket.create_connection(('127.0.0.1', node.mqtt), timeout=.35)
+            except (ConnectionError, socket.timeout):
+                continue
+            with sock:
+                sock.settimeout(.35)
+                sock.sendall(self.packet('fleet-device', clean=False))
+                try:
+                    header, data = receive(sock)
+                except (EOFError, OSError, socket.timeout):
+                    continue
+                self.assertIn(header, (0x20, 0xe0), (header, data))
+                if header == 0x20:
+                    self.assertNotEqual(data[1], 0, 'empty RAM recovered a session from metadata')
+        self.assertEqual((self.fleet.status() or {}).get('nodes'), 0)
 
     def test_cross_version_recovery_preserves_outgoing_packet_identifier(self):
         target = self.persistent('version-device', version=4)

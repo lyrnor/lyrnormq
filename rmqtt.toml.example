@@ -96,3 +96,24 @@ subscriptions = 256
 retained = 10000
 # RMQTT_LIMITS_STATE_BYTES
 state_bytes = 67108864
+# RMQTT_LIMITS_OUTBOUND
+outbound = 64
+# RMQTT_LIMITS_HANDSHAKE_MS
+handshake_ms = 10000
+# RMQTT_LIMITS_WRITE_MS
+write_ms = 5000
+# RMQTT_LIMITS_HANDSHAKES
+handshakes = 128
+# RMQTT_LIMITS_AUTH_TASKS
+auth_tasks = 4
+
+# 去掉本段后出站队列在 data_dir/egress，分段 1MiB，物理上限 256MiB，待发送 100000 条。
+[egress]
+# RMQTT_EGRESS_DIR
+dir = "/opt/rmqtt/n1/egress"
+# RMQTT_EGRESS_SEGMENT_BYTES
+segment_bytes = 1048576
+# RMQTT_EGRESS_MAX_BYTES
+max_bytes = 268435456
+# RMQTT_EGRESS_MAX_RECORDS
+max_records = 100000

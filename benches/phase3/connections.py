@@ -172,6 +172,8 @@ async def measure(arguments, binary, directory, result):
         '--protocol', '5',
         '--max-connections', str(capacity),
         '--max-sessions', str(capacity),
+        '--max-handshakes', str(capacity),
+        '--max-auth-tasks', str(capacity),
         '--max-state-bytes', str(max(67108864, capacity * 16384)),
     ])
     evidence = Diagnostics()

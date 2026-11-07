@@ -59,6 +59,7 @@ class Node:
         self.member_id = member_id if member_id is not None else self._member_id(config)
         self.path = self.root / 'rmqtt.toml'
         self.mqtt, self.admin = mqtt, admin
+        self.broker_listen_override = None
         self.process = None
         self.output = None
         if admin is not None:
@@ -122,7 +123,12 @@ class Node:
         if self.output is not None:
             self.output.close()
         self.output = tempfile.TemporaryFile()
-        self.process = subprocess.Popen(self.command(), cwd=self.root,
+        env = os.environ.copy()
+        if self.broker_listen_override:
+            env['RMQTT_CLUSTER_BROKER_LISTEN'] = self.broker_listen_override
+        else:
+            env.pop('RMQTT_CLUSTER_BROKER_LISTEN', None)
+        self.process = subprocess.Popen(self.command(), cwd=self.root, env=env,
                                         stdout=self.output, stderr=subprocess.STDOUT)
 
     def logs(self):
@@ -502,6 +508,69 @@ class ClusterWireCases(ClusterFixture):
             self.assertEqual(data[0], 0x9a)
         else:
             self.assertEqual(publisher.recv(1), b'')
+
+    def test_connack_advertises_retain_and_shared_unavailable(self):
+        if self.version != 5:
+            self.skipTest('capability properties are MQTT5')
+        sock = self.raw()
+        sock.sendall(self.packet('cluster-caps'))
+        header, data = receive(sock)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        advertised = dict(readprops(data, 2)[0])
+        self.assertEqual(advertised.get(0x25), 0, advertised)
+        self.assertEqual(advertised.get(0x2a), 0, advertised)
+
+    def test_will_delay_connect_is_refused_and_does_not_publish(self):
+        watcher = self.client('will-watcher', 1)
+        self.subscribe(watcher, 'cluster/will-delay')
+        sock = self.raw(2)
+        extra = {'will_properties': [(0x18, 1)]} if self.version == 5 else {}
+        sock.sendall(self.packet('delayed-will', will=('cluster/will-delay', b'will-body', 1, False),
+                                 **extra))
+        header, data = receive(sock)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[1], 0x83 if self.version == 5 else 3)
+        sock.close()
+        self.quiet(watcher, .4)
+
+    def test_mixed_shared_and_ordinary_subscribe_delivers_ordinary_once(self):
+        subscriber = self.client('mix-sub', 1)
+        payload = b'\x00\x01' + (props() if self.version == 5 else b'')
+        payload += string('cluster/mix') + b'\x01' + string('$share/g/cluster/mix') + b'\x01'
+        subscriber.sendall(frame(0x82, payload))
+        header, body = receive(subscriber)
+        self.assertEqual(header, 0x90)
+        offset = readprops(body, 2)[1] if self.version == 5 else 2
+        shared = 0x9e if self.version == 5 else 0x80
+        self.assertEqual(body[offset:], bytes([1, shared]), body)
+        publisher = self.client('mix-pub', 2)
+        self.publish(publisher, 'cluster/mix', b'once', packet_id=11)
+        self.delivery(subscriber, 'cluster/mix', b'once', 1, self.version)
+        self.quiet(subscriber)
+
+    def test_refused_retain_is_not_replayed_to_later_subscriber(self):
+        publisher = self.client('retain-source', 0)
+        packet = (publication5('cluster/retained-absent', b'ghost', 1, 9, retain=True)
+                  if self.version == 5 else publication('cluster/retained-absent', b'ghost', 1, 9, True))
+        publisher.sendall(packet)
+        try:
+            publisher.settimeout(2)
+            if self.version == 5:
+                header, data = receive(publisher)
+                self.assertEqual(header, 0xe0)
+                self.assertEqual(data[0], 0x9a)
+            else:
+                self.assertEqual(publisher.recv(1), b'')
+        except (OSError, EOFError):
+            pass
+        subscriber = self.client('retain-target', 1)
+        self.subscribe(subscriber, 'cluster/retained-absent')
+        self.quiet(subscriber, .4)
+        live = self.client('retain-live', 2)
+        self.publish(live, 'cluster/retained-absent', b'live', packet_id=12)
+        self.delivery(subscriber, 'cluster/retained-absent', b'live', 1, self.version)
+        self.quiet(subscriber)
 
 
 class Cluster311(ClusterWireCases, unittest.TestCase):

@@ -9,6 +9,7 @@ use std::{
     io::{self, Read},
     net::{IpAddr, SocketAddr},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 const LIMIT: u64 = 64 * 1024;
@@ -60,15 +61,27 @@ pub(crate) fn load_with(
     if controller_only && raw.auth.is_some() {
         return Err(invalid("node.role controller does not use [auth]"));
     }
+    if controller_only && egress_configured(&raw.egress) {
+        return Err(invalid("node.role controller does not use [egress]"));
+    }
     let client = if controller_only {
         None
     } else {
         Some(mqtt_client(&raw.mqtt)?)
     };
-    let cluster = match raw.cluster {
+    let mut cluster = match raw.cluster {
         Some(cluster) => Some(cluster_pair(node_id, &data_dir, cluster)?),
         None => None,
     };
+    if let Some((broker, _)) = cluster.as_mut()
+        && let Some(value) = env.get("RMQTT_CLUSTER_BROKER_LISTEN")
+    {
+        // Advertise stays the member host:broker_port so peers keep the
+        // frozen replica list. Tests bind a proxy on that address.
+        broker.listen = value
+            .parse()
+            .map_err(|_| invalid("RMQTT_CLUSTER_BROKER_LISTEN must be an IP:PORT"))?;
+    }
     if let (Some(client), Some((broker, controller))) = (&client, &cluster) {
         let cluster_ports = [broker.listen.port(), controller.listen.port()];
         if cluster_ports.contains(&client.address.port())
@@ -101,9 +114,10 @@ pub(crate) fn load_with(
             options.tls_key = Some(key);
             options.tls_client_ca = client_ca;
         }
-        if let Some(path) = client.websocket {
+        if let Some((path, max_message_size)) = client.websocket {
             options.websocket = true;
             options.websocket_options.path = path;
+            options.websocket_options.max_message_size = max_message_size;
         }
     }
     options.cluster_config = Some(invocation.config_path.clone());
@@ -121,6 +135,7 @@ pub(crate) fn load_with(
         options.access_control_config = Some(data_dir.join("access.sqlite"));
         options.egress_queue_dir = Some(data_dir.join("egress"));
     }
+    apply_egress(&mut options, raw.egress, runs_broker)?;
     if let Some((listen, token, dir)) = dashboard {
         options.admin_listen = Some(listen);
         options.admin_token_file = Some(token);
@@ -158,7 +173,7 @@ struct MqttClient {
     address: SocketAddr,
     protocol: ProtocolMode,
     tls: Option<(PathBuf, PathBuf, Option<PathBuf>)>,
-    websocket: Option<String>,
+    websocket: Option<(String, usize)>,
 }
 
 fn parse_roles(value: &str) -> io::Result<Roles> {
@@ -269,6 +284,7 @@ const ENV_NAMES: &[&str] = &[
     "RMQTT_CLUSTER_TOKEN_FILE",
     "RMQTT_CLUSTER_CONTROLLER_PORT",
     "RMQTT_CLUSTER_BROKER_PORT",
+    "RMQTT_CLUSTER_BROKER_LISTEN",
     "RMQTT_CLUSTER_MEMBERS",
     "RMQTT_DASHBOARD_LISTEN",
     "RMQTT_DASHBOARD_TOKEN_FILE",
@@ -282,6 +298,15 @@ const ENV_NAMES: &[&str] = &[
     "RMQTT_LIMITS_SUBSCRIPTIONS",
     "RMQTT_LIMITS_RETAINED",
     "RMQTT_LIMITS_STATE_BYTES",
+    "RMQTT_LIMITS_OUTBOUND",
+    "RMQTT_LIMITS_HANDSHAKE_MS",
+    "RMQTT_LIMITS_WRITE_MS",
+    "RMQTT_LIMITS_HANDSHAKES",
+    "RMQTT_LIMITS_AUTH_TASKS",
+    "RMQTT_EGRESS_DIR",
+    "RMQTT_EGRESS_SEGMENT_BYTES",
+    "RMQTT_EGRESS_MAX_BYTES",
+    "RMQTT_EGRESS_MAX_RECORDS",
 ];
 
 fn apply_env(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<()> {
@@ -307,10 +332,20 @@ fn apply_env(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<()> {
             .get_or_insert_with(WebSocketRaw::default)
             .path = Some(value.clone());
     }
+    if let Some(value) = env.get("RMQTT_MQTT_WEBSOCKET_MAX_MESSAGE_SIZE") {
+        let size = value
+            .parse()
+            .map_err(|_| invalid("RMQTT_MQTT_WEBSOCKET_MAX_MESSAGE_SIZE must be an integer"))?;
+        raw.mqtt
+            .websocket
+            .get_or_insert_with(WebSocketRaw::default)
+            .max_message_size = Some(size);
+    }
     overlay_cluster(raw, env)?;
     overlay_dashboard(raw, env)?;
     overlay_auth(raw, env)?;
     overlay_limits(&mut raw.limits, env)?;
+    overlay_egress(&mut raw.egress, env)?;
     Ok(())
 }
 
@@ -422,6 +457,28 @@ fn overlay_limits(limits: &mut LimitsRaw, env: &HashMap<String, String>) -> io::
     assign_u64(&mut limits.subscriptions, env, "RMQTT_LIMITS_SUBSCRIPTIONS")?;
     assign_u64(&mut limits.retained, env, "RMQTT_LIMITS_RETAINED")?;
     assign_u64(&mut limits.state_bytes, env, "RMQTT_LIMITS_STATE_BYTES")?;
+    assign_u64(&mut limits.outbound, env, "RMQTT_LIMITS_OUTBOUND")?;
+    assign_u64(&mut limits.handshake_ms, env, "RMQTT_LIMITS_HANDSHAKE_MS")?;
+    assign_u64(&mut limits.write_ms, env, "RMQTT_LIMITS_WRITE_MS")?;
+    assign_u64(&mut limits.handshakes, env, "RMQTT_LIMITS_HANDSHAKES")?;
+    assign_u64(&mut limits.auth_tasks, env, "RMQTT_LIMITS_AUTH_TASKS")?;
+    assign_u64(
+        &mut limits.auth_rate,
+        env,
+        "RMQTT_LIMITS_AUTH_RATE_PER_SECOND",
+    )?;
+    assign_u64(&mut limits.auth_burst, env, "RMQTT_LIMITS_AUTH_BURST")?;
+    assign_u64(&mut limits.alias_maximum, env, "RMQTT_LIMITS_ALIAS_MAXIMUM")?;
+    Ok(())
+}
+
+fn overlay_egress(egress: &mut EgressRaw, env: &HashMap<String, String>) -> io::Result<()> {
+    if let Some(value) = env.get("RMQTT_EGRESS_DIR") {
+        egress.dir = Some(value.clone());
+    }
+    assign_u64(&mut egress.segment_bytes, env, "RMQTT_EGRESS_SEGMENT_BYTES")?;
+    assign_u64(&mut egress.max_bytes, env, "RMQTT_EGRESS_MAX_BYTES")?;
+    assign_u64(&mut egress.max_records, env, "RMQTT_EGRESS_MAX_RECORDS")?;
     Ok(())
 }
 
@@ -457,7 +514,7 @@ fn tls_paths(tls: Option<TlsRaw>) -> io::Result<Option<(PathBuf, PathBuf, Option
     Ok(Some((PathBuf::from(cert), PathBuf::from(key), client_ca)))
 }
 
-fn websocket(websocket: Option<WebSocketRaw>) -> io::Result<Option<String>> {
+fn websocket(websocket: Option<WebSocketRaw>) -> io::Result<Option<(String, usize)>> {
     let Some(websocket) = websocket else {
         return Ok(None);
     };
@@ -470,7 +527,11 @@ fn websocket(websocket: Option<WebSocketRaw>) -> io::Result<Option<String>> {
     {
         return Err(invalid("mqtt.websocket.path is invalid"));
     }
-    Ok(Some(path))
+    let max_message_size = websocket.max_message_size.unwrap_or(1024 * 1024);
+    if !(1..=16 * 1024 * 1024).contains(&max_message_size) {
+        return Err(invalid("mqtt.websocket.max_message_size is invalid"));
+    }
+    Ok(Some((path, max_message_size)))
 }
 
 fn dashboard(
@@ -642,7 +703,85 @@ fn apply_limits(options: &mut Options, limits: LimitsRaw) -> io::Result<()> {
     if let Some(value) = limits.state_bytes {
         options.config.max_state_bytes = positive(value, "limits.state_bytes")?;
     }
+    if let Some(value) = limits.outbound {
+        options.config.outbound_capacity = positive(value, "limits.outbound")?;
+    }
+    if let Some(value) = limits.handshake_ms {
+        positive(value, "limits.handshake_ms")?;
+        options.config.handshake_timeout = Duration::from_millis(value);
+    }
+    if let Some(value) = limits.write_ms {
+        positive(value, "limits.write_ms")?;
+        options.config.write_timeout = Duration::from_millis(value);
+    }
+    if let Some(value) = limits.handshakes {
+        options.config.max_handshakes = positive(value, "limits.handshakes")?;
+    }
+    if let Some(value) = limits.auth_tasks {
+        options.config.max_auth_tasks = positive(value, "limits.auth_tasks")?;
+    }
+    if let Some(value) = limits.auth_rate {
+        options.config.auth_rate_per_second = bounded_u32(value, "limits.auth_rate", true)?;
+    }
+    if let Some(value) = limits.auth_burst {
+        options.config.auth_burst = bounded_u32(value, "limits.auth_burst", false)?;
+    }
+    if let Some(value) = limits.alias_maximum {
+        options.config.topic_alias_maximum = u16::try_from(value)
+            .map_err(|_| invalid("limits.alias_maximum must be in 0..65535"))?;
+    }
     Ok(())
+}
+
+fn egress_configured(egress: &EgressRaw) -> bool {
+    egress.dir.is_some()
+        || egress.segment_bytes.is_some()
+        || egress.max_bytes.is_some()
+        || egress.max_records.is_some()
+}
+
+fn apply_egress(options: &mut Options, egress: EgressRaw, runs_broker: bool) -> io::Result<()> {
+    if !runs_broker {
+        return Ok(());
+    }
+    if let Some(dir) = egress.dir {
+        if dir.is_empty() {
+            return Err(invalid("egress.dir must be a nonempty path"));
+        }
+        options.egress_queue_dir = Some(PathBuf::from(dir));
+    }
+    if let Some(value) = egress.segment_bytes {
+        if !(4_096..=64 * 1024 * 1024).contains(&value) {
+            return Err(invalid("egress.segment_bytes must be 4096..67108864"));
+        }
+        options.egress_queue_segment_bytes = value;
+    }
+    if let Some(value) = egress.max_bytes {
+        options.egress_queue_max_bytes = value;
+    }
+    if let Some(value) = egress.max_records {
+        if !(1..=1_000_000).contains(&value) {
+            return Err(invalid("egress.max_records must be 1..1000000"));
+        }
+        options.egress_queue_max_records =
+            usize::try_from(value).map_err(|_| invalid("egress.max_records must be 1..1000000"))?;
+    }
+    let segment = options.egress_queue_segment_bytes;
+    let max_bytes = options.egress_queue_max_bytes;
+    if max_bytes < segment.saturating_mul(4) || max_bytes > 1024 * 1024 * 1024 * 1024 {
+        return Err(invalid(
+            "egress.max_bytes must be at least 4 * segment_bytes and at most 1TiB",
+        ));
+    }
+    Ok(())
+}
+
+fn bounded_u32(value: u64, name: &str, allow_zero: bool) -> io::Result<u32> {
+    let number = u32::try_from(value).map_err(|_| invalid(format!("{name} is too large")))?;
+    if number == 0 && !allow_zero {
+        return Err(invalid(format!("{name} must be positive")));
+    }
+    Ok(number)
 }
 
 fn positive(value: u64, name: &str) -> io::Result<usize> {
@@ -734,6 +873,8 @@ struct Raw {
     auth: Option<AuthRaw>,
     #[serde(default)]
     limits: LimitsRaw,
+    #[serde(default)]
+    egress: EgressRaw,
 }
 
 #[derive(Deserialize, Default)]
@@ -767,6 +908,7 @@ struct TlsRaw {
 #[serde(deny_unknown_fields)]
 struct WebSocketRaw {
     path: Option<String>,
+    max_message_size: Option<usize>,
 }
 
 #[derive(Deserialize, Default)]
@@ -803,6 +945,15 @@ struct AuthRaw {
 
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
+struct EgressRaw {
+    dir: Option<String>,
+    segment_bytes: Option<u64>,
+    max_bytes: Option<u64>,
+    max_records: Option<u64>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 struct LimitsRaw {
     connections: Option<u64>,
     sessions: Option<u64>,
@@ -811,6 +962,14 @@ struct LimitsRaw {
     subscriptions: Option<u64>,
     retained: Option<u64>,
     state_bytes: Option<u64>,
+    outbound: Option<u64>,
+    handshake_ms: Option<u64>,
+    write_ms: Option<u64>,
+    handshakes: Option<u64>,
+    auth_tasks: Option<u64>,
+    auth_rate: Option<u64>,
+    auth_burst: Option<u64>,
+    alias_maximum: Option<u64>,
 }
 
 #[cfg(test)]
@@ -885,6 +1044,41 @@ mod tests {
     }
 
     #[test]
+    fn websocket_table_applies_path_and_message_bound() {
+        let dir = Temp::new();
+        let path = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[mqtt.websocket]\npath = \"/mqtt\"\nmax_message_size = 64\n",
+            dir.0.display()
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert!(options.websocket);
+        assert_eq!(options.websocket_options.path, "/mqtt");
+        assert_eq!(options.websocket_options.max_message_size, 64);
+    }
+
+    #[test]
+    fn egress_table_overrides_queue_bounds() {
+        let dir = Temp::new();
+        let queue = dir.0.join("explicit");
+        let path = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[egress]\ndir = \"{}\"\nsegment_bytes = 4096\nmax_bytes = 65536\nmax_records = 16\n",
+            dir.0.display(),
+            queue.display()
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert_eq!(options.egress_queue_dir.as_deref(), Some(queue.as_path()));
+        assert_eq!(options.egress_queue_segment_bytes, 4096);
+        assert_eq!(options.egress_queue_max_bytes, 65536);
+        assert_eq!(options.egress_queue_max_records, 16);
+        let rejected = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:18831\"\n[egress]\nmax_records = 0\n",
+            dir.0.display()
+        ));
+        let error = load_with(&invocation(&rejected), &HashMap::new()).unwrap_err();
+        assert!(error.to_string().contains("egress.max_records"));
+    }
+
+    #[test]
     fn public_listen_without_tls_is_rejected() {
         let dir = Temp::new();
         let path = dir.file(&format!(
@@ -931,6 +1125,21 @@ mod tests {
         assert_eq!(controller.listen, "127.0.0.2:17001".parse().unwrap());
         assert_eq!(broker.listen, "127.0.0.2:17101".parse().unwrap());
         assert_eq!(broker.advertise.as_deref(), Some("http://127.0.0.2:17101"));
+        let relocated = load_with(
+            &invocation(&path),
+            &HashMap::from([(
+                "RMQTT_CLUSTER_BROKER_LISTEN".into(),
+                "127.0.0.12:19101".into(),
+            )]),
+        )
+        .unwrap()
+        .cluster_broker
+        .unwrap();
+        assert_eq!(relocated.listen, "127.0.0.12:19101".parse().unwrap());
+        assert_eq!(
+            relocated.advertise.as_deref(),
+            Some("http://127.0.0.2:17101")
+        );
         assert!(broker.durable.is_some());
         assert!(options.config.storage_path.is_none());
         let mut ids: Vec<_> = controller.controllers.iter().map(|peer| peer.id).collect();
@@ -1038,6 +1247,67 @@ mod tests {
         let options = load_with(&invocation(&path), &env).unwrap();
         assert_eq!(options.address, "127.0.0.1:1883");
         assert_eq!(options.config.max_connections, 32);
+    }
+
+    #[test]
+    fn limits_outbound_is_applied() {
+        let dir = Temp::new();
+        let path = dir.file(&format!(
+            r#"
+            [node]
+            id = 1
+            data_dir = "{dir}"
+            [mqtt]
+            listen = "127.0.0.1:1"
+            [limits]
+            outbound = 1
+            handshake_ms = 150
+            write_ms = 120000
+            handshakes = 8
+            auth_tasks = 8
+            auth_rate = 0
+            auth_burst = 2
+            alias_maximum = 0
+            "#,
+            dir = dir.0.display()
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert_eq!(options.config.outbound_capacity, 1);
+        assert_eq!(options.config.handshake_timeout, Duration::from_millis(150));
+        assert_eq!(options.config.write_timeout, Duration::from_millis(120000));
+        assert_eq!(options.config.max_handshakes, 8);
+        assert_eq!(options.config.max_auth_tasks, 8);
+        assert_eq!(options.config.auth_rate_per_second, 0);
+        assert_eq!(options.config.auth_burst, 2);
+        assert_eq!(options.config.topic_alias_maximum, 0);
+        let mut env = HashMap::new();
+        env.insert("RMQTT_LIMITS_OUTBOUND".into(), "4".into());
+        env.insert("RMQTT_LIMITS_HANDSHAKE_MS".into(), "200".into());
+        env.insert("RMQTT_LIMITS_WRITE_MS".into(), "500".into());
+        env.insert("RMQTT_LIMITS_HANDSHAKES".into(), "16".into());
+        env.insert("RMQTT_LIMITS_AUTH_TASKS".into(), "32".into());
+        env.insert("RMQTT_LIMITS_AUTH_RATE_PER_SECOND".into(), "1".into());
+        env.insert("RMQTT_LIMITS_AUTH_BURST".into(), "3".into());
+        env.insert("RMQTT_LIMITS_ALIAS_MAXIMUM".into(), "65535".into());
+        let options = load_with(&invocation(&path), &env).unwrap();
+        assert_eq!(options.config.outbound_capacity, 4);
+        assert_eq!(options.config.handshake_timeout, Duration::from_millis(200));
+        assert_eq!(options.config.write_timeout, Duration::from_millis(500));
+        assert_eq!(options.config.max_handshakes, 16);
+        assert_eq!(options.config.max_auth_tasks, 32);
+        assert_eq!(options.config.auth_rate_per_second, 1);
+        assert_eq!(options.config.auth_burst, 3);
+        assert_eq!(options.config.topic_alias_maximum, 65535);
+        let zero_burst = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:1\"\n[limits]\nauth_burst = 0\n",
+            dir.0.display()
+        ));
+        assert!(load_with(&invocation(&zero_burst), &HashMap::new()).is_err());
+        let huge_rate = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:1\"\n[limits]\nauth_rate = 4294967296\n",
+            dir.0.display()
+        ));
+        assert!(load_with(&invocation(&huge_rate), &HashMap::new()).is_err());
     }
 
     #[test]

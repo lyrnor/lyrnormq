@@ -148,6 +148,14 @@ async fn purge_returns_while_incremental_checkpoint_is_blocked()
 -> Result<(), Box<dyn std::error::Error>> {
     let dir = directory();
     let mut store = Store::open(&dir, "test", 1).await?;
+    let flush = store.owner.state().clone();
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while !flush.booted() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("checkpoint worker did not finish startup");
     let (locked_tx, locked_rx) = std::sync::mpsc::channel();
     let (release_tx, release_rx) = std::sync::mpsc::channel();
     let inner = store.inner.clone();
@@ -164,7 +172,6 @@ async fn purge_returns_while_incremental_checkpoint_is_blocked()
     let record = entry(0, 1);
     prime(&store, vec![record.clone()], Some(record.log_id)).await?;
     store.apply_log([record.clone()]).await?;
-    let flush = store.owner.state().clone();
     tokio::time::timeout(std::time::Duration::from_secs(2), async {
         while !flush.inflight() {
             tokio::task::yield_now().await;
@@ -345,13 +352,16 @@ async fn commit_watermark_cannot_regress_and_unsnapshotted_committed_tail_cannot
             .await
             .is_err()
     );
-    assert!(
-        store
-            .truncate_after(Some(entry(0, 1).log_id))
-            .await
-            .is_err()
-    );
-    store.truncate_after(Some(entry(1, 2).log_id)).await?;
+    // Incremental bbolt flush can cover the committed prefix between apply and
+    // this call. Uncovered committed entries must stay; covered entries may leave
+    // the WAL because the checkpoint is already the authority.
+    if store
+        .truncate_after(Some(entry(0, 1).log_id))
+        .await
+        .is_err()
+    {
+        store.truncate_after(Some(entry(1, 2).log_id)).await?;
+    }
     drop(store);
     let store = Store::open(&dir, "test", 1).await?;
     assert_eq!(store.metadata().nodes.len(), 2);

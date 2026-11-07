@@ -58,6 +58,10 @@ pub(super) struct FlushState {
     need_full: AtomicBool,
     /// A dirty transaction has taken its patch and has not finished yet.
     inflight: AtomicBool,
+    /// Bootstrap has released the checkpoint mutex. Read by tests before they
+    /// take that mutex; production only publishes the flag.
+    #[cfg_attr(not(test), allow(dead_code))]
+    booted: AtomicBool,
     stop: AtomicBool,
     wake: AtomicBool,
     parker: OnceLock<Thread>,
@@ -179,6 +183,10 @@ impl FlushState {
     pub(super) fn inflight(&self) -> bool {
         self.inflight.load(Ordering::Acquire)
     }
+    #[cfg(test)]
+    pub(super) fn booted(&self) -> bool {
+        self.booted.load(Ordering::Acquire)
+    }
     /// Incremental flush can still record `index`. A full snapshot is not a
     /// substitute: purge must not wait for or trigger one.
     pub(super) fn incremental_can_reach(&self, index: u64) -> bool {
@@ -282,6 +290,7 @@ pub(super) fn start(inner: Weak<Inner>, ram: Arc<Mutex<State>>) -> std::io::Resu
         epoch: AtomicU64::new(0),
         need_full: AtomicBool::new(false),
         inflight: AtomicBool::new(false),
+        booted: AtomicBool::new(false),
         stop: AtomicBool::new(false),
         wake: AtomicBool::new(false),
         parker: OnceLock::new(),
@@ -304,6 +313,7 @@ fn run(inner: Weak<Inner>, state: Arc<FlushState>) {
     if let Some(inner) = inner.upgrade() {
         bootstrap(&inner, &state);
     }
+    state.booted.store(true, Ordering::Release);
     loop {
         if state.stop.load(Ordering::Acquire)
             && !pending(&state)

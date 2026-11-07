@@ -30,8 +30,9 @@ class DeliveryFault:
     a selected stream's connection models an RPC transport failure; in response
     mode it happens only AFTER the recipient's committed delivery reply exists.
     """
-    def __init__(self, port, backend, recipient):
+    def __init__(self, port, backend, recipient, host='127.0.0.1', backend_host='127.0.0.1'):
         self.backend = backend
+        self.backend_host = backend_host
         self.marker = ('{"client_id":"' + recipient + '","id":').encode()
         self.enabled = threading.Event()
         self.response_loss = False
@@ -43,7 +44,7 @@ class DeliveryFault:
         self.attempts = 0
         self.listener = socket.socket()
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener.bind(('127.0.0.1', port))
+        self.listener.bind((host, port))
         self.listener.listen(32)
         self.listener.settimeout(.1)
         self.acceptor = threading.Thread(target=self.accept, daemon=True)
@@ -91,7 +92,7 @@ class DeliveryFault:
         server = None
         response = None
         try:
-            server = socket.create_connection(('127.0.0.1', self.backend), timeout=3)
+            server = socket.create_connection((self.backend_host, self.backend), timeout=3)
             client.settimeout(12)
             server.settimeout(12)
             with self.lock:
@@ -169,10 +170,12 @@ class EventFleet(MemoryFleet):
     def __init__(self, directory):
         super().__init__(directory)
         target = self.brokers[1]
-        advertised_port = int(target.config['listen'].rsplit(':', 1)[1])
         backend = self.port()
-        target.config['listen'] = f'127.0.0.1:{backend}'
-        self.fault = DeliveryFault(advertised_port, backend, self.recipient)
+        target.broker_listen_override = f'{target.host}:{backend}'
+        target.config['listen'] = target.broker_listen_override
+        self.fault = DeliveryFault(
+            self.broker_port, backend, self.recipient,
+            host=target.host, backend_host=target.host)
 
     def stop(self):
         try:
@@ -191,7 +194,7 @@ class EventCases(MemoryFixture):
         source = self.persistent('event-source', 0, expiry=3600)
         return source, target
 
-    def drain(self, target, bodies, qos):
+    def drain(self, target, bodies, qos, topic='event/messages'):
         pending = set()
         delivered = []
         while len(delivered) < len(bodies) or pending:
@@ -199,7 +202,7 @@ class EventCases(MemoryFixture):
             if packet[0] >> 4 == 3:
                 message = parse5(packet) if self.version == 5 else parse_publish(packet)
                 self.assertLess(len(delivered), len(bodies), 'unexpected extra PUBLISH')
-                self.assertEqual(message[:3], ('event/messages', bodies[len(delivered)], qos))
+                self.assertEqual(message[:3], (topic, bodies[len(delivered)], qos))
                 delivered.append(message[1])
                 if qos == 1:
                     target.sendall(ack(0x40, message[3]))
@@ -218,6 +221,18 @@ class EventCases(MemoryFixture):
         self.ping(target)
         self.quiet(target, .2)
 
+    def drain_qos0(self, target, topic, bodies):
+        remaining = set(bodies)
+        while remaining:
+            packet = receive(target)
+            self.assertEqual(packet[0] >> 4, 3, packet)
+            message = parse5(packet) if self.version == 5 else parse_publish(packet)
+            self.assertEqual((message[0], message[2]), (topic, 0), message)
+            self.assertIn(message[1], remaining, message)
+            remaining.remove(message[1])
+        self.ping(target)
+        self.quiet(target, .2)
+
     def observation(self, label, began):
         print(f'\nOBSERVATION MQTT{self.version} {label}_ms='
               f'{(time.monotonic() - began) * 1000:.3f}', flush=True)
@@ -226,22 +241,32 @@ class EventCases(MemoryFixture):
         source, target = self.pair()
         for qos in (0, 1, 2):
             with self.subTest(qos=qos):
+                topic = f'event/fifo/{qos}'
+                self.subscribe(target, topic, qos)
                 self.fleet.fault.block()
                 before = self.fleet.fault.count()
                 bodies = [f'q{qos}-sequence-{i:03}'.encode() for i in range(12)]
                 for i, body in enumerate(bodies):
-                    self.publish(source, 'event/messages', body, qos, packet_id=i + 1)
+                    self.publish(source, topic, body, qos, packet_id=i + 1)
                 self.ping(source)
-                wait_until(lambda: self.fleet.fault.count() > before, 10)
-                began = time.monotonic()
-                self.fleet.fault.unblock()
-                self.drain(target, bodies, qos)
-                self.observation(f'fifo_qos{qos}_12_total', began)
-                # The same source becomes idle before another independent event.
+                if qos == 0:
+                    # QoS 0 uses batched Forward RPCs, not RecipientDelivery, and
+                    # MQTT does not require in-order delivery at QoS 0.
+                    self.fleet.fault.unblock()
+                    self.drain_qos0(target, topic, bodies)
+                else:
+                    wait_until(lambda: self.fleet.fault.count() > before, 10)
+                    began = time.monotonic()
+                    self.fleet.fault.unblock()
+                    self.drain(target, bodies, qos, topic)
+                    self.observation(f'fifo_qos{qos}_12_total', began)
                 time.sleep(.25)
                 began = time.monotonic()
-                self.publish(source, 'event/messages', b'after-idle', qos, packet_id=100)
-                self.drain(target, [b'after-idle'], qos)
+                self.publish(source, topic, b'after-idle', qos, packet_id=100)
+                if qos == 0:
+                    self.drain_qos0(target, topic, [b'after-idle'])
+                else:
+                    self.drain(target, [b'after-idle'], qos, topic)
                 self.observation(f'after_idle_qos{qos}', began)
 
     def test_failed_rpc_retries_without_any_new_publish(self):
