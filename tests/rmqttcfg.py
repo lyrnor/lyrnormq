@@ -20,7 +20,9 @@ def write(directory, listen, node_id=1, protocol=None, tls=None, websocket=None,
     a dict with path and optional max_message_size.
     dashboard is (listen, token_file, dir or None). auth is (policy, plain).
     limits is a dict of connections/sessions/inflight/packet_bytes/subscriptions/
-    retained/state_bytes. cluster is a dict matching the [cluster] table.
+    retained/state_bytes/outbound/handshake_ms/write_ms/handshakes/auth_tasks/
+    auth_rate/auth_burst/alias_maximum.
+    cluster is a dict matching the [cluster] table.
     """
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -100,19 +102,19 @@ _LIMITS = {
     '--max-subscriptions': 'subscriptions',
     '--max-retained': 'retained',
     '--max-state-bytes': 'state_bytes',
+    '--outbound-capacity': 'outbound',
+    '--handshake-timeout-ms': 'handshake_ms',
+    '--write-timeout-ms': 'write_ms',
+    '--max-handshakes': 'handshakes',
+    '--max-auth-tasks': 'auth_tasks',
+    '--auth-rate-per-second': 'auth_rate',
+    '--auth-burst': 'auth_burst',
+    '--topic-alias-maximum': 'alias_maximum',
 }
 _IGNORE = {
     '--storage-path',
     '--rules-config',
     '--access-control-config',
-    '--outbound-capacity',
-    '--handshake-timeout-ms',
-    '--write-timeout-ms',
-    '--max-handshakes',
-    '--max-auth-tasks',
-    '--auth-rate-per-second',
-    '--auth-burst',
-    '--topic-alias-maximum',
     '--egress-queue-dir',
     '--egress-queue-segment-bytes',
     '--egress-queue-max-bytes',

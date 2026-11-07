@@ -9,6 +9,7 @@ use std::{
     io::{self, Read},
     net::{IpAddr, SocketAddr},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 const LIMIT: u64 = 64 * 1024;
@@ -283,6 +284,14 @@ const ENV_NAMES: &[&str] = &[
     "RMQTT_LIMITS_SUBSCRIPTIONS",
     "RMQTT_LIMITS_RETAINED",
     "RMQTT_LIMITS_STATE_BYTES",
+    "RMQTT_LIMITS_OUTBOUND",
+    "RMQTT_LIMITS_HANDSHAKE_MS",
+    "RMQTT_LIMITS_WRITE_MS",
+    "RMQTT_LIMITS_HANDSHAKES",
+    "RMQTT_LIMITS_AUTH_TASKS",
+    "RMQTT_LIMITS_AUTH_RATE_PER_SECOND",
+    "RMQTT_LIMITS_AUTH_BURST",
+    "RMQTT_LIMITS_ALIAS_MAXIMUM",
 ];
 
 fn apply_env(raw: &mut Raw, env: &HashMap<String, String>) -> io::Result<()> {
@@ -432,6 +441,18 @@ fn overlay_limits(limits: &mut LimitsRaw, env: &HashMap<String, String>) -> io::
     assign_u64(&mut limits.subscriptions, env, "RMQTT_LIMITS_SUBSCRIPTIONS")?;
     assign_u64(&mut limits.retained, env, "RMQTT_LIMITS_RETAINED")?;
     assign_u64(&mut limits.state_bytes, env, "RMQTT_LIMITS_STATE_BYTES")?;
+    assign_u64(&mut limits.outbound, env, "RMQTT_LIMITS_OUTBOUND")?;
+    assign_u64(&mut limits.handshake_ms, env, "RMQTT_LIMITS_HANDSHAKE_MS")?;
+    assign_u64(&mut limits.write_ms, env, "RMQTT_LIMITS_WRITE_MS")?;
+    assign_u64(&mut limits.handshakes, env, "RMQTT_LIMITS_HANDSHAKES")?;
+    assign_u64(&mut limits.auth_tasks, env, "RMQTT_LIMITS_AUTH_TASKS")?;
+    assign_u64(
+        &mut limits.auth_rate,
+        env,
+        "RMQTT_LIMITS_AUTH_RATE_PER_SECOND",
+    )?;
+    assign_u64(&mut limits.auth_burst, env, "RMQTT_LIMITS_AUTH_BURST")?;
+    assign_u64(&mut limits.alias_maximum, env, "RMQTT_LIMITS_ALIAS_MAXIMUM")?;
     Ok(())
 }
 
@@ -656,7 +677,42 @@ fn apply_limits(options: &mut Options, limits: LimitsRaw) -> io::Result<()> {
     if let Some(value) = limits.state_bytes {
         options.config.max_state_bytes = positive(value, "limits.state_bytes")?;
     }
+    if let Some(value) = limits.outbound {
+        options.config.outbound_capacity = positive(value, "limits.outbound")?;
+    }
+    if let Some(value) = limits.handshake_ms {
+        positive(value, "limits.handshake_ms")?;
+        options.config.handshake_timeout = Duration::from_millis(value);
+    }
+    if let Some(value) = limits.write_ms {
+        positive(value, "limits.write_ms")?;
+        options.config.write_timeout = Duration::from_millis(value);
+    }
+    if let Some(value) = limits.handshakes {
+        options.config.max_handshakes = positive(value, "limits.handshakes")?;
+    }
+    if let Some(value) = limits.auth_tasks {
+        options.config.max_auth_tasks = positive(value, "limits.auth_tasks")?;
+    }
+    if let Some(value) = limits.auth_rate {
+        options.config.auth_rate_per_second = bounded_u32(value, "limits.auth_rate", true)?;
+    }
+    if let Some(value) = limits.auth_burst {
+        options.config.auth_burst = bounded_u32(value, "limits.auth_burst", false)?;
+    }
+    if let Some(value) = limits.alias_maximum {
+        options.config.topic_alias_maximum = u16::try_from(value)
+            .map_err(|_| invalid("limits.alias_maximum must be in 0..65535"))?;
+    }
     Ok(())
+}
+
+fn bounded_u32(value: u64, name: &str, allow_zero: bool) -> io::Result<u32> {
+    let number = u32::try_from(value).map_err(|_| invalid(format!("{name} is too large")))?;
+    if number == 0 && !allow_zero {
+        return Err(invalid(format!("{name} must be positive")));
+    }
+    Ok(number)
 }
 
 fn positive(value: u64, name: &str) -> io::Result<usize> {
@@ -826,6 +882,14 @@ struct LimitsRaw {
     subscriptions: Option<u64>,
     retained: Option<u64>,
     state_bytes: Option<u64>,
+    outbound: Option<u64>,
+    handshake_ms: Option<u64>,
+    write_ms: Option<u64>,
+    handshakes: Option<u64>,
+    auth_tasks: Option<u64>,
+    auth_rate: Option<u64>,
+    auth_burst: Option<u64>,
+    alias_maximum: Option<u64>,
 }
 
 #[cfg(test)]
@@ -1066,6 +1130,67 @@ mod tests {
         let options = load_with(&invocation(&path), &env).unwrap();
         assert_eq!(options.address, "127.0.0.1:1883");
         assert_eq!(options.config.max_connections, 32);
+    }
+
+    #[test]
+    fn limits_outbound_is_applied() {
+        let dir = Temp::new();
+        let path = dir.file(&format!(
+            r#"
+            [node]
+            id = 1
+            data_dir = "{dir}"
+            [mqtt]
+            listen = "127.0.0.1:1"
+            [limits]
+            outbound = 1
+            handshake_ms = 150
+            write_ms = 120000
+            handshakes = 8
+            auth_tasks = 8
+            auth_rate = 0
+            auth_burst = 2
+            alias_maximum = 0
+            "#,
+            dir = dir.0.display()
+        ));
+        let options = load_with(&invocation(&path), &HashMap::new()).unwrap();
+        assert_eq!(options.config.outbound_capacity, 1);
+        assert_eq!(options.config.handshake_timeout, Duration::from_millis(150));
+        assert_eq!(options.config.write_timeout, Duration::from_millis(120000));
+        assert_eq!(options.config.max_handshakes, 8);
+        assert_eq!(options.config.max_auth_tasks, 8);
+        assert_eq!(options.config.auth_rate_per_second, 0);
+        assert_eq!(options.config.auth_burst, 2);
+        assert_eq!(options.config.topic_alias_maximum, 0);
+        let mut env = HashMap::new();
+        env.insert("RMQTT_LIMITS_OUTBOUND".into(), "4".into());
+        env.insert("RMQTT_LIMITS_HANDSHAKE_MS".into(), "200".into());
+        env.insert("RMQTT_LIMITS_WRITE_MS".into(), "500".into());
+        env.insert("RMQTT_LIMITS_HANDSHAKES".into(), "16".into());
+        env.insert("RMQTT_LIMITS_AUTH_TASKS".into(), "32".into());
+        env.insert("RMQTT_LIMITS_AUTH_RATE_PER_SECOND".into(), "1".into());
+        env.insert("RMQTT_LIMITS_AUTH_BURST".into(), "3".into());
+        env.insert("RMQTT_LIMITS_ALIAS_MAXIMUM".into(), "65535".into());
+        let options = load_with(&invocation(&path), &env).unwrap();
+        assert_eq!(options.config.outbound_capacity, 4);
+        assert_eq!(options.config.handshake_timeout, Duration::from_millis(200));
+        assert_eq!(options.config.write_timeout, Duration::from_millis(500));
+        assert_eq!(options.config.max_handshakes, 16);
+        assert_eq!(options.config.max_auth_tasks, 32);
+        assert_eq!(options.config.auth_rate_per_second, 1);
+        assert_eq!(options.config.auth_burst, 3);
+        assert_eq!(options.config.topic_alias_maximum, 65535);
+        let zero_burst = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:1\"\n[limits]\nauth_burst = 0\n",
+            dir.0.display()
+        ));
+        assert!(load_with(&invocation(&zero_burst), &HashMap::new()).is_err());
+        let huge_rate = dir.file(&format!(
+            "[node]\nid = 1\ndata_dir = \"{}\"\n[mqtt]\nlisten = \"127.0.0.1:1\"\n[limits]\nauth_rate = 4294967296\n",
+            dir.0.display()
+        ));
+        assert!(load_with(&invocation(&huge_rate), &HashMap::new()).is_err());
     }
 
     #[test]

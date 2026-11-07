@@ -216,6 +216,25 @@ async fn run_services(
     // Load bounded token/assets before accepting connections. Binding port zero
     // first lets the dashboard report the actual MQTT endpoint.
     let listener = TcpListener::bind(&options.address).await?;
+    // Arm shutdown before any listening log. Tests treat that log as readiness
+    // and can signal immediately; the default SIGINT action must not win.
+    let (tx, rx) = watch::channel(false);
+    let signal_tx = tx.clone();
+    tokio::spawn(async move {
+        match tokio::signal::ctrl_c().await {
+            Ok(()) => {
+                tracing::info!(event = "shutdown_requested", "shutdown requested");
+                let _ = signal_tx.send(true);
+            }
+            Err(error) => {
+                tracing::error!(
+                    event = "signal_failed",
+                    error_kind = ?error.kind(),
+                    "shutdown signal handler failed"
+                );
+            }
+        }
+    });
     let mut admin = if let Some(address) = options.admin_listen {
         let handle = mqtt_transport::management::ManagementHandle::new();
         options.config.management = Some(handle.clone());
@@ -281,23 +300,10 @@ async fn run_services(
             "rules and durable outbound queue ready"
         );
     }
-    let (tx, rx) = watch::channel(false);
     let external_tx = tx.clone();
     tokio::spawn(async move {
         if external_shutdown.wait_for(|stopped| *stopped).await.is_ok() {
             let _ = external_tx.send(true);
-        }
-    });
-    let signal_tx = tx.clone();
-    tokio::spawn(async move {
-        match tokio::signal::ctrl_c().await {
-            Ok(()) => {
-                tracing::info!(event = "shutdown_requested", "shutdown requested");
-                let _ = signal_tx.send(true);
-            }
-            Err(error) => {
-                tracing::error!(event = "signal_failed", error_kind = ?error.kind(), "shutdown signal handler failed");
-            }
         }
     });
     let mqtt_rx = rx.clone();

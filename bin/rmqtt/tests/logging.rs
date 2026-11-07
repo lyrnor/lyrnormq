@@ -61,10 +61,19 @@ fn lifecycle(filter: &str, json: bool) -> Vec<String> {
     let address = reservation.local_addr().unwrap();
     drop(reservation);
     let log = root.join("stderr.log");
+    let config = root.join("rmqtt.toml");
+    let data_dir = root
+        .display()
+        .to_string()
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"");
+    fs::write(
+        &config,
+        format!("[node]\nid = 1\ndata_dir = \"{data_dir}\"\n[mqtt]\nlisten = \"{address}\"\n"),
+    )
+    .unwrap();
     let child = command()
-        .args(["--listen", &address.to_string()])
-        .arg("--rules-config")
-        .arg(root.join("rules.sqlite"))
+        .args(["--config", config.to_str().unwrap()])
         .env("RUST_LOG", filter)
         .env("RMQTT_LOG_FORMAT", if json { "json" } else { "text" })
         .stdout(Stdio::null())
