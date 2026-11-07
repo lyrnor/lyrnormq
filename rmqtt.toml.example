@@ -106,6 +106,12 @@ write_ms = 5000
 handshakes = 128
 # RMQTT_LIMITS_AUTH_TASKS
 auth_tasks = 4
+# RMQTT_LIMITS_AUTH_RATE_PER_SECOND
+auth_rate = 1000
+# RMQTT_LIMITS_AUTH_BURST
+auth_burst = 1000
+# RMQTT_LIMITS_ALIAS_MAXIMUM
+alias_maximum = 32
 
 # 去掉本段后出站队列在 data_dir/egress，分段 1MiB，物理上限 256MiB，待发送 100000 条。
 [egress]

@@ -330,6 +330,29 @@ async fn cluster_features_are_explicit_and_standalone_capabilities_unchanged() {
     );
 }
 #[tokio::test]
+async fn legacy_cluster_still_refuses_will_connect() {
+    let bridge = Arc::new(Bridge::default());
+    let (worker, task) = tests::worker(config(bridge)).await;
+    let mut packet = connect_packet();
+    if let Packet::Connect { will, .. } = &mut packet {
+        *will = Some(Will {
+            topic: "will/topic".into(),
+            payload: b"body".to_vec(),
+            qos: 1,
+            retain: false,
+        });
+    }
+    assert!(matches!(
+        connect_frame(&worker, Frame::v5(packet.clone()), 1).await,
+        Reply::FrameRejected(ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR)
+    ));
+    assert!(matches!(
+        connect_frame(&worker, Frame::v311(packet), 2).await,
+        Reply::Rejected(ConnectRefusal::ServerBusy)
+    ));
+    tests::stop(worker, task).await;
+}
+#[tokio::test]
 async fn incoming_cluster_delivery_without_reflection() {
     let bridge = Arc::new(Bridge::default());
     let (worker, task) = tests::worker(config(bridge.clone())).await;

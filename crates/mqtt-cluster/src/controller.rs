@@ -304,7 +304,9 @@ impl wire::cluster_server::Cluster for Service {
                     if key.len() <= 2
                         || key.len() > 65538
                         || key.contains('\0')
-                        || !(key.starts_with("c:") || key.starts_with("h:"))
+                        || !(key.starts_with("c:")
+                            || key.starts_with("h:")
+                            || key.starts_with("r:"))
                     {
                         return Err(Status::invalid_argument("invalid owner key"));
                     }

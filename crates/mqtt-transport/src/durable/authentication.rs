@@ -314,21 +314,8 @@ impl Worker {
                 mut request,
                 principal,
             } => {
-                if self.broker.config.cluster.is_some()
-                    && (request.will.is_some()
-                        || (!self.broker.durable_cluster()
-                            && ((request.options.version == ProtocolVersion::V311
-                                && !request.clean)
-                                || request.options.session_expiry_interval != 0)))
-                {
-                    return Ok(refusal(
-                        &request,
-                        if request.options.version == ProtocolVersion::V311 {
-                            ReasonCode::SERVER_UNAVAILABLE
-                        } else {
-                            ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR
-                        },
-                    ));
+                if let Some(reason) = cluster_connect_refusal(&self.broker, &request) {
+                    return Ok(refusal(&request, reason));
                 }
                 if let Some(reason) = admit_will(&request, &principal).await {
                     return Ok(refusal(&request, reason));
@@ -546,6 +533,36 @@ impl Worker {
         }
         guard.armed = false;
         Ok(reply)
+    }
+}
+
+/// Durable replicas admit Wills, including Will-Retain. Legacy cluster still
+/// refuses Will and persistent sessions.
+fn cluster_connect_refusal(broker: &super::Broker, request: &ConnectRequest) -> Option<ReasonCode> {
+    broker.config.cluster.as_ref()?;
+    let mqtt311 = request.options.version == ProtocolVersion::V311;
+    let unavailable = || {
+        Some(if mqtt311 {
+            ReasonCode::SERVER_UNAVAILABLE
+        } else {
+            ReasonCode::IMPLEMENTATION_SPECIFIC_ERROR
+        })
+    };
+    if broker.durable_cluster() {
+        return None;
+    }
+    if request.will.as_ref().is_some_and(|will| will.retain) {
+        return if mqtt311 {
+            Some(ReasonCode::SERVER_UNAVAILABLE)
+        } else {
+            Some(ReasonCode::RETAIN_NOT_SUPPORTED)
+        };
+    }
+    let persistent = (mqtt311 && !request.clean) || request.options.session_expiry_interval != 0;
+    if request.will.is_some() || persistent {
+        unavailable()
+    } else {
+        None
     }
 }
 

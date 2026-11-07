@@ -1,5 +1,32 @@
 # Architecture
 
+## Phase7y durable-cluster Shared Subscriptions (2026-11-07)
+
+[Phase7y](contracts/phase7y-cluster-shared.md) admits MQTT 5 `$share` on durable
+Phase7f memory replicas. Membership lives on `c:{client}` DurableFilters. Each
+matching group selects one member at host-outbox admission and forwards a
+`ForwardScope::Shared` copy. MQTT 5 CONNACK advertises
+`SharedSubscriptionAvailable(1)`. MQTT 3.1.1 creation and legacy cluster stay
+refused. Cursors are per forwarding owner and reset on restart. Whole-group RAM
+loss cannot rebuild membership from control metadata.
+
+## Phase7x durable-cluster Retained (2026-11-07)
+
+[Phase7x](contracts/phase7x-cluster-retained.md) admits retained PUBLISH and
+Will-Retain on durable Phase7f memory replicas. Each topic is one `r:{topic}`
+replica record; SUBSCRIBE replays from those records, not a local-only store.
+MQTT 5 CONNACK advertises `RetainAvailable(1)`. Shared subscriptions are
+Phase7y. Whole-group RAM loss cannot rebuild retain from control metadata.
+
+## Phase7w durable-cluster Will (2026-11-07)
+
+[Phase7w](contracts/phase7w-cluster-will.md) admits non-retain Wills on durable
+Phase7f memory replicas. CONNECT success reuses the existing session snapshot and
+ordinary forward path. Will-Retain follows Phase7x. Shared subscriptions are Phase7y. Replica
+activation without CONNECT recovers crash Wills once; CONNECT
+takeover still cancels a delay that has not ended. Whole-group RAM loss cannot
+rebuild pending Wills from control metadata.
+
 ## Phase7d role cohosting and topology measurement (2026-11-03)
 
 The CLI can host an existing Controller configuration alongside a Broker with
@@ -69,8 +96,11 @@ RowStore rows cannot overrule replicated state. Controller-anchored disk identit
 prevent an empty replacement disk from voting a confirmed value out of existence.
 Mode/group are immutable for this gate, and legacy operation remains available.
 Disk replacement/repair is supplied by Phase7c above. Changing groups, broad cluster
-scaling and performance acceptance remain separate gates. Retained/Will/shared cluster semantics remain
-unsupported; the durable mode supersedes only phase7a's persistent-session refusal.
+scaling and performance acceptance remain separate gates. Shared subscriptions
+on durable replicas are [Phase7y](contracts/phase7y-cluster-shared.md). Durable
+non-retain Will is [Phase7w](contracts/phase7w-cluster-will.md); retained
+PUBLISH and Will-Retain are [Phase7x](contracts/phase7x-cluster-retained.md).
+The durable mode also supersedes phase7a's persistent-session refusal.
 
 ## Phase7a cluster integration (2026-11-03)
 

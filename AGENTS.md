@@ -151,3 +151,18 @@ The requested100k/300s dual-role load acceptance follows
 `docs/contracts/phase7v-100k-hold.md`. CPU optimization is paused. Reuse the tested
 binary; verify actual three-member Raft and live300s hold, archive partial failures,
 restore loadhost ephemeral ports and stop only identity-checked test processes.
+
+Durable-cluster non-retain Will follows `docs/contracts/phase7w-cluster-will.md`.
+Reuse SessionEngine delay/cancel/takeover and ordinary cluster forwarding. Replica
+activation without CONNECT recovers crash Wills once; CONNECT takeover must not
+publish a cancelled delay.
+
+Durable-cluster Retained follows `docs/contracts/phase7x-cluster-retained.md`.
+Each topic is one `r:{topic}` replica record; SUBSCRIBE replays from those
+records. Will-Retain reuses Phase7w fire-once then the retain record.
+
+Durable-cluster Shared Subscriptions follow
+`docs/contracts/phase7y-cluster-shared.md`. MQTT 5 `$share` is admitted on
+Phase7f replicas; one copy per group is selected at host admission. MQTT 3.1.1
+creation and legacy cluster remain refused. Whole-group RAM loss cannot rebuild
+membership from control metadata.

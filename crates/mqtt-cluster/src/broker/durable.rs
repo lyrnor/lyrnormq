@@ -6,6 +6,7 @@ use crate::replica::{Intent, Journal, Recipient, Record, Request};
 use mqtt_cluster_core::{DeliveryId, SessionCommit, SessionLease, SessionMutation};
 use tokio::sync::{mpsc, oneshot};
 mod diagnostics;
+mod retain;
 mod scheduler;
 use diagnostics::{Stage, measure};
 
@@ -102,6 +103,10 @@ enum Operation {
     },
     Complete {
         completed: Vec<(DeliveryId, String)>,
+        reply: oneshot::Sender<io::Result<()>>,
+    },
+    Retain {
+        message: ClusterMessage,
         reply: oneshot::Sender<io::Result<()>>,
     },
 }
@@ -613,6 +618,10 @@ impl Durable {
             Operation::Complete { completed, reply } => {
                 let _ = reply.send(self.complete(runtime, key, &completed, cell).await);
             }
+            Operation::Retain { message, reply } => {
+                let result = self.put_retain(runtime, key, message, cell).await;
+                self.respond(key, cell, reply, result);
+            }
         }
     }
     async fn send(self: &Arc<Self>, key: &str, operation: Operation) -> io::Result<()> {
@@ -680,20 +689,30 @@ impl Durable {
             &runtime.incarnation,
             message.publisher.as_deref(),
         );
-        // Resolve recipients on the caller side. Each publisher shard is serial;
-        // routing work stays outside that actor.
-        let recipients = Self::recipients(&runtime, &message);
-        let (reply, rx) = oneshot::channel();
-        self.send(
-            &key,
-            Operation::Host {
-                message,
-                recipients,
-                reply,
-            },
-        )
-        .await?;
-        self.await_reply(rx).await
+        // Resolve ordinary and shared recipients on the caller side. Each
+        // publisher shard is serial; routing work stays outside that actor.
+        let jobs = Self::host_publications(&runtime, message);
+        let mut replies = Vec::with_capacity(jobs.len());
+        for (message, recipients) in jobs {
+            let (reply, rx) = oneshot::channel();
+            replies.push(rx);
+            self.send(
+                &key,
+                Operation::Host {
+                    message,
+                    recipients,
+                    reply,
+                },
+            )
+            .await?;
+        }
+        let mut first_error = None;
+        for rx in replies {
+            if let Err(error) = self.await_reply(rx).await {
+                first_error.get_or_insert(error);
+            }
+        }
+        first_error.map_or(Ok(()), Err)
     }
     /// Actor-local duplicate check used before local MQTT enqueue.
     pub async fn received(self: &Arc<Self>, client: &str, id: DeliveryId) -> io::Result<bool> {
@@ -993,11 +1012,42 @@ impl Durable {
     fn recipients(runtime: &BrokerRuntime, message: &ClusterMessage) -> Vec<Recipient> {
         runtime.durable_recipients(&message.topic)
     }
+    fn host_publications(
+        runtime: &BrokerRuntime,
+        message: ClusterMessage,
+    ) -> Vec<(ClusterMessage, Vec<Recipient>)> {
+        if message.scope != ForwardScope::Ordinary {
+            return vec![(message.clone(), Self::recipients(runtime, &message))];
+        }
+        let ordinary = Self::recipients(runtime, &message);
+        let shared = runtime.select_shared_recipients(&message.topic);
+        let mut jobs = Vec::with_capacity(1 + shared.len());
+        if !ordinary.is_empty() || shared.is_empty() {
+            jobs.push((message.clone(), ordinary));
+        }
+        for selected in shared {
+            let mut copy = message.clone();
+            copy.scope = ForwardScope::Shared {
+                group: selected.group,
+                filter: selected.filter,
+            };
+            jobs.push((copy, vec![selected.recipient]));
+        }
+        jobs
+    }
+    fn valid_scope(scope: &ForwardScope) -> bool {
+        match scope {
+            ForwardScope::Ordinary => true,
+            ForwardScope::Shared { group, filter } => {
+                let Some(key) = scope.shared_subscription_key() else {
+                    return false;
+                };
+                mqtt_router::split_shared_filter(&key) == Some((group.as_str(), filter.as_str()))
+            }
+        }
+    }
     fn message_rejected(message: &ClusterMessage) -> bool {
-        message.retain
-            || message.qos > 2
-            || message.scope != ForwardScope::Ordinary
-            || message.payload.len() > MAX_PAYLOAD
+        message.qos > 2 || !Self::valid_scope(&message.scope) || message.payload.len() > MAX_PAYLOAD
     }
     fn append(
         key: &str,
@@ -1586,6 +1636,9 @@ impl Durable {
         }
     }
     fn changed(&self, key: &str, cell: &Cell) {
+        if key.starts_with("r:") {
+            return;
+        }
         if cell.poisoned
             || cell.activate
             || cell.record.as_ref().is_some_and(|r| !r.intents.is_empty())
@@ -1628,6 +1681,9 @@ impl Durable {
                 || old.last_repair != next.last_repair
         });
         for (key, owner) in &next.durable {
+            if key.starts_with("r:") {
+                continue;
+            }
             let ours =
                 owner.node == runtime.config.node_id && owner.incarnation == runtime.incarnation;
             let live = next
@@ -1651,6 +1707,9 @@ impl Durable {
             .read()
             .unwrap_or_else(PoisonError::into_inner);
         for key in keys {
+            if key.starts_with("r:") {
+                continue;
+            }
             if let Some(owner) = metadata.durable.get(key) {
                 let ours = owner.node == runtime.config.node_id
                     && owner.incarnation == runtime.incarnation;
@@ -2501,6 +2560,34 @@ mod tests {
                 reply,
             },
         }
+    }
+
+    #[test]
+    fn shared_scope_is_admitted_when_the_share_key_is_valid() {
+        let message = |scope| ClusterMessage {
+            topic: "work/x".into(),
+            payload: vec![1],
+            qos: 1,
+            retain: false,
+            properties: Default::default(),
+            expires_at: None,
+            publisher: None,
+            observer_client: String::new(),
+            scope,
+        };
+        assert!(!Durable::message_rejected(&message(ForwardScope::Ordinary)));
+        assert!(!Durable::message_rejected(&message(ForwardScope::Shared {
+            group: "g".into(),
+            filter: "work/#".into(),
+        })));
+        assert!(Durable::message_rejected(&message(ForwardScope::Shared {
+            group: "g/+".into(),
+            filter: "work/#".into(),
+        })));
+        assert!(Durable::message_rejected(&message(ForwardScope::Shared {
+            group: "g/x".into(),
+            filter: "a".into(),
+        })));
     }
 
     #[test]

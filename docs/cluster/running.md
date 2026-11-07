@@ -35,8 +35,10 @@ mode does not keep a session SQLite mirror.
 
 Create a private peer token file containing 32–256 visible ASCII characters.
 All members share this secret; use a separate secret from the Dashboard token.
-Start every member before testing readiness. Use clean sessions without
-Wills; retained publications and shared subscriptions are refused in this gate.
+Start every member before testing readiness. MQTT 5 shared subscriptions on
+durable replicas are Phase7y; MQTT 3.1.1 creation and legacy cluster remain
+refused. Durable non-retain Will is Phase7w; retained PUBLISH and Will-Retain
+are Phase7x.
 Existing Dashboard Bearer HTTP publishing routes to remote subscribers as well.
 
 A public MQTT address requires `[mqtt.tls]`. Loopback and RFC1918 addresses may
@@ -59,8 +61,9 @@ RMQTT_BIN="$PWD/target/debug/rmqtt" python3 tests/cluster_blackbox.py -v
 The harness allocates its own temporary ports and files and does not use an
 existing MQTT service. Process crashes exercise
 journal recovery, not physical power-loss certification. Durable forwarding receipts,
-session relocation, replicated retained/Will/shared state and performance acceptance
-remain later gates.
+session relocation, replicated shared-subscription state and performance
+acceptance remain later gates. Durable non-retain Will is Phase7w. Retained
+PUBLISH and Will-Retain are Phase7x.
 
 Current fixed implementation limits (acceptance bounds, not capacity measurements):
 
@@ -127,6 +130,7 @@ typed objects, cached canonical bytes and containers add memory overhead. Repair
 staging has an independent finite 768 MiB budget. Full capacity rejects admission.
 
 Clean Start/expiry creates a new logical session generation; queued work cannot
-leak into a recreated session. Retained, Will and shared subscriptions remain
-unsupported in cluster mode. Automatic incremental repair, membership changes,
+leak into a recreated session. MQTT 5 shared subscriptions on durable replicas
+are Phase7y. Durable non-retain Will is Phase7w; retained PUBLISH and
+Will-Retain are Phase7x. Automatic incremental repair, membership changes,
 tombstone cleanup, whole-group restart recovery and RocksDB remain future work.

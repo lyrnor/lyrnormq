@@ -10,6 +10,7 @@ RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_combined_blackbox.py -v
 import json
 import os
 from pathlib import Path
+import select
 import signal
 import socket
 import struct
@@ -20,7 +21,8 @@ import unittest
 
 from blackbox import connect_packet, frame, receive, string
 from dashboard_blackbox import free_port
-from mqtt5_blackbox import connect5, publication5, readprops
+from mqtt5_blackbox import connect5, parse5, props, readprops
+from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import publication
 import rmqttcfg
 
@@ -160,24 +162,33 @@ class CombinedCluster(unittest.TestCase):
         with self.assertRaises(socket.timeout):
             receive(isolated)
 
-    def test_will_shared_and_retain_are_refused_on_combined_nodes(self):
-        sock = socket.create_connection((self.nodes[0]['host'], self.nodes[0]['mqtt']), timeout=6)
-        self.addCleanup(sock.close)
-        sock.settimeout(8)
-        sock.sendall(connect5('combined-caps'))
-        header, body = receive(sock)
-        self.assertEqual(header, 0x20)
-        advertised = dict(readprops(body, 2)[0])
-        self.assertEqual(advertised.get(0x25), 0, advertised)
-        self.assertEqual(advertised.get(0x2a), 0, advertised)
+    def test_will_retain_and_mqtt5_shared_across_combined_nodes(self):
+        watcher = mqtt_connect(self.nodes[0]['host'], self.nodes[0]['mqtt'], 'combined-watcher')
+        self.addCleanup(watcher.close)
+        watcher.settimeout(8)
+        watcher.sendall(frame(0x82, b'\x00\x01' + string('cluster/will') + b'\x01'))
+        header, body = receive(watcher)
+        self.assertEqual(header, 0x90)
+        self.assertEqual(body, b'\x00\x01\x01')
 
-        will = socket.create_connection((self.nodes[1]['host'], self.nodes[1]['mqtt']), timeout=6)
-        self.addCleanup(will.close)
-        will.settimeout(8)
-        will.sendall(connect5('combined-will', will=('cluster/will', b'w', 1, False)))
-        header, body = receive(will)
+        owner = socket.create_connection((self.nodes[1]['host'], self.nodes[1]['mqtt']), timeout=6)
+        owner.settimeout(8)
+        owner.sendall(connect5('combined-will', will=('cluster/will', b'w', 1, False)))
+        header, body = receive(owner)
         self.assertEqual(header, 0x20)
-        self.assertEqual(body[1], 0x83)
+        self.assertEqual(body[:2], b'\x00\x00', body)
+        owner.close()
+        topic, payload, qos, packet_id, _, _ = parse_publish(receive(watcher))
+        self.assertEqual((topic, payload, qos), ('cluster/will', b'w', 1))
+        watcher.sendall(ack(0x40, packet_id))
+
+        retained = socket.create_connection((self.nodes[1]['host'], self.nodes[1]['mqtt']), timeout=6)
+        self.addCleanup(retained.close)
+        retained.settimeout(8)
+        retained.sendall(connect5('combined-will-retain', will=('cluster/will-retain', b'kept', 1, True)))
+        header, body = receive(retained)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(body[:2], b'\x00\x00', body)
 
         sub = mqtt_connect(self.nodes[1]['host'], self.nodes[1]['mqtt'], 'combined-share')
         self.addCleanup(sub.close)
@@ -186,10 +197,59 @@ class CombinedCluster(unittest.TestCase):
         self.assertEqual(header, 0x90)
         self.assertEqual(body, b'\x00\x01\x80')
 
+        share_a = socket.create_connection((self.nodes[0]['host'], self.nodes[0]['mqtt']), timeout=6)
+        self.addCleanup(share_a.close)
+        share_a.settimeout(8)
+        share_a.sendall(connect5('combined-share-a'))
+        header, body = receive(share_a)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(body[:2], b'\x00\x00', body)
+        self.assertIn((0x2a, 1), readprops(body, 2)[0])
+        share_a.sendall(frame(0x82, b'\x00\x03' + props() + string('$share/g/sensors/y') + b'\x01'))
+        header, body = receive(share_a)
+        self.assertEqual(header, 0x90)
+        self.assertEqual(body[readprops(body, 2)[1]:], b'\x01')
+        share_b = socket.create_connection((self.nodes[1]['host'], self.nodes[1]['mqtt']), timeout=6)
+        self.addCleanup(share_b.close)
+        share_b.settimeout(8)
+        share_b.sendall(connect5('combined-share-b'))
+        header, body = receive(share_b)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(body[:2], b'\x00\x00', body)
+        share_b.sendall(frame(0x82, b'\x00\x04' + props() + string('$share/g/sensors/y') + b'\x01'))
+        header, body = receive(share_b)
+        self.assertEqual(header, 0x90)
+        self.assertEqual(body[readprops(body, 2)[1]:], b'\x01')
+        share_pub = mqtt_connect(self.nodes[2]['host'], self.nodes[2]['mqtt'], 'combined-share-pub')
+        self.addCleanup(share_pub.close)
+        share_pub.sendall(publication('sensors/y', b'shared', 1, 8))
+        header, body = receive(share_pub)
+        self.assertEqual(header, 0x40)
+        self.assertEqual(body[:2], b'\x00\x08')
+        ready, _, _ = select.select([share_a, share_b], [], [], 5)
+        self.assertEqual(len(ready), 1, 'one recipient per shared publication')
+        topic, payload, qos, packet_id, _, _, _ = parse5(receive(ready[0]))
+        self.assertEqual((topic, payload, qos), ('sensors/y', b'shared', 1))
+        ready[0].sendall(ack(0x40, packet_id))
+        quiet = share_b if ready[0] is share_a else share_a
+        self.assertFalse(select.select([quiet], [], [], 0.2)[0], 'shared group must not duplicate')
+
         pub = mqtt_connect(self.nodes[2]['host'], self.nodes[2]['mqtt'], 'combined-retain')
         self.addCleanup(pub.close)
-        pub.sendall(publication('sensors/x', b'no', 1, 9, True))
-        self.assertEqual(pub.recv(1), b'')
+        pub.sendall(publication('sensors/x', b'held', 1, 9, True))
+        header, body = receive(pub)
+        self.assertEqual(header, 0x40)
+        self.assertEqual(body[:2], b'\x00\x09')
+        reader = mqtt_connect(self.nodes[0]['host'], self.nodes[0]['mqtt'], 'combined-retain-reader')
+        self.addCleanup(reader.close)
+        reader.settimeout(8)
+        reader.sendall(frame(0x82, b'\x00\x02' + string('sensors/x') + b'\x01'))
+        header, body = receive(reader)
+        self.assertEqual(header, 0x90)
+        self.assertEqual(body, b'\x00\x02\x01')
+        topic, payload, qos, packet_id, _, retain = parse_publish(receive(reader))
+        self.assertEqual((topic, payload, qos, retain), ('sensors/x', b'held', 1, True))
+        reader.sendall(ack(0x40, packet_id))
 
     def test_cross_node_loadgen_qos0_and_qos1(self):
         addresses = ','.join(f"{node['host']}:{node['mqtt']}" for node in self.nodes)

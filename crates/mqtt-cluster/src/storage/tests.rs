@@ -355,13 +355,16 @@ async fn commit_watermark_cannot_regress_and_unsnapshotted_committed_tail_cannot
     // Incremental bbolt flush can cover the committed prefix between apply and
     // this call. Uncovered committed entries must stay; covered entries may leave
     // the WAL because the checkpoint is already the authority.
-    if store
-        .truncate_after(Some(entry(0, 1).log_id))
-        .await
-        .is_err()
-    {
-        store.truncate_after(Some(entry(1, 2).log_id)).await?;
+    match store.truncate_after(Some(entry(0, 1).log_id)).await {
+        Err(error) => assert!(
+            error
+                .to_string()
+                .contains("unsnapshotted committed entries"),
+            "{error}"
+        ),
+        Ok(()) => {}
     }
+    store.truncate_after(Some(entry(1, 2).log_id)).await?;
     drop(store);
     let store = Store::open(&dir, "test", 1).await?;
     assert_eq!(store.metadata().nodes.len(), 2);

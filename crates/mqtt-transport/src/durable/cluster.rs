@@ -4,7 +4,7 @@ use mqtt_cluster_core::{
     ClientSubscriptions, ClusterFuture, ClusterMessage, DeliveryId, ForwardScope, LocalBroker,
     SessionLease,
 };
-use mqtt_session::durable::Publication;
+use mqtt_session::durable::{DeliveryScope, EngineError, Publication};
 use std::sync::{PoisonError, Weak};
 
 pub(crate) const FORWARDS: usize = 1024;
@@ -140,20 +140,17 @@ impl LocalBroker for Local {
     ) -> ClusterFuture<'_, ()> {
         Box::pin(async move {
             let broker = self.broker.upgrade().ok_or_else(unavailable)?;
-            if !broker.durable_cluster()
-                || !broker.cluster_ready()
-                || message.retain
-                || message.scope != ForwardScope::Ordinary
-            {
+            if !broker.durable_cluster() || !broker.cluster_ready() {
                 return Err(unavailable());
             }
+            let scope = delivery_scope(&message.scope).ok_or_else(unavailable)?;
             validate_message(&message, broker.config.max_packet_size)?;
             let handle = broker.handle(&client_id).ok_or_else(unavailable)?;
             let publication = Arc::new(Publication {
                 topic: message.topic,
                 payload: message.payload,
                 qos: message.qos,
-                retain: false,
+                retain: message.retain,
                 properties: message.properties,
                 expires_at: message.expires_at,
                 publisher: message.publisher,
@@ -166,6 +163,7 @@ impl LocalBroker for Local {
                     .send(super::actor::ActorCommand::DurableDeliver {
                         publication,
                         receipt,
+                        scope,
                         reply,
                     })
                     .await
@@ -183,7 +181,7 @@ impl LocalBroker for Local {
             if !broker.cluster_ready() {
                 return Err(unavailable());
             }
-            if message.retain || message.scope != ForwardScope::Ordinary {
+            if message.scope != ForwardScope::Ordinary {
                 return Err(io::Error::new(
                     io::ErrorKind::Unsupported,
                     "cluster delivery feature unsupported",
@@ -194,7 +192,7 @@ impl LocalBroker for Local {
                 topic: message.topic,
                 payload: message.payload,
                 qos: message.qos,
-                retain: false,
+                retain: message.retain,
                 properties: message.properties,
                 expires_at: message.expires_at,
                 publisher: message.publisher,
@@ -243,7 +241,63 @@ impl LocalBroker for Local {
                 .collect())
         })
     }
+    fn apply_retained(&self, message: ClusterMessage) -> ClusterFuture<'_, ()> {
+        Box::pin(async move {
+            let broker = self.broker.upgrade().ok_or_else(unavailable)?;
+            apply_local_retained(&broker, &message)
+        })
+    }
 }
+fn apply_local_retained(broker: &Broker, message: &ClusterMessage) -> io::Result<()> {
+    let now = broker.clock.now_millis();
+    let clear =
+        message.payload.is_empty() || message.expires_at.is_some_and(|deadline| deadline <= now);
+    broker
+        .retained
+        .apply(
+            message.topic.clone(),
+            if clear {
+                Vec::new()
+            } else {
+                message.payload.clone()
+            },
+            message.qos,
+            super::broker::RetainedMeta {
+                properties: if clear {
+                    Vec::new()
+                } else {
+                    message.properties.clone()
+                },
+                expires_at: if clear { None } else { message.expires_at },
+            },
+        )
+        .map_err(|error| model_error(EngineError::Retained(error)))
+}
+
+fn retained_entry(message: ClusterMessage) -> Option<mqtt_session::durable::RetainedEntry> {
+    if message.payload.is_empty() {
+        return None;
+    }
+    Some(mqtt_session::durable::RetainedEntry {
+        topic: message.topic,
+        payload: message.payload,
+        qos: message.qos,
+        properties: message.properties,
+        expires_at: message.expires_at,
+    })
+}
+
+fn delivery_scope(scope: &ForwardScope) -> Option<DeliveryScope> {
+    match scope {
+        ForwardScope::Ordinary => Some(DeliveryScope::Ordinary),
+        ForwardScope::Shared { group, filter } => {
+            let key = scope.shared_subscription_key()?;
+            (mqtt_router::split_shared_filter(&key) == Some((group.as_str(), filter.as_str())))
+                .then_some(DeliveryScope::Shared(key))
+        }
+    }
+}
+
 pub(super) fn message(publication: &Publication, observer_client: Option<&str>) -> ClusterMessage {
     ClusterMessage {
         topic: publication.topic.clone(),
@@ -399,6 +453,58 @@ impl Broker {
         });
     }
 
+    pub(super) async fn retained_matching(
+        &self,
+        filters: &[(String, u8)],
+    ) -> io::Result<Vec<mqtt_session::durable::RetainedEntry>> {
+        if let Some(cluster) = &self.config.cluster
+            && cluster.durable()
+        {
+            let names: Vec<String> = filters
+                .iter()
+                .filter(|(filter, _)| mqtt_router::split_shared_filter(filter).is_none())
+                .map(|(filter, _)| filter.clone())
+                .collect();
+            let messages = tokio::time::timeout(DEADLINE, cluster.matching_retained(names))
+                .await
+                .map_err(|_| {
+                    failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "cluster retain matching deadline",
+                    )
+                })??;
+            return Ok(messages.into_iter().filter_map(retained_entry).collect());
+        }
+        Ok(self.retained_for(filters))
+    }
+
+    pub(super) async fn commit_cluster_retained(
+        &self,
+        publications: &[Publication],
+    ) -> io::Result<()> {
+        let Some(cluster) = &self.config.cluster else {
+            return Ok(());
+        };
+        if !cluster.durable() {
+            return Ok(());
+        }
+        for publication in publications {
+            if publication.retained_update().is_none() {
+                continue;
+            }
+            let message = message(publication, None);
+            tokio::time::timeout(DEADLINE, cluster.commit_retained(message))
+                .await
+                .map_err(|_| {
+                    failure(
+                        ReasonCode::SERVER_UNAVAILABLE,
+                        "cluster retain commit deadline",
+                    )
+                })??;
+        }
+        Ok(())
+    }
+
     /// Durably accept publications that do not touch the publisher's own record.
     pub(super) async fn enqueue_host(&self, publications: &[Publication]) -> io::Result<()> {
         let bridge = self
@@ -406,6 +512,7 @@ impl Broker {
             .cluster
             .as_ref()
             .ok_or_else(|| failure(ReasonCode::SERVER_UNAVAILABLE, "cluster unavailable"))?;
+        self.commit_cluster_retained(publications).await?;
         for publication in publications {
             let message = message(publication, None);
             tokio::time::timeout(DEADLINE, bridge.forward(message))

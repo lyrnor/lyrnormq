@@ -20,6 +20,7 @@ pub(super) enum ActorCommand {
     DurableDeliver {
         publication: Arc<Publication>,
         receipt: DeliveryId,
+        scope: DeliveryScope,
         reply: oneshot::Sender<io::Result<()>>,
     },
     Request {
@@ -313,7 +314,7 @@ fn apply(
         } => {
             valid_generation(online, &client, generation)?;
             let mut shared_overlay = None;
-            if config.cluster.is_some() {
+            if config.cluster.is_some() && !broker.durable_cluster() {
                 if matches!(&frame.packet, Packet::Publish { retain: true, .. }) {
                     return Err(failure(
                         ReasonCode::RETAIN_NOT_SUPPORTED,
@@ -565,14 +566,15 @@ impl Actor {
     async fn command(&mut self, command: ActorCommand) {
         match command {
             ActorCommand::Activate { lease, reply } => {
-                let _ = reply.send(self.activate(lease));
+                let _ = reply.send(self.activate_recovered(lease).await);
             }
             ActorCommand::DurableDeliver {
                 publication,
                 receipt,
+                scope,
                 reply,
             } => {
-                let result = self.deliver_durable(&publication, receipt).await;
+                let result = self.deliver_durable(&publication, receipt, scope).await;
                 let _ = reply.send(result);
             }
             ActorCommand::Request {
@@ -686,8 +688,7 @@ impl Actor {
             // No Local, expiry and stale route matches are successful no-ops,
             // unlike capacity/model failures. Preserve shared eligibility's bool.
             Ok(false) => {
-                return self.broker.config.cluster.is_some()
-                    && matches!(scope, DeliveryScope::Ordinary);
+                return self.broker.config.cluster.is_some();
             }
             Err(_) => return false,
         }
@@ -797,9 +798,16 @@ impl Actor {
             _ => None,
         };
         let staged = match &request {
-            Request::Handle { frame, .. } => {
-                subscribe_filters(frame).map(|filters| self.broker.retained_for(filters))
-            }
+            Request::Handle { frame, .. } => match subscribe_filters(frame) {
+                Some(filters) => match self.broker.retained_matching(filters).await {
+                    Ok(entries) => Some(entries),
+                    Err(error) => {
+                        let _ = reply.send(Err(error));
+                        return;
+                    }
+                },
+                None => None,
+            },
             _ => None,
         };
         let max_preparations = match &request {
@@ -1186,10 +1194,50 @@ impl Actor {
         Ok(())
     }
 
+    /// Replica ownership without CONNECT: anchor crash Wills once and commit due
+    /// publications. CONNECT activation must not take this path, or a resume would
+    /// publish a delay the session engine is required to cancel.
+    async fn activate_recovered(&mut self, lease: SessionLease) -> io::Result<()> {
+        self.activate(lease)?;
+        if !self.broker.durable_cluster() {
+            return Ok(());
+        }
+        let mut proposal = self.engine.clone();
+        proposal.recover_wills().map_err(model_error)?;
+        if proposal.is_online(&self.client) && self.online.is_empty() {
+            // Snapshot still marks the crashed connection online. A graceful
+            // close drops that ghost without cancelling an already-pending Will.
+            proposal
+                .disconnect_with_reason(&self.client, true)
+                .map_err(model_error)?;
+        }
+        let publications = proposal.take_publications();
+        let snapshot = if proposal.has_persistent_state() {
+            Some(proposal.snapshot().map_err(model_error)?)
+        } else {
+            None
+        };
+        if publications.is_empty() && snapshot == self.row {
+            self.engine = proposal;
+            return Ok(());
+        }
+        self.install(
+            proposal,
+            Effects {
+                notify: true,
+                housekeeping: false,
+                publications,
+                ..Effects::default()
+            },
+        )
+        .await
+    }
+
     async fn deliver_durable(
         &mut self,
         publication: &Publication,
         receipt: DeliveryId,
+        scope: DeliveryScope,
     ) -> io::Result<()> {
         if !self.broker.cluster_ready() || self.cluster_invalid || self.cluster_lease.is_none() {
             return Err(failure(
@@ -1201,9 +1249,7 @@ impl Actor {
             return Ok(());
         }
         let mut proposal = self.engine.clone();
-        let _ = proposal
-            .deliver(publication, &DeliveryScope::Ordinary)
-            .map_err(model_error)?;
+        let _ = proposal.deliver(publication, &scope).map_err(model_error)?;
         let publications = proposal.take_publications();
         // A clean session has no snapshot. The receipt and the queued copy live
         // in this process; committing either would not survive a restart and
@@ -1330,6 +1376,14 @@ impl Actor {
             let bytes = proposal.live_state_bytes();
             self.broker.account(self.accounted, bytes)?;
             if self.broker.durable_cluster() && !effects.volatile {
+                if let Err(error) = self
+                    .broker
+                    .commit_cluster_retained(&effects.publications)
+                    .await
+                {
+                    let _ = self.broker.account(bytes, self.accounted);
+                    return Err(error);
+                }
                 let result = self.commit_cluster(&proposal, &mut effects).await;
                 match result {
                     Ok(true) => {

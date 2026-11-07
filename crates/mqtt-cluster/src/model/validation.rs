@@ -32,7 +32,7 @@ pub(crate) fn valid_command(command: &Command) -> bool {
         } => {
             *node > 0
                 && text(key, 65538)
-                && (key.starts_with("c:") || key.starts_with("h:"))
+                && (key.starts_with("c:") || key.starts_with("h:") || key.starts_with("r:"))
                 && text(incarnation, 64)
         }
         Command::DurableFilters {
@@ -50,7 +50,7 @@ pub(crate) fn valid_command(command: &Command) -> bool {
                 && filters.len() <= 256
                 && filters
                     .iter()
-                    .all(|f| mqtt_router::validate_topic_filter(f) && !f.starts_with("$share/"))
+                    .all(|f| mqtt_router::validate_subscription_filter(f))
         }
         Command::Register {
             node,
@@ -90,7 +90,7 @@ pub(crate) fn valid_command(command: &Command) -> bool {
                 && filters.len() <= 256
                 && filters
                     .iter()
-                    .all(|f| mqtt_router::validate_topic_filter(f) && !f.starts_with("$share/"))
+                    .all(|f| mqtt_router::validate_subscription_filter(f))
         }
     }
 }
@@ -117,5 +117,21 @@ mod tests {
     fn private_http_register_is_a_valid_command() {
         assert!(valid_command(&register("http://172.16.240.180:17101")));
         assert!(!valid_command(&register("http://47.84.224.186:17101")));
+    }
+
+    #[test]
+    fn durable_filters_admit_valid_shared_keys() {
+        let command = |filters: Vec<String>| Command::DurableFilters {
+            key: "c:device".into(),
+            node: 1,
+            incarnation: "n1".into(),
+            epoch: 1,
+            filters,
+            logical_generation: 1,
+        };
+        assert!(valid_command(&command(vec!["sensors/+".into()])));
+        assert!(valid_command(&command(vec!["$share/g/sensors/+".into()])));
+        assert!(!valid_command(&command(vec!["$share/+/sensors/+".into()])));
+        assert!(!valid_command(&command(vec!["$share/g/".into()])));
     }
 }

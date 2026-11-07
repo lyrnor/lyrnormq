@@ -478,7 +478,18 @@ class ClusterWireCases(ClusterFixture):
         sock.sendall(self.packet('with-will', will=('cluster/will', b'will', 1, False)))
         header, data = receive(sock)
         self.assertEqual(header, 0x20)
-        self.assertEqual(data[1], 0x83 if self.version == 5 else 3)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        if self.version == 5:
+            properties, _ = readprops(data, 2)
+            self.assertIn((0x25, 1), properties)
+            self.assertIn((0x2a, 1), properties)
+        self.ping(sock)
+        retained = self.raw()
+        retained.sendall(self.packet('will-retain', will=('cluster/will-retain', b'kept', 1, True)))
+        header, data = receive(retained)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        self.ping(retained)
         persistent = {'clean': False}
         if self.version == 5:
             persistent['properties'] = [(0x11, 60)]
@@ -497,17 +508,108 @@ class ClusterWireCases(ClusterFixture):
             self.assertEqual((header, data[:2]), (0x20, b'\x00\x00'))
             self.ping(transient)
         subscriber = self.client('subscriber', 1)
-        self.subscribe(subscriber, '$share/group/cluster/shared', expected=0x9e if self.version == 5 else 0x80)
+        self.subscribe(
+            subscriber,
+            '$share/group/cluster/shared',
+            expected=None if self.version == 5 else 0x80,
+        )
         publisher = self.client('retained-publisher', 0)
-        packet = (publication5('cluster/retained', b'forbidden', 1, 9, retain=True)
-                  if self.version == 5 else publication('cluster/retained', b'forbidden', 1, 9, True))
-        publisher.sendall(packet)
+        self.publish(publisher, 'cluster/retained', b'kept', 1, 9, retain=True)
+
+    def test_shared_group_delivers_one_copy_across_nodes(self):
+        if self.version != 5:
+            return
+        first = self.client('share-a', 0)
+        second = self.client('share-b', 1)
+        self.subscribe(first, '$share/workers/cluster/shared', qos=1)
+        self.subscribe(second, '$share/workers/cluster/shared', qos=1)
+        publisher = self.client('share-pub', 0)
+        self.publish(publisher, 'cluster/shared', b'only-one', 1, 21)
+        ready, _, _ = select.select([first, second], [], [], 5)
+        self.assertEqual(len(ready), 1, 'one recipient per shared publication')
+        self.delivery(ready[0], 'cluster/shared', b'only-one', 1, self.version)
+        other = second if ready[0] is first else first
+        self.quiet(other)
+
+    def test_retain_replays_across_nodes_and_empty_payload_clears(self):
+        publisher = self.client('retain-writer', 0)
+        self.publish(publisher, 'cluster/retained-replay', b'held', 1, 11, retain=True)
+        subscriber = self.client('retain-reader', 1)
+        self.subscribe(subscriber, 'cluster/retained-replay', qos=1)
+        parsed = self.delivery(subscriber, 'cluster/retained-replay', b'held', 1, self.version)
+        self.assertTrue(parsed[5], 'SUBSCRIBE replay must keep the RETAIN flag')
+        self.publish(publisher, 'cluster/retained-replay', b'', 1, 12, retain=True)
+        later = self.client('retain-later', 1)
+        self.subscribe(later, 'cluster/retained-replay', qos=1)
+        self.quiet(later)
+
+    def test_will_retain_fires_once_and_replays_from_replica(self):
+        watcher = self.client('will-retain-watcher', 1)
+        self.subscribe(watcher, 'cluster/will-retain-fire', qos=1)
+        owner = self.raw(0)
+        extra = {'will_properties': [(0x18, 0)]} if self.version == 5 else {}
+        owner.sendall(self.packet(
+            'will-retain-owner',
+            will=('cluster/will-retain-fire', b'kept-will', 1, True),
+            **extra,
+        ))
+        header, data = receive(owner)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        owner.close()
+        self.delivery(watcher, 'cluster/will-retain-fire', b'kept-will', 1, self.version)
+        later = self.client('will-retain-later', 1)
+        self.subscribe(later, 'cluster/will-retain-fire', qos=1)
+        parsed = self.delivery(later, 'cluster/will-retain-fire', b'kept-will', 1, self.version)
+        self.assertTrue(parsed[5], 'Will-Retain must remain in the replica retain store')
+
+    def test_will_fires_across_nodes_and_success_disconnect_cancels(self):
+        watcher = self.client('will-watcher', 1)
+        self.subscribe(watcher, 'cluster/will-fire')
+        owner = self.raw(0)
+        extra = {'will_properties': [(0x18, 0)]} if self.version == 5 else {}
+        owner.sendall(self.packet('will-owner', will=('cluster/will-fire', b'will-body', 1, False),
+                                  **extra))
+        header, data = receive(owner)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        owner.close()
+        self.delivery(watcher, 'cluster/will-fire', b'will-body', 1, self.version)
+        self.quiet(watcher)
+
+        cancelled = self.raw(0)
+        cancelled.sendall(self.packet('will-cancel', will=('cluster/will-cancel', b'nope', 1, False)))
+        header, data = receive(cancelled)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
         if self.version == 5:
-            header, data = receive(publisher)
-            self.assertEqual(header, 0xe0)
-            self.assertEqual(data[0], 0x9a)
+            cancelled.sendall(frame(0xe0, bytes([0])))
         else:
-            self.assertEqual(publisher.recv(1), b'')
+            cancelled.sendall(frame(0xe0))
+        watcher.sendall(frame(0x82, (b'\x00\x02' + (props() if self.version == 5 else b'')
+                                     + string('cluster/will-cancel') + b'\x01')))
+        header, data = receive(watcher)
+        self.assertEqual(header, 0x90)
+        self.quiet(watcher, .4)
+
+    def test_mqtt5_will_delay_waits_then_fires(self):
+        if self.version != 5:
+            self.skipTest('Will Delay Interval is MQTT5')
+        watcher = self.client('will-delay-watcher', 1)
+        self.subscribe(watcher, 'cluster/will-delay')
+        owner = self.raw(0)
+        owner.sendall(self.packet(
+            'delayed-will',
+            will=('cluster/will-delay', b'delayed-body', 1, False),
+            properties=[(0x11, 60)],
+            will_properties=[(0x18, 1)],
+        ))
+        header, data = receive(owner)
+        self.assertEqual(header, 0x20)
+        self.assertEqual(data[:2], b'\x00\x00', data)
+        owner.close()
+        self.quiet(watcher, .4)
+        self.delivery(watcher, 'cluster/will-delay', b'delayed-body', 1, self.version)
 
     def test_connack_advertises_retain_and_shared_unavailable(self):
         if self.version != 5:
