@@ -55,6 +55,9 @@ fn query_validation_enforces_limits_and_rejects_duplicates_and_unknowns() {
     .unwrap();
     assert_eq!(q.query.search, "中文");
     assert_eq!(q.node, Some(2));
+    let unknown = query(Some("protocol=unknown&node=101")).unwrap();
+    assert_eq!(unknown.query.protocol, "unknown");
+    assert_eq!(unknown.node, Some(101));
 }
 
 #[test]

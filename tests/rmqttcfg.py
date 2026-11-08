@@ -155,13 +155,21 @@ def parse_extra(extra):
             if flag in _IGNORE:
                 continue
             if flag in _LIMITS:
+                if _LIMITS[flag] in limits:
+                    raise ValueError(f'duplicate {flag}')
                 limits[_LIMITS[flag]] = value
             elif flag in _EGRESS:
+                if _EGRESS[flag] in egress:
+                    raise ValueError(f'duplicate {flag}')
                 egress[_EGRESS[flag]] = value
             else:
+                if flag in found:
+                    raise ValueError(f'duplicate {flag}')
                 found[flag] = value
             continue
         if flag in ('--websocket', '--enhanced-auth-plain'):
+            if flag in found:
+                raise ValueError(f'duplicate {flag}')
             found[flag] = True
             index += 1
             continue

@@ -101,6 +101,9 @@ jobs:
       - name: Memory replicas, live-majority failover and in-process catch-up
         timeout-minutes: 15
         run: python3 tests/cluster_memory_blackbox.py -v
+      - name: Cluster directory Dashboard management acceptance
+        timeout-minutes: 10
+        run: python3 tests/cluster_dashboard_blackbox.py -v
       - name: Event-driven forwarding retry and ownership acceptance
         timeout-minutes: 10
         run: python3 tests/cluster_event_blackbox.py -v

@@ -296,7 +296,7 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
             );
             value.insert(
                 "capabilities".into(),
-                json!({"events":false,"resource_metrics":false,"mutations":false,"cluster":false}),
+                json!({"events":false,"resource_metrics":false,"mutations":false}),
             );
             if state.rules.is_some()
                 && let Some(Value::Object(capabilities)) = value.get_mut("capabilities")
@@ -330,11 +330,10 @@ async fn api_dispatch(state: &State, path: &str, raw: Option<&str>) -> Response 
                     Err(cause) => return model_error(cause),
                 }
                 if let Some(Value::Object(capabilities)) = value.get_mut("capabilities") {
+                    // Additive; omitted in standalone so existing exact equality stays valid.
                     capabilities.insert("cluster".into(), Value::Bool(true));
                 }
                 // Traffic counters stay process-local; UI labels them as this node.
-                value.insert("traffic_scope".into(), json!("local"));
-            } else {
                 value.insert("traffic_scope".into(), json!("local"));
             }
             value.insert("topology".into(), topology);

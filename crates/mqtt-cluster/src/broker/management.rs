@@ -425,4 +425,71 @@ mod tests {
         let topics = collect_retained_topics(&metadata_fixture(), &ManagementQuery::default());
         assert_eq!(topics, vec![("weather/beijing".into(), 1)]);
     }
+
+    #[test]
+    fn sessions_search_and_paging_are_stable() {
+        let rows = filter_sessions(
+            collect_sessions(&metadata_fixture()),
+            &ManagementQuery {
+                search: "online".into(),
+                limit: 1,
+                ..ManagementQuery::default()
+            },
+        );
+        assert_eq!(rows.len(), 2);
+        let page = page_items(rows.iter().map(to_session).collect::<Vec<_>>(), &ManagementQuery {
+            search: "online".into(),
+            limit: 1,
+            offset: 1,
+            ..ManagementQuery::default()
+        });
+        assert_eq!(page.total, 2);
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].client_id, "online-b");
+    }
+
+    #[test]
+    fn protocol_filter_hides_directory_rows_except_unknown() {
+        let rows = filter_sessions(
+            collect_sessions(&metadata_fixture()),
+            &ManagementQuery {
+                protocol: "5.0".into(),
+                limit: 25,
+                ..ManagementQuery::default()
+            },
+        );
+        assert!(rows.is_empty());
+        let unknown = filter_sessions(
+            collect_sessions(&metadata_fixture()),
+            &ManagementQuery {
+                protocol: "unknown".into(),
+                limit: 25,
+                ..ManagementQuery::default()
+            },
+        );
+        assert_eq!(unknown.len(), 3);
+    }
+
+    #[test]
+    fn retained_filter_by_node_and_search() {
+        let topics = collect_retained_topics(
+            &metadata_fixture(),
+            &ManagementQuery {
+                node: Some(1),
+                search: "beijing".into(),
+                limit: 25,
+                ..ManagementQuery::default()
+            },
+        );
+        assert_eq!(topics, vec![("weather/beijing".into(), 1)]);
+        let empty = collect_retained_topics(
+            &metadata_fixture(),
+            &ManagementQuery {
+                node: Some(2),
+                limit: 25,
+                ..ManagementQuery::default()
+            },
+        );
+        assert!(empty.is_empty());
+    }
 }
