@@ -19,7 +19,7 @@ from cluster_blackbox import wait_until
 from mqtt5_blackbox import parse5
 from qos_blackbox import ack, parse_publish
 from cluster_memory_blackbox import MemoryFleet, MemoryFixture
-from cluster_repair_blackbox import exact
+from cluster_repair_proxy import exact
 
 
 class DeliveryFault:

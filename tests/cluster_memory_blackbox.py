@@ -20,7 +20,7 @@ import uuid
 from blackbox import frame, receive
 from cluster_blackbox import BINARY, CLUSTER_TOKEN, TOKEN, wait_until
 from cluster_durable_blackbox import DurableFixture, DurableFleet, DurableNode, DurableSessionCases
-from cluster_repair_blackbox import Driver, ImportProxy
+from cluster_repair_proxy import Driver, ImportProxy
 
 
 class MemoryNode(DurableNode):
