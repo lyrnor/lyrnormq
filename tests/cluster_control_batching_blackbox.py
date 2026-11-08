@@ -5,7 +5,6 @@ RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_control_batching_blackbox.py -v
 The separate cluster_control_batching_diagnostic.py runs the finite 900-client
 performance reproduction; default functional tests have no throughput assertion.
 """
-import copy
 from contextlib import ExitStack, contextmanager
 import json
 import socket
@@ -14,26 +13,47 @@ import unittest
 
 from cluster_blackbox import BINARY, wait_until
 from cluster_memory_blackbox import CombinedMemoryFleet, MemoryFixture
+import rmqttcfg
 
 
 @contextmanager
 def controller_only_status(fleet, node):
-    """Query one Controller; all other seeds are reserved, non-listening ports.
+    """Query one Controller via a single-member TOML seed list.
 
-    The normal CLI may fall back across seeds. Keeping both refused sockets bound
-    prevents accidental reuse by another listener, and putting the target first
-    avoids making a healthy target wait behind unrelated connect failures.
+    The normal CLI may fall back across seeds. Omitting peer members forces the
+    probe onto the restarted Controller without contacting healthy peers. Held
+    ephemeral binds keep those ports from being reused during the probe window.
     """
-    config = copy.deepcopy(node.config)
+    host, port_text = node.config['listen'].rsplit(':', 1)
+    port = int(port_text)
+    # Keep a legal 3-member list, but point every peer host at an unused
+    # loopback so the CLI cannot fall back to a healthy Controller.
+    decoys = ['127.0.0.4', '127.0.0.5', '127.0.0.6']
+    members = [{'id': node.config['node_id'], 'host': host}]
+    for peer in node.config.get('controllers') or getattr(fleet, 'members', []):
+        peer_id = peer['id'] if isinstance(peer, dict) else peer
+        if peer_id == node.config['node_id']:
+            continue
+        members.append({'id': peer_id, 'host': decoys[len(members) - 1]})
+    while len(members) < 3:
+        members.append({'id': 10 + len(members), 'host': decoys[len(members) - 1]})
     with ExitStack() as resources:
-        for peer in config['controllers']:
-            if peer['id'] != node.config['node_id']:
-                refused = resources.enter_context(socket.socket())
-                refused.bind(('127.0.0.1', 0))
-                peer['address'] = f'http://127.0.0.1:{refused.getsockname()[1]}'
-        config['controllers'].sort(key=lambda peer: peer['id'] != node.config['node_id'])
-        path = node.root / 'status-only.json'
-        path.write_text(json.dumps(config))
+        for _ in range(2):
+            reserved = resources.enter_context(socket.socket())
+            reserved.bind(('127.0.0.1', 0))
+        path = rmqttcfg.write(
+            node.root / 'status-only',
+            None,
+            node_id=node.config['node_id'],
+            role='controller',
+            cluster={
+                'id': node.config['cluster_id'],
+                'token_file': node.config['token_file'],
+                'controller_port': port,
+                'broker_port': getattr(fleet, 'broker_port', port + 1),
+                'members': members,
+            },
+        )
 
         def query():
             try:

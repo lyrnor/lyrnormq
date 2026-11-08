@@ -28,8 +28,9 @@ class GatedReplica:
     MAX_CONNECTIONS = 32
     MAX_FRAME = 1024 * 1024
 
-    def __init__(self, listen, backend):
+    def __init__(self, listen, backend, host='127.0.0.1', backend_host=None):
         self.backend = backend
+        self.backend_host = backend_host or host
         self.condition = threading.Condition()
         self.held = False
         self.closed = False
@@ -41,7 +42,7 @@ class GatedReplica:
         self.threads = []
         self.listener = socket.socket()
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener.bind(('127.0.0.1', listen))
+        self.listener.bind((host, listen))
         self.listener.listen(self.MAX_CONNECTIONS)
         self.listener.settimeout(.1)
         self.acceptor = threading.Thread(target=self.accept, daemon=True)
@@ -56,7 +57,7 @@ class GatedReplica:
             except OSError:
                 return
             try:
-                server = socket.create_connection(('127.0.0.1', self.backend), timeout=2)
+                server = socket.create_connection((self.backend_host, self.backend), timeout=2)
                 with self.condition:
                     if self.closed or len(self.sockets) >= self.MAX_CONNECTIONS * 2:
                         client.close()
@@ -168,15 +169,14 @@ class GatedReplica:
 class GatedFleet(MemoryFleet):
     def __init__(self, directory):
         super().__init__(directory)
+        # TOML peers dial http://{member.host}:{broker_port}. Put the gate on
+        # that advertise address and move the real broker RPC behind an override.
         replica = self.brokers[2]
-        backend = int(replica.config['listen'].rsplit(':', 1)[1])
-        front = self.port()
-        replica.config['advertise'] = f'http://127.0.0.1:{front}'
-        for node in self.brokers:
-            for peer in node.config['durable']['replicas']:
-                if peer['id'] == replica.config['node_id']:
-                    peer['address'] = replica.config['advertise']
-        self.proxy = GatedReplica(front, backend)
+        backend = self.port()
+        front = self.broker_port
+        host = replica.host
+        replica.broker_listen_override = f'{host}:{backend}'
+        self.proxy = GatedReplica(front, backend, host=host, backend_host=host)
 
     def stop(self):
         self.proxy.release()

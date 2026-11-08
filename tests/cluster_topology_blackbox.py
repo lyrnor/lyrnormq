@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Independent three-process dual-role acceptance; no performance claims."""
-import copy
-import json
 import socket
 import subprocess
 import tempfile
@@ -87,15 +85,22 @@ class CombinedMQTTCases(CombinedFixture, unittest.TestCase):
     def test_sigint_closes_controller_and_broker_ports_and_restarts_same_disks(self):
         node = self.fleet.brokers[2]
         node.stop()
-        ports = [int(node.controller.config['listen'].rsplit(':', 1)[1]),
-                 int(node.config['listen'].rsplit(':', 1)[1]), node.mqtt, node.admin]
-        for port in ports:
+        # Peer Controllers still listen on the same port of *their* loopback host.
+        # Probe this dual-role member's host and its private MQTT/admin ports.
+        endpoints = [
+            (node.host, int(node.controller.config['listen'].rsplit(':', 1)[1])),
+            (node.host, int(node.config['listen'].rsplit(':', 1)[1])),
+            ('127.0.0.1', node.mqtt),
+            ('127.0.0.1', node.admin),
+        ]
+        for host, port in endpoints:
             with socket.socket() as probe:
-                self.assertNotEqual(probe.connect_ex(('127.0.0.1', port)), 0)
+                self.assertNotEqual(probe.connect_ex((host, port)), 0, (host, port))
         node.spawn()
-        wait_until(node.ready, 30)
-        self.healthy(2)
-        self.assertEqual((self.fleet.status() or {}).get('nodes'), 3)
+        # A restarted memory replica is a new identity and waits for repair.
+        wait_until(lambda: 'memory_replica_waiting_for_repair' in node.logs(), 15)
+        self.healthy(0)
+        self.assertEqual((self.fleet.status() or {}).get('nodes'), 2)
 
 
 class CombinedStartupCases(unittest.TestCase):
@@ -106,8 +111,7 @@ class CombinedStartupCases(unittest.TestCase):
         self.addCleanup(self.fleet.stop)
 
     def invoke(self, node, extra=()):
-        node.path.write_text(json.dumps(node.config))
-        node.controller.path.write_text(json.dumps(node.controller.config))
+        node.write_config()
         return subprocess.run(node.command() + list(extra), cwd=node.root,
                               capture_output=True, timeout=12)
 
@@ -115,7 +119,7 @@ class CombinedStartupCases(unittest.TestCase):
         node = self.fleet.brokers[0]
         port = int(node.controller.config['listen'].rsplit(':', 1)[1])
         with socket.socket() as blocker:
-            blocker.bind(('127.0.0.1', port))
+            blocker.bind((node.host, port))
             blocker.listen()
             result = self.invoke(node)
         self.assertNotEqual(result.returncode, 0, result.stdout)
@@ -123,24 +127,24 @@ class CombinedStartupCases(unittest.TestCase):
         with socket.socket() as probe:
             self.assertNotEqual(probe.connect_ex(('127.0.0.1', node.mqtt)), 0)
 
-    def test_incompatible_pairings_rejected_before_listeners(self):
+    def test_invalid_cluster_membership_rejected_before_listeners(self):
         node = self.fleet.brokers[0]
-        original = copy.deepcopy(node.controller.config)
-        changes = [dict(role='broker'), dict(cluster_id='different-cluster'),
-                   dict(data_dir=node.config['data_dir']), dict(lease_ms=4000)]
-        for change in changes:
-            with self.subTest(change=tuple(change)):
-                node.controller.config = {**copy.deepcopy(original), **change}
-                result = self.invoke(node)
-                self.assertNotEqual(result.returncode, 0)
-                with socket.socket() as probe:
-                    self.assertNotEqual(probe.connect_ex(('127.0.0.1', node.mqtt)), 0)
-        node.controller.config = original
+        original_cluster = dict(node.cluster)
+        node.cluster = dict(original_cluster)
+        # Membership must be 3/5/7; reject before MQTT binds.
+        node.cluster['members'] = list(original_cluster['members'])[:2]
+        result = self.invoke(node)
+        self.assertNotEqual(result.returncode, 0, result.stderr[-500:])
+        with socket.socket() as probe:
+            self.assertNotEqual(probe.connect_ex(('127.0.0.1', node.mqtt)), 0)
+        node.cluster = original_cluster
+        node.write_config()
 
     def test_inspection_commands_reject_combined_start_option(self):
         node = self.fleet.brokers[0]
         for operation in ('cluster-status', 'cluster-repair-abort', 'export-state'):
             with self.subTest(operation=operation):
+                # Removed dual --cluster-config flags; unknown options must still fail.
                 result = subprocess.run([BINARY, operation, '--cluster-config', str(node.path),
                                          '--cluster-controller-config', str(node.controller.path)],
                                         cwd=node.root, capture_output=True, timeout=5)

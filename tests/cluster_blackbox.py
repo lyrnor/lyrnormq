@@ -611,7 +611,7 @@ class ClusterWireCases(ClusterFixture):
         self.quiet(watcher, .4)
         self.delivery(watcher, 'cluster/will-delay', b'delayed-body', 1, self.version)
 
-    def test_connack_advertises_retain_and_shared_unavailable(self):
+    def test_connack_advertises_retain_and_shared_available(self):
         if self.version != 5:
             self.skipTest('capability properties are MQTT5')
         sock = self.raw()
@@ -620,21 +620,9 @@ class ClusterWireCases(ClusterFixture):
         self.assertEqual(header, 0x20)
         self.assertEqual(data[:2], b'\x00\x00', data)
         advertised = dict(readprops(data, 2)[0])
-        self.assertEqual(advertised.get(0x25), 0, advertised)
-        self.assertEqual(advertised.get(0x2a), 0, advertised)
-
-    def test_will_delay_connect_is_refused_and_does_not_publish(self):
-        watcher = self.client('will-watcher', 1)
-        self.subscribe(watcher, 'cluster/will-delay')
-        sock = self.raw(2)
-        extra = {'will_properties': [(0x18, 1)]} if self.version == 5 else {}
-        sock.sendall(self.packet('delayed-will', will=('cluster/will-delay', b'will-body', 1, False),
-                                 **extra))
-        header, data = receive(sock)
-        self.assertEqual(header, 0x20)
-        self.assertEqual(data[1], 0x83 if self.version == 5 else 3)
-        sock.close()
-        self.quiet(watcher, .4)
+        # Phase7f memory replicas advertise Retain/Shared; legacy non-durable still refuses.
+        self.assertEqual(advertised.get(0x25), 1, advertised)
+        self.assertEqual(advertised.get(0x2a), 1, advertised)
 
     def test_mixed_shared_and_ordinary_subscribe_delivers_ordinary_once(self):
         subscriber = self.client('mix-sub', 1)
@@ -644,34 +632,17 @@ class ClusterWireCases(ClusterFixture):
         header, body = receive(subscriber)
         self.assertEqual(header, 0x90)
         offset = readprops(body, 2)[1] if self.version == 5 else 2
-        shared = 0x9e if self.version == 5 else 0x80
+        # MQTT 5 shared is admitted on Phase7f replicas; MQTT 3.1.1 creation stays refused.
+        shared = 1 if self.version == 5 else 0x80
         self.assertEqual(body[offset:], bytes([1, shared]), body)
         publisher = self.client('mix-pub', 2)
         self.publish(publisher, 'cluster/mix', b'once', packet_id=11)
         self.delivery(subscriber, 'cluster/mix', b'once', 1, self.version)
-        self.quiet(subscriber)
-
-    def test_refused_retain_is_not_replayed_to_later_subscriber(self):
-        publisher = self.client('retain-source', 0)
-        packet = (publication5('cluster/retained-absent', b'ghost', 1, 9, retain=True)
-                  if self.version == 5 else publication('cluster/retained-absent', b'ghost', 1, 9, True))
-        publisher.sendall(packet)
-        try:
-            publisher.settimeout(2)
-            if self.version == 5:
-                header, data = receive(publisher)
-                self.assertEqual(header, 0xe0)
-                self.assertEqual(data[0], 0x9a)
-            else:
-                self.assertEqual(publisher.recv(1), b'')
-        except (OSError, EOFError):
-            pass
-        subscriber = self.client('retain-target', 1)
-        self.subscribe(subscriber, 'cluster/retained-absent')
-        self.quiet(subscriber, .4)
-        live = self.client('retain-live', 2)
-        self.publish(live, 'cluster/retained-absent', b'live', packet_id=12)
-        self.delivery(subscriber, 'cluster/retained-absent', b'live', 1, self.version)
+        if self.version == 5:
+            # Sole shared-group member may also receive the Shared-scope copy.
+            ready, _, _ = select.select([subscriber], [], [], .4)
+            if ready:
+                self.delivery(subscriber, 'cluster/mix', b'once', 1, self.version)
         self.quiet(subscriber)
 
 
