@@ -2,7 +2,11 @@
 
 Rust MQTT broker for MQTT 3.1.1 and MQTT 5.0 — QoS 0/1/2, retained, Will, shared subscriptions — over TCP, TLS/mTLS, and WS/WSS, with durable sessions, rule-driven egress, multi-node cluster, and an embedded Dashboard.
 
-![Broker console operational overview with cluster topology](docs/images/dashboard-overview.png)
+<p align="center">
+  <a href="docs/images/dashboard-overview.png">
+    <img src="docs/images/dashboard-overview.png" alt="Broker console — cluster topology overview" width="100%">
+  </a>
+</p>
 
 **Full MQTT conformance and production readiness are not claimed.** See the [conformance matrix](docs/conformance/README.md).
 
