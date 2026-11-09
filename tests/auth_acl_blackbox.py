@@ -86,7 +86,7 @@ class AuthBroker(FeatureBroker):
 
 class AuthAclBlackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-auth-acl-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-auth-acl-')
         self.addCleanup(self.directory.cleanup)
         # Standalone TOML always uses data_dir/sessions.sqlite.
         self.sqlite = True
@@ -304,7 +304,7 @@ class AuthAclBlackbox(unittest.TestCase):
         replay = self.client('precedence-replay', 'admin')
         self.subscribe(replay, [('other/#', 0), ('allowed/#', 0)])
         self.quiet(replay)
-        # Standalone rmqtt.toml always opens sessions.sqlite, so an authorized
+        # Standalone lyrnormq.toml always opens sessions.sqlite, so an authorized
         # non-clean CONNECT is admitted. The refusals above still happen first.
         valid = self.client('precedence-authorized-persistent', clean=False)
         self.disconnect(valid)

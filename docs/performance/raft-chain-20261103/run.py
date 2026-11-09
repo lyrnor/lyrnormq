@@ -13,15 +13,15 @@ sys.path.insert(0, str(PRIOR))
 spec = importlib.util.spec_from_file_location('prior_run', PRIOR / 'run.py')
 prior = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prior)
-BASE = '/opt/rmqtt-raft-chain/20261103'
-OUT = Path('/Volumes/data/rmqtt/target/raft-chain-results-20261103')
-LOCAL_BROKER = Path('/Volumes/data/rmqtt/target/x86_64-unknown-linux-musl/release/rmqtt')
-prior.BASE, prior.OUT, prior.BROKER = BASE, OUT, BASE + '/rmqtt'
+BASE = '/opt/lyrnormq-raft-chain/20261103'
+OUT = Path('/Volumes/data/lyrnormq/target/raft-chain-results-20261103')
+LOCAL_BROKER = Path('/Volumes/data/lyrnormq/target/x86_64-unknown-linux-musl/release/lyrnormq')
+prior.BASE, prior.OUT, prior.BROKER = BASE, OUT, BASE + '/lyrnormq'
 
 
 def server(action):
-    return prior.remote(prior.SERVER, f'ulimit -n 250000; RMQTT_RAFT_PROFILE=1 '
-        f'RMQTT_BENCH_ROOT={BASE}/c2000 RMQTT_BENCH_BIN={BASE}/rmqtt '
+    return prior.remote(prior.SERVER, f'ulimit -n 250000; LYRNORMQ_RAFT_PROFILE=1 '
+        f'LYRNORMQ_BENCH_ROOT={BASE}/c2000 LYRNORMQ_BENCH_BIN={BASE}/lyrnormq '
         f'python3 {prior.SERVER_SCRIPT} {action} combined')
 
 
@@ -38,7 +38,7 @@ for p in Path('/proc').iterdir():
  if p.name.isdigit():
   try:
    n=(p/'comm').read_text().strip()
-   if n.startswith('rmqtt') or n=='connections':live.append(p.name)
+   if n.startswith('lyrnormq') or n=='connections':live.append(p.name)
   except OSError:pass
 print(json.dumps({{'live':live,'cpus':os.cpu_count()}}))
 assert not live,'existing workload must not be interrupted'
@@ -48,18 +48,18 @@ base.mkdir(mode=0o700,parents=True,exist_ok={resume!r})
 '''
         (OUT / f'{host}-preflight.json').write_text(prior.remote(host, 'python3 -c ' + shlex.quote(code)))
     hashes = {}
-    for host, source, name in [(prior.SERVER, LOCAL_BROKER, 'rmqtt'),
+    for host, source, name in [(prior.SERVER, LOCAL_BROKER, 'lyrnormq'),
             (prior.CLIENT, prior.LOCAL_PROBE, 'connections'),
             (prior.CLIENT, PRIOR / 'client.py', 'client.py')]:
         subprocess.run(['scp', '-C', *prior.SSH[1:], str(source), f'root@{host}:{BASE}/{name}'], check=True, timeout=600)
         digest = hashlib.sha256(source.read_bytes()).hexdigest()
         assert prior.remote(host, f'sha256sum {BASE}/{name}').split()[0] == digest
         hashes[name] = digest
-    prior.remote(prior.SERVER, f'chmod 755 {BASE}/rmqtt')
+    prior.remote(prior.SERVER, f'chmod 755 {BASE}/lyrnormq')
     prior.remote(prior.CLIENT, f'chmod 755 {BASE}/connections')
     (OUT / 'deployment.json').write_text(json.dumps(hashes, indent=2))
     (OUT / 'environment.json').write_text(prior.remote(prior.SERVER,
-        f'RMQTT_BENCH_ROOT={BASE} RMQTT_BENCH_BIN={BASE}/rmqtt python3 {prior.SERVER_SCRIPT} environment'))
+        f'LYRNORMQ_BENCH_ROOT={BASE} LYRNORMQ_BENCH_BIN={BASE}/lyrnormq python3 {prior.SERVER_SCRIPT} environment'))
 
 
 def start_observers():
@@ -75,7 +75,7 @@ items=[]
 for i,command in enumerate(commands):
  log=(base/f'observer{{i}}.log').open('xb')
  child=subprocess.Popen(command,stdout=log,stderr=log,stdin=subprocess.DEVNULL,start_new_session=True,
-    env=dict(os.environ,RMQTT_BENCH_ROOT=str(base/'c2000'),RMQTT_BENCH_BIN=str(base/'rmqtt')))
+    env=dict(os.environ,LYRNORMQ_BENCH_ROOT=str(base/'c2000'),LYRNORMQ_BENCH_BIN=str(base/'lyrnormq')))
  items.append(dict(pid=child.pid,command=command,start_ticks=pathlib.Path(f'/proc/{{child.pid}}/stat').read_text().rsplit(')',1)[1].split()[19]))
  (base/'observers.json').write_text(json.dumps(items,indent=2))
 print(json.dumps(dict(observers=items,wall_ns=time.time_ns(),monotonic_ns=time.monotonic_ns())))
@@ -141,8 +141,8 @@ def main():
         observers = True
         start_observers()
         print('Started profile-enabled cluster and finite perf capture', flush=True)
-        result = prior.remote(prior.CLIENT, f'RMQTT_MULTI_ROOT={BASE}/client RMQTT_MULTI_BIN={BASE}/connections '
-            f'RMQTT_MULTI_RATE=2000 python3 {BASE}/client.py', timeout=240)
+        result = prior.remote(prior.CLIENT, f'LYRNORMQ_MULTI_ROOT={BASE}/client LYRNORMQ_MULTI_BIN={BASE}/connections '
+            f'LYRNORMQ_MULTI_RATE=2000 python3 {BASE}/client.py', timeout=240)
         (OUT / 'client-output.json').write_text(result)
         (OUT / 'state.json').write_text(server('state'))
     finally:

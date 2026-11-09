@@ -1,6 +1,6 @@
 from pathlib import Path
 import subprocess,json,hashlib,time
-out=Path('/var/log/rmqtt-loadgen/acceptance-20261030');out.mkdir(parents=True,exist_ok=True);binary=Path('/opt/rmqtt-loadgen/rmqtt-loadgen');checks=[];error=None
+out=Path('/var/log/lyrnormq-loadgen/acceptance-20261030');out.mkdir(parents=True,exist_ok=True);binary=Path('/opt/lyrnormq-loadgen/lyrnormq-loadgen');checks=[];error=None
 try:
  for qos in (0,1,2):
   report=out/f'q{qos}.json';raw=out/f'q{qos}.jsonl';cmd=[str(binary),'--addr','172.30.139.129:1883','--qos',str(qos),'--pairs','2500','--inflight','1','--payload-bytes','128','--warmup-ms','1000','--duration-ms','5000','--drain-timeout-ms','5000','--connect-timeout-ms','10000','--max-messages','5000000','--output',str(report),'--raw',str(raw)]

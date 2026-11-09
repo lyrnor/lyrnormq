@@ -29,7 +29,7 @@ test_sql_errors_null_binary_and_request_body_bounds (__main__.RulesWebhook.test_
 ERROR: test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint (__main__.RulesWebhook.test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 283, in test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 283, in test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint
     self.assertNotEqual(events[0]['delivery_id'], events[1]['delivery_id'])
                         ~~~~~~~~~^^^^^^^^^^^^^^^
 KeyError: 'delivery_id'
@@ -38,7 +38,7 @@ KeyError: 'delivery_id'
 ERROR: test_config_atomic_validation_secret_roundtrip_and_restart (__main__.RulesWebhook.test_config_atomic_validation_secret_roundtrip_and_restart)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 328, in test_config_atomic_validation_secret_roundtrip_and_restart
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 328, in test_config_atomic_validation_secret_roundtrip_and_restart
     self.assertEqual(webhook.get()[1]['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -47,7 +47,7 @@ KeyError: 'Authorization'
 ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=0)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
     self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -56,7 +56,7 @@ KeyError: 'Authorization'
 ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=1)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
     self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -65,7 +65,7 @@ KeyError: 'Authorization'
 ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=4, qos=2)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
     self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -74,7 +74,7 @@ KeyError: 'Authorization'
 ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=0)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
     self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -83,7 +83,7 @@ KeyError: 'Authorization'
 ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=1)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
     self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -92,7 +92,7 @@ KeyError: 'Authorization'
 ERROR: test_dual_version_qos_sql_to_webhook_and_mqtt_delivery (__main__.RulesWebhook.test_dual_version_qos_sql_to_webhook_and_mqtt_delivery) (version=5, qos=2)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 193, in test_dual_version_qos_sql_to_webhook_and_mqtt_delivery
     self.assertEqual(headers['Authorization'], f'Bearer {SECRET}')
                      ~~~~~~~^^^^^^^^^^^^^^^^^
 KeyError: 'Authorization'
@@ -101,7 +101,7 @@ KeyError: 'Authorization'
 ERROR: test_retry_ids_remain_stable_and_permanent_error_does_not_retry (__main__.RulesWebhook.test_retry_ids_remain_stable_and_permanent_error_does_not_retry)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 236, in test_retry_ids_remain_stable_and_permanent_error_does_not_retry
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 236, in test_retry_ids_remain_stable_and_permanent_error_does_not_retry
     self.assertIsInstance(records[0]['events'][0]['delivery_id'], str)
                           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
 KeyError: 'delivery_id'

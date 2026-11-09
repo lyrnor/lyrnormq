@@ -7,7 +7,7 @@ Storage original 7d04984, runtime 582ff3f/2855f5d, quality 03a84bb, isolated wor
 Contract: [Phase7f](../../contracts/phase7f-memory-replicas.md).
 
 Local environment: macOS arm64, Rust/Cargo 1.98.1, Zig 0.16. Local command:
-`CARGO_TARGET_DIR=target/cluster cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p rmqtt`.
+`CARGO_TARGET_DIR=target/cluster cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p lyrnormq`.
 No Rust server compilation. ELF SHA256:
 `24e861eaf294ddc0aa40aee1a36ca0ae1cd64b855f12761d2cd286ba9ab077fb`.
 Native immutable test binary SHA256:
@@ -47,7 +47,7 @@ failure-domain acceptance. Retained/Will/shared cluster features remain refused.
 Broker host 47.84.224.186 / 172.16.240.180; load host 47.84.241.200 /
 172.16.240.181. Both 8 logical CPUs, about 15GiB RAM, Ubuntu 26.04.1 x86_64.
 Three Controllers plus three data processes on one broker host; this is not six
-physical failure domains. Fresh cluster at `/opt/rmqtt-cluster-memory/20261103`;
+physical failure domains. Fresh cluster at `/opt/lyrnormq-cluster-memory/20261103`;
 old SQL deployment stopped with PID identity checks and directories preserved.
 Peer token and configuration secrets are deliberately excluded from evidence.
 

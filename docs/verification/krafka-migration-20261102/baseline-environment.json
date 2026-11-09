@@ -7,11 +7,11 @@
   "baseline_uncommitted_diff_sha256": "dd682300403da01576b2a1867896b5324965567f2697e03999180af8495d0aa7",
   "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "binaries": {
-    "rmqtt": {
+    "lyrnormq": {
       "bytes": 26226832,
       "sha256": "b8badea3148987af41fdb0e1abe06449470a0d1c0fdd615a7ee8de5eb04d0797"
     },
-    "rmqtt-linux-amd64": {
+    "lyrnormq-linux-amd64": {
       "bytes": 24153128,
       "sha256": "4b2e8c99b818e9ad67f8526859f054c2a7835af1e37e7235fbaa724ade6fa356"
     }

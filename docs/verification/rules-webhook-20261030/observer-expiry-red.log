@@ -1,4 +1,4 @@
-   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-rules-core/crates/mqtt-transport)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/lyrnormq-rules-core/crates/mqtt-transport)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2.84s
      Running unittests src/lib.rs (target/debug/deps/mqtt_transport-a52fd1c9b12bb788)
 

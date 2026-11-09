@@ -18,7 +18,7 @@ impl Directory {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let p = std::env::temp_dir().join(format!(
-            "rmqtt-access-unit-{}-{}-{}",
+            "lyrnormq-access-unit-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

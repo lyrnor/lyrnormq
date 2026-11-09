@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent raw-wire tests of the connection probe, not Broker conformance.
 
-RMQTT_CONNECTIONS_BIN=/absolute/connections python3 tests/cluster_multiprocess_probe_test.py -v
+LYRNORMQ_CONNECTIONS_BIN=/absolute/connections python3 tests/cluster_multiprocess_probe_test.py -v
 Four native processes connect to three tiny MQTT stubs. No Broker is started.
 """
 from collections import Counter
@@ -18,7 +18,7 @@ import time
 import unittest
 
 
-BINARY = os.environ.get('RMQTT_CONNECTIONS_BIN')
+BINARY = os.environ.get('LYRNORMQ_CONNECTIONS_BIN')
 
 
 def exact(sock, count):
@@ -161,10 +161,10 @@ class Stubs:
             raise AssertionError('stub threads survived cleanup')
 
 
-@unittest.skipUnless(BINARY, 'set RMQTT_CONNECTIONS_BIN to the native connection probe')
+@unittest.skipUnless(BINARY, 'set LYRNORMQ_CONNECTIONS_BIN to the native connection probe')
 class MultiprocessProbe(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-multiprocess-wire-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-multiprocess-wire-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.processes = []
@@ -261,7 +261,7 @@ class MultiprocessProbe(unittest.TestCase):
         self.assertGreaterEqual(min(row['ping_ns'] for row in stubs.records)
                                 - max(row['connack_ns'] for row in stubs.records), 10_000_000_000)
         merged = nearest_rank(latencies)
-        path = Path(os.environ.get('RMQTT_MULTIPROCESS_AGGREGATE',
+        path = Path(os.environ.get('LYRNORMQ_MULTIPROCESS_AGGREGATE',
                     str(Path(__file__).resolve().parents[1] / 'docs/performance/'
                         'cluster-multiprocess-load-20261103/aggregate.py')))
         specification = importlib.util.spec_from_file_location('multiprocess_aggregate', path)

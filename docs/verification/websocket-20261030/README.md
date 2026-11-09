@@ -77,7 +77,7 @@ python3 tests/acceptance_guard_negative.py
 
 Offline build assumes the locked dependencies are cached. Raw peers use Python
 stdlib socket/ssl and OpenSSL-generated ephemeral strict identities. SDK evidence
-used the existing `/private/tmp/rmqtt-client-venv/bin/python`, Paho2.1.0. The delayed
+used the existing `/private/tmp/lyrnormq-client-venv/bin/python`, Paho2.1.0. The delayed
 regression is `WebSocketBlackbox.test_wss_normal_close_survives_delayed_reciprocal_tls_notify`;
 run that method ten times for the40-connection repetition. Exact existing suite
 lists and exit statuses are in the plaintext result JSON/archives.

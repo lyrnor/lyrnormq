@@ -1,6 +1,6 @@
-   Compiling mqtt-cluster-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-cluster-core)
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
-   Compiling mqtt-cluster v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-cluster)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling mqtt-cluster-core v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-cluster-core)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
+   Compiling mqtt-cluster v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-cluster)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.01s

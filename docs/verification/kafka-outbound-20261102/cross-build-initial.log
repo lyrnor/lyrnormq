@@ -90,7 +90,7 @@
    Compiling tower v0.5.3
    Compiling blake2 v0.10.6
    Compiling http-body-util v0.1.5
-   Compiling mqtt-router v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-router)
+   Compiling mqtt-router v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-router)
    Compiling argon2 v0.5.3
    Compiling num_enum v0.7.6
    Compiling rand v0.9.5
@@ -106,33 +106,33 @@
    Compiling tungstenite v0.28.0
    Compiling hyper-rustls v0.27.10
    Compiling tower-http v0.6.11
-   Compiling mqtt-auth v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth)
-   Compiling mqtt-protocol v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-protocol)
-   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-core)
-   Compiling mqtt-session v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-session)
+   Compiling mqtt-auth v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth)
+   Compiling mqtt-protocol v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-protocol)
+   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-core)
+   Compiling mqtt-session v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-session)
    Compiling reqwest v0.12.28
    Compiling tokio-tungstenite v0.28.0
-   Compiling mqtt-storage v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-storage)
+   Compiling mqtt-storage v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-storage)
    Compiling sqlparser v0.53.0
    Compiling rustls-pemfile v2.2.0
    Compiling mime v0.3.17
    Compiling axum-core v0.5.6
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
-   Compiling mqtt-rules v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-rules)
-   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
-   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
+   Compiling mqtt-rules v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-rules)
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-webhook)
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-log)
    Compiling serde_path_to_error v0.1.20
    Compiling matchit v0.8.4
    Compiling axum v0.8.9
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
    Compiling include_dir v0.7.4
    Compiling same-file v1.0.6
    Compiling rdkafka v0.39.0
-   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-kafka)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
 warning: linker stderr: ignoring deprecated linker optimization setting '1'
   |
   = note: `#[warn(linker_messages)]` on by default
 
-warning: `rmqtt` (bin "rmqtt") generated 1 warning
+warning: `lyrnormq` (bin "lyrnormq") generated 1 warning
     Finished `release` profile [optimized] target(s) in 4m 18s

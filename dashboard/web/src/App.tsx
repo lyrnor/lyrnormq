@@ -62,13 +62,13 @@ function Brand() {
     <a
       className="brand flex items-center gap-3 px-6 pt-7 pb-6 text-[27px] font-bold tracking-tight [&_small]:mt-1 [&_small]:block [&_small]:text-[8px] [&_small]:font-medium [&_small]:tracking-[.24em] [&_small]:text-muted-foreground"
       href="#overview"
-      aria-label="rmqtt 首页"
+      aria-label="lyrnormq 首页"
     >
       <span className="relative grid h-10 w-9 shrink-0 place-items-center rounded-[10px_10px_10px_3px] bg-[#e9875d] text-[34px] leading-none font-bold text-white [&>span]:absolute [&>span]:right-2 [&>span]:bottom-2 [&>span]:size-1.5 [&>span]:rounded-full [&>span]:bg-white">
-        r<span />
+        L<span />
       </span>
       <span>
-        rmqtt<small>BROKER CONSOLE</small>
+        lyrnormq<small>BROKER CONSOLE</small>
       </span>
     </a>
   );
@@ -149,7 +149,7 @@ function Login({
           </AlertDescription>
         </Alert>
         <small className="mt-7 block text-center text-[10px] tracking-wider text-muted-foreground">
-          rmqtt 管理控制台
+          lyrnormq 管理控制台
         </small>
       </section>
     </div>
@@ -212,7 +212,7 @@ function Console({
   const brokerNodes =
     o?.topology.nodes.filter((node) => node.roles.includes("broker")) ?? [];
   useEffect(() => {
-    document.title = `${labels[route]} · rmqtt`;
+    document.title = `${labels[route]} · lyrnormq`;
   }, [route]);
   async function openSession(id: string) {
     detailRequest.current?.abort();
@@ -355,8 +355,8 @@ function Console({
         <div className="mx-4 mt-auto flex items-start gap-2 border-t py-5 text-xs text-muted-foreground [&_small]:mt-1 [&_small]:block [&_small]:text-[9px] [&_b]:ml-1 [&_b]:text-[10px] [&_b]:font-normal">
           <span className="mt-1 size-1.5 shrink-0 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
           <div>
-            rmqtt <b>{o?.instance.version ?? "—"}</b>
-            <small>rmqtt 管理控制台</small>
+            lyrnormq <b>{o?.instance.version ?? "—"}</b>
+            <small>lyrnormq 管理控制台</small>
           </div>
           <span className="ml-auto rounded border px-1 py-0.5 text-[9px]">
             会话只读
@@ -1030,7 +1030,7 @@ function Console({
         </main>
         <footer className="mx-auto flex max-w-[1640px] flex-col justify-between gap-2 px-4 py-5 text-[10px] text-muted-foreground sm:flex-row sm:px-8">
           <span>
-            rmqtt console /{" "}
+            lyrnormq console /{" "}
             {o?.topology && o.topology.nodes.length > 1
               ? `${o.topology.nodes.length} 节点集群`
               : "MQTT Broker"}

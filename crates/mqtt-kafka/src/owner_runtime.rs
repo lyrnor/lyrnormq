@@ -77,7 +77,7 @@ async fn build(c: &KafkaConfig, id: &str, timeout: Duration) -> Result<Producer,
         auth = auth.with_tls(tls);
     }
     let kafka = Kafka::builder(c.brokers.join(","))
-        .client_id(format!("rmqtt-{id}"))
+        .client_id(format!("lyrnormq-{id}"))
         .security(auth)
         .connect_timeout((timeout / 2).min(Duration::from_secs(10)))
         .request_timeout((timeout / 2).min(Duration::from_secs(10)))

@@ -1,4 +1,4 @@
-   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-egress)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/lyrnormq-kafka-backend/crates/mqtt-egress)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 5.01s
      Running unittests src/lib.rs (target/debug/deps/mqtt_egress-6150c31fef343da6)
 

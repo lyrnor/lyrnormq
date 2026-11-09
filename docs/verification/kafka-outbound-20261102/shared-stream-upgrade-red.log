@@ -19,14 +19,14 @@ test_v1_partial_completion_retry_deadline_and_budget_preserved (__main__.RuleStr
 FAIL: test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive (__main__.RuleStreams.test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/Volumes/data/rmqtt/tests/rule_stream_blackbox.py", line 271, in test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive
+  File "/Volumes/data/lyrnormq/tests/rule_stream_blackbox.py", line 271, in test_v1_duplicate_bodies_merge_and_unknown_attempt_ids_survive
     root = self.fixture_start(config, [dict(wire=e, inflight=True) for e in originals])
-  File "/Volumes/data/rmqtt/tests/rule_stream_blackbox.py", line 262, in fixture_start
+  File "/Volumes/data/lyrnormq/tests/rule_stream_blackbox.py", line 262, in fixture_start
     self.broker.start()
     ~~~~~~~~~~~~~~~~~^^
-  File "/Volumes/data/rmqtt/tests/dashboard_blackbox.py", line 88, in start
+  File "/Volumes/data/lyrnormq/tests/dashboard_blackbox.py", line 88, in start
     raise AssertionError(f'broker exited during startup: {self.logs()}')
-AssertionError: broker exited during startup: rmqtt management on 127.0.0.1:51288 (loopback, bearer authentication)
+AssertionError: broker exited during startup: lyrnormq management on 127.0.0.1:51288 (loopback, bearer authentication)
 Error: Custom { kind: Other, error: Storage }
 
 
@@ -34,15 +34,15 @@ Error: Custom { kind: Other, error: Storage }
 FAIL: test_v1_partial_completion_retry_deadline_and_budget_preserved (__main__.RuleStreams.test_v1_partial_completion_retry_deadline_and_budget_preserved)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/Volumes/data/rmqtt/tests/rule_stream_blackbox.py", line 299, in test_v1_partial_completion_retry_deadline_and_budget_preserved
+  File "/Volumes/data/lyrnormq/tests/rule_stream_blackbox.py", line 299, in test_v1_partial_completion_retry_deadline_and_budget_preserved
     self.fixture_start(config, entries)
     ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-  File "/Volumes/data/rmqtt/tests/rule_stream_blackbox.py", line 262, in fixture_start
+  File "/Volumes/data/lyrnormq/tests/rule_stream_blackbox.py", line 262, in fixture_start
     self.broker.start()
     ~~~~~~~~~~~~~~~~~^^
-  File "/Volumes/data/rmqtt/tests/dashboard_blackbox.py", line 88, in start
+  File "/Volumes/data/lyrnormq/tests/dashboard_blackbox.py", line 88, in start
     raise AssertionError(f'broker exited during startup: {self.logs()}')
-AssertionError: broker exited during startup: rmqtt management on 127.0.0.1:51297 (loopback, bearer authentication)
+AssertionError: broker exited during startup: lyrnormq management on 127.0.0.1:51297 (loopback, bearer authentication)
 Error: Custom { kind: Other, error: Storage }
 
 

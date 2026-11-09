@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Finite, opt-in 900 CONNECT reproduction; no client retry or default test gate.
 
-RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_control_batching_diagnostic.py \
+LYRNORMQ_BIN=/absolute/lyrnormq python3 tests/cluster_control_batching_diagnostic.py \
     --output /absolute/fresh-directory
 Same absolute 1000/s schedule and 384-worker cap as the prior local diagnostic.
 Worker congestion delays actual starts; report it rather than claiming target rate.

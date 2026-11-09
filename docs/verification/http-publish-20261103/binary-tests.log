@@ -1,13 +1,13 @@
-   Compiling mqtt-auth v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth)
-   Compiling mqtt-rules v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-rules)
-   Compiling mqtt-session v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-session)
-   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-postgres)
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
-   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling mqtt-auth v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth)
+   Compiling mqtt-rules v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-rules)
+   Compiling mqtt-session v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-session)
+   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-postgres)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-http)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 15.19s
-     Running unittests src/main.rs (target/debug/deps/rmqtt-e92c393b64cc3a33)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq-e92c393b64cc3a33)
 
 running 39 tests
 test admin::rules::tests::rule_failures_have_redacted_typed_statuses ... ok

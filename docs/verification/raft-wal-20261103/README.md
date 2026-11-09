@@ -86,11 +86,11 @@ actual SQLite migration rather than synthesizing only a database fixture):
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
-RMQTT_BIN=/absolute/new/rmqtt RMQTT_LEGACY_BIN=/absolute/old/rmqtt \
+LYRNORMQ_BIN=/absolute/new/lyrnormq LYRNORMQ_LEGACY_BIN=/absolute/old/lyrnormq \
   python3 -W error::ResourceWarning tests/cluster_raft_wal_blackbox.py -f -v
-RMQTT_BIN=/absolute/new/rmqtt PYTHONPATH=tests \
+LYRNORMQ_BIN=/absolute/new/lyrnormq PYTHONPATH=tests \
   python3 -m unittest cluster_memory_blackbox.MemoryCombined -f -v
-cargo zigbuild --release --locked --target x86_64-unknown-linux-musl -p rmqtt
+cargo zigbuild --release --locked --target x86_64-unknown-linux-musl -p lyrnormq
 ```
 
 Final immutable native (2a9b81a4…) recovery suite:7/7 passed first run98.591s with
@@ -106,8 +106,8 @@ covering all three cohosted roles, both MQTT versions and QoS0/1/2. Raw log
 Local locked/offline Zig Linux release completed1m13s. `file` reports ELF64 x86-64,
 statically linked/stripped. SHA256:
 `8321c9cbf18cb1715a6b16d10ba463f59bce9053f17253e5d9575735d898e426`.
-Artifact `target/cluster/x86_64-unknown-linux-musl/release/rmqtt`, immutable copy
-`/private/tmp/rmqtt-raft-wal-linux`. Build log `/private/tmp/raft-wal-linux-release-build.log`.
+Artifact `target/cluster/x86_64-unknown-linux-musl/release/lyrnormq`, immutable copy
+`/private/tmp/lyrnormq-raft-wal-linux`. Build log `/private/tmp/raft-wal-linux-release-build.log`.
 The Zig linker emitted one warning that deprecated optimization setting1 is ignored;
 compilation/linking succeeded. This is cross-build validation, not Linux runtime
 or physical durability certification. No server compilation/deployment/pressure

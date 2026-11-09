@@ -2,7 +2,7 @@
 """Independent raw RFC6455 + MQTT WS/WSS checks. No websocket SDK oracle.
 
 OpenSSL identities and MQTT helpers come from the independently verified TLS suite.
-RMQTT_BINARY selects the broker. SIGKILL tests cover process recovery, not power loss.
+LYRNORMQ_BINARY selects the broker. SIGKILL tests cover process recovery, not power loss.
 """
 import io
 import socket
@@ -73,7 +73,7 @@ class WebSocketBlackbox(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory(prefix='rmqtt-ws-')
+        cls.temp = tempfile.TemporaryDirectory(prefix='lyrnormq-ws-')
         cls.addClassCleanup(cls.temp.cleanup)
         cls.identities = Identities(cls.temp.name)
         cls.brokers = {}
@@ -370,7 +370,7 @@ class WebSocketBlackbox(unittest.TestCase):
         for secure in (False,True):
             for version in (4,5):
                 for qos in (1,2):
-                    with self.subTest(initial_wss=secure,mqtt=version,qos=qos), tempfile.TemporaryDirectory(prefix='rmqtt-ws-db-') as directory:
+                    with self.subTest(initial_wss=secure,mqtt=version,qos=qos), tempfile.TemporaryDirectory(prefix='lyrnormq-ws-db-') as directory:
                         broker=WebSocketBroker(self.identities,secure,directory).start();self.addCleanup(broker.stop)
                         sub=self.client(broker,'durable-ws-s',version,clean=False)
                         self.subscribe(sub,'ws/durable',qos,version);self.disconnect(sub)

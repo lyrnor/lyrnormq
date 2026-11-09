@@ -5,7 +5,7 @@
     "cargo test --offline -p mqtt-session -p mqtt-protocol: Session151/Protocol57 passed",
     "cargo test --offline -p mqtt-router: 21 passed",
     "cargo test --offline -p mqtt-transport: 75 passed (local TCP permitted)",
-    "RMQTT_BIN=/tmp/rmqtt-p2k-candidate python tests/alias_blackbox.py: 23 passed,2 mode-only skips",
+    "LYRNORMQ_BIN=/tmp/lyrnormq-p2k-candidate python tests/alias_blackbox.py: 23 passed,2 mode-only skips",
     "Coordinator integrated-evidence reconciliation after fc9c950: committed conformance suite memory17 passed/1 skipped, SQLite18 passed; full same-artifact regression530 wire/Paho passed. No production changes.",
     "Independent clause suite: memory13 passed,1 mode-only skip; SQLite14 passed",
     "Earlier immutable same-logic candidate full regression557 wire executions/Paho passed; final rebuilt artifact rerun documented separately in progress.md.",

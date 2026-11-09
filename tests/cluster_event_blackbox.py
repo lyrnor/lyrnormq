@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Event forwarding acceptance over real MQTT and bounded peer-RPC faults.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_event_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/cluster_event_blackbox.py -v
 Timing samples include a fixed200ms quiet/barrier check; they are observations,
 not sub-100ms conformance claims. Polling removal
 and no-idle-scans have deterministic scheduler unit oracles in the runtime crate.

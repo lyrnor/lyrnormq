@@ -121,7 +121,7 @@ impl RocksStore {
         let ready_generation = Arc::clone(&generation);
         let ready_frozen = Arc::clone(&frozen);
         let worker = std::thread::Builder::new()
-            .name("rmqtt-rocks".into())
+            .name("lyrnormq-rocks".into())
             .spawn(move || serve(store, rx, ready_generation, ready_frozen))
             .map_err(io::Error::other)?;
         Ok(Self {
@@ -563,7 +563,7 @@ mod tests {
 
     fn path(label: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
-            "rmqtt-rocks-{label}-{}-{}",
+            "lyrnormq-rocks-{label}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

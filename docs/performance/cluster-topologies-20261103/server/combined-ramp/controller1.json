@@ -1,6 +1,6 @@
 {
-  "cluster_id": "rmqtt-topology-combined-20261103",
-  "token_file": "/opt/rmqtt-cluster-benchmark/20261103/peer.token",
+  "cluster_id": "lyrnormq-topology-combined-20261103",
+  "token_file": "/opt/lyrnormq-cluster-benchmark/20261103/peer.token",
   "controllers": [
     {
       "id": 1,
@@ -19,6 +19,6 @@
   "role": "controller",
   "node_id": 1,
   "listen": "127.0.0.1:17001",
-  "data_dir": "/opt/rmqtt-cluster-benchmark/20261103/combined/controller-data1",
+  "data_dir": "/opt/lyrnormq-cluster-benchmark/20261103/combined/controller-data1",
   "bootstrap": true
 }

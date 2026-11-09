@@ -9,7 +9,7 @@ existing MQTT/session/outbox/Will/storage contracts and thin lib.rs.
 
 Backend: crates/mqtt-auth-http/** only. Integration: coordinated generic hooks in
 crates/mqtt-auth/** plus crates/mqtt-transport/** and crates/mqtt-session/** only.
-Dashboard: dashboard/web/** only. Coordinator: bin/rmqtt, root lock/workspace, docs
+Dashboard: dashboard/web/** only. Coordinator: bin/lyrnormq, root lock/workspace, docs
 and independent tests after the implementation writers finish. Each writer uses
 its assigned independent worktree/branch, commits tested sources, reports hash.
 

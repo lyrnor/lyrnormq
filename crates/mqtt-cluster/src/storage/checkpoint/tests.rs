@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn dir() -> std::path::PathBuf {
     let p = std::env::temp_dir().join(format!(
-        "rmqtt-checkpoint-{}-{}",
+        "lyrnormq-checkpoint-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));

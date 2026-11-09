@@ -21,9 +21,9 @@ from state_store import export_bytes
 
 class FaultRecoveryBlackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-fault-recovery-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-fault-recovery-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        self.sqlite = bool(os.environ.get('LYRNORMQ_TEST_STORAGE_PATH'))
         self.broker = FeatureBroker(self.directory.name, self.sqlite)
         self.addCleanup(self.broker.stop)
 

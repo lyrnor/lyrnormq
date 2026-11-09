@@ -6,16 +6,16 @@ Broker 使用 tracing，进程统一安装 subscriber。默认输出 UTC 时间�
 
 ```sh
 # 默认：Broker INFO，依赖库 WARN
-./target/release/rmqtt --listen 127.0.0.1:1883
+./target/release/lyrnormq --listen 127.0.0.1:1883
 
 # 调整级别；支持 error/warn/info/debug/trace/off 和 target=level
-RUST_LOG='warn,rmqtt=debug' ./target/release/rmqtt
+RUST_LOG='warn,lyrnormq=debug' ./target/release/lyrnormq
 
 # JSON 日志事件，便于日志平台采集
-RMQTT_LOG_FORMAT=json RUST_LOG='warn,rmqtt=info' ./target/release/rmqtt
+LYRNORMQ_LOG_FORMAT=json RUST_LOG='warn,lyrnormq=info' ./target/release/lyrnormq
 
 # 仅错误日志
-RUST_LOG=error ./target/release/rmqtt
+RUST_LOG=error ./target/release/lyrnormq
 ```
 
 格式只接受 `text`（默认）或 `json`。RUST_LOG 最长4096字节，采用静态模块/级别过滤，
@@ -34,7 +34,7 @@ stderr 写入由 tracing-appender 专用线程完成，队列上限8192条。队
 写入 guard 位于 Tokio runtime 外，正常退出时完成库提供的有限等待刷新；输出端
 阻塞、进程强杀或崩溃不能保证全部日志写出。默认 Ctrl-C 走现有优雅关闭流程。
 
-实现位于 `bin/rmqtt/src/logging.rs`，不在 lib.rs 放业务逻辑。原有会话、outbox、
+实现位于 `bin/lyrnormq/src/logging.rs`，不在 lib.rs 放业务逻辑。原有会话、outbox、
 Kafka 幂等与 ACK 语义没有更改。
 
 库文档：[tracing-appender 非阻塞输出](https://docs.rs/tracing-appender/latest/tracing_appender/non_blocking/struct.NonBlockingBuilder.html)。

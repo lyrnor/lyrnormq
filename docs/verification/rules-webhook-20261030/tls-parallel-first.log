@@ -15,7 +15,7 @@ test_tls_close_notify_is_ungraceful_without_mqtt_disconnect (__main__.TLSWire.te
 ERROR: test_mqtt_packet_limit_is_independent_of_tls_record_boundaries (__main__.TLSWire.test_mqtt_packet_limit_is_independent_of_tls_record_boundaries)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/tls_blackbox.py", line 308, in test_mqtt_packet_limit_is_independent_of_tls_record_boundaries
+  File "/private/tmp/lyrnormq-rules-quality/tests/tls_blackbox.py", line 308, in test_mqtt_packet_limit_is_independent_of_tls_record_boundaries
     pub.sendall(oversized)
     ~~~~~~~~~~~^^^^^^^^^^^
   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ssl.py", line 1263, in sendall

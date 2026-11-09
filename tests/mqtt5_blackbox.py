@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent MQTT311/5 wire, metadata, flow-control and recovery checks.
 
-RMQTT_TEST_STORAGE_PATH selects SQLite; every method owns a fresh DB. Barriers are
+LYRNORMQ_TEST_STORAGE_PATH selects SQLite; every method owns a fresh DB. Barriers are
 ACKs, confirmed output, or committed snapshots. Bounded silence is only an unwanted
 output observation. SIGKILL tests do not simulate physical power failure.
 """
@@ -189,7 +189,7 @@ METADATA = [(0x26, ('duplicate', 'one')), (3, 'application/x-test'),
 
 class Mqtt5Blackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-mqtt5-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-mqtt5-')
         self.addCleanup(self.directory.cleanup)
         # Standalone TOML always uses data_dir/sessions.sqlite.
         self.sqlite = True

@@ -54,7 +54,7 @@ flags, hostname checks and assertions were not weakened.
 Build as above, then run `python3 tests/tls_blackbox.py`. OpenSSL and Python with
 TLS1.2/1.3 support are required; no third-party Python MQTT package is used.
 For each suite in `plaintext-final-results.json`, run `python3 tests/SUITE`;
-for SQLite set `RMQTT_TEST_STORAGE_PATH` to a fresh temporary database for each suite.
+for SQLite set `LYRNORMQ_TEST_STORAGE_PATH` to a fresh temporary database for each suite.
 Each suite owns temporary listeners, clients and process cleanup.
 
 Real independent worktrees owned transport and quality changes. A third Agent

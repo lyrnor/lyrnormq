@@ -9,7 +9,7 @@ import unittest
 
 from kafka_fixture import KafkaFixture
 
-HELPER = os.environ.get('KAFKA_CLIENT_BIN', str(Path(__file__).resolve().parents[1] / 'target/release/rmqtt-kafka-test-client'))
+HELPER = os.environ.get('KAFKA_CLIENT_BIN', str(Path(__file__).resolve().parents[1] / 'target/release/lyrnormq-kafka-test-client'))
 
 
 class FixtureRestart(unittest.TestCase):
@@ -17,7 +17,7 @@ class FixtureRestart(unittest.TestCase):
         fixture = KafkaFixture()
         self.addCleanup(fixture.close)
         fixture.start()
-        with tempfile.TemporaryDirectory(prefix='rmqtt-kafka-resource-regression-') as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-kafka-resource-regression-') as directory:
             config = Path(directory) / 'reader.json'
             config.write_text(json.dumps(fixture.client_config('plaintext')))
             config.chmod(0o600)

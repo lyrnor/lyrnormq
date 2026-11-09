@@ -56,7 +56,7 @@ test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fail
 
 
 --- broker 103 exit=1 ---
-2026-11-03T05:54:50.113366Z ERROR rmqtt: broker stopped with an error event="broker_failed"
+2026-11-03T05:54:50.113366Z ERROR lyrnormq: broker stopped with an error event="broker_failed"
 Error: Custom { kind: Other, error: WorkerFailure { reason: ReasonCode(136), message: "cluster unavailable or capacity exhausted" } }
 
 test_wrong_learner_token_cannot_start_a_repair (__main__.RepairFaults.test_wrong_learner_token_cannot_start_a_repair) ... ok
@@ -65,10 +65,10 @@ test_wrong_learner_token_cannot_start_a_repair (__main__.RepairFaults.test_wrong
 FAIL: test_driver_crash_after_first_import_page_resumes_exact_repair (__main__.RepairFaults.test_driver_crash_after_first_import_page_resumes_exact_repair)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 402, in test_driver_crash_after_first_import_page_resumes_exact_repair
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 402, in test_driver_crash_after_first_import_page_resumes_exact_repair
     self.seed_pages()
     ~~~~~~~~~~~~~~~^^
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 321, in seed_pages
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 321, in seed_pages
     sockets = list(pool.map(lambda i: self.persistent(f'repair-page-{i}', 1, expiry=3600),
                             range(70)))
   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 645, in result_iterator
@@ -86,13 +86,13 @@ Traceback (most recent call last):
     result = ctx.run(self.task)
   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
     return fn(*args, **kwargs)
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 321, in <lambda>
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 321, in <lambda>
     sockets = list(pool.map(lambda i: self.persistent(f'repair-page-{i}', 1, expiry=3600),
                                       ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_durable_blackbox.py", line 109, in persistent
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_durable_blackbox.py", line 109, in persistent
     return self.client(client, node, clean=False, present=present, **kwargs)
            ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_durable_blackbox.py", line 105, in client
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_durable_blackbox.py", line 105, in client
     self.fail(f'no successful MQTT CONNECT on Broker {node}: {last!r}')
     ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: no successful MQTT CONNECT on Broker 1: b'\x00\x89\x00'
@@ -101,12 +101,12 @@ AssertionError: no successful MQTT CONNECT on Broker 1: b'\x00\x89\x00'
 FAIL: test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails (__main__.RepairFaults.test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 377, in test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_repair_blackbox.py", line 377, in test_unready_target_cannot_form_w2_abort_retains_exclusion_and_stale_import_fails
     self.fleet.brokers[2].start()
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/private/tmp/rmqtt-cluster-repair-quality/tests/cluster_blackbox.py", line 123, in start
+  File "/private/tmp/lyrnormq-cluster-repair-quality/tests/cluster_blackbox.py", line 123, in start
     raise AssertionError(f'Broker did not become ready: {self.logs()}') from None
-AssertionError: Broker did not become ready: 2026-11-03T05:54:50.113366Z ERROR rmqtt: broker stopped with an error event="broker_failed"
+AssertionError: Broker did not become ready: 2026-11-03T05:54:50.113366Z ERROR lyrnormq: broker stopped with an error event="broker_failed"
 Error: Custom { kind: Other, error: WorkerFailure { reason: ReasonCode(136), message: "cluster unavailable or capacity exhausted" } }
 
 

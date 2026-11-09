@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run --run tests/app.test.tsx -t selected view loads
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-dashboard-react/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-dashboard-react/dashboard/web
 
  ❯ tests/app.test.tsx (5 tests | 1 failed | 4 skipped) 95ms
    ↓ memory-only management login > renders real data and clears authenticated views on logout without persisting the token

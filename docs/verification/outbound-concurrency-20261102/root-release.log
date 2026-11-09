@@ -1,4 +1,4 @@
-   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-webhook)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
     Finished `release` profile [optimized] target(s) in 6.89s

@@ -2,7 +2,7 @@
   "name": "tiny-q0",
   "topology": "combined",
   "command": [
-    "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+    "/opt/lyrnormq-cluster-load/20261103/lyrnormq-loadgen",
     "--addrs",
     "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
     "--protocol",
@@ -30,9 +30,9 @@
     "--max-messages",
     "2000000",
     "--output",
-    "/opt/rmqtt-cluster-load/20261103/combined/tiny-q0.json",
+    "/opt/lyrnormq-cluster-load/20261103/combined/tiny-q0.json",
     "--raw",
-    "/opt/rmqtt-cluster-load/20261103/combined/tiny-q0.jsonl"
+    "/opt/lyrnormq-cluster-load/20261103/combined/tiny-q0.jsonl"
   ],
   "pid": 3121,
   "exit_code": 0,

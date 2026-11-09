@@ -9,7 +9,7 @@
 放宽Broker限制。两台8逻辑CPU Intel Xeon Platinum服务器，Broker约14.96GiB RAM，
 三进程各4Tokio worker、每进程同时运行Controller/data角色。Broker47.84.224.186，
 压测47.84.241.200，通过172.16.240.180的18831/18832/18833轮转建连。
-新数据目录 `/opt/rmqtt-higher-load/20261103/c2000`，前次元数据未复用。
+新数据目录 `/opt/lyrnormq-higher-load/20261103/c2000`，前次元数据未复用。
 
 | 指标 | 实测 |
 | --- | ---: |

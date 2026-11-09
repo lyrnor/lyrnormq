@@ -12,20 +12,20 @@ import rdkafka directly. Do not point these tools at a production cluster.
 # whenever the production adapter dependency changes, then committed.
 CARGO_TARGET_DIR="$PWD/target" cargo build --release --locked \
   --manifest-path tests/kafka-bench/Cargo.toml
-cp target/release/rmqtt-kafka-adapter-bench /tmp/rmqtt-adapter-before
+cp target/release/lyrnormq-kafka-adapter-bench /tmp/lyrnormq-adapter-before
 # Integrate the other adapter; update this standalone lock and build again.
-# Save the new executable as /tmp/rmqtt-adapter-after.
+# Save the new executable as /tmp/lyrnormq-adapter-after.
 
 CARGO_TARGET_DIR="$PWD/target" cargo build --release --locked \
   --manifest-path tests/kafka-client/Cargo.toml
 python3 tests/kafka_fixture.py --download
 python3 tests/kafka_adapter_benchmark.py \
-  --writer /tmp/rmqtt-adapter-before \
-  --reader "$PWD/target/release/rmqtt-kafka-test-client" \
+  --writer /tmp/lyrnormq-adapter-before \
+  --reader "$PWD/target/release/lyrnormq-kafka-test-client" \
   --warmup 64 --label rdkafka-before --output /tmp/rdkafka-before.json
 python3 tests/kafka_adapter_benchmark.py \
-  --writer /tmp/rmqtt-adapter-after \
-  --reader "$PWD/target/release/rmqtt-kafka-test-client" \
+  --writer /tmp/lyrnormq-adapter-after \
+  --reader "$PWD/target/release/lyrnormq-kafka-test-client" \
   --warmup 64 --label krafka-after --output /tmp/krafka-after.json
 ```
 

@@ -26,14 +26,14 @@ Native Linux GNU release includes the Dashboard; no changes were pushed remotely
   and jsdom scrollTo notices are unchanged and do not fail checks.
 - `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked --offline`:
   passed (existing dependency compilation deprecation warnings remain).
-- `cargo check -p rmqtt --no-default-features --locked --offline`: passed.
+- `cargo check -p lyrnormq --no-default-features --locked --offline`: passed.
   Its dependency tree contains neither mqtt-auth-postgres nor SQLx. Dashboard
   backend availability is supplied by `/api/v1/access-control/status`.
-- `cargo build --release --locked --offline -p rmqtt`: passed.
+- `cargo build --release --locked --offline -p lyrnormq`: passed.
 - `tests/postgres_access_blackbox.py -v` against the release and real PostgreSQL:
   5 passed, including TLS enabled with a CA-signed localhost certificate. Tested
   trusted CA/hostname success, mismatched hostname denial and untrusted CA denial.
-  TLS test requires `RMQTT_POSTGRES_TEST_CA`; without a TLS fixture CI skips only
+  TLS test requires `LYRNORMQ_POSTGRES_TEST_CA`; without a TLS fixture CI skips only
   that test. Other tests cover MQTT311/5 credentials and takeover protection,
   CONNECT Will authorization, QoS0/1/2 publish/delivery, mixed SUBSCRIBE decisions,
   PostgreSQL/HTTP composition, secret restoration, connection probes for both
@@ -41,7 +41,7 @@ Native Linux GNU release includes the Dashboard; no changes were pushed remotely
   with an idle client.
 - Existing `tests/http_access_blackbox.py -v`: 29 passed.
 - Existing `tests/auth_acl_blackbox.py -v` volatile mode: 13 passed, 7 SQLite-only
-  cases skipped. SQLite mode (`RMQTT_TEST_STORAGE_PATH=enabled`): 20 passed,
+  cases skipped. SQLite mode (`LYRNORMQ_TEST_STORAGE_PATH=enabled`): 20 passed,
   0 skipped.
 
 ## Limits
@@ -56,5 +56,5 @@ sandbox. See ../../postgres-auth.md and the Phase6c contract.
 The frontend lockfile's existing missing @emnapi dependencies were carried into
 this branch as the minimal21-line repair required for reproducible npm ci.
 
-Release artifact: `target/release/rmqtt` (Linux x86_64 GNU, dynamically linked).
+Release artifact: `target/release/lyrnormq` (Linux x86_64 GNU, dynamically linked).
 SHA256: `f9ff68ac12a77b7ae321e4a11563ee9fd6417494c5b998ea04407b271f5d0ff8`.

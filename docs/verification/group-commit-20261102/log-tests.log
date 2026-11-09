@@ -1,4 +1,4 @@
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-groupcommit-log/crates/mqtt-egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-groupcommit-log/crates/mqtt-egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.04s
      Running unittests src/lib.rs (target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
 

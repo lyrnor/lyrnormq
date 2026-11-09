@@ -79,7 +79,7 @@
    Compiling sync_wrapper v1.0.2
    Compiling futures-channel v0.3.34
    Compiling tower-layer v0.3.3
-   Compiling mqtt-router v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-router)
+   Compiling mqtt-router v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-router)
    Compiling base64 v0.23.1
    Compiling ipnet v2.12.2
    Compiling hashlink v0.12.2
@@ -95,7 +95,7 @@
    Compiling http-body-util v0.1.5
    Compiling sqlparser v0.53.0
    Compiling rustls-pemfile v2.2.0
-   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-egress-core)
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-egress-core)
    Compiling synstructure v0.14.0
    Compiling zerofrom-derive v0.1.8
    Compiling yoke-derive v0.8.4
@@ -119,15 +119,15 @@
    Compiling icu_collections v2.4.0
    Compiling icu_locale_core v2.4.0
    Compiling rusqlite v0.41.0
-   Compiling mqtt-auth v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-auth)
+   Compiling mqtt-auth v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-auth)
    Compiling serde_urlencoded v0.7.1
-   Compiling mqtt-protocol v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-protocol)
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-egress-log)
+   Compiling mqtt-protocol v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-protocol)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-egress-log)
    Compiling icu_provider v2.4.0
    Compiling icu_properties v2.4.0
    Compiling icu_normalizer v2.4.0
-   Compiling mqtt-session v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-session)
-   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-storage)
+   Compiling mqtt-session v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-session)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-storage)
    Compiling idna_adapter v1.2.2
    Compiling idna v1.1.0
    Compiling url v2.5.8
@@ -135,14 +135,14 @@
    Compiling hyper v1.12.0
    Compiling tower v0.5.3
    Compiling tokio-tungstenite v0.28.0
-   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-rules)
+   Compiling mqtt-rules v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-rules)
    Compiling tower-http v0.6.11
    Compiling hyper-util v0.1.21
-   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-transport)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-transport)
    Compiling hyper-rustls v0.27.10
    Compiling reqwest v0.12.28
-   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-webhook)
-   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-groupcommit-runtime/crates/mqtt-egress)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-webhook)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/lyrnormq-groupcommit-runtime/crates/mqtt-egress)
 warning: variable does not need to be mutable
   --> crates/mqtt-egress/src/durable_group_tests.rs:40:6
    |

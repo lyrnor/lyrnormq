@@ -41,7 +41,7 @@ Finalsource950fa70: native workspace1017passed,1external PostgreSQL test ignored
 cargo fmt --all -- --check and strict workspace all-target Clippy passed. Logs:
 /private/tmp/7m-final-workspace-tests.log and7m-final-workspace-clippy.log.
 Local native release and Linux amd64-musl static release both compiled successfully.
-Linux artifact /private/tmp/rmqtt-7m-final-linux SHA256
+Linux artifact /private/tmp/lyrnormq-7m-final-linux SHA256
  e8f2b38bd16e960d711b517a2eb648307cbb5f019f6cf55871165b9117f4ec8e.
 Zig emits its existing deprecated linker optimization warning; build succeeds.
 

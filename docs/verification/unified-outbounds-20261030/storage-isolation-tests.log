@@ -1,7 +1,7 @@
 Run 1/5, default parallel test threads
-   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-storage-test-isolation/crates/mqtt-storage)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/lyrnormq-storage-test-isolation/crates/mqtt-storage)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
-     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+     Running unittests src/lib.rs (/private/tmp/lyrnormq-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
 
 running 36 tests
 test configuration::tests::crash_worker ... ok
@@ -51,7 +51,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 Run 2/5, default parallel test threads
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
-     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+     Running unittests src/lib.rs (/private/tmp/lyrnormq-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
 
 running 36 tests
 test configuration::tests::crash_worker ... ok
@@ -101,7 +101,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 Run 3/5, default parallel test threads
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
-     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+     Running unittests src/lib.rs (/private/tmp/lyrnormq-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
 
 running 36 tests
 test configuration::tests::crash_worker ... ok
@@ -151,7 +151,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 Run 4/5, default parallel test threads
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
-     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+     Running unittests src/lib.rs (/private/tmp/lyrnormq-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
 
 running 36 tests
 test configuration::tests::crash_worker ... ok
@@ -201,7 +201,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 Run 5/5, default parallel test threads
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
-     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+     Running unittests src/lib.rs (/private/tmp/lyrnormq-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
 
 running 36 tests
 test configuration::tests::crash_worker ... ok

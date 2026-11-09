@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class AcceptanceGuardTampering(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-guard-negative-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-guard-negative-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         for directory in ('crates', 'bin', 'tests', 'docs', 'fuzz'):

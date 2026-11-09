@@ -6,7 +6,7 @@ use openraft::{
 use std::io;
 fn path() -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "rmqtt-cluster-store-{}-{}",
+        "lyrnormq-cluster-store-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

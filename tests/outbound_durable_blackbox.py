@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real MQTT -> generic durable outbound queue acceptance (stdlib only).
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/outbound_durable_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/outbound_durable_blackbox.py -v
 SIGKILL exercises process recovery, not a simulation of physical power loss.
 HTTP body acceptance before a withheld response models uncertain remote execution.
 """

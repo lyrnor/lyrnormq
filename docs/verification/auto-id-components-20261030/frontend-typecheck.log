@@ -1,4 +1,4 @@
 
-> rmqtt-dashboard@0.1.0 typecheck
+> lyrnormq-dashboard@0.1.0 typecheck
 > tsc --noEmit
 

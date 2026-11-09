@@ -1,6 +1,6 @@
 {
   "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
-  "binary": "/Volumes/data/rmqtt/target/release/topology",
+  "binary": "/Volumes/data/lyrnormq/target/release/topology",
   "sha256": "8ca085d68db5062838032fe9ea239db3d08c0a62ab13f7068c1a5f9f60b9af89",
   "engine_commit": "55e99ea404b71886875d77ecfbd8a26c2eebaded",
   "suite": "grouped",
@@ -11,7 +11,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -31,7 +31,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -51,7 +51,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -71,7 +71,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -91,7 +91,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -111,7 +111,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -131,7 +131,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -151,7 +151,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -171,7 +171,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -191,7 +191,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -211,7 +211,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -231,7 +231,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -251,7 +251,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -271,7 +271,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -291,7 +291,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",

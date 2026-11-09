@@ -1,4 +1,4 @@
-   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
-    Checking mqtt-cluster v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-cluster)
-    Checking rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq-loadgen v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq-loadgen)
+    Checking mqtt-cluster v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-cluster)
+    Checking lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.04s

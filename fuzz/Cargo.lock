@@ -188,7 +188,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rmqtt-fuzz-harness"
+name = "lyrnormq-fuzz-harness"
 version = "0.1.0"
 dependencies = [
  "mqtt-auth",

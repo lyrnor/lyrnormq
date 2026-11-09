@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Real bbolt Controller layout, failure, offline import and recovery gates.
 
-RMQTT_BIN=/new/rmqtt RMQTT_LEGACY_BIN=/old/phase7j/rmqtt \
+LYRNORMQ_BIN=/new/lyrnormq LYRNORMQ_LEGACY_BIN=/old/phase7j/lyrnormq \
   python3 tests/cluster_bbolt_blackbox.py -v -f
-RMQTT_CONTROL_EXPORTER optionally overrides scripts/export_control_sqlite.py.
+LYRNORMQ_CONTROL_EXPORTER optionally overrides scripts/export_control_sqlite.py.
 Only private fixture state is damaged. SIGKILL is not physical power-loss proof.
 """
 import hashlib
@@ -95,9 +95,9 @@ class BboltAcceptance(MemoryFixture, unittest.TestCase):
 
 class OfflineMigration(MemoryFixture, unittest.TestCase):
     def setUp(self):
-        self.assertIn('RMQTT_LEGACY_BIN', os.environ,
+        self.assertIn('LYRNORMQ_LEGACY_BIN', os.environ,
                       'offline upgrade gate requires the actual Phase7j SQLite+WAL binary')
-        legacy = Path(os.environ['RMQTT_LEGACY_BIN'])
+        legacy = Path(os.environ['LYRNORMQ_LEGACY_BIN'])
         self.assertTrue(legacy.is_file(), legacy)
         with mock.patch('cluster_blackbox.BINARY', str(legacy)):
             super().setUp()
@@ -115,7 +115,7 @@ class OfflineMigration(MemoryFixture, unittest.TestCase):
             node.stop(crash=True)
         for client in clients:
             client.close()
-        exporter = Path(os.environ.get('RMQTT_CONTROL_EXPORTER',
+        exporter = Path(os.environ.get('LYRNORMQ_CONTROL_EXPORTER',
                         str(Path(__file__).resolve().parents[1] / 'scripts/export_control_sqlite.py')))
         self.assertTrue(exporter.is_file(), exporter)
         backups = []

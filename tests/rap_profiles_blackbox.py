@@ -249,14 +249,14 @@ class RapProfilesBlackbox(unittest.TestCase):
 
     def test_sqlite_old_artifact_captured_collapse_survives_upgrade(self):
         self.require_sqlite()
-        old = '/tmp/rmqtt-p2n-baseline'
+        old = '/tmp/lyrnormq-p2n-baseline'
         if not os.path.isfile(old):self.skipTest('optional actual previous-artifact fixture unavailable')
-        final = os.environ.get('RMQTT_BIN')
+        final = os.environ.get('LYRNORMQ_BIN')
         try:
-            os.environ['RMQTT_BIN'] = old;self.start()
+            os.environ['LYRNORMQ_BIN'] = old;self.start()
         finally:
-            if final is None:os.environ.pop('RMQTT_BIN', None)
-            else:os.environ['RMQTT_BIN'] = final
+            if final is None:os.environ.pop('LYRNORMQ_BIN', None)
+            else:os.environ['LYRNORMQ_BIN'] = final
         pub = self.client('source');target = self.client('durable', expiry=60, maximum=1);self.mixed(target, qos0=2, qos1=2)
         self.publish(pub, 'mixed/value', b'old-inflight', 2, retain=True)
         first = self.msg(target, 'mixed/value', b'old-inflight', 2, [11, 22], True, complete=False)

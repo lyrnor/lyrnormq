@@ -1,6 +1,6 @@
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-rule-stream-log/crates/mqtt-egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-rule-stream-log/crates/mqtt-egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
 
 running 1 test
 test tests::one_rule_result_fanout_stores_body_only_once ... FAILED

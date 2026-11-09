@@ -14,7 +14,7 @@ test_sql_errors_null_binary_and_request_body_bounds (__main__.RulesWebhook.test_
 ERROR: test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint (__main__.RulesWebhook.test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 284, in test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 284, in test_action_fanout_has_distinct_delivery_ids_even_at_same_endpoint
     self.assertNotEqual(events[0]['delivery_id'], events[1]['delivery_id'])
                         ~~~~~~~~~^^^^^^^^^^^^^^^
 KeyError: 'delivery_id'
@@ -23,7 +23,7 @@ KeyError: 'delivery_id'
 ERROR: test_retry_ids_remain_stable_and_permanent_error_does_not_retry (__main__.RulesWebhook.test_retry_ids_remain_stable_and_permanent_error_does_not_retry)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-rules-quality/tests/rules_webhook_blackbox.py", line 237, in test_retry_ids_remain_stable_and_permanent_error_does_not_retry
+  File "/private/tmp/lyrnormq-rules-quality/tests/rules_webhook_blackbox.py", line 237, in test_retry_ids_remain_stable_and_permanent_error_does_not_retry
     self.assertIsInstance(records[0]['events'][0]['delivery_id'], str)
                           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
 KeyError: 'delivery_id'

@@ -41,10 +41,10 @@ exactly-once or cross-restart Kafka deduplication claim.
 
 ## Ownership and integration
 
-Backend owns crates/mqtt-kafka/** in /private/tmp/rmqtt-krafka-backend,
+Backend owns crates/mqtt-kafka/** in /private/tmp/lyrnormq-krafka-backend,
 branch codex/krafka-backend. Keep lib.rs docs/modules/reexports only.
 Quality owns new/updated tests/kafka* and .github/workflows/kafka-acceptance.yml
-in /private/tmp/rmqtt-krafka-quality, branch codex/krafka-quality. Retain existing
+in /private/tmp/lyrnormq-krafka-quality, branch codex/krafka-quality. Retain existing
 real Apache Kafka tests; no weakening to accommodate SDK differences. Add actual
 adapter benchmark with independent readback and precise counts/latency definitions.
 Read-only reviewer audits pinned SDK and implementation, writes no source.

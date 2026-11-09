@@ -1,6 +1,6 @@
-   Compiling mqtt-kafka v0.1.0 (/private/tmp/rmqtt-krafka-backend/crates/mqtt-kafka)
+   Compiling mqtt-kafka v0.1.0 (/private/tmp/lyrnormq-krafka-backend/crates/mqtt-kafka)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3.08s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/krafka-backend/debug/deps/mqtt_kafka-98e25e8e36fe92e5)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/krafka-backend/debug/deps/mqtt_kafka-98e25e8e36fe92e5)
 
 running 23 tests
 test owner::runtime::tests::authentication_is_permanent_without_secret_details ... ok

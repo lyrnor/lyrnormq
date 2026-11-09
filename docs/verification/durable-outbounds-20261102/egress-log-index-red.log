@@ -1,6 +1,6 @@
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-durable-egress-log/crates/mqtt-egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-durable-egress-log/crates/mqtt-egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.43s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
 
 running 1 test
 test tests::terminal_delivery_evicts_historical_outbound_and_client_index_keys ... FAILED

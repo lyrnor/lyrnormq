@@ -62,8 +62,8 @@ Three cohosted Controller+data processes,4Tokio workers each,12workers total.
 All3WAL/bbolt files share one physical disk; this is not a multi-machine HA benchmark.
 MQTT private ports18831/18832/18833, clients round-robin evenly across endpoints.
 
-New isolated deployment `/opt/rmqtt-bbolt-control/20261103`; load tools
-`/opt/rmqtt-bbolt-control-load/20261103`. Old deployments/data retained.
+New isolated deployment `/opt/lyrnormq-bbolt-control/20261103`; load tools
+`/opt/lyrnormq-bbolt-control-load/20261103`. Old deployments/data retained.
 Server env and acceptance logs saved there. Fresh root per case; BOTH max_connections
 and max_sessions50000/node, state budget256MiB, metadata16711680B, physical records
 101024, FD250000, handshake1024/auth-task128, auth-rate0. Limits preflight executed
@@ -127,7 +127,7 @@ after fixes, stop upon failure. Backend replacement alone did not resolve overlo
 ## Evidence and reproduction
 
 `raw/c1000-client.json`, `raw/resource-summary.json`, `raw/c1000-state.json`, and
-`raw/rmqtt-bbolt-c1000-failed.tar.gz` contain client output/server sampled resources,
+`raw/lyrnormq-bbolt-c1000-failed.tar.gz` contain client output/server sampled resources,
 commands and warning logs. No credentials or MQTT payloads are archived.
 Helpers: scripts/cluster_scale_server.py, cluster_scale_client.py and
 cluster_scale_limits.py. Offline upgrade: stop old Phase7j Controller, run

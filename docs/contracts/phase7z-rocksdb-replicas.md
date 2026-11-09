@@ -32,6 +32,6 @@ before any broker writes `rocks: true`. Brokers check that status reports
 `none` or `rocksdb` before joining a RocksDB group.
 
 Admission bounds stay 100,000 records, 8 MiB per record, and 256 MiB of
-accounted canonical bytes. Disk IO runs on one `rmqtt-rocks` thread with a
+accounted canonical bytes. Disk IO runs on one `lyrnormq-rocks` thread with a
 bounded command queue. Async tasks do not fsync and do not hold the map lock
 across `.await`.

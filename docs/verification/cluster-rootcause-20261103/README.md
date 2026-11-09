@@ -148,7 +148,7 @@ No10k/100k connection or QoS message throughput claim is made here.
 
 ## Reproduce and inspect
 
-`reproduce.py /absolute/fresh/run-directory 900 1000` uses `RMQTT_BIN` and the existing
+`reproduce.py /absolute/fresh/run-directory 900 1000` uses `LYRNORMQ_BIN` and the existing
 repository fixtures. `raw/*.gz` includes results, complete node logs and final
 status only; tokens/data-store contents are excluded. `results.json` records all
 case results, environment and immutable binary SHA256 values.
@@ -156,8 +156,8 @@ case results, environment and immutable binary SHA256 values.
 For Core experiments copy the locked registry openraft0.9.25 into a scratch
 location, apply experiment-only-openraft.patch, and build in an isolated checkout
 with Cargo's command-line `patch.crates-io.openraft.path` pointing there. Default
-flags leave scheduling unchanged; `RMQTT_DIAG_INTERLEAVE_NOTIFY=1` selectsB,
-`RMQTT_DIAG_TIME_SLICE=1` selectsC (never set both). The recorded initialA/B binary
+flags leave scheduling unchanged; `LYRNORMQ_DIAG_INTERLEAVE_NOTIFY=1` selectsB,
+`LYRNORMQ_DIAG_TIME_SLICE=1` selectsC (never set both). The recorded initialA/B binary
 predates the optional timeslice/read-split instrumentation; the final readsplit-c900/core-a2-900 pair uses
 exactly the same binary and differs only in the time-slice environment flag.
 Production Cargo.toml/Cargo.lock remain unchanged; no experimental dependency is

@@ -6,11 +6,11 @@ HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location('raft_chain_run', HERE.parent / 'raft-chain-20261103/run.py')
 chain = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(chain)
-chain.BASE = '/opt/rmqtt-write-pipeline/20261104'
-chain.OUT = Path('/Volumes/data/rmqtt/target/raft-pipeline-results-20261104')
+chain.BASE = '/opt/lyrnormq-write-pipeline/20261104'
+chain.OUT = Path('/Volumes/data/lyrnormq/target/raft-pipeline-results-20261104')
 chain.prior.BASE = chain.BASE
 chain.prior.OUT = chain.OUT
-chain.prior.BROKER = chain.BASE + '/rmqtt'
+chain.prior.BROKER = chain.BASE + '/lyrnormq'
 
 
 if __name__ == '__main__':

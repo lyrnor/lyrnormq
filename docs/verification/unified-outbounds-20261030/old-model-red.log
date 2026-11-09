@@ -4,7 +4,7 @@ test_default_rules_enabled_without_loading_legacy_json (__main__.RulesWebhook.te
 FAIL: test_default_rules_enabled_without_loading_legacy_json (__main__.RulesWebhook.test_default_rules_enabled_without_loading_legacy_json)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-unified-quality/tests/rules_webhook_blackbox.py", line 378, in test_default_rules_enabled_without_loading_legacy_json
+  File "/private/tmp/lyrnormq-unified-quality/tests/rules_webhook_blackbox.py", line 378, in test_default_rules_enabled_without_loading_legacy_json
     self.assertEqual(self.broker.data(CONFIG), {'schema_version': 2, 'outbounds': [], 'rules': []})
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: {'connectors': [], 'actions': [], 'rules': []} != {'schema_version': 2, 'outbounds': [], 'rules': []}

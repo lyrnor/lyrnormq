@@ -54,7 +54,7 @@ class MetricsTests(unittest.TestCase):
             ('processor\t: 0\nmodel name\t: ' + model + '\n', model),
             ('processor\t: 0\nCPU architecture\t: 8\n', None),
         )
-        with tempfile.TemporaryDirectory(prefix='rmqtt-bench-cpu-metadata-') as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-bench-cpu-metadata-') as directory:
             binary = Path(directory) / 'broker'
             binary.write_bytes(b'fixture; no process launch')
             arguments = SimpleNamespace(artifact_source_revision='fixture',
@@ -254,7 +254,7 @@ class AccountingTests(unittest.IsolatedAsyncioTestCase):
 
 class CleanupAndStatusTests(unittest.IsolatedAsyncioTestCase):
     async def test_first_case_failure_overwrites_stale_success(self):
-        with tempfile.TemporaryDirectory(prefix='rmqtt-bench-status-') as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-bench-status-') as directory:
             binary = Path(directory) / 'broker'
             binary.write_bytes(b'fake binary, no launch')
             output = Path(directory) / 'result.json'

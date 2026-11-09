@@ -97,9 +97,9 @@ class Client:
 
 class AuthAclPaho(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-auth-paho-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-auth-paho-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        self.sqlite = bool(os.environ.get('LYRNORMQ_TEST_STORAGE_PATH'))
         self.broker = AuthBroker(self.directory.name, self.sqlite)
         self.broker.start()
         self.addCleanup(self.broker.stop)

@@ -11,11 +11,11 @@ cd dashboard/web
 npm ci
 npm run build
 cd ../..
-cargo build --release -p rmqtt
+cargo build --release -p lyrnormq
 # 创建权限受限的令牌文件；不要将它加入 Git 或输出到日志。
-(umask 077; openssl rand -hex 32 > /tmp/rmqtt-admin.token)
-target/release/rmqtt --listen 127.0.0.1:1883 \
-  --admin-listen 127.0.0.1:8080 --admin-token-file /tmp/rmqtt-admin.token
+(umask 077; openssl rand -hex 32 > /tmp/lyrnormq-admin.token)
+target/release/lyrnormq --listen 127.0.0.1:1883 \
+  --admin-listen 127.0.0.1:8080 --admin-token-file /tmp/lyrnormq-admin.token
 ```
 
 打开 `http://127.0.0.1:8080/`，在登录页输入令牌文件内容。令牌只留在页面内存，
@@ -23,16 +23,16 @@ target/release/rmqtt --listen 127.0.0.1:1883 \
 服务器远程访问使用 SSH 本地转发，例如 `ssh -L 8080:127.0.0.1:8080 USER@HOST`。
 该 HTTP 服务仅允许 loopback 数字地址；TLS/反向代理与访问控制由部署环境配置。
 
-React 生产构建通过 include_dir 嵌入 Rust 二进制。部署只需复制 `rmqtt`，
+React 生产构建通过 include_dir 嵌入 Rust 二进制。部署只需复制 `lyrnormq`，
 运行目录不需要 `dashboard/web/dist` 或 Node.js；令牌、证书、持久数据仍是各自
 独立的运行配置，绝不编入二进制。管理服务仍默认关闭。
 
 可使用一条命令完成前端与 release 构建：
 
 ```sh
-./scripts/build-rmqtt.sh
+./scripts/build-lyrnormq.sh
 # 交叉编译时仍在本机生成前端，再传递 Rust 目标参数：
-./scripts/build-rmqtt.sh --target x86_64-unknown-linux-musl
+./scripts/build-lyrnormq.sh --target x86_64-unknown-linux-musl
 ```
 
 脚本透传 Cargo 参数；交叉编译需另外安装对应 Rust target 和链接工具链。

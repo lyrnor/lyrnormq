@@ -48,7 +48,7 @@ class CombinedFleet(DurableFleet):
 
 class CombinedFixture(DurableFixture):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-combined-wire-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-combined-wire-')
         self.addCleanup(self.directory.cleanup)
         self.fleet = CombinedFleet(self.directory.name)
         self.addCleanup(self.fleet.stop)
@@ -105,7 +105,7 @@ class CombinedMQTTCases(CombinedFixture, unittest.TestCase):
 
 class CombinedStartupCases(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-combined-startup-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-combined-startup-')
         self.addCleanup(self.directory.cleanup)
         self.fleet = CombinedFleet(self.directory.name)
         self.addCleanup(self.fleet.stop)

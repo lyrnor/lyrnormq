@@ -10,14 +10,14 @@
 ## 启动
 
 ```sh
-./scripts/build-rmqtt.sh
-# 默认启用规则引擎，配置保存在工作目录的 rmqtt-rules.sqlite。
-./target/release/rmqtt --listen 127.0.0.1:1883 \
-  --admin-listen 127.0.0.1:8766 --admin-token-file /tmp/rmqtt-admin.token
+./scripts/build-lyrnormq.sh
+# 默认启用规则引擎，配置保存在工作目录的 lyrnormq-rules.sqlite。
+./target/release/lyrnormq --listen 127.0.0.1:1883 \
+  --admin-listen 127.0.0.1:8766 --admin-token-file /tmp/lyrnormq-admin.token
 ```
 
 管理令牌文件按 Dashboard 文档生成；不要放入静态资源目录。规则配置仅使用
-SQLite，默认 `rmqtt-rules.sqlite`；`--rules-config PATH` 可指定其他 SQLite 路径。
+SQLite，默认 `lyrnormq-rules.sqlite`；`--rules-config PATH` 可指定其他 SQLite 路径。
 规则和出站由 Dashboard 管理，保存后以事务提交并应用。
 不读取、不导入 `rules.json`，也不支持 JSON 文件存储或导入参数。
 独立配置库不修改会话数据库表结构；新数据库及所有权锁文件权限为0600。
@@ -25,7 +25,7 @@ SQLite，默认 `rmqtt-rules.sqlite`；`--rules-config PATH` 可指定其他 SQL
 `export-state` 不加载或创建规则配置。保存失败时会暂停规则服务，避免配置状态不确定；
 排查后重启即可从已提交配置与有效日志恢复。消息不存入 SQLite，通用出站队列
 默认目录为完整规则库路径追加 `.outbound-queue`，例如
-`rmqtt-rules.sqlite.outbound-queue`。该目录包含消息正文和绑定元数据，必须保护，
+`lyrnormq-rules.sqlite.outbound-queue`。该目录包含消息正文和绑定元数据，必须保护，
 不得作为 Dashboard 静态目录或共享给其他进程写入。
 
 ## SQL
@@ -136,8 +136,8 @@ HTTP 接收端需自行保证异步处理顺序并按 delivery_id 去重。
 可用启动参数：
 
 ```sh
-./target/release/rmqtt --listen 127.0.0.1:1883 \
-  --rules-config ./rmqtt-rules.sqlite \
+./target/release/lyrnormq --listen 127.0.0.1:1883 \
+  --rules-config ./lyrnormq-rules.sqlite \
   --egress-queue-dir ./outbound-data \
   --egress-queue-segment-bytes 1048576 \
   --egress-queue-max-bytes 268435456 \

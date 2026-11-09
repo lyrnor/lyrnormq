@@ -10,12 +10,12 @@
       "measured_messages": 246454,
       "all_six_raw_quantiles_verified": true,
       "success": true,
-      "report": "/var/log/rmqtt-loadgen/acceptance-20261030/q0.json",
-      "raw": "/var/log/rmqtt-loadgen/acceptance-20261030/q0.jsonl",
+      "report": "/var/log/lyrnormq-loadgen/acceptance-20261030/q0.json",
+      "raw": "/var/log/lyrnormq-loadgen/acceptance-20261030/q0.jsonl",
       "p99_send_to_delivery_ns": 270025282,
       "offering_window_delivery_tps": 48790.8,
       "command": [
-        "/opt/rmqtt-loadgen/rmqtt-loadgen",
+        "/opt/lyrnormq-loadgen/lyrnormq-loadgen",
         "--addr",
         "172.30.139.129:1883",
         "--qos",
@@ -37,9 +37,9 @@
         "--max-messages",
         "5000000",
         "--output",
-        "/var/log/rmqtt-loadgen/acceptance-20261030/q0.json",
+        "/var/log/lyrnormq-loadgen/acceptance-20261030/q0.json",
         "--raw",
-        "/var/log/rmqtt-loadgen/acceptance-20261030/q0.jsonl"
+        "/var/log/lyrnormq-loadgen/acceptance-20261030/q0.jsonl"
       ]
     },
     {
@@ -50,12 +50,12 @@
       "measured_messages": 148181,
       "all_six_raw_quantiles_verified": true,
       "success": true,
-      "report": "/var/log/rmqtt-loadgen/acceptance-20261030/q1.json",
-      "raw": "/var/log/rmqtt-loadgen/acceptance-20261030/q1.jsonl",
+      "report": "/var/log/lyrnormq-loadgen/acceptance-20261030/q1.json",
+      "raw": "/var/log/lyrnormq-loadgen/acceptance-20261030/q1.jsonl",
       "p99_send_to_delivery_ns": 389770906,
       "offering_window_delivery_tps": 29162.6,
       "command": [
-        "/opt/rmqtt-loadgen/rmqtt-loadgen",
+        "/opt/lyrnormq-loadgen/lyrnormq-loadgen",
         "--addr",
         "172.30.139.129:1883",
         "--qos",
@@ -77,9 +77,9 @@
         "--max-messages",
         "5000000",
         "--output",
-        "/var/log/rmqtt-loadgen/acceptance-20261030/q1.json",
+        "/var/log/lyrnormq-loadgen/acceptance-20261030/q1.json",
         "--raw",
-        "/var/log/rmqtt-loadgen/acceptance-20261030/q1.jsonl"
+        "/var/log/lyrnormq-loadgen/acceptance-20261030/q1.jsonl"
       ]
     },
     {
@@ -90,12 +90,12 @@
       "measured_messages": 97451,
       "all_six_raw_quantiles_verified": true,
       "success": true,
-      "report": "/var/log/rmqtt-loadgen/acceptance-20261030/q2.json",
-      "raw": "/var/log/rmqtt-loadgen/acceptance-20261030/q2.jsonl",
+      "report": "/var/log/lyrnormq-loadgen/acceptance-20261030/q2.json",
+      "raw": "/var/log/lyrnormq-loadgen/acceptance-20261030/q2.jsonl",
       "p99_send_to_delivery_ns": 462671343,
       "offering_window_delivery_tps": 18991.2,
       "command": [
-        "/opt/rmqtt-loadgen/rmqtt-loadgen",
+        "/opt/lyrnormq-loadgen/lyrnormq-loadgen",
         "--addr",
         "172.30.139.129:1883",
         "--qos",
@@ -117,9 +117,9 @@
         "--max-messages",
         "5000000",
         "--output",
-        "/var/log/rmqtt-loadgen/acceptance-20261030/q2.json",
+        "/var/log/lyrnormq-loadgen/acceptance-20261030/q2.json",
         "--raw",
-        "/var/log/rmqtt-loadgen/acceptance-20261030/q2.jsonl"
+        "/var/log/lyrnormq-loadgen/acceptance-20261030/q2.jsonl"
       ]
     }
   ],

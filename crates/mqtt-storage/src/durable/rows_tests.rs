@@ -205,7 +205,7 @@ fn row_store_shares_the_exclusive_owner_lock() {
 #[test]
 fn killed_uncommitted_row_batch_keeps_prior_rows() {
     let _serial = FILE_TESTS.lock().unwrap();
-    if let Some(path) = std::env::var_os("RMQTT_ROWS_CRASH_CHILD") {
+    if let Some(path) = std::env::var_os("LYRNORMQ_ROWS_CRASH_CHILD") {
         let store = RowStore::open(Path::new(&path), limits()).unwrap();
         store
             .connection()
@@ -213,7 +213,7 @@ fn killed_uncommitted_row_batch_keeps_prior_rows() {
                 "BEGIN IMMEDIATE; UPDATE sessions SET data = x'00' WHERE client_id = 'a'; DELETE FROM retained",
             )
             .unwrap();
-        println!("RMQTT_UNCOMMITTED");
+        println!("LYRNORMQ_UNCOMMITTED");
         std::io::stdout().flush().unwrap();
         loop {
             std::thread::park();
@@ -235,7 +235,7 @@ fn killed_uncommitted_row_batch_keeps_prior_rows() {
             "durable::rows::tests::killed_uncommitted_row_batch_keeps_prior_rows",
             "--nocapture",
         ])
-        .env("RMQTT_ROWS_CRASH_CHILD", &path.0)
+        .env("LYRNORMQ_ROWS_CRASH_CHILD", &path.0)
         .stdout(Stdio::piped())
         .spawn()
         .unwrap();
@@ -247,7 +247,7 @@ fn killed_uncommitted_row_batch_keeps_prior_rows() {
             0,
             "crash child exited early"
         );
-        if line.contains("RMQTT_UNCOMMITTED") {
+        if line.contains("LYRNORMQ_UNCOMMITTED") {
             break;
         }
     }

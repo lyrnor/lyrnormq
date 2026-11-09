@@ -327,7 +327,7 @@ mod tests {
     impl TempDb {
         pub(super) fn new() -> Self {
             let directory = std::env::temp_dir().join(format!(
-                "rmqtt-sqlite-{}-{}",
+                "lyrnormq-sqlite-{}-{}",
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed),
             ));
@@ -485,10 +485,10 @@ mod tests {
     #[test]
     fn killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock() {
         let _serial = FILE_TESTS.lock().unwrap();
-        if let Some(path) = std::env::var_os("RMQTT_SQLITE_CRASH_CHILD") {
+        if let Some(path) = std::env::var_os("LYRNORMQ_SQLITE_CRASH_CHILD") {
             let store = SqliteStore::open(Path::new(&path), 1024).unwrap();
             store.connection.execute_batch("BEGIN IMMEDIATE; UPDATE broker_snapshot SET data = x'6e6f7420636f6d6d6974746564' WHERE id = 1").unwrap();
-            println!("RMQTT_UNCOMMITTED");
+            println!("LYRNORMQ_UNCOMMITTED");
             std::io::stdout().flush().unwrap();
             loop {
                 std::thread::park();
@@ -501,7 +501,7 @@ mod tests {
         }
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "durable::tests::killed_uncommitted_transaction_keeps_prior_snapshot_and_releases_lock", "--nocapture"])
-            .env("RMQTT_SQLITE_CRASH_CHILD", &path.0)
+            .env("LYRNORMQ_SQLITE_CRASH_CHILD", &path.0)
             .stdout(Stdio::piped()).spawn().unwrap();
         let output = child.stdout.take().unwrap();
         let mut reader = std::io::BufReader::new(output);
@@ -512,7 +512,7 @@ mod tests {
                 0,
                 "crash child exited before transaction barrier"
             );
-            if line.contains("RMQTT_UNCOMMITTED") {
+            if line.contains("LYRNORMQ_UNCOMMITTED") {
                 break;
             }
         }

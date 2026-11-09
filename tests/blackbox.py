@@ -60,9 +60,9 @@ class Broker:
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             self.port = probe.getsockname()[1]
-        executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
-        self.rules_directory = tempfile.TemporaryDirectory(prefix='rmqtt-wire-rules-')
-        from rmqttcfg import argv
+        executable = os.environ.get('LYRNORMQ_BIN', str(ROOT / 'target/debug/lyrnormq'))
+        self.rules_directory = tempfile.TemporaryDirectory(prefix='lyrnormq-wire-rules-')
+        from lyrnormqcfg import argv
         command = argv(executable, f'127.0.0.1:{self.port}', self.rules_directory.name)
         self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         deadline = time.monotonic() + 10

@@ -90,7 +90,7 @@ identity headers, compression, browser cookie authentication or certificate relo
 ## Acceptance, isolation and scope
 
 Transport Agent owns crates/mqtt-transport/** in its assigned independent worktree;
-Quality Agent owns tests/** and CI in another; coordinator owns bin/rmqtt, root
+Quality Agent owns tests/** and CI in another; coordinator owns bin/lyrnormq, root
 lockfile, docs, contracts and integration. No agent edits shared Cargo.lock or
 another module. lib.rs contains documentation, declarations and re-exports only.
 

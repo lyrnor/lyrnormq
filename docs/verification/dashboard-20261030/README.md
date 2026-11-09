@@ -6,7 +6,7 @@ or performance/capacity claim. API and real local MQTT tests use the debug build
 - `cargo fmt --all -- --check`: passed.
 - `cargo clippy --workspace --all-targets --offline -- -D warnings`: passed.
 - `cargo test --workspace --offline`: passed; see `rust.log`.
-- `RMQTT_BIN=.../target/debug/rmqtt python3 tests/dashboard_blackbox.py -v`:
+- `LYRNORMQ_BIN=.../target/debug/lyrnormq python3 tests/dashboard_blackbox.py -v`:
   final14/14 passed; see `blackbox.log`.
 
 Independent tests cover MQTT311/5 QoS0/1/2 actual publication/delivery and observed

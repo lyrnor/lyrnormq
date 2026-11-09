@@ -28,13 +28,13 @@
 - 开始时间 Unix ms `1793719535088`，PING 时间 `1793719570088`。
   本轮没有业务消息发布订阅；连接生命周期系统事件仍走消息路径。
 - Rust stable 1.98.1，本地 `cargo zigbuild --locked --release --target
-  x86_64-unknown-linux-musl -p rmqtt`；开启 release debug symbols 并保留符号，
+  x86_64-unknown-linux-musl -p lyrnormq`；开启 release debug symbols 并保留符号，
   优化级别未变。服务器没有编译。
 - Broker 源码到 `a626877`，二进制 SHA256
   `3afae822833de60e3a3443f72abae622b569625e1d25b7c56d5606191ac94e3b`。
   Probe SHA256
   `556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad`。
-- 诊断开启 `RMQTT_RAFT_PROFILE=1`，一秒一次固定基数累计直方图；批次、RPC、
+- 诊断开启 `LYRNORMQ_RAFT_PROFILE=1`，一秒一次固定基数累计直方图；批次、RPC、
   存储阶段各限制前 4096 条关联记录。`perf` 软件 cpu-clock 49Hz、45 秒有界采样。
 
 环境、限额、启动命令和哈希见 [environment.json](environment.json)、
@@ -204,7 +204,7 @@ Control、Storage、Transport 三个真实 Subagents 分别在独立 Git worktre
 
 - `cargo test --locked -p mqtt-cluster -p mqtt-transport`：178 + 203 = **381** 通过。
 - `cargo clippy --locked --workspace --all-targets -- -D warnings`、fmt：通过。
-- `RMQTT_RAFT_PROFILE=1` 的真实进程黑盒：**2** 通过，包含双版本跨节点
+- `LYRNORMQ_RAFT_PROFILE=1` 的真实进程黑盒：**2** 通过，包含双版本跨节点
   QoS0/1/2、顺序以及 leader 崩溃后的元数据/离线消息恢复。
 - 本地 native 和锁定依赖的 amd64 musl release 构建通过。日志保存在
   [verification](verification/)，摘要见 [validation.json](validation.json)。

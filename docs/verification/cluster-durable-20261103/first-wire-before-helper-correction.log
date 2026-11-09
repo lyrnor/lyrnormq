@@ -99,10 +99,10 @@ test_valid_other_username_cannot_resume_or_reset_replicated_owner (__main__.Dura
 FAIL: test_incoming_pubrec_resumes_elsewhere_and_duplicate_pubrel_routes_once (__main__.Durable5.test_incoming_pubrec_resumes_elsewhere_and_duplicate_pubrel_routes_once)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 226, in test_incoming_pubrec_resumes_elsewhere_and_duplicate_pubrel_routes_once
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 226, in test_incoming_pubrec_resumes_elsewhere_and_duplicate_pubrel_routes_once
     self.expect_ack(resumed, 0x70, 23)
     ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 145, in expect_ack
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 145, in expect_ack
     self.assertEqual(data[2], 0, data)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
 AssertionError: 146 != 0 : b'\x00\x17\x92'
@@ -111,10 +111,10 @@ AssertionError: 146 != 0 : b'\x00\x17\x92'
 FAIL: test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery (__main__.Durable5.test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 243, in test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 243, in test_lost_pubcomp_then_source_failover_does_not_duplicate_delivery
     self.expect_ack(resumed, 0x70, 41)
     ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 145, in expect_ack
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 145, in expect_ack
     self.assertEqual(data[2], 0, data)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
 AssertionError: 146 != 0 : b'\x00)\x92'
@@ -123,10 +123,10 @@ AssertionError: 146 != 0 : b'\x00)\x92'
 FAIL: test_recipient_crash_preserves_receipt_and_unacknowledged_delivery (__main__.DurableFaults.test_recipient_crash_preserves_receipt_and_unacknowledged_delivery)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 352, in test_recipient_crash_preserves_receipt_and_unacknowledged_delivery
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 352, in test_recipient_crash_preserves_receipt_and_unacknowledged_delivery
     self.expect_ack(source, 0x70, 55)
     ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 145, in expect_ack
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 145, in expect_ack
     self.assertEqual(data[2], 0, data)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
 AssertionError: 146 != 0 : b'\x007\x92'

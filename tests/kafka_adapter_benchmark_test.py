@@ -15,9 +15,9 @@ def rows():
             identity = f'run-{client}-{sequence}'
             result.append(dict(value=body, key=f'bench-client-{client:04}', partition=client,
                 offset=sequence, timestamp_ms=123456789,
-                headers={'rmqtt-event-id':identity,'rmqtt-delivery-id':identity,
-                    'rmqtt-rule-id':'benchmark-rule','rmqtt-client-id':f'bench-client-{client:04}',
-                    'rmqtt-topic':'bench/source'}))
+                headers={'lyrnormq-event-id':identity,'lyrnormq-delivery-id':identity,
+                    'lyrnormq-rule-id':'benchmark-rule','lyrnormq-client-id':f'bench-client-{client:04}',
+                    'lyrnormq-topic':'bench/source'}))
     return result
 
 
@@ -31,7 +31,7 @@ class ReadbackTests(unittest.TestCase):
     def test_warmup_is_verified_separately_including_uneven_client_counts(self):
         warm = rows()[:5]
         for row in warm:
-            for key in ('rmqtt-event-id', 'rmqtt-delivery-id'):
+            for key in ('lyrnormq-event-id', 'lyrnormq-delivery-id'):
                 row['headers'][key] = 'warmup-' + row['headers'][key]
         pairs={(i % 2, i // 2) for i in range(5)}
         self.assertEqual(verify_records(warm, 'warmup-run', 2, 3, 128, 2,
@@ -60,7 +60,7 @@ class ReadbackTests(unittest.TestCase):
         changed[0]['value']['padding'] += 'x'
         bad.append(changed)
         changed = copy.deepcopy(original)
-        changed[0]['headers']['rmqtt-event-id'] = 'bad'
+        changed[0]['headers']['lyrnormq-event-id'] = 'bad'
         bad.append(changed)
         for values in bad:
             with self.subTest(values=values):

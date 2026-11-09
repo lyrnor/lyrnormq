@@ -83,7 +83,7 @@ CARGO_TARGET_DIR="$PWD/target" cargo build --release --offline --manifest-path b
 python3 docs/verification/egress-log-performance-20261102/run.py \
   --binary "$PWD/target/release/egress-log-bench" \
   --external-base "$PWD/target" \
-  --output /private/tmp/rmqtt-journal-results
+  --output /private/tmp/lyrnormq-journal-results
 ```
 
 资源包装脚本使用macOS `/usr/bin/time -l`/diskutil，会动态采集重跑机器信息；

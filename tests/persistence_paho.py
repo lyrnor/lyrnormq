@@ -46,7 +46,7 @@ def disconnect(value):
 
 def main():
     for qos in (1, 2):
-        with tempfile.TemporaryDirectory(prefix='rmqtt-paho-persistent-') as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-paho-persistent-') as directory:
             broker = PersistentBroker(directory).start()
             clients = []
             try:

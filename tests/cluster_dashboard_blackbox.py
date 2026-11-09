@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cluster directory management views used by the unified Dashboard API.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_dashboard_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/cluster_dashboard_blackbox.py -v
 Covers overview counts, cross-broker sessions/subscriptions/retained, node
 filters, and local observer enrichment. Does not claim cross-node online
 presence for durable sessions owned elsewhere.

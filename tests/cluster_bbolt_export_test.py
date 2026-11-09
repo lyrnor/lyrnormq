@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-SCRIPT = Path(os.environ.get('RMQTT_CONTROL_EXPORTER',
+SCRIPT = Path(os.environ.get('LYRNORMQ_CONTROL_EXPORTER',
               str(Path(__file__).resolve().parents[1] / 'scripts/export_control_sqlite.py')))
 SPEC = importlib.util.spec_from_file_location('control_sqlite_export', SCRIPT)
 exporter = importlib.util.module_from_spec(SPEC)
@@ -22,7 +22,7 @@ SPEC.loader.exec_module(exporter)
 
 class OfflineExport(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix='rmqtt-bbolt-export-unit-')
+        self.temporary = tempfile.TemporaryDirectory(prefix='lyrnormq-bbolt-export-unit-')
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
         (self.directory / 'controller.lock').touch()

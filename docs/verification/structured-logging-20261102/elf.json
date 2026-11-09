@@ -1,5 +1,5 @@
 {
-  "path": "target/x86_64-unknown-linux-musl/release/rmqtt",
+  "path": "target/x86_64-unknown-linux-musl/release/lyrnormq",
   "target": "x86_64-unknown-linux-musl",
   "bytes": 23339056,
   "sha256": "d5065b7e9385aadb7e2c0513064788cd52370196539bd5b13c4c345aec6524b2",

@@ -7,9 +7,9 @@ import resource
 import subprocess
 import time
 
-ROOT = pathlib.Path(os.environ['RMQTT_MULTI_ROOT'])
-BINARY = pathlib.Path(os.environ['RMQTT_MULTI_BIN'])
-RATE = int(os.environ.get('RMQTT_MULTI_RATE', '2000'))
+ROOT = pathlib.Path(os.environ['LYRNORMQ_MULTI_ROOT'])
+BINARY = pathlib.Path(os.environ['LYRNORMQ_MULTI_BIN'])
+RATE = int(os.environ.get('LYRNORMQ_MULTI_RATE', '2000'))
 ADDRS = [f'172.16.240.180:{port}' for port in (18831, 18832, 18833)]
 
 

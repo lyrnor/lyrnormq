@@ -36,13 +36,13 @@ def free_port():
 class PersistentBroker:
     def __init__(self, directory, extra_args=()):
         self.db = Path(directory) / 'sessions.sqlite'
-        self.rules_directory = tempfile.TemporaryDirectory(prefix="rmqtt-persistent-rules-")
+        self.rules_directory = tempfile.TemporaryDirectory(prefix="lyrnormq-persistent-rules-")
         self.extra_args = list(extra_args)
         self.process = None
 
     def command(self):
-        executable = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
-        from rmqttcfg import argv
+        executable = os.environ.get('LYRNORMQ_BIN', str(ROOT / 'target/debug/lyrnormq'))
+        from lyrnormqcfg import argv
         return argv(executable, f'127.0.0.1:{self.port}', self.db.parent, self.extra_args)
 
     def start(self):
@@ -98,7 +98,7 @@ class PersistentBroker:
 @unittest.skipUnless(hasattr(signal, 'SIGKILL'), 'requires process SIGKILL')
 class PersistenceBlackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-persistence-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-persistence-')
         self.addCleanup(self.directory.cleanup)
         self.broker = PersistentBroker(self.directory.name)
         self.addCleanup(self.broker.stop)

@@ -7,22 +7,22 @@ import sys
 import time
 
 sys.dont_write_bytecode = True
-REPO = pathlib.Path('/Volumes/data/rmqtt')
+REPO = pathlib.Path('/Volumes/data/lyrnormq')
 sys.path.insert(0, str(REPO / 'scripts'))
 from cluster_scale_limits import case_passed, validate_environment
 
 SERVER, CLIENT = '47.84.224.186', '47.84.241.200'
-BASE = '/opt/rmqtt-higher-load/20261103'
-BROKER = '/opt/rmqtt-control-batch/20261103/rmqtt'
-SERVER_SCRIPT = '/opt/rmqtt-control-batch/20261103/cluster_scale_server.py'
-CONNECTIONS = '/opt/rmqtt-control-batch-load/20261103/connections'
-LOADGEN = '/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen'
-OUT = pathlib.Path('/private/tmp/rmqtt-higher-load-results')
+BASE = '/opt/lyrnormq-higher-load/20261103'
+BROKER = '/opt/lyrnormq-control-batch/20261103/lyrnormq'
+SERVER_SCRIPT = '/opt/lyrnormq-control-batch/20261103/cluster_scale_server.py'
+CONNECTIONS = '/opt/lyrnormq-control-batch-load/20261103/connections'
+LOADGEN = '/opt/lyrnormq-cluster-load/20261103/lyrnormq-loadgen'
+OUT = pathlib.Path('/private/tmp/lyrnormq-higher-load-results')
 ADDRS = [f'172.16.240.180:{port}' for port in (18831, 18832, 18833)]
 CASES = ['c2000', 'c4000', 'q0', 'q1', 'q2', 'cscale']
-SSH = ['ssh', '-i', '/private/tmp/rmqtt-sg-test-key.pem', '-o', 'BatchMode=yes',
+SSH = ['ssh', '-i', '/private/tmp/lyrnormq-sg-test-key.pem', '-o', 'BatchMode=yes',
        '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes',
-       '-o', 'UserKnownHostsFile=/private/tmp/rmqtt-sg-known-hosts',
+       '-o', 'UserKnownHostsFile=/private/tmp/lyrnormq-sg-known-hosts',
        '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15',
        '-o', 'ServerAliveCountMax=3']
 
@@ -36,8 +36,8 @@ def remote(host, command, timeout=120):
 
 
 def server(case, action):
-    return remote(SERVER, f'ulimit -n 250000; RMQTT_BENCH_ROOT={BASE}/{case} '
-                  f'RMQTT_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} {action} combined')
+    return remote(SERVER, f'ulimit -n 250000; LYRNORMQ_BENCH_ROOT={BASE}/{case} '
+                  f'LYRNORMQ_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} {action} combined')
 
 
 def passed(case, result):
@@ -100,8 +100,8 @@ def prepare():
     client_script = pathlib.Path(__file__).with_name('client.py')
     subprocess.run(['scp', *SSH[1:], str(client_script), f'root@{CLIENT}:{BASE}/client.py'],
                    check=True, timeout=60)
-    (OUT / 'environment.json').write_text(remote(SERVER, f'RMQTT_BENCH_ROOT={BASE} '
-        f'RMQTT_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} environment'))
+    (OUT / 'environment.json').write_text(remote(SERVER, f'LYRNORMQ_BENCH_ROOT={BASE} '
+        f'LYRNORMQ_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} environment'))
 
 
 def main():
@@ -122,10 +122,10 @@ def main():
             code = (f"import subprocess,os,pathlib;r=pathlib.Path('{BASE}/{case}');"
                     "f=(r/'combined'/'monitor.log').open('xb');"
                     f"subprocess.Popen(['python3','{SERVER_SCRIPT}','monitor','combined','--seconds','700'],"
-                    f"env=dict(os.environ,RMQTT_BENCH_ROOT=str(r),RMQTT_BENCH_BIN='{BROKER}'),"
+                    f"env=dict(os.environ,LYRNORMQ_BENCH_ROOT=str(r),LYRNORMQ_BENCH_BIN='{BROKER}'),"
                     "stdout=f,stderr=f,start_new_session=True,stdin=subprocess.DEVNULL)")
             remote(SERVER, 'python3 -c ' + shlex.quote(code))
-            raw = remote(CLIENT, f'RMQTT_SCALE_LOAD_ROOT={BASE} python3 {BASE}/client.py {case}', timeout=600)
+            raw = remote(CLIENT, f'LYRNORMQ_SCALE_LOAD_ROOT={BASE} python3 {BASE}/client.py {case}', timeout=600)
             (OUT / f'{case}-client.json').write_text(raw)
             result = json.loads(raw)
             report = result.get('report') or {}

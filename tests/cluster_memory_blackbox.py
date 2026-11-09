@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real process tests for volatile RF3/W2 replicas, not disk crash recovery.
 
-RMQTT_BIN=/path/rmqtt python3 tests/cluster_memory_blackbox.py -v
+LYRNORMQ_BIN=/path/lyrnormq python3 tests/cluster_memory_blackbox.py -v
 Controllers persist metadata; data replicas must keep session/message state only
 in RAM. Empty restarted replicas cannot vote until in-process repair completes.
 """
@@ -67,7 +67,7 @@ class MemoryFixture(DurableFixture):
                                            TOKIO_WORKER_THREADS='2', RUST_LOG='warn')
         self.environment.start()
         self.addCleanup(self.environment.stop)
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-memory-wire-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-memory-wire-')
         self.addCleanup(self.directory.cleanup)
         self.fleet = self.fleet_class(self.directory.name)
         self.addCleanup(self.fleet.stop)
@@ -353,7 +353,7 @@ class MemoryRecovery(MemoryFixture, unittest.TestCase):
 
 class MemoryStartup(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-memory-startup-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-memory-startup-')
         self.addCleanup(self.directory.cleanup)
         self.fleet = MemoryFleet(self.directory.name)
         self.addCleanup(self.fleet.stop)

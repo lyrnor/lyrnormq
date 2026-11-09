@@ -12,15 +12,15 @@ PING 正常。没有重试、跳过或失败。** 本轮只验证原先失败的
 - 压测：47.84.241.200，内网172.16.240.181；8逻辑CPU，独立Rust Tokio探针，
   2048最大并发握手，15秒超时，绝对时间调度，三个端点轮转分配。
 - 实现基线9c2798e；本机 `cargo zigbuild --locked --release --target
-  x86_64-unknown-linux-musl -p rmqtt`，未在服务器编译。静态ELF没有解释器或动态依赖。
+  x86_64-unknown-linux-musl -p lyrnormq`，未在服务器编译。静态ELF没有解释器或动态依赖。
   SHA256：`87ced3e81da295b4273b2757c8fc4472409d88472e5c77cca77ba472fd28854b`。
 - 探针沿用此前二进制，SHA256：
   `d0acf9899b9ea9d34fd68c8a5234b4f741b97bef816987b00b49f4ad6a28c2ae`。
 - 沿用原来的会话/状态/报文限制、握手1024、认证任务128、禁用认证速率限制和
   FD250000；没有提高RPC截止时间。具体配置见 [limits.json](limits.json) 和
   raw/server-processes.json.gz，生成脚本为 scripts/cluster_scale_server.py。
-- 新部署目录 `/opt/rmqtt-control-batch/20261103` 和
-  `/opt/rmqtt-control-batch-load/20261103`，旧部署数据保留。
+- 新部署目录 `/opt/lyrnormq-control-batch/20261103` 和
+  `/opt/lyrnormq-control-batch-load/20261103`，旧部署数据保留。
 
 ## 实测结果
 

@@ -75,7 +75,7 @@ persistent session and/or Will; a retained row holds exactly one retained record
 Partitions without persistent state delete their row. Unknown objects fail closed.
 A container1 database (`broker_snapshot`) is decoded with the existing schema1..7
 chain, split into rows and replaced in ONE transaction before serving; failure
-leaves the old database untouched. `rmqtt export-state --storage-path P` prints the
+leaves the old database untouched. `lyrnormq export-state --storage-path P` prints the
 merged schema7 envelope for inspection and tests. Commit failure stops the broker.
 
 ## A5 Ownership, verification and limits
@@ -85,6 +85,6 @@ split. Router: SubscriptionIndex, ConcurrentRetained. Storage: RowStore,
 StorageService, migration. Transport: registry, actors, fan-out, startup, removal of
 Operation worker/run_commands. Quality: tests use export-state helpers; fan-out
 tests assert per-recipient semantics; connection-scale benchmark. lib.rs stays thin.
-The transport RMQTT_PROFILE worker diagnostics retire with the worker; session
+The transport LYRNORMQ_PROFILE worker diagnostics retire with the worker; session
 profiling remains. fmt, strict clippy, all Rust/Python suites and fuzz must pass.
 Report only measured results; no MQTT compatibility claim beyond existing evidence.

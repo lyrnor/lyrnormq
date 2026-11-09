@@ -1,9 +1,9 @@
 {
   "success": true,
   "data_directories": [
-    "/opt/rmqtt-cluster-benchmark/20261103/combined/controller-data1",
-    "/opt/rmqtt-cluster-benchmark/20261103/combined/controller-data2",
-    "/opt/rmqtt-cluster-benchmark/20261103/combined/controller-data3"
+    "/opt/lyrnormq-cluster-benchmark/20261103/combined/controller-data1",
+    "/opt/lyrnormq-cluster-benchmark/20261103/combined/controller-data2",
+    "/opt/lyrnormq-cluster-benchmark/20261103/combined/controller-data3"
   ],
   "assumed_leader_ordinal": 1,
   "leadership_validation": "external stable-leader assumption; probe does not establish Raft leader authority or detect every election",

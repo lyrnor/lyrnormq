@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::atomic::AtomicU64};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn path() -> PathBuf {
     std::env::temp_dir().join(format!(
-        "rmqtt-raft-wal-{}-{}-{}",
+        "lyrnormq-raft-wal-{}-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

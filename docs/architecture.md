@@ -164,7 +164,7 @@ graph LR
   Model --> Worker[mqtt-transport serialized worker]
   Storage[mqtt-storage opaque SQLite WAL snapshot] --> Worker
   Worker --> Network[Bounded reader and complete-frame writer]
-  Network --> CLI[rmqtt executable]
+  Network --> CLI[lyrnormq executable]
   CLI --> QA[Independent TCP Paho and crash tests]
 ```
 
@@ -782,7 +782,7 @@ with Lucide icons. Native dialog supplies detail-modal semantics without relaxin
 CSP for runtime library style injection. Theme/base CSS is intentionally small;
 layout and responsive behavior use utilities rather than a parallel custom UI kit.
 
-Dashboard production assets are now compiled into rmqtt using include_dir without
+Dashboard production assets are now compiled into lyrnormq using include_dir without
 filesystem metadata. Build.rs validates finite inputs and tracks dist changes; the
 build host runs npm explicitly, not from Cargo. Default startup uses only embedded
 assets and never searches cwd. Explicit --dashboard-dir replaces the entire bundle
@@ -805,7 +805,7 @@ success/retry classification, HTTP envelope/client/headers, TLS and redaction be
 to the mqtt-webhook adapter. New native sink types add typed config/factory/forms
 without modifying SQL evaluation or scheduling. Unsupported types fail validation.
 
-Configuration is enabled by default and persists in rmqtt-rules.sqlite. The bounded
+Configuration is enabled by default and persists in lyrnormq-rules.sqlite. The bounded
 SQLite singleton container is separate from the strict session database. New
 schema_version2 records contain outbounds and rules. Recognized old SQLite blobs
 are validated and converted transactionally: action IDs become outbound IDs,

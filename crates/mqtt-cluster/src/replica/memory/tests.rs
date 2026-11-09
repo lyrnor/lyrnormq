@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 fn path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "rmqtt-memory-{label}-{}-{}",
+        "lyrnormq-memory-{label}-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)

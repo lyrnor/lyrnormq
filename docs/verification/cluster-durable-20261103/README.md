@@ -11,20 +11,20 @@ tests are not physical power-loss certification or cross-machine benchmarking.
 
 Final code through `7fa2784`; executable SHA256
 `5057c0c976b5c14ecbc2177bd1c48e8c17efc5344e38299cd05ae1eaa79f6d60`.
-The immutable local test executable is `/private/tmp/rmqtt-durable-final`.
+The immutable local test executable is `/private/tmp/lyrnormq-durable-final`.
 Subsequent changes are documentation/evidence only. Test sources include the
 quality worktree's `4501db5` (integrated as `85862fd`).
 
 ## Reproduce
 
 ```sh
-CARGO_TARGET_DIR=target/cluster cargo build -p rmqtt --locked --offline
+CARGO_TARGET_DIR=target/cluster cargo build -p lyrnormq --locked --offline
 CARGO_TARGET_DIR=target/cluster cargo test --workspace --locked --offline
 CARGO_TARGET_DIR=target/cluster cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 cargo fmt --all --check
-RMQTT_BIN="$PWD/target/cluster/debug/rmqtt" python3 tests/cluster_durable_blackbox.py -v
-RMQTT_BIN="$PWD/target/cluster/debug/rmqtt" python3 tests/cluster_blackbox.py -v
-PYTHONPATH=tests RMQTT_BIN="$PWD/target/cluster/debug/rmqtt" python3 -m unittest http_publish_blackbox system_client_events_blackbox http_access_blackbox -v
+LYRNORMQ_BIN="$PWD/target/cluster/debug/lyrnormq" python3 tests/cluster_durable_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/cluster/debug/lyrnormq" python3 tests/cluster_blackbox.py -v
+PYTHONPATH=tests LYRNORMQ_BIN="$PWD/target/cluster/debug/lyrnormq" python3 -m unittest http_publish_blackbox system_client_events_blackbox http_access_blackbox -v
 ```
 
 Offline builds require cached locked dependencies. Runtime must permit loopback

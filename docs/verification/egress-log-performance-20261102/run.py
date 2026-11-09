@@ -84,7 +84,7 @@ def main():
         free = shutil.disk_usage(bases[fs]).free
         if free < 2 * 1024**3:
             raise RuntimeError(f'insufficient free space for temporary test: {fs}')
-        with tempfile.TemporaryDirectory(prefix='rmqtt-journal-perf-', dir=bases[fs]) as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-journal-perf-', dir=bases[fs]) as directory:
             command = ['/usr/bin/time', '-l', '-o', str(resource_path), str(binary),
                        '--queue-dir', directory, '--phase', phase,
                        '--records', str(records), '--batch', str(batch),

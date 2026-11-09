@@ -1,4 +1,4 @@
-# rmqtt
+# lyrnormq
 
 Rust 2024 / Tokio TCP MQTT3.1.1 broker with an MQTT5.0 server implementation within the recorded TCP scope, supporting QoS0/1/2,
 Retained Messages, Last Will and local authentication/ACL, with optional SQLite-backed persistent sessions.
@@ -12,9 +12,9 @@ availability below is not a substitute for that assessment.
 # First build the UI embedded in the broker (Node is needed only on the build host).
 (cd dashboard/web && npm ci && npm run build)
 cargo build --workspace
-cargo run -p rmqtt -- --listen 127.0.0.1:1883
+cargo run -p lyrnormq -- --listen 127.0.0.1:1883
 # Enable durable sessions, retained records and active/pending Wills:
-cargo run -p rmqtt -- --storage-path ./sessions.sqlite --max-retained 10000
+cargo run -p lyrnormq -- --storage-path ./sessions.sqlite --max-retained 10000
 ```
 
 Both modes use the existing bounded SessionEngine/outbox transaction pipeline.
@@ -29,7 +29,7 @@ Default bind is loopback.
 ## TLS listener
 
 ```sh
-cargo run -p rmqtt -- --listen 0.0.0.0:8883 \
+cargo run -p lyrnormq -- --listen 0.0.0.0:8883 \
   --tls-cert ./server-chain.pem --tls-key ./server-key.pem \
   --storage-path ./sessions.sqlite
 ```
@@ -52,7 +52,7 @@ start two processes against the same SQLite database. See the
 ### Mandatory client certificates (mTLS)
 
 ```sh
-cargo run -p rmqtt -- --listen 0.0.0.0:8883 \
+cargo run -p lyrnormq -- --listen 0.0.0.0:8883 \
   --tls-cert ./server-chain.pem --tls-key ./server-key.pem \
   --tls-client-ca ./clients-ca.pem
 ```
@@ -95,9 +95,9 @@ its slot stays occupied until it returns. Custom hooks must eventually return.
 
 ```sh
 # ws://localhost:8083/mqtt
-cargo run -p rmqtt -- --listen 127.0.0.1:8083 --websocket
+cargo run -p lyrnormq -- --listen 127.0.0.1:8083 --websocket
 # wss://broker.example:8084/mqtt (use your own matching certificate and key)
-cargo run -p rmqtt -- --listen 0.0.0.0:8084 --websocket \
+cargo run -p lyrnormq -- --listen 0.0.0.0:8084 --websocket \
   --tls-cert ./server-chain.pem --tls-key ./server-key.pem
 ```
 
@@ -193,7 +193,7 @@ CONNACK1. Wrong protocol names close as malformed. Profile rejection precedes
 credentials, ID assignment, session changes, Will registration and takeover.
 
 ```sh
-cargo run -p rmqtt -- --protocol 5 --listen 127.0.0.1:1883
+cargo run -p lyrnormq -- --protocol 5 --listen 127.0.0.1:1883
 ```
 
 Profiles are runtime listener configuration, not durable session state. A session
@@ -272,7 +272,7 @@ a group-owned redelivery spool remain future work.
 Enable real SASL PLAIN using the existing Argon2 credential policy:
 
 ```sh
-cargo run -p rmqtt -- --auth-policy ./policy.json --enhanced-auth-plain
+cargo run -p lyrnormq -- --auth-policy ./policy.json --enhanced-auth-plain
 ```
 
 The MQTT5 client negotiates Authentication Method `PLAIN`, with binary data
@@ -386,7 +386,7 @@ Paste its output into `password_hash` below; do not store plaintext in the polic
 ```
 
 ```sh
-cargo run -p rmqtt -- --auth-policy policy.json --storage-path sessions.sqlite
+cargo run -p lyrnormq -- --auth-policy policy.json --storage-path sessions.sqlite
 ```
 
 `allow_anonymous:true` additionally needs an `anonymous` object with the same
@@ -539,36 +539,36 @@ power-loss behavior or application-side exactly-once processing.
 ## Verification
 
 ```sh
-python3 -m venv /tmp/rmqtt-client-venv
-/tmp/rmqtt-client-venv/bin/pip install paho-mqtt==2.1.0
+python3 -m venv /tmp/lyrnormq-client-venv
+/tmp/lyrnormq-client-venv/bin/pip install paho-mqtt==2.1.0
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-# A fresh checkout must build dashboard/web/dist before compiling rmqtt tests.
+# A fresh checkout must build dashboard/web/dist before compiling lyrnormq tests.
 (cd dashboard/web && npm ci && npm run build)
 cargo test --workspace
 RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps
 python3 tests/blackbox.py
 python3 tests/qos_blackbox.py
 python3 tests/auth_acl_blackbox.py
-/tmp/rmqtt-client-venv/bin/python tests/auth_acl_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/auth_acl_paho.py
 python3 tests/mqtt5_blackbox.py
-/tmp/rmqtt-client-venv/bin/python tests/mqtt5_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/mqtt5_paho.py
 python3 tests/expiry_will_blackbox.py
 python3 tests/negotiation_blackbox.py
 python3 tests/subscription_blackbox.py
 python3 tests/alias_blackbox.py
-/tmp/rmqtt-client-venv/bin/python tests/alias_paho.py
-/tmp/rmqtt-client-venv/bin/python tests/subscription_paho.py
-/tmp/rmqtt-client-venv/bin/python tests/negotiation_paho.py
-/tmp/rmqtt-client-venv/bin/python tests/expiry_will_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/alias_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/subscription_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/negotiation_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/expiry_will_paho.py
 python3 tests/persistence_blackbox.py
 python3 tests/retained_will_blackbox.py
-/tmp/rmqtt-client-venv/bin/python tests/paho_interop.py
-/tmp/rmqtt-client-venv/bin/python tests/persistence_paho.py
-/tmp/rmqtt-client-venv/bin/python tests/retained_will_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/paho_interop.py
+/tmp/lyrnormq-client-venv/bin/python tests/persistence_paho.py
+/tmp/lyrnormq-client-venv/bin/python tests/retained_will_paho.py
 ```
 
-Set `RMQTT_TEST_STORAGE_PATH` to a fresh temporary SQLite path to run the reused
+Set `LYRNORMQ_TEST_STORAGE_PATH` to a fresh temporary SQLite path to run the reused
 basic/QoS/Retained/Will/Paho suites in SQLite mode. Tests needing process persistence
 are explicitly skipped in volatile mode; CI runs both. Each lib.rs contains only
 documentation, module declarations and re-exports.
@@ -616,7 +616,7 @@ brokers, topic and optional TLS/SASL in the Dashboard. See
 ### Logging
 
 Structured stderr logs use tracing, with `RUST_LOG` target/level filtering and
-`RMQTT_LOG_FORMAT=json` for JSON events. Output runs on a bounded background writer.
+`LYRNORMQ_LOG_FORMAT=json` for JSON events. Output runs on a bounded background writer.
 See [configuration and limits](docs/logging.md).
 
 

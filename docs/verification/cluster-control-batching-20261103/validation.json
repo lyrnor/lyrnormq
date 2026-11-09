@@ -25,7 +25,7 @@
     }
   },
   "local_900": {
-    "binary": "/private/tmp/rmqtt-7o-native",
+    "binary": "/private/tmp/lyrnormq-7o-native",
     "binary_sha256": "725f9eafcf4fb4291352d65f203787616d560ffeae56aa9e909c8421dcb59491",
     "environment": {
       "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",

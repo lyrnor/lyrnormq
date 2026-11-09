@@ -1,0 +1,130 @@
+# 一个进程一份。3、5 或 7 台机器使用同一份成员表，只改 node.id、node.role 和 node.data_dir。
+# 环境变量覆盖同名字段。
+
+[node]
+# 本机的稳定成员编号，必须是 cluster.members 里的某个 id。
+# LYRNORMQ_NODE_ID
+id = 1
+# controller、broker，或 controller,broker。顺序没有意义，不能重复。
+# 只写 controller 时不要配置 [mqtt]。只写 broker 时本进程是 Broker 100 + id。
+# LYRNORMQ_NODE_ROLE
+role = "controller,broker"
+# Controller 与 Broker 的数据分别放在 data_dir/controller、data_dir/broker。
+# 规则库、访问控制库和出站队列是 data_dir/rules.sqlite、data_dir/access.sqlite、data_dir/egress。
+# 单机时会话库是 data_dir/sessions.sqlite。有 [cluster] 时不使用会话库。
+# LYRNORMQ_NODE_DATA_DIR
+data_dir = "/opt/lyrnormq/n1"
+
+# 客户端监听地址。
+[mqtt]
+# LYRNORMQ_MQTT_LISTEN
+listen = "0.0.0.0:18831"
+# both | 3.1.1 | 5
+# LYRNORMQ_MQTT_PROTOCOL
+protocol = "both"
+
+# 去掉本段后使用明文。公网地址没有 TLS 时拒绝启动。
+[mqtt.tls]
+# LYRNORMQ_MQTT_TLS_CERT
+cert = "/opt/lyrnormq/cert.pem"
+# LYRNORMQ_MQTT_TLS_KEY
+key = "/opt/lyrnormq/key.pem"
+# 去掉本键后不要求客户端证书。
+# LYRNORMQ_MQTT_TLS_CLIENT_CA
+client_ca = "/opt/lyrnormq/clients.pem"
+
+# 去掉本段后只提供 TCP。
+[mqtt.websocket]
+# LYRNORMQ_MQTT_WEBSOCKET_PATH
+path = "/mqtt"
+
+# 去掉本段后是单机，并且不能写 node.role。
+# id 是成员身份，确定后不能改。host 只是当前地址，可以改。
+# 数组顺序没有意义。
+# node.role 决定本进程启动哪些角色。
+# controller 使用 id，broker 使用 100 + id。
+# Controller 监听 host:controller_port，Broker 监听 host:broker_port。
+# Broker 对外地址是 http://host:broker_port。
+# 全部成员构成 Controller 组和数据副本组。成员数必须是 3、5 或 7，与 etcd 的实际上限一致。
+# backend = "memory" 时副本只在内存中，进程退出后丢失。
+# backend = "rocksdb" 时副本在确认前同步写入 data_dir/broker/rocks，重启后保留。
+# 同一集群必须使用同一个 backend。改成 rocksdb 前先升级全部 Controller。
+# 编号最小的成员在 Raft 尚未初始化时创建集群。租约 3000 毫秒。
+[cluster]
+# LYRNORMQ_CLUSTER_ID
+id = "lyrnormq"
+# LYRNORMQ_CLUSTER_TOKEN_FILE
+token_file = "/opt/lyrnormq/peer.token"
+# LYRNORMQ_CLUSTER_CONTROLLER_PORT
+controller_port = 17001
+# LYRNORMQ_CLUSTER_BROKER_PORT
+broker_port = 17101
+# LYRNORMQ_CLUSTER_MEMBERS=1:172.16.240.180,2:172.16.240.182,3:172.16.240.183
+# LYRNORMQ_CLUSTER_BACKEND=memory
+# backend = "rocksdb"
+members = [
+    { id = 1, host = "172.16.240.180" },
+    { id = 2, host = "172.16.240.182" },
+    { id = 3, host = "172.16.240.183" },
+]
+
+# 去掉本段后不监听管理端口。
+[dashboard]
+# LYRNORMQ_DASHBOARD_LISTEN
+listen = "127.0.0.1:18083"
+# LYRNORMQ_DASHBOARD_TOKEN_FILE
+token_file = "/opt/lyrnormq/dashboard.token"
+# LYRNORMQ_DASHBOARD_DIR
+dir = "/opt/lyrnormq/dashboard"
+
+# 去掉本段后允许匿名连接。
+[auth]
+# LYRNORMQ_AUTH_POLICY
+policy = "/opt/lyrnormq/policy.json"
+# 为真时启用内置 PLAIN 认证。
+# LYRNORMQ_AUTH_PLAIN
+plain = false
+
+# 去掉本段后使用这里列出的数值。
+[limits]
+# LYRNORMQ_LIMITS_CONNECTIONS
+connections = 1024
+# LYRNORMQ_LIMITS_SESSIONS
+sessions = 1024
+# LYRNORMQ_LIMITS_INFLIGHT
+inflight = 32
+# LYRNORMQ_LIMITS_PACKET_BYTES
+packet_bytes = 1048576
+# LYRNORMQ_LIMITS_SUBSCRIPTIONS
+subscriptions = 256
+# LYRNORMQ_LIMITS_RETAINED
+retained = 10000
+# LYRNORMQ_LIMITS_STATE_BYTES
+state_bytes = 67108864
+# LYRNORMQ_LIMITS_OUTBOUND
+outbound = 64
+# LYRNORMQ_LIMITS_HANDSHAKE_MS
+handshake_ms = 10000
+# LYRNORMQ_LIMITS_WRITE_MS
+write_ms = 5000
+# LYRNORMQ_LIMITS_HANDSHAKES
+handshakes = 128
+# LYRNORMQ_LIMITS_AUTH_TASKS
+auth_tasks = 4
+# LYRNORMQ_LIMITS_AUTH_RATE_PER_SECOND
+auth_rate = 1000
+# LYRNORMQ_LIMITS_AUTH_BURST
+auth_burst = 1000
+# LYRNORMQ_LIMITS_ALIAS_MAXIMUM
+alias_maximum = 32
+
+# 去掉本段后出站队列在 data_dir/egress，分段 1MiB，物理上限 256MiB，待发送 100000 条。
+[egress]
+# LYRNORMQ_EGRESS_DIR
+dir = "/opt/lyrnormq/n1/egress"
+# LYRNORMQ_EGRESS_SEGMENT_BYTES
+segment_bytes = 1048576
+# LYRNORMQ_EGRESS_MAX_BYTES
+max_bytes = 268435456
+# LYRNORMQ_EGRESS_MAX_RECORDS
+max_records = 100000

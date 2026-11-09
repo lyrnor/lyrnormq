@@ -10,7 +10,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "4096",
         "--rules",
@@ -30,7 +30,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -50,7 +50,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -70,7 +70,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "4096",
         "--rules",
@@ -90,7 +90,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "4096",
         "--rules",
@@ -110,7 +110,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -130,7 +130,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "2048",
         "--rules",
@@ -150,7 +150,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -170,7 +170,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -190,7 +190,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "2048",
         "--rules",
@@ -210,7 +210,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "2048",
         "--rules",
@@ -230,7 +230,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -250,7 +250,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "4096",
         "--rules",
@@ -270,7 +270,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -290,7 +290,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",
@@ -310,7 +310,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "4096",
         "--rules",
@@ -330,7 +330,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/private/tmp/rmqtt-topology-before-io",
+        "/private/tmp/lyrnormq-topology-before-io",
         "--inputs",
         "4096",
         "--rules",
@@ -350,7 +350,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "4096",
         "--rules",

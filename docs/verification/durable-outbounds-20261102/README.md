@@ -43,11 +43,11 @@ incomplete active tail can be truncated. Header lengths are protected by checksu
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
-cargo build --release --offline -p rmqtt
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_durable_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_client_order_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_concurrency_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/rules_webhook_blackbox.py -v
+cargo build --release --offline -p lyrnormq
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_durable_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_client_order_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_concurrency_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/rules_webhook_blackbox.py -v
 ```
 
 SIGKILL is a process-crash test, not physical power-loss simulation. Temporary

@@ -17,7 +17,7 @@ const CREATE_SESSIONS: &str =
     "CREATE TABLE sessions (client_id TEXT PRIMARY KEY NOT NULL, data BLOB NOT NULL)";
 const CREATE_RETAINED: &str =
     "CREATE TABLE retained (topic TEXT PRIMARY KEY NOT NULL, data BLOB NOT NULL)";
-const FORMAT: &[u8] = b"rmqtt-rows-2";
+const FORMAT: &[u8] = b"lyrnormq-rows-2";
 
 /// Load and write bounds; every limit must be positive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

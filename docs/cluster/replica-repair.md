@@ -9,14 +9,14 @@
 3. 用正常 Broker 命令启动目标，沿用 MQTT/TLS/认证参数：
 
 ```sh
-./rmqtt --cluster-config broker103-replacement.json --listen 127.0.0.1:1886
+./lyrnormq --cluster-config broker103-replacement.json --listen 127.0.0.1:1886
 ```
 
 目标先提供私有修复 RPC，MQTT 接入等待最多 600 秒。另一个终端执行：
 
 ```sh
-./rmqtt cluster-repair --cluster-config controller1.json --target-node 103
-./rmqtt cluster-status --cluster-config controller1.json
+./lyrnormq cluster-repair --cluster-config controller1.json --target-node 103
+./lyrnormq cluster-status --cluster-config controller1.json
 ```
 
 驱动冻结两个 donor，合并最高完整版本和 fencing 水位，分页导入并核对摘要；安装后
@@ -28,8 +28,8 @@
 原 donor 存活，安全中止旧任务，再让新目标进程重新修复：
 
 ```sh
-./rmqtt cluster-repair-abort --cluster-config controller1.json
-./rmqtt cluster-repair --cluster-config controller1.json --target-node 103
+./lyrnormq cluster-repair-abort --cluster-config controller1.json
+./lyrnormq cluster-repair --cluster-config controller1.json --target-node 103
 ```
 
 中止不会让空副本获得投票资格。修复驱动单独中断、目标仍存活时，可用原任务重试。

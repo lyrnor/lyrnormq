@@ -1,4 +1,4 @@
-   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-log)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
     Finished `release` profile [optimized] target(s) in 10.32s

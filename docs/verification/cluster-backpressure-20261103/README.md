@@ -69,6 +69,6 @@ Journal-only：75bb18a7bf2aa42a9ef60f1657285e47a8e0ed8adf5c96ce7894b341310d4092�
 最终版：64f575295c76b011997c491f8ed2ee2ee10acd6f97e535aa7651d3e996008806。
 本地编译和远端解压后均校验哈希。lib.rs仍只有模块和导出。
 
-当前六进程测试部署位于/opt/rmqtt-cluster-diagnosis/20261103/fixed2/separate，
+当前六进程测试部署位于/opt/lyrnormq-cluster-diagnosis/20261103/fixed2/separate，
 内网MQTT端口18831/18832/18833；原部署已停止，数据目录保留；无开机自启。
 本轮没有再次测三进程双角色拓扑，也不宣称最大容量或多机HA/物理断电验收。

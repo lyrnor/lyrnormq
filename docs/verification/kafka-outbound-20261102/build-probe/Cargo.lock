@@ -285,7 +285,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rmqtt-kafka-zig-spike"
+name = "lyrnormq-kafka-zig-spike"
 version = "0.1.0"
 dependencies = [
  "rdkafka",

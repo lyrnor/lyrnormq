@@ -2,9 +2,9 @@
   "reviewer": "quality",
   "source_commit": "e00d3c5",
   "verification": [
-    "RMQTT_BIN=/tmp/rmqtt-p2k-candidate python tests/conformance_blackbox.py: memory17 passed,1 skip; SQLite18 passed",
+    "LYRNORMQ_BIN=/tmp/lyrnormq-p2k-candidate python tests/conformance_blackbox.py: memory17 passed,1 skip; SQLite18 passed",
     "Same immutable candidate full both-mode regression: 530 actual wire executions and all Paho suites passed",
-    "python tests/check_conformance_matrix.py --root /Volumes/data/rmqtt: passed (before final review merge)"
+    "python tests/check_conformance_matrix.py --root /Volumes/data/lyrnormq: passed (before final review merge)"
   ],
   "clauses": [
     {

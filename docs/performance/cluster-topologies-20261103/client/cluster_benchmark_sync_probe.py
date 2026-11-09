@@ -198,7 +198,7 @@ def main():
     parser.add_argument('--interval', type=float, default=.01)
     parser.add_argument('--timeout', type=float, default=5)
     parser.add_argument('--status-config')
-    parser.add_argument('--binary', default='./rmqtt')
+    parser.add_argument('--binary', default='./lyrnormq')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     try:

@@ -2,8 +2,8 @@
 import argparse,os,json,pathlib,subprocess,time,signal,http.client,secrets,sys,platform,hashlib,socket
 from cluster_scale_limits import mqtt_options, validate_commands
 
-ROOT=pathlib.Path(os.environ.get('RMQTT_BENCH_ROOT','/opt/rmqtt-cluster-benchmark/20261103'))
-BIN=pathlib.Path(os.environ.get('RMQTT_BENCH_BIN',str(ROOT/'rmqtt')))
+ROOT=pathlib.Path(os.environ.get('LYRNORMQ_BENCH_ROOT','/opt/lyrnormq-cluster-benchmark/20261103'))
+BIN=pathlib.Path(os.environ.get('LYRNORMQ_BENCH_BIN',str(ROOT/'lyrnormq')))
 
 _last_status = (0, [])
 def readstate(root):
@@ -42,7 +42,7 @@ def start(topology):
     controllers=[{'id':i,'address':f'http://127.0.0.1:{17000+i}'} for i in range(1,4)]
     replicas=[{'id':100+i,'address':f'http://127.0.0.1:{17100+i}'} for i in range(1,4)]
     for i in range(1,4):
-        common={'cluster_id':f'rmqtt-control-{ROOT.name}-{topology}-20261103','token_file':str(token),'controllers':controllers,'lease_ms':3000}
+        common={'cluster_id':f'lyrnormq-control-{ROOT.name}-{topology}-20261103','token_file':str(token),'controllers':controllers,'lease_ms':3000}
         ctrl=dict(common,role='controller',node_id=i,listen=f'127.0.0.1:{17000+i}',data_dir=str(root/f'controller-data{i}'),bootstrap=i==1)
         broker=dict(common,role='broker',node_id=100+i,listen=f'127.0.0.1:{17100+i}',advertise=f'http://127.0.0.1:{17100+i}',data_dir=str(root/f'broker-data{100+i}'),durable={'replicas':replicas})
         (root/f'controller{i}.json').write_text(json.dumps(ctrl,indent=2))

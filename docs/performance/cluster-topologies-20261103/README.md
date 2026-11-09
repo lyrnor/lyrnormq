@@ -84,7 +84,7 @@ Neither column isolates pure metadata transfer or Raft latency.
 ## Deployment and validation
 
 The split-role test deployment remains running under
-`/opt/rmqtt-cluster-benchmark/20261103/separate/`; private MQTT endpoints are
+`/opt/lyrnormq-cluster-benchmark/20261103/separate/`; private MQTT endpoints are
 `172.16.240.180:18831`, `:18832`, `:18833`. It is not a systemd/autostart deployment.
 Load processes have exited. Peer/admin token files remain private on the server;
 they are excluded from this report, as are runtime SQLite/queue files.
@@ -170,8 +170,8 @@ process lifetimes, including report generation. No physical memory/TPS extrapola
 ## Reproduction and limits
 
 Use server.py to create separate fresh directories/configs and start/stop either
-topology. RMQTT_BENCH_ROOT and RMQTT_BENCH_BIN support a new server artifact root;
-RMQTT_BENCH_ROOT selects a new client output root. Refuse to overwrite prior output.
+topology. LYRNORMQ_BENCH_ROOT and LYRNORMQ_BENCH_BIN support a new server artifact root;
+LYRNORMQ_BENCH_ROOT selects a new client output root. Refuse to overwrite prior output.
 Start all members before load. client.py main/baseline/smoke runs workloads and
 retains exit codes/reports/raw data. Stop and preserve the high-load phase, then
 start fresh topology state for the baseline, identically for both topologies.

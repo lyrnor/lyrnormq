@@ -1,5 +1,5 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/http-no-cert-backend/debug/deps/mqtt_auth_http-b8cd126d01941c70)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/http-no-cert-backend/debug/deps/mqtt_auth_http-b8cd126d01941c70)
 
 running 26 tests
 test tests::configuration_is_flat_strict_and_redacts_every_service_secret ... ok

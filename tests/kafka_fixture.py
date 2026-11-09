@@ -13,7 +13,7 @@ import tarfile
 import tempfile
 import time
 
-TOOLS=Path(os.environ.get('RMQTT_KAFKA_TOOLS_DIR', '/private/tmp/rmqtt-kafka-fixture-tools' if platform.system()=='Darwin' else '/tmp/rmqtt-kafka-fixture-tools'))
+TOOLS=Path(os.environ.get('LYRNORMQ_KAFKA_TOOLS_DIR', '/private/tmp/lyrnormq-kafka-fixture-tools' if platform.system()=='Darwin' else '/tmp/lyrnormq-kafka-fixture-tools'))
 RESOURCE_LIMITS=dict(heap_min_mib=128,heap_max_mib=512,cleaner_dedupe_bytes=16*1024*1024,offsets_partitions=1)
 
 
@@ -73,7 +73,7 @@ def wait_port(number,process,log,timeout=30):
 
 class KafkaFixture:
     def __init__(self):
-        self.directory=tempfile.TemporaryDirectory(prefix='rmqtt-real-kafka-')
+        self.directory=tempfile.TemporaryDirectory(prefix='lyrnormq-real-kafka-')
         self.root=Path(self.directory.name)
         self.java,self.home=tool_paths()
         self.env=dict(os.environ,JAVA_HOME=str(self.java),KAFKA_HEAP_OPTS=f'-Xms{RESOURCE_LIMITS["heap_min_mib"]}m -Xmx{RESOURCE_LIMITS["heap_max_mib"]}m')
@@ -109,12 +109,12 @@ class KafkaFixture:
                  '--add-scram','SCRAM-SHA-512=[name=fixture,password=fixture-password]')
     def _certificates(self):
         def openssl(*args):subprocess.run(['openssl',*args],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=15)
-        openssl('req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(self.root/'ca.key'),'-out',str(self.ca),'-days','2','-subj','/CN=rmqtt-kafka-fixture-ca')
+        openssl('req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(self.root/'ca.key'),'-out',str(self.ca),'-days','2','-subj','/CN=lyrnormq-kafka-fixture-ca')
         openssl('req','-newkey','rsa:2048','-nodes','-keyout',str(self.root/'server.key'),'-out',str(self.root/'server.csr'),'-subj','/CN=localhost')
         (self.root/'extensions').write_text('subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n')
         openssl('x509','-req','-in',str(self.root/'server.csr'),'-CA',str(self.ca),'-CAkey',str(self.root/'ca.key'),'-CAcreateserial','-out',str(self.root/'server.pem'),'-days','2','-extfile',str(self.root/'extensions'))
         openssl('pkcs12','-export','-in',str(self.root/'server.pem'),'-inkey',str(self.root/'server.key'),'-certfile',str(self.ca),'-out',str(self.root/'server.p12'),'-passout','pass:fixture-keystore')
-        openssl('req','-newkey','rsa:2048','-nodes','-keyout',str(self.root/'client.key'),'-out',str(self.root/'client.csr'),'-subj','/CN=rmqtt-kafka-client')
+        openssl('req','-newkey','rsa:2048','-nodes','-keyout',str(self.root/'client.key'),'-out',str(self.root/'client.csr'),'-subj','/CN=lyrnormq-kafka-client')
         (self.root/'client-extensions').write_text('extendedKeyUsage=clientAuth\n')
         openssl('x509','-req','-in',str(self.root/'client.csr'),'-CA',str(self.ca),'-CAkey',str(self.root/'ca.key'),'-CAcreateserial','-out',str(self.root/'client.pem'),'-days','2','-extfile',str(self.root/'client-extensions'))
         openssl('pkcs8','-topk8','-in',str(self.root/'client.key'),'-out',str(self.root/'client-encrypted.key'),'-passout','pass:fixture-private-key-password')

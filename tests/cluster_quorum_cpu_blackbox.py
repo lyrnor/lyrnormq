@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """RF3/W2 process acceptance with a gated third-replica HTTP/2 transport.
 
-RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_quorum_cpu_blackbox.py -v
+LYRNORMQ_BIN=/absolute/lyrnormq python3 tests/cluster_quorum_cpu_blackbox.py -v
 The proxy reads only HTTP/2 frame metadata; no HPACK, credentials or bodies are
 recorded. Existing W2/QoS cases also run on the pre-optimization binary. The tail
 reset regression intentionally fails there; it is not a throughput measurement.

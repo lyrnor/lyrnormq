@@ -8,7 +8,7 @@ the coordinator integrated and reviewed their commits.
 The release was built **locally on macOS**, with Rust stable 1.98.1 and Zig 0.16.0:
 
 ```sh
-CARGO_TARGET_DIR=target/cluster cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p rmqtt
+CARGO_TARGET_DIR=target/cluster cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p lyrnormq
 ```
 
 The uploaded static x86_64 ELF SHA256 is
@@ -30,17 +30,17 @@ directories and loopback ports on this **one host**.
 | Prior cluster behavior | 20 | 70.511 s | [legacy.log](legacy.log) |
 | HTTP publish, lifecycle events, HTTP access | 77 | 36.858 s | [standalone.log](standalone.log) |
 
-All four unittest suites returned OK. No rmqtt process remained after the tests.
-Artifacts remain under `/opt/rmqtt-cluster-acceptance/phase7c-3666fe7/`; existing
+All four unittest suites returned OK. No lyrnormq process remained after the tests.
+Artifacts remain under `/opt/lyrnormq-cluster-acceptance/phase7c-3666fe7/`; existing
 services were not replaced and no persistent production Broker was started.
 
 Reproduce from that directory, or use the same binary and repository scripts:
 
 ```sh
-RMQTT_BIN="$PWD/rmqtt" python3 tests/cluster_repair_blackbox.py -v
-RMQTT_BIN="$PWD/rmqtt" python3 tests/cluster_durable_blackbox.py -v
-RMQTT_BIN="$PWD/rmqtt" python3 tests/cluster_blackbox.py -v
-PYTHONPATH=tests RMQTT_BIN="$PWD/rmqtt" python3 -m unittest http_publish_blackbox system_client_events_blackbox http_access_blackbox -v
+LYRNORMQ_BIN="$PWD/lyrnormq" python3 tests/cluster_repair_blackbox.py -v
+LYRNORMQ_BIN="$PWD/lyrnormq" python3 tests/cluster_durable_blackbox.py -v
+LYRNORMQ_BIN="$PWD/lyrnormq" python3 tests/cluster_blackbox.py -v
+PYTHONPATH=tests LYRNORMQ_BIN="$PWD/lyrnormq" python3 -m unittest http_publish_blackbox system_client_events_blackbox http_access_blackbox -v
 ```
 
 ## Local verification and discovered defects

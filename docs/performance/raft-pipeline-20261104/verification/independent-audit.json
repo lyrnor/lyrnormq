@@ -71,7 +71,7 @@
     "period_ns_each": 20408163,
     "decoded_frames": 396,
     "decoded_kernel_frames": 390,
-    "decoded_rmqtt_user_frames": 0,
+    "decoded_lyrnormq_user_frames": 0,
     "leaf_classification_first_match": {
       "kernel_dso": 390,
       "h2_hyper_tonic_http_http_body_symbol": 447,

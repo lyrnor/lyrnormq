@@ -1,7 +1,7 @@
 # Rust load generator verification — 2026-10-30
 
 Code revision `f44b65736eca53254c2a07a115e6e1ab6e3bc2d0`, branch `codex/rust-loadgen`.
-[Usage](../../../bin/rmqtt-loadgen/README.md), [contract](../../contracts/rust-loadgen.md),
+[Usage](../../../bin/lyrnormq-loadgen/README.md), [contract](../../contracts/rust-loadgen.md),
 [manifest](manifest.json). Existing broker modules and schema were not modified.
 
 43 tool tests passed:26unit,13independent raw-wire,4CLI. Fullworkspace511passed,
@@ -33,7 +33,7 @@ and the old global known_hosts was not modified.
 ## Actual new-server acceptance
 
 New generator:47.117.6.20/private172.30.139.132,8logicalCPUs,16GB-class RAM,
-Ubuntu26.04.1x86-64. Binary`/opt/rmqtt-loadgen/rmqtt-loadgen`,locally cross-built,
+Ubuntu26.04.1x86-64. Binary`/opt/lyrnormq-loadgen/lyrnormq-loadgen`,locally cross-built,
 SHA256 in manifest. Old generator was4cores/private172.30.139.131;do not compare
 these results to earlier emqtt runs as a pure broker speedup.
 
@@ -61,4 +61,4 @@ peak also includes the Python verifier and is not labeled as broker/tool memory.
 [Remote reports and verifier](remote-verification.json),[full raw archive](remote-acceptance-raw.tar.gz),
 [verifier source](remote-verifier.py). Archive SHA256 matches both endpoints and is
 recorded in manifest. No private keys are included. Reports remain on the server
-under`/var/log/rmqtt-loadgen/acceptance-20261030`.
+under`/var/log/lyrnormq-loadgen/acceptance-20261030`.

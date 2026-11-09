@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent real Apache Kafka acceptance. No production cluster or sample UI data.
 
-Build tests/kafka-client, set RMQTT_BIN and KAFKA_CLIENT_BIN. Temporary tools can be
+Build tests/kafka-client, set LYRNORMQ_BIN and KAFKA_CLIENT_BIN. Temporary tools can be
 prepared with python3 tests/kafka_fixture.py --download (official checksums verified).
 All brokers, credentials and messages below are disposable test fixtures.
 """
@@ -23,7 +23,7 @@ from kafka_fixture import KafkaFixture
 from outbound_concurrency_blackbox import HttpReceiver, settings
 from rules_webhook_blackbox import CONFIG, STATUS
 
-HELPER=os.environ.get('KAFKA_CLIENT_BIN',str(Path(__file__).resolve().parents[1]/'target/release/rmqtt-kafka-test-client'))
+HELPER=os.environ.get('KAFKA_CLIENT_BIN',str(Path(__file__).resolve().parents[1]/'target/release/lyrnormq-kafka-test-client'))
 
 def kafka_outbound(topic,brokers,identity='send',protocol='plaintext',mechanism=None,ca=None,password='fixture-password'):
     security=dict(protocol=protocol,sasl_mechanism=mechanism,username='fixture' if mechanism else None,password=password if mechanism else None,ca_pem=ca,certificate_pem=None,private_key_pem=None,private_key_password=None)
@@ -69,9 +69,9 @@ class KafkaOutbound(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):cls.kafka.close()
     def setUp(self):
-        self.directory=tempfile.TemporaryDirectory(prefix='rmqtt-kafka-quality-');self.addCleanup(self.directory.cleanup)
+        self.directory=tempfile.TemporaryDirectory(prefix='lyrnormq-kafka-quality-');self.addCleanup(self.directory.cleanup)
         self.root=Path(self.directory.name);self.rules_path=self.root/'rules.sqlite';self.broker=None
-        self.topic='rmqtt-'+uuid.uuid4().hex
+        self.topic='lyrnormq-'+uuid.uuid4().hex
         self.helper('create',self.topic,count=3)
     def helper(self,operation,topic,count=1,timeout=5000,protocol='plaintext',mechanism=None,password='fixture-password'):
         path=self.root/('kafka-client-'+uuid.uuid4().hex+'.json')
@@ -116,8 +116,8 @@ class KafkaOutbound(unittest.TestCase):
             self.assertEqual(len({r['partition'] for r in lane}),1)
             for r in lane:
                 self.assertEqual(set(r['value']),{'seq','marker'})
-                h=r['headers'];self.assertEqual(h['rmqtt-client-id'],client);self.assertEqual(h['rmqtt-rule-id'],'route');self.assertEqual(h['rmqtt-topic'],'kafka/real/events')
-                self.assertTrue(h['rmqtt-event-id']);self.assertTrue(h['rmqtt-delivery-id']);ids.add(h['rmqtt-delivery-id'])
+                h=r['headers'];self.assertEqual(h['lyrnormq-client-id'],client);self.assertEqual(h['lyrnormq-rule-id'],'route');self.assertEqual(h['lyrnormq-topic'],'kafka/real/events')
+                self.assertTrue(h['lyrnormq-event-id']);self.assertTrue(h['lyrnormq-delivery-id']);ids.add(h['lyrnormq-delivery-id'])
         self.assertEqual(len(ids),24)
     def test_mqtt311_and_5_qos0_1_2_each_emit_one_record(self):
         self.start(self.config())
@@ -147,11 +147,11 @@ class KafkaOutbound(unittest.TestCase):
             self.assertEqual(row['key'],'codec-source')
             self.assertEqual(row['value'],{'seq':seq,'marker':f'fixture-{seq}'})
             headers=row['headers']
-            self.assertEqual(headers['rmqtt-client-id'],'codec-source')
-            self.assertEqual(headers['rmqtt-rule-id'],'route')
-            self.assertEqual(headers['rmqtt-topic'],'kafka/real/events')
-            self.assertTrue(headers['rmqtt-delivery-id']);self.assertTrue(headers['rmqtt-event-id'])
-            delivery_ids.add(headers['rmqtt-delivery-id']);event_ids.add(headers['rmqtt-event-id'])
+            self.assertEqual(headers['lyrnormq-client-id'],'codec-source')
+            self.assertEqual(headers['lyrnormq-rule-id'],'route')
+            self.assertEqual(headers['lyrnormq-topic'],'kafka/real/events')
+            self.assertTrue(headers['lyrnormq-delivery-id']);self.assertTrue(headers['lyrnormq-event-id'])
+            delivery_ids.add(headers['lyrnormq-delivery-id']);event_ids.add(headers['lyrnormq-event-id'])
         self.assertEqual(len(delivery_ids),9);self.assertEqual(len(event_ids),9)
         # Independent Kafka RecordBatch v2 framing: low three attributes bits
         # identify the codec (0:none, 3:LZ4, 4:Zstd). Readback alone could pass
@@ -175,9 +175,9 @@ class KafkaOutbound(unittest.TestCase):
         config['rules']=[rule('one',('send','mirror'),sql='SELECT payload.seq AS seq, payload.marker AS marker FROM "kafka/real/#"'),rule('two',('send',),sql='SELECT payload.seq AS seq, payload.other AS other FROM "kafka/real/#"')]
         self.start(config);self.emit(self.client('shared-source'),[0],other='different-rule-value');self.drained(outcomes=3)
         rows=self.records(3);self.assertEqual(len(rows),3)
-        first=[r for r in rows if r['headers']['rmqtt-rule-id']=='one'];second=[r for r in rows if r['headers']['rmqtt-rule-id']=='two']
-        self.assertEqual(len(first),2);self.assertEqual(len(second),1);self.assertEqual(first[0]['value'],first[1]['value']);self.assertNotEqual(first[0]['headers']['rmqtt-delivery-id'],first[1]['headers']['rmqtt-delivery-id'])
-        self.assertEqual(first[0]['headers']['rmqtt-event-id'],first[1]['headers']['rmqtt-event-id']);self.assertNotEqual(first[0]['value'],second[0]['value'])
+        first=[r for r in rows if r['headers']['lyrnormq-rule-id']=='one'];second=[r for r in rows if r['headers']['lyrnormq-rule-id']=='two']
+        self.assertEqual(len(first),2);self.assertEqual(len(second),1);self.assertEqual(first[0]['value'],first[1]['value']);self.assertNotEqual(first[0]['headers']['lyrnormq-delivery-id'],first[1]['headers']['lyrnormq-delivery-id'])
+        self.assertEqual(first[0]['headers']['lyrnormq-event-id'],first[1]['headers']['lyrnormq-event-id']);self.assertNotEqual(first[0]['value'],second[0]['value'])
         stored=journal_results(self.queue());self.assertEqual(len(stored),2);self.assertEqual(sum(len(e['consumers']) for e in stored),3)
         raw=b''.join(p.read_bytes() for p in self.queue().glob('generation-*/segment-*.log'))
         self.assertEqual(raw.count(b'fixture-0'),1);self.assertEqual(raw.count(b'different-rule-value'),1);self.assertNotIn(b'not-journalled',raw)
@@ -221,9 +221,9 @@ class KafkaOutbound(unittest.TestCase):
         target=self.target();target['config']['key_field']='device';self.start(self.config(target,[rule(sql='SELECT payload.seq AS seq, payload.device AS device FROM "kafka/real/#"')]))
         source=self.client('field-source');self.emit(source,[0],device=7);eventually(lambda:self.outbound()['failed']==1)
         self.emit(source,[1,2],device='stable-device');self.drained(2);rows=self.records(2)
-        self.assertEqual([r['value']['seq'] for r in rows],[1,2]);self.assertTrue(all(r['key']=='stable-device' and r['headers']['rmqtt-client-id']=='field-source' for r in rows))
+        self.assertEqual([r['value']['seq'] for r in rows],[1,2]);self.assertTrue(all(r['key']=='stable-device' and r['headers']['lyrnormq-client-id']=='field-source' for r in rows))
     def test_custom_empty_and_unicode_keys_match_independent_murmur2_partitions(self):
-        oracle='rmqtt-oracle-'+uuid.uuid4().hex
+        oracle='lyrnormq-oracle-'+uuid.uuid4().hex
         self.helper('create',oracle,count=3)
         keys=['', 'device-42', '设备🔑']
         partitions={key:self.helper('partition',oracle,count=key)['partition'] for key in keys}
@@ -237,7 +237,7 @@ class KafkaOutbound(unittest.TestCase):
             lane=[r for r in records if r['key']==key]
             self.assertEqual([r['value']['seq'] for r in lane],list(range(8)))
             self.assertTrue(all(r['partition']==partitions[key] for r in lane))
-            self.assertTrue(all(r['value']['device']==key and r['headers']['rmqtt-client-id']=='key-source' for r in lane))
+            self.assertTrue(all(r['value']['device']==key and r['headers']['lyrnormq-client-id']=='key-source' for r in lane))
     def test_kafka_progresses_while_all_webhook_slots_are_held(self):
         gate=threading.Event();receiver=HttpReceiver(gate=gate);self.addCleanup(receiver.close);self.addCleanup(gate.set)
         http=settings(receiver.url,concurrency=16)['outbounds'][0];http['id']='http'
@@ -255,7 +255,7 @@ class KafkaOutbound(unittest.TestCase):
             eventually(lambda:self.status()['durable_queue']['pending_records']==4)
             eventually(lambda:self.outbound()['retried']>=1,timeout=10)
         finally:self.kafka.start()
-        self.drained(4);rows=self.records(4);lane=[r for r in rows if r['key']=='retry-A'];self.assertEqual([r['value']['seq'] for r in lane],[0,1,2]);self.assertEqual(len({r['headers']['rmqtt-delivery-id'] for r in rows}),4)
+        self.drained(4);rows=self.records(4);lane=[r for r in rows if r['key']=='retry-A'];self.assertEqual([r['value']['seq'] for r in lane],[0,1,2]);self.assertEqual(len({r['headers']['lyrnormq-delivery-id'] for r in rows}),4)
     def recovery(self,crash):
         self.start(self.config());self.kafka.stop()
         try:
@@ -264,7 +264,7 @@ class KafkaOutbound(unittest.TestCase):
             self.broker.stop(crash=crash)
         finally:self.kafka.start()
         self.broker.start();self.drained(4);rows=self.records(4)
-        self.assertEqual({r['headers']['rmqtt-delivery-id'] for r in rows},expected);self.assertEqual([r['value']['seq'] for r in rows],list(range(4)))
+        self.assertEqual({r['headers']['lyrnormq-delivery-id'] for r in rows},expected);self.assertEqual([r['value']['seq'] for r in rows],list(range(4)))
     def test_graceful_restart_replays_pending_with_same_delivery_ids(self):self.recovery(False)
     def test_sigkill_replays_pending_with_same_delivery_ids(self):self.recovery(True)
     def test_sigkill_partial_progress_recovers_all_ids_allowing_stable_duplicates(self):
@@ -274,10 +274,10 @@ class KafkaOutbound(unittest.TestCase):
         self.assertGreater(self.status()['durable_queue']['pending_records'],0)
         expected={c['delivery_id'] for e in journal_results(self.queue()) for c in e['consumers']};self.assertEqual(len(expected),100)
         self.broker.stop(crash=True);self.broker.start();self.drained(delivered=self.status()['durable_queue']['recovered_records'])
-        rows=self.records(200,2500);self.assertEqual({r['headers']['rmqtt-delivery-id'] for r in rows},expected)
+        rows=self.records(200,2500);self.assertEqual({r['headers']['lyrnormq-delivery-id'] for r in rows},expected)
         bodies={}
         for row in rows:
-            ident=row['headers']['rmqtt-delivery-id'];self.assertEqual(bodies.setdefault(ident,row['value']),row['value'])
+            ident=row['headers']['lyrnormq-delivery-id'];self.assertEqual(bodies.setdefault(ident,row['value']),row['value'])
         self.assertEqual(sorted(r['seq'] for r in bodies.values()),list(range(100)))
     def test_invalid_configuration_is_atomic_and_concurrency_defaults_by_type(self):
         config=self.config();config['outbounds'][0]['delivery'].pop('concurrency');public=self.start(config);self.assertEqual(public['outbounds'][0]['delivery']['concurrency'],128)

@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run
 
 
- RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+ RUN  v3.2.7 /Volumes/data/lyrnormq/dashboard/web
 
  ✓ tests/model.test.ts (12 tests) 5ms
  ✓ tests/rules-model.test.ts (11 tests) 61ms
@@ -14,16 +14,16 @@
  ✓ tests/single-select.test.tsx (3 tests) 243ms
 stderr | tests/app.test.tsx > memory-only management login > escapes broker strings and labels restored negotiation unknown
 Error: Not implemented: window.scrollTo
-    at module.exports (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
-    at /Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
-    at change (/Volumes/data/rmqtt/dashboard/web/src/App.tsx:190:14)
-    at callTheUserObjectsOperation (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
-    at innerInvokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
-    at invokeEventListeners (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
-    at EventTargetImpl._dispatch (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
-    at fireAnEvent (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
-    at SessionHistory._fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
-    at fireEvents (/Volumes/data/rmqtt/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
+    at module.exports (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at change (/Volumes/data/lyrnormq/dashboard/web/src/App.tsx:190:14)
+    at callTheUserObjectsOperation (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/generated/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:350:25)
+    at invokeEventListeners (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:286:3)
+    at EventTargetImpl._dispatch (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:233:9)
+    at fireAnEvent (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/helpers/events.js:18:36)
+    at SessionHistory._fireEvents (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:148:7)
+    at fireEvents (/Volumes/data/lyrnormq/dashboard/web/node_modules/jsdom/lib/jsdom/living/window/SessionHistory.js:133:35) undefined
 
  ✓ tests/app.test.tsx (5 tests) 350ms
  ✓ tests/rules-page.test.tsx (29 tests) 896ms

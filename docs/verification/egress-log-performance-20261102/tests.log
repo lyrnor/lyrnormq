@@ -1,5 +1,5 @@
-   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
-   Compiling egress-log-bench v0.1.0 (/Volumes/data/rmqtt/benches/egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-log)
+   Compiling egress-log-bench v0.1.0 (/Volumes/data/lyrnormq/benches/egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.47s
      Running unittests src/main.rs (target/debug/deps/egress_log_bench-093ea08370ff880b)
 

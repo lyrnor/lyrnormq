@@ -22,7 +22,7 @@
       1048575,
       9223372036854775807
     ],
-    "binary": "/private/tmp/rmqtt-p3-candidate",
+    "binary": "/private/tmp/lyrnormq-p3-candidate",
     "binary_sha256": "2682740440920644a6d424fc790eed62c381a9a4999522547343b710dd040eee",
     "driver_source_revision": "bc7360ca9f92c8d194d00e8e62aeebe505c21a1f",
     "artifact_source_revision": "e2f8562",
@@ -31,9 +31,9 @@
       "/opt/homebrew/opt/python@3.14/bin/python3.14",
       "benches/phase3/run.py",
       "--binary",
-      "/tmp/rmqtt-p3-candidate",
+      "/tmp/lyrnormq-p3-candidate",
       "--output",
-      "/tmp/rmqtt-p3-smoke-cap1-ack.json",
+      "/tmp/lyrnormq-p3-smoke-cap1-ack.json",
       "--artifact-source-revision",
       "e2f8562",
       "--smoke",
@@ -65,8 +65,8 @@
     "storage": "memory volatile or fresh SQLite WAL/synchronous FULL via broker; no power-loss claim"
   },
   "parameters": {
-    "binary": "/tmp/rmqtt-p3-candidate",
-    "output": "/tmp/rmqtt-p3-smoke-cap1-ack.json",
+    "binary": "/tmp/lyrnormq-p3-candidate",
+    "output": "/tmp/lyrnormq-p3-smoke-cap1-ack.json",
     "artifact_source_revision": "e2f8562",
     "build_profile": "release",
     "cases": "hot",

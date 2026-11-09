@@ -167,7 +167,7 @@ async def measure(arguments, binary, directory, result):
     capacity = arguments.connections + 16
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tests'))
-    from rmqttcfg import argv
+    from lyrnormqcfg import argv
     command = argv(binary, f'127.0.0.1:{port}', directory, [
         '--protocol', '5',
         '--max-connections', str(capacity),
@@ -217,7 +217,7 @@ async def main(arguments):
               'campaign_status': 'failed'}
     output = Path(arguments.output)
     try:
-        with tempfile.TemporaryDirectory(prefix='rmqtt-connections-') as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-connections-') as directory:
             record['result'] = {}
             await measure(arguments, binary, directory, record['result'])
         record['campaign_status'] = 'completed'

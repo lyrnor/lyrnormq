@@ -313,7 +313,7 @@ impl Runtime {
         for (index, receiver) in receivers.into_iter().enumerate() {
             let thread_inner = Arc::clone(&inner);
             let thread = std::thread::Builder::new()
-                .name(format!("rmqtt-rule-{index}"))
+                .name(format!("lyrnormq-rule-{index}"))
                 .spawn(move || dispatcher::run(thread_inner, receiver));
             let thread = match thread {
                 Ok(thread) => thread,

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Real PostgreSQL + management + MQTT311/5 admission regression.
 
-Requires disposable PostgreSQL at 127.0.0.1:15432 (or RMQTT_POSTGRES_TEST_PORT),
+Requires disposable PostgreSQL at 127.0.0.1:15432 (or LYRNORMQ_POSTGRES_TEST_PORT),
 trust-auth postgres database/user. SQL uses synthetic VALUES, no business schema.
-RMQTT_BIN selects a prebuilt broker. No password or query is printed.
+LYRNORMQ_BIN selects a prebuilt broker. No password or query is printed.
 """
 import copy
 import json
@@ -36,7 +36,7 @@ def backend(query):
     return dict(type='postgresql', enabled=True, name='PostgreSQL test', url='',
         service_auth=dict(type='none'), headers={}, timeout_ms=1000,
         max_concurrency=8, allow_http=False,
-        postgres=dict(host='127.0.0.1', port=int(os.environ.get('RMQTT_POSTGRES_TEST_PORT','15432')),
+        postgres=dict(host='127.0.0.1', port=int(os.environ.get('LYRNORMQ_POSTGRES_TEST_PORT','15432')),
             database='postgres',username='postgres',password='synthetic-unused-db-password',
             tls_mode='disable',ca_pem=None,max_connections=2,query=query))
 
@@ -50,7 +50,7 @@ class PostgresAccessBlackbox(unittest.TestCase):
     delivery = dashboard.DashboardBlackbox.delivery
 
     def setUp(self):
-        self.directory=tempfile.TemporaryDirectory(prefix='rmqtt-postgres-access-')
+        self.directory=tempfile.TemporaryDirectory(prefix='lyrnormq-postgres-access-')
         self.addCleanup(self.directory.cleanup)
         self.broker=dashboard.DashboardBroker(self.directory.name,sqlite=True,extra=[
             '--rules-config',str(Path(self.directory.name)/'rules.sqlite'),'--auth-rate-per-second','0'])
@@ -141,13 +141,13 @@ class PostgresAccessBlackbox(unittest.TestCase):
         for _ in range(8):self.replace(saved)
         idle.sendall(frame(0xc0));self.assertEqual(receive(idle),(0xd0,b''))
 
-    @unittest.skipUnless(os.environ.get('RMQTT_POSTGRES_TEST_CA'), 'requires TLS PostgreSQL fixture and CA')
+    @unittest.skipUnless(os.environ.get('LYRNORMQ_POSTGRES_TEST_CA'), 'requires TLS PostgreSQL fixture and CA')
     def test_tls_verifies_ca_and_hostname(self):
         saved=self.request('/config')[2]
         config=saved['authentication']
         config['postgres']['tls_mode']='verify_full'
         config['postgres']['host']='localhost'
-        config['postgres']['ca_pem']=Path(os.environ['RMQTT_POSTGRES_TEST_CA']).read_text()
+        config['postgres']['ca_pem']=Path(os.environ['LYRNORMQ_POSTGRES_TEST_CA']).read_text()
         body=dict(config=config,stage='authentication')
         self.assertEqual(self.request('/test/connection',body)[2]['result'],'allow')
         config['postgres']['host']='127.0.0.1'

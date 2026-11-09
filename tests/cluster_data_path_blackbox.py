@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Real RF3/W2 steady-data regression, no client retries or quorum weakening.
 
-RMQTT_BIN=/path/rmqtt RMQTT_LOADGEN_BIN=/path/rmqtt-loadgen \
+LYRNORMQ_BIN=/path/lyrnormq LYRNORMQ_LOADGEN_BIN=/path/lyrnormq-loadgen \
   python3 tests/cluster_data_path_blackbox.py -v
-Optional RMQTT_DIAG_QOS=0|1|2 selects the high-load QoS (default0).
+Optional LYRNORMQ_DIAG_QOS=0|1|2 selects the high-load QoS (default0).
 An unsuccessful warmup is failure, never zero loss. Evidence is preserved under
-RMQTT_DIAG_ARTIFACT_DIR (default an independent temporary artifact directory).
+LYRNORMQ_DIAG_ARTIFACT_DIR (default an independent temporary artifact directory).
 """
 import json
 import os
@@ -18,8 +18,8 @@ from unittest import mock
 from cluster_blackbox import CLUSTER_TOKEN, TOKEN
 from cluster_durable_blackbox import DurableFleet, DurableNode
 
-LOADGEN = os.environ.get('RMQTT_LOADGEN_BIN', str(
-    Path(__file__).resolve().parents[1] / 'target/debug/rmqtt-loadgen'))
+LOADGEN = os.environ.get('LYRNORMQ_LOADGEN_BIN', str(
+    Path(__file__).resolve().parents[1] / 'target/debug/lyrnormq-loadgen'))
 
 
 class DataPathNode(DurableNode):
@@ -36,12 +36,12 @@ class DataPathCases(unittest.TestCase):
                                            TOKIO_WORKER_THREADS='2', RUST_LOG='warn')
         self.environment.start()
         self.addCleanup(self.environment.stop)
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-data-path-fleet-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-data-path-fleet-')
         self.addCleanup(self.directory.cleanup)
-        parent = os.environ.get('RMQTT_DIAG_ARTIFACT_DIR')
+        parent = os.environ.get('LYRNORMQ_DIAG_ARTIFACT_DIR')
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
-        self.evidence = Path(tempfile.mkdtemp(prefix='rmqtt-data-path-evidence-', dir=parent))
+        self.evidence = Path(tempfile.mkdtemp(prefix='lyrnormq-data-path-evidence-', dir=parent))
         self.fleet = DataPathFleet(self.directory.name)
         self.addCleanup(self.fleet.stop)
         self.addCleanup(self.save_logs)
@@ -90,7 +90,7 @@ class DataPathCases(unittest.TestCase):
         self.load(pairs=6, rate=30, duration_ms=5000, qos=1)
 
     def test_sixty_connections_at_aggregate_one_hundred_per_second(self):
-        qos = int(os.environ.get('RMQTT_DIAG_QOS', '0'))
+        qos = int(os.environ.get('LYRNORMQ_DIAG_QOS', '0'))
         self.assertIn(qos, (0, 1, 2))
         self.load(pairs=30, rate=100, duration_ms=30000, qos=qos)
 

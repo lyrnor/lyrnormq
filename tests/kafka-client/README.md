@@ -7,15 +7,15 @@ helper and fixture are test tools only; point them only at disposable test clust
 ```sh
 python3 tests/kafka_fixture.py --download
 CARGO_TARGET_DIR="$PWD/target" CARGO_BUILD_JOBS=4 cargo build --release --locked --manifest-path tests/kafka-client/Cargo.toml
-RMQTT_BIN="$PWD/target/release/rmqtt" \
-KAFKA_CLIENT_BIN="$PWD/target/release/rmqtt-kafka-test-client" \
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" \
+KAFKA_CLIENT_BIN="$PWD/target/release/lyrnormq-kafka-test-client" \
 python3 tests/kafka_outbound_blackbox.py -v
 ```
 
 The download command uses official Adoptium and Apache URLs and verifies SHA256 /
 SHA512 before extracting into an isolated temporary tools directory. It installs no
 system Java or Kafka. Cached release metadata and complete archives are reused.
-Override `RMQTT_KAFKA_TOOLS_DIR` if needed; or supply `JAVA_HOME` and `KAFKA_HOME`
+Override `LYRNORMQ_KAFKA_TOOLS_DIR` if needed; or supply `JAVA_HOME` and `KAFKA_HOME`
 to already prepared test distributions. Downloads use bounded retries and can
 resume partial archives. A failed checksum is an error, not a skipped test.
 
@@ -62,6 +62,6 @@ creation of the compacted internal offsets topic and restarts the same Kafka
 process/data directory. It verifies topic recovery and absence of JVM OOM:
 
 ```sh
-KAFKA_CLIENT_BIN="$PWD/target/release/rmqtt-kafka-test-client" \
+KAFKA_CLIENT_BIN="$PWD/target/release/lyrnormq-kafka-test-client" \
   python3 tests/kafka_fixture_restart_test.py -v
 ```

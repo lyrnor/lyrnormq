@@ -75,7 +75,7 @@ nonvoting, and whole-group RAM loss fail-closed. Prior disk-crash/restart assert
 must be explicitly superseded/replaced in CI, not falsely reported as passing.
 Retain control Raft conformance and unaffected tests. Frozen changes discussed with
 coordinator first. Each writer isolated worktree/branch, commit tests/hash/limits.
-Coordinator owns bin/rmqtt and mqtt-cluster-core docs, integration, optional CLI
+Coordinator owns bin/lyrnormq and mqtt-cluster-core docs, integration, optional CLI
 mirror rejection, CI/build review, local zigbuild and server reproduction. Preserve
 old remote data untouched; deploy RAM mode into fresh Controller/data dirs.
 Acceptance: build/fmt/strictclippy/workspace tests; actual60connections100/s128B

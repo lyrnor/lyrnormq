@@ -53,9 +53,9 @@ def verify_records(records, run_id, clients, per_client, payload_bytes, partitio
             raise AssertionError('duplicate delivery ID in no-fault workload')
         ids.add(identity)
         headers = row['headers']
-        expected_headers = {'rmqtt-event-id':identity, 'rmqtt-delivery-id':identity,
-            'rmqtt-rule-id':'benchmark-rule','rmqtt-client-id':f'bench-client-{client:04}',
-            'rmqtt-topic':'bench/source'}
+        expected_headers = {'lyrnormq-event-id':identity, 'lyrnormq-delivery-id':identity,
+            'lyrnormq-rule-id':'benchmark-rule','lyrnormq-client-id':f'bench-client-{client:04}',
+            'lyrnormq-topic':'bench/source'}
         if headers != expected_headers or row['key'] != f'bench-client-{client:04}':
             raise AssertionError('key or trusted identity headers changed')
         if row['timestamp_ms'] != 123456789:
@@ -156,7 +156,7 @@ def main():
         warmup_records=args.warmup,
         latency_percentile='nearest rank, successful confirmed calls only; no omission of failed counts',
         scenarios=[])
-    with tempfile.TemporaryDirectory(prefix='rmqtt-kafka-adapter-bench-') as directory:
+    with tempfile.TemporaryDirectory(prefix='lyrnormq-kafka-adapter-bench-') as directory:
         fixture = KafkaFixture()
         try:
             fixture.start()
@@ -166,7 +166,7 @@ def main():
             for partitions in args.partitions:
                 for payload in args.payloads:
                     run_id = 'bench-' + uuid.uuid4().hex
-                    topic = 'rmqtt-' + run_id
+                    topic = 'lyrnormq-' + run_id
                     checked_json([reader, 'create', str(config), topic, str(partitions)], 25)
                     result = run_writer([writer, f'127.0.0.1:{fixture.port}', topic, run_id,
                         str(args.clients), str(args.records_per_client), str(payload), '30000', str(args.warmup)],
@@ -183,8 +183,8 @@ def main():
                     readback = checked_json([reader, 'consume', str(config), topic,
                         str(expected + args.warmup + 1), '2000'], 25)
                     warm_id = 'warmup-' + run_id
-                    warm_rows = [row for row in readback['records'] if row['headers'].get('rmqtt-delivery-id', '').startswith(warm_id + '-')]
-                    measured_rows = [row for row in readback['records'] if not row['headers'].get('rmqtt-delivery-id', '').startswith(warm_id + '-')]
+                    warm_rows = [row for row in readback['records'] if row['headers'].get('lyrnormq-delivery-id', '').startswith(warm_id + '-')]
+                    measured_rows = [row for row in readback['records'] if not row['headers'].get('lyrnormq-delivery-id', '').startswith(warm_id + '-')]
                     result['warmup']['readback'] = verify_records(warm_rows, warm_id, args.clients,
                         max(1, math.ceil(args.warmup / args.clients)), payload, partitions,
                         expected_pairs={(i % args.clients, i // args.clients) for i in range(args.warmup)})

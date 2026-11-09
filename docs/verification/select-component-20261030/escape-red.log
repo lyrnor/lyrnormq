@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run --run tests/single-select.test.tsx
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-select-fix/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-select-fix/dashboard/web
 
  ❯ tests/single-select.test.tsx (3 tests | 1 failed) 99ms
    × styled single selection > renders a menu in the native dialog top layer and consumes Escape before closing the dialog 69ms

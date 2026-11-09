@@ -1,8 +1,8 @@
-   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
-   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq-loadgen v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq-loadgen)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-http)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 13.11s
      Running unittests src/lib.rs (target/debug/deps/mqtt_auth-db4f728db4966d8c)
 
@@ -756,7 +756,7 @@ test adapter::tests::custom_headers_are_sensitive_and_debug_is_redacted ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (target/debug/deps/rmqtt-217b41e5a52bf726)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq-217b41e5a52bf726)
 
 running 37 tests
 test admin::http::tests::management_busy_and_not_ready_have_distinct_statuses ... ok
@@ -808,7 +808,7 @@ test json_lifecycle_is_structured_and_flushed_on_shutdown ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
 
-     Running unittests src/lib.rs (target/debug/deps/rmqtt_loadgen-78ab9cf5a30f6c1d)
+     Running unittests src/lib.rs (target/debug/deps/lyrnormq_loadgen-78ab9cf5a30f6c1d)
 
 running 26 tests
 test engine::tests::receive_maximum_does_not_throttle_qos0 ... ok
@@ -840,7 +840,7 @@ test payload::tests::roundtrip_and_corruption ... ok
 
 test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (target/debug/deps/rmqtt_loadgen-abd5d4d427cc68a4)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq_loadgen-abd5d4d427cc68a4)
 
 running 0 tests
 
@@ -947,7 +947,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-   Doc-tests rmqtt_loadgen
+   Doc-tests lyrnormq_loadgen
 
 running 0 tests
 

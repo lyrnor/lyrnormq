@@ -600,7 +600,7 @@ mod tests {
     }
     fn temp(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "rmqtt-deliver-batch-{label}-{}-{}",
+            "lyrnormq-deliver-batch-{label}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

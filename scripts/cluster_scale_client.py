@@ -1,12 +1,12 @@
 import pathlib,subprocess,time,os,json,resource,sys,gzip,shutil,hashlib
-ROOT=pathlib.Path(os.environ.get('RMQTT_SCALE_LOAD_ROOT','/opt/rmqtt-control-optimized-load/20261103'))
+ROOT=pathlib.Path(os.environ.get('LYRNORMQ_SCALE_LOAD_ROOT','/opt/lyrnormq-control-optimized-load/20261103'))
 name=sys.argv[1];r=ROOT/name;r.mkdir()
 resource.setrlimit(resource.RLIMIT_NOFILE,(250000,250000))
 addrs='172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833'
 if name.startswith('c'):
  cmd=[str(ROOT/'connections'),addrs,name[1:],str(r/'report.json')];deadline=900
 else:
- cmd=['/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen','--addrs',addrs,'--protocol','5','--qos',name[1:],'--pairs','5000','--setup-concurrency','8','--payload-bytes','128','--rate','10000','--inflight','1','--warmup-ms','3000','--duration-ms','60000','--drain-timeout-ms','30000','--connect-timeout-ms','30000','--io-timeout-ms','10000','--max-messages','2000000','--output',str(r/'report.json'),'--raw',str(r/'raw.jsonl')];deadline=420
+ cmd=['/opt/lyrnormq-cluster-load/20261103/lyrnormq-loadgen','--addrs',addrs,'--protocol','5','--qos',name[1:],'--pairs','5000','--setup-concurrency','8','--payload-bytes','128','--rate','10000','--inflight','1','--warmup-ms','3000','--duration-ms','60000','--drain-timeout-ms','30000','--connect-timeout-ms','30000','--io-timeout-ms','10000','--max-messages','2000000','--output',str(r/'report.json'),'--raw',str(r/'raw.jsonl')];deadline=420
 start=time.time_ns();samples=[];timeout=False
 with (r/'process.log').open('xb') as log:
  p=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,env=dict(os.environ,TOKIO_WORKER_THREADS='8'))

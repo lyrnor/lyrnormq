@@ -102,16 +102,16 @@ from the Kafka-only staged lockfile and validated in an isolated integration tre
 ```sh
 npm --prefix dashboard/web ci
 npm --prefix dashboard/web run build
-cargo build --release --locked -p rmqtt
+cargo build --release --locked -p lyrnormq
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo fmt --all -- --check
-CARGO_BUILD_JOBS=4 cargo zigbuild --release --locked --target x86_64-unknown-linux-musl -p rmqtt
-python3 scripts/check-static-elf.py target/x86_64-unknown-linux-musl/release/rmqtt
+CARGO_BUILD_JOBS=4 cargo zigbuild --release --locked --target x86_64-unknown-linux-musl -p lyrnormq
+python3 scripts/check-static-elf.py target/x86_64-unknown-linux-musl/release/lyrnormq
 CARGO_TARGET_DIR="$PWD/target" cargo build --release --locked --manifest-path tests/kafka-client/Cargo.toml
-RUST_LOG=warn,rmqtt=info RMQTT_LOG_FORMAT=text RMQTT_BIN="$PWD/target/release/rmqtt" KAFKA_CLIENT_BIN="$PWD/target/release/rmqtt-kafka-test-client" python3 tests/kafka_outbound_blackbox.py -v
+RUST_LOG=warn,lyrnormq=info LYRNORMQ_LOG_FORMAT=text LYRNORMQ_BIN="$PWD/target/release/lyrnormq" KAFKA_CLIENT_BIN="$PWD/target/release/lyrnormq-kafka-test-client" python3 tests/kafka_outbound_blackbox.py -v
 CARGO_TARGET_DIR="$PWD/target/krafka-quality" cargo build --release --locked --manifest-path tests/kafka-bench/Cargo.toml
-python3 tests/kafka_adapter_benchmark.py --writer "$PWD/target/krafka-quality/release/rmqtt-kafka-adapter-bench" --reader "$PWD/target/release/rmqtt-kafka-test-client" --warmup 64 --label krafka --output /tmp/krafka-result.json
+python3 tests/kafka_adapter_benchmark.py --writer "$PWD/target/krafka-quality/release/lyrnormq-kafka-adapter-bench" --reader "$PWD/target/release/lyrnormq-kafka-test-client" --warmup 64 --label krafka --output /tmp/krafka-result.json
 ```
 
 Run performance cases without simultaneous compilation or other Kafka tests.

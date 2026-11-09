@@ -54,7 +54,7 @@
 error: failed to run custom build command for `rdkafka-sys v4.10.0+2.12.1`
 
 Caused by:
-  process didn't exit successfully: `/private/tmp/rmqtt-kafka-zig-spike/target/release/build/rdkafka-sys-fa4b4a2d94af59a5/build-script-build` (exit status: 101)
+  process didn't exit successfully: `/private/tmp/lyrnormq-kafka-zig-spike/target/release/build/rdkafka-sys-fa4b4a2d94af59a5/build-script-build` (exit status: 101)
   --- stdout
   Configuring and compiling librdkafka
   CMAKE_TOOLCHAIN_FILE_x86_64-unknown-linux-musl = None
@@ -85,18 +85,18 @@ Caused by:
   -- Detecting CXX compile features - done
   -- Looking for pow in m
   -- Looking for pow in m - found
-  -- Found Zstd: /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/libzstd.a
+  -- Found Zstd: /private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/libzstd.a
   -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
   -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
   -- Found Threads: TRUE
   -- Checking for module 'libsasl2'
   --   Package 'libsasl2' not found
-  -- Found ZLIB: /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out/lib/libz.a (found version "1.3.2")
-  -- Found ZSTD: /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/libzstd.a
-  -- Found OpenSSL: /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/lib/libcrypto.a (found version "3.6.3")
+  -- Found ZLIB: /private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out/lib/libz.a (found version "1.3.2")
+  -- Found ZSTD: /private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out/libzstd.a
+  -- Found OpenSSL: /private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install/lib/libcrypto.a (found version "3.6.3")
   -- Configuring done (21.0s)
   -- Generating done (0.0s)
-  -- Build files have been written to: /private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build
+  -- Build files have been written to: /private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build
   [  1%] Building C object src/CMakeFiles/rdkafka.dir/crc32c.c.o
   [  3%] Building C object src/CMakeFiles/rdkafka.dir/rdfnv1a.c.o
   [  3%] Building C object src/CMakeFiles/rdkafka.dir/rdaddr.c.o
@@ -118,7 +118,7 @@ Caused by:
 
   --- stderr
   Building and linking librdkafka statically
-  running: cd "/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" && CMAKE_PREFIX_PATH="/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out:/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install:/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out:" LC_ALL="C" "cmake" "/Users/ren/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rdkafka-sys-4.10.0+2.12.1/librdkafka" "-B" "/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" "-DRDKAFKA_BUILD_STATIC=1" "-DRDKAFKA_BUILD_TESTS=0" "-DRDKAFKA_BUILD_EXAMPLES=0" "-DCMAKE_INSTALL_LIBDIR=lib" "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" "-DWITH_ZLIB=1" "-DWITH_CURL=0" "-DWITH_SSL=1" "-DWITH_SASL_SCRAM=1" "-DWITH_SASL_OAUTHBEARER=1" "-DWITH_SASL=0" "-DWITH_ZSTD=1" "-DENABLE_LZ4_EXT=0" "-DCMAKE_TOOLCHAIN_FILE=/Users/ren/Library/Caches/cargo-zigbuild/0.20.1/cmake/x86_64-unknown-linux-musl-toolchain.cmake" "-DCMAKE_INSTALL_PREFIX=/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 --target=x86_64-unknown-linux-musl -w" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 --target=x86_64-unknown-linux-musl -w" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 --target=x86_64-unknown-linux-musl -w" "-DCMAKE_BUILD_TYPE=Release"
+  running: cd "/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" && CMAKE_PREFIX_PATH="/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/libz-sys-c28f8ea058389543/out:/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/openssl-sys-1ab3d92885890c03/out/openssl-build/install:/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/zstd-sys-f097f74882ffe65f/out:" LC_ALL="C" "cmake" "/Users/ren/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rdkafka-sys-4.10.0+2.12.1/librdkafka" "-B" "/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" "-DRDKAFKA_BUILD_STATIC=1" "-DRDKAFKA_BUILD_TESTS=0" "-DRDKAFKA_BUILD_EXAMPLES=0" "-DCMAKE_INSTALL_LIBDIR=lib" "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" "-DWITH_ZLIB=1" "-DWITH_CURL=0" "-DWITH_SSL=1" "-DWITH_SASL_SCRAM=1" "-DWITH_SASL_OAUTHBEARER=1" "-DWITH_SASL=0" "-DWITH_ZSTD=1" "-DENABLE_LZ4_EXT=0" "-DCMAKE_TOOLCHAIN_FILE=/Users/ren/Library/Caches/cargo-zigbuild/0.20.1/cmake/x86_64-unknown-linux-musl-toolchain.cmake" "-DCMAKE_INSTALL_PREFIX=/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 --target=x86_64-unknown-linux-musl -w" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 --target=x86_64-unknown-linux-musl -w" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64 --target=x86_64-unknown-linux-musl -w" "-DCMAKE_BUILD_TYPE=Release"
   CMake Warning (deprecated) at CMakeLists.txt:1 (cmake_minimum_required):
     Compatibility with CMake < 3.10 will be removed from a future version of
     CMake.
@@ -135,7 +135,7 @@ Caused by:
       CMAKE_ASM_FLAGS
 
 
-  running: cd "/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" && LC_ALL="C" "cmake" "--build" "/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" "--target" "install" "--config" "Release" "--parallel" "10"
+  running: cd "/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" && LC_ALL="C" "cmake" "--build" "/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/build/rdkafka-sys-a8bd6c950c8960bb/out/build" "--target" "install" "--config" "Release" "--parallel" "10"
   /Users/ren/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rdkafka-sys-4.10.0+2.12.1/librdkafka/src/rdkafka_conf.c:60:10: fatal error: 'curl/curl.h' file not found
      60 | #include <curl/curl.h>
         |          ^~~~~~~~~~~~~

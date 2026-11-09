@@ -3,21 +3,21 @@ import concurrent.futures,hashlib,importlib.util,json,pathlib,shlex,subprocess,t
 HERE=pathlib.Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('ssh_prior',HERE.parent/'cluster-multiprocess-load-20261103/run.py');prior=importlib.util.module_from_spec(spec);spec.loader.exec_module(prior)
 spec=importlib.util.spec_from_file_location('hold_aggregate',HERE/'aggregate.py');agg=importlib.util.module_from_spec(spec);spec.loader.exec_module(agg)
-BASE='/opt/rmqtt-100k-hold/20261104-validated-probe'
-OUT=pathlib.Path('/Volumes/data/rmqtt/target/cluster-100k-hold-validated-results-20261104')
-BROKER='/opt/rmqtt-quorum-cpu/20261104/rmqtt'
+BASE='/opt/lyrnormq-100k-hold/20261104-validated-probe'
+OUT=pathlib.Path('/Volumes/data/lyrnormq/target/cluster-100k-hold-validated-results-20261104')
+BROKER='/opt/lyrnormq-quorum-cpu/20261104/lyrnormq'
 PROBE=BASE+'/connections'
-LOCAL_PROBE=pathlib.Path('/Volumes/data/rmqtt/target/x86_64-unknown-linux-musl/release/connections')
+LOCAL_PROBE=pathlib.Path('/Volumes/data/lyrnormq/target/x86_64-unknown-linux-musl/release/connections')
 EXPECTED_BROKER='eb6f4be285dc7b8af33e820de4f8b4bed64772c9c6961a581b3423c72f4b55b4'
 EXPECTED_PROBE='dac46888dfb38b0ee1fc4ec38e67074b00eddb37728271bc392767256bc1b528'
 
 
 def server(action):
-    return prior.remote(prior.SERVER,f'ulimit -n 250000; RMQTT_RAFT_PROFILE=1 RMQTT_BENCH_ROOT={BASE}/case RMQTT_BENCH_BIN={BROKER} python3 {prior.SERVER_SCRIPT} {action} combined',timeout=120)
+    return prior.remote(prior.SERVER,f'ulimit -n 250000; LYRNORMQ_RAFT_PROFILE=1 LYRNORMQ_BENCH_ROOT={BASE}/case LYRNORMQ_BENCH_BIN={BROKER} python3 {prior.SERVER_SCRIPT} {action} combined',timeout=120)
 
 
 def observe(action):
-    return prior.remote(prior.SERVER,f'RMQTT_100K_BASE={BASE} python3 {BASE}/observer.py {action}',timeout=120)
+    return prior.remote(prior.SERVER,f'LYRNORMQ_100K_BASE={BASE} python3 {BASE}/observer.py {action}',timeout=120)
 
 
 def prepare():
@@ -29,7 +29,7 @@ for p in Path('/proc').iterdir():
  if p.name.isdigit():
   try:
    n=(p/'comm').read_text().strip();state=(p/'stat').read_text().rsplit(')',1)[1].split()[0]
-   if state!='Z' and (n.startswith('rmqtt') or n in ('connections','perf')):live.append(p.name)
+   if state!='Z' and (n.startswith('lyrnormq') or n in ('connections','perf')):live.append(p.name)
   except OSError:pass
 assert not live,live
 Path({BASE!r}).mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -56,14 +56,14 @@ print(json.dumps(dict(parameter_validation_passed=True,stopped_before_network_on
         subprocess.run(['scp',*prior.SSH[1:],str(HERE/name),f'root@{host}:{BASE}/{name}'],check=True,timeout=120)
         expected=hashlib.sha256((HERE/name).read_bytes()).hexdigest();assert prior.remote(host,f'sha256sum {BASE}/{name}').split()[0]==expected;hashes[name]=expected
     (OUT/'deployment.json').write_text(json.dumps(hashes,indent=2))
-    (OUT/'environment.json').write_text(prior.remote(prior.SERVER,f'RMQTT_BENCH_ROOT={BASE} RMQTT_BENCH_BIN={BROKER} python3 {prior.SERVER_SCRIPT} environment'))
+    (OUT/'environment.json').write_text(prior.remote(prior.SERVER,f'LYRNORMQ_BENCH_ROOT={BASE} LYRNORMQ_BENCH_BIN={BROKER} python3 {prior.SERVER_SCRIPT} environment'))
 
 
 def start_monitor():
     code=f'''import subprocess,pathlib,os,json
 base=pathlib.Path({BASE!r})
 with (base/'observer.log').open('xb') as log:
- child=subprocess.Popen(['python3',str(base/'observer.py'),'monitor'],env=dict(os.environ,RMQTT_100K_BASE=str(base)),stdout=log,stderr=log,stdin=subprocess.DEVNULL,start_new_session=True)
+ child=subprocess.Popen(['python3',str(base/'observer.py'),'monitor'],env=dict(os.environ,LYRNORMQ_100K_BASE=str(base)),stdout=log,stderr=log,stdin=subprocess.DEVNULL,start_new_session=True)
 (base/'observer.json').write_text(json.dumps(dict(pid=child.pid,start_ticks=pathlib.Path('/proc/'+str(child.pid)+'/stat').read_text().rsplit(')',1)[1].split()[19])))
 '''
     prior.remote(prior.SERVER,'python3 -c '+shlex.quote(code))
@@ -90,7 +90,7 @@ def main():
             assert startup['gate']['target_revision']>=max(r['entry']['log_id']['index'] for r in memberships)
         start_monitor();print('Three applied Raft memberships {1,2,3} verified; starting 2000/s100k probes',flush=True)
         with (OUT/'client-output.json').open('w') as out,(OUT/'client-ssh.err').open('w') as err:
-            command=f'RMQTT_MULTI_ROOT={BASE}/client RMQTT_MULTI_BIN={PROBE} RMQTT_MULTI_RATE=2000 python3 {BASE}/client.py'
+            command=f'LYRNORMQ_MULTI_ROOT={BASE}/client LYRNORMQ_MULTI_BIN={PROBE} LYRNORMQ_MULTI_RATE=2000 python3 {BASE}/client.py'
             child=subprocess.Popen(prior.SSH+['root@'+prior.CLIENT,command],stdout=out,stderr=err)
             deadline=time.monotonic()+510;settings_sent=False;health={}
             while child.poll() is None:

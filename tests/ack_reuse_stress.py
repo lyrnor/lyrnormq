@@ -3,7 +3,7 @@
 
 Eight clients reuse each identifier immediately after its final ACK, without a
 PING barrier. A failure is an actual protocol trace, not a forced test-only hook.
-RMQTT_BIN selects the tested immutable executable through FeatureBroker.
+LYRNORMQ_BIN selects the tested immutable executable through FeatureBroker.
 """
 import concurrent.futures
 import tempfile
@@ -12,7 +12,7 @@ from retained_will_blackbox import FeatureBroker
 from mqtt5_blackbox import connect5,publication5,parse_ack5,ack5,readprops
 from blackbox import receive
 def main():
- with tempfile.TemporaryDirectory(prefix='rmqtt-credit-race-') as directory:
+ with tempfile.TemporaryDirectory(prefix='lyrnormq-credit-race-') as directory:
   # Default max_auth_tasks is 4; eight concurrent CONNECT handshakes need headroom
   # or CONNACK 0x89 Server busy flakes the probe before identifier reuse runs.
   broker=FeatureBroker(directory,False,['--max-inflight','1','--max-connections','32',

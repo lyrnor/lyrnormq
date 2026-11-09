@@ -1,6 +1,6 @@
-   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-rule-stream-runtime/crates/mqtt-egress)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/lyrnormq-rule-stream-runtime/crates/mqtt-egress)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2.24s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-d9ed1ca6f32348d7)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress-d9ed1ca6f32348d7)
 
 running 46 tests
 test result_wire::tests::malformed_legacy_or_mismatched_stream_fails_without_identity_fallback ... ok

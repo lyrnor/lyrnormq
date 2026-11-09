@@ -31,7 +31,7 @@ No distributed or production throughput/latency benchmark is claimed.
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
-cargo build --release --offline -p rmqtt
+cargo build --release --offline -p lyrnormq
 cd dashboard/web
 npm test -- --run
 npm run build
@@ -41,8 +41,8 @@ npx prettier --check .
 Run black-box suites from the repository root, for example:
 
 ```sh
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_concurrency_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/rules_webhook_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_concurrency_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/rules_webhook_blackbox.py -v
 ```
 
  Logs record the exact suite results. Workspace: 627 passing

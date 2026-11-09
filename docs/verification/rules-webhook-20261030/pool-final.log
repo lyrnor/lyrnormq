@@ -1,4 +1,4 @@
-   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-rules-webhook/crates/mqtt-webhook)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/lyrnormq-rules-webhook/crates/mqtt-webhook)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.88s
      Running unittests src/lib.rs (target/debug/deps/mqtt_webhook-ce4c3dabc03b1d61)
 

@@ -1,9 +1,9 @@
 {
   "command": [
-    "/opt/rmqtt-admission-repair-load/20261103/connections",
+    "/opt/lyrnormq-admission-repair-load/20261103/connections",
     "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
     "1000",
-    "/opt/rmqtt-admission-repair-load/20261103/c1000/report.json",
+    "/opt/lyrnormq-admission-repair-load/20261103/c1000/report.json",
     "1"
   ],
   "exit": 0,

@@ -902,7 +902,7 @@ mod tests {
         pub(super) fn new() -> Self {
             static NEXT: AtomicU64 = AtomicU64::new(1);
             let directory = std::env::temp_dir().join(format!(
-                "rmqtt-worker-{}-{}",
+                "lyrnormq-worker-{}-{}",
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed)
             ));

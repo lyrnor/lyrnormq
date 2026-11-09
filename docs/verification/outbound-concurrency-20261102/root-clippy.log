@@ -1,5 +1,5 @@
-   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
-    Checking mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
-    Checking mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling lyrnormq-loadgen v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq-loadgen)
+    Checking mqtt-webhook v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-webhook)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
+    Checking mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.77s

@@ -2,7 +2,7 @@
   "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
   "mode": "concurrent",
   "engine_commit": "3ae3ec10bcfcc3178994830f51772f9fd595821f",
-  "binary": "/Volumes/data/rmqtt/target/release/group_commit",
+  "binary": "/Volumes/data/lyrnormq/target/release/group_commit",
   "binary_sha256": "9c4ea2568897fb5a16a6a3efdd3e306e49ef03f50151deaab31d997d38d383a2",
   "source_sha256": "e06e4fb743cf6e705955f628dbf9f025d88baa864f02bb158cbad96461d08cd4",
   "started": "2026-11-02T15:06:53+0800",
@@ -12,7 +12,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/group_commit",
+        "/Volumes/data/lyrnormq/target/release/group_commit",
         "--inputs",
         "4096",
         "--rules",
@@ -37,7 +37,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/group_commit",
+        "/Volumes/data/lyrnormq/target/release/group_commit",
         "--inputs",
         "4096",
         "--rules",
@@ -62,7 +62,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/group_commit",
+        "/Volumes/data/lyrnormq/target/release/group_commit",
         "--inputs",
         "4096",
         "--rules",
@@ -87,7 +87,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/group_commit",
+        "/Volumes/data/lyrnormq/target/release/group_commit",
         "--inputs",
         "4096",
         "--rules",
@@ -112,7 +112,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/group_commit",
+        "/Volumes/data/lyrnormq/target/release/group_commit",
         "--inputs",
         "4096",
         "--rules",
@@ -137,7 +137,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/group_commit",
+        "/Volumes/data/lyrnormq/target/release/group_commit",
         "--inputs",
         "4096",
         "--rules",

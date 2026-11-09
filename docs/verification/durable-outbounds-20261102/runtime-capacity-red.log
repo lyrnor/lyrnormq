@@ -1,6 +1,6 @@
-   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-durable-egress-runtime/crates/mqtt-egress)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/lyrnormq-durable-egress-runtime/crates/mqtt-egress)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3.12s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-051ca85e2a1b8d0d)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress-051ca85e2a1b8d0d)
 
 running 1 test
 

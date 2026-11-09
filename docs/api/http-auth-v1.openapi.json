@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "RMQTT external HTTP authentication and ACL API",
+    "title": "LYRNORMQ external HTTP authentication and ACL API",
     "version": "1.0.0",
     "description": "Phase6b: CONNECT authentication and PUBLISH/SUBSCRIBE admission. No per-delivery, Will or startup-recovery HTTP rechecks. Username uniquely identifies the device. Authentication:204 success,401 credential denial; ACL:204 allow,403 operation denial.401 at ACL is service credential fault;403 at authentication is unavailable. No response JSON. Cache only ACL204/403 by exact source/username/client_id/action/topic. Normative details: ../http-auth-api.md."
   },

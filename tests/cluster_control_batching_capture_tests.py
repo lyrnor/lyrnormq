@@ -11,7 +11,7 @@ from cluster_blackbox import CLUSTER_TOKEN, TOKEN
 
 class BoundedDiagnosticLogs(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-control-log-test-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-control-log-test-')
         self.addCleanup(self.directory.cleanup)
         self.path = Path(self.directory.name) / 'node.log'
 

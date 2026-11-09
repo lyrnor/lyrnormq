@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Independent Phase5a real MQTT → SQL → Webhook acceptance (stdlib only).
-Run after building: RMQTT_BIN=/absolute/path/rmqtt python3 tests/rules_webhook_blackbox.py -v
+Run after building: LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/rules_webhook_blackbox.py -v
 Admission before durable append remains best effort; shared queue recovery is tested separately.
 """
 from collections import deque
@@ -98,7 +98,7 @@ class RulesWebhook(unittest.TestCase):
     barrier = dashboard.DashboardBlackbox.barrier
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-rules-quality-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-rules-quality-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.rules_path = self.root / 'rules.sqlite'
@@ -500,7 +500,7 @@ class RulesWebhook(unittest.TestCase):
                     self.rules_path.unlink()
                 self.seed_legacy_sqlite(legacy)
                 before = self.rules_path.read_bytes()
-                from rmqttcfg import argv
+                from lyrnormqcfg import argv
                 process = subprocess.run(argv(BINARY, '127.0.0.1:0', self.root),
                                          cwd=self.root, capture_output=True, timeout=8)
                 self.assertNotEqual(process.returncode, 0)
@@ -508,7 +508,7 @@ class RulesWebhook(unittest.TestCase):
                 self.assertEqual(self.stored_config(), legacy)
 
     def test_json_foreign_and_corrupt_databases_are_rejected_without_overwrite(self):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         args = argv(BINARY, '127.0.0.1:0', self.root)
         for content in [b'{"connectors":[],"actions":[],"rules":[]}', b'not a database']:
             self.rules_path.write_bytes(content)
@@ -534,7 +534,7 @@ class RulesWebhook(unittest.TestCase):
             process = subprocess.run(command, cwd=self.root, capture_output=True, timeout=5)
             self.assertNotEqual(process.returncode, 0)
         self.rules_path.write_text('{invalid')
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         process = subprocess.run(argv(BINARY, '127.0.0.1:0', self.root), capture_output=True, timeout=5, cwd=self.root)
         self.assertNotEqual(process.returncode, 0)
         self.rules_path.unlink()

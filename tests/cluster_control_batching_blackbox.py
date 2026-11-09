@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real-process functional acceptance for control batching and owner recovery.
 
-RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_control_batching_blackbox.py -v
+LYRNORMQ_BIN=/absolute/lyrnormq python3 tests/cluster_control_batching_blackbox.py -v
 The separate cluster_control_batching_diagnostic.py runs the finite 900-client
 performance reproduction; default functional tests have no throughput assertion.
 """
@@ -13,7 +13,7 @@ import unittest
 
 from cluster_blackbox import BINARY, wait_until
 from cluster_memory_blackbox import CombinedMemoryFleet, MemoryFixture
-import rmqttcfg
+import lyrnormqcfg
 
 
 @contextmanager
@@ -41,7 +41,7 @@ def controller_only_status(fleet, node):
         for _ in range(2):
             reserved = resources.enter_context(socket.socket())
             reserved.bind(('127.0.0.1', 0))
-        path = rmqttcfg.write(
+        path = lyrnormqcfg.write(
             node.root / 'status-only',
             None,
             node_id=node.config['node_id'],

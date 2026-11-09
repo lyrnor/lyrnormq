@@ -1,7 +1,7 @@
     Blocking waiting for file lock on build directory
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-durable-egress-log/crates/mqtt-egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-durable-egress-log/crates/mqtt-egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.80s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
 
 running 1 test
 test tests::payload_bitflip_after_open_is_not_sent_or_blessed_by_compaction ... FAILED

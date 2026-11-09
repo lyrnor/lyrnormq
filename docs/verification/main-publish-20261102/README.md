@@ -1,7 +1,7 @@
 # Stable main publish acceptance — 2026-11-02
 
 Prepared from stable main d1c409b plus the reviewed Kafka replacement commits.
-No force push; target private repository https://github.com/biaogd/rmqtt.
+No force push; target private repository https://github.com/biaogd/lyrnormq.
 
 - 760 Rust workspace tests passed, zero failures/ignored.
 - 96 React tests, production frontend build passed.

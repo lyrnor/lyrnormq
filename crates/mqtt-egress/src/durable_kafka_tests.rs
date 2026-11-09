@@ -4,7 +4,7 @@ struct Fixture(std::path::PathBuf);
 impl Fixture {
     fn new() -> Self {
         Self(std::env::temp_dir().join(format!(
-                "rmqtt-kafka-state-{}-{}",
+                "lyrnormq-kafka-state-{}-{}",
                 std::process::id(),
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)

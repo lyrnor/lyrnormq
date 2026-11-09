@@ -35,8 +35,8 @@ latency and separately samples Raft/status; do not label it pure Raft network la
 Independently check raw samples and per-endpoint balance. Preserve failure reports.
 No performance claim from single-host fault tests or suite wall-clock durations.
 
-Coordinator owns bin/rmqtt, docs, workspace integration/deployment. Loadgen owner
-owns bin/rmqtt-loadgen only. Quality owner owns tests/cluster_topology* and
+Coordinator owns bin/lyrnormq, docs, workspace integration/deployment. Loadgen owner
+owns bin/lyrnormq-loadgen only. Quality owner owns tests/cluster_topology* and
 scripts/cluster_benchmark* only. Writers use isolated branches/worktrees, commit
 with tests and limitations. No concurrent shared writes or production log changes.
 

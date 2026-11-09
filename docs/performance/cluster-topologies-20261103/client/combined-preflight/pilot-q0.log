@@ -1,2 +1,2 @@
-rmqtt-loadgen: 30 pairs / 60 TCP connections; QoS0; 128 bytes; closed-loop
-rmqtt-loadgen: invalid data: unexpected CONNACK: ConnAck { session_present: false, code: 137 }
+lyrnormq-loadgen: 30 pairs / 60 TCP connections; QoS0; 128 bytes; closed-loop
+lyrnormq-loadgen: invalid data: unexpected CONNACK: ConnAck { session_present: false, code: 137 }

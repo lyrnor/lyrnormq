@@ -13,17 +13,17 @@ Final executable SHA256:
 `45b8db928c3405f1894c50cb83c1da3b0ae65e64721713fc6312e8c65e471a1e`.
 Built from code through `1bef408` plus the CLI integration in `dabd1bc`; subsequent
 changes are verification/progress documentation only. The local immutable test
-copy is `/private/tmp/rmqtt-cluster-accepted`; build output is
-`target/cluster/debug/rmqtt`.
+copy is `/private/tmp/lyrnormq-cluster-accepted`; build output is
+`target/cluster/debug/lyrnormq`.
 
 ## Reproduction
 
 ```sh
-CARGO_TARGET_DIR=target/cluster cargo build -p rmqtt --locked --offline
+CARGO_TARGET_DIR=target/cluster cargo build -p lyrnormq --locked --offline
 CARGO_TARGET_DIR=target/cluster cargo test --workspace --locked --offline
 CARGO_TARGET_DIR=target/cluster cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 cargo fmt --all --check
-RMQTT_BIN="$PWD/target/cluster/debug/rmqtt" python3 tests/cluster_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/cluster/debug/lyrnormq" python3 tests/cluster_blackbox.py -v
 ```
 
 Offline requires the locked dependencies already fetched. Tests that bind local

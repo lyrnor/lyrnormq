@@ -809,7 +809,7 @@ mod control_tests {
     async fn applied_waiter_wakes_on_same_revision_heartbeat_and_rejects_new_term() -> io::Result<()>
     {
         let path = std::env::temp_dir().join(format!(
-            "rmqtt-control-progress-{}-{}",
+            "lyrnormq-control-progress-{}-{}",
             std::process::id(),
             now()
         ));

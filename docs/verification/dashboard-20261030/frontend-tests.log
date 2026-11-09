@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run
 
 
- RUN  v3.2.7 /Volumes/data/rmqtt/dashboard/web
+ RUN  v3.2.7 /Volumes/data/lyrnormq/dashboard/web
 
  ✓ tests/model.test.ts (12 tests) 10ms
  ✓ tests/api.test.ts (5 tests) 15ms

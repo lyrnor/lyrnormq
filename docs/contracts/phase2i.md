@@ -9,7 +9,7 @@ schema6, Clock/TTL, NL/RAP/RH/IDs, ACL and full-frame writer. lib.rs stays thin.
 Transport owns mqtt-transport/** in agent/p2i-transport isolated worktree. Protocol
 specialist owns mqtt-protocol/** and read-only session trust review in independent
 agent/p2i-protocol. Quality owns tests/** and CI in agent/p2i-quality. Coordinator
-owns bin/rmqtt/**, docs, root lock and integration. No shared source writes.
+owns bin/lyrnormq/**, docs, root lock and integration. No shared source writes.
 Add BrokerConfig.topic_alias_maximum:u16 default32, zero valid. It bounds advertised
 inbound aliases and the local maximum outbound map entries. CLI coordinator adds
 --topic-alias-maximum0..65535. Client CONNECT TopicAliasMaximum (default0) separately

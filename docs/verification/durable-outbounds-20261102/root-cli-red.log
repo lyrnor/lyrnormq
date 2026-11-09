@@ -1,6 +1,6 @@
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4.35s
-     Running unittests src/main.rs (target/debug/deps/rmqtt-920d88991ecd28fe)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq-920d88991ecd28fe)
 
 running 1 test
 test cli::tests::durable_outbound_queue_cli_accepts_explicit_limits ... FAILED
@@ -9,7 +9,7 @@ failures:
 
 ---- cli::tests::durable_outbound_queue_cli_accepts_explicit_limits stdout ----
 
-thread 'cli::tests::durable_outbound_queue_cli_accepts_explicit_limits' (15475308) panicked at bin/rmqtt/src/cli.rs:332:9:
+thread 'cli::tests::durable_outbound_queue_cli_accepts_explicit_limits' (15475308) panicked at bin/lyrnormq/src/cli.rs:332:9:
 assertion failed: parse(args(&["--egress-queue-dir", "deliveries",
                         "--egress-queue-segment-bytes", "4096",
                         "--egress-queue-max-bytes", "1048576",
@@ -22,4 +22,4 @@ failures:
 
 test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
 
-error: test failed, to rerun pass `-p rmqtt --bin rmqtt`
+error: test failed, to rerun pass `-p lyrnormq --bin lyrnormq`

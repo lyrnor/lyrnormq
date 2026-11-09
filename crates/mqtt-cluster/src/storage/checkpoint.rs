@@ -40,7 +40,7 @@ fn record(bucket: &[u8], key: &[u8], data: &[u8]) -> bbolt::Result<Vec<u8>> {
         return Err(bad("checkpoint record bounds"));
     }
     let mut hash = Sha256::new();
-    hash.update(b"rmqtt-bbolt-v1\0");
+    hash.update(b"lyrnormq-bbolt-v1\0");
     hash.update((bucket.len() as u64).to_be_bytes());
     hash.update(bucket);
     hash.update((key.len() as u64).to_be_bytes());
@@ -74,7 +74,7 @@ fn business_record(bucket: &[u8], key: &[u8], data: &[u8]) -> bbolt::Result<Vec<
 }
 fn fold_piece(bucket: &[u8], physical: &[u8], value: &[u8]) -> [u8; 32] {
     let mut hash = Sha256::new();
-    hash.update(b"rmqtt-bbolt-fold-v1\0");
+    hash.update(b"lyrnormq-bbolt-fold-v1\0");
     hash.update((bucket.len() as u64).to_be_bytes());
     hash.update(bucket);
     hash.update((physical.len() as u64).to_be_bytes());

@@ -1,6 +1,6 @@
 {
-  "cluster_id": "rmqtt-topology-separate-20261103",
-  "token_file": "/opt/rmqtt-cluster-benchmark/20261103/peer.token",
+  "cluster_id": "lyrnormq-topology-separate-20261103",
+  "token_file": "/opt/lyrnormq-cluster-benchmark/20261103/peer.token",
   "controllers": [
     {
       "id": 1,
@@ -20,7 +20,7 @@
   "node_id": 103,
   "listen": "127.0.0.1:17103",
   "advertise": "http://127.0.0.1:17103",
-  "data_dir": "/opt/rmqtt-cluster-benchmark/20261103/separate/broker-data103",
+  "data_dir": "/opt/lyrnormq-cluster-benchmark/20261103/separate/broker-data103",
   "durable": {
     "replicas": [
       {

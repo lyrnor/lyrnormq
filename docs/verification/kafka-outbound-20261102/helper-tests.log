@@ -1,5 +1,5 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
-     Running unittests src/main.rs (/private/tmp/rmqtt-kafka-zig-spike/target/debug/deps/rmqtt_kafka_test_client-40f5afd0ef8d0e1b)
+     Running unittests src/main.rs (/private/tmp/lyrnormq-kafka-zig-spike/target/debug/deps/lyrnormq_kafka_test_client-40f5afd0ef8d0e1b)
 
 running 0 tests
 

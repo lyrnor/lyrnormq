@@ -176,7 +176,7 @@ impl Drop for Fixture {
 impl Fixture {
     async fn new(label: &str) -> io::Result<Self> {
         let path = std::env::temp_dir().join(format!(
-            "rmqtt-recovery-{label}-{}-{}",
+            "lyrnormq-recovery-{label}-{}-{}",
             std::process::id(),
             controller::now()
         ));

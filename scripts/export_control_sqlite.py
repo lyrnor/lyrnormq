@@ -51,7 +51,7 @@ def export(directory):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise ValueError('Controller directory is in use; stop it before exporting') from error
-        with tempfile.TemporaryDirectory(prefix='rmqtt-control-export-') as scratch:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-control-export-') as scratch:
             copy = Path(scratch) / 'metadata.sqlite'
             for suffix in ('', '-wal'):
                 original = Path(str(source) + suffix)

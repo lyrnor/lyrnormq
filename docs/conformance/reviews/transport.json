@@ -395,7 +395,7 @@
         "crates/mqtt-transport/src/enhanced_tests.rs:mqtt_3_14_0_1_initial_auth_failures_use_connack_before_any_disconnect",
         "crates/mqtt-transport/src/enhanced_tests.rs:initial_enhanced_deadline_reports_authentication_failure"
       ],
-      "note": "ACTUAL MUST GAP FIXED: preauth unexpected PING/changed method/malformed AUTH/absolute deadline formerly emitted DISCONNECT. Failure-first log /tmp/rmqtt-p2k-transport-red.log; now failure CONNACK or silent close if not legal/fitting. Established error path remains DISCONNECT."
+      "note": "ACTUAL MUST GAP FIXED: preauth unexpected PING/changed method/malformed AUTH/absolute deadline formerly emitted DISCONNECT. Failure-first log /tmp/lyrnormq-p2k-transport-red.log; now failure CONNACK or silent close if not legal/fitting. Established error path remains DISCONNECT."
     },
     {
       "id": "MQTT-3.14.4-1",

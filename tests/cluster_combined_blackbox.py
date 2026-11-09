@@ -5,7 +5,7 @@ The operator TOML file requires unique member hosts, so local processes use
 127.0.0.1/2/3 with shared controller and broker ports. This is the current
 combined-role layout, not the removed --cluster-config JSON launcher.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_combined_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/cluster_combined_blackbox.py -v
 """
 import json
 import os
@@ -24,12 +24,12 @@ from dashboard_blackbox import free_port
 from mqtt5_blackbox import connect5, parse5, props, readprops
 from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import publication
-import rmqttcfg
+import lyrnormqcfg
 
-BINARY = os.environ.get('RMQTT_BIN', str(Path(__file__).resolve().parents[1] / 'target/debug/rmqtt'))
+BINARY = os.environ.get('LYRNORMQ_BIN', str(Path(__file__).resolve().parents[1] / 'target/debug/lyrnormq'))
 LOADGEN = os.environ.get(
-    'RMQTT_LOADGEN_BIN',
-    str(Path(__file__).resolve().parents[1] / 'target/debug/rmqtt-loadgen'),
+    'LYRNORMQ_LOADGEN_BIN',
+    str(Path(__file__).resolve().parents[1] / 'target/debug/lyrnormq-loadgen'),
 )
 CLUSTER_TOKEN = 'cluster-test-secret-709def7a902445eb'
 HOSTS = ('127.0.0.1', '127.0.0.2', '127.0.0.3')
@@ -61,7 +61,7 @@ def mqtt_connect(host, port, client_id):
 
 class CombinedCluster(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-combined-cluster-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-combined-cluster-')
         self.addCleanup(self.directory.cleanup)
         root = Path(self.directory.name)
         token = root / 'peer.token'
@@ -85,7 +85,7 @@ class CombinedCluster(unittest.TestCase):
             data_dir = root / f'n{node_id}'
             mqtt_port = free_port()
             listen = f'{host}:{mqtt_port}'
-            path = rmqttcfg.write(
+            path = lyrnormqcfg.write(
                 data_dir,
                 listen,
                 node_id=node_id,

@@ -1,4 +1,4 @@
-# rmqtt Dashboard 页面设计
+# lyrnormq Dashboard 页面设计
 
 浅色运维后台交互原型。所有连接、消息、吞吐、资源和事件数据均为本地合成样例，尚未连接 Broker，也不代表实测性能。无需安装前端依赖，不修改 Rust 服务。
 

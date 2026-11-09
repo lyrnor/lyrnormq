@@ -4,13 +4,13 @@ test_expired_broker_rejoins_without_process_restart (__main__.ClusterFaults.test
 FAIL: test_expired_broker_rejoins_without_process_restart (__main__.ClusterFaults.test_expired_broker_rejoins_without_process_restart)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-quality/tests/cluster_blackbox.py", line 510, in test_expired_broker_rejoins_without_process_restart
+  File "/private/tmp/lyrnormq-cluster-quality/tests/cluster_blackbox.py", line 510, in test_expired_broker_rejoins_without_process_restart
     self.cross_roundtrip('after-controller-crash')
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-quality/tests/cluster_blackbox.py", line 292, in wait_broker_recovery
+  File "/private/tmp/lyrnormq-cluster-quality/tests/cluster_blackbox.py", line 292, in wait_broker_recovery
     sock.sendall(self.packet(f'recovery-probe-{index}'))
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-quality/tests/cluster_blackbox.py", line 45, in wait_until
+  File "/private/tmp/lyrnormq-cluster-quality/tests/cluster_blackbox.py", line 45, in wait_until
     raise AssertionError(f'condition not established in {timeout}s; last={last!r}')
 AssertionError: condition not established in 30s; last=False
 

@@ -39,9 +39,9 @@ class Client(BasicClient):
 
 class SubscriptionPaho(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-subscription-paho-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-subscription-paho-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        self.sqlite = bool(os.environ.get('LYRNORMQ_TEST_STORAGE_PATH'))
         self.broker = FeatureBroker(self.directory.name, self.sqlite)
         self.broker.start();self.addCleanup(self.broker.stop)
 

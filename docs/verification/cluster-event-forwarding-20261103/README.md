@@ -22,7 +22,7 @@ Final immutable native SHA256:
 `fd92d4522320269bee125bf89163f0107c64ea5ad2ece4927d1a30e9c994a0e2`.
 Final local Zig-built statically-linked x86_64 musl ELF SHA256:
 `0a20f4c91566ab92c258ab5a32bdc83b2a110de5ce3e333883e0f726c41575e2`.
-Linux build command: `CARGO_TARGET_DIR=target/cluster cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p rmqtt`.
+Linux build command: `CARGO_TARGET_DIR=target/cluster cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p lyrnormq`.
 First invocation lacked sandbox access to Zig's cache, failed before compile; retry
 with cache access completed. Native environment macOSarm64/Rust1.98.1/Zig0.16.
 
@@ -57,7 +57,7 @@ readiness/metadata triggers, retry backoff and16-hot/17th-cold fairness.
 
 ## Comparable server load
 
-Fresh six-process cluster /opt/rmqtt-cluster-events/20261103 on47.84.224.186,
+Fresh six-process cluster /opt/lyrnormq-cluster-events/20261103 on47.84.224.186,
 three Controllers and three RAM data nodes. Same privateMQTT endpoints
 172.16.240.180:18831/18832/18833; loadhost47.84.241.200/172.16.240.181.
 Old RAM deployment stopped only after confirming no active MQTT clients and

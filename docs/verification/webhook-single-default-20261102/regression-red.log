@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run tests/rules-model.test.ts tests/rules-page.test.tsx
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-single-default/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-single-default/dashboard/web
 
  ❯ tests/rules-model.test.ts (10 tests | 1 failed) 8ms
    × rule form contract validation > defaults new outbounds to one event without batching delay 4ms

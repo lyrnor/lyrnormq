@@ -1,4 +1,4 @@
-use rmqtt_fuzz_harness::{MAX_INPUT, codec, seeds, session, session_v5};
+use lyrnormq_fuzz_harness::{MAX_INPUT, codec, seeds, session, session_v5};
 use std::{error::Error, path::PathBuf};
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();

@@ -1,5 +1,5 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_transport-f2ae8739566f4ace)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/cluster/debug/deps/mqtt_transport-f2ae8739566f4ace)
 
 running 1 test
 test durable::durable_cluster_tests::authoritative_tombstone_deletes_a_preexisting_local_mirror_row ... FAILED

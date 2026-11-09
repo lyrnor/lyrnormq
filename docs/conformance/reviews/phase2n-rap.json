@@ -3,7 +3,7 @@
   "source_commit": "7149a63b968742d9899c89f21375b5586f725c6f",
   "verification": [
     "cargo test --offline -p mqtt-session:180 passed; fmt, strict Clippy and Rustdoc passed",
-    "Failure-first mixed-RAP counterexample /tmp/rmqtt-p2n-rap-red.log followed frozen N1 permitted multi-copy policy.",
+    "Failure-first mixed-RAP counterexample /tmp/lyrnormq-p2n-rap-red.log followed frozen N1 permitted multi-copy policy.",
     "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."
   ],
   "clauses": [

@@ -4,10 +4,10 @@ test_graceful_restart_replays_committed_backlog_with_stable_identity (__main__.D
 FAIL: test_graceful_restart_replays_committed_backlog_with_stable_identity (__main__.DurableOutbounds.test_graceful_restart_replays_committed_backlog_with_stable_identity)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-durable-egress-quality/tests/outbound_durable_blackbox.py", line 88, in test_graceful_restart_replays_committed_backlog_with_stable_identity
+  File "/private/tmp/lyrnormq-durable-egress-quality/tests/outbound_durable_blackbox.py", line 88, in test_graceful_restart_replays_committed_backlog_with_stable_identity
     receiver.tracker.wait(lambda t: len(t.completed) == 3)
     ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-durable-egress-quality/tests/outbound_concurrency_blackbox.py", line 41, in wait
+  File "/private/tmp/lyrnormq-durable-egress-quality/tests/outbound_concurrency_blackbox.py", line 41, in wait
     raise AssertionError(f'HTTP barrier timed out: active={self.active}, '
                          f'started={len(self.started)}, completed={len(self.completed)}, '
                          f'peak={self.peak}, closed={self.closed}')

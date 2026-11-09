@@ -94,7 +94,7 @@ impl Owner {
         #[cfg(test)]
         let worker_gate = fence_gate.clone();
         std::thread::Builder::new()
-            .name("rmqtt-kafka-owner".into())
+            .name("lyrnormq-kafka-owner".into())
             .spawn(move || {
                 let _slot = slot;
                 let _quiet =

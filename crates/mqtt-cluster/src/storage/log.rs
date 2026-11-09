@@ -13,7 +13,7 @@ struct StoredEntry<T> {
 }
 fn digest(entry: &Entry) -> io::Result<String> {
     let mut hash = Sha256::new();
-    hash.update(b"rmqtt-controller-log-v2\0");
+    hash.update(b"lyrnormq-controller-log-v2\0");
     hash.update(encode(entry)?);
     Ok(format!("{:x}", hash.finalize()))
 }

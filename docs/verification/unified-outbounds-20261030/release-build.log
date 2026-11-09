@@ -1,5 +1,5 @@
-   Compiling mqtt-storage v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-storage)
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling mqtt-storage v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-storage)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `release` profile [optimized] target(s) in 10.58s

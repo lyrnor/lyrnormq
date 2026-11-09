@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase7c/7f repair maintenance on live memory replicas, real processes.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_repair_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/cluster_repair_blackbox.py -v
 Memory replacements keep a normal Broker process waiting for operator
 cluster-repair. Pure cluster-repair-learner is refused; disk-learner then
 Broker reuse is not a memory path. A transparent HTTP/2 DATA-frame proxy can

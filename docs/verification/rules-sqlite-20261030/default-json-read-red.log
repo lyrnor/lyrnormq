@@ -4,14 +4,14 @@ test_default_rules_enabled_without_loading_legacy_json (rules_webhook_blackbox.R
 FAIL: test_default_rules_enabled_without_loading_legacy_json (rules_webhook_blackbox.RulesWebhook.test_default_rules_enabled_without_loading_legacy_json)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-config-quality/tests/rules_webhook_blackbox.py", line 371, in test_default_rules_enabled_without_loading_legacy_json
+  File "/private/tmp/lyrnormq-config-quality/tests/rules_webhook_blackbox.py", line 371, in test_default_rules_enabled_without_loading_legacy_json
     self.start(default=True)
     ~~~~~~~~~~^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-config-quality/tests/rules_webhook_blackbox.py", line 111, in start
+  File "/private/tmp/lyrnormq-config-quality/tests/rules_webhook_blackbox.py", line 111, in start
     broker = self.broker.start()
-  File "/private/tmp/rmqtt-config-quality/tests/dashboard_blackbox.py", line 88, in start
+  File "/private/tmp/lyrnormq-config-quality/tests/dashboard_blackbox.py", line 88, in start
     raise AssertionError(f'broker exited during startup: {self.logs()}')
-AssertionError: broker exited during startup: rmqtt management on 127.0.0.1:51594 (loopback, bearer authentication)
+AssertionError: broker exited during startup: lyrnormq management on 127.0.0.1:51594 (loopback, bearer authentication)
 Error: Custom { kind: InvalidInput, error: InvalidConfig }
 
 

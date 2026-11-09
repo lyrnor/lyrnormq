@@ -1,6 +1,6 @@
-   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
-   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq-loadgen v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq-loadgen)
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-webhook)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3.85s
      Running unittests src/lib.rs (target/debug/deps/mqtt_auth-db4f728db4966d8c)
 
@@ -580,7 +580,7 @@ test tests::reconfiguration_cancels_old_generation_and_counts_abandoned_events .
 
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
 
-     Running unittests src/main.rs (target/debug/deps/rmqtt-3c71f37425a8dcb2)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq-3c71f37425a8dcb2)
 
 running 27 tests
 test admin::http::tests::authorization_requires_one_exact_bearer_header ... ok
@@ -613,7 +613,7 @@ test tls_identity::tests::bounded_file_reader_rejects_special_missing_and_oversi
 
 test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running unittests src/lib.rs (target/debug/deps/rmqtt_loadgen-78ab9cf5a30f6c1d)
+     Running unittests src/lib.rs (target/debug/deps/lyrnormq_loadgen-78ab9cf5a30f6c1d)
 
 running 26 tests
 test engine::tests::receive_maximum_does_not_throttle_qos0 ... ok
@@ -645,7 +645,7 @@ test payload::tests::roundtrip_and_corruption ... ok
 
 test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (target/debug/deps/rmqtt_loadgen-abd5d4d427cc68a4)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq_loadgen-abd5d4d427cc68a4)
 
 running 0 tests
 
@@ -728,7 +728,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-   Doc-tests rmqtt_loadgen
+   Doc-tests lyrnormq_loadgen
 
 running 0 tests
 

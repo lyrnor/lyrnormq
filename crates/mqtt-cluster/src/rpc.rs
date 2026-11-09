@@ -17,7 +17,7 @@ use tonic::{
     transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity, ServerTlsConfig},
 };
 pub(crate) mod wire {
-    tonic::include_proto!("rmqtt.cluster.v1");
+    tonic::include_proto!("lyrnormq.cluster.v1");
 }
 pub(crate) const MAX_WIRE: usize = 64 * 1024 * 1024;
 pub(crate) fn encode<T: Serialize>(value: &T) -> io::Result<wire::Envelope> {
@@ -138,7 +138,7 @@ impl ClientRpc {
         let mut request = Request::new(value);
         request
             .metadata_mut()
-            .insert("x-rmqtt-cluster", self.cluster_header.clone());
+            .insert("x-lyrnormq-cluster", self.cluster_header.clone());
         request
             .metadata_mut()
             .insert("authorization", self.authorization.clone());
@@ -147,7 +147,7 @@ impl ClientRpc {
     pub fn check<T>(&self, request: &Request<T>) -> Result<(), Status> {
         let cluster = request
             .metadata()
-            .get("x-rmqtt-cluster")
+            .get("x-lyrnormq-cluster")
             .map(|v| v.as_bytes());
         let supplied = request
             .metadata()

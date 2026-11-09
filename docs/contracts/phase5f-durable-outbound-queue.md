@@ -147,7 +147,7 @@ No credentials/payload readAPI. Queue limits in CLI, not peradapter UI.
 
 Storageagent owns crates/mqtt-egress-log/** in independentworktree. Runtimeagent
 owns crates/mqtt-egress/**; mayaddpathdependency in itsCargo.toml, no rootedit.
-Qualityagent owns tests/**,.github/workflows/**. Coordinator owns docs,bin/rmqtt,
+Qualityagent owns tests/**,.github/workflows/**. Coordinator owns docs,bin/lyrnormq,
 Cargo.lock/workspace and small Dashboardstatusintegration for thisphase.
 Freeze -> parallel logengine + runtimeagainstAPI + independentREDtests -> integrate
 engine/runtime -> realReleaseHTTP + strictworkspacechecks -> review/fix -> docs.

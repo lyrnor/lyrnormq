@@ -7,19 +7,19 @@ test_explicit_override_replaces_entire_embedded_set (__main__.EmbeddedDashboardB
 FAIL: test_copied_binary_serves_real_embedded_assets_and_authenticated_live_api (__main__.EmbeddedDashboardBlackbox.test_copied_binary_serves_real_embedded_assets_and_authenticated_live_api)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/Volumes/data/rmqtt/tests/dashboard_embedded.py", line 149, in test_copied_binary_serves_real_embedded_assets_and_authenticated_live_api
+  File "/Volumes/data/lyrnormq/tests/dashboard_embedded.py", line 149, in test_copied_binary_serves_real_embedded_assets_and_authenticated_live_api
     self.assertEqual(list(broker.cwd.iterdir()), [])
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: Lists differ: [PosixPath('/var/folders/75/n12lz3356pzcr7[370 chars]te')] != []
 
 First list contains 3 additional elements.
 First extra element 0:
-PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-embedded-dashboard-haz4ok1d/empty-runtime/rmqtt-rules.sqlite.outbound-queue')
+PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-embedded-dashboard-haz4ok1d/empty-runtime/lyrnormq-rules.sqlite.outbound-queue')
 
 + []
-- [PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-embedded-dashboard-haz4ok1d/empty-runtime/rmqtt-rules.sqlite.outbound-queue'),
--  PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-embedded-dashboard-haz4ok1d/empty-runtime/rmqtt-rules.sqlite.config-lock'),
--  PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-embedded-dashboard-haz4ok1d/empty-runtime/rmqtt-rules.sqlite')]
+- [PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-embedded-dashboard-haz4ok1d/empty-runtime/lyrnormq-rules.sqlite.outbound-queue'),
+-  PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-embedded-dashboard-haz4ok1d/empty-runtime/lyrnormq-rules.sqlite.config-lock'),
+-  PosixPath('/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-embedded-dashboard-haz4ok1d/empty-runtime/lyrnormq-rules.sqlite')]
 
 ----------------------------------------------------------------------
 Ran 4 tests in 1.075s

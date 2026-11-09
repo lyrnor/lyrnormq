@@ -60,7 +60,7 @@ impl StorageService {
         let max_row_bytes = store.limits.max_row_bytes;
         let (sender, receiver) = sync_channel(capacity);
         let thread = thread::Builder::new()
-            .name("rmqtt-storage".into())
+            .name("lyrnormq-storage".into())
             .spawn(move || run(store, receiver, max_batch))?;
         Ok(Self {
             sender: Some(sender),

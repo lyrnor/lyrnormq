@@ -101,7 +101,7 @@ impl Queue {
         let actor_changed = changed.clone();
         let actor_stopped = Arc::clone(&stopped);
         let thread = std::thread::Builder::new()
-            .name("rmqtt-outbound-log".into())
+            .name("lyrnormq-outbound-log".into())
             .spawn(move || {
                 run(
                     journal,

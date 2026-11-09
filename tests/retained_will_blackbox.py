@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent MQTT3.1.1 retained/Will wire checks, with optional SQLite mode.
 
-RMQTT_TEST_STORAGE_PATH selects SQLite; each test owns a separate temporary DB.
+LYRNORMQ_TEST_STORAGE_PATH selects SQLite; each test owns a separate temporary DB.
 ACKs/confirmed outputs establish ordering. Silence checks are bounded observations,
 not evidence of a durable commit. SIGKILL cases do not simulate physical power loss.
 """
@@ -44,15 +44,15 @@ class FeatureBroker(PersistentBroker):
         self.sqlite = sqlite
 
     def command(self):
-        executable = os.environ.get('RMQTT_BIN', str(Path(__file__).resolve().parents[1]
-                                                     / 'target/debug/rmqtt'))
-        from rmqttcfg import argv
+        executable = os.environ.get('LYRNORMQ_BIN', str(Path(__file__).resolve().parents[1]
+                                                     / 'target/debug/lyrnormq'))
+        from lyrnormqcfg import argv
         return argv(executable, f'127.0.0.1:{self.port}', self.db.parent, self.extra_args)
 
 
 class RetainedWillBlackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-retained-will-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-retained-will-')
         self.addCleanup(self.directory.cleanup)
         # Standalone TOML always uses data_dir/sessions.sqlite.
         self.sqlite = True

@@ -2,7 +2,7 @@ use super::*;
 
 fn fixture(label: &str) -> io::Result<(Arc<BrokerRuntime>, std::path::PathBuf)> {
     let path = std::env::temp_dir().join(format!(
-        "rmqtt-events-{label}-{}-{}",
+        "lyrnormq-events-{label}-{}-{}",
         std::process::id(),
         controller::now()
     ));

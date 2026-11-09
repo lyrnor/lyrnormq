@@ -73,7 +73,7 @@ async fn fixture() -> io::Result<(ClientRpc, std::path::PathBuf)> {
     let mut random = [0; 16];
     getrandom::getrandom(&mut random).map_err(io::Error::other)?;
     let name: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    let path = std::env::temp_dir().join(format!("rmqtt-rpc-buffer-{name}"));
+    let path = std::env::temp_dir().join(format!("lyrnormq-rpc-buffer-{name}"));
     tokio::fs::create_dir(&path).await?;
     tokio::fs::write(path.join("token"), "a".repeat(64)).await?;
     let config: Config = serde_json::from_value(serde_json::json!({
@@ -93,7 +93,7 @@ async fn authentication_metadata_is_shared_and_requests_stay_independent() -> io
     let (rpc, path) = fixture().await?;
     let first = rpc.authorize(())?;
     let mut second = rpc.authorize(())?;
-    for key in ["authorization", "x-rmqtt-cluster"] {
+    for key in ["authorization", "x-lyrnormq-cluster"] {
         assert_eq!(
             first.metadata().get(key).unwrap().as_bytes().as_ptr(),
             second.metadata().get(key).unwrap().as_bytes().as_ptr(),
@@ -147,13 +147,13 @@ async fn authentication_rejects_changed_lengths_edges_and_cluster() -> io::Resul
     let mut foreign = rpc.authorize(())?;
     foreign
         .metadata_mut()
-        .insert("x-rmqtt-cluster", "other".parse().unwrap());
+        .insert("x-lyrnormq-cluster", "other".parse().unwrap());
     assert_eq!(
         rpc.check(&foreign).unwrap_err().code(),
         tonic::Code::Unauthenticated
     );
     let mut missing_cluster = rpc.authorize(())?;
-    missing_cluster.metadata_mut().remove("x-rmqtt-cluster");
+    missing_cluster.metadata_mut().remove("x-lyrnormq-cluster");
     assert_eq!(
         rpc.check(&missing_cluster).unwrap_err().code(),
         tonic::Code::Unauthenticated

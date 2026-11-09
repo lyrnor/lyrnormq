@@ -1,11 +1,11 @@
 # Rust load generator v1 — frozen interface and metric contract
 
-Standalone bin/rmqtt-loadgen; no broker/protocol API or persistent schema changes.
+Standalone bin/lyrnormq-loadgen; no broker/protocol API or persistent schema changes.
 lib.rs docs/modules/reexports only. Stable2024,Tokio,bounded frames/windows/samples,
 no unsafe/production unwrap/expect/blocking I/O in async/locks across awaits.
 Coordinator owns model/config/payload/error/main/report/workspace/docs;engine agent
 owns src/engine.rs+src/engine/**;metrics agent src/metrics.rs+src/metrics/**;
-quality agent bin/rmqtt-loadgen/tests/** only. Each writer independent worktree and
+quality agent bin/lyrnormq-loadgen/tests/** only. Each writer independent worktree and
 codex branch;commits tested changes. Dependencies root model frozen below.
 
 MQTT3.1.1 and5 via existing mqtt-protocol codec,2500 paired exact topics=5000 TCP

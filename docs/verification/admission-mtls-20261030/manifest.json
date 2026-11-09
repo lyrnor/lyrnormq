@@ -9,7 +9,7 @@
     "python": "3.14.7",
     "openssl": "OpenSSL 3.6.3 9 Jun 2026",
     "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
-    "paho": "2.1.0 via existing /private/tmp/rmqtt-client-venv/bin/python"
+    "paho": "2.1.0 via existing /private/tmp/lyrnormq-client-venv/bin/python"
   },
   "source_commits": {
     "admission": "1399399e5656dc99de4b09e9439dc4af062e7b8d",

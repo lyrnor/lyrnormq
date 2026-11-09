@@ -9,7 +9,7 @@
     "python": "3.14.7",
     "openssl": "OpenSSL 3.6.3 9 Jun 2026",
     "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
-    "paho": "2.1.0 via /private/tmp/rmqtt-client-venv/bin/python"
+    "paho": "2.1.0 via /private/tmp/lyrnormq-client-venv/bin/python"
   },
   "results": {
     "workspace_passed": 540,

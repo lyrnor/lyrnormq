@@ -18,7 +18,7 @@
         "docs/conformance/authoritative-review.json:entries"
       ],
       "commands": [
-        "python3 docs/conformance/import_authoritative.py /tmp/rmqtt-mqtt5-os.docx --check:authoritative digest and inventory reproduced",
+        "python3 docs/conformance/import_authoritative.py /tmp/lyrnormq-mqtt5-os.docx --check:authoritative digest and inventory reproduced",
         "python3 docs/conformance/check_authoritative.py:343 dispositions,1436 code/test links passed",
         "Independent source review:285 keyword/error paragraphs plus58 body tables, including mixed numbered/unnumbered constraints; five endpoint table dependencies reconciled."
       ],

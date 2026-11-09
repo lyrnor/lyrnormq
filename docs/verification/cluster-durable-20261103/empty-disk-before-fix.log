@@ -27,10 +27,10 @@ test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives (cluste
 FAIL: test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives (cluster_durable_blackbox.DurableFaults.test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 294, in test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 294, in test_same_node_empty_disk_rejoin_is_refused_and_confirmed_state_survives
     wait_until(lambda: node.process.poll() is not None, 30)
     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_blackbox.py", line 45, in wait_until
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_blackbox.py", line 45, in wait_until
     raise AssertionError(f'condition not established in {timeout}s; last={last!r}')
 AssertionError: condition not established in 30s; last=False
 

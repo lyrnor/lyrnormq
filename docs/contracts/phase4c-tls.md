@@ -48,7 +48,7 @@ session, outbox, admission, expiry, Will and storage semantics remain unchanged.
 
 Transport Agent owns crates/mqtt-transport only, including its manifest and unit
 tests, in an assigned independent worktree. Quality Agent owns tests and CI only
-in another worktree. Coordinator owns bin/rmqtt, root lockfile, docs and integration.
+in another worktree. Coordinator owns bin/lyrnormq, root lockfile, docs and integration.
 No Agent changes root Cargo.toml/Cargo.lock or another owner's files.
 
 Quality adds independent Python ssl/raw MQTT tests using ephemeral OpenSSL test

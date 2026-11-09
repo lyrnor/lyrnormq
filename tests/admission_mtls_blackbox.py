@@ -43,12 +43,12 @@ class AdmissionMutualTLS(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.temp=tempfile.TemporaryDirectory(prefix='rmqtt-mtls-identities-')
+        cls.temp=tempfile.TemporaryDirectory(prefix='lyrnormq-mtls-identities-')
         cls.addClassCleanup(cls.temp.cleanup)
         cls.identities=MutualIdentities(cls.temp.name)
 
     def broker(self,kind='tcp',extra=(),mtls=False,credentials=False,persistent=False):
-        directory=tempfile.TemporaryDirectory(prefix='rmqtt-admission-')
+        directory=tempfile.TemporaryDirectory(prefix='lyrnormq-admission-')
         self.addCleanup(directory.cleanup)
         broker=GateBroker(self.identities,kind,directory.name,extra,mtls,credentials)
         broker.persistent=persistent

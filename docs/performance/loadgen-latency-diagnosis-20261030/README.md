@@ -65,6 +65,6 @@ regressions. Lowering load in this diagnostic is not claimed as a performance fi
 
 Broker PID2100933 unchanged,no restarts,all test connections cleared. No binary,
 configuration or kernel changes. [Structured comparisons](results.json),
-[lowrate driver](lowrate-driver.py),[client raw](rmqtt-lowrate-client.tar.gz),
-[broker resources](rmqtt-lowrate-broker.tar.gz). SHA256 matches fetched artifacts.
+[lowrate driver](lowrate-driver.py),[client raw](lyrnormq-lowrate-client.tar.gz),
+[broker resources](lyrnormq-lowrate-broker.tar.gz). SHA256 matches fetched artifacts.
 Original pressure data are in ../../verification/rust-loadgen-20261030/.

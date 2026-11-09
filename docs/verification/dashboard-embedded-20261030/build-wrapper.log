@@ -27,7 +27,7 @@ added 260 packages, and audited 261 packages in 5s
 
 found 0 vulnerabilities
 
-> rmqtt-dashboard@0.1.0 build
+> lyrnormq-dashboard@0.1.0 build
 > tsc --noEmit && vite build
 
 vite v7.3.7 building client environment for production...
@@ -83,5 +83,5 @@ dist/index.html                   0.51 kB │ gzip:  0.33 kB
 dist/assets/index-DSXWD60O.css   37.85 kB │ gzip:  7.91 kB
 dist/assets/index-rgNDgzFh.js   304.95 kB │ gzip: 95.10 kB
 ✓ built in 885ms
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.46s

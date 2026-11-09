@@ -35,12 +35,12 @@
 - 使用 Phase7r 相同探针、部署脚本、参数和诊断设置。部署脚本 SHA256
   `a74f6d32f91716c21c9e898ed30d9dcbfb0a66a75465b3708f3154cf5bed61b3`，
   与旧版本本地副本一致。独立审查确认规范化后的 Broker 命令及 limits 相同。
-- 本地 `cargo zigbuild --locked --release --target x86_64-unknown-linux-musl -p rmqtt`，
+- 本地 `cargo zigbuild --locked --release --target x86_64-unknown-linux-musl -p lyrnormq`，
   `CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_STRIP=none`，与基线相同。
   服务器没有编译。二进制为无动态依赖的静态 ELF，253738192 bytes，SHA256
   `725a696754b8d385374b1bc00ba29c3b4da42bf2057a8bca470d461302f55f8c`。
 - 开始 Unix ms `1793749479964`，共同 PING `1793749514964`；实际成功连接共同保持
-  28.805 秒。两次诊断均 `RMQTT_RAFT_PROFILE=1`，软件 cpu-clock 49Hz 有界采样。
+  28.805 秒。两次诊断均 `LYRNORMQ_RAFT_PROFILE=1`，软件 cpu-clock 49Hz 有界采样。
 
 配置、哈希和原始数据见 [deployment.json](deployment.json)、
 [environment.json](environment.json)、[raw](raw/)。

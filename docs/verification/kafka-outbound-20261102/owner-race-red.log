@@ -34,9 +34,9 @@
    Compiling futures-channel v0.3.34
    Compiling slab v0.4.12
    Compiling log v0.4.34
-   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-egress-core)
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/lyrnormq-kafka-backend/crates/mqtt-egress-core)
    Compiling rdkafka v0.39.0
-   Compiling mqtt-kafka v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-kafka)
+   Compiling mqtt-kafka v0.1.0 (/private/tmp/lyrnormq-kafka-backend/crates/mqtt-kafka)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 50.25s
      Running unittests src/lib.rs (target/debug/deps/mqtt_kafka-4e479d34285eda30)
 

@@ -6,16 +6,16 @@ serially after other builds/tests finish; save the immutable executable and resu
 No third-party Python package is required. Python assertions must stay enabled.
 
 ```sh
-cargo build --release --locked -p rmqtt
+cargo build --release --locked -p lyrnormq
 python3 benches/phase3/test_driver.py
 # Smoke: small topology, two storage modes, exact counts; NOT a formal baseline.
-python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
-  --artifact-source-revision COMMIT --output /tmp/rmqtt-p3-smoke.json \
+python3 benches/phase3/run.py --binary /absolute/path/to/lyrnormq \
+  --artifact-source-revision COMMIT --output /tmp/lyrnormq-p3-smoke.json \
   --smoke --messages 32 --warmup 8 --repetitions 1
 # Formal: six cases (three workloads x two storage modes), each repeated three times.
-python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
+python3 benches/phase3/run.py --binary /absolute/path/to/lyrnormq \
   --artifact-source-revision COMMIT --build-profile release \
-  --output /tmp/rmqtt-p3-baseline.json --messages 4096 --warmup 128 --repetitions 3 \
+  --output /tmp/lyrnormq-p3-baseline.json --messages 4096 --warmup 128 --repetitions 3 \
   --session-expiry-seconds 60 --flow-control delivery --outbound-capacity 256 --timeout 600
 ```
 
@@ -99,8 +99,8 @@ in memory mode; this diagnostic does not establish the cause of an earlier run
 whose packet bytes were not retained. Reproduce with:
 
 ```sh
-python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
-  --output /tmp/rmqtt-cap1.json --smoke --cases hot --storage memory \
+python3 benches/phase3/run.py --binary /absolute/path/to/lyrnormq \
+  --output /tmp/lyrnormq-cap1.json --smoke --cases hot --storage memory \
   --messages 64 --warmup 8 --repetitions 1 --session-expiry-seconds 60 \
   --flow-control ack --outbound-capacity 1
 ```
@@ -121,7 +121,7 @@ four publishers/four filters each and is explicitly labeled.
 
 ```sh
 # Full original topology, shorter campaign; explicitly NOT formal acceptance.
-python3 benches/phase3/run.py --binary /absolute/path/to/rmqtt \
+python3 benches/phase3/run.py --binary /absolute/path/to/lyrnormq \
   --artifact-source-revision COMMIT --output /tmp/pilot.json \
   --pilot --cases hot --storage memory --messages 64 --warmup 8 \
   --repetitions 1 --session-expiry-seconds 60 --flow-control ack --timeout 60
@@ -158,7 +158,7 @@ after the active-case timeout. Temporary DBs/ports are fresh for each run.
 
 `--profile` is retired (docs/contracts/phase4.md): the worker that wrote the
 TSV profile report no longer exists, so the flag is refused before any launch.
-The child always receives explicit `RMQTT_PROFILE=0` and no profile-path
+The child always receives explicit `LYRNORMQ_PROFILE=0` and no profile-path
 variable, so inherited shell flags cannot silently instrument a formal run.
 Shutdown closes client sockets, requests SIGINT and waits up to5s, then uses a
 bounded hard kill. Stderr is read before removing the temporary directory.
@@ -176,10 +176,10 @@ cover mailbox-capacity wait plus queue residence and are not actor CPU time.
 ## Phase4 connection scale
 
 ```sh
-python3 benches/phase3/connections.py --binary /absolute/path/to/rmqtt \
+python3 benches/phase3/connections.py --binary /absolute/path/to/lyrnormq \
   --output /tmp/conn10k.json --connections 10000 --rate 100 --keepalive 60 --hold 120
 # CI smoke: 500 unpaced clients, 2s keepalive, 3s hold.
-python3 benches/phase3/connections.py --binary target/debug/rmqtt --output /tmp/smoke.json --smoke
+python3 benches/phase3/connections.py --binary target/debug/lyrnormq --output /tmp/smoke.json --smoke
 ```
 
 Each client opens its own MQTT5 connection (Clean Start, or Session Expiry with
@@ -206,5 +206,5 @@ malloc. The musl release is:
 
 ```sh
 cargo zigbuild --release --locked \
-  -p rmqtt --target x86_64-unknown-linux-musl
+  -p lyrnormq --target x86_64-unknown-linux-musl
 ```

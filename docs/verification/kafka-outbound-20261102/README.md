@@ -5,8 +5,8 @@
 在独立 Git worktree/分支实施后端、React 配置和独立真实 Kafka 验收。主控审查后
 按依赖 cherry-pick 集成到 `codex/kafka-outbound`，未合并 main、未部署服务器。
 
-后端工作区 `/private/tmp/rmqtt-kafka-backend`，UI 工作区
-`/private/tmp/rmqtt-kafka-dashboard`，质量工作区 `/private/tmp/rmqtt-kafka-quality`。
+后端工作区 `/private/tmp/lyrnormq-kafka-backend`，UI 工作区
+`/private/tmp/lyrnormq-kafka-dashboard`，质量工作区 `/private/tmp/lyrnormq-kafka-quality`。
 集成实现：`a590af6`、`646d07c`；UI：`0c8a199`；质量：`9054992`、`21f34c1`、`1fbbd1a`。
 旧绑定字节兼容修复：`975b969`（独立 RED → GREEN）；嵌入测试夹具隔离修正：`1822825`。
 构建探针和冻结契约：`e8779df`；构建工具/生命周期边界：`ef0e2f4`。
@@ -22,7 +22,7 @@ configure/make 误用宿主编译器。完整 vendored 特性集成功；同特�
 TLS、PLAIN/SCRAM、LZ4/Zstd/Gzip 能力。见 [探针](build-probe)。没有绕过失败隐瞒依赖。
 
 完整嵌入 React 的 Broker 也通过 `cargo zigbuild --locked --offline --release
---target x86_64-unknown-linux-musl -p rmqtt`。最终
+--target x86_64-unknown-linux-musl -p lyrnormq`。最终
 [ELF 检查](cross-elf-final.json)记录大小、SHA256、无动态解释器/共享库依赖。
 Linux 产物仅编译/链接/静态检查，未在 Linux 上执行或部署，不声称运行验证通过。
 原有锁定包没有升级/移除；Cargo.lock 仅增加 Kafka 所需依赖。
@@ -97,8 +97,8 @@ CI 已新增，但尚未在远端运行，不将本地结果冒充 CI 运行记�
 ```sh
 python3 tests/kafka_fixture.py --download
 CARGO_TARGET_DIR="$PWD/target" cargo build --release --locked --manifest-path tests/kafka-client/Cargo.toml
-RMQTT_BIN="$PWD/target/release/rmqtt" \
-KAFKA_CLIENT_BIN="$PWD/target/release/rmqtt-kafka-test-client" \
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" \
+KAFKA_CLIENT_BIN="$PWD/target/release/lyrnormq-kafka-test-client" \
 python3 tests/kafka_outbound_blackbox.py -v
 ```
 

@@ -12,7 +12,7 @@ impl Fixture {
     fn new() -> Self {
         let serial = crate::test_support::FILE_TESTS.lock().unwrap();
         let path = std::env::temp_dir().join(format!(
-            "rmqtt-config-store-{}-{}",
+            "lyrnormq-config-store-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
@@ -200,13 +200,13 @@ fn external_oversize_update_is_rejected_on_load_before_copying() {
 
 #[test]
 fn crash_worker() {
-    let Some(path) = std::env::var_os("RMQTT_CONFIG_CRASH_TEST_PATH") else {
+    let Some(path) = std::env::var_os("LYRNORMQ_CONFIG_CRASH_TEST_PATH") else {
         return;
     };
     use std::io::Write;
     let mut store = ConfigStore::open(Path::new(&path), 64).unwrap();
     store.save(b"committed").unwrap();
-    if std::env::var_os("RMQTT_CONFIG_CRASH_TEST_UNCOMMITTED").is_some() {
+    if std::env::var_os("LYRNORMQ_CONFIG_CRASH_TEST_UNCOMMITTED").is_some() {
         store.connection.execute_batch("BEGIN IMMEDIATE; UPDATE rule_configuration SET data = x'756e636f6d6d6974746564' WHERE id = 1;").unwrap();
     }
     println!("crash-worker-ready");
@@ -230,10 +230,10 @@ fn process_kill_recovers_committed_row_and_rolls_back_uncommitted_row() {
                 "configuration::tests::crash_worker",
                 "--nocapture",
             ])
-            .env("RMQTT_CONFIG_CRASH_TEST_PATH", f.path())
+            .env("LYRNORMQ_CONFIG_CRASH_TEST_PATH", f.path())
             .stdout(Stdio::piped());
         if uncommitted {
-            command.env("RMQTT_CONFIG_CRASH_TEST_UNCOMMITTED", "1");
+            command.env("LYRNORMQ_CONFIG_CRASH_TEST_UNCOMMITTED", "1");
         }
         let mut child = command.spawn().unwrap();
         let stdout = child.stdout.take().unwrap();

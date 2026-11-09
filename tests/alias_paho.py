@@ -53,8 +53,8 @@ class AliasMqttClient(mqtt.Client):
 
 class AliasPaho(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-alias-paho-');self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-alias-paho-');self.addCleanup(self.directory.cleanup)
+        self.sqlite = bool(os.environ.get('LYRNORMQ_TEST_STORAGE_PATH'))
         self.broker = FeatureBroker(self.directory.name, self.sqlite);self.broker.start();self.addCleanup(self.broker.stop)
 
     def client(self, name, aliases=0, **kwargs):

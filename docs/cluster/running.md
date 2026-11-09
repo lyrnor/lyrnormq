@@ -5,7 +5,7 @@ requires `protoc` on PATH. This gate is for development acceptance, not a comple
 production MQTT cluster. See [contract](../contracts/phase7a-cluster.md).
 
 Each process reads one TOML file. The complete field list and the matching
-`RMQTT_*` environment variables are in `rmqtt.toml.example` at the repository
+`LYRNORMQ_*` environment variables are in `lyrnormq.toml.example` at the repository
 root. Three, five, or seven machines share the member list and differ in `node.id`, `node.role`, and
 `node.data_dir`. Omitting `[cluster]` starts a standalone broker. With
 `[cluster]`, `node.role` lists `controller`, `broker`, or `controller,broker`.
@@ -13,12 +13,12 @@ A controller process uses member `id`. A broker process uses `100 + id`. One
 process listing both roles starts them together.
 
 ```sh
-./target/release/rmqtt --config /opt/rmqtt/rmqtt.toml
-./target/release/rmqtt cluster-status --config /opt/rmqtt/rmqtt.toml
+./target/release/lyrnormq --config /opt/lyrnormq/lyrnormq.toml
+./target/release/lyrnormq cluster-status --config /opt/lyrnormq/lyrnormq.toml
 ```
 
-`--config` defaults to `rmqtt.toml` in the current directory. Environment
-variables override the same field. `RMQTT_CLUSTER_MEMBERS` replaces the whole
+`--config` defaults to `lyrnormq.toml` in the current directory. Environment
+variables override the same field. `LYRNORMQ_CLUSTER_MEMBERS` replaces the whole
 member list and uses comma-separated `id:host` pairs. There is no setting flag for
 listen addresses, limits, TLS, Dashboard, or rules paths.
 
@@ -58,7 +58,7 @@ trusted cluster members; this is not per-node permission isolation.
 Reproduce the independent real-process checks with:
 
 ```sh
-RMQTT_BIN="$PWD/target/debug/rmqtt" python3 tests/cluster_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/debug/lyrnormq" python3 tests/cluster_blackbox.py -v
 ```
 
 The harness allocates its own temporary ports and files and does not use an

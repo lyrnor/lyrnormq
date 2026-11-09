@@ -1,3 +1,3 @@
-    Checking mqtt-kafka v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-kafka)
-    Checking mqtt-egress v0.1.0 (/private/tmp/rmqtt-kafka-backend/crates/mqtt-egress)
+    Checking mqtt-kafka v0.1.0 (/private/tmp/lyrnormq-kafka-backend/crates/mqtt-kafka)
+    Checking mqtt-egress v0.1.0 (/private/tmp/lyrnormq-kafka-backend/crates/mqtt-egress)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.49s

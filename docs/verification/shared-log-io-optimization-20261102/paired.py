@@ -9,7 +9,7 @@ P=Path(__file__).resolve().parent
 ROOT=P.parents[2]
 D=P/'paired'
 D.mkdir(exist_ok=False)
-binaries={'before':Path('/private/tmp/rmqtt-topology-before-io'),'after':ROOT/'target/release/topology'}
+binaries={'before':Path('/private/tmp/lyrnormq-topology-before-io'),'after':ROOT/'target/release/topology'}
 manifest={'purpose':'Investigate observed write regressions, same workload parameters; does not replace original39-case matrix','binary_sha256':{k:hashlib.sha256(v.read_bytes()).hexdigest() for k,v in binaries.items()},'runs':[]}
 for case,inputs,payload,batch,fanout in [('small16',4096,128,64,16),('single4',2048,1024,1,4),('grouped4',4096,1024,64,4)]:
  for repeat in range(1,4):

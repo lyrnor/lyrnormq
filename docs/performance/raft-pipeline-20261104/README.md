@@ -40,12 +40,12 @@
   `a74f6d32f91716c21c9e898ed30d9dcbfb0a66a75465b3708f3154cf5bed61b3`，
   与上轮一致。probe SHA256
   `556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad`。
-- 本地 `cargo zigbuild --locked --release --target x86_64-unknown-linux-musl -p rmqtt`，
+- 本地 `cargo zigbuild --locked --release --target x86_64-unknown-linux-musl -p lyrnormq`，
   使用 `CARGO_PROFILE_RELEASE_DEBUG=1 CARGO_PROFILE_RELEASE_STRIP=none`。
   静态 ELF 无解释器/动态库依赖，253791184 bytes，SHA256
   `60753c36961bf63658451e5ff6d7f90ac6dd97a17326f1b67752e0b1472044f6`。
   服务器没有编译。链接器仅提示忽略已弃用的优化设置 `1`，构建成功。
-- 两轮均开启 `RMQTT_RAFT_PROFILE=1`。本轮49Hz有界 perf capture 明确使用
+- 两轮均开启 `LYRNORMQ_RAFT_PROFILE=1`。本轮49Hz有界 perf capture 明确使用
   `--clockid mono` 并保存 header，修复旧采样阶段时钟归属不可靠的问题。
   `/proc` CPU、RSS 和内部 Raft 计时不依赖旧 perf 的时钟假设。
 
@@ -155,7 +155,7 @@ leader在直方图窗口有676次WalFlushWait，平均3.595ms；follower分别47
 
 本轮perf header明确`clockid: monotonic (1)`并带CLOCK_DATA参考点，参考墙钟与
 观察器的wall−monotonic偏移一致。1584个建连阶段CPU样本、32.327采样CPU秒，
-全部叶地址可解析，但只有396个调用栈成功展开，且未得到rmqtt的Rust用户调用链。
+全部叶地址可解析，但只有396个调用栈成功展开，且未得到lyrnormq的Rust用户调用链。
 因此叶热点用全部1584个样本计算，已展开系统栈不能作为Rust业务CPU归因。
 
 叶热点包括memcpy7.765%、分配3.598%、memcmp2.462%、释放2.083%；网络协议栈和

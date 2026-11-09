@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real embedded Raft Controller/Broker process acceptance, stdlib only.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/cluster_blackbox.py -v
 Every fixture owns three Controller processes, two Broker processes, ports,
 metadata journals, private tokens and session/rule SQLite databases. No mocked
 consensus, physical power-loss or cluster message replication claim is made.
@@ -26,9 +26,9 @@ from mqtt5_blackbox import connect5, props, publication5, readprops
 from retained_will_blackbox import connect_packet as connect311, publication
 from rules_webhook_blackbox import CONFIG as RULES_CONFIG, Webhook, config_for
 import dashboard_blackbox as dashboard
-import rmqttcfg
+import lyrnormqcfg
 
-BINARY = os.environ.get('RMQTT_BIN', str(Path(__file__).resolve().parents[1] / 'target/debug/rmqtt'))
+BINARY = os.environ.get('LYRNORMQ_BIN', str(Path(__file__).resolve().parents[1] / 'target/debug/lyrnormq'))
 CLUSTER_TOKEN = 'cluster-test-secret-709def7a902445eb'
 MEMBER_HOSTS = ('127.0.0.1', '127.0.0.2', '127.0.0.3')
 
@@ -57,7 +57,7 @@ class Node:
         self.host = host or '127.0.0.1'
         self.role = role or config.get('role')
         self.member_id = member_id if member_id is not None else self._member_id(config)
-        self.path = self.root / 'rmqtt.toml'
+        self.path = self.root / 'lyrnormq.toml'
         self.mqtt, self.admin = mqtt, admin
         self.broker_listen_override = None
         self.process = None
@@ -95,7 +95,7 @@ class Node:
             extra = getattr(self, 'extra_limits', None)
             if extra:
                 limits.update(extra)
-        rmqttcfg.write(
+        lyrnormqcfg.write(
             self.root,
             listen,
             node_id=self.member_id,
@@ -125,9 +125,9 @@ class Node:
         self.output = tempfile.TemporaryFile()
         env = os.environ.copy()
         if self.broker_listen_override:
-            env['RMQTT_CLUSTER_BROKER_LISTEN'] = self.broker_listen_override
+            env['LYRNORMQ_CLUSTER_BROKER_LISTEN'] = self.broker_listen_override
         else:
-            env.pop('RMQTT_CLUSTER_BROKER_LISTEN', None)
+            env.pop('LYRNORMQ_CLUSTER_BROKER_LISTEN', None)
         self.process = subprocess.Popen(self.command(), cwd=self.root, env=env,
                                         stdout=self.output, stderr=subprocess.STDOUT)
 
@@ -290,7 +290,7 @@ class ClusterFixture:
     delivery = dashboard.DashboardBlackbox.delivery
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-cluster-wire-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-cluster-wire-')
         self.addCleanup(self.directory.cleanup)
         self.fleet = Fleet(self.directory.name)
         self.addCleanup(self.fleet.stop)

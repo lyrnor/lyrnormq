@@ -11,9 +11,9 @@ from auth_acl_blackbox import AuthBroker, PASSWORD
 
 class NegotiationPaho(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-negotiation-paho-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-negotiation-paho-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        self.sqlite = bool(os.environ.get('LYRNORMQ_TEST_STORAGE_PATH'))
         self.broker = FeatureBroker(self.directory.name, self.sqlite)
         self.broker.start();self.addCleanup(self.broker.stop)
 

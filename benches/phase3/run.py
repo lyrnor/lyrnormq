@@ -236,7 +236,7 @@ async def run_one(arguments, binary, case, storage, repetition, diagnostics=None
                                binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                                flow_control=arguments.flow_control, pilot=getattr(arguments, 'pilot', False))
     workload = Workload(case, arguments.smoke)
-    with tempfile.TemporaryDirectory(prefix='rmqtt-p3-bench-') as directory:
+    with tempfile.TemporaryDirectory(prefix='lyrnormq-p3-bench-') as directory:
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
         command = [str(binary), '--listen', f'127.0.0.1:{port}', '--protocol', '5',

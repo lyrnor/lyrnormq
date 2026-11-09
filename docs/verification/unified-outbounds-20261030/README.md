@@ -1,7 +1,7 @@
 # Unified outbounds acceptance — 2026-10-30
 
 Local Darwin arm64, Rust/Cargo1.98.1 stable, Python3.14.7. Native release
-`target/release/rmqtt`; no server deployment or throughput/p99 measurement.
+`target/release/lyrnormq`; no server deployment or throughput/p99 measurement.
 
 Contract: [Phase5c](../../contracts/phase5c-unified-outbounds.md). Backend, UI and
 quality agents used independent branches/worktrees and submitted tested commits;
@@ -13,14 +13,14 @@ isolation issue in a fourth isolated worktree without production lock changes.
 - cargo fmt --all -- --check: pass.
 - cargo clippy --workspace --all-targets --offline -- -D warnings: pass.
 - cargo test --workspace --offline: 620 passed including doctests/child helpers.
-- cargo build --release --offline -p rmqtt: pass.
+- cargo build --release --offline -p lyrnormq: pass.
 - dashboard/web npm test: 51 passed; npm run build strict TS/Vite passes;
   npx prettier --check src tests passes.
 - Real release blackbox: unified outbound18 + Dashboard14 + MQTT persistence14
   + WS/WSS18 + TLS12 + admission/mTLS12 = 88 passed. Quality initially estimated
   19 outbound methods; actual runner output is18 and is authoritative.
 
-For blackbox reproduction set RMQTT_BIN to the absolute release binary and run
+For blackbox reproduction set LYRNORMQ_BIN to the absolute release binary and run
 tests/rules_webhook_blackbox.py, dashboard_blackbox.py, persistence_blackbox.py,
 websocket_blackbox.py, tls_blackbox.py and admission_mtls_blackbox.py with python3
 and -v. Each helper owns its ports/configuration. Local network permission needed.

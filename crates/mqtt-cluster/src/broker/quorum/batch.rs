@@ -671,7 +671,7 @@ mod tests {
 
     fn temp(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "rmqtt-replica-batch-{label}-{}-{}",
+            "lyrnormq-replica-batch-{label}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

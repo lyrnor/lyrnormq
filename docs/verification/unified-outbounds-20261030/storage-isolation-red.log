@@ -12,9 +12,9 @@
    Compiling hashlink v0.12.2
    Compiling libsqlite3-sys v0.39.1
    Compiling rusqlite v0.41.0
-   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-storage-test-isolation/crates/mqtt-storage)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/lyrnormq-storage-test-isolation/crates/mqtt-storage)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4.76s
-     Running unittests src/lib.rs (/private/tmp/rmqtt-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
+     Running unittests src/lib.rs (/private/tmp/lyrnormq-storage-isolation-target/debug/deps/mqtt_storage-eb445205384ce805)
 
 running 1 test
 test configuration::tests::fixture_serializes_with_durable_crash_helpers ... FAILED

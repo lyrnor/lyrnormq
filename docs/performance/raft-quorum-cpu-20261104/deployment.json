@@ -1,5 +1,5 @@
 {
-  "rmqtt": "eb6f4be285dc7b8af33e820de4f8b4bed64772c9c6961a581b3423c72f4b55b4",
+  "lyrnormq": "eb6f4be285dc7b8af33e820de4f8b4bed64772c9c6961a581b3423c72f4b55b4",
   "connections": "556b3d560b3c79a4c77e9f06edc93052a876f6fb8a4be86eeaf163f70784b4ad",
   "client.py": "8cf7cd4f4bfa1a83f88df23f3ac522dff0ce2a0e13b6d6e8815f57fde5946cea"
 }

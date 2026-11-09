@@ -22,7 +22,7 @@
       1048575,
       9223372036854775807
     ],
-    "binary": "/private/tmp/rmqtt-p3a-profile-baseline",
+    "binary": "/private/tmp/lyrnormq-p3a-profile-baseline",
     "binary_sha256": "a6861ff38e011dcbce5d2d58524993305ae00878abcedd3fc5ffe6eb3dc5c897",
     "driver_source_revision": "b90a5d96a4c9b8fffc09ccca8b31ad9024852ecc",
     "artifact_source_revision": "3917025",
@@ -31,11 +31,11 @@
       "/opt/homebrew/opt/python@3.14/bin/python3.14",
       "benches/phase3/run.py",
       "--binary",
-      "/tmp/rmqtt-p3a-profile-baseline",
+      "/tmp/lyrnormq-p3a-profile-baseline",
       "--artifact-source-revision",
       "3917025",
       "--output",
-      "/tmp/rmqtt-p3a-ack-cap8.json",
+      "/tmp/lyrnormq-p3a-ack-cap8.json",
       "--pilot",
       "--profile",
       "--session-expiry-seconds",
@@ -68,8 +68,8 @@
     "storage": "memory volatile or fresh SQLite WAL/synchronous FULL via broker; no power-loss claim"
   },
   "parameters": {
-    "binary": "/tmp/rmqtt-p3a-profile-baseline",
-    "output": "/tmp/rmqtt-p3a-ack-cap8.json",
+    "binary": "/tmp/lyrnormq-p3a-profile-baseline",
+    "output": "/tmp/lyrnormq-p3a-ack-cap8.json",
     "artifact_source_revision": "3917025",
     "build_profile": "release",
     "cases": "hot",
@@ -97,12 +97,12 @@
         "case": "hot",
         "storage": "memory",
         "repetition": 1,
-        "binary": "/private/tmp/rmqtt-p3a-profile-baseline",
+        "binary": "/private/tmp/lyrnormq-p3a-profile-baseline",
         "binary_sha256": "a6861ff38e011dcbce5d2d58524993305ae00878abcedd3fc5ffe6eb3dc5c897",
         "flow_control": "ack",
         "pilot": true,
         "broker_command": [
-          "/private/tmp/rmqtt-p3a-profile-baseline",
+          "/private/tmp/lyrnormq-p3a-profile-baseline",
           "--listen",
           "127.0.0.1:60950",
           "--protocol",
@@ -311,7 +311,7 @@
         }
       ],
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:60950\n",
+        "text": "lyrnormq listening on 127.0.0.1:60950\n",
         "total_bytes": 35,
         "truncated": false
       },
@@ -319,7 +319,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t3119374\t40\t0\t0\nREQUEST\tpublish\t23\t27765001\t21\t2\t0\nREQUEST\tsubscribe\t32\t1931623\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t64\t10002959\t64\t0\t0\nREQUEST\tpoll\t2417\t732767720\t2417\t0\t0\nREQUEST\tbegin\t406\t424491460\t406\t0\t0\nREQUEST\tdisconnect\t40\t32662250\t40\t0\t0\nREQUEST\ttick\t11\t26042\t11\t0\t0\nREQUEST\tother\t41\t23581\t41\t0\t0\nSPAN\tproposal_clone\t3022\t142444359\t0\nSPAN\tsnapshot\t909\t370932796\t128538854\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t3074\t75092873202\t0\nCOUNTER\tpoll_delivery\t2417\nCOUNTER\tempty_poll_delivery\t1979\nCOUNTER\tnotifications\t909\nCOUNTER\tnotification_targets\t34008\nCOUNTER\terror_unknown\t0\nERROR_REASON\t97\t2\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":3022,\"total_ns\":142279825,\"bytes\":0},{\"name\":\"records_live\",\"count\":7884,\"total_ns\":36761657,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":910,\"total_ns\":6388822,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":7884,\"total_ns\":865540864,\"bytes\":594433308},{\"name\":\"serialize_persistent\",\"count\":910,\"total_ns\":185268931,\"bytes\":128538941},{\"name\":\"bounds\",\"count\":7884,\"total_ns\":868863407,\"bytes\":0},{\"name\":\"route\",\"count\":23,\"total_ns\":872169,\"bytes\":0},{\"name\":\"route_build\",\"count\":23,\"total_ns\":252412,\"bytes\":0},{\"name\":\"authorization\",\"count\":5931,\"total_ns\":489579138,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t3119374\t40\t0\t0\nREQUEST\tpublish\t23\t27765001\t21\t2\t0\nREQUEST\tsubscribe\t32\t1931623\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t64\t10002959\t64\t0\t0\nREQUEST\tpoll\t2417\t732767720\t2417\t0\t0\nREQUEST\tbegin\t406\t424491460\t406\t0\t0\nREQUEST\tdisconnect\t40\t32662250\t40\t0\t0\nREQUEST\ttick\t11\t26042\t11\t0\t0\nREQUEST\tother\t41\t23581\t41\t0\t0\nSPAN\tproposal_clone\t3022\t142444359\t0\nSPAN\tsnapshot\t909\t370932796\t128538854\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t3074\t75092873202\t0\nCOUNTER\tpoll_delivery\t2417\nCOUNTER\tempty_poll_delivery\t1979\nCOUNTER\tnotifications\t909\nCOUNTER\tnotification_targets\t34008\nCOUNTER\terror_unknown\t0\nERROR_REASON\t97\t2\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":3022,\"total_ns\":142279825,\"bytes\":0},{\"name\":\"records_live\",\"count\":7884,\"total_ns\":36761657,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":910,\"total_ns\":6388822,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":7884,\"total_ns\":865540864,\"bytes\":594433308},{\"name\":\"serialize_persistent\",\"count\":910,\"total_ns\":185268931,\"bytes\":128538941},{\"name\":\"bounds\",\"count\":7884,\"total_ns\":868863407,\"bytes\":0},{\"name\":\"route\",\"count\":23,\"total_ns\":872169,\"bytes\":0},{\"name\":\"route_build\",\"count\":23,\"total_ns\":252412,\"bytes\":0},{\"name\":\"authorization\",\"count\":5931,\"total_ns\":489579138,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,

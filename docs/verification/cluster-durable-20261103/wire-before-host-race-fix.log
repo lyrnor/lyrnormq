@@ -52,7 +52,7 @@ test_valid_other_username_cannot_resume_or_reset_replicated_owner (__main__.Dura
 FAIL: test_host_backlog_survives_source_death_and_restarted_host_accepts_new_work (__main__.DurableFaults.test_host_backlog_survives_source_death_and_restarted_host_accepts_new_work)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 336, in test_host_backlog_survives_source_death_and_restarted_host_accepts_new_work
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 336, in test_host_backlog_survives_source_death_and_restarted_host_accepts_new_work
     self.assertEqual((status, value), (202, {'accepted': True}))
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: Tuples differ: (503, {'error': {'code': 'unavailable', 'm[42 chars]d'}}) != (202, {'accepted': True})

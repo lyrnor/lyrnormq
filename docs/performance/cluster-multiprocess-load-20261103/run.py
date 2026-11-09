@@ -10,14 +10,14 @@ import time
 from aggregate import aggregate
 
 SERVER, CLIENT = '47.84.224.186', '47.84.241.200'
-BASE = '/opt/rmqtt-multiprocess/20261103'
-OUT = pathlib.Path('/private/tmp/rmqtt-multiprocess-results')
-LOCAL_PROBE = pathlib.Path('/private/tmp/rmqtt-multi-connections-linux')
-BROKER = '/opt/rmqtt-control-batch/20261103/rmqtt'
-SERVER_SCRIPT = '/opt/rmqtt-control-batch/20261103/cluster_scale_server.py'
-SSH = ['ssh', '-i', '/private/tmp/rmqtt-sg-test-key.pem', '-o', 'BatchMode=yes',
+BASE = '/opt/lyrnormq-multiprocess/20261103'
+OUT = pathlib.Path('/private/tmp/lyrnormq-multiprocess-results')
+LOCAL_PROBE = pathlib.Path('/private/tmp/lyrnormq-multi-connections-linux')
+BROKER = '/opt/lyrnormq-control-batch/20261103/lyrnormq'
+SERVER_SCRIPT = '/opt/lyrnormq-control-batch/20261103/cluster_scale_server.py'
+SSH = ['ssh', '-i', '/private/tmp/lyrnormq-sg-test-key.pem', '-o', 'BatchMode=yes',
        '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes',
-       '-o', 'UserKnownHostsFile=/private/tmp/rmqtt-sg-known-hosts',
+       '-o', 'UserKnownHostsFile=/private/tmp/lyrnormq-sg-known-hosts',
        '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15',
        '-o', 'ServerAliveCountMax=3']
 
@@ -31,8 +31,8 @@ def remote(host, command, timeout=120):
 
 
 def server(action):
-    return remote(SERVER, f'ulimit -n 250000; RMQTT_BENCH_ROOT={BASE}/c2000 '
-                  f'RMQTT_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} {action} combined')
+    return remote(SERVER, f'ulimit -n 250000; LYRNORMQ_BENCH_ROOT={BASE}/c2000 '
+                  f'LYRNORMQ_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} {action} combined')
 
 
 def prepare():
@@ -49,7 +49,7 @@ for p in Path('/proc').iterdir():
  if p.name.isdigit():
   try:
    name=(p/'comm').read_text().strip()
-   if name.startswith('rmqtt') or name=='connections':live.append(p.name)
+   if name.startswith('lyrnormq') or name=='connections':live.append(p.name)
   except OSError:pass
 print(json.dumps({{'live':live,'cpus':os.cpu_count()}}))
 assert not live,'existing workload must not be interrupted'
@@ -65,8 +65,8 @@ Path({BASE!r}).mkdir(mode=0o700,parents=True,exist_ok=False)
     remote(CLIENT, 'chmod 755 ' + BASE + '/connections')
     (OUT / 'deployment.json').write_text(json.dumps(dict(broker_sha256=expected_broker,
         probe_sha256=digest, probe_local_path=str(LOCAL_PROBE), broker_changed=False), indent=2))
-    (OUT / 'environment.json').write_text(remote(SERVER, f'RMQTT_BENCH_ROOT={BASE} '
-        f'RMQTT_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} environment'))
+    (OUT / 'environment.json').write_text(remote(SERVER, f'LYRNORMQ_BENCH_ROOT={BASE} '
+        f'LYRNORMQ_BENCH_BIN={BROKER} python3 {SERVER_SCRIPT} environment'))
 
 
 def collect():
@@ -103,11 +103,11 @@ def main():
         code = (f"import subprocess,os,pathlib;r=pathlib.Path('{BASE}/c2000');"
                 "f=(r/'combined'/'monitor.log').open('xb');"
                 f"subprocess.Popen(['python3','{SERVER_SCRIPT}','monitor','combined','--seconds','300'],"
-                f"env=dict(os.environ,RMQTT_BENCH_ROOT=str(r),RMQTT_BENCH_BIN='{BROKER}'),"
+                f"env=dict(os.environ,LYRNORMQ_BENCH_ROOT=str(r),LYRNORMQ_BENCH_BIN='{BROKER}'),"
                 "stdout=f,stderr=f,start_new_session=True,stdin=subprocess.DEVNULL)")
         remote(SERVER, 'python3 -c ' + shlex.quote(code))
-        output = remote(CLIENT, f'RMQTT_MULTI_ROOT={BASE}/client RMQTT_MULTI_BIN={BASE}/connections '
-                        f'RMQTT_MULTI_RATE=2000 python3 {BASE}/client.py', timeout=240)
+        output = remote(CLIENT, f'LYRNORMQ_MULTI_ROOT={BASE}/client LYRNORMQ_MULTI_BIN={BASE}/connections '
+                        f'LYRNORMQ_MULTI_RATE=2000 python3 {BASE}/client.py', timeout=240)
         (OUT / 'client-output.json').write_text(output)
         remote(SERVER, f'touch {BASE}/c2000/combined/monitor.stop')
         (OUT / 'state.json').write_text(server('state'))

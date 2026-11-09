@@ -66,7 +66,7 @@ valid target-load mean/p99 and must be reported unavailable, not zero.
 
 User stopped further load after failure. QoS1/2 never started. All load/Broker
 processes verified exited; ephemeral port range restored32768..60999. Preserve the
-four failed runs at /opt/rmqtt-cluster-scale/20261103; do not restart as a capacity
+four failed runs at /opt/lyrnormq-cluster-scale/20261103; do not restart as a capacity
 acceptance result.
 
 QoS0 setup ran371.158s, exit1 peer closed connection, no messages measured. At288s,

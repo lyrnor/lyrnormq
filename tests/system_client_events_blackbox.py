@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real MQTT311/5 client lifecycle topics and SQL→Webhook acceptance.
 
-Run with RMQTT_BIN=/absolute/path/rmqtt python3 tests/system_client_events_blackbox.py -v.
+Run with LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/system_client_events_blackbox.py -v.
 Every test owns its process, loopback ports and SQLite configuration. Publication
 receipt/API replies are barriers; bounded silence only checks unwanted outputs.
 Event admission is best effort, not a crash-complete audit log or ACK transaction.
@@ -32,7 +32,7 @@ class LifecycleCases:
     version = 5
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-lifecycle-wire-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-lifecycle-wire-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.broker = None

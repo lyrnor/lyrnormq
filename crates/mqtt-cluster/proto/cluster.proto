@@ -1,5 +1,5 @@
 syntax = "proto3";
-package rmqtt.cluster.v1;
+package lyrnormq.cluster.v1;
 message Envelope { bytes data = 1; }
 service Cluster {
   rpc Raft(Envelope) returns (Envelope);

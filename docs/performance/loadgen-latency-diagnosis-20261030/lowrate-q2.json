@@ -157,7 +157,7 @@
     "available_parallelism": 8,
     "started_unix_ms": 1793326715445,
     "arguments": [
-      "/opt/rmqtt-loadgen/rmqtt-loadgen",
+      "/opt/lyrnormq-loadgen/lyrnormq-loadgen",
       "--addr",
       "172.30.139.129:1883",
       "--qos",
@@ -181,9 +181,9 @@
       "--max-messages",
       "5000000",
       "--output",
-      "/var/log/rmqtt-loadgen/lowrate-20261030/q2.json",
+      "/var/log/lyrnormq-loadgen/lowrate-20261030/q2.json",
       "--raw",
-      "/var/log/rmqtt-loadgen/lowrate-20261030/q2.jsonl"
+      "/var/log/lyrnormq-loadgen/lowrate-20261030/q2.jsonl"
     ],
     "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
   }

@@ -5,7 +5,7 @@ Receive quarantine/shared remote preflight assertions below describe the superse
 scope. Kept independently for review; do not run against the Phase6b implementation.
 
 Run after building an immutable Broker:
- RUST_LOG=warn,rmqtt=info RMQTT_LOG_FORMAT=text RMQTT_BIN=/abs/rmqtt python3 tests/http_access_blackbox.py -v
+ RUST_LOG=warn,lyrnormq=info LYRNORMQ_LOG_FORMAT=text LYRNORMQ_BIN=/abs/lyrnormq python3 tests/http_access_blackbox.py -v
 Only disposable loopback services/files/credentials. SIGKILL is not physical power loss.
 """
 import base64
@@ -22,8 +22,8 @@ import time
 import unittest
 from urllib.parse import quote
 
-os.environ['RUST_LOG'] = 'warn,rmqtt=info'
-os.environ['RMQTT_LOG_FORMAT'] = 'text'
+os.environ['RUST_LOG'] = 'warn,lyrnormq=info'
+os.environ['LYRNORMQ_LOG_FORMAT'] = 'text'
 
 from admission_helpers import MutualIdentities
 from auth_acl_blackbox import connect_packet as connect311
@@ -43,12 +43,12 @@ class HttpAccessBlackbox(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.identity_directory = tempfile.TemporaryDirectory(prefix='rmqtt-access-identities-')
+        cls.identity_directory = tempfile.TemporaryDirectory(prefix='lyrnormq-access-identities-')
         cls.addClassCleanup(cls.identity_directory.cleanup)
         cls.identities = MutualIdentities(cls.identity_directory.name)
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-http-access-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-http-access-')
         self.addCleanup(self.directory.cleanup)
         self.service = AccessService()
         self.addCleanup(self.service.close)

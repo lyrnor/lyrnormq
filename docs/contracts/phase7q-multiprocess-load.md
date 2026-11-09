@@ -8,7 +8,7 @@ Each probe retains2048inflight (8192aggregate),15s CONNECT timeout, no retry and
 explicit skipped-arrival accounting. Fail stops further pressure. Higher rates and
 message cases remain subsequent gates, not implicitly successful from this test.
 
-Loadgen owner in independent worktree owns bin/rmqtt-loadgen/src/bin/connections.rs
+Loadgen owner in independent worktree owns bin/lyrnormq-loadgen/src/bin/connections.rs
 and optional connections/** only. No rootCargo/lib changes. Coordinator owns docs,
 orchestration, aggregation and deployment. Quality independently reads/recomputes.
 

@@ -14,7 +14,7 @@ static PROFILE_ENABLED: OnceLock<bool> = OnceLock::new();
 
 fn profile_enabled() -> bool {
     *PROFILE_ENABLED
-        .get_or_init(|| std::env::var_os("RMQTT_RAFT_PROFILE").is_some_and(|value| value == "1"))
+        .get_or_init(|| std::env::var_os("LYRNORMQ_RAFT_PROFILE").is_some_and(|value| value == "1"))
 }
 
 #[derive(Default)]

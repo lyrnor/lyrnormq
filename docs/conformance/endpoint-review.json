@@ -573,7 +573,7 @@
     }
   ],
   "direction_table_resolution": {
-    "path": "/tmp/rmqtt-p2o-direction-tables.json",
+    "path": "/tmp/lyrnormq-p2o-direction-tables.json",
     "tables": [
       "DOCX-T5",
       "DOCX-T25",

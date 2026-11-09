@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Concurrent acknowledged metadata survives Controller leader loss.
 
-RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_pipeline_blackbox.py -v
+LYRNORMQ_BIN=/absolute/lyrnormq python3 tests/cluster_pipeline_blackbox.py -v
 This is a finite correctness test, not a throughput or in-flight-count assertion.
 Data replicas remain alive; unknown control outcomes are allowed to have committed.
 """

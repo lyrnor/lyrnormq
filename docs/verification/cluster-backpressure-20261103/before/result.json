@@ -235,7 +235,7 @@
     "available_parallelism": 8,
     "started_unix_ms": 1793690055122,
     "arguments": [
-      "/opt/rmqtt-cluster-load/20261103/rmqtt-loadgen",
+      "/opt/lyrnormq-cluster-load/20261103/lyrnormq-loadgen",
       "--addrs",
       "172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833",
       "--protocol",
@@ -265,9 +265,9 @@
       "--max-messages",
       "2000000",
       "--output",
-      "/opt/rmqtt-cluster-diagnosis-load/20261103/q0-before.json",
+      "/opt/lyrnormq-cluster-diagnosis-load/20261103/q0-before.json",
       "--raw",
-      "/opt/rmqtt-cluster-diagnosis-load/20261103/q0-before.jsonl"
+      "/opt/lyrnormq-cluster-diagnosis-load/20261103/q0-before.jsonl"
     ],
     "resource_sampling": "not implicit; attach external process CPU/RSS samples using run timestamps"
   }

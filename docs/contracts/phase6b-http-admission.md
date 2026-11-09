@@ -67,11 +67,11 @@ Configuration tests with8updates/idle clients must keep passing (generation cap4
 ## Ownership and acceptance
 
 Backend owner: crates/mqtt-auth-http/** and coordinated crates/mqtt-auth/src/remote.rs
-only, independent /private/tmp/rmqtt-http-basic-backend branchcodex/http-basic-backend.
+only, independent /private/tmp/lyrnormq-http-basic-backend branchcodex/http-basic-backend.
 Transport owner: crates/mqtt-transport/** and coordinated mqtt-session only if
-necessary, independent /private/tmp/rmqtt-http-basic-transport branchcodex/http-basic-transport.
+necessary, independent /private/tmp/lyrnormq-http-basic-transport branchcodex/http-basic-transport.
 Quality owner: tests/http_access* and HTTP CI test invocation only, independent
-/private/tmp/rmqtt-http-basic-quality branchcodex/http-basic-quality. Preserve
+/private/tmp/lyrnormq-http-basic-quality branchcodex/http-basic-quality. Preserve
 independent oldscope tests as historical evidence, adapt active suite to new contract.
 Coordinator: root/bin/lock/docs, management glue, integration/real acceptance.
 No changes to Kafka, egress journals, MQTT protocol codec or unrelated modules.

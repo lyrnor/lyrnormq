@@ -1,7 +1,7 @@
-rmqtt listening on 127.0.0.1:49473
+lyrnormq listening on 127.0.0.1:49473
 
   + Exception Group Traceback (most recent call last):
-  |   File "/Volumes/data/rmqtt/.worktrees/p3-load/benches/phase3/run.py", line 317, in <module>
+  |   File "/Volumes/data/lyrnormq/.worktrees/p3-load/benches/phase3/run.py", line 317, in <module>
   |     asyncio.run(campaign(parse_arguments()))
   |     ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 205, in run
@@ -13,15 +13,15 @@ rmqtt listening on 127.0.0.1:49473
   |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
   |     return future.result()
   |            ~~~~~~~~~~~~~^^
-  |   File "/Volumes/data/rmqtt/.worktrees/p3-load/benches/phase3/run.py", line 274, in campaign
+  |   File "/Volumes/data/lyrnormq/.worktrees/p3-load/benches/phase3/run.py", line 274, in campaign
   |     run = await asyncio.wait_for(run_one(arguments, binary, case, storage, repetition), arguments.timeout)
   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/tasks.py", line 488, in wait_for
   |     return await fut
   |            ^^^^^^^^^
-  |   File "/Volumes/data/rmqtt/.worktrees/p3-load/benches/phase3/run.py", line 222, in run_one
+  |   File "/Volumes/data/lyrnormq/.worktrees/p3-load/benches/phase3/run.py", line 222, in run_one
   |     await phase(workload, subscribers, publishers, arguments.warmup, arguments.payload_size, 1, arguments.flow_control)
-  |   File "/Volumes/data/rmqtt/.worktrees/p3-load/benches/phase3/run.py", line 157, in phase
+  |   File "/Volumes/data/lyrnormq/.worktrees/p3-load/benches/phase3/run.py", line 157, in phase
   |     async with asyncio.TaskGroup() as group:
   |                ~~~~~~~~~~~~~~~~~^^
   |   File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/taskgroups.py", line 72, in __aexit__
@@ -34,10 +34,10 @@ rmqtt listening on 127.0.0.1:49473
   | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
   +-+---------------- 1 ----------------
     | Traceback (most recent call last):
-    |   File "/Volumes/data/rmqtt/.worktrees/p3-load/benches/phase3/run.py", line 151, in produce
+    |   File "/Volumes/data/lyrnormq/.worktrees/p3-load/benches/phase3/run.py", line 151, in produce
     |     validate_ack(header, body, identifier)
     |     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |   File "/Volumes/data/rmqtt/.worktrees/p3-load/benches/phase3/wire.py", line 77, in validate_ack
+    |   File "/Volumes/data/lyrnormq/.worktrees/p3-load/benches/phase3/wire.py", line 77, in validate_ack
     |     assert header == 0x40 and len(body) >= 2, diagnostic
     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     | AssertionError: expected PUBACK id=2; actual header=0xe0 body=97 reason=0x97

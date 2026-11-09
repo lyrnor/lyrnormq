@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run --run tests/rules-page.test.tsx -t disables an already-open delete
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-rules-ui/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-rules-ui/dashboard/web
 
  ❯ tests/rules-page.test.tsx (11 tests | 1 failed | 10 skipped) 94ms
    ↓ live rule and Webhook management > shows explicit disabled instructions without mock data

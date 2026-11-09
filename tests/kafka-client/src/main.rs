@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
             if count > 10000 || !(100..=60000).contains(&timeout) {
                 return Err(invalid("read bound").into());
             }
-            c.set("group.id", format!("rmqtt-quality-{}", std::process::id()))
+            c.set("group.id", format!("lyrnormq-quality-{}", std::process::id()))
                 .set("enable.auto.commit", "false")
                 .set("auto.offset.reset", "earliest")
                 .set("enable.partition.eof", "true")

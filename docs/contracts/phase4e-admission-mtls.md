@@ -83,7 +83,7 @@ Admission Agent owns crates/mqtt-transport/** EXCEPT tls.rs and tls/** in an
 assigned independent worktree. TLS Agent owns ONLY crates/mqtt-transport/src/tls.rs
 and tls/** in another independent worktree. No overlapping file modifications;
 TLS has no BrokerConfig changes and needs no public lib export changes. Quality
-owns tests/** and CI in a third worktree; coordinator owns bin/rmqtt, docs and
+owns tests/** and CI in a third worktree; coordinator owns bin/lyrnormq, docs and
 root lockfile/integration. Every writer commits tested changes and reports hashes.
 
 Admission tests: deterministic token refill/overflow, bounded blocking fake provider,

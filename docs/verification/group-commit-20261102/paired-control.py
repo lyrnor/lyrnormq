@@ -3,7 +3,7 @@
 from pathlib import Path
 import subprocess,json,hashlib,statistics as st
 P=Path(__file__).resolve().parent;ROOT=P.parents[2];D=P/'paired-control';D.mkdir(exist_ok=False)
-bins={'before':Path('/private/tmp/rmqtt-topology-before-groupcommit'),'after':ROOT/'target/release/topology'}
+bins={'before':Path('/private/tmp/lyrnormq-topology-before-groupcommit'),'after':ROOT/'target/release/topology'}
 m={'purpose':'Old/new alternation on historical single-r1-f1 control slowdown; same2048inputs/1KiB/batch1; no replacement of39controls','binary_sha256':{k:hashlib.sha256(v.read_bytes()).hexdigest() for k,v in bins.items()},'runs':[]}
 for r in [1,2,3]:
  for side in (['before','after'] if r%2 else ['after','before']):

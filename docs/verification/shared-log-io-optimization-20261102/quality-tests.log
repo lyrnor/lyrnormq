@@ -1,7 +1,7 @@
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-journal-io-quality/crates/mqtt-egress-log)
-   Compiling egress-log-bench v0.1.0 (/private/tmp/rmqtt-journal-io-quality/benches/egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-journal-io-quality/crates/mqtt-egress-log)
+   Compiling egress-log-bench v0.1.0 (/private/tmp/lyrnormq-journal-io-quality/benches/egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 6.92s
-     Running unittests src/main.rs (/private/tmp/rmqtt-quality-target/debug/deps/egress_log_bench-7f376d30b06af9d5)
+     Running unittests src/main.rs (/private/tmp/lyrnormq-quality-target/debug/deps/egress_log_bench-7f376d30b06af9d5)
 
 running 3 tests
 test metrics::tests::rank_is_not_batch_amortized ... ok
@@ -10,7 +10,7 @@ test run::tests::verified_smoke_covers_reads_and_durable_state ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
 
-     Running unittests src/bin/topology.rs (/private/tmp/rmqtt-quality-target/debug/deps/topology-48b3e5d7f2b62c68)
+     Running unittests src/bin/topology.rs (/private/tmp/lyrnormq-quality-target/debug/deps/topology-48b3e5d7f2b62c68)
 
 running 3 tests
 test metrics::tests::rank_is_not_batch_amortized ... ok
@@ -19,7 +19,7 @@ test tests::distinct_rules_shared_fanout ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
-     Running tests/shared_cache_integrity.rs (/private/tmp/rmqtt-quality-target/debug/deps/shared_cache_integrity-9db0321efe618193)
+     Running tests/shared_cache_integrity.rs (/private/tmp/lyrnormq-quality-target/debug/deps/shared_cache_integrity-9db0321efe618193)
 
 running 12 tests
 test permissions_change_after_warm_read_fails_closed ... ok

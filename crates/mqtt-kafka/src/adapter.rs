@@ -51,11 +51,11 @@ impl KafkaSink {
             None => event.client_id.to_string(),
         };
         let pairs = [
-            ("rmqtt-delivery-id", event.delivery_id.as_ref()),
-            ("rmqtt-event-id", event.event_id.as_ref()),
-            ("rmqtt-rule-id", event.rule_id.as_ref()),
-            ("rmqtt-client-id", event.client_id.as_ref()),
-            ("rmqtt-topic", event.topic.as_ref()),
+            ("lyrnormq-delivery-id", event.delivery_id.as_ref()),
+            ("lyrnormq-event-id", event.event_id.as_ref()),
+            ("lyrnormq-rule-id", event.rule_id.as_ref()),
+            ("lyrnormq-client-id", event.client_id.as_ref()),
+            ("lyrnormq-topic", event.topic.as_ref()),
         ];
         let length = event
             .data

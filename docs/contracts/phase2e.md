@@ -9,7 +9,7 @@ Keep every lib.rs documentation/module declarations/reexports only.
 Existing Packet variants/fields, Will and encode/decode (MQTT311) are retained.
 Add Packet::Auth unit variant (external exhaustive matches must handle this addition); legacy codec rejects AUTH. Add ProtocolError::ProtocolViolation(String)
 for syntactically framed but semantically invalid protocol input (duplicate singleton
-property, zero ReceiveMaximum etc). PerMQTT5 section2.2.2.2, an unknown property
+property, zero ReceiveMaximum etc). Per MQTT 5 section2.2.2.2, an unknown property
 identifier or identifier invalid for this packet type is MalformedPacket0x81, as
 are framing/UTF8/truncation errors; do NOT classify wrong property context as0x82.
 Add ProtocolError::Mqtt5(ReasonCode) when a semantic error has a specified reason,
@@ -104,7 +104,7 @@ MessageExpiryInterval is not implemented: reject its presence with0x83, do not i
 Nonzero WillDelayInterval rejectedCONNACK0x83; zero accepted/removed before publication.
 Nondefault subscription NoLocal/RAP/RH unsupported ->SUBACK0x83 per filter (no silent
 acceptance); shared filters cause DISCONNECT0x9E because SharedSubscriptionAvailable=0
-was advertised. Reject these fatal unsupported SUBSCRIBEs before any filter install. Reserved option bits6/7 are MalformedPacket0x81 perMQTT-3.8.3-5;
+was advertised. Reject these fatal unsupported SUBSCRIBEs before any filter install. Reserved option bits6/7 are MalformedPacket0x81 per MQTT-3.8.3-5;
 QoS3,RetainHandling3 and NoLocal-on-shared are ProtocolError0x82.
 All exclusions documented/tested; these are not claims of full MQTT5 compliance.
 

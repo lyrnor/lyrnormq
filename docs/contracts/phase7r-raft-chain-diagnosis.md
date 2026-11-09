@@ -15,7 +15,7 @@ failed/cancelled work, not a success-only histogram); observe(Metric,u64) record
 counts/bytes or explicit elapsed times. stamp_us is monotonic process-relative,
 NOT comparable between nodes. Reporter::start(node) returns a lifetime guard;
 one per Controller logs cumulative snapshots every second and at Drop. Enable
-only with RMQTT_RAFT_PROFILE=1. Metrics use fixed atomic count/sum/max/log2 buckets,
+only with LYRNORMQ_RAFT_PROFILE=1. Metrics use fixed atomic count/sum/max/log2 buckets,
 no per-client labels or bodies. Concurrent snapshots are approximate; prefer
 quiescent sample differences. Log histogram percentile UPPER BOUNDS, not exact p99.
 Fixed names are defined in profile.rs; ask coordinator before adding a metric.

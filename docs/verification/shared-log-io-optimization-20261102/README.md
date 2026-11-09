@@ -125,7 +125,7 @@ Broker 路由、稳态排空和确认写入。缓存交错正确性另由计数�
 这与同步等待、工作站负载波动的解释一致，但不证明历史差异全部由负载引起；
 不能据此声称逐条同步写入已显著优化。需要在隔离 Linux 服务器继续测量。
 
-运行 paired.py 前需有保存的旧二进制 /private/tmp/rmqtt-topology-before-io；
+运行 paired.py 前需有保存的旧二进制 /private/tmp/lyrnormq-topology-before-io；
 可从 e83904c 在独立 worktree 编译生成，对照其 SHA256。输出 paired 目录同样必须不存在。
 
 ## 复现
@@ -133,7 +133,7 @@ Broker 路由、稳态排空和确认写入。缓存交错正确性另由计数�
 ```sh
 CARGO_TARGET_DIR="$PWD/target" cargo build --release --offline --manifest-path benches/egress-log/Cargo.toml
 # 输出目录必须不存在；不可指向旧基线目录。
-python3 benches/egress-log/run-topology-matrix.py --output /private/tmp/rmqtt-io-new-matrix
+python3 benches/egress-log/run-topology-matrix.py --output /private/tmp/lyrnormq-io-new-matrix
 # 本报告 compare.py 默认比较随附 matrix 与前一轮历史基线。
 python3 docs/verification/shared-log-io-optimization-20261102/compare.py
 cargo fmt --all -- --check
@@ -141,8 +141,8 @@ cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
 CARGO_TARGET_DIR="$PWD/target" cargo test --offline --manifest-path benches/egress-log/Cargo.toml
 CARGO_TARGET_DIR="$PWD/target" cargo clippy --offline --manifest-path benches/egress-log/Cargo.toml --all-targets -- -D warnings
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/rule_stream_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_durable_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/rule_stream_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_durable_blackbox.py -v
 ```
 
 没有重启用户 Broker、部署或合并 main。后续仍需目标 Linux/NVMe、长时持续入队/排空、

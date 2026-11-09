@@ -1917,7 +1917,7 @@ mod tests {
         label: &str,
     ) -> io::Result<(Arc<Durable>, mpsc::Receiver<Job>, std::path::PathBuf)> {
         let path = std::env::temp_dir().join(format!(
-            "rmqtt-durable-{label}-{}-{}",
+            "lyrnormq-durable-{label}-{}-{}",
             std::process::id(),
             controller::now()
         ));
@@ -2249,7 +2249,7 @@ mod tests {
     #[tokio::test]
     async fn committed_receipt_bypasses_full_recipient_queue() -> io::Result<()> {
         let path = std::env::temp_dir().join(format!(
-            "rmqtt-receipt-preflight-{}-{}",
+            "lyrnormq-receipt-preflight-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

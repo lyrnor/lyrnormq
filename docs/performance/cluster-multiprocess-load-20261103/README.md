@@ -17,7 +17,7 @@
 - 独立Client ID前缀和offset避免互相接管，ID最终长度17字节；配置轮转分布3334/3333/3333。
   这个分布是计划连接，不是三个节点的成功连接计数。
 - 共同开始2026-11-03 14:41:16.440 UTC，实际四进程开始偏差1ms；共同PING在35秒后。
-  新目录`/opt/rmqtt-multiprocess/20261103`，未复用旧Broker数据。
+  新目录`/opt/lyrnormq-multiprocess/20261103`，未复用旧Broker数据。
 - 四条500/s流约每2ms产生4次到达，与旧单进程2000/s流的微观到达模式不同；
   总在途窗口也从2048增至8192。这不是只改变CPU进程数量的严格单变量对比。
 
@@ -51,8 +51,8 @@ Broker建连阶段6样本/5区间共5.280秒，保持27样本/26区间共27.486�
 阶段以共同开始墙钟对齐；未测量跨主机时钟偏移。数据及边界见resource-summary.json。
 
 停止前直接查询三个Controller：均term1/leader1、applied785、7747个metadata owner。
-owner计数不代表在线数，存活另由PING确认。两台机器已确认没有rmqtt/connections/
-rmqtt-loadgen测试进程；源端口范围保持32768..60999，未修改sysctl。
+owner计数不代表在线数，存活另由PING确认。两台机器已确认没有lyrnormq/connections/
+lyrnormq-loadgen测试进程；源端口范围保持32768..60999，未修改sysctl。
 
 ## 能确定的结论与待定位部分
 

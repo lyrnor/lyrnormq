@@ -1,5 +1,5 @@
     Blocking waiting for file lock on build directory
-   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-http)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 7.18s
      Running unittests src/lib.rs (target/debug/deps/mqtt_auth_http-b8cd126d01941c70)
 

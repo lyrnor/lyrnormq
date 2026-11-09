@@ -119,7 +119,7 @@
    Compiling libsqlite3-sys v0.39.1
    Compiling prettyplease v0.2.37
    Compiling getrandom v0.4.3
-   Compiling mqtt-router v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-router)
+   Compiling mqtt-router v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-router)
    Compiling rustix v1.1.6
    Compiling tinystr v0.8.5
    Compiling potential_utf v0.1.6
@@ -184,13 +184,13 @@
    Compiling regex v1.13.1
    Compiling unicode-normalization v0.1.26
    Compiling pulldown-cmark-to-cmark v22.0.3
-   Compiling mqtt-auth v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth)
+   Compiling mqtt-auth v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth)
    Compiling spki v0.7.3
    Compiling prost-types v0.14.3
    Compiling futures v0.3.34
    Compiling hashlink v0.10.0
    Compiling futures-intrusive v0.5.0
-   Compiling mqtt-protocol v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-protocol)
+   Compiling mqtt-protocol v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-protocol)
    Compiling crossbeam-queue v0.3.14
    Compiling tokio-util v0.7.20
    Compiling tokio-stream v0.1.19
@@ -265,15 +265,15 @@
    Compiling sqlx-postgres v0.8.6
    Compiling ruzstd v0.9.1
    Compiling lz4_flex v0.11.6
-   Compiling mqtt-storage v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-storage)
+   Compiling mqtt-storage v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-storage)
    Compiling tokio-socks v0.5.3
-   Compiling mqtt-cluster-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-cluster-core)
+   Compiling mqtt-cluster-core v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-cluster-core)
    Compiling anyerror v0.1.13
    Compiling clap_derive v4.6.7
    Compiling rustls-pemfile v2.2.0
    Compiling async-trait v0.1.92
    Compiling socket2 v0.5.10
-   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-core)
+   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-core)
    Compiling lazy_static v1.5.1
    Compiling utf8-width v0.1.9
    Compiling byte-unit v5.2.6
@@ -284,10 +284,10 @@
    Compiling validit v0.2.6
    Compiling sqlx v0.8.6
    Compiling openraft-macros v0.9.25
-   Compiling mqtt-cluster v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-cluster)
+   Compiling mqtt-cluster v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-cluster)
    Compiling derive_more v1.0.0
    Compiling tokio-tungstenite v0.28.0
-   Compiling mqtt-session v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-session)
+   Compiling mqtt-session v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-session)
    Compiling tracing-futures v0.2.5
    Compiling tracing-serde v0.2.0
    Compiling tracing-log v0.2.0
@@ -300,26 +300,26 @@
    Compiling num-conv v0.2.2
    Compiling openraft v0.9.25
    Compiling time v0.3.55
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
    Compiling tonic-prost v0.14.2
    Compiling tracing-subscriber v0.3.23
-   Compiling mqtt-rules v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-rules)
-   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-postgres)
-   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
-   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
-   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-log)
+   Compiling mqtt-rules v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-rules)
+   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-postgres)
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-kafka)
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-webhook)
+   Compiling mqtt-egress-log v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-log)
    Compiling crossbeam-channel v0.5.17
    Compiling include_dir_macros v0.7.4
    Compiling symlink v0.1.0
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
    Compiling tracing-appender v0.2.5
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
    Compiling include_dir v0.7.4
-   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-http)
    Compiling same-file v1.0.6
 warning: linker stderr: ignoring deprecated linker optimization setting '1'
   |
   = note: `#[warn(linker_messages)]` on by default
 
-warning: `rmqtt` (bin "rmqtt") generated 1 warning
+warning: `lyrnormq` (bin "lyrnormq") generated 1 warning
     Finished `release` profile [optimized] target(s) in 2m 42s

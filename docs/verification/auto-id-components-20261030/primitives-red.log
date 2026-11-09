@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run --run tests/ui-primitives.test.tsx
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-ui-primitives/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-ui-primitives/dashboard/web
 
 
 ⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
@@ -11,20 +11,20 @@
  FAIL  tests/ui-primitives.test.tsx [ tests/ui-primitives.test.tsx ]
 Error: Failed to resolve import "../src/components/ui/checkbox" from "tests/ui-primitives.test.tsx". Does the file exist?
   Plugin: vite:import-analysis
-  File: /private/tmp/rmqtt-ui-primitives/dashboard/web/tests/ui-primitives.test.tsx:4:25
+  File: /private/tmp/lyrnormq-ui-primitives/dashboard/web/tests/ui-primitives.test.tsx:4:25
   3  |  import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
   4  |  import { afterEach, describe, expect, it, vi } from "vitest";
   5  |  import { Checkbox } from "../src/components/ui/checkbox";
      |                            ^
   6  |  import { Switch } from "../src/components/ui/switch";
   7  |  import { Field } from "../src/components/ui/field";
- ❯ TransformPluginContext._formatLog ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:29250:43
- ❯ TransformPluginContext.error ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:29247:14
- ❯ normalizeUrl ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:27370:18
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:27428:32
- ❯ TransformPluginContext.transform ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:27396:4
- ❯ EnvironmentPluginContainer.transform ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:29048:14
- ❯ loadAndTransform ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/vite/dist/node/chunks/config.js:22914:26
+ ❯ TransformPluginContext._formatLog ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:29250:43
+ ❯ TransformPluginContext.error ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:29247:14
+ ❯ normalizeUrl ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:27370:18
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:27428:32
+ ❯ TransformPluginContext.transform ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:27396:4
+ ❯ EnvironmentPluginContainer.transform ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:29048:14
+ ❯ loadAndTransform ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/vite/dist/node/chunks/config.js:22914:26
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 

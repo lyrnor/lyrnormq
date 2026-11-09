@@ -18,8 +18,8 @@ Both8logicalCPU/~15GiB; same Broker Linux7.0.0-38-generic, ext4/vda shared by al
 round-robin MQTT endpoints172.16.240.180:18831/18832/18833. This is same-host cluster
 measurement, not multi-machine availability certification.
 
-Fresh Broker /opt/rmqtt-quota-free/20261103 and load
-/opt/rmqtt-quota-free-load/20261103. All earlier deployments/data retained. Same
+Fresh Broker /opt/lyrnormq-quota-free/20261103 and load
+/opt/lyrnormq-quota-free-load/20261103. All earlier deployments/data retained. Same
 max_connections/max_sessions50000/node,state256MiB,metadata16711680B,physicalrecord
 101024,FD250000,handshake1024,authenticationtasks128,authrate0. Cluster transaction/
 aggregatebody/Controllerwrite/watch/Applied/RPC concurrent admission quotas removed;

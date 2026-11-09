@@ -62,7 +62,7 @@ Validation before server work:
   symbol-bearing amd64musl with cargo zigbuild. No server compilation.
 
 One same-load cohort on47.84.224.186 /47.84.241.200: three cohosted dualrole nodes,
-four500/s2500 probes, unchanged limits and binary-pinned probe. RMQTT_RAFT_PROFILE=1,
+four500/s2500 probes, unchanged limits and binary-pinned probe. LYRNORMQ_RAFT_PROFILE=1,
 49Hz finite perf capture with explicit --clockid mono; archive clock header proof.
 Compare Phase7s counts, latency, /procCPU/RSS, logical reads/rounds/RPCs, write queues,
 batch sizes/timing/overlap and actual WAL counters. Stop after failure, no higher

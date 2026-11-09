@@ -61,12 +61,12 @@ v1 测试夹具先由实际旧 Broker 验证，再验证稀疏 ID、部分完成
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
-cargo build --release --offline -p rmqtt
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/rule_stream_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_durable_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_client_order_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_concurrency_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/rules_webhook_blackbox.py -v
+cargo build --release --offline -p lyrnormq
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/rule_stream_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_durable_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_client_order_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_concurrency_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/rules_webhook_blackbox.py -v
 CARGO_TARGET_DIR="$PWD/target" cargo test --offline --manifest-path benches/egress-log/Cargo.toml
 ```
 

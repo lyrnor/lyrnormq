@@ -1,5 +1,5 @@
 
-> rmqtt-dashboard@0.1.0 build
+> lyrnormq-dashboard@0.1.0 build
 > tsc --noEmit && vite build
 
 vite v7.3.7 building client environment for production...

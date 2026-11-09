@@ -5,9 +5,9 @@
   "kafka_url": "https://downloads.apache.org/kafka/4.2.2/kafka_2.13-4.2.2.tgz",
   "kafka_sha512": "acb9961f7ec72f5ff1544afdfbcca39030f2c9ca0d80e8466cf961bd83ae2030bafc28d2577f3f1a099b39c06e6252b8886c1eaf6477f2a2aca8be8b68c0b25e",
   "java_candidates": [
-    "/private/tmp/rmqtt-kafka-fixture-tools/java/jdk-21.0.13+9-jre/Contents/Home/bin/java"
+    "/private/tmp/lyrnormq-kafka-fixture-tools/java/jdk-21.0.13+9-jre/Contents/Home/bin/java"
   ],
   "kafka_candidates": [
-    "/private/tmp/rmqtt-kafka-fixture-tools/kafka/kafka_2.13-4.2.2"
+    "/private/tmp/lyrnormq-kafka-fixture-tools/kafka/kafka_2.13-4.2.2"
   ]
 }

@@ -95,7 +95,7 @@
    Compiling rand v0.9.5
    Compiling base64 v0.22.1
    Compiling itoa v1.0.18
-   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-core)
+   Compiling mqtt-egress-core v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-core)
    Compiling tokio-macros v2.7.2
    Compiling futures-macro v0.3.34
    Compiling thiserror-impl v2.0.21
@@ -122,10 +122,10 @@
    Compiling tokio-socks v0.5.3
    Compiling tokio-rustls v0.26.6
    Compiling krafka v0.28.1
-   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
-   Compiling rmqtt-kafka-adapter-bench v0.1.0 (/Volumes/data/rmqtt/tests/kafka-bench)
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-kafka)
+   Compiling lyrnormq-kafka-adapter-bench v0.1.0 (/Volumes/data/lyrnormq/tests/kafka-bench)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 14.72s
-     Running unittests src/main.rs (target/krafka-quality/debug/deps/rmqtt_kafka_adapter_bench-ad125ed254480d33)
+     Running unittests src/main.rs (target/krafka-quality/debug/deps/lyrnormq_kafka_adapter_bench-ad125ed254480d33)
 
 running 2 tests
 test tests::finite_limits_and_nearest_rank_are_explicit ... ok

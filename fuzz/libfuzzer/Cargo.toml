@@ -1,5 +1,5 @@
 [package]
-name = "rmqtt-libfuzzer"
+name = "lyrnormq-libfuzzer"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -11,7 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-rmqtt-fuzz-harness = { path = ".." }
+lyrnormq-fuzz-harness = { path = ".." }
 
 [[bin]]
 name = "codec"

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Standalone MQTT protocol / conformance acceptance (not cluster).
-# RMQTT_BIN=/abs/rmqtt ./tests/run_protocol_conformance.sh
+# LYRNORMQ_BIN=/abs/lyrnormq ./tests/run_protocol_conformance.sh
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
-export RMQTT_BIN=${RMQTT_BIN:-"$root/target/debug/rmqtt"}
+export LYRNORMQ_BIN=${LYRNORMQ_BIN:-"$root/target/debug/lyrnormq"}
 export PYTHONPATH=$root/tests
 cd "$root"
 

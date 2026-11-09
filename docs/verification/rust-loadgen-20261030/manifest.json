@@ -17,9 +17,9 @@
   "local_real_broker_profiles": 9,
   "raw_quantile_independent_checks": "all6series p50/p95/p99 checked against all retained JSONL records for both versions/allQoS",
   "linux_musl_binary": {
-    "path": "/Volumes/data/rmqtt/target/x86_64-unknown-linux-musl/release/rmqtt-loadgen",
+    "path": "/Volumes/data/lyrnormq/target/x86_64-unknown-linux-musl/release/lyrnormq-loadgen",
     "sha256": "00cc0c8fed39e228472b8176c258705fb8f37079e2f1e124faef7b609f1696b4",
-    "build_command": "cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p rmqtt-loadgen",
+    "build_command": "cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p lyrnormq-loadgen",
     "status": "cross-compiled ELF x86-64 statically linked stripped"
   },
   "remote_verification": {
@@ -31,8 +31,8 @@
     "os": "Ubuntu26.04.1 x86_64",
     "identity_gate": "user confirmed a new instance;pinned new ED25519 fingerprint and kept StrictHostKeyChecking=yes;old global known_hosts untouched",
     "ed25519_fingerprint": "SHA256:6JHJR1nEhZ1MI2g6lJZegyIkTtQvyXoKAroual9PC/8",
-    "binary_path": "/opt/rmqtt-loadgen/rmqtt-loadgen",
-    "result_directory": "/var/log/rmqtt-loadgen/acceptance-20261030",
+    "binary_path": "/opt/lyrnormq-loadgen/lyrnormq-loadgen",
+    "result_directory": "/var/log/lyrnormq-loadgen/acceptance-20261030",
     "binary_sha256": "00cc0c8fed39e228472b8176c258705fb8f37079e2f1e124faef7b609f1696b4",
     "broker": "172.30.139.129:1883",
     "broker_public": "101.132.237.211",

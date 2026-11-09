@@ -1,15 +1,15 @@
 """Finite remote observer; fresh per-controller gates and initial durable membership."""
 import argparse,hashlib,json,os,pathlib,subprocess,time
-BASE=pathlib.Path(os.environ['RMQTT_100K_BASE'])
+BASE=pathlib.Path(os.environ['LYRNORMQ_100K_BASE'])
 ROOT=BASE/'case'/'combined'
-BIN=pathlib.Path('/opt/rmqtt-quorum-cpu/20261104/rmqtt')
+BIN=pathlib.Path('/opt/lyrnormq-quorum-cpu/20261104/lyrnormq')
 
 def statuses():
     result=[]
     for i in (1,2,3):
         start=time.time_ns()
         try:
-            p=subprocess.run([str(BIN),'cluster-status','--cluster-config',str(ROOT/f'probe{i}.json')],capture_output=True,text=True,timeout=5,check=True,env=dict(os.environ,TOKIO_WORKER_THREADS='1',RUST_LOG='error',RMQTT_RAFT_PROFILE='0'))
+            p=subprocess.run([str(BIN),'cluster-status','--cluster-config',str(ROOT/f'probe{i}.json')],capture_output=True,text=True,timeout=5,check=True,env=dict(os.environ,TOKIO_WORKER_THREADS='1',RUST_LOG='error',LYRNORMQ_RAFT_PROFILE='0'))
             result.append(dict(controller=i,status=json.loads(p.stdout),read_start_wall_ns=start,read_end_wall_ns=time.time_ns()))
         except (OSError,ValueError,subprocess.SubprocessError) as e:
             result.append(dict(controller=i,error=type(e).__name__,read_start_wall_ns=start,read_end_wall_ns=time.time_ns()))
@@ -42,7 +42,7 @@ def membership():
                     value,_=decoder.raw_decode(data[pos:].decode('utf-8',errors='replace'));entry=value['entry'];payload=entry['payload']
                     if isinstance(payload,dict) and 'Membership' in payload:
                         content=json.dumps(entry,ensure_ascii=False,separators=(',',':')).encode()
-                        checksum=hashlib.sha256(b'rmqtt-controller-log-v2\0'+content).hexdigest()
+                        checksum=hashlib.sha256(b'lyrnormq-controller-log-v2\0'+content).hexdigest()
                         records.append(dict(file=path.name,entry=entry,checksum_valid=checksum==value['digest']))
                 except (ValueError,KeyError,TypeError):pass
                 pos+=1

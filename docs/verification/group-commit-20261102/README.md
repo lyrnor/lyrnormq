@@ -172,7 +172,7 @@ Group Commit 已默认接入生产actor。保留原1MiB分段默认值，以兼�
 现有QueueOptions验证；高吞吐部署可用现有参数选择本轮测试的16MiB分段：
 
 ```sh
-./target/release/rmqtt --egress-queue-segment-bytes 16777216
+./target/release/lyrnormq --egress-queue-segment-bytes 16777216
 ```
 
 其他原有启动参数照常添加。配置仍要求queue-max-bytes至少为segment-bytes的四倍，
@@ -198,6 +198,6 @@ cargo clippy --workspace --all-targets --offline -- -D warnings
 cargo test --workspace --offline
 CARGO_TARGET_DIR="$PWD/target" cargo test --offline --manifest-path benches/egress-log/Cargo.toml
 CARGO_TARGET_DIR="$PWD/target" cargo clippy --offline --manifest-path benches/egress-log/Cargo.toml --all-targets -- -D warnings
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/rule_stream_blackbox.py -v
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/outbound_durable_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/rule_stream_blackbox.py -v
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/outbound_durable_blackbox.py -v
 ```

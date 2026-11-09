@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent Phase4f HTTP + MQTT wire acceptance, without mocked Broker data.
 
-Run: RMQTT_BIN=/absolute/path/rmqtt python3 tests/dashboard_blackbox.py -v
+Run: LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/dashboard_blackbox.py -v
 Each test owns ports/files/processes. Recovery uses SIGKILL and SQLite, not a
 claim of physical power-loss durability. No external Python packages required.
 """
@@ -26,7 +26,7 @@ from auth_acl_blackbox import policy
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
+BINARY = os.environ.get('LYRNORMQ_BIN', str(ROOT / 'target/debug/lyrnormq'))
 TOKEN = 'dashboard-test-token-7b2ac829ee6a4573'
 
 
@@ -70,7 +70,7 @@ class DashboardBroker:
         self.stderr = None
 
     def command(self):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         extra = ['--admin-listen', f'127.0.0.1:{self.admin}',
                  '--admin-token-file', str(self.token_path),
                  '--dashboard-dir', str(self.assets), *self.extra]
@@ -134,7 +134,7 @@ class DashboardBroker:
 
 class DashboardBlackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-dashboard-quality-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-dashboard-quality-')
         self.addCleanup(self.directory.cleanup)
         self.broker = None
 
@@ -488,7 +488,7 @@ class DashboardBlackbox(unittest.TestCase):
 
 class DashboardStartupValidation(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-dashboard-startup-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-dashboard-startup-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.token = self.root / 'secret.token'
@@ -496,7 +496,7 @@ class DashboardStartupValidation(unittest.TestCase):
         self.admin_address = f'127.0.0.1:{free_port()}'
 
     def rejected(self, args):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         try:
             command = argv(BINARY, '127.0.0.1:0', self.root / 'node', args)
         except ValueError:

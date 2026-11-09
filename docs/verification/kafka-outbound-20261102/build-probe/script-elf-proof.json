@@ -1,5 +1,5 @@
 {
-  "path": "/private/tmp/rmqtt-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/rmqtt-kafka-zig-spike",
+  "path": "/private/tmp/lyrnormq-kafka-zig-spike/target/x86_64-unknown-linux-musl/release/lyrnormq-kafka-zig-spike",
   "target": "x86_64-unknown-linux-musl",
   "bytes": 8564336,
   "sha256": "fd759abca411995c0bed985f19c7546962d3aee005751832c61a5860ad65568f",

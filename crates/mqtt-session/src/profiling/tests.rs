@@ -68,10 +68,10 @@ fn workload() {
 
 #[test]
 fn profile_child_probe() {
-    if std::env::var_os("RMQTT_PROFILE_TEST_CHILD").is_none() {
+    if std::env::var_os("LYRNORMQ_PROFILE_TEST_CHILD").is_none() {
         return;
     }
-    let expected = std::env::var("RMQTT_PROFILE").is_ok_and(|value| value == "1");
+    let expected = std::env::var("LYRNORMQ_PROFILE").is_ok_and(|value| value == "1");
     let guard = span(Operation::Clone);
     assert_eq!(guard.started.is_some(), expected);
     drop(guard);
@@ -129,10 +129,10 @@ fn opt_in_is_process_scoped_and_disabled_spans_are_noop() {
             "profiling::tests::profile_child_probe",
             "--nocapture",
         ]);
-        command.env("RMQTT_PROFILE_TEST_CHILD", "1");
-        command.env_remove("RMQTT_PROFILE");
+        command.env("LYRNORMQ_PROFILE_TEST_CHILD", "1");
+        command.env_remove("LYRNORMQ_PROFILE");
         if let Some(setting) = setting {
-            command.env("RMQTT_PROFILE", setting);
+            command.env("LYRNORMQ_PROFILE", setting);
         }
         let output = command.output().unwrap();
         assert!(

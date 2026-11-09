@@ -6,7 +6,7 @@ async fn storage_failure_waits_for_generation_cleanup_before_returning() {
         Err(RuntimeError::Storage)
     }
     let directory = std::env::temp_dir().join(format!(
-        "rmqtt-stop-cleanup-{}-{}",
+        "lyrnormq-stop-cleanup-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -46,7 +46,7 @@ async fn storage_failure_waits_for_generation_cleanup_before_returning() {
 #[tokio::test]
 async fn failed_journal_initialization_releases_configuration_ownership() {
     let directory = std::env::temp_dir().join(format!(
-        "rmqtt-init-failure-{}-{}",
+        "lyrnormq-init-failure-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -94,7 +94,7 @@ async fn failed_journal_initialization_releases_configuration_ownership() {
 #[tokio::test]
 async fn cancelled_initialization_guard_releases_configuration_on_blocking_pool() {
     let directory = std::env::temp_dir().join(format!(
-        "rmqtt-init-cancel-{}-{}",
+        "lyrnormq-init-cancel-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)

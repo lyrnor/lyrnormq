@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run --run tests/rules-page.test.tsx
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-client-order-ui/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-client-order-ui/dashboard/web
 
  ❯ tests/rules-page.test.tsx (27 tests | 1 failed) 2385ms
    ✓ live rule and Webhook management > creates without exposing an ID field 126ms

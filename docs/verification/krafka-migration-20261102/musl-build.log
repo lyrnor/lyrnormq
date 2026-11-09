@@ -1,10 +1,10 @@
     Blocking waiting for file lock on build directory
-   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-kafka)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
 warning: linker stderr: ignoring deprecated linker optimization setting '1'
   |
   = note: `#[warn(linker_messages)]` on by default
 
-warning: `rmqtt` (bin "rmqtt") generated 1 warning
+warning: `lyrnormq` (bin "lyrnormq") generated 1 warning
     Finished `release` profile [optimized] target(s) in 19.84s

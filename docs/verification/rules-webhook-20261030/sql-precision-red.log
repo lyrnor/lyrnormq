@@ -1,4 +1,4 @@
-   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-rules-core/crates/mqtt-rules)
+   Compiling mqtt-rules v0.1.0 (/private/tmp/lyrnormq-rules-core/crates/mqtt-rules)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.83s
      Running unittests src/lib.rs (target/debug/deps/mqtt_rules-4e654c88aa0dc9a0)
 

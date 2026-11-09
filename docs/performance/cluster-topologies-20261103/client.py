@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse,subprocess,pathlib,json,time,os,threading,hashlib,platform,socket,gzip,shutil
-ROOT=pathlib.Path(os.environ.get('RMQTT_BENCH_ROOT','/opt/rmqtt-cluster-load/20261103'))
+ROOT=pathlib.Path(os.environ.get('LYRNORMQ_BENCH_ROOT','/opt/lyrnormq-cluster-load/20261103'))
 ADDRS='172.16.240.180:18831,172.16.240.180:18832,172.16.240.180:18833'
 
 def statproc(pid):
@@ -10,7 +10,7 @@ def statproc(pid):
 def run(topology,name,qos,protocol,pairs,rate,duration,inflight):
     root=ROOT/topology;root.mkdir(exist_ok=True)
     report=root/f'{name}.json';raw=root/f'{name}.jsonl'
-    cmd=[str(ROOT/'rmqtt-loadgen'),'--addrs',ADDRS,'--protocol',protocol,'--qos',str(qos),'--setup-concurrency','1','--pairs',str(pairs),'--payload-bytes','128','--rate',str(rate),'--inflight',str(inflight),'--warmup-ms','3000','--duration-ms',str(duration),'--drain-timeout-ms','30000','--connect-timeout-ms','60000','--io-timeout-ms','30000','--max-messages','2000000','--output',str(report),'--raw',str(raw)]
+    cmd=[str(ROOT/'lyrnormq-loadgen'),'--addrs',ADDRS,'--protocol',protocol,'--qos',str(qos),'--setup-concurrency','1','--pairs',str(pairs),'--payload-bytes','128','--rate',str(rate),'--inflight',str(inflight),'--warmup-ms','3000','--duration-ms',str(duration),'--drain-timeout-ms','30000','--connect-timeout-ms','60000','--io-timeout-ms','30000','--max-messages','2000000','--output',str(report),'--raw',str(raw)]
     before=time.time_ns();samples=[]
     with (root/f'{name}.log').open('xb') as log:
         p=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,env=dict(os.environ,TOKIO_WORKER_THREADS='8'))
@@ -34,7 +34,7 @@ def run(topology,name,qos,protocol,pairs,rate,duration,inflight):
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('topology',choices=['combined','separate']);p.add_argument('--mode',choices=['pilot','main','smoke','scale','baseline'],default='main');a=p.parse_args()
     ROOT.mkdir(parents=True,exist_ok=True)
-    env={'private':'172.16.240.181','hostname':socket.gethostname(),'cpus':os.cpu_count(),'platform':platform.platform(),'meminfo':pathlib.Path('/proc/meminfo').read_text(),'worker_threads':8,'binary_sha256':hashlib.sha256((ROOT/'rmqtt-loadgen').read_bytes()).hexdigest()}
+    env={'private':'172.16.240.181','hostname':socket.gethostname(),'cpus':os.cpu_count(),'platform':platform.platform(),'meminfo':pathlib.Path('/proc/meminfo').read_text(),'worker_threads':8,'binary_sha256':hashlib.sha256((ROOT/'lyrnormq-loadgen').read_bytes()).hexdigest()}
     (ROOT/'environment.json').write_text(json.dumps(env,indent=2))
     if a.mode=='pilot':
         for q in range(3):run(a.topology,f'pilot-q{q}',q,'5',30,0,5000,1)

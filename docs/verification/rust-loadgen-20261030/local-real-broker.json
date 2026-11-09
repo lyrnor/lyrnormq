@@ -7,7 +7,7 @@
       "success": true,
       "raw_quantiles_match": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--protocol",
@@ -40,7 +40,7 @@
       "success": true,
       "raw_quantiles_match": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--protocol",
@@ -73,7 +73,7 @@
       "success": true,
       "raw_quantiles_match": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--protocol",
@@ -106,7 +106,7 @@
       "success": true,
       "raw_quantiles_match": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--protocol",
@@ -139,7 +139,7 @@
       "success": true,
       "raw_quantiles_match": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--protocol",
@@ -172,7 +172,7 @@
       "success": true,
       "raw_quantiles_match": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--protocol",
@@ -208,7 +208,7 @@
       "accounting_valid": true,
       "success": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--qos",
@@ -240,7 +240,7 @@
       "accounting_valid": true,
       "success": false,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--qos",
@@ -272,7 +272,7 @@
       "accounting_valid": true,
       "success": true,
       "command": [
-        "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+        "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
         "--addr",
         "127.0.0.1:52870",
         "--qos",

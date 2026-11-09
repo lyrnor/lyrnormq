@@ -26,7 +26,7 @@ React + TypeScript + Vite; lock dependencies. Match light design, desktop/sideba
 
 ## Ownership/dependencies and acceptance
 
-1. Coordinator freezes contract, sets worktrees; owns bin/rmqtt/**, its Cargo.toml, Cargo.lock, root integration/docs.
+1. Coordinator freezes contract, sets worktrees; owns bin/lyrnormq/**, its Cargo.toml, Cargo.lock, root integration/docs.
 2. Telemetry agent owns crates/mqtt-transport/** and crates/mqtt-session/** only (explicit extended scope for pure metadata projections); commit tested implementation. No root lock edits.
 3. Frontend agent owns dashboard/web/** only; reads design but does not alter it. Independent branch/worktree, commit tests/build.
 4. Quality agent owns tests/dashboard* only; independent blackbox HTTP+raw MQTT tests, no implementation changes, commit tests. Depends only on frozen CLI/API until integration.
@@ -77,7 +77,7 @@ library convenience. Frontend owner continues isolated dashboard/web/** worktree
 ### Embedded Dashboard — 2026-10-30
 
 This supersedes the earlier default-directory/API-only fallback behavior.
-Default static resources are the React production dist embedded in rmqtt at Rust
+Default static resources are the React production dist embedded in lyrnormq at Rust
 compile time using include_dir (stable, no metadata feature). Explicit
 `--dashboard-dir` replaces the entire embedded set using existing bounded/sensitive
 file checks, with no fallback on invalid override. No implicit runtime lookup of
@@ -88,8 +88,8 @@ of shipping an empty UI or running npm/network from build.rs. Build.rs tracks th
 dist tree for Cargo rebuild and rejects symlinks, unknown extensions and existing
 file/count/byte limits before embedding. Source edits require frontend rebuild;
 provide a single local build wrapper forwarding Cargo target/profile flags.
-CI builds React before any rmqtt Cargo checks. Test copied executable in an empty
+CI builds React before any lyrnormq Cargo checks. Test copied executable in an empty
 cwd with no dist/Node runtime, all HTML-referenced JS/CSS and favicon accessible,
 Bearer API still protected/working, explicit override and invalid override behavior.
-Coordinator owns bin/rmqtt/scripts/docs; quality owns tests/dashboard_embedded.py
+Coordinator owns bin/lyrnormq/scripts/docs; quality owns tests/dashboard_embedded.py
 and .github/workflows/ci.yml in its existing isolated worktree.

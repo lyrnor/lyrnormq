@@ -1,4 +1,4 @@
-   Compiling mqtt-auth-http v0.1.0 (/private/tmp/rmqtt-http-access-backend/crates/mqtt-auth-http)
+   Compiling mqtt-auth-http v0.1.0 (/private/tmp/lyrnormq-http-access-backend/crates/mqtt-auth-http)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3.19s
      Running unittests src/lib.rs (target/debug/deps/mqtt_auth_http-97e3c2ce99703d3b)
 

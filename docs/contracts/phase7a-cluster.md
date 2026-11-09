@@ -3,7 +3,7 @@
 User-approved architecture supersedes the old partition-directory proposal: two
 roles, 3controller OpenRaft quorum, Broker readonly local route replica, snapshot+
 continuous committed metadata stream, direct Broker forwarding, no external etcd/
-ZooKeeper. One rmqtt binary. No production-ready grpc0.9claim: it is preview with no
+ZooKeeper. One lyrnormq binary. No production-ready grpc0.9claim: it is preview with no
 documented server module; use official grpc/grpc-rust stable tonic0.14.x behind the
 adapter and fixed OpenRaft0.9.25 (validate storage conformance), Protobuf envelopes.
 

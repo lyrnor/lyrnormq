@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Wire-level recipient-index semantics across three cohosted cluster nodes.
 
-RMQTT_BIN=/absolute/rmqtt python3 tests/cluster_recipient_blackbox.py -v
+LYRNORMQ_BIN=/absolute/lyrnormq python3 tests/cluster_recipient_blackbox.py -v
 This adds route mutation/generation and system-topic oracles to the existing
 cluster_control_batching_blackbox.py dual-version QoS/leader-recovery gate.
 """

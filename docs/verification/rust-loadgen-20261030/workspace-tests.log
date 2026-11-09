@@ -1,4 +1,4 @@
-   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+   Compiling lyrnormq-loadgen v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq-loadgen)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.94s
      Running unittests src/lib.rs (target/debug/deps/mqtt_auth-c63397ddf97637ec)
 
@@ -494,7 +494,7 @@ test durable::network::tests::blocked_writer_expires_only_unstarted_delivery_and
 
 test result: ok. 105 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.10s
 
-     Running unittests src/main.rs (target/debug/deps/rmqtt-4d36e1ff2a1de46c)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq-4d36e1ff2a1de46c)
 
 running 10 tests
 test cli::tests::supports_limits_without_changing_unset_defaults ... ok
@@ -510,7 +510,7 @@ test auth_policy::tests::reads_valid_policy_and_rejects_invalid_or_missing_file 
 
 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/lib.rs (target/debug/deps/rmqtt_loadgen-6dae955641b016e8)
+     Running unittests src/lib.rs (target/debug/deps/lyrnormq_loadgen-6dae955641b016e8)
 
 running 26 tests
 test engine::tests::receive_maximum_does_not_throttle_qos0 ... ok
@@ -542,7 +542,7 @@ test payload::tests::roundtrip_and_corruption ... ok
 
 test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (target/debug/deps/rmqtt_loadgen-ba1050e3dd5a337b)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq_loadgen-ba1050e3dd5a337b)
 
 running 0 tests
 
@@ -613,7 +613,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-   Doc-tests rmqtt_loadgen
+   Doc-tests lyrnormq_loadgen
 
 running 0 tests
 

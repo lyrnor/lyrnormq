@@ -1,6 +1,6 @@
-   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-cluster-durable-transport/crates/mqtt-transport)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/lyrnormq-cluster-durable-transport/crates/mqtt-transport)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_transport-f2ae8739566f4ace)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/cluster/debug/deps/mqtt_transport-f2ae8739566f4ace)
 
 running 2 tests
 test durable::durable_cluster_tests::recovered_filter_cache_is_removed_when_session_expires ... FAILED

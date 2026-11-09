@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent stdlib TLS/MQTT wire acceptance; no Rust TLS/codec oracle.
 
-Run after cargo build --workspace. RMQTT_BINARY (or existing RMQTT_BIN) selects
+Run after cargo build --workspace. LYRNORMQ_BINARY (or existing LYRNORMQ_BIN) selects
 an immutable executable. OpenSSL generates temporary test identities; no keys or
 CA installation escape the temporary directory. SIGKILL covers process crashes,
 not power loss. Silence assertions are bounded observations only.
@@ -25,8 +25,8 @@ from qos_blackbox import ack, parse_publish
 from retained_will_blackbox import connect_packet, publication
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = os.environ.get('RMQTT_BINARY', os.environ.get('RMQTT_BIN',
-                                                     str(ROOT / 'target/debug/rmqtt')))
+BINARY = os.environ.get('LYRNORMQ_BINARY', os.environ.get('LYRNORMQ_BIN',
+                                                     str(ROOT / 'target/debug/lyrnormq')))
 
 
 class Identities:
@@ -36,7 +36,7 @@ class Identities:
             subprocess.run(['openssl', *args], cwd=self.path, check=True,
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=20)
         openssl('req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '2',
-                '-subj', '/CN=rmqtt temporary test CA', '-keyout', 'ca.key', '-out', 'ca.pem',
+                '-subj', '/CN=lyrnormq temporary test CA', '-keyout', 'ca.key', '-out', 'ca.pem',
                 '-addext', 'basicConstraints=critical,CA:TRUE',
                 '-addext', 'keyUsage=critical,keyCertSign,cRLSign')
         openssl('req', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=localhost',
@@ -62,14 +62,14 @@ class Identities:
 class TLSBroker:
     def __init__(self, identities, directory=None, extra=()):
         self.identities = identities
-        self.rules_directory = tempfile.TemporaryDirectory(prefix="rmqtt-tls-rules-")
+        self.rules_directory = tempfile.TemporaryDirectory(prefix="lyrnormq-tls-rules-")
         self.directory = directory
         self.extra = list(extra)
         self.process = None
         self.port = None
 
     def command(self):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         data = self.directory if self.directory is not None else self.rules_directory.name
         extra = ['--tls-cert', str(self.identities.path / 'server.pem'),
                  '--tls-key', str(self.identities.path / 'server.key'), *self.extra]
@@ -151,7 +151,7 @@ class HelperContracts(unittest.TestCase):
 class TLSWire(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory(prefix='rmqtt-tls-')
+        cls.temp = tempfile.TemporaryDirectory(prefix='lyrnormq-tls-')
         cls.addClassCleanup(cls.temp.cleanup)
         cls.identities = Identities(cls.temp.name)
         cls.broker = TLSBroker(cls.identities)
@@ -413,7 +413,7 @@ class TLSWire(unittest.TestCase):
 
     def test_persistent_offline_qos2_survives_process_crash_over_tls(self):
         for version in (4, 5):
-            with self.subTest(mqtt=version), tempfile.TemporaryDirectory(prefix='rmqtt-tls-db-') as directory:
+            with self.subTest(mqtt=version), tempfile.TemporaryDirectory(prefix='lyrnormq-tls-db-') as directory:
                 broker = TLSBroker(self.identities, directory).start()
                 self.addCleanup(broker.stop)
                 topic = f'tls-durable-{version}'

@@ -1,6 +1,6 @@
 //! Opt-in, bounded process-wide elapsed-time counters for session operations.
 //!
-//! Set `RMQTT_PROFILE=1` before process startup. The setting is read once. Nested
+//! Set `LYRNORMQ_PROFILE=1` before process startup. The setting is read once. Nested
 //! spans are inclusive and overlap; their times are not exclusive CPU shares.
 //! Reports contain only fixed operation labels, never application/client data.
 use serde::Serialize;
@@ -69,7 +69,7 @@ impl Counter {
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static COUNTERS: [Counter; OPERATIONS.len()] = [const { Counter::new() }; OPERATIONS.len()];
 pub(crate) fn enabled() -> bool {
-    *ENABLED.get_or_init(|| std::env::var_os("RMQTT_PROFILE").is_some_and(|value| value == "1"))
+    *ENABLED.get_or_init(|| std::env::var_os("LYRNORMQ_PROFILE").is_some_and(|value| value == "1"))
 }
 fn saturating_add(counter: &AtomicU64, value: u64) {
     let _ = counter.try_update(Ordering::Relaxed, Ordering::Relaxed, |old| {

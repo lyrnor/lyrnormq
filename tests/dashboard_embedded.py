@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Copied-executable acceptance for the compile-time embedded React Dashboard.
 
-RMQTT_BIN selects an already-built executable. Every child runs an absolute copy
+LYRNORMQ_BIN selects an already-built executable. Every child runs an absolute copy
 from an isolated empty cwd with PATH pointing to a nonexistent directory. Neither
 Node nor repository frontend files are available to that runtime process.
 """
@@ -42,7 +42,7 @@ class ReferencedAssets(HTMLParser):
 class EmbeddedBroker(DashboardBroker):
     def __init__(self, directory, override=None):
         super().__init__(directory)
-        self.executable = self.root / 'rmqtt-standalone'
+        self.executable = self.root / 'lyrnormq-standalone'
         shutil.copy2(Path(BINARY).resolve(), self.executable)
         self.cwd = self.root / 'empty-runtime'
         self.cwd.mkdir()
@@ -51,7 +51,7 @@ class EmbeddedBroker(DashboardBroker):
         self.runtime_environment = dict(os.environ, PATH=str(self.root / 'no-node-runtime'))
 
     def command(self):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         data = self.root / 'data'
         self.rules_path = data / 'rules.sqlite'
         extra = ['--admin-listen', f'127.0.0.1:{self.admin}',
@@ -81,7 +81,7 @@ class EmbeddedBroker(DashboardBroker):
 
 class EmbeddedDashboardBlackbox(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-embedded-dashboard-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-embedded-dashboard-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
 

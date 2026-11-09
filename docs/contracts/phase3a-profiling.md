@@ -4,7 +4,7 @@ Freeze instrumentation/diagnostics first; no optimization is authorized by this
 contract. Schema7/container1, proposal/discard/commit/install/reply and live byte
 limits remain unchanged. Thin lib.rs only declares/reexports modules.
 
-Opt-in RMQTT_PROFILE=1 enables bounded process-wide counters/timing (Instant,
+Opt-in LYRNORMQ_PROFILE=1 enables bounded process-wide counters/timing (Instant,
 saturating totals, fixed labels, no payload/client-ID tracing). Disabled mode must
 not collect times/allocate per event. Inclusive nested spans overlap: never add
 nested percentages as exclusive CPU shares. This is instrumented elapsed time,
@@ -22,7 +22,7 @@ Instrument records/serialization/bounds/route/authorization without skipping wor
 Transport owns worker profiling: fixed request categories, proposal clone,
 command elapsed, snapshot elapsed+bytes, SQLite commit elapsed+bytes, success/error,
 PollDelivery total/empty and notification fanout. Report on normal worker shutdown
-(or bounded periodic checkpoints on the blocking worker) to RMQTT_PROFILE_PATH;
+(or bounded periodic checkpoints on the blocking worker) to LYRNORMQ_PROFILE_PATH;
 TSV v1 transport rows and a SESSION_JSON line from session report_json, no extra
 production dependency required. File I/O belongs only to blocking worker, never
 async network tasks. Profile output failure must not fabricate successful evidence

@@ -9,7 +9,7 @@
    Compiling itoa v1.0.18
    Compiling syn v3.0.9
    Compiling serde_derive v1.0.229
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-journal-io-opt/crates/mqtt-egress-log)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-journal-io-opt/crates/mqtt-egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4.47s
      Running unittests src/lib.rs (target/debug/deps/mqtt_egress_log-10169cfe3b608b1b)
 

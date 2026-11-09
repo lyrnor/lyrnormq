@@ -143,7 +143,7 @@ complete MQTT5 conformance or an exhaustive inventory of every unmarked obligati
 
 Schema7 stays unchanged. Actual old-artifact upgrade preserves old combined
 inflight/queued metadata and applies splitting only to new fanout. The dedicated
-upgrade test needs `/tmp/rmqtt-p2n-baseline`; it passed locally with the previous
+upgrade test needs `/tmp/lyrnormq-p2n-baseline`; it passed locally with the previous
 real executable. A fresh CI host without that executable explicitly skips this
 one SQLite case; the rest of the new suite is mandatory in its applicable mode.
 Hosted CI execution is not claimed. Frozen decisions are in contracts/phase2n.md.

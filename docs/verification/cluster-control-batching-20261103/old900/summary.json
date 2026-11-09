@@ -1,5 +1,5 @@
 {
-  "binary": "/private/tmp/rmqtt-7n-native",
+  "binary": "/private/tmp/lyrnormq-7n-native",
   "binary_sha256": "b635d1cd4872ce903e9120e93b8eb7f7cf3c3e74d81e85cdafca50a75eb66b5c",
   "environment": {
     "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",

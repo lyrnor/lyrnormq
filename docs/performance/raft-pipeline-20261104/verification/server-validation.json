@@ -8,7 +8,7 @@
   "all_test_processes_stopped": true,
   "independent_raw_recomputation_passed": true,
   "perf_clock_header_verified": true,
-  "perf_decoded_rmqtt_user_callchains": 0,
+  "perf_decoded_lyrnormq_user_callchains": 0,
   "higher_load_or_business_message_benchmark_run": false,
   "cleanup_replication_timeouts": 1,
   "ramp_h2_reset_warnings": 43

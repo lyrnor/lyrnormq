@@ -97,14 +97,14 @@ class FailureEvidenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(process.wait.await_count, 2)
 
     def test_profile_is_explicitly_disabled_and_rows_are_validated(self):
-        with mock.patch.dict('os.environ', {'RMQTT_PROFILE': '1', 'RMQTT_PROFILE_PATH': 'stale'}):
+        with mock.patch.dict('os.environ', {'LYRNORMQ_PROFILE': '1', 'LYRNORMQ_PROFILE_PATH': 'stale'}):
             env = profile_environment(False, 'unused')
-            self.assertEqual(env['RMQTT_PROFILE'], '0')
-            self.assertNotIn('RMQTT_PROFILE_PATH', env)
+            self.assertEqual(env['LYRNORMQ_PROFILE'], '0')
+            self.assertNotIn('LYRNORMQ_PROFILE_PATH', env)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'profile.tsv'
             self.assertEqual(read_profile(path, True)['status'], 'unavailable')
-            path.write_text('RMQTT_PROFILE\t1\nSTATUS\tfinal\nREQUEST\tpublish\t2\t20\t1\t1\t0\n'
+            path.write_text('LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nREQUEST\tpublish\t2\t20\t1\t1\t0\n'
                             'SPAN\tproposal_clone\t2\t9\t0\nCOUNTER\tempty_poll_delivery\t3\n'
                             'SESSION_JSON\t{"enabled":true}\n')
             profile = read_profile(path, True)
@@ -112,7 +112,7 @@ class FailureEvidenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(profile['requests']['publish']['count'], 2)
             self.assertEqual(profile['spans']['proposal_clone']['total_ns'], 9)
             self.assertEqual(profile['counters']['empty_poll_delivery'], 3)
-            path.write_text('RMQTT_PROFILE\t1\nCOUNTER\tempty_poll_delivery\t-1\nSESSION_JSON\t{}\n')
+            path.write_text('LYRNORMQ_PROFILE\t1\nCOUNTER\tempty_poll_delivery\t-1\nSESSION_JSON\t{}\n')
             self.assertEqual(read_profile(path, True)['status'], 'invalid')
 
     def test_pilot_keeps_full_topology_and_formal_rules_remain(self):

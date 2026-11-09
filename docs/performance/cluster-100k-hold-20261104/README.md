@@ -23,7 +23,7 @@ TCP采样峰值59296，约开始后39秒已全断，未完成10万连接和至�
   每节点目标约33333。进程FD250000；压测机源端口临时10000..65535，随后恢复
   32768..60999。没有改变Broker配额、metadata/wire界限、Raft/W2/ACK/超时。
 - 资源每秒采样，TCP每5秒扫描，Controller每10秒新鲜target-only查询。
-  RMQTT_RAFT_PROFILE=1提供固定计数和有限trace；未采集新的perf压力剖析。
+  LYRNORMQ_RAFT_PROFILE=1提供固定计数和有限trace；未采集新的perf压力剖析。
 
 契约：[phase7v-100k-hold.md](../../contracts/phase7v-100k-hold.md)。
 Broker实现694bfbb；长保持探针修复8a798f9；压测契约/脚本c4177f3。

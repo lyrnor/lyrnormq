@@ -96,16 +96,16 @@ remove old grants. Phase6b remains the MQTT semantic contract.
 ## Build and verify
 
 Normal builds include `postgres-auth`. To omit PostgreSQL from the broker binary,
-use `cargo build -p rmqtt --release --no-default-features`. That build does not
+use `cargo build -p lyrnormq --release --no-default-features`. That build does not
 accept PostgreSQL configuration and the Dashboard hides the backend option.
 
 For disposable local verification (loopback-only, no business data):
 
 ```sh
-docker run -d --name rmqtt-postgres-access-test \
+docker run -d --name lyrnormq-postgres-access-test \
   -e POSTGRES_HOST_AUTH_METHOD=trust -p 127.0.0.1:15432:5432 postgres:17
 cargo test -p mqtt-auth-postgres -- --include-ignored
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/postgres_access_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/postgres_access_blackbox.py -v
 ```
 
 The trust-auth test fixture is for isolated local tests only. Production deployments
@@ -114,5 +114,5 @@ are required by these tests; custom SQL uses synthetic VALUES data.
 
 For the optional live TLS test, configure the disposable PostgreSQL fixture with a
 CA-signed server certificate for `localhost` (the existing `tls_blackbox.Identities`
-fixture can generate one), then supply `RMQTT_POSTGRES_TEST_CA=/path/to/ca.pem`.
+fixture can generate one), then supply `LYRNORMQ_POSTGRES_TEST_CA=/path/to/ca.pem`.
 The test verifies both trusted success and hostname/untrusted-CA failures.

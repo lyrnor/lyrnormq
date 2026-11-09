@@ -9,7 +9,7 @@ spec.loader.exec_module(limits)
 
 class CapacityPreflight(unittest.TestCase):
     def commands(self, target):
-        return [{'name': f'node{i}', 'command': ['rmqtt', '--cluster-controller-config', f'c{i}.json', *limits.mqtt_options(target)]} for i in range(3)]
+        return [{'name': f'node{i}', 'command': ['lyrnormq', '--cluster-controller-config', f'c{i}.json', *limits.mqtt_options(target)]} for i in range(3)]
 
     def test_failed_run_missing_session_limit_is_rejected(self):
         old = self.commands(10000)

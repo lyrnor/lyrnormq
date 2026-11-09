@@ -21,7 +21,7 @@ from ws_wire import WebSocketBroker
 @unittest.skipUnless(mqtt is not None, 'requires paho-mqtt==2.1.0 (not an interoperability pass)')
 class WebSocketPaho(unittest.TestCase):
     def test_standard_client_ws_wss_both_versions_all_qos(self):
-        with tempfile.TemporaryDirectory(prefix='rmqtt-ws-paho-') as directory:
+        with tempfile.TemporaryDirectory(prefix='lyrnormq-ws-paho-') as directory:
             identities=Identities(directory)
             for secure in (False,True):
                 broker=WebSocketBroker(identities,secure).start()

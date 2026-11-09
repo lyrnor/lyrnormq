@@ -4,8 +4,8 @@
      ) -> Result<Infallible, Fatal<C::NodeId>> {
          // Ratio control the ratio of number of RaftMsg to process to number of Notify to process.
          let mut balancer = Balancer::new(10_000);
-+        let diagnostic_interleave = std::env::var_os("RMQTT_DIAG_INTERLEAVE_NOTIFY").is_some();
-+        let diagnostic_time_slice = std::env::var_os("RMQTT_DIAG_TIME_SLICE").is_some();
++        let diagnostic_interleave = std::env::var_os("LYRNORMQ_DIAG_INTERLEAVE_NOTIFY").is_some();
++        let diagnostic_time_slice = std::env::var_os("LYRNORMQ_DIAG_TIME_SLICE").is_some();
  
          loop {
              self.flush_metrics();

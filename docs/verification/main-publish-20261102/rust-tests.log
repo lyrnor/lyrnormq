@@ -1,30 +1,30 @@
-   Compiling mqtt-protocol v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-protocol)
-   Compiling mqtt-router v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-router)
+   Compiling mqtt-protocol v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-protocol)
+   Compiling mqtt-router v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-router)
    Compiling tokio-rustls v0.26.6
-   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-egress-core)
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-egress-core)
    Compiling hyper-util v0.1.21
    Compiling tower v0.5.3
-   Compiling mqtt-auth v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-auth)
+   Compiling mqtt-auth v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-auth)
    Compiling tokio-socks v0.5.3
    Compiling hyper-rustls v0.27.10
-   Compiling mqtt-session v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-session)
+   Compiling mqtt-session v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-session)
    Compiling tower-http v0.6.11
-   Compiling mqtt-storage v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-storage)
+   Compiling mqtt-storage v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-storage)
    Compiling tokio-util v0.7.20
    Compiling krafka v0.28.1
    Compiling reqwest v0.12.28
    Compiling tokio-tungstenite v0.28.0
-   Compiling rmqtt-loadgen v0.1.0 (/private/tmp/rmqtt-main-release/bin/rmqtt-loadgen)
-   Compiling mqtt-transport v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-transport)
-   Compiling mqtt-rules v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-rules)
-   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-webhook)
-   Compiling mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-egress-log)
-   Compiling rmqtt v0.1.0 (/private/tmp/rmqtt-main-release/bin/rmqtt)
+   Compiling lyrnormq-loadgen v0.1.0 (/private/tmp/lyrnormq-main-release/bin/lyrnormq-loadgen)
+   Compiling mqtt-transport v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-transport)
+   Compiling mqtt-rules v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-rules)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-webhook)
+   Compiling mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-egress-log)
+   Compiling lyrnormq v0.1.0 (/private/tmp/lyrnormq-main-release/bin/lyrnormq)
    Compiling axum v0.8.9
-   Compiling mqtt-kafka v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-kafka)
-   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-egress)
+   Compiling mqtt-kafka v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-kafka)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-egress)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 28.45s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_auth-107ae7b814cbad30)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_auth-107ae7b814cbad30)
 
 running 20 tests
 test containment::tests::requested_language_cannot_escape_grant ... ok
@@ -50,7 +50,7 @@ test policy::tests::recommended_hash_parameters_and_explicit_empty_password_work
 
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-5c759ac93f0f2016)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress-5c759ac93f0f2016)
 
 running 65 tests
 test config::kafka_tests::legacy_webhook_serialization_preserves_exact_durable_descriptor_bytes ... ok
@@ -121,13 +121,13 @@ test tests::storage_failure_returns_after_concurrent_attempts_are_cancelled ... 
 
 test result: ok. 65 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.56s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_core-5f56beebb75eccc5)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress_core-5f56beebb75eccc5)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_log-9eef96bfaf95676d)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress_log-9eef96bfaf95676d)
 
 running 66 tests
 test tests::exclusive_ownership_and_foreign_files_fail_closed ... ok
@@ -199,7 +199,7 @@ test tests::sustained_delivery_reclaims_completed_segments_without_accumulation 
 
 test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.71s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_kafka-6e75df1b43baa68d)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_kafka-6e75df1b43baa68d)
 
 running 23 tests
 test owner::runtime::tests::authentication_is_permanent_without_secret_details ... ok
@@ -228,7 +228,7 @@ test owner::deadline_tests::stuck_teardown_bounds_rpc_stops_owner_and_retains_ca
 
 test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.04s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_protocol-cc3aec00334fddba)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_protocol-cc3aec00334fddba)
 
 running 78 tests
 test connect_limits::tests::assigned_property_is_nonempty_connack_only ... ok
@@ -312,7 +312,7 @@ test tests::credential_lengths_are_u16_and_password_debug_is_redacted ... ok
 
 test result: ok. 78 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_router-d2a5e2bf5866fa62)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_router-d2a5e2bf5866fa62)
 
 running 27 tests
 test filter::tests::wildcard_edges ... ok
@@ -345,7 +345,7 @@ test trie::tests::deep_topic_is_iterative_and_nodes_are_reused ... ok
 
 test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_rules-4b77b0f3de735b35)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_rules-4b77b0f3de735b35)
 
 running 8 tests
 test tests::topic_filters_follow_mqtt_system_topic_rules ... ok
@@ -359,7 +359,7 @@ test tests::limits_and_arithmetic_fail_explicitly ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_session-bc5e3ee8f0fd8aac)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_session-bc5e3ee8f0fd8aac)
 
 running 206 tests
 test durable::delivery_hint::tests::hint_is_exactly_online_and_queue_or_replay_not_outgoing ... ok
@@ -571,7 +571,7 @@ test outgoing::tests::outgoing_identifiers_never_reused_until_final_ack ... ok
 
 test result: ok. 206 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_storage-39e9dd08b912cefb)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_storage-39e9dd08b912cefb)
 
 running 36 tests
 test configuration::tests::crash_worker ... ok
@@ -613,7 +613,7 @@ test durable::tests::rejects_foreign_unknown_or_corrupt_schemas_without_resettin
 
 test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_transport-73ab558c7f31fa56)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_transport-73ab558c7f31fa56)
 
 running 151 tests
 test admission::tests::fractional_refill_is_exact_and_clock_cannot_rewind ... ok
@@ -770,14 +770,14 @@ test durable::enhanced_tests::mqtt_3_1_2_22_nonzero_keepalive_expires_with_v5_re
 
 test result: ok. 151 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_webhook-9420e4a83d758da3)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_webhook-9420e4a83d758da3)
 
 running 1 test
 test adapter::tests::custom_headers_are_sensitive_and_debug_is_redacted ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (/Volumes/data/rmqtt/target/debug/deps/rmqtt-a64647e05d75fdc6)
+     Running unittests src/main.rs (/Volumes/data/lyrnormq/target/debug/deps/lyrnormq-a64647e05d75fdc6)
 
 running 33 tests
 test admin::tests::static_symlinks_and_token_symlinks_are_rejected ... ok
@@ -816,7 +816,7 @@ test admin::tests::sqlite_configuration_and_companion_aliases_cannot_be_static_a
 
 test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
-     Running tests/logging.rs (/Volumes/data/rmqtt/target/debug/deps/logging-cd05155cf89e07b7)
+     Running tests/logging.rs (/Volumes/data/lyrnormq/target/debug/deps/logging-cd05155cf89e07b7)
 
 running 3 tests
 test help_remains_stdout_and_invalid_logging_settings_fail_without_echoing_values ... ok
@@ -825,7 +825,7 @@ test error_filter_suppresses_info_without_changing_broker_lifecycle ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/rmqtt_loadgen-e905cbf9453575e8)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/lyrnormq_loadgen-e905cbf9453575e8)
 
 running 26 tests
 test engine::tests::receive_maximum_does_not_throttle_qos0 ... ok
@@ -857,13 +857,13 @@ test metrics::tests::empty_distributions_and_qos0_ack_are_null ... ok
 
 test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (/Volumes/data/rmqtt/target/debug/deps/rmqtt_loadgen-d7465b0ed39fe456)
+     Running unittests src/main.rs (/Volumes/data/lyrnormq/target/debug/deps/lyrnormq_loadgen-d7465b0ed39fe456)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/cli.rs (/Volumes/data/rmqtt/target/debug/deps/cli-ddf187d74e8a17fb)
+     Running tests/cli.rs (/Volumes/data/lyrnormq/target/debug/deps/cli-ddf187d74e8a17fb)
 
 running 4 tests
 test cli_existing_output_is_never_overwritten ... ok
@@ -873,7 +873,7 @@ test cli_raw_samples_independently_reproduce_all_percentiles ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
 
-     Running tests/independent_wire.rs (/Volumes/data/rmqtt/target/debug/deps/independent_wire-fb4b0c50c2a22a94)
+     Running tests/independent_wire.rs (/Volumes/data/lyrnormq/target/debug/deps/independent_wire-fb4b0c50c2a22a94)
 
 running 13 tests
 test negative_mqtt5_ack_is_not_positive_confirmation ... ok
@@ -964,7 +964,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-   Doc-tests rmqtt_loadgen
+   Doc-tests lyrnormq_loadgen
 
 running 0 tests
 

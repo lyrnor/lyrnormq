@@ -1,8 +1,8 @@
-   Compiling mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress-core)
-   Compiling mqtt-webhook v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-webhook)
-   Compiling mqtt-egress v0.1.0 (/private/tmp/rmqtt-client-order-backend/crates/mqtt-egress)
+   Compiling mqtt-egress-core v0.1.0 (/private/tmp/lyrnormq-client-order-backend/crates/mqtt-egress-core)
+   Compiling mqtt-webhook v0.1.0 (/private/tmp/lyrnormq-client-order-backend/crates/mqtt-webhook)
+   Compiling mqtt-egress v0.1.0 (/private/tmp/lyrnormq-client-order-backend/crates/mqtt-egress)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.75s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress-c1dff689ded4e4cf)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress-c1dff689ded4e4cf)
 
 running 33 tests
 test tests::bounded_overflow_does_not_block_observer_and_shutdown_releases_budget ... ok
@@ -41,13 +41,13 @@ test tests::storage_failure_returns_after_concurrent_attempts_are_cancelled ... 
 
 test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_egress_core-5f56beebb75eccc5)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_egress_core-5f56beebb75eccc5)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/debug/deps/mqtt_webhook-583ba3b92d8abc78)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/debug/deps/mqtt_webhook-583ba3b92d8abc78)
 
 running 1 test
 test adapter::tests::custom_headers_are_sensitive_and_debug_is_redacted ... ok

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real Controller WAL gates; data replicas remain alive and RAM-only.
 
-RMQTT_BIN=/absolute/new/rmqtt python3 tests/cluster_raft_wal_blackbox.py -v
+LYRNORMQ_BIN=/absolute/new/lyrnormq python3 tests/cluster_raft_wal_blackbox.py -v
 Controller checkpoints use bbolt; legacy exchange migration is tested separately.
 Only private temporary fixture directories are corrupted/removed by these tests.
 These SIGKILL/reopen checks do not simulate physical power failure or failed fsync.

@@ -1,2 +1,2 @@
-rmqtt-loadgen: 6 pairs / 12 TCP connections; QoS1; 128 bytes; fixed absolute schedule
-report: /opt/rmqtt-cluster-load/20261103/separate/baseline-q1.json (success=true)
+lyrnormq-loadgen: 6 pairs / 12 TCP connections; QoS1; 128 bytes; fixed absolute schedule
+report: /opt/lyrnormq-cluster-load/20261103/separate/baseline-q1.json (success=true)

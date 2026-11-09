@@ -6,7 +6,7 @@
     "New real-wire methods: memory12 passed/1 skip; SQLite13 passed on previous artifact; final immutable artifact full regression recorded separately in progress.md.",
     "Final immutable artifact b078a8d3f80b4598c52bdda87adbabbf26f757549a81b938169cae1030819a34: memory257/SQLite325 wire passes,582 total;23/25 suite executions and all Paho passed.",
     "cargo test --offline -p mqtt-session:180 passed; fmt, strict Clippy and Rustdoc passed",
-    "Failure-first mixed-RAP counterexample /tmp/rmqtt-p2n-rap-red.log followed frozen N1 permitted multi-copy policy.",
+    "Failure-first mixed-RAP counterexample /tmp/lyrnormq-p2n-rap-red.log followed frozen N1 permitted multi-copy policy.",
     "cargo test --offline -p mqtt-protocol:74 passed; fmt, strict Clippy and Rustdoc passed",
     "Independent Router21/Session165 tests passed; published OS3.1.3.2.3/3.3.2.3.2/3.3.2-4/5.4.9 reviewed for producer-versus-forwarder applicability.",
     "Final immutable artifact52932c01179780b9dcdc4a82595b122ddb820eb24549c5807180a42d3ac4598a:619 actual wire passes (memory274/SQLite345),24/26 suites and all Paho exit0."

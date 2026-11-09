@@ -1,4 +1,4 @@
-   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-cluster-durable-runtime/crates/mqtt-cluster)
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/lyrnormq-cluster-durable-runtime/crates/mqtt-cluster)
 warning: variant `Received` is never constructed
   --> crates/mqtt-cluster/src/broker/durable.rs:12:5
    |
@@ -20,7 +20,7 @@ warning: method `received` is never used
 
 warning: `mqtt-cluster` (lib test) generated 2 warnings
     Finished `test` profile [unoptimized + debuginfo] target(s) in 5.87s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-ee7cad46e1c9209a)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/cluster/debug/deps/mqtt_cluster-ee7cad46e1c9209a)
 
 running 1 test
 test broker::durable::tests::committed_receipt_bypasses_full_recipient_queue ... FAILED

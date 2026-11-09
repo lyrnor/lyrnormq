@@ -1,56 +1,56 @@
-test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-cpe14tir'>
+test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect (__main__.AdmissionMutualTLS.test_cancelled_connect_commit_finishes_generation_cleanup_before_reconnect) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-cpe14tir'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-rs7lw8k9'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-rs7lw8k9'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
 test_client_ca_input_and_admission_cli_limits_fail_closed (__main__.AdmissionMutualTLS.test_client_ca_input_and_admission_cli_limits_fail_closed) ... ok
 test_client_certificate_fixtures_validate_for_intended_purpose (__main__.AdmissionMutualTLS.test_client_certificate_fixtures_validate_for_intended_purpose) ... ok
-test_established_enhanced_reauth_uses_disconnect_quota_reason (__main__.AdmissionMutualTLS.test_established_enhanced_reauth_uses_disconnect_quota_reason) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-spluji9n'>
+test_established_enhanced_reauth_uses_disconnect_quota_reason (__main__.AdmissionMutualTLS.test_established_enhanced_reauth_uses_disconnect_quota_reason) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-spluji9n'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
-test_handshake_concurrency_release_and_pending_shutdown_all_transports (__main__.AdmissionMutualTLS.test_handshake_concurrency_release_and_pending_shutdown_all_transports) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-omm3dv52'>
+test_handshake_concurrency_release_and_pending_shutdown_all_transports (__main__.AdmissionMutualTLS.test_handshake_concurrency_release_and_pending_shutdown_all_transports) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-omm3dv52'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-kb06ta2b'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-kb06ta2b'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-0sh1x3k3'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-0sh1x3k3'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-e10rxq9y'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-e10rxq9y'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-_33ewqaw'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-_33ewqaw'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-i4gg1hrg'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-i4gg1hrg'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-wplgsga0'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-wplgsga0'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-mul3hgdj'>
-  _warnings.warn(warn_message, ResourceWarning)
-ok
-test_handshake_slot_covers_initial_enhanced_auth_until_connack (__main__.AdmissionMutualTLS.test_handshake_slot_covers_initial_enhanced_auth_until_connack) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-319ym8pk'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-mul3hgdj'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
-test_mandatory_mtls_tls12_tls13_tls_wss_both_versions_all_qos (__main__.AdmissionMutualTLS.test_mandatory_mtls_tls12_tls13_tls_wss_both_versions_all_qos) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-xys47eqx'>
-  _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-qdslcw64'>
+test_handshake_slot_covers_initial_enhanced_auth_until_connack (__main__.AdmissionMutualTLS.test_handshake_slot_covers_initial_enhanced_auth_until_connack) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-319ym8pk'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
-test_missing_wrong_ca_expired_wrong_eku_never_authenticate_or_takeover (__main__.AdmissionMutualTLS.test_missing_wrong_ca_expired_wrong_eku_never_authenticate_or_takeover) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-ymkiptys'>
+test_mandatory_mtls_tls12_tls13_tls_wss_both_versions_all_qos (__main__.AdmissionMutualTLS.test_mandatory_mtls_tls12_tls13_tls_wss_both_versions_all_qos) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-xys47eqx'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-jhx1zlal'>
-  _warnings.warn(warn_message, ResourceWarning)
-ok
-test_mtls_sqlite_offline_and_released_qos2_resume_across_tls_wss (__main__.AdmissionMutualTLS.test_mtls_sqlite_offline_and_released_qos2_resume_across_tls_wss) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-k1dd7h99'>
-  _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-w163sisy'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-qdslcw64'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
-test_rate_burst_failed_credentials_refill_and_existing_session_isolation (__main__.AdmissionMutualTLS.test_rate_burst_failed_credentials_refill_and_existing_session_isolation) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-pxnkd0vi'>
+test_missing_wrong_ca_expired_wrong_eku_never_authenticate_or_takeover (__main__.AdmissionMutualTLS.test_missing_wrong_ca_expired_wrong_eku_never_authenticate_or_takeover) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-ymkiptys'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-jdss7pud'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-jhx1zlal'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
-test_valid_client_certificate_does_not_replace_mqtt_credentials (__main__.AdmissionMutualTLS.test_valid_client_certificate_does_not_replace_mqtt_credentials) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-tghcea6t'>
+test_mtls_sqlite_offline_and_released_qos2_resume_across_tls_wss (__main__.AdmissionMutualTLS.test_mtls_sqlite_offline_and_released_qos2_resume_across_tls_wss) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-k1dd7h99'>
   _warnings.warn(warn_message, ResourceWarning)
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-tls-rules-lwtt6jy1'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-w163sisy'>
+  _warnings.warn(warn_message, ResourceWarning)
+ok
+test_rate_burst_failed_credentials_refill_and_existing_session_isolation (__main__.AdmissionMutualTLS.test_rate_burst_failed_credentials_refill_and_existing_session_isolation) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-pxnkd0vi'>
+  _warnings.warn(warn_message, ResourceWarning)
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-jdss7pud'>
+  _warnings.warn(warn_message, ResourceWarning)
+ok
+test_valid_client_certificate_does_not_replace_mqtt_credentials (__main__.AdmissionMutualTLS.test_valid_client_certificate_does_not_replace_mqtt_credentials) ... /opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-tghcea6t'>
+  _warnings.warn(warn_message, ResourceWarning)
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-tls-rules-lwtt6jy1'>
   _warnings.warn(warn_message, ResourceWarning)
 ok
 test_auth_packets_are_version_specific_known_bytes (__main__.FixtureChecks.test_auth_packets_are_version_specific_known_bytes) ... ok

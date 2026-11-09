@@ -8,13 +8,13 @@ cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path fuzz/Cargo.toml
 cargo run --release --locked --manifest-path fuzz/Cargo.toml -- 20000 332593189941
 cargo install cargo-fuzz --version 0.13.2 --locked
-mkdir -p /tmp/rmqtt-fuzz-artifacts
-RMQTT_CODEC_CORPUS=$(mktemp -d /tmp/rmqtt-codec.XXXXXX)
-RMQTT_SESSION_CORPUS=$(mktemp -d /tmp/rmqtt-session.XXXXXX)
-cp -R fuzz/corpus/. "$RMQTT_CODEC_CORPUS"
-cp -R fuzz/corpus/. "$RMQTT_SESSION_CORPUS"
-ASAN_OPTIONS=quarantine_size_mb=64 cargo +nightly-2026-10-29 fuzz run --fuzz-dir fuzz/libfuzzer codec "$RMQTT_CODEC_CORPUS" -- -max_total_time=30 -max_len=4096 -timeout=2 -rss_limit_mb=512 -seed=20261029 -artifact_prefix=/tmp/rmqtt-fuzz-artifacts/codec-
-ASAN_OPTIONS=quarantine_size_mb=64 cargo +nightly-2026-10-29 fuzz run --fuzz-dir fuzz/libfuzzer session "$RMQTT_SESSION_CORPUS" -- -max_total_time=30 -max_len=4096 -timeout=2 -rss_limit_mb=512 -seed=20261030 -artifact_prefix=/tmp/rmqtt-fuzz-artifacts/session-
+mkdir -p /tmp/lyrnormq-fuzz-artifacts
+LYRNORMQ_CODEC_CORPUS=$(mktemp -d /tmp/lyrnormq-codec.XXXXXX)
+LYRNORMQ_SESSION_CORPUS=$(mktemp -d /tmp/lyrnormq-session.XXXXXX)
+cp -R fuzz/corpus/. "$LYRNORMQ_CODEC_CORPUS"
+cp -R fuzz/corpus/. "$LYRNORMQ_SESSION_CORPUS"
+ASAN_OPTIONS=quarantine_size_mb=64 cargo +nightly-2026-10-29 fuzz run --fuzz-dir fuzz/libfuzzer codec "$LYRNORMQ_CODEC_CORPUS" -- -max_total_time=30 -max_len=4096 -timeout=2 -rss_limit_mb=512 -seed=20261029 -artifact_prefix=/tmp/lyrnormq-fuzz-artifacts/codec-
+ASAN_OPTIONS=quarantine_size_mb=64 cargo +nightly-2026-10-29 fuzz run --fuzz-dir fuzz/libfuzzer session "$LYRNORMQ_SESSION_CORPUS" -- -max_total_time=30 -max_len=4096 -timeout=2 -rss_limit_mb=512 -seed=20261030 -artifact_prefix=/tmp/lyrnormq-fuzz-artifacts/session-
 ```
 
 The guided campaigns require nightly; CI pins nightly-2026-10-29. Keep generated corpora outside the repository. `seed-corpus DIRECTORY` regenerates the checked-in deterministic hand seeds, which include both versions' control packets, all supported packet types, valid QoS traces and durable snapshots. Mutation includes truncation, insertion, replacement and bit changes. The stable campaign is deterministic seeded mutation, separate from the actual libFuzzer campaigns.

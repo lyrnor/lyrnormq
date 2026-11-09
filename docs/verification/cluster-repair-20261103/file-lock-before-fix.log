@@ -1,6 +1,6 @@
-   Compiling mqtt-cluster v0.1.0 (/private/tmp/rmqtt-cluster-repair-storage/crates/mqtt-cluster)
+   Compiling mqtt-cluster v0.1.0 (/private/tmp/lyrnormq-cluster-repair-storage/crates/mqtt-cluster)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 8.38s
-     Running unittests src/lib.rs (/Volumes/data/rmqtt/target/cluster/debug/deps/mqtt_cluster-216c33fca59d9615)
+     Running unittests src/lib.rs (/Volumes/data/lyrnormq/target/cluster/debug/deps/mqtt_cluster-216c33fca59d9615)
 
 running 1 test
 test replica::tests::journal_lock_acquisition_waits_for_the_child_pre_exec_window ... FAILED

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real privileged Bearer HTTP->MQTT311/5 publishing acceptance.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/http_publish_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/http_publish_blackbox.py -v
 Disposable loopback processes/configs only. Raw MQTT ACKs and committed HTTP
 responses establish barriers; bounded silence checks unwanted effects only.
 """
@@ -33,7 +33,7 @@ class HTTPPublishFixture:
     delivery = dashboard.DashboardBlackbox.delivery
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-http-publish-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-http-publish-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.service = AccessService()

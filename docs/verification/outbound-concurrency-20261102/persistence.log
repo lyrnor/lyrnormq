@@ -1,44 +1,44 @@
 test_clean_reset_discards_old_subscription_and_outbox (__main__.PersistenceBlackbox.test_clean_reset_discards_old_subscription_and_outbox) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-ykw8m7k5'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-ykw8m7k5'>
   _warnings.warn(warn_message, ResourceWarning)
 test_committed_pubrel_with_unprocessed_pubcomp_is_not_redelivered (__main__.PersistenceBlackbox.test_committed_pubrel_with_unprocessed_pubcomp_is_not_redelivered) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-ajtad9xq'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-ajtad9xq'>
   _warnings.warn(warn_message, ResourceWarning)
 test_corrupt_snapshot_is_rejected_instead_of_reset (__main__.PersistenceBlackbox.test_corrupt_snapshot_is_rejected_instead_of_reset) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-xfdeqvh_'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-xfdeqvh_'>
   _warnings.warn(warn_message, ResourceWarning)
 test_incoming_qos2_pending_survives_and_pubrel_routes_once (__main__.PersistenceBlackbox.test_incoming_qos2_pending_survives_and_pubrel_routes_once) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-lo14zfve'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-lo14zfve'>
   _warnings.warn(warn_message, ResourceWarning)
 test_killed_uncommitted_sql_transaction_preserves_previous_snapshot (__main__.PersistenceBlackbox.test_killed_uncommitted_sql_transaction_preserves_previous_snapshot) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-42oy1t84'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-42oy1t84'>
   _warnings.warn(warn_message, ResourceWarning)
 test_offline_queue_overflow_drops_only_the_excess_copy (__main__.PersistenceBlackbox.test_offline_queue_overflow_drops_only_the_excess_copy) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-b2ryp2q6'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-b2ryp2q6'>
   _warnings.warn(warn_message, ResourceWarning)
 test_persistent_subscription_and_offline_qos_survive_restart (__main__.PersistenceBlackbox.test_persistent_subscription_and_offline_qos_survive_restart) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-ak0gtwt3'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-ak0gtwt3'>
   _warnings.warn(warn_message, ResourceWarning)
 test_plain_tcp_disconnect_replays_each_outgoing_ack_stage (__main__.PersistenceBlackbox.test_plain_tcp_disconnect_replays_each_outgoing_ack_stage) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-67m_cf4k'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-67m_cf4k'>
   _warnings.warn(warn_message, ResourceWarning)
 test_pubrel_fanout_drops_only_the_full_recipient_copy (__main__.PersistenceBlackbox.test_pubrel_fanout_drops_only_the_full_recipient_copy) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-zb154c9l'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-zb154c9l'>
   _warnings.warn(warn_message, ResourceWarning)
 test_qos2_awaiting_pubcomp_replays_pubrel_only (__main__.PersistenceBlackbox.test_qos2_awaiting_pubcomp_replays_pubrel_only) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-e07k55r3'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-e07k55r3'>
   _warnings.warn(warn_message, ResourceWarning)
 test_reconnect_takeover_keeps_persistent_subscription (__main__.PersistenceBlackbox.test_reconnect_takeover_keeps_persistent_subscription) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-dee7i6ov'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-dee7i6ov'>
   _warnings.warn(warn_message, ResourceWarning)
 test_replayed_publish_order_is_original_send_order (__main__.PersistenceBlackbox.test_replayed_publish_order_is_original_send_order) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-t2viepgd'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-t2viepgd'>
   _warnings.warn(warn_message, ResourceWarning)
 test_second_writer_and_corrupt_or_foreign_database_fail_startup (__main__.PersistenceBlackbox.test_second_writer_and_corrupt_or_foreign_database_fail_startup) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-mt02e5th'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-mt02e5th'>
   _warnings.warn(warn_message, ResourceWarning)
 test_unacknowledged_outgoing_publish_replays_same_id_and_dup (__main__.PersistenceBlackbox.test_unacknowledged_outgoing_publish_replays_same_id_and_dup) ... ok
-/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-persistent-rules-jukewhab'>
+/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/tempfile.py:962: ResourceWarning: Implicitly cleaning up <TemporaryDirectory '/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-persistent-rules-jukewhab'>
   _warnings.warn(warn_message, ResourceWarning)
 
 ----------------------------------------------------------------------

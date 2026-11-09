@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real MQTT -> HTTP client-lane ordering acceptance (stdlib only).
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/outbound_client_order_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/outbound_client_order_blackbox.py -v
 Barriers hold actual requests, not simulated send calls. All resources are owned
 by each test. No production throughput/latency claim is inferred from this suite.
 """

@@ -141,7 +141,7 @@ impl Stats {
 }
 static STATS: [Stats; METRICS.len()] = [const { Stats::new() }; METRICS.len()];
 pub(crate) fn enabled() -> bool {
-    *ENABLED.get_or_init(|| std::env::var_os("RMQTT_RAFT_PROFILE").is_some_and(|v| v == "1"))
+    *ENABLED.get_or_init(|| std::env::var_os("LYRNORMQ_RAFT_PROFILE").is_some_and(|v| v == "1"))
 }
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static ORIGIN: OnceLock<Instant> = OnceLock::new();

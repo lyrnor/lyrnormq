@@ -20,7 +20,7 @@
    Compiling curl-sys v0.4.91+curl-8.22.0
    Compiling rdkafka-sys v4.10.0+2.12.1
    Compiling rdkafka v0.39.0
-   Compiling rmqtt-kafka-zig-spike v0.1.0 (/private/tmp/rmqtt-kafka-zig-spike)
+   Compiling lyrnormq-kafka-zig-spike v0.1.0 (/private/tmp/lyrnormq-kafka-zig-spike)
     Finished `release` profile [optimized] target(s) in 51.04s
-     Running `/private/tmp/rmqtt-kafka-zig-spike/target/release/rmqtt-kafka-zig-spike`
+     Running `/private/tmp/lyrnormq-kafka-zig-spike/target/release/lyrnormq-kafka-zig-spike`
 librdkafka (34341375, "2.12.1"); verified features: ssl,sasl,sasl_plain,sasl_scram,lz4,zstd,gzip

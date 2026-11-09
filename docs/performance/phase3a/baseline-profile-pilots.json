@@ -22,7 +22,7 @@
       1048575,
       9223372036854775807
     ],
-    "binary": "/private/tmp/rmqtt-p3a-profile-baseline",
+    "binary": "/private/tmp/lyrnormq-p3a-profile-baseline",
     "binary_sha256": "a6861ff38e011dcbce5d2d58524993305ae00878abcedd3fc5ffe6eb3dc5c897",
     "driver_source_revision": "ee409753acb7dd9ec2259cb2674447de3386d3db",
     "artifact_source_revision": "3917025",
@@ -31,11 +31,11 @@
       "/opt/homebrew/opt/python@3.14/bin/python3.14",
       "benches/phase3/run.py",
       "--binary",
-      "/tmp/rmqtt-p3a-profile-baseline",
+      "/tmp/lyrnormq-p3a-profile-baseline",
       "--artifact-source-revision",
       "3917025",
       "--output",
-      "/tmp/rmqtt-p3a-profile-pilots.json",
+      "/tmp/lyrnormq-p3a-profile-pilots.json",
       "--pilot",
       "--profile",
       "--session-expiry-seconds",
@@ -66,8 +66,8 @@
     "storage": "memory volatile or fresh SQLite WAL/synchronous FULL via broker; no power-loss claim"
   },
   "parameters": {
-    "binary": "/tmp/rmqtt-p3a-profile-baseline",
-    "output": "/tmp/rmqtt-p3a-profile-pilots.json",
+    "binary": "/tmp/lyrnormq-p3a-profile-baseline",
+    "output": "/tmp/lyrnormq-p3a-profile-pilots.json",
     "artifact_source_revision": "3917025",
     "build_profile": "release",
     "cases": "concurrent,hot,many",
@@ -129,7 +129,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "/private/tmp/lyrnormq-p3a-profile-baseline",
         "--listen",
         "127.0.0.1:59501",
         "--protocol",
@@ -263,7 +263,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t128\t26121456\t128\t0\t0\nREQUEST\tpublish\t72\t53241625\t72\t0\t0\nREQUEST\tsubscribe\t64\t6715128\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t117692713\t192\t0\t0\nREQUEST\tpoll\t14627\t3115819554\t14627\t0\t0\nREQUEST\tbegin\t72\t31056000\t72\t0\t0\nREQUEST\tdisconnect\t128\t50595244\t128\t0\t0\nREQUEST\ttick\t34\t99959\t34\t0\t0\nREQUEST\tother\t129\t39044\t129\t0\t0\nSPAN\tproposal_clone\t15283\t1848056749\t0\nSPAN\tsnapshot\t714\t75643747\t21094720\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t15446\t276918173058\t0\nCOUNTER\tpoll_delivery\t14627\nCOUNTER\tempty_poll_delivery\t14555\nCOUNTER\tnotifications\t714\nCOUNTER\tnotification_targets\t68896\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":15283,\"total_ns\":1847223178,\"bytes\":0},{\"name\":\"records_live\",\"count\":31692,\"total_ns\":175564811,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":715,\"total_ns\":4567389,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":31692,\"total_ns\":1075068984,\"bytes\":703510135},{\"name\":\"serialize_persistent\",\"count\":715,\"total_ns\":42579380,\"bytes\":21094807},{\"name\":\"bounds\",\"count\":31692,\"total_ns\":1105748494,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":3424175,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":2204625,\"bytes\":0},{\"name\":\"authorization\",\"count\":30247,\"total_ns\":1141567085,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t128\t26121456\t128\t0\t0\nREQUEST\tpublish\t72\t53241625\t72\t0\t0\nREQUEST\tsubscribe\t64\t6715128\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t117692713\t192\t0\t0\nREQUEST\tpoll\t14627\t3115819554\t14627\t0\t0\nREQUEST\tbegin\t72\t31056000\t72\t0\t0\nREQUEST\tdisconnect\t128\t50595244\t128\t0\t0\nREQUEST\ttick\t34\t99959\t34\t0\t0\nREQUEST\tother\t129\t39044\t129\t0\t0\nSPAN\tproposal_clone\t15283\t1848056749\t0\nSPAN\tsnapshot\t714\t75643747\t21094720\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t15446\t276918173058\t0\nCOUNTER\tpoll_delivery\t14627\nCOUNTER\tempty_poll_delivery\t14555\nCOUNTER\tnotifications\t714\nCOUNTER\tnotification_targets\t68896\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":15283,\"total_ns\":1847223178,\"bytes\":0},{\"name\":\"records_live\",\"count\":31692,\"total_ns\":175564811,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":715,\"total_ns\":4567389,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":31692,\"total_ns\":1075068984,\"bytes\":703510135},{\"name\":\"serialize_persistent\",\"count\":715,\"total_ns\":42579380,\"bytes\":21094807},{\"name\":\"bounds\",\"count\":31692,\"total_ns\":1105748494,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":3424175,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":2204625,\"bytes\":0},{\"name\":\"authorization\",\"count\":30247,\"total_ns\":1141567085,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,
@@ -437,7 +437,7 @@
         "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
       },
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:59501\n",
+        "text": "lyrnormq listening on 127.0.0.1:59501\n",
         "total_bytes": 35,
         "truncated": false
       }
@@ -484,7 +484,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "/private/tmp/lyrnormq-p3a-profile-baseline",
         "--listen",
         "127.0.0.1:59636",
         "--protocol",
@@ -972,7 +972,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t2834584\t40\t0\t0\nREQUEST\tpublish\t72\t73728166\t72\t0\t0\nREQUEST\tsubscribe\t32\t1819124\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t96\t14285127\t96\t0\t0\nREQUEST\tpoll\t5136\t2515216054\t5136\t0\t0\nREQUEST\tbegin\t2304\t1747697540\t2304\t0\t0\nREQUEST\tdisconnect\t40\t5290958\t40\t0\t0\nREQUEST\ttick\t44\t120417\t44\t0\t0\nREQUEST\tother\t41\t8582\t41\t0\t0\nSPAN\tproposal_clone\t7720\t418043390\t0\nSPAN\tsnapshot\t3829\t1264280516\t418271556\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t7805\t301118529619\t0\nCOUNTER\tpoll_delivery\t5136\nCOUNTER\tempty_poll_delivery\t2832\nCOUNTER\tnotifications\t3829\nCOUNTER\tnotification_targets\t150808\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":7720,\"total_ns\":417625021,\"bytes\":0},{\"name\":\"records_live\",\"count\":24049,\"total_ns\":129750126,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":3830,\"total_ns\":23615737,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":24049,\"total_ns\":3186509526,\"bytes\":2105598064},{\"name\":\"serialize_persistent\",\"count\":3830,\"total_ns\":633023260,\"bytes\":418271643},{\"name\":\"bounds\",\"count\":24049,\"total_ns\":3197641970,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":2816915,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":758498,\"bytes\":0},{\"name\":\"authorization\",\"count\":15329,\"total_ns\":1812132405,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t2834584\t40\t0\t0\nREQUEST\tpublish\t72\t73728166\t72\t0\t0\nREQUEST\tsubscribe\t32\t1819124\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t96\t14285127\t96\t0\t0\nREQUEST\tpoll\t5136\t2515216054\t5136\t0\t0\nREQUEST\tbegin\t2304\t1747697540\t2304\t0\t0\nREQUEST\tdisconnect\t40\t5290958\t40\t0\t0\nREQUEST\ttick\t44\t120417\t44\t0\t0\nREQUEST\tother\t41\t8582\t41\t0\t0\nSPAN\tproposal_clone\t7720\t418043390\t0\nSPAN\tsnapshot\t3829\t1264280516\t418271556\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t7805\t301118529619\t0\nCOUNTER\tpoll_delivery\t5136\nCOUNTER\tempty_poll_delivery\t2832\nCOUNTER\tnotifications\t3829\nCOUNTER\tnotification_targets\t150808\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":7720,\"total_ns\":417625021,\"bytes\":0},{\"name\":\"records_live\",\"count\":24049,\"total_ns\":129750126,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":3830,\"total_ns\":23615737,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":24049,\"total_ns\":3186509526,\"bytes\":2105598064},{\"name\":\"serialize_persistent\",\"count\":3830,\"total_ns\":633023260,\"bytes\":418271643},{\"name\":\"bounds\",\"count\":24049,\"total_ns\":3197641970,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":2816915,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":758498,\"bytes\":0},{\"name\":\"authorization\",\"count\":15329,\"total_ns\":1812132405,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,
@@ -1146,7 +1146,7 @@
         "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
       },
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:59636\n",
+        "text": "lyrnormq listening on 127.0.0.1:59636\n",
         "total_bytes": 35,
         "truncated": false
       }
@@ -1193,7 +1193,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "/private/tmp/lyrnormq-p3a-profile-baseline",
         "--listen",
         "127.0.0.1:59685",
         "--protocol",
@@ -2215,7 +2215,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t72\t123978754\t72\t0\t0\nREQUEST\tpublish\t72\t443650210\t72\t0\t0\nREQUEST\tsubscribe\t64\t102961831\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t744130666\t192\t0\t0\nREQUEST\tpoll\t9576\t16703140336\t9576\t0\t0\nREQUEST\tbegin\t72\t308284375\t72\t0\t0\nREQUEST\tdisconnect\t72\t225893370\t72\t0\t0\nREQUEST\ttick\t137\t371217\t137\t0\t0\nREQUEST\tother\t73\t20620\t73\t0\t0\nSPAN\tproposal_clone\t10120\t1829271988\t0\nSPAN\tsnapshot\t616\t726063979\t279202747\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t10330\t1019203979580\t0\nCOUNTER\tpoll_delivery\t9576\nCOUNTER\tempty_poll_delivery\t9504\nCOUNTER\tnotifications\t616\nCOUNTER\tnotification_targets\t36640\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":10120,\"total_ns\":1828648632,\"bytes\":0},{\"name\":\"records_live\",\"count\":21268,\"total_ns\":1260943387,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":617,\"total_ns\":37853869,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":21268,\"total_ns\":12001151616,\"bytes\":9180264982},{\"name\":\"serialize_persistent\",\"count\":617,\"total_ns\":362972293,\"bytes\":279202834},{\"name\":\"bounds\",\"count\":21268,\"total_ns\":12017706690,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":131973127,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":108795423,\"bytes\":0},{\"name\":\"authorization\",\"count\":20033,\"total_ns\":13270414197,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t72\t123978754\t72\t0\t0\nREQUEST\tpublish\t72\t443650210\t72\t0\t0\nREQUEST\tsubscribe\t64\t102961831\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t744130666\t192\t0\t0\nREQUEST\tpoll\t9576\t16703140336\t9576\t0\t0\nREQUEST\tbegin\t72\t308284375\t72\t0\t0\nREQUEST\tdisconnect\t72\t225893370\t72\t0\t0\nREQUEST\ttick\t137\t371217\t137\t0\t0\nREQUEST\tother\t73\t20620\t73\t0\t0\nSPAN\tproposal_clone\t10120\t1829271988\t0\nSPAN\tsnapshot\t616\t726063979\t279202747\nSPAN\tsqlite_commit\t0\t0\t0\nSPAN\tqueue_wait\t10330\t1019203979580\t0\nCOUNTER\tpoll_delivery\t9576\nCOUNTER\tempty_poll_delivery\t9504\nCOUNTER\tnotifications\t616\nCOUNTER\tnotification_targets\t36640\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":10120,\"total_ns\":1828648632,\"bytes\":0},{\"name\":\"records_live\",\"count\":21268,\"total_ns\":1260943387,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":617,\"total_ns\":37853869,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":21268,\"total_ns\":12001151616,\"bytes\":9180264982},{\"name\":\"serialize_persistent\",\"count\":617,\"total_ns\":362972293,\"bytes\":279202834},{\"name\":\"bounds\",\"count\":21268,\"total_ns\":12017706690,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":131973127,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":108795423,\"bytes\":0},{\"name\":\"authorization\",\"count\":20033,\"total_ns\":13270414197,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,
@@ -2389,7 +2389,7 @@
         "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
       },
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:59685\n",
+        "text": "lyrnormq listening on 127.0.0.1:59685\n",
         "total_bytes": 35,
         "truncated": false
       }
@@ -2436,7 +2436,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "/private/tmp/lyrnormq-p3a-profile-baseline",
         "--listen",
         "127.0.0.1:59781",
         "--protocol",
@@ -2464,7 +2464,7 @@
         "--write-timeout-ms",
         "10000",
         "--storage-path",
-        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-p3-bench-it8kcbwa/sessions.sqlite"
+        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-p3-bench-it8kcbwa/sessions.sqlite"
       ],
       "payload_bytes": 256,
       "pilot": true,
@@ -2620,7 +2620,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t128\t40860255\t128\t0\t0\nREQUEST\tpublish\t72\t49232495\t72\t0\t0\nREQUEST\tsubscribe\t64\t12171170\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t94807378\t192\t0\t0\nREQUEST\tpoll\t15434\t3257032901\t15434\t0\t0\nREQUEST\tbegin\t72\t35030373\t72\t0\t0\nREQUEST\tdisconnect\t128\t65521456\t128\t0\t0\nREQUEST\ttick\t35\t92081\t35\t0\t0\nREQUEST\tother\t129\t38413\t129\t0\t0\nSPAN\tproposal_clone\t16090\t1890469262\t0\nSPAN\tsnapshot\t718\t57838504\t18877943\nSPAN\tsqlite_commit\t718\t54169832\t18877943\nSPAN\tqueue_wait\t16254\t298140905328\t0\nCOUNTER\tpoll_delivery\t15434\nCOUNTER\tempty_poll_delivery\t15362\nCOUNTER\tnotifications\t718\nCOUNTER\tnotification_targets\t69408\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":16090,\"total_ns\":1889638135,\"bytes\":0},{\"name\":\"records_live\",\"count\":33310,\"total_ns\":184227740,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":719,\"total_ns\":4355586,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":33310,\"total_ns\":1137850659,\"bytes\":745094093},{\"name\":\"serialize_persistent\",\"count\":719,\"total_ns\":28427627,\"bytes\":18878030},{\"name\":\"bounds\",\"count\":33310,\"total_ns\":1170381576,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":3579376,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":2314127,\"bytes\":0},{\"name\":\"authorization\",\"count\":31861,\"total_ns\":1218035688,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t128\t40860255\t128\t0\t0\nREQUEST\tpublish\t72\t49232495\t72\t0\t0\nREQUEST\tsubscribe\t64\t12171170\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t94807378\t192\t0\t0\nREQUEST\tpoll\t15434\t3257032901\t15434\t0\t0\nREQUEST\tbegin\t72\t35030373\t72\t0\t0\nREQUEST\tdisconnect\t128\t65521456\t128\t0\t0\nREQUEST\ttick\t35\t92081\t35\t0\t0\nREQUEST\tother\t129\t38413\t129\t0\t0\nSPAN\tproposal_clone\t16090\t1890469262\t0\nSPAN\tsnapshot\t718\t57838504\t18877943\nSPAN\tsqlite_commit\t718\t54169832\t18877943\nSPAN\tqueue_wait\t16254\t298140905328\t0\nCOUNTER\tpoll_delivery\t15434\nCOUNTER\tempty_poll_delivery\t15362\nCOUNTER\tnotifications\t718\nCOUNTER\tnotification_targets\t69408\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":16090,\"total_ns\":1889638135,\"bytes\":0},{\"name\":\"records_live\",\"count\":33310,\"total_ns\":184227740,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":719,\"total_ns\":4355586,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":33310,\"total_ns\":1137850659,\"bytes\":745094093},{\"name\":\"serialize_persistent\",\"count\":719,\"total_ns\":28427627,\"bytes\":18878030},{\"name\":\"bounds\",\"count\":33310,\"total_ns\":1170381576,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":3579376,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":2314127,\"bytes\":0},{\"name\":\"authorization\",\"count\":31861,\"total_ns\":1218035688,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,
@@ -2794,7 +2794,7 @@
         "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
       },
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:59781\n",
+        "text": "lyrnormq listening on 127.0.0.1:59781\n",
         "total_bytes": 35,
         "truncated": false
       }
@@ -2841,7 +2841,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "/private/tmp/lyrnormq-p3a-profile-baseline",
         "--listen",
         "127.0.0.1:59920",
         "--protocol",
@@ -2869,7 +2869,7 @@
         "--write-timeout-ms",
         "10000",
         "--storage-path",
-        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-p3-bench-z809ahml/sessions.sqlite"
+        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-p3-bench-z809ahml/sessions.sqlite"
       ],
       "payload_bytes": 256,
       "pilot": true,
@@ -3415,7 +3415,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t6141127\t40\t0\t0\nREQUEST\tpublish\t72\t91668793\t72\t0\t0\nREQUEST\tsubscribe\t32\t4507367\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t96\t15794914\t96\t0\t0\nREQUEST\tpoll\t5253\t2997463553\t5253\t0\t0\nREQUEST\tbegin\t2304\t2015067523\t2304\t0\t0\nREQUEST\tdisconnect\t40\t7232708\t40\t0\t0\nREQUEST\ttick\t52\t131417\t52\t0\t0\nREQUEST\tother\t41\t8463\t41\t0\t0\nSPAN\tproposal_clone\t7837\t407967069\t0\nSPAN\tsnapshot\t4239\t1437659851\t497202029\nSPAN\tsqlite_commit\t4239\t550143290\t497202029\nSPAN\tqueue_wait\t7930\t355870164379\t0\nCOUNTER\tpoll_delivery\t5253\nCOUNTER\tempty_poll_delivery\t2949\nCOUNTER\tnotifications\t4239\nCOUNTER\tnotification_targets\t167208\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":7837,\"total_ns\":407575482,\"bytes\":0},{\"name\":\"records_live\",\"count\":24693,\"total_ns\":134927618,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":4240,\"total_ns\":26539687,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":24693,\"total_ns\":3338338523,\"bytes\":2289977403},{\"name\":\"serialize_persistent\",\"count\":4240,\"total_ns\":718138200,\"bytes\":497202116},{\"name\":\"bounds\",\"count\":24693,\"total_ns\":3349898930,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":2825794,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":745258,\"bytes\":0},{\"name\":\"authorization\",\"count\":15563,\"total_ns\":1857286277,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t40\t6141127\t40\t0\t0\nREQUEST\tpublish\t72\t91668793\t72\t0\t0\nREQUEST\tsubscribe\t32\t4507367\t32\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t96\t15794914\t96\t0\t0\nREQUEST\tpoll\t5253\t2997463553\t5253\t0\t0\nREQUEST\tbegin\t2304\t2015067523\t2304\t0\t0\nREQUEST\tdisconnect\t40\t7232708\t40\t0\t0\nREQUEST\ttick\t52\t131417\t52\t0\t0\nREQUEST\tother\t41\t8463\t41\t0\t0\nSPAN\tproposal_clone\t7837\t407967069\t0\nSPAN\tsnapshot\t4239\t1437659851\t497202029\nSPAN\tsqlite_commit\t4239\t550143290\t497202029\nSPAN\tqueue_wait\t7930\t355870164379\t0\nCOUNTER\tpoll_delivery\t5253\nCOUNTER\tempty_poll_delivery\t2949\nCOUNTER\tnotifications\t4239\nCOUNTER\tnotification_targets\t167208\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":7837,\"total_ns\":407575482,\"bytes\":0},{\"name\":\"records_live\",\"count\":24693,\"total_ns\":134927618,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":4240,\"total_ns\":26539687,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":24693,\"total_ns\":3338338523,\"bytes\":2289977403},{\"name\":\"serialize_persistent\",\"count\":4240,\"total_ns\":718138200,\"bytes\":497202116},{\"name\":\"bounds\",\"count\":24693,\"total_ns\":3349898930,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":2825794,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":745258,\"bytes\":0},{\"name\":\"authorization\",\"count\":15563,\"total_ns\":1857286277,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,
@@ -3589,7 +3589,7 @@
         "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
       },
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:59920\n",
+        "text": "lyrnormq listening on 127.0.0.1:59920\n",
         "total_bytes": 35,
         "truncated": false
       }
@@ -3636,7 +3636,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3a-profile-baseline",
+        "/private/tmp/lyrnormq-p3a-profile-baseline",
         "--listen",
         "127.0.0.1:59969",
         "--protocol",
@@ -3664,7 +3664,7 @@
         "--write-timeout-ms",
         "10000",
         "--storage-path",
-        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/rmqtt-p3-bench-f93n4usn/sessions.sqlite"
+        "/var/folders/75/n12lz3356pzcr75n7qbfrlm40000gn/T/lyrnormq-p3-bench-f93n4usn/sessions.sqlite"
       ],
       "payload_bytes": 256,
       "pilot": true,
@@ -4630,7 +4630,7 @@
         "enabled": true,
         "status": "captured",
         "format": "TSVv1",
-        "text": "RMQTT_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t72\t168506752\t72\t0\t0\nREQUEST\tpublish\t72\t459393996\t72\t0\t0\nREQUEST\tsubscribe\t64\t131697206\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t793839426\t192\t0\t0\nREQUEST\tpoll\t9508\t16819401709\t9508\t0\t0\nREQUEST\tbegin\t72\t290399997\t72\t0\t0\nREQUEST\tdisconnect\t72\t451111912\t72\t0\t0\nREQUEST\ttick\t137\t601926\t137\t0\t0\nREQUEST\tother\t73\t41080\t73\t0\t0\nSPAN\tproposal_clone\t10052\t1952584123\t0\nSPAN\tsnapshot\t616\t754507792\t279231869\nSPAN\tsqlite_commit\t616\t306803588\t279231869\nSPAN\tqueue_wait\t10262\t1040953179995\t0\nCOUNTER\tpoll_delivery\t9508\nCOUNTER\tempty_poll_delivery\t9436\nCOUNTER\tnotifications\t616\nCOUNTER\tnotification_targets\t36640\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":10052,\"total_ns\":1951927457,\"bytes\":0},{\"name\":\"records_live\",\"count\":21132,\"total_ns\":1267889909,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":617,\"total_ns\":41688284,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":21132,\"total_ns\":11957117948,\"bytes\":9113511432},{\"name\":\"serialize_persistent\",\"count\":617,\"total_ns\":381075173,\"bytes\":279231956},{\"name\":\"bounds\",\"count\":21132,\"total_ns\":11974167511,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":121381584,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":101176710,\"bytes\":0},{\"name\":\"authorization\",\"count\":19897,\"total_ns\":13225367426,\"bytes\":0}]}\n",
+        "text": "LYRNORMQ_PROFILE\t1\nSTATUS\tfinal\nSCOPE\tworker_commands_after_startup_including_setup_warmup_cleanup_checkpoint_io_excluded_from_request_spans\nTIMING\trequest_elapsed_excludes_queue_wait_other_spans_inclusive_overlap_queue_wait_includes_mailbox_capacity_and_queue\nOUTCOME\tio_result_not_mqtt_acceptance_subscribe_includes_unsubscribe\nBYTES\tsuccessful_snapshot_output_and_commit_attempt_payload_not_disk_io\nREQUEST\tconnect\t72\t168506752\t72\t0\t0\nREQUEST\tpublish\t72\t459393996\t72\t0\t0\nREQUEST\tsubscribe\t64\t131697206\t64\t0\t0\nREQUEST\tack\t0\t0\t0\t0\t0\nREQUEST\tping\t192\t793839426\t192\t0\t0\nREQUEST\tpoll\t9508\t16819401709\t9508\t0\t0\nREQUEST\tbegin\t72\t290399997\t72\t0\t0\nREQUEST\tdisconnect\t72\t451111912\t72\t0\t0\nREQUEST\ttick\t137\t601926\t137\t0\t0\nREQUEST\tother\t73\t41080\t73\t0\t0\nSPAN\tproposal_clone\t10052\t1952584123\t0\nSPAN\tsnapshot\t616\t754507792\t279231869\nSPAN\tsqlite_commit\t616\t306803588\t279231869\nSPAN\tqueue_wait\t10262\t1040953179995\t0\nCOUNTER\tpoll_delivery\t9508\nCOUNTER\tempty_poll_delivery\t9436\nCOUNTER\tnotifications\t616\nCOUNTER\tnotification_targets\t36640\nCOUNTER\terror_unknown\t0\nSESSION_JSON\t{\"enabled\":true,\"inclusive\":true,\"operations\":[{\"name\":\"clone\",\"count\":10052,\"total_ns\":1951927457,\"bytes\":0},{\"name\":\"records_live\",\"count\":21132,\"total_ns\":1267889909,\"bytes\":0},{\"name\":\"records_persistent\",\"count\":617,\"total_ns\":41688284,\"bytes\":0},{\"name\":\"serialize_live\",\"count\":21132,\"total_ns\":11957117948,\"bytes\":9113511432},{\"name\":\"serialize_persistent\",\"count\":617,\"total_ns\":381075173,\"bytes\":279231956},{\"name\":\"bounds\",\"count\":21132,\"total_ns\":11974167511,\"bytes\":0},{\"name\":\"route\",\"count\":72,\"total_ns\":121381584,\"bytes\":0},{\"name\":\"route_build\",\"count\":72,\"total_ns\":101176710,\"bytes\":0},{\"name\":\"authorization\",\"count\":19897,\"total_ns\":13225367426,\"bytes\":0}]}\n",
         "session": {
           "enabled": true,
           "inclusive": true,
@@ -4804,7 +4804,7 @@
         "scope": "Transport run_commands includes setup/warmup/cleanup, excludes startup/queue wait; Session process counters include startup/restore; inclusive spans overlap; commit bytes are attempted payload not physical IO"
       },
       "stderr": {
-        "text": "rmqtt listening on 127.0.0.1:59969\n",
+        "text": "lyrnormq listening on 127.0.0.1:59969\n",
         "total_bytes": 35,
         "truncated": false
       }

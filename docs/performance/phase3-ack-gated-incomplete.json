@@ -22,7 +22,7 @@
       1048575,
       9223372036854775807
     ],
-    "binary": "/private/tmp/rmqtt-p3-candidate",
+    "binary": "/private/tmp/lyrnormq-p3-candidate",
     "binary_sha256": "2682740440920644a6d424fc790eed62c381a9a4999522547343b710dd040eee",
     "driver_source_revision": "6b9e02b45bb7fd88ce73d6914e6e2aca6fbd6093",
     "artifact_source_revision": "e2f8562",
@@ -31,13 +31,13 @@
       "/opt/homebrew/opt/python@3.14/bin/python3.14",
       "benches/phase3/run.py",
       "--binary",
-      "/tmp/rmqtt-p3-candidate",
+      "/tmp/lyrnormq-p3-candidate",
       "--artifact-source-revision",
       "e2f8562",
       "--build-profile",
       "release",
       "--output",
-      "/tmp/rmqtt-p3-baseline.json",
+      "/tmp/lyrnormq-p3-baseline.json",
       "--session-expiry-seconds",
       "60",
       "--messages",
@@ -66,8 +66,8 @@
     "storage": "memory volatile or fresh SQLite WAL/synchronous FULL via broker; no power-loss claim"
   },
   "parameters": {
-    "binary": "/tmp/rmqtt-p3-candidate",
-    "output": "/tmp/rmqtt-p3-baseline.json",
+    "binary": "/tmp/lyrnormq-p3-candidate",
+    "output": "/tmp/lyrnormq-p3-baseline.json",
     "artifact_source_revision": "e2f8562",
     "build_profile": "release",
     "cases": "concurrent,hot,many",
@@ -122,7 +122,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3-candidate",
+        "/private/tmp/lyrnormq-p3-candidate",
         "--listen",
         "127.0.0.1:64173",
         "--protocol",
@@ -2038,7 +2038,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3-candidate",
+        "/private/tmp/lyrnormq-p3-candidate",
         "--listen",
         "127.0.0.1:64337",
         "--protocol",
@@ -3954,7 +3954,7 @@
         "outstanding_per_publisher": 1
       },
       "broker_command": [
-        "/private/tmp/rmqtt-p3-candidate",
+        "/private/tmp/lyrnormq-p3-candidate",
         "--listen",
         "127.0.0.1:64495",
         "--protocol",

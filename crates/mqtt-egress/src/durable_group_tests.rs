@@ -10,7 +10,7 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
         Self(std::env::temp_dir().join(format!(
-                "rmqtt-runtime-group-{}-{}-{}",
+                "lyrnormq-runtime-group-{}-{}-{}",
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed),
                 SystemTime::now()

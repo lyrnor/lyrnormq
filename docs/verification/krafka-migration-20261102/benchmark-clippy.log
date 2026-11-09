@@ -85,7 +85,7 @@
     Checking base64 v0.22.1
     Checking itoa v1.0.18
     Checking rustls-pemfile v2.2.0
-    Checking mqtt-egress-core v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress-core)
+    Checking mqtt-egress-core v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress-core)
    Compiling ring v0.17.14
    Compiling zstd-sys v2.1.2+zstd.1.5.7
     Checking serde_json v1.0.154
@@ -103,6 +103,6 @@
     Checking zstd v0.14.3
     Checking tokio-rustls v0.26.6
     Checking krafka v0.28.1
-    Checking mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
-    Checking rmqtt-kafka-adapter-bench v0.1.0 (/Volumes/data/rmqtt/tests/kafka-bench)
+    Checking mqtt-kafka v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-kafka)
+    Checking lyrnormq-kafka-adapter-bench v0.1.0 (/Volumes/data/lyrnormq/tests/kafka-bench)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.07s

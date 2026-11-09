@@ -74,7 +74,7 @@ class GateBroker(WebSocketBroker):
         self.persistent=False
 
     def command(self):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         extra=[]
         if self.kind in ('ws','wss'):extra+=['--websocket']
         if self.kind in ('tls','wss'):
@@ -96,7 +96,7 @@ class GateBroker(WebSocketBroker):
                         raise RuntimeError(b''.join(startup).decode()+self.process.stderr.read().decode())
                     if selector.select(.05):
                         line=self.process.stderr.readline();startup.append(line)
-                        if b'rmqtt listening on ' in line:return self
+                        if b'lyrnormq listening on ' in line:return self
             raise TimeoutError('no broker listening confirmation')
         except BaseException:
             self.stop(kill=True)

@@ -16,4 +16,4 @@ Phase2 groundwork, no runtime integration. Own public API for packet identifier 
 ## mqtt-storage
 Phase2 groundwork, no runtime integration. Own public synchronous Storage trait + bounded memory implementation and technical assessment in crate README. If persistent implementation is included, IO only via spawn_blocking by future callers; do not claim runtime crash recovery. Document durability semantics and limits.
 ## Quality
-Own root tests/** .github/workflows/** benches/** fuzz/**. Black-box Python stdlib tests can use actual paho-mqtt if installed, or mosquitto CLI; no root Cargo changes. Test executable target/debug/rmqtt with `--listen 127.0.0.1:PORT`. Binary default 127.0.0.1:1883, ctrl-c watch shutdown.
+Own root tests/** .github/workflows/** benches/** fuzz/**. Black-box Python stdlib tests can use actual paho-mqtt if installed, or mosquitto CLI; no root Cargo changes. Test executable target/debug/lyrnormq with `--listen 127.0.0.1:PORT`. Binary default 127.0.0.1:1883, ctrl-c watch shutdown.

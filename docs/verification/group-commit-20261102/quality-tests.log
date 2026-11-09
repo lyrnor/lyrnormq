@@ -1,6 +1,6 @@
-   Compiling egress-log-bench v0.1.0 (/private/tmp/rmqtt-groupcommit-quality/benches/egress-log)
+   Compiling egress-log-bench v0.1.0 (/private/tmp/lyrnormq-groupcommit-quality/benches/egress-log)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.75s
-     Running unittests src/main.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/egress_log_bench-12f7c78a86ddc342)
+     Running unittests src/main.rs (/private/tmp/lyrnormq-groupcommit-quality-target/debug/deps/egress_log_bench-12f7c78a86ddc342)
 
 running 3 tests
 test metrics::tests::rank_is_not_batch_amortized ... ok
@@ -9,7 +9,7 @@ test run::tests::verified_smoke_covers_reads_and_durable_state ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
 
-     Running unittests src/bin/group_commit.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/group_commit-9221fae33157c5e8)
+     Running unittests src/bin/group_commit.rs (/private/tmp/lyrnormq-groupcommit-quality-target/debug/deps/group_commit-9221fae33157c5e8)
 
 running 3 tests
 test tests::bounded_cli ... ok
@@ -18,7 +18,7 @@ test tests::direct_group_and_concurrent_confirmations_are_real_and_recover ... o
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
 
-     Running unittests src/bin/topology.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/topology-151a17938fb1f665)
+     Running unittests src/bin/topology.rs (/private/tmp/lyrnormq-groupcommit-quality-target/debug/deps/topology-151a17938fb1f665)
 
 running 3 tests
 test tests::rejects_unbounded_dataset ... ok
@@ -27,7 +27,7 @@ test tests::distinct_rules_shared_fanout ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
 
-     Running tests/group_commit_integrity.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/group_commit_integrity-c83deff4ac1b34f7)
+     Running tests/group_commit_integrity.rs (/private/tmp/lyrnormq-groupcommit-quality-target/debug/deps/group_commit_integrity-c83deff4ac1b34f7)
 
 running 8 tests
 test later_capacity_failure_is_zero_append_and_smaller_fallback_can_commit ... ok
@@ -41,7 +41,7 @@ test shape_and_aggregate_payload_bounds_do_not_append_prefix ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
 
-     Running tests/shared_cache_integrity.rs (/private/tmp/rmqtt-groupcommit-quality-target/debug/deps/shared_cache_integrity-5f56bea6818fc17c)
+     Running tests/shared_cache_integrity.rs (/private/tmp/lyrnormq-groupcommit-quality-target/debug/deps/shared_cache_integrity-5f56bea6818fc17c)
 
 running 12 tests
 test legal_append_does_not_bless_preexisting_external_body_mutation ... ok

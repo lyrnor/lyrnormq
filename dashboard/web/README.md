@@ -1,4 +1,4 @@
-# rmqtt Dashboard (React)
+# lyrnormq Dashboard (React)
 
 Production React/TypeScript frontend for broker observation and rule management,
 following `docs/contracts/phase4f-dashboard.md` and
@@ -8,23 +8,23 @@ original visual prototype; this application contains no demo broker data.
 ## Build and serve
 
 The React production bundle is embedded in the Rust executable at compile time
-using `include_dir`. Build the frontend **before** compiling rmqtt. From the
+using `include_dir`. Build the frontend **before** compiling lyrnormq. From the
 repository root, the combined build wrapper runs `npm ci`, `npm run build`, then
-`cargo build --release -p rmqtt`:
+`cargo build --release -p lyrnormq`:
 
 ```sh
-./scripts/build-rmqtt.sh
+./scripts/build-lyrnormq.sh
 ```
 
 The wrapper forwards additional Cargo flags, for example
-`./scripts/build-rmqtt.sh --target x86_64-unknown-linux-musl`. It uses Cargo's normal
+`./scripts/build-lyrnormq.sh --target x86_64-unknown-linux-musl`. It uses Cargo's normal
 toolchain; configure a cross-linker separately when cross-compiling.
 
 To run the frontend checks or build manually:
 
 ```sh
 (cd dashboard/web && npm ci && npm test && npm run build)
-cargo build --release -p rmqtt
+cargo build --release -p lyrnormq
 ```
 
 Frontend source changes require another `npm run build` before Cargo compilation;
@@ -35,7 +35,7 @@ never runs npm or fetches frontend dependencies automatically.
 Run the compiled executable using its management options:
 
 ```sh
-./target/release/rmqtt \
+./target/release/lyrnormq \
   --listen 127.0.0.1:1883 \
   --admin-listen 127.0.0.1:8080 \
   --admin-token-file /path/to/admin-token
@@ -56,7 +56,7 @@ The token file contains a 32–256 character administrator token. Visit the actu
 management listener address and enter the token in the login form. Do not pass
 it in a URL. This HTTP listener is restricted to loopback; access remotely through
 an SSH tunnel or authenticated TLS reverse proxy. The default Vite development
-server has no mock API or proxy configured; use the built assets served by rmqtt
+server has no mock API or proxy configured; use the built assets served by lyrnormq
 for same-origin API requests.
 
 ## Data and security

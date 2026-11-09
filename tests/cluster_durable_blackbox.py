@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase7b session failover on live replicas; crash/restart follows Phase7f RAM.
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/cluster_durable_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/cluster_durable_blackbox.py -v
 W2 is two live memory replicas, not fsync. A crashed replica is a new empty
 incarnation and waits for in-process repair. Whole-group RAM loss cannot recover
 session bodies from Controller metadata. Protocol ACKs are replica barriers;
@@ -46,7 +46,7 @@ class DurableFixture(ClusterFixture):
     policy = None
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-durable-cluster-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-durable-cluster-')
         self.addCleanup(self.directory.cleanup)
         self.fleet = DurableFleet(self.directory.name)
         self.addCleanup(self.fleet.stop)

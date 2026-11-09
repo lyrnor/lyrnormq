@@ -603,7 +603,7 @@ mod tests {
     #[tokio::test]
     async fn frozen_donor_keeps_control_plane_and_abort_rejects_old_generation() -> io::Result<()> {
         let directory = std::env::temp_dir().join(format!(
-            "rmqtt-repair-runtime-{}-{}",
+            "lyrnormq-repair-runtime-{}-{}",
             std::process::id(),
             controller::now()
         ));

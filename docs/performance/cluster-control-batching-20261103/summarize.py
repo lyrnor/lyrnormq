@@ -1,5 +1,5 @@
 import json,pathlib
-root=pathlib.Path('/private/tmp/rmqtt-7o-server-results')
+root=pathlib.Path('/private/tmp/lyrnormq-7o-server-results')
 client=json.loads((root/'client-resources.json').read_text())
 rows=[json.loads(s) for s in (root/'server-resources.jsonl').read_text().splitlines()]
 active=[r for r in rows if client['started_ns'] <= r['wall_ns'] <= client['ended_ns']]

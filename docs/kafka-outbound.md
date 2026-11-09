@@ -21,8 +21,8 @@ MQTT Client ID；可在高级设置指定 SQL 结果中的顶层字符串字段�
 会终止该条投递。相同规则、出站、Client 的尝试保序；不同 Client/规则可以并发。
 更换 key 或 Topic 分区数会改变映射，不能保证跨分区或全局顺序。
 
-记录带有 `rmqtt-delivery-id`、`rmqtt-event-id`、`rmqtt-rule-id`、`rmqtt-client-id`、
-`rmqtt-topic` headers，以及原始事件时间。单条 value/key/headers 含保守开销上限1MiB。
+记录带有 `lyrnormq-delivery-id`、`lyrnormq-event-id`、`lyrnormq-rule-id`、`lyrnormq-client-id`、
+`lyrnormq-topic` headers，以及原始事件时间。单条 value/key/headers 含保守开销上限1MiB。
 消费者可按稳定的 delivery ID 去重。
 
 系统等待 Kafka 成功确认后才持久化完成标记。失败重试只阻塞当前规则/出站/Client，

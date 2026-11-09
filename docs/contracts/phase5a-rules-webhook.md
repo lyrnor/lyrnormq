@@ -185,7 +185,7 @@ not unchanged. No fake data or unsupported connector functionality.
 
 Isolated worktrees: core owns mqtt-rules and narrow transport hook; outbound owns
 mqtt-webhook; frontend owns dashboard/web; quality owns rules_webhook_blackbox and
-CI. Coordinator owns bin/rmqtt, workspace lockfile, docs and unified integration.
+CI. Coordinator owns bin/lyrnormq, workspace lockfile, docs and unified integration.
 lib.rs remains module declarations/documentation/re-exports only.
 
 Require SQL whitelist/NULL/type/precision/complexity regressions, real HTTP retry/

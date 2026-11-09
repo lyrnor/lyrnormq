@@ -32,7 +32,7 @@ fn scratch() -> io::Result<Scratch> {
         .map_err(|error| io::Error::other(error.to_string()))?
         .as_nanos();
     Ok(Scratch(std::env::temp_dir().join(format!(
-        "rmqtt-wal-bench-{}-{nanos}",
+        "lyrnormq-wal-bench-{}-{nanos}",
         std::process::id()
     ))))
 }

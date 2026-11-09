@@ -36,11 +36,11 @@ node-only registration checks and quiet/due-expiry PING across both versions.
 
 Linux ELF64 x86-64 static stripped release compiled LOCALLY using
 cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl
---bin rmqtt --bin connections. No server compilation. Zig emits its existing
+--bin lyrnormq --bin connections. No server compilation. Zig emits its existing
 'deprecated linker optimization1 ignored' warning; successful build.
 Broker SHA2560d37def5783db8e7df28fceeb56aafbea26bc2c6dc3b5541b91a7e0d19d07a21.
 Probe SHA256d0acf9899b9ea9d34fd68c8a5234b4f741b97bef816987b00b49f4ad6a28c2ae.
-Native immutable release available at /private/tmp/rmqtt-7l-native.
+Native immutable release available at /private/tmp/lyrnormq-7l-native.
 
 ## Reproduction environment
 
@@ -50,8 +50,8 @@ Both8logicalCPU/~15GiB. Three cohosted Controller+RAM data processes on one host
 measurement; it does not measure multi-machine failure independence. Same private
 MQTT endpoints18831/18832/18833 and round-robin clients as the previous failed run.
 
-Fresh isolated deployment /opt/rmqtt-admission-repair/20261103; load directory
-/opt/rmqtt-admission-repair-load/20261103. Both max_connections/max_sessions50000
+Fresh isolated deployment /opt/lyrnormq-admission-repair/20261103; load directory
+/opt/lyrnormq-admission-repair-load/20261103. Both max_connections/max_sessions50000
 per node, state256MiB, metadata16711680B, physical records101024, handshake1024,
 auth tasks128, auth rate0, FD250000. New admission budgets saved in raw preflight.
 

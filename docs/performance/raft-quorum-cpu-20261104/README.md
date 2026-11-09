@@ -30,7 +30,7 @@ private172.16.240.180；压测机47.84.241.200。三双角色进程共处8逻辑
 虚机，每进程4Tokio workers；四probe各500/s×2500、2workers、2048inflight，
 相同端口/限额/脚本/探针哈希，统一35秒PING，无重试。只跑一次2000/s10k。
 本地cargo zigbuild optimized+debuginfo amd64musl，服务器不编译，49Hzperf使用
-CLOCK_MONOTONIC，RMQTT_RAFT_PROFILE=1。新增固定数值型quorum指标亦有诊断开销。
+CLOCK_MONOTONIC，LYRNORMQ_RAFT_PROFILE=1。新增固定数值型quorum指标亦有诊断开销。
 
 CPU同时报告/proc完整相邻区间平均核数和原始ticks包围窗口的工作量。
 后一方法选最后一个开始前样本至首个排空后样本，相同PID、ticks/hz；不把部分

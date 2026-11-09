@@ -1,4 +1,4 @@
-   Compiling rmqtt-loadgen v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt-loadgen)
+   Compiling lyrnormq-loadgen v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq-loadgen)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4.62s
      Running unittests src/lib.rs (target/cluster/debug/deps/mqtt_auth-4222574b76977caf)
 
@@ -897,7 +897,7 @@ test adapter::tests::custom_headers_are_sensitive_and_debug_is_redacted ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (target/cluster/debug/deps/rmqtt-4b10f789b1633bd2)
+     Running unittests src/main.rs (target/cluster/debug/deps/lyrnormq-4b10f789b1633bd2)
 
 running 42 tests
 test admin::access_control::tests::public_failures_never_return_raw_provider_or_storage_errors ... ok
@@ -954,7 +954,7 @@ test error_filter_suppresses_info_without_changing_broker_lifecycle ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
 
-     Running unittests src/lib.rs (target/cluster/debug/deps/rmqtt_loadgen-fbc650be991e5448)
+     Running unittests src/lib.rs (target/cluster/debug/deps/lyrnormq_loadgen-fbc650be991e5448)
 
 running 29 tests
 test engine::tests::absolute_rate_schedule_has_no_deadline_reset ... ok
@@ -989,7 +989,7 @@ test metrics::tests::empty_distributions_and_qos0_ack_are_null ... ok
 
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (target/cluster/debug/deps/rmqtt_loadgen-a368a4da3fad840f)
+     Running unittests src/main.rs (target/cluster/debug/deps/lyrnormq_loadgen-a368a4da3fad840f)
 
 running 0 tests
 
@@ -1122,7 +1122,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-   Doc-tests rmqtt_loadgen
+   Doc-tests lyrnormq_loadgen
 
 running 0 tests
 

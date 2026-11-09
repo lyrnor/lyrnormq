@@ -27,10 +27,10 @@
   },
   "production_revision": "5e48320",
   "preexisting_http_sources_in_tested_working_tree": {
-    "bin/rmqtt/Cargo.toml": "be2108c59cfc6224f2230ecdf01b1759842fb61ab4ed7d626c371ca0c2f7e757",
-    "bin/rmqtt/src/main.rs": "1c9916b25355a76cd802c690594cf31195950d815b83eafb944c0f6cf648690b",
-    "bin/rmqtt/src/cli.rs": "710823b3ae7054f30613f643996b90ae5e80db58e5512fe4d8ee11f0c6d6cfd9",
-    "bin/rmqtt/src/admin/access_control.rs": "337b17d90616abbf853b9886a05cf69818e300926a6e0df64ed4b125b03eea98",
-    "bin/rmqtt/src/admin/access_control_tests.rs": "d1a92f953315f799da01a88a691714707dd98b5dd11efcae6c5be24f0103739a"
+    "bin/lyrnormq/Cargo.toml": "be2108c59cfc6224f2230ecdf01b1759842fb61ab4ed7d626c371ca0c2f7e757",
+    "bin/lyrnormq/src/main.rs": "1c9916b25355a76cd802c690594cf31195950d815b83eafb944c0f6cf648690b",
+    "bin/lyrnormq/src/cli.rs": "710823b3ae7054f30613f643996b90ae5e80db58e5512fe4d8ee11f0c6d6cfd9",
+    "bin/lyrnormq/src/admin/access_control.rs": "337b17d90616abbf853b9886a05cf69818e300926a6e0df64ed4b125b03eea98",
+    "bin/lyrnormq/src/admin/access_control_tests.rs": "d1a92f953315f799da01a88a691714707dd98b5dd11efcae6c5be24f0103739a"
   }
 }

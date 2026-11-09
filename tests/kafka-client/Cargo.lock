@@ -285,7 +285,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rmqtt-kafka-test-client"
+name = "lyrnormq-kafka-test-client"
 version = "0.1.0"
 dependencies = [
  "rdkafka",

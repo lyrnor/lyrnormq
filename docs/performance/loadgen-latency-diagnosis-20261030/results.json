@@ -246,11 +246,11 @@
     }
   ],
   "archives": {
-    "rmqtt-lowrate-client.tar.gz": {
+    "lyrnormq-lowrate-client.tar.gz": {
       "bytes": 4596937,
       "sha256": "4ebb9459226dc5f345345a1fa531b924c191913745c166cdc633f16519ed218f"
     },
-    "rmqtt-lowrate-broker.tar.gz": {
+    "lyrnormq-lowrate-broker.tar.gz": {
       "bytes": 1553,
       "sha256": "3ddbe12044ec97cf3a158cd87368b0ee0a748ea3c58d2af08d62f02d05eff3fb"
     }

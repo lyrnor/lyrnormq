@@ -15,7 +15,7 @@ lz4,zstd,gzip. Evidence docs/verification/kafka-outbound-20261102/build-probe.
 No claim that the cross probe was executed on Linux. Final integrated Broker must
 also zigbuild --locked successfully; no server-side compilation/system lib dependency.
 
-Coordinator owns root Cargo/lock, bin/rmqtt, docs/integration. Backend owns new
+Coordinator owns root Cargo/lock, bin/lyrnormq, docs/integration. Backend owns new
 crates/mqtt-kafka/**, crates/mqtt-egress/** and crates/mqtt-egress-core/** for this
 phase. UI owns dashboard/web/**. Quality owns tests/**,.github/workflows/** and
 standalone test helper manifests. Each uses an assigned worktree+branch, commits
@@ -74,8 +74,8 @@ Reuse existing trusted WireEvent encoding for adapter input, parse its metadata
 separately from SQL data; no persistent schema change. Key defaults to client_id;
 optional key_field selects SQL data only for explicit partition policy.
 
-Emit stable rmqtt-delivery-id,rmqtt-event-id,rmqtt-rule-id,rmqtt-client-id headers
-(and original topic as rmqtt-topic). Do not change IDs on retries/recovery. Use a
+Emit stable lyrnormq-delivery-id,lyrnormq-event-id,lyrnormq-rule-id,lyrnormq-client-id headers
+(and original topic as lyrnormq-topic). Do not change IDs on retries/recovery. Use a
 stable keyed partitioner (murmur2, including empty keys). Preserve timestamp_ms if
 valid. One record's value/key/headers plus conservative protocol overhead must fit
 1MiB; oversize permanently fails before enqueue. Same rule/client has one attempt
@@ -157,7 +157,7 @@ Run fmt, strict workspace+helper Clippy, Rust/frontend tests, embedded Release,
 real blackboxes and final locked Linux amd64 musl build. Record actual environment,
 commands, results and limitations. Do not invent performance data or compatibility.
 
-Internal producer client.id is derived as rmqtt-{outbound_id}, not a new user-facing
+Internal producer client.id is derived as lyrnormq-{outbound_id}, not a new user-facing
 SDK option. KafkaSink constructors validate explicit concurrency1..512 even when
 called outside Config validation. Native authentication callbacks may retain only
 structured error flags for classifying a final failed delivery; never log native

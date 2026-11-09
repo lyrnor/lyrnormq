@@ -6,7 +6,7 @@
    Compiling tokio-util v0.7.20
    Compiling tokio-socks v0.5.3
    Compiling tokio-tungstenite v0.28.0
-   Compiling mqtt-transport v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-transport)
+   Compiling mqtt-transport v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-transport)
    Compiling sqlx-core v0.8.6
    Compiling krafka v0.28.1
    Compiling tower-http v0.6.11
@@ -15,15 +15,15 @@
    Compiling axum v0.8.9
    Compiling reqwest v0.12.28
    Compiling sqlx-postgres v0.8.6
-   Compiling mqtt-webhook v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-webhook)
+   Compiling mqtt-webhook v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-webhook)
    Compiling sqlx v0.8.6
-   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-postgres)
-   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-auth-http)
-   Compiling mqtt-kafka v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-kafka)
-   Compiling mqtt-egress v0.1.0 (/Volumes/data/rmqtt/crates/mqtt-egress)
-   Compiling rmqtt v0.1.0 (/Volumes/data/rmqtt/bin/rmqtt)
+   Compiling mqtt-auth-postgres v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-postgres)
+   Compiling mqtt-auth-http v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-auth-http)
+   Compiling mqtt-kafka v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-kafka)
+   Compiling mqtt-egress v0.1.0 (/Volumes/data/lyrnormq/crates/mqtt-egress)
+   Compiling lyrnormq v0.1.0 (/Volumes/data/lyrnormq/bin/lyrnormq)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 18.32s
-     Running unittests src/main.rs (target/debug/deps/rmqtt-e92c393b64cc3a33)
+     Running unittests src/main.rs (target/debug/deps/lyrnormq-e92c393b64cc3a33)
 
 running 37 tests
 test admin::http::tests::authorization_requires_one_exact_bearer_header ... ok

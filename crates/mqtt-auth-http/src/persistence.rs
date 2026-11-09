@@ -22,7 +22,7 @@ impl Owner {
         #[cfg(test)]
         let worker_writes = writes.clone();
         std::thread::Builder::new()
-            .name("rmqtt-access-config".into())
+            .name("lyrnormq-access-config".into())
             .spawn(move || {
                 let result = ConfigStore::open(&path, super::config::MAX_CONFIG)
                     .map_err(|_| Error::Storage)

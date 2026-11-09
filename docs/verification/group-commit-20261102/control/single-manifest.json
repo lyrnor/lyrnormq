@@ -1,6 +1,6 @@
 {
   "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
-  "binary": "/Volumes/data/rmqtt/target/release/topology",
+  "binary": "/Volumes/data/lyrnormq/target/release/topology",
   "sha256": "6cac2b5d69a25a2b6f771c7ce3fdf5b715081dda0608bb04e093f7f24b2ec452",
   "engine_commit": "3ae3ec10bcfcc3178994830f51772f9fd595821f",
   "benchmark_source_sha256": "b553a4bd1edcb70ed324433db18429b5bc13c02a866b8f4a7538adbfb2d40b87",
@@ -14,7 +14,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -35,7 +35,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -56,7 +56,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -77,7 +77,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -98,7 +98,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -119,7 +119,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -140,7 +140,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -161,7 +161,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",
@@ -182,7 +182,7 @@
       "command": [
         "/usr/bin/time",
         "-l",
-        "/Volumes/data/rmqtt/target/release/topology",
+        "/Volumes/data/lyrnormq/target/release/topology",
         "--inputs",
         "2048",
         "--rules",

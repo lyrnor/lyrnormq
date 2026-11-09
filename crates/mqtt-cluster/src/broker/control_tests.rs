@@ -109,7 +109,7 @@ async fn spy_fixture(
     invalidate: bool,
 ) -> io::Result<(Arc<BrokerRuntime>, ReadSpy, SpyServer, std::path::PathBuf)> {
     let path = std::env::temp_dir().join(format!(
-        "rmqtt-applied-spy-{label}-{invalidate}-{}-{}",
+        "lyrnormq-applied-spy-{label}-{invalidate}-{}-{}",
         std::process::id(),
         controller::now()
     ));

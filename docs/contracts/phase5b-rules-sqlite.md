@@ -40,7 +40,7 @@ SQLite failure tests. Keep lib.rs declarations/reexports only.
 
 ## CLI/coordinator
 
-Default enabled path `rmqtt-rules.sqlite` in cwd. `--rules-config PATH` only
+Default enabled path `lyrnormq-rules.sqlite` in cwd. `--rules-config PATH` only
 overrides the SQLite path; it never accepts/imports JSON files. Export-state
 neither reads nor creates configuration. Static asset sensitive alias protection
 includes SQLite DB, -journal/-wal/-shm and .config-lock. Error/status API and

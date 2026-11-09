@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent bounded outbound concurrency acceptance (stdlib only).
 
-RMQTT_BIN=/absolute/path/rmqtt python3 tests/outbound_concurrency_blackbox.py -v
+LYRNORMQ_BIN=/absolute/path/lyrnormq python3 tests/outbound_concurrency_blackbox.py -v
 Finite request barriers measure actual receiver concurrency, not inferred TPS.
 All brokers, sockets, files and HTTP servers belong to the individual test.
 """
@@ -189,7 +189,7 @@ class OutboundConcurrency(unittest.TestCase):
     barrier = dashboard.DashboardBlackbox.barrier
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-outbound-concurrency-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-outbound-concurrency-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.rules_path = self.root / 'rules.sqlite'
@@ -470,7 +470,7 @@ class OutboundConcurrency(unittest.TestCase):
                 if self.broker is not None:
                     self.broker.stop()
                     self.broker = None
-                    self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-outbound-batch-')
+                    self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-outbound-batch-')
                     self.addCleanup(self.directory.cleanup)
                     self.root = Path(self.directory.name)
                     self.rules_path = self.root / 'rules.sqlite'

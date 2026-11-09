@@ -1,26 +1,26 @@
-    Checking mqtt-protocol v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-protocol)
+    Checking mqtt-protocol v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-protocol)
     Checking tokio-rustls v0.26.6
-    Checking mqtt-router v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-router)
+    Checking mqtt-router v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-router)
     Checking hyper-util v0.1.21
     Checking tower v0.5.3
-    Checking mqtt-egress-core v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-egress-core)
+    Checking mqtt-egress-core v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-egress-core)
     Checking tokio-socks v0.5.3
     Checking tokio-util v0.7.20
     Checking tokio-tungstenite v0.28.0
-    Checking mqtt-storage v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-storage)
-   Compiling rmqtt-loadgen v0.1.0 (/private/tmp/rmqtt-main-release/bin/rmqtt-loadgen)
-    Checking mqtt-egress-log v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-egress-log)
-    Checking mqtt-auth v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-auth)
-    Checking mqtt-rules v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-rules)
-   Compiling rmqtt v0.1.0 (/private/tmp/rmqtt-main-release/bin/rmqtt)
+    Checking mqtt-storage v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-storage)
+   Compiling lyrnormq-loadgen v0.1.0 (/private/tmp/lyrnormq-main-release/bin/lyrnormq-loadgen)
+    Checking mqtt-egress-log v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-egress-log)
+    Checking mqtt-auth v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-auth)
+    Checking mqtt-rules v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-rules)
+   Compiling lyrnormq v0.1.0 (/private/tmp/lyrnormq-main-release/bin/lyrnormq)
     Checking tower-http v0.6.11
     Checking krafka v0.28.1
     Checking hyper-rustls v0.27.10
-    Checking mqtt-session v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-session)
+    Checking mqtt-session v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-session)
     Checking axum v0.8.9
     Checking reqwest v0.12.28
-    Checking mqtt-webhook v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-webhook)
-    Checking mqtt-transport v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-transport)
-    Checking mqtt-kafka v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-kafka)
-    Checking mqtt-egress v0.1.0 (/private/tmp/rmqtt-main-release/crates/mqtt-egress)
+    Checking mqtt-webhook v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-webhook)
+    Checking mqtt-transport v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-transport)
+    Checking mqtt-kafka v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-kafka)
+    Checking mqtt-egress v0.1.0 (/private/tmp/lyrnormq-main-release/crates/mqtt-egress)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.69s

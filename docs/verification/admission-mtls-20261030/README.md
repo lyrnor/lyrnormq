@@ -88,7 +88,7 @@ python3 tests/acceptance_guard_negative.py
 
 Offline builds require cached locked dependencies. Python/OpenSSL generate strict
 ephemeral identities. The original plaintext suite list and results are archived;
-run each with a fresh RMQTT_TEST_STORAGE_PATH for SQLite. Every test owns temporary
+run each with a fresh LYRNORMQ_TEST_STORAGE_PATH for SQLite. Every test owns temporary
 listeners/process cleanup; no remote hosts or production files are touched.
 
 Three independent worktrees separated admission core, TLS identity and quality;

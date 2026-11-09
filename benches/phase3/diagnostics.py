@@ -92,10 +92,10 @@ async def stop_broker(process):
 
 def profile_environment(enabled, path):
     env = dict(os.environ)
-    env['RMQTT_PROFILE'] = '1' if enabled else '0'
-    env.pop('RMQTT_PROFILE_PATH', None)
+    env['LYRNORMQ_PROFILE'] = '1' if enabled else '0'
+    env.pop('LYRNORMQ_PROFILE_PATH', None)
     if enabled:
-        env['RMQTT_PROFILE_PATH'] = str(path)
+        env['LYRNORMQ_PROFILE_PATH'] = str(path)
     return env
 
 
@@ -111,7 +111,7 @@ def read_profile(path, enabled):
         return {'enabled': True, 'status': 'invalid', 'reason': 'profile exceeds1MiB bound'}
     text = raw.decode(errors='replace')
     lines = text.splitlines()
-    if not lines or lines[0] != 'RMQTT_PROFILE\t1':
+    if not lines or lines[0] != 'LYRNORMQ_PROFILE\t1':
         return {'enabled': True, 'status': 'invalid', 'reason': 'unexpected profile header', 'text': text}
     session = []
     requests, spans, counters, reasons, metadata = {}, {}, {}, {}, {}

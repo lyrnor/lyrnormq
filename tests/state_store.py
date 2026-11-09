@@ -1,7 +1,7 @@
 """Phase4 durable-state helpers for black-box suites.
 
 The broker stores one row per session and per retained topic (container2), so
-tests read state only through `rmqtt export-state`, which prints the merged
+tests read state only through `lyrnormq export-state`, which prints the merged
 schema7 envelope of a stopped broker. Old-schema fixtures are written as a
 container1 `broker_snapshot` database, which the broker migrates on startup;
 a rejected migration leaves that container1 database untouched.
@@ -20,7 +20,7 @@ LEGACY_TABLE = ('CREATE TABLE broker_snapshot (id INTEGER PRIMARY KEY CHECK (id 
 
 
 def binary():
-    return os.environ.get('RMQTT_BIN', str(ROOT / 'target/debug/rmqtt'))
+    return os.environ.get('LYRNORMQ_BIN', str(ROOT / 'target/debug/lyrnormq'))
 
 
 def export_bytes(db, *args):
@@ -28,7 +28,7 @@ def export_bytes(db, *args):
     db = Path(db)
     if db.name != 'sessions.sqlite':
         raise AssertionError(f'session database must be named sessions.sqlite, got {db.name}')
-    from rmqttcfg import argv
+    from lyrnormqcfg import argv
     result = subprocess.run(argv(binary(), '127.0.0.1:0', db.parent, command='export-state'),
                             capture_output=True, timeout=30, check=False)
     if result.returncode:

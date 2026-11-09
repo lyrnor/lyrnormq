@@ -168,7 +168,7 @@ class WebSocketBroker(TLSBroker):
         self.client_chunk_size = client_chunk_size
 
     def command(self):
-        from rmqttcfg import argv
+        from lyrnormqcfg import argv
         data = self.directory if self.directory is not None else self.rules_directory.name
         extra = ['--websocket', *self.extra]
         if self.secure:

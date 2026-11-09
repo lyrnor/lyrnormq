@@ -58,8 +58,8 @@ All resources/processes are disposable loopback test fixtures.
 
 ```sh
 mkdir -p data
-./target/release/rmqtt --listen 0.0.0.0:1883 \
-  --admin-listen 127.0.0.1:8766 --admin-token-file /tmp/rmqtt-admin.token \
+./target/release/lyrnormq --listen 0.0.0.0:1883 \
+  --admin-listen 127.0.0.1:8766 --admin-token-file /tmp/lyrnormq-admin.token \
   --rules-config data/rules.sqlite --access-control-config data/access.sqlite \
   --storage-path data/sessions.sqlite
 ```
@@ -77,10 +77,10 @@ cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 cargo fmt --all -- --check
 npm --prefix dashboard/web test
 npm --prefix dashboard/web run build
-cargo build --release --locked --offline -p rmqtt
-RMQTT_BIN="$PWD/target/release/rmqtt" python3 tests/http_access_blackbox.py HttpAccessBlackbox -f -v
-CARGO_BUILD_JOBS=4 cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p rmqtt
-python3 scripts/check-static-elf.py target/x86_64-unknown-linux-musl/release/rmqtt
+cargo build --release --locked --offline -p lyrnormq
+LYRNORMQ_BIN="$PWD/target/release/lyrnormq" python3 tests/http_access_blackbox.py HttpAccessBlackbox -f -v
+CARGO_BUILD_JOBS=4 cargo zigbuild --release --locked --offline --target x86_64-unknown-linux-musl -p lyrnormq
+python3 scripts/check-static-elf.py target/x86_64-unknown-linux-musl/release/lyrnormq
 ```
 
 ## Limits

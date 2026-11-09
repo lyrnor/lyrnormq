@@ -27,7 +27,7 @@ test_concurrent_first_host_publications_share_one_initialized_record (cluster_du
 FAIL: test_concurrent_first_host_publications_share_one_initialized_record (cluster_durable_blackbox.DurableFaults.test_concurrent_first_host_publications_share_one_initialized_record)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/private/tmp/rmqtt-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 295, in test_concurrent_first_host_publications_share_one_initialized_record
+  File "/private/tmp/lyrnormq-cluster-durable-quality/tests/cluster_durable_blackbox.py", line 295, in test_concurrent_first_host_publications_share_one_initialized_record
     self.assertEqual(request.result(timeout=12), (202, {'accepted': True}))
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: Tuples differ: (503, {'error': {'code': 'unavailable', 'm[42 chars]d'}}) != (202, {'accepted': True})

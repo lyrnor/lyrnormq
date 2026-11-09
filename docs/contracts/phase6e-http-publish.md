@@ -38,7 +38,7 @@ Will or lifecycle event. Recipient QoS/offline/persistence/shared and rule/outbo
 pipelines reused without source ACL. No durable schema changes.
 IO mapping InvalidInput400,PermissionDenied403,InvalidData413,WouldBlock/other503.
 
-Root owns bin/rmqtt HTTP/CLI/state/wiring/docs. Transport owns mqtt-transport in
+Root owns bin/lyrnormq HTTP/CLI/state/wiring/docs. Transport owns mqtt-transport in
 isolated worktree. Quality owns tests in isolated worktree. Auth-cache work canceled
 and reverted, mqtt-auth/mqtt-auth-http and lockfile dependencies must remain unchanged.
 lib.rs contains only docs/module declarations/reexports.

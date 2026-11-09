@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounded real-TCP slow-consumer and admission/recovery checks.
 
-Run with RMQTT_BIN pointing to a built executable. RMQTT_TEST_STORAGE_PATH selects
+Run with LYRNORMQ_BIN pointing to a built executable. LYRNORMQ_TEST_STORAGE_PATH selects
 SQLite; each test owns a fresh DB. Nonreading tests use ReceiveMaximum=1 so the
 application queue reaches an exact bound independently of kernel socket buffers.
 They do not claim to saturate the OS send buffer. Kernel-independent blocked-write
@@ -21,9 +21,9 @@ from retained_will_blackbox import FeatureBroker
 
 class Phase3Reliability(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rmqtt-phase3-reliability-')
+        self.directory = tempfile.TemporaryDirectory(prefix='lyrnormq-phase3-reliability-')
         self.addCleanup(self.directory.cleanup)
-        self.sqlite = bool(os.environ.get('RMQTT_TEST_STORAGE_PATH'))
+        self.sqlite = bool(os.environ.get('LYRNORMQ_TEST_STORAGE_PATH'))
         self.broker = FeatureBroker(self.directory.name, self.sqlite)
         self.addCleanup(self.broker.stop)
 

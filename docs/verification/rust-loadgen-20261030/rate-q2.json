@@ -155,7 +155,7 @@
     "available_parallelism": 10,
     "started_unix_ms": 1793325575247,
     "arguments": [
-      "/Volumes/data/rmqtt/target/release/rmqtt-loadgen",
+      "/Volumes/data/lyrnormq/target/release/lyrnormq-loadgen",
       "--addr",
       "127.0.0.1:52870",
       "--qos",

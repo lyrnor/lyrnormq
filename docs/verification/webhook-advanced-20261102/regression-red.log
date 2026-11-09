@@ -1,9 +1,9 @@
 
-> rmqtt-dashboard@0.1.0 test
+> lyrnormq-dashboard@0.1.0 test
 > vitest run --run tests/rules-page.test.tsx
 
 
- RUN  v3.2.7 /private/tmp/rmqtt-webhook-advanced/dashboard/web
+ RUN  v3.2.7 /private/tmp/lyrnormq-webhook-advanced/dashboard/web
 
  ❯ tests/rules-page.test.tsx (22 tests | 4 failed) 720ms
    ✓ live rule and Webhook management > creates without exposing an ID field 72ms
@@ -2292,10 +2292,10 @@ Ignored nodes: comments, script, style
             [33mdata-slot[39m=[32m"tabs-list"[39m
             [33mrole[39m=[32m"tablist"[39m
             [33mstyle[39m=[32m"outlin...
- ❯ Object.getElementError ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/config.js:37:19
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ Object.getElementError ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
  ❯ tests/rules-page.test.tsx:556:40
     554|   });
     555|   it("retains advanced edits through collapse with no editable queue c…
@@ -3081,10 +3081,10 @@ Ignored nodes: comments, script, style
             [33mdata-slot[39m=[32m"tabs-list"[39m
             [33mrole[39m=[32m"tablist"[39m
             [33mstyle[39m=[32m"outlin...
- ❯ Object.getElementError ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/config.js:37:19
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
- ❯ ../../../../../Volumes/data/rmqtt/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ Object.getElementError ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../../Volumes/data/lyrnormq/dashboard/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
  ❯ tests/rules-page.test.tsx:578:42
 
 

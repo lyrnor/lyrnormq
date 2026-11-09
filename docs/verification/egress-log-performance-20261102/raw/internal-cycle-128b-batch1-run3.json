@@ -14,7 +14,7 @@
     "records": 256,
     "segment_bytes": 1048576
   },
-  "directory": "/private/tmp/rmqtt-journal-perf-b1ywqq1r/egress-log-bench-66434-1793598090863676000-1",
+  "directory": "/private/tmp/lyrnormq-journal-perf-b1ywqq1r/egress-log-bench-66434-1793598090863676000-1",
   "directory_kept": false,
   "initialization_seconds": 0.027705792,
   "method": {
