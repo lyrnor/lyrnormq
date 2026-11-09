@@ -13,7 +13,11 @@ from mqtt5_blackbox import connect5,publication5,parse_ack5,ack5,readprops
 from blackbox import receive
 def main():
  with tempfile.TemporaryDirectory(prefix='rmqtt-credit-race-') as directory:
-  broker=FeatureBroker(directory,False,['--max-inflight','1']);broker.start()
+  # Default max_auth_tasks is 4; eight concurrent CONNECT handshakes need headroom
+  # or CONNACK 0x89 Server busy flakes the probe before identifier reuse runs.
+  broker=FeatureBroker(directory,False,['--max-inflight','1','--max-connections','32',
+                                        '--max-handshakes','32','--max-sessions','32',
+                                        '--max-auth-tasks','32']);broker.start()
   try:
    def sender(i):
     qos=1 if i<4 else 2;runs=1000 if qos==1 else 500

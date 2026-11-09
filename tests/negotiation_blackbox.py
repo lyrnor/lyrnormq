@@ -306,12 +306,19 @@ class NegotiationBlackbox(unittest.TestCase):
         self.message(observer, 'w', payload)
 
     def test_concurrent_assigned_identifiers_are_unique(self):
-        self.start()
+        # Burst admission needs explicit headroom; default busy replies are not
+        # an Assigned Client Identifier uniqueness failure.
+        self.start('--max-connections', '64', '--max-handshakes', '64',
+                   '--max-sessions', '64', '--max-auth-tasks', '64')
         def allocate(index):
-            sock = self.broker.socket();sock.sendall(wire.connect5('', properties=[(0x11, 60)]))
-            header, body = receive(sock);assert header == 0x20 and body[:2] == b'\0\0'
-            values, _ = wire.readprops(body, 2);identifier = [v for k, v in values if k == 0x12]
-            assert len(identifier) == 1
+            sock = self.broker.socket()
+            sock.sendall(wire.connect5('', properties=[(0x11, 60)]))
+            header, body = receive(sock)
+            self.assertEqual(header, 0x20, (index, header, body[:8]))
+            self.assertEqual(body[:2], b'\0\0', (index, body[:8]))
+            values, _ = wire.readprops(body, 2)
+            identifier = [v for k, v in values if k == 0x12]
+            self.assertEqual(len(identifier), 1, (index, values))
             return sock, identifier[0]
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             allocations = list(pool.map(allocate, range(24)))

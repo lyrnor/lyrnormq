@@ -305,7 +305,15 @@ class TLSWire(unittest.TestCase):
         self.delivery(sub, 'tls/large', payload, 1, 5)
         oversized = publication5('tls/too-large', b'x' * 65536, 1, 18)
         self.assertGreater(len(oversized), 65536)
-        pub.sendall(oversized)
+        # Remaining length alone exceeds max_packet_size; sending the full body
+        # races broker DISCONNECT/TLS close against Python ssl.sendall (SSLEOFError).
+        prefix = 1
+        while True:
+            digit = oversized[prefix]
+            prefix += 1
+            if digit & 128 == 0:
+                break
+        pub.sendall(oversized[:prefix])
         header, body = receive(pub)
         self.assertEqual(header, 0xe0)
         self.assertEqual(body[0], 0x95, 'MQTT packet-size limit must reject the oversized frame')
