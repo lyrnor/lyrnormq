@@ -460,12 +460,24 @@ fn overlay_limits(limits: &mut LimitsRaw, env: &HashMap<String, String>) -> io::
     assign_u64(&mut limits.connections, env, "LYRNORMQ_LIMITS_CONNECTIONS")?;
     assign_u64(&mut limits.sessions, env, "LYRNORMQ_LIMITS_SESSIONS")?;
     assign_u64(&mut limits.inflight, env, "LYRNORMQ_LIMITS_INFLIGHT")?;
-    assign_u64(&mut limits.packet_bytes, env, "LYRNORMQ_LIMITS_PACKET_BYTES")?;
-    assign_u64(&mut limits.subscriptions, env, "LYRNORMQ_LIMITS_SUBSCRIPTIONS")?;
+    assign_u64(
+        &mut limits.packet_bytes,
+        env,
+        "LYRNORMQ_LIMITS_PACKET_BYTES",
+    )?;
+    assign_u64(
+        &mut limits.subscriptions,
+        env,
+        "LYRNORMQ_LIMITS_SUBSCRIPTIONS",
+    )?;
     assign_u64(&mut limits.retained, env, "LYRNORMQ_LIMITS_RETAINED")?;
     assign_u64(&mut limits.state_bytes, env, "LYRNORMQ_LIMITS_STATE_BYTES")?;
     assign_u64(&mut limits.outbound, env, "LYRNORMQ_LIMITS_OUTBOUND")?;
-    assign_u64(&mut limits.handshake_ms, env, "LYRNORMQ_LIMITS_HANDSHAKE_MS")?;
+    assign_u64(
+        &mut limits.handshake_ms,
+        env,
+        "LYRNORMQ_LIMITS_HANDSHAKE_MS",
+    )?;
     assign_u64(&mut limits.write_ms, env, "LYRNORMQ_LIMITS_WRITE_MS")?;
     assign_u64(&mut limits.handshakes, env, "LYRNORMQ_LIMITS_HANDSHAKES")?;
     assign_u64(&mut limits.auth_tasks, env, "LYRNORMQ_LIMITS_AUTH_TASKS")?;
@@ -475,7 +487,11 @@ fn overlay_limits(limits: &mut LimitsRaw, env: &HashMap<String, String>) -> io::
         "LYRNORMQ_LIMITS_AUTH_RATE_PER_SECOND",
     )?;
     assign_u64(&mut limits.auth_burst, env, "LYRNORMQ_LIMITS_AUTH_BURST")?;
-    assign_u64(&mut limits.alias_maximum, env, "LYRNORMQ_LIMITS_ALIAS_MAXIMUM")?;
+    assign_u64(
+        &mut limits.alias_maximum,
+        env,
+        "LYRNORMQ_LIMITS_ALIAS_MAXIMUM",
+    )?;
     Ok(())
 }
 
@@ -483,7 +499,11 @@ fn overlay_egress(egress: &mut EgressRaw, env: &HashMap<String, String>) -> io::
     if let Some(value) = env.get("LYRNORMQ_EGRESS_DIR") {
         egress.dir = Some(value.clone());
     }
-    assign_u64(&mut egress.segment_bytes, env, "LYRNORMQ_EGRESS_SEGMENT_BYTES")?;
+    assign_u64(
+        &mut egress.segment_bytes,
+        env,
+        "LYRNORMQ_EGRESS_SEGMENT_BYTES",
+    )?;
     assign_u64(&mut egress.max_bytes, env, "LYRNORMQ_EGRESS_MAX_BYTES")?;
     assign_u64(&mut egress.max_records, env, "LYRNORMQ_EGRESS_MAX_RECORDS")?;
     Ok(())

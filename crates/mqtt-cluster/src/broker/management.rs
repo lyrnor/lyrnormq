@@ -437,12 +437,15 @@ mod tests {
             },
         );
         assert_eq!(rows.len(), 2);
-        let page = page_items(rows.iter().map(to_session).collect::<Vec<_>>(), &ManagementQuery {
-            search: "online".into(),
-            limit: 1,
-            offset: 1,
-            ..ManagementQuery::default()
-        });
+        let page = page_items(
+            rows.iter().map(to_session).collect::<Vec<_>>(),
+            &ManagementQuery {
+                search: "online".into(),
+                limit: 1,
+                offset: 1,
+                ..ManagementQuery::default()
+            },
+        );
         assert_eq!(page.total, 2);
         assert_eq!(page.items.len(), 1);
         assert_eq!(page.items[0].client_id, "online-b");

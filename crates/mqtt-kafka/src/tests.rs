@@ -284,7 +284,10 @@ async fn raw_data_headers_keys_timestamps_and_fifo_are_unchanged() {
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_deref().unwrap()))
             .collect();
-        assert_eq!(headers["lyrnormq-delivery-id"], format!("d{seq}").as_bytes());
+        assert_eq!(
+            headers["lyrnormq-delivery-id"],
+            format!("d{seq}").as_bytes()
+        );
         assert_eq!(headers["lyrnormq-client-id"], client.as_bytes());
         assert_eq!(headers["lyrnormq-topic"], b"devices/t");
         assert_eq!(headers["lyrnormq-rule-id"], b"r");
