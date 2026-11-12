@@ -186,6 +186,21 @@ jobs:
           name: fuzz-failure-inputs
           path: /tmp/lyrnormq-fuzz-artifacts/
 
+  redis-access:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 16379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked -p mqtt-auth-redis -- --include-ignored
+
   postgres-access:
     runs-on: ubuntu-latest
     services:

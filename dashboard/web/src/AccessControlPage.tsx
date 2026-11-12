@@ -21,11 +21,13 @@ import { Switch } from "./components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { AccessControlFields } from "./AccessControlFields";
 import { PostgresConnectionTest } from "./PostgresConnectionTest";
+import { RedisConnectionTest } from "./RedisConnectionTest";
 import { AccessControlTest } from "./AccessControlTest";
 import {
   ACCESS_PATH,
   accessDraft,
   accessError,
+  backendLabel,
   draftValue,
   stageHealth,
   validateAccessDraft,
@@ -306,8 +308,7 @@ export function AccessControlPage({
           <Card className="gap-4 p-5 shadow-none">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-base font-semibold">
-                {draft.value.type === "postgresql" ? "PostgreSQL" : "HTTP"}{" "}
-                {label}
+                {backendLabel(draft.value.type)} {label}
               </h2>
               <Badge
                 variant={
@@ -322,7 +323,11 @@ export function AccessControlPage({
             <p className="text-xs leading-relaxed text-muted-foreground">
               {draft.value.type === "postgresql"
                 ? "使用配置的 SQL 查询业务数据，数据库异常时拒绝本次新操作。"
-                : stage === "authentication"
+                : draft.value.type === "redis"
+                  ? stage === "authentication"
+                    ? "按用户名读取 password_hash，并在 Broker 内校验 Argon2id。无记录或密码不匹配则拒绝本次连接。"
+                    : "按用户名读取 publish 或 subscribe 规则。优先级高者优先，同级拒绝优先；无匹配则拒绝。"
+                  : stage === "authentication"
                   ? "校验设备用户名和密码，通过返回 204，拒绝返回 401。"
                   : "校验设备对指定 Topic 的操作权限，允许返回 204，拒绝返回 403。"}
             </p>
@@ -343,7 +348,8 @@ export function AccessControlPage({
             </div>
             {current?.pool_connections !== undefined && (
               <p className="text-xs text-muted-foreground">
-                数据库连接：{current.pool_connections}，空闲：
+                {draft.value.type === "redis" ? "Redis" : "数据库"}连接：
+                {current.pool_connections}，空闲：
                 {current.pool_idle_connections ?? 0}
               </p>
             )}
@@ -372,12 +378,23 @@ export function AccessControlPage({
                 key={`fields-${stage}`}
                 draft={draft}
                 postgresAvailable={status?.postgresql_available !== false}
+                redisAvailable={status?.redis_available !== false}
                 onChange={update}
                 busy={busy}
               />
               {draft.value.type === "postgresql" && (
                 <PostgresConnectionTest
                   key={`connection-test-${stage}`}
+                  draft={draft}
+                  stage={stage}
+                  token={token}
+                  expired={expired}
+                  disabled={busy}
+                />
+              )}
+              {draft.value.type === "redis" && (
+                <RedisConnectionTest
+                  key={`redis-connection-test-${stage}`}
                   draft={draft}
                   stage={stage}
                   token={token}

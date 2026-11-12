@@ -7,12 +7,7 @@ use sqlx::{
     ConnectOptions, PgPool, Row,
     postgres::{PgConnectOptions, PgPoolOptions, PgSslMode},
 };
-use std::{
-    fmt,
-    sync::{Arc, OnceLock},
-    time::Duration,
-};
-use tokio::sync::Semaphore;
+use std::{fmt, time::Duration};
 use zeroize::Zeroizing;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,10 +39,6 @@ impl fmt::Debug for Provider {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PostgresProvider").finish_non_exhaustive()
     }
-}
-fn hash_slots() -> &'static Arc<Semaphore> {
-    static SLOTS: OnceLock<Arc<Semaphore>> = OnceLock::new();
-    SLOTS.get_or_init(|| Arc::new(Semaphore::new(4)))
 }
 impl Provider {
     pub fn build(config: &Config, timeout_ms: u64) -> Result<Self, Error> {
@@ -144,10 +135,7 @@ impl Provider {
             if hash.len() > 512 {
                 return Err(Error::InvalidResult);
             }
-            let permit = hash_slots()
-                .clone()
-                .try_acquire_owned()
-                .map_err(|_| Error::Busy)?;
+            let permit = mqtt_auth::try_acquire_password_hash_permit().ok_or(Error::Busy)?;
             let password = Zeroizing::new(password.to_vec());
             tokio::task::spawn_blocking(move || {
                 let _permit = permit;

@@ -156,6 +156,7 @@ impl Runtime {
         let g = self.snapshot();
         Status {
             postgresql_available: cfg!(feature = "postgres-auth"),
+            redis_available: cfg!(feature = "redis-auth"),
             authentication: g
                 .authentication
                 .as_ref()

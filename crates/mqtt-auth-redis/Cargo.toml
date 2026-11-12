@@ -1,0 +1,20 @@
+[package]
+name = "mqtt-auth-redis"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+mqtt-auth = { path = "../mqtt-auth" }
+mqtt-router = { path = "../mqtt-router" }
+tokio.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+redis = { version = "0.32.7", default-features = false, features = ["tokio-comp", "tokio-rustls-comp", "tls-rustls-webpki-roots", "disable-client-setinfo"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-pki-types = "1"
+argon2 = "0.5"
+zeroize = "1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

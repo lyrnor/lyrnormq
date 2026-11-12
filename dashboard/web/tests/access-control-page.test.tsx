@@ -521,9 +521,41 @@ describe("PostgreSQL authentication dashboard", () => {
   });
 });
 
+describe("Redis authentication dashboard", () => {
+  it("saves a Redis authentication backend and offers a connection test", async () => {
+    const saved = server();
+    render(<AccessControlPage token="token" expired={expired} />);
+    await ready();
+    await select("后端类型", "Redis");
+    expect(screen.queryByLabelText("请求地址")).toBeNull();
+    expect(screen.getByLabelText("Redis 主机")).toBeTruthy();
+    expect(screen.getByLabelText("键前缀")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("键前缀"), {
+      target: { value: "tenant:" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await screen.findByText("认证配置已保存。");
+    expect(saved().authentication.type).toBe("redis");
+    expect(saved().authentication.redis?.key_prefix).toBe("tenant:");
+    fireEvent.click(screen.getByRole("button", { name: "测试 Redis 连接" }));
+    await screen.findByText(/Redis 连接失败/);
+    expect(
+      request.mock.calls.some(
+        ([path, , , options]) =>
+          path.endsWith("/test/connection") &&
+          (options?.body as { stage?: string })?.stage === "authentication",
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("compiled access backend availability", () => {
-  it("hides PostgreSQL when the broker was built without it", async () => {
-    server(config, { ...status, postgresql_available: false });
+  it("hides PostgreSQL and Redis when the broker was built without them", async () => {
+    server(config, {
+      ...status,
+      postgresql_available: false,
+      redis_available: false,
+    });
     render(<AccessControlPage token="token" expired={expired} />);
     await ready();
     fireEvent.keyDown(screen.getByRole("button", { name: "后端类型" }), {
@@ -533,5 +565,6 @@ describe("compiled access backend availability", () => {
     expect(
       screen.queryByRole("menuitemradio", { name: "PostgreSQL" }),
     ).toBeNull();
+    expect(screen.queryByRole("menuitemradio", { name: "Redis" })).toBeNull();
   });
 });

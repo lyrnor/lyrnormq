@@ -27,5 +27,6 @@ include_dir = { version = "0.7.4", default-features = false }
 mimalloc = { version = "0.1", default-features = false }
 
 [features]
-default = ["postgres-auth"]
+default = ["postgres-auth", "redis-auth"]
 postgres-auth = ["mqtt-auth-http/postgres-auth"]
+redis-auth = ["mqtt-auth-http/redis-auth"]

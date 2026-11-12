@@ -99,7 +99,7 @@ policy = "./policy.json"
 plain = true    # optional MQTT 5 enhanced AUTH PLAIN
 ```
 
-Use TLS for wire confidentiality. Also: [PostgreSQL auth](docs/postgres-auth.md), [HTTP auth](docs/http-auth-api.md).
+Use TLS for wire confidentiality. Also: [PostgreSQL auth](docs/postgres-auth.md), [Redis auth](docs/redis-auth.md), [HTTP auth](docs/http-auth-api.md).
 
 ## Verification
 

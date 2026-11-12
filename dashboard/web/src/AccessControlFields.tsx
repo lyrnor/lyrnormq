@@ -12,9 +12,12 @@ import { Input } from "./components/ui/input";
 import { SingleSelect } from "./components/ui/single-select";
 import { Switch } from "./components/ui/switch";
 import {
+  backendLabel,
   changeServiceAuth,
   postgresDefaults,
+  redisDefaults,
   type AccessDraft,
+  type BackendConfig,
   type ServiceAuth,
 } from "./access-control-model";
 
@@ -47,17 +50,20 @@ function Fold({
 }
 
 import { PostgresAccessFields } from "./PostgresAccessFields";
+import { RedisAccessFields } from "./RedisAccessFields";
 
 export function AccessControlFields({
   draft,
   onChange,
   busy,
   postgresAvailable = true,
+  redisAvailable = true,
 }: {
   draft: AccessDraft;
   onChange: (draft: AccessDraft) => void;
   busy: boolean;
   postgresAvailable?: boolean;
+  redisAvailable?: boolean;
 }) {
   const c = draft.value,
     s = c.service_auth;
@@ -87,32 +93,34 @@ export function AccessControlFields({
             ...(postgresAvailable
               ? [{ value: "postgresql", label: "PostgreSQL" }]
               : []),
+            ...(redisAvailable ? [{ value: "redis", label: "Redis" }] : []),
           ]}
-          onValueChange={(value) =>
+          onValueChange={(value) => {
+            const type = value as BackendConfig["type"];
+            const stage = "cache_ttl_seconds" in c ? "授权" : "认证";
             onChange({
               ...draft,
               headers: [],
               value: {
                 ...c,
-                type: value as "http" | "postgresql",
-                name: ["HTTP", "PostgreSQL"].some(
-                  (backend) =>
-                    c.name ===
-                    `${backend} ${"cache_ttl_seconds" in c ? "授权" : "认证"}`,
+                type,
+                name: ["HTTP", "PostgreSQL", "Redis"].some(
+                  (backend) => c.name === `${backend} ${stage}`,
                 )
-                  ? `${value === "postgresql" ? "PostgreSQL" : "HTTP"} ${"cache_ttl_seconds" in c ? "授权" : "认证"}`
+                  ? `${backendLabel(type)} ${stage}`
                   : c.name,
                 url: "",
                 service_auth: { type: "none" },
                 headers: {},
                 allow_http: false,
                 postgres:
-                  value === "postgresql"
+                  type === "postgresql"
                     ? postgresDefaults("cache_ttl_seconds" in c)
                     : undefined,
+                redis: type === "redis" ? redisDefaults() : undefined,
               },
-            })
-          }
+            });
+          }}
         />
       </Field>
       {c.type === "postgresql" ? (
@@ -121,6 +129,13 @@ export function AccessControlFields({
           authorization={"cache_ttl_seconds" in c}
           busy={busy}
           onChange={(postgres) => patch({ postgres })}
+        />
+      ) : c.type === "redis" ? (
+        <RedisAccessFields
+          value={c.redis ?? redisDefaults()}
+          authorization={"cache_ttl_seconds" in c}
+          busy={busy}
+          onChange={(redis) => patch({ redis })}
         />
       ) : (
         <>

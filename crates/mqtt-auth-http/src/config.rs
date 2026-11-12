@@ -41,6 +41,9 @@ pub struct BackendConfig {
     #[cfg(feature = "postgres-auth")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub postgres: Option<mqtt_auth_postgres::Config>,
+    #[cfg(feature = "redis-auth")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub redis: Option<mqtt_auth_redis::Config>,
 }
 impl Default for BackendConfig {
     fn default() -> Self {
@@ -56,6 +59,8 @@ impl Default for BackendConfig {
             allow_http: false,
             #[cfg(feature = "postgres-auth")]
             postgres: None,
+            #[cfg(feature = "redis-auth")]
+            redis: None,
         }
     }
 }
@@ -108,6 +113,8 @@ struct AuthorizationWire {
     allow_http: bool,
     #[cfg(feature = "postgres-auth")]
     postgres: Option<mqtt_auth_postgres::Config>,
+    #[cfg(feature = "redis-auth")]
+    redis: Option<mqtt_auth_redis::Config>,
     cache_ttl_seconds: u64,
 }
 impl Default for AuthorizationWire {
@@ -126,6 +133,8 @@ impl Default for AuthorizationWire {
             allow_http: b.allow_http,
             #[cfg(feature = "postgres-auth")]
             postgres: b.postgres,
+            #[cfg(feature = "redis-auth")]
+            redis: b.redis,
             cache_ttl_seconds: c.cache_ttl_seconds,
         }
     }
@@ -146,6 +155,8 @@ impl<'de> Deserialize<'de> for AuthorizationConfig {
                 allow_http: w.allow_http,
                 #[cfg(feature = "postgres-auth")]
                 postgres: w.postgres,
+                #[cfg(feature = "redis-auth")]
+                redis: w.redis,
             },
             cache_ttl_seconds: w.cache_ttl_seconds,
         })
@@ -183,6 +194,14 @@ impl BackendConfig {
         #[cfg(feature = "postgres-auth")]
         if self.kind == "postgresql" {
             let c = self.postgres.as_ref().ok_or(Error::InvalidConfig)?;
+            if !c.validate() {
+                return Err(Error::InvalidConfig);
+            }
+            return Ok(());
+        }
+        #[cfg(feature = "redis-auth")]
+        if self.kind == "redis" {
+            let c = self.redis.as_ref().ok_or(Error::InvalidConfig)?;
             if !c.validate() {
                 return Err(Error::InvalidConfig);
             }
@@ -296,6 +315,17 @@ impl BackendConfig {
                 current.password = previous.password.clone();
             }
         }
+        #[cfg(feature = "redis-auth")]
+        if self.kind == "redis" {
+            let current = self.redis.as_mut().ok_or(Error::InvalidConfig)?;
+            if current.password == REDACTED {
+                let previous = (old.kind == "redis")
+                    .then_some(old.redis.as_ref())
+                    .flatten()
+                    .ok_or(Error::InvalidConfig)?;
+                current.password = previous.password.clone();
+            }
+        }
         match (&mut self.service_auth, &old.service_auth) {
             (ServiceAuth::Bearer { token }, ServiceAuth::Bearer { token: previous }) => {
                 restore(token, Some(previous))?
@@ -323,6 +353,10 @@ impl BackendConfig {
     pub(crate) fn redact(&mut self) {
         #[cfg(feature = "postgres-auth")]
         if let Some(c) = &mut self.postgres {
+            c.password = REDACTED.into();
+        }
+        #[cfg(feature = "redis-auth")]
+        if let Some(c) = &mut self.redis {
             c.password = REDACTED.into();
         }
         match &mut self.service_auth {

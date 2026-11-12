@@ -29,9 +29,37 @@ export function postgresDefaults(authorization: boolean): PostgresConfig {
       : "SELECT password_hash FROM mqtt_users WHERE username = $1 AND enabled = TRUE",
   };
 }
+export interface RedisConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  tls_mode: "verify_full" | "disable";
+  ca_pem: string | null;
+  max_connections: number;
+  key_prefix: string;
+}
+export function redisDefaults(): RedisConfig {
+  return {
+    host: "localhost",
+    port: 6379,
+    username: "",
+    password: "",
+    tls_mode: "verify_full",
+    ca_pem: null,
+    max_connections: 8,
+    key_prefix: "lyrnormq:",
+  };
+}
+export function backendLabel(type: BackendConfig["type"]): string {
+  if (type === "postgresql") return "PostgreSQL";
+  if (type === "redis") return "Redis";
+  return "HTTP";
+}
 export interface BackendConfig {
-  type: "http" | "postgresql";
+  type: "http" | "postgresql" | "redis";
   postgres?: PostgresConfig;
+  redis?: RedisConfig;
   enabled: boolean;
   name: string;
   url: string;
@@ -70,6 +98,7 @@ export interface CacheStatus {
 }
 export interface AccessStatus {
   postgresql_available?: boolean;
+  redis_available?: boolean;
   authentication: StageStatus;
   authorization: StageStatus;
   cache: CacheStatus;
@@ -214,6 +243,42 @@ export function validateAccessDraft(
     if (!["verify_full", "disable"].includes(p.tls_mode))
       return "请选择有效的 TLS 模式。";
     if (p.ca_pem !== null && (!p.ca_pem || utf8Bytes(p.ca_pem) > 16384))
+      return "CA 证书最多 16384 字节。";
+    return null;
+  }
+  if (c.type === "redis") {
+    const r = c.redis;
+    if (
+      !r ||
+      !r.host ||
+      utf8Bytes(r.host) > 253 ||
+      /[\s/]/.test(r.host) ||
+      control.test(r.host)
+    )
+      return "请填写有效的 Redis 主机。";
+    if (!Number.isInteger(r.port) || r.port < 1 || r.port > 65535)
+      return "Redis 端口应为 1–65535。";
+    if (
+      r.username &&
+      (utf8Bytes(r.username) > 128 || control.test(r.username))
+    )
+      return "Redis 用户名最多 128 字节，且不能包含控制字符。";
+    if (utf8Bytes(r.password) > 1024 || r.password.includes("\0"))
+      return "Redis 密码最多 1024 字节。";
+    if (
+      !Number.isInteger(r.max_connections) ||
+      r.max_connections < 1 ||
+      r.max_connections > 32
+    )
+      return "连接池上限应为 1–32。";
+    if (
+      !/^[:A-Za-z0-9_-]{1,64}$/.test(r.key_prefix) ||
+      !r.key_prefix.endsWith(":")
+    )
+      return "键前缀须为 1–64 字节，以冒号结尾，且只含字母、数字、冒号、下划线和连字符。";
+    if (!["verify_full", "disable"].includes(r.tls_mode))
+      return "请选择有效的 TLS 模式。";
+    if (r.ca_pem !== null && (!r.ca_pem || utf8Bytes(r.ca_pem) > 16384))
       return "CA 证书最多 16384 字节。";
     return null;
   }

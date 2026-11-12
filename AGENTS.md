@@ -78,6 +78,12 @@ source authentication/ACL; no Basic/cache or synthetic MQTT connection. Publishe
 host handle is separate from read-only management. Preserve recipient semantics,
 reserved system-topic guards and bounded admission.
 
+Redis authentication and authorization additionally follow
+`docs/contracts/phase6f-redis-access.md`. The access backend owns
+crates/mqtt-auth-redis; coordinator owns feature flags, management HTTP and
+Dashboard. HASH fields match the PostgreSQL result aliases. No arbitrary Redis
+commands, and logical database 0 only.
+
 Cluster data replicas additionally follow `docs/contracts/phase7f-memory-replicas.md`,
 which supersedes Phase7b/7c disk guarantees for the data plane. Data replicas use
 bounded typed RAM; Controller Raft/configuration SQLite remains. No SQLite session

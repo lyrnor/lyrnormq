@@ -29,6 +29,7 @@ pub struct CacheStatus {
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Status {
     pub postgresql_available: bool,
+    pub redis_available: bool,
     pub authentication: StageStatus,
     pub authorization: StageStatus,
     pub cache: CacheStatus,

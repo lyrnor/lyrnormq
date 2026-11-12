@@ -12,6 +12,8 @@ enum Adapter {
     Http(Box<crate::client::Client>),
     #[cfg(feature = "postgres-auth")]
     Postgres(mqtt_auth_postgres::Provider),
+    #[cfg(feature = "redis-auth")]
+    Redis(mqtt_auth_redis::Provider),
 }
 pub(crate) struct Client {
     adapter: Adapter,
@@ -37,6 +39,14 @@ impl Client {
             "postgresql" => Adapter::Postgres(
                 mqtt_auth_postgres::Provider::build(
                     config.postgres.as_ref().ok_or(Error::InvalidConfig)?,
+                    config.timeout_ms,
+                )
+                .map_err(|_| Error::InvalidConfig)?,
+            ),
+            #[cfg(feature = "redis-auth")]
+            "redis" => Adapter::Redis(
+                mqtt_auth_redis::Provider::build(
+                    config.redis.as_ref().ok_or(Error::InvalidConfig)?,
                     config.timeout_ms,
                 )
                 .map_err(|_| Error::InvalidConfig)?,
@@ -84,9 +94,14 @@ impl Client {
     }
     pub(crate) fn status(&self) -> crate::StageStatus {
         let status = self.counters.status(true);
-        #[cfg(feature = "postgres-auth")]
-        if let Adapter::Postgres(p) = &self.adapter {
-            let (connections, idle) = p.pool_status();
+        let pool = match &self.adapter {
+            #[cfg(feature = "postgres-auth")]
+            Adapter::Postgres(provider) => Some(provider.pool_status()),
+            #[cfg(feature = "redis-auth")]
+            Adapter::Redis(provider) => Some(provider.pool_status()),
+            Adapter::Http(_) => None,
+        };
+        if let Some((connections, idle)) = pool {
             return crate::StageStatus {
                 pool_connections: Some(connections),
                 pool_idle_connections: Some(idle),
@@ -96,13 +111,25 @@ impl Client {
         status
     }
     pub(crate) async fn probe_connection(&self) -> Result<ProbeResult, Error> {
-        #[cfg(feature = "postgres-auth")]
-        if let Adapter::Postgres(p) = &self.adapter {
-            return self
-                .run(async { Ok(pg_result(p.probe_connection().await)) }, false)
-                .await;
+        match &self.adapter {
+            #[cfg(feature = "postgres-auth")]
+            Adapter::Postgres(provider) => {
+                self.run(
+                    async { Ok(pg_result(provider.probe_connection().await)) },
+                    false,
+                )
+                .await
+            }
+            #[cfg(feature = "redis-auth")]
+            Adapter::Redis(provider) => {
+                self.run(
+                    async { Ok(redis_result(provider.probe_connection().await)) },
+                    false,
+                )
+                .await
+            }
+            Adapter::Http(_) => Err(Error::InvalidConfig),
         }
-        Err(Error::InvalidConfig)
     }
     pub(crate) async fn authenticate(
         &self,
@@ -124,6 +151,11 @@ impl Client {
                     Adapter::Http(c) => c.authenticate(info, false).await,
                     #[cfg(feature = "postgres-auth")]
                     Adapter::Postgres(p) => Ok(pg_result(
+                        p.authenticate(info.username.ok_or(Error::InvalidConfig)?, info.password)
+                            .await,
+                    )),
+                    #[cfg(feature = "redis-auth")]
+                    Adapter::Redis(p) => Ok(redis_result(
                         p.authenticate(info.username.ok_or(Error::InvalidConfig)?, info.password)
                             .await,
                     )),
@@ -158,6 +190,19 @@ impl Client {
                         )
                         .await,
                     )),
+                    #[cfg(feature = "redis-auth")]
+                    Adapter::Redis(p) => Ok(redis_result(
+                        p.authorize(
+                            &query.username,
+                            &query.client_id,
+                            match query.action {
+                                crate::AclAction::Publish => "publish",
+                                crate::AclAction::Subscribe => "subscribe",
+                            },
+                            &query.topic,
+                        )
+                        .await,
+                    )),
                 }
             },
             live,
@@ -177,6 +222,26 @@ fn pg_result(result: Result<bool, mqtt_auth_postgres::Error>) -> ProbeResult {
             ("unavailable", Some("postgres_invalid_result"))
         }
         Err(Error::Unavailable) => ("unavailable", Some("postgres_unavailable")),
+    };
+    ProbeResult {
+        result: decision,
+        http_status: None,
+        elapsed_ms: 0,
+        error_code: error,
+    }
+}
+#[cfg(feature = "redis-auth")]
+fn redis_result(result: Result<bool, mqtt_auth_redis::Error>) -> ProbeResult {
+    use mqtt_auth_redis::Error;
+    let (decision, error) = match result {
+        Ok(true) => ("allow", None),
+        Ok(false) => ("deny", None),
+        Err(Error::Busy) => ("unavailable", Some("busy")),
+        Err(Error::Timeout) => ("unavailable", Some("timeout")),
+        Err(Error::InvalidConfig | Error::InvalidResult) => {
+            ("unavailable", Some("redis_invalid_result"))
+        }
+        Err(Error::Unavailable) => ("unavailable", Some("redis_unavailable")),
     };
     ProbeResult {
         result: decision,

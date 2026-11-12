@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   accessDraft,
   postgresDefaults,
+  redisDefaults,
   changeServiceAuth,
   draftValue,
   stageHealth,
@@ -145,5 +146,25 @@ describe("PostgreSQL access-control configuration", () => {
     p.max_connections = 8;
     p.query = " ";
     expect(validateAccessDraft(draft)).toContain("SQL");
+  });
+});
+
+describe("Redis access-control configuration", () => {
+  it("accepts the fixed key prefix and rejects malformed connection settings", () => {
+    const draft = accessDraft({
+      ...endpoint,
+      type: "redis",
+      redis: redisDefaults(),
+    });
+    expect(validateAccessDraft(draft, true)).toBeNull();
+    const redis = draft.value.redis!;
+    redis.password = "[redacted]";
+    redis.username = "";
+    expect(validateAccessDraft(draft, true)).toBeNull();
+    redis.key_prefix = "tenant*";
+    expect(validateAccessDraft(draft)).toContain("键前缀");
+    redis.key_prefix = "tenant:";
+    redis.max_connections = 0;
+    expect(validateAccessDraft(draft)).toContain("连接池");
   });
 });
